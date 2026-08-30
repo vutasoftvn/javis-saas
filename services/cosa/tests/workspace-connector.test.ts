@@ -439,7 +439,10 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     expect(res.ok).toBe(true);
   });
 
-  it("allows revokeGrantEndpoint when caller (A) has an audited admin override", async () => {
+  it("rejects revokeGrantEndpoint when caller (A) has admin role (not an override role)", async () => {
+    // Policy decision (review round 1/5, 2026-08-30): only founder/co-founder override,
+    // matching getRolePermissions() in services/company/identity/services/tenant-context.service.ts,
+    // which buckets "admin" with "member"/"user" (["read","write"]) rather than full ("*") access.
     const auth = await setupAuthorizationOwnedByB("ws_task4_revoke_override");
     currentCallerMembershipRole = "member";
     const tokenB = signPlatformToken(PRINCIPAL_B);
@@ -452,13 +455,13 @@ describe("Task 4: connector authorization ownership enforcement", () => {
 
     currentCallerMembershipRole = "admin";
     const tokenA = signPlatformToken(PRINCIPAL_A);
-    const res = await revokeGrantEndpoint({
-      authorization: `Bearer ${tokenA}`,
-      workspaceId: "ws_task4_revoke_override",
-      conversationId: "conv_task4_revoke_override",
-      grantId: grant.id,
-    });
-
-    expect(res.ok).toBe(true);
+    await expect(
+      revokeGrantEndpoint({
+        authorization: `Bearer ${tokenA}`,
+        workspaceId: "ws_task4_revoke_override",
+        conversationId: "conv_task4_revoke_override",
+        grantId: grant.id,
+      })
+    ).rejects.toThrow(/authorization owner/i);
   });
 });

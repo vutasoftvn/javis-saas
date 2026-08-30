@@ -126,10 +126,11 @@ export const registerAuthorizationEndpoint = api(
 
 // Các membershipRole được services/company xác nhận (không tự khai trong JWT của caller)
 // coi là có quyền override quản lý connector authorization của principal khác.
-// Theo tenant-context.service.ts (services/company/identity) "founder"/"co-founder" có
-// toàn quyền ("*"); "admin" được liệt kê rõ trong yêu cầu nghiệp vụ của task này
-// (founder/admin override) nên cũng được coi là override-capable ở COSA side.
-const CONNECTOR_MANAGE_OTHERS_ROLES = new Set(["founder", "co-founder", "admin"]);
+// Khớp đúng với getRolePermissions() (services/company/identity/services/tenant-context.service.ts):
+// chỉ "founder"/"co-founder" có toàn quyền ("*"); "admin" bị xếp chung với "member"/"user"
+// (chỉ ["read","write"]) nên KHÔNG phải role đặc quyền — không tạo ngoại lệ riêng cho
+// connector grant/revoke override (quyết định chính sách, review round 1/5, 2026-08-30).
+const CONNECTOR_MANAGE_OTHERS_ROLES = new Set(["founder", "co-founder"]);
 
 export const grantConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/grant", expose: true },
