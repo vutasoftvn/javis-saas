@@ -44,13 +44,8 @@ KNOWN_PENDING_CAPABILITIES: dict[str, str] = {
     "strategy.assumption.create": "Target removal: Phase B runtime activation (2026-08-28)",
     "strategy.assumption.list": "Target removal: Phase B runtime activation (2026-08-28)",
     "strategy.decision_record.create": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.evidence.create": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.evidence.list": "Target removal: Phase B runtime activation (2026-08-28)",
     "strategy.experiment.create": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.gate_evaluation.create": "Target removal: Phase B runtime activation (2026-08-28)",
     "strategy.gate_evaluation.list": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.next_best_action.get": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.project.get": "Target removal: Phase B runtime activation (2026-08-28)",
 }
 
 
@@ -66,6 +61,11 @@ REGISTERED_STATIC_CAPABILITY_IDS = frozenset(
         "commercial.campaign_asset.write",
         "commercial.experiment.write",
         "list_sandbox_items",
+        "strategy.project.get",
+        "strategy.evidence.list",
+        "strategy.evidence.create",
+        "strategy.gate_evaluation.create",
+        "strategy.next_best_action.get",
     }
 )
 

@@ -115,6 +115,18 @@ from apps.cosa.capabilities.operations_write import (
     OPERATIONS_TASK_CREATE_DRAFT_SPEC,
     create_operations_task_create_draft_handler,
 )
+from apps.cosa.capabilities.project_lifecycle import (
+    STRATEGY_EVIDENCE_CREATE_SPEC,
+    STRATEGY_EVIDENCE_LIST_SPEC,
+    STRATEGY_GATE_EVALUATION_CREATE_SPEC,
+    STRATEGY_NEXT_BEST_ACTION_GET_SPEC,
+    STRATEGY_PROJECT_GET_SPEC,
+    create_strategy_evidence_create_handler,
+    create_strategy_evidence_list_handler,
+    create_strategy_gate_evaluation_create_handler,
+    create_strategy_next_best_action_get_handler,
+    create_strategy_project_get_handler,
+)
 from apps.cosa.capabilities.sandbox_read_mcp import register_sandbox_read_mcp_tools
 from apps.cosa.capabilities.venture_profile import (
     VENTURE_PROFILE_PROPOSE_UPDATE_SPEC,
@@ -466,6 +478,26 @@ def build_cosa_agent_plane(
     cap_registry.register(
         OPERATIONS_TASK_CREATE_DRAFT_SPEC,
         create_operations_task_create_draft_handler(client),
+    )
+    cap_registry.register(
+        STRATEGY_PROJECT_GET_SPEC,
+        create_strategy_project_get_handler(client),
+    )
+    cap_registry.register(
+        STRATEGY_EVIDENCE_LIST_SPEC,
+        create_strategy_evidence_list_handler(client),
+    )
+    cap_registry.register(
+        STRATEGY_EVIDENCE_CREATE_SPEC,
+        create_strategy_evidence_create_handler(client),
+    )
+    cap_registry.register(
+        STRATEGY_GATE_EVALUATION_CREATE_SPEC,
+        create_strategy_gate_evaluation_create_handler(client),
+    )
+    cap_registry.register(
+        STRATEGY_NEXT_BEST_ACTION_GET_SPEC,
+        create_strategy_next_best_action_get_handler(client),
     )
     cap_registry.register(
         VENTURE_STAGE_ASSESS_SPEC,

@@ -71,7 +71,7 @@ def create_venture_stage_assess_handler(client: CompanyServiceClient):
 
         profile_res = await client.get("/operations/strategy/venture-profile", headers=headers)
         profile = profile_res.get("profile", {})
-        current_stage = profile.get("ventureStage", "S0_IDEATION")
+        current_stage = profile.get("ventureStage", "P0_DISCOVERY")
 
         assessment = {
             "current_stage": current_stage,
