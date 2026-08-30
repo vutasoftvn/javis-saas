@@ -64,7 +64,9 @@ class CosaDataModelGate:
             raise ComplianceDenied("PROCESSING_AUTHORIZATION_MISSING")
 
         if self._client and hasattr(self._client, "resolve_data_use"):
-            delegation_token = run_context.get("_company_delegation_token") or run_context.get("delegation_token")
+            delegation_token = run_context.get("_company_delegation_token") or run_context.get(
+                "delegation_token"
+            )
 
             decision = await self._client.resolve_data_use(
                 workspace_id=claim.workspace_id,

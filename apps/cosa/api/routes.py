@@ -15,7 +15,6 @@ from agent.conversations.models import (
 )
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-
 from pydantic import ValidationError
 
 from apps.cosa.api.event_stream import (
@@ -23,7 +22,6 @@ from apps.cosa.api.event_stream import (
     get_cosa_event_stream_manager,
     redact_ux_event_payload,
 )
-from apps.cosa.compliance.data_egress_context import DirectMessageDataAccess
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
@@ -55,6 +53,7 @@ from apps.cosa.api.schemas import (
     WorkspaceArtifactResponse,
 )
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
+from apps.cosa.compliance.data_egress_context import DirectMessageDataAccess
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.knowledge_ingestion.contracts import knowledge_ingestion_enabled

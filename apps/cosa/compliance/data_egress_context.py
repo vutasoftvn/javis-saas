@@ -35,7 +35,9 @@ class DirectMessageDataAccess(BaseModel):
     @classmethod
     def _reject_empty_categories(cls, value: frozenset[str]) -> frozenset[str]:
         if not value:
-            raise ValueError("categories must not be empty — an egress claim needs at least one data category")
+            raise ValueError(
+                "categories must not be empty — an egress claim needs at least one data category"
+            )
         return value
 
     @model_validator(mode="after")

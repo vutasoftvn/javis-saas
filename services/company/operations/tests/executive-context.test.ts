@@ -48,7 +48,7 @@ describe("Executive Context Snapshot", () => {
       workspaceId: BigInt(wsA.workspaceId),
       title: "Migration Project",
       lifecycleStage: "P3_BUILD_VALIDATE",
-      status: "active",
+      status: "ACTIVE",
     });
 
     // Create a secret task in workspace B (that should NOT appear in A's snapshot)
@@ -137,7 +137,7 @@ describe("Executive Context Snapshot", () => {
         id: projectId,
         workspaceId: BigInt(ws.workspaceId),
         title: `Project ${i}`,
-        status: "active",
+        status: "ACTIVE",
       });
     }
 

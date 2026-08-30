@@ -5,7 +5,6 @@ from typing import Any
 import jwt as _pyjwt
 from agent.contracts.run import RunRequest
 from agent.contracts.spec import AgentSpec
-
 from pydantic import ValidationError
 
 from apps.cosa.auth.jwt import mint_company_delegation

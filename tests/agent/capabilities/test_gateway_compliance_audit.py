@@ -154,3 +154,57 @@ async def test_gateway_denies_suspended_deployment_on_resume() -> None:
     assert len(compliance_events) == 1
     assert compliance_events[0].payload["decision"] == "DENY"
     assert compliance_events[0].payload["reason_code"] == "DEPLOYMENT_SUSPENDED"
+
+
+@pytest.mark.asyncio
+async def test_gateway_handles_missing_snapshot_evidence_lists() -> None:
+    """Regression (Task 8): snapshot dict thiếu hẳn `evidence_hashes`/
+    `rule_version_ids` (không phải `[]`, mà KHÔNG có key) trước đây khiến
+    `list(snap.get(...))` nhận `None` và raise TypeError khi build
+    compliance.decision event — dù request lẽ ra phải ALLOW bình thường.
+    """
+    registry = CapabilityRegistry()
+    repo = InMemoryRunRepository()
+
+    spec = CapabilitySpec(
+        id="finance.invoice.get",
+        version="1.0.0",
+        risk=CapabilityRisk.LOW,
+        input_schema={
+            "type": "object",
+            "required": ["invoice_id"],
+            "properties": {"invoice_id": {"type": "string"}},
+        },
+    )
+
+    def handler(payload, ctx):
+        return {"invoice_id": payload["invoice_id"]}
+
+    registry.register(spec, handler)
+    gateway = CapabilityGateway(registry=registry, repository=repo)
+
+    # Snapshot dict KHÔNG có key evidence_hashes/rule_version_ids.
+    minimal_snapshot = {
+        "workspace_id": "ws_100",
+        "deployment_id": "dep_100",
+        "status": "APPROVED_FOR_USE",
+        "snapshot_hash": "sha256:minimal_snap_hash",
+        "policy_snapshot_hash": "sha256:minimal_pol_hash",
+    }
+
+    req = GatewayExecutionRequest(
+        run_id="run_300",
+        capability_id="finance.invoice.get",
+        input_payload={"invoice_id": "inv_1"},
+        workspace_id="ws_100",
+        context={"workspace_id": "ws_100", "compliance_snapshot": minimal_snapshot},
+    )
+
+    res = await gateway.execute(req)
+    assert res.status == "completed"
+
+    events = await repo.list_events("run_300")
+    compliance_events = [e for e in events if e.event_type == "compliance.decision"]
+    assert len(compliance_events) == 1
+    assert compliance_events[0].payload["evidence_hashes"] == []
+    assert compliance_events[0].payload["rule_version_ids"] == []

@@ -15,11 +15,11 @@ from agent.registry.resolver import SpecResolver
 
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
+from apps.cosa.compliance.contracts import ComplianceDenied
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
-from apps.cosa.compliance.contracts import ComplianceDenied
 from apps.cosa.observability.otel import inject_trace_carrier, trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.worker.autopilot_run import (

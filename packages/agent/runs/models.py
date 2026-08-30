@@ -44,7 +44,6 @@ class ComplianceDecisionPayload(BaseModel):
         frozen = True
 
 
-
 class RunRecord(BaseModel):
     """Bản ghi thực thể Run trong agent.runs theo Master Guide §11.2.
 

@@ -132,50 +132,54 @@ class RedactingFilter(logging.Filter):
         return True
 
 
-STANDARD_LOGRECORD_ATTRS = frozenset({
-    "args",
-    "asctime",
-    "created",
-    "exc_info",
-    "exc_text",
-    "filename",
-    "funcName",
-    "levelname",
-    "levelno",
-    "lineno",
-    "module",
-    "msecs",
-    "message",
-    "msg",
-    "name",
-    "pathname",
-    "process",
-    "processName",
-    "relativeCreated",
-    "stack_info",
-    "thread",
-    "threadName",
-    "taskName",
-})
+STANDARD_LOGRECORD_ATTRS = frozenset(
+    {
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "module",
+        "msecs",
+        "message",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
+        "taskName",
+    }
+)
 
-ALLOWED_LOG_METADATA_KEYS = frozenset({
-    "run_id",
-    "workspace_id",
-    "trace_id",
-    "span_id",
-    "event_type",
-    "capability_id",
-    "tool_call_id",
-    "checkpoint_ref",
-    "decision",
-    "reason_code",
-    "snapshot_hash",
-    "policy_snapshot_hash",
-    "provider_model_ref",
-    "delegation_jti",
-    "duration_ms",
-    "status",
-})
+ALLOWED_LOG_METADATA_KEYS = frozenset(
+    {
+        "run_id",
+        "workspace_id",
+        "trace_id",
+        "span_id",
+        "event_type",
+        "capability_id",
+        "tool_call_id",
+        "checkpoint_ref",
+        "decision",
+        "reason_code",
+        "snapshot_hash",
+        "policy_snapshot_hash",
+        "provider_model_ref",
+        "delegation_jti",
+        "duration_ms",
+        "status",
+    }
+)
 
 
 class JSONLogFormatter(logging.Formatter):
@@ -229,9 +233,7 @@ class JSONLogFormatter(logging.Formatter):
                 continue
             if key in ALLOWED_LOG_METADATA_KEYS:
                 log_data[key] = (
-                    redact_sensitive_text(str(value))
-                    if isinstance(value, str)
-                    else value
+                    redact_sensitive_text(str(value)) if isinstance(value, str) else value
                 )
 
         if record.exc_info:

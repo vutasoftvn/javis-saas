@@ -11,9 +11,6 @@ import {
   ShieldCheck,
   Zap,
   ArrowRight,
-  BadgeCheck,
-  AlertCircle,
-  Clock
 } from "lucide-react";
 
 interface LeadFormSectionProps {

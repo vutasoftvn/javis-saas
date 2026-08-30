@@ -382,9 +382,7 @@ class CapabilityGateway:
         snap = ctx_meta.get("compliance_snapshot")
         if snap:
             snap_status = (
-                snap.get("status")
-                if isinstance(snap, dict)
-                else getattr(snap, "status", None)
+                snap.get("status") if isinstance(snap, dict) else getattr(snap, "status", None)
             )
             # Step 3: On resume/re-execution, historical snapshot supports explanation/replay only.
             # If deployment has been suspended or is not APPROVED_FOR_USE, deny execution!
@@ -422,23 +420,33 @@ class CapabilityGateway:
                             decision="DENY",
                             reason_code="DEPLOYMENT_SUSPENDED",
                             rule_version_ids=list(
-                                snap.get("rule_version_ids")
-                                if isinstance(snap, dict)
-                                else getattr(snap, "rule_version_ids", [])
+                                (
+                                    snap.get("rule_version_ids")
+                                    if isinstance(snap, dict)
+                                    else getattr(snap, "rule_version_ids", [])
+                                )
+                                or []
                             ),
                             evidence_hashes=list(
-                                snap.get("evidence_hashes")
-                                if isinstance(snap, dict)
-                                else getattr(snap, "evidence_hashes", [])
+                                (
+                                    snap.get("evidence_hashes")
+                                    if isinstance(snap, dict)
+                                    else getattr(snap, "evidence_hashes", [])
+                                )
+                                or []
                             ),
                             provider_model_ref=str(
                                 snap.get("provider_profile_version")
                                 if isinstance(snap, dict)
                                 else getattr(snap, "provider_profile_version", "")
-                            ) or None,
+                            )
+                            or None,
                             delegation_jti=str(
-                                ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti") or ""
-                            ) or None,
+                                ctx_meta.get("delegation_jti")
+                                or ctx_meta.get("_delegation_jti")
+                                or ""
+                            )
+                            or None,
                         ).model_dump(),
                     )
                 )
@@ -465,23 +473,27 @@ class CapabilityGateway:
                 else getattr(snap, "deployment_id", "")
             )
             evidence_hashes = list(
-                snap.get("evidence_hashes")
-                if isinstance(snap, dict)
-                else getattr(snap, "evidence_hashes", [])
+                (
+                    snap.get("evidence_hashes")
+                    if isinstance(snap, dict)
+                    else getattr(snap, "evidence_hashes", [])
+                )
+                or []
             )
             rule_version_ids = list(
-                snap.get("rule_version_ids")
-                if isinstance(snap, dict)
-                else getattr(snap, "rule_version_ids", [])
+                (
+                    snap.get("rule_version_ids")
+                    if isinstance(snap, dict)
+                    else getattr(snap, "rule_version_ids", [])
+                )
+                or []
             )
             provider_model_ref = (
                 snap.get("provider_profile_version")
                 if isinstance(snap, dict)
                 else getattr(snap, "provider_profile_version", None)
             )
-            delegation_jti = (
-                ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti")
-            )
+            delegation_jti = ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti")
 
             await self._repo.append_event(
                 RunEventRecord(
