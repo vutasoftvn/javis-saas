@@ -8,7 +8,7 @@ metadata:
   description: Đánh giá sức khỏe tài chính doanh nghiệp, đối soát dòng tiền, tính toán tốc độ đốt tiền (Burn Rate), dự phóng thời gian tồn tại (Runway) và phát hiện bất thường tài chính.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

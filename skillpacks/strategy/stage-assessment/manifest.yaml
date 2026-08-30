@@ -8,7 +8,7 @@ metadata:
   description: Đánh giá giai đoạn phát triển của startup theo COSA framework (Genesis, Discovery, Validation, Efficiency, Scale) dựa trên dữ liệu thực tế và gate evaluation.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

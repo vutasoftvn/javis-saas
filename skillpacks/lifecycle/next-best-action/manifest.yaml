@@ -7,7 +7,7 @@ metadata:
   description: Đề xuất hành động tối ưu tiếp theo cho founder dựa trên giai đoạn hiện
     tại, khoảng trống bằng chứng và rủi ro tồn đọng.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

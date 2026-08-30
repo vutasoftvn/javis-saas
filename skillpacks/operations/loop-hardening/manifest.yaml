@@ -8,7 +8,7 @@ metadata:
   description: Quy chuẩn gia cố vòng lặp tự hành (Loop Hardening), kiểm soát tính lũy đẳng (Idempotency), khóa phân tán chống split-brain (RunLease) và hàng đợi gộp tác vụ (Coalescing Queue).
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

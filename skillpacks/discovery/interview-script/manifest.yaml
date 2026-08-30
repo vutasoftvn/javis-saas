@@ -7,7 +7,7 @@ metadata:
   description: Tạo kịch bản phỏng vấn khách hàng không thiên kiến tuân thủ The Mom
     Test và JTBD.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

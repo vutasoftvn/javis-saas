@@ -7,7 +7,7 @@ metadata:
   description: Soạn thảo tài liệu yêu cầu cho prototype kiểm chứng tương tác người
     dùng.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

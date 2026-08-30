@@ -8,7 +8,7 @@ metadata:
   description: Đánh giá tiêu chí cổng giai đoạn (Stage Gate Evaluation) tất định dựa trên stage policy và kết quả bằng chứng thực nghiệm.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

@@ -8,7 +8,7 @@ metadata:
   description: Xây dựng hồ sơ tình báo đối thủ cạnh tranh (Competitor Dossier), phân tích định vị, sản phẩm, mô hình giá, thế mạnh và điểm yếu dựa trên dữ liệu công khai.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

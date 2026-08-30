@@ -7,7 +7,7 @@ metadata:
   description: Phân tích các yếu tố vĩ mô (Chính trị, Kinh tế, Xã hội, Công nghệ,
     Pháp lý, Môi trường) ảnh hưởng tới luận điểm dự án.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

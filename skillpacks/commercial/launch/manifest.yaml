@@ -8,7 +8,7 @@ metadata:
   description: Quản lý quy trình ra mắt sản phẩm (GTM Launch), thiết lập các cổng kiểm tra sẵn sàng (Readiness Gates), kịch bản ngày ra mắt và đánh giá hậu ra mắt.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

@@ -7,7 +7,7 @@ metadata:
   description: Đánh giá rủi ro phụ thuộc vào nhà cung cấp mô hình nền tảng, độ trễ,
     chi phí token và tính sẵn sàng chuyển đổi.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

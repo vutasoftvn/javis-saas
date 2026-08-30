@@ -624,7 +624,7 @@ def write_pack(pack: dict):
             "description": pack["desc"],
         },
         "publisher": {
-            "name": "javis",
+            "name": "cosa",
             "type": "official",
         },
         "source": {

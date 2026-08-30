@@ -7,7 +7,7 @@ metadata:
   description: 'Phân loại các giả định dự án theo 4 trục: Khả năng mong muốn (Desirability),
     Tính khả thi (Feasibility), Khả năng sống sót (Viability), Tính trách nhiệm (Responsibility).'
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

@@ -7,7 +7,7 @@ metadata:
   description: Khớp nối giải pháp sản phẩm với các nỗi đau và lợi ích đã được kiểm
     chứng của khách hàng.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

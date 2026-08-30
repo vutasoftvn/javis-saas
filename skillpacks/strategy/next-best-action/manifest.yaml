@@ -8,7 +8,7 @@ metadata:
   description: Truy vấn và giải thích danh sách các hành động tiếp theo tối ưu nhất (Next Best Actions) được xếp hạng tất định theo thuật toán Strategy Domain.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

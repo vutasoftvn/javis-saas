@@ -8,7 +8,7 @@ metadata:
   description: Hệ thống thực thi chu kỳ 12 tuần, lập kế hoạch chiến thuật và đo lường điểm kỷ luật thực thi hàng tuần.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

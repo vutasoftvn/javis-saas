@@ -7,7 +7,7 @@ metadata:
   description: Chuẩn bị gói hồ sơ bàn giao cho con người (Founder/Admin) khi agent
     gặp giới hạn quyền hạn hoặc ngoại lệ.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

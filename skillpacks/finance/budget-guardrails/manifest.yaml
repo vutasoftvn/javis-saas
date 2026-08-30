@@ -7,7 +7,7 @@ metadata:
   description: Thiết lập hàng rào ngân sách kiểm soát chi phí thực nghiệm và chi tiêu
     giai đoạn sớm.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

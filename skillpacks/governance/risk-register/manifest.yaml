@@ -7,7 +7,7 @@ metadata:
   description: Lập và theo dõi sổ đăng ký rủi ro dự án (thị trường, kỹ thuật, pháp
     lý, tài chính) kèm kế hoạch giảm thiểu.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

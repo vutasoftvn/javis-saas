@@ -7,7 +7,7 @@ metadata:
   description: Tổng hợp transcript phỏng vấn thành các trích dẫn nguyên văn và bằng
     chứng candidate phục vụ kiểm chứng vấn đề.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

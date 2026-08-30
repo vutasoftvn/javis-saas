@@ -8,7 +8,7 @@ metadata:
   description: Xây dựng chiến lược giá, kiến trúc gói dịch vụ (Packaging), chỉ số giá trị (Value Metric) và chính sách ưu đãi dựa trên phân tích mức sẵn sàng chi trả.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

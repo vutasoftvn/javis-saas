@@ -7,7 +7,7 @@ metadata:
   description: Dự báo thời gian tồn tại của dòng tiền (runway), tỷ lệ đốt tiền (burn
     rate) và các kịch bản tài chính cho dự án.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

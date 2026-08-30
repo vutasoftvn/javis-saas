@@ -8,7 +8,7 @@ metadata:
   description: Thiết kế thử nghiệm kiểm chứng giả định chiến lược (smoke test, landing page, concierge, prototype, interview) với khung giả thuyết định lượng và cây quyết định phân nhánh.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

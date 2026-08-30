@@ -7,7 +7,7 @@ metadata:
   description: Xây dựng kế hoạch phê duyệt phân tầng (founder, co-founder, admin)
     cho các quyết định chuyển stage và chi tiêu.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

@@ -7,7 +7,7 @@ metadata:
   description: Đánh giá chất lượng và độ xác thực của các artifact dự án trước khi
     đệ trình duyệt làm bằng chứng chính thức.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

@@ -7,7 +7,7 @@ metadata:
   description: Ghi nhận bằng chứng mới vào hệ thống dưới trạng thái candidate, lưu
     vết nguồn gốc (provenance) và liên kết artifact.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

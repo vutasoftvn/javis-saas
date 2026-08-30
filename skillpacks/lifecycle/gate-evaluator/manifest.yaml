@@ -7,7 +7,7 @@ metadata:
   description: Đánh giá mức độ sẵn sàng vượt gate dựa trên bằng chứng đã được duyệt
     (approved evidence) — chỉ mang tính khuyến nghị (recommendation-only).
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

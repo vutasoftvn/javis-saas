@@ -7,7 +7,7 @@ metadata:
   description: Xác lập chân dung khách hàng lý tưởng (ICP) chi tiết dựa trên các bằng
     chứng phỏng vấn và dữ liệu khách hàng.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

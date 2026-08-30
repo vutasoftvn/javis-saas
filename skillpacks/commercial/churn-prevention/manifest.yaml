@@ -8,7 +8,7 @@ metadata:
   description: Phân tích tỷ lệ giữ chân khách hàng (Retention / NRR), nhận diện tín hiệu cảnh báo sớm nguy cơ rời bỏ (At-Risk Signals) và xây dựng cẩm nang can thiệp chủ động.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

@@ -7,7 +7,7 @@ metadata:
   description: Truy xuất và chuẩn hóa ngữ cảnh giai đoạn vòng đời dự án (P0-P6), gate
     policies và tiêu chuẩn bằng chứng.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

@@ -7,7 +7,7 @@ metadata:
   description: Rà soát quyền sử dụng dữ liệu huấn luyện, bản quyền sở hữu trí tuệ
     và điều khoản cấp phép dữ liệu AI.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

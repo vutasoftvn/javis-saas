@@ -7,7 +7,7 @@ metadata:
   description: Lựa chọn loại hình thực nghiệm kiểm chứng giải pháp chi phí thấp nhất
     (Concierge, Wizard of Oz, Smoke Test, Prototype).
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

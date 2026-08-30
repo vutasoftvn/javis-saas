@@ -8,7 +8,7 @@ metadata:
   description: Phân rã mục tiêu thành công việc cụ thể, gán quyền thực thi, thời hạn và quản lý trạng thái công việc.
 
 publisher:
-  name: javis
+  name: cosa
   type: official
 
 source:

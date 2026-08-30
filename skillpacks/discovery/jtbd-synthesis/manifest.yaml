@@ -7,7 +7,7 @@ metadata:
   description: Tổng hợp các nhiệm vụ cần hoàn thành (JTBD), kết quả mong đợi và lực
     cản chuyển đổi từ phỏng vấn.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local

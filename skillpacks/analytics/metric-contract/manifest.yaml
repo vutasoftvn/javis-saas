@@ -7,7 +7,7 @@ metadata:
   description: Định nghĩa hợp đồng chỉ số (metric contract), công thức tính toán và
     nguồn dữ liệu tin cậy cho dự án.
 publisher:
-  name: javis
+  name: cosa
   type: official
 source:
   type: local
