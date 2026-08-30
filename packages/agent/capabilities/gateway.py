@@ -709,11 +709,21 @@ class CapabilityGateway:
                 idem_claim.claim_id, result_payload=output, result_hash=compute_payload_hash(output)
             )
 
+            # Audit event `tool.completed` chỉ lưu HASH của output, không lưu nội dung
+            # thô — nhất quán với cách hệ thống audit `snapshot_hash`/`evidence_hashes`
+            # (chỉ hash, không lưu content) và với `result_hash` idempotency ở trên.
+            # Output thật (không redact) vẫn đi tới caller qua GatewayExecutionResult
+            # (`output_payload`) — kênh hợp lệ để hiển thị/xử lý cho người dùng; chỉ
+            # audit event log persist Postgres mới bị redact (Task 9).
             await self._repo.append_event(
                 RunEventRecord(
                     run_id=req.run_id,
                     event_type="tool.completed",
-                    payload={"tool_call_id": req.tool_call_id, "output": output},
+                    payload={
+                        "tool_call_id": req.tool_call_id,
+                        "output_hash": compute_payload_hash(output),
+                        "output_present": output is not None,
+                    },
                 )
             )
 
