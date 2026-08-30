@@ -204,6 +204,12 @@ describe("resolveRuntimeComplianceSnapshot — approved-only, never creates reco
     expect(snapshot.status).toBe("APPROVED_FOR_USE");
     expect(snapshot.allowedCapabilities).toEqual([capabilityId]);
     expect(snapshot.provenanceComplete).toBe(true);
+    expect(snapshot).toMatchObject({
+      providerKey: "deepseek",
+      modelKey: "deepseek-chat",
+      purposeId: "runtime-resolve-test",
+      retentionPolicyId: "retention-30d",
+    });
     expect(snapshot.snapshotHash).toMatch(/^sha256:[a-f0-9]{64}$/);
   });
 

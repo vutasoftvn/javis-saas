@@ -193,6 +193,12 @@ describe("AI Compliance Private Contract & Negative Matrix", () => {
       policySnapshotHash: "",
     });
     expect(initial.status).toBe("APPROVED_FOR_USE");
+    expect(initial).toMatchObject({
+      providerKey: "deepseek",
+      modelKey: "deepseek-chat",
+      purposeId: "advisory",
+      retentionPolicyId: "retention-30d",
+    });
 
     // Suspend deployment
     await suspendAiDeployment({

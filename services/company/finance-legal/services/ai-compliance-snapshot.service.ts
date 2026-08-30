@@ -74,8 +74,12 @@ export interface RuntimeComplianceSnapshot {
   legalVersionIds: string[];
   providerProfileId: string;
   providerProfileVersion: string;
+  providerKey: string;
+  modelKey: string;
   dataProfileId: string;
   dataProfileVersion: string;
+  purposeId: string;
+  retentionPolicyId: string;
   provenanceComplete: true;
   policySnapshotHash: string;
   snapshotHash: string;
@@ -411,8 +415,12 @@ export async function resolveApprovedComplianceSnapshot(
     legalVersionIds,
     providerProfileId: providerProfileId.toString(),
     providerProfileVersion,
+    providerKey: providerProfile.providerKey,
+    modelKey: providerProfile.modelKey,
     dataProfileId: dataProfileId.toString(),
     dataProfileVersion,
+    purposeId: dataProfile.purposeId,
+    retentionPolicyId: dataProfile.retentionPolicyId,
     provenanceComplete: true,
     policySnapshotHash,
     snapshotHash,
