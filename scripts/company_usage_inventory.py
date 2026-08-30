@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DOC = ROOT / "docs/architecture/generated/company-usage-inventory.md"
 
 SCAN_DIRS = ["services", "apps", "packages", "frontend/lib", "landing/src"]
-EXCLUDE_PARTS = {"node_modules", "build", ".dart_tool", "encore.gen", "__pycache__"}
+EXCLUDE_PARTS = {"node_modules", "build", ".dart_tool", "encore.gen", "__pycache__", ".venv"}
 EXCLUDE_SUFFIX = (".lock", ".map")
 PATTERN = re.compile(r"company", re.IGNORECASE)
 
