@@ -1,7 +1,8 @@
 # Company usage inventory (GENERATED — `scripts/company_usage_inventory.py`)
 
-Nguồn intent: [M0 §4](../plans/2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md).
+Nguồn intent: [M0 §4](../plans/2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md) & [M2 Cutover Design Spec](file:///Volumes/SSD/javis-saas/docs/superpowers/specs/2026-08-30-workspace-canonical-m2-cutover-design.md).
 Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2 chạm file.
+
 
 | Lớp | Occurrences | Files |
 |---|---|---|

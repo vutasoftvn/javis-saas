@@ -50,10 +50,11 @@ isolation (M3).
 `workspace_slugs`, Snowflake bit-layout v1 + managed slot registry, UUIDv7 LeafId,
 platform-workspace membership sync). `default*.dart` fallback đã bỏ.
 
-### Còn lại (cutover xuyên stack — chưa làm)
+### Còn lại (cutover xuyên stack — kế hoạch riêng: [Design Spec](file:///Volumes/SSD/javis-saas/docs/superpowers/specs/2026-08-30-workspace-canonical-m2-cutover-design.md) & [Execution Plan](file:///Volumes/SSD/javis-saas/docs/superpowers/plans/2026-08-30-workspace-canonical-m2-cutover.md))
 
 - [ ] **§5 — Drop Company aggregate** (lớn, chạm frontend):
   - `services/cosa/services/auth.service.ts`: `RegisterParams` bỏ `company_name`/
+
     `join_company_id`; `registerPlatformUser` chỉ còn đường `workspace_name`;
     `TokenResponse` bỏ `company_id`.
   - Xoá `services/cosa/services/company.service.ts` + `handlers/company.handler.ts`
