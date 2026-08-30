@@ -48,7 +48,7 @@ COSA_MARKETING_PROMPT = PromptSpec(
 
 COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     id="cosa.agents.operations",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions="Chuyên viên quản lý vận hành công việc, theo dõi tiến độ task và OKRs của doanh nghiệp.",
     capability_refs=[
@@ -64,7 +64,7 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
 
 COSA_FINANCE_AGENT_SPEC = AgentSpec(
     id="cosa.agents.finance",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions="Chuyên viên tài chính kế toán, theo dõi và ghi nhận sổ cái giao dịch của doanh nghiệp.",
     capability_refs=[
@@ -79,7 +79,7 @@ COSA_FINANCE_AGENT_SPEC = AgentSpec(
 
 COSA_MARKETING_AGENT_SPEC = AgentSpec(
     id="cosa.agents.marketing",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions="Chuyên viên chiến lược marketing và sáng tạo nội dung, xây dựng định vị sản phẩm và copywriting dựa trên bằng chứng thực nghiệm.",
     capability_refs=[
@@ -134,7 +134,7 @@ COSA_CUSTOMER_SUPPORT_PROMPT = PromptSpec(
 
 COSA_CUSTOMER_SUPPORT_AGENT_SPEC = AgentSpec(
     id="cosa.agents.customer_support",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,  # artifact_only: chỉ read + tạo artifact
     instructions=COSA_CUSTOMER_SUPPORT_PROMPT.text,
     capability_refs=[
@@ -162,7 +162,7 @@ COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT = PromptSpec(
 
 COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC = AgentSpec(
     id="cosa.agents.customer_support_autopilot",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L2_EXECUTE,  # write mode: act / execute
     instructions=COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT.text,
     capability_refs=[

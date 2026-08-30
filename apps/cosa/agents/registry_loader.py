@@ -17,7 +17,7 @@ async def load_registered_agent_spec(
     spec_registry: Any,
     spec_id: str,
     *,
-    version: str = "1.0.0",
+    version: str,
 ) -> tuple[AgentSpec | None, str | None]:
     record = await spec_registry.get("agent", spec_id, version)
     if record is None:

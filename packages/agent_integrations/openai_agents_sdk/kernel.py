@@ -29,6 +29,7 @@ from agent.runs.models import (
 from agent.runs.repository import InMemoryRunRepository, RunRepository
 from agent.skills.resolver import SkillResolver
 from agents import Agent, FunctionTool, RunHooks, Runner, RunState
+from pydantic import ValidationError
 
 from agent_integrations.openai_agents_sdk.model_guard import ModelInputGuard
 
@@ -523,15 +524,32 @@ class RealOpenAIAgentsSDKKernel:
         published = await self._spec_registry.get_by_hash(
             "agent", run_record.root_executable_id, run_record.root_definition_hash or ""
         )
-        spec = (
-            AgentSpec.model_validate(published.content)
-            if published
-            else AgentSpec(
-                id=run_record.root_executable_id,
-                version=run_record.root_executable_version,
-                model_input_capability_ref="model.input.direct-user-message",
+        if published is None:
+            await self._emit_event(
+                run_id,
+                "run.failed",
+                {"error": "PINNED_AGENT_SPEC_NOT_FOUND"},
+                correlation_id,
             )
-        )
+            return RunResult(
+                run_id=run_id,
+                status=RunStatus.FAILED,
+                errors=["PINNED_AGENT_SPEC_NOT_FOUND"],
+            )
+        try:
+            spec = AgentSpec.model_validate(published.content)
+        except ValidationError:
+            await self._emit_event(
+                run_id,
+                "run.failed",
+                {"error": "PINNED_AGENT_SPEC_INVALID"},
+                correlation_id,
+            )
+            return RunResult(
+                run_id=run_id,
+                status=RunStatus.FAILED,
+                errors=["PINNED_AGENT_SPEC_INVALID"],
+            )
         if self._compliance_resolver and run_record.workspace_id:
             dummy_req = RunRequest(
                 root_executable_ref="agent:" + spec.id,

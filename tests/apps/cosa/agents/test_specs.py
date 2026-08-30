@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 from apps.cosa.agents.specs import (
+    COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
+    COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
     COSA_DEFAULT_MODEL_POLICY,
     COSA_FINANCE_AGENT_SPEC,
     COSA_FINANCE_PROMPT,
+    COSA_MARKETING_AGENT_SPEC,
     COSA_OPERATIONS_AGENT_SPEC,
     COSA_OPERATIONS_PROMPT,
 )
+
+
+def test_chat_capable_agent_specs_use_new_immutable_version() -> None:
+    assert {
+        COSA_OPERATIONS_AGENT_SPEC.version,
+        COSA_FINANCE_AGENT_SPEC.version,
+        COSA_MARKETING_AGENT_SPEC.version,
+        COSA_CUSTOMER_SUPPORT_AGENT_SPEC.version,
+        COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC.version,
+    } == {"1.1.0"}
 
 
 def test_operations_agent_spec_pins_prompt_ref():

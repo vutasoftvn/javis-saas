@@ -95,7 +95,7 @@ async def test_copilot_guard_fails_when_spec_has_write_capability(mock_plane, mo
     # Spec with forbidden write capability
     bad_spec = AgentSpec(
         id="cosa.agents.customer_support",
-        version="1.0.0",
+        version=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.version,
         autonomy_level=AutonomyLevel.L0_OBSERVE,
         instructions="Bad",
         model_input_capability_ref="model.input.direct-user-message",
@@ -123,6 +123,38 @@ async def test_copilot_guard_fails_when_spec_has_write_capability(mock_plane, mo
         assert mock_stream_mgr.emit.await_count >= 1
         # Callback company result with failed
         mock_cb.assert_awaited_once_with("run_bad_1", "failed")
+
+
+@pytest.mark.asyncio
+async def test_copilot_fails_closed_when_registered_spec_lacks_input_scope(
+    mock_plane, mock_stream_mgr
+):
+    stale_content = COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_dump(
+        mode="json", exclude={"model_input_capability_ref"}
+    )
+    mock_plane.spec_registry.get = AsyncMock(
+        return_value=SimpleNamespace(content=stale_content)
+    )
+    payload = {
+        "run_id": "run_stale_spec_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_1"},
+        "correlation_id": "corr-stale",
+    }
+
+    with patch(
+        "apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock
+    ) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+    mock_plane.kernel.run.assert_not_awaited()
+    assert mock_stream_mgr.emit.call_args.kwargs["event_type"] == "run.failed"
+    assert (
+        mock_stream_mgr.emit.call_args.kwargs["payload"]["reason_code"]
+        == "agent_spec_content_invalid"
+    )
+    mock_cb.assert_awaited_once_with("run_stale_spec_1", "failed")
 
 
 @pytest.mark.asyncio

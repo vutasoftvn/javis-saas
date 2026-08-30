@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
-from agent.contracts.run import RunRequest, RunStatus, RunResult
+import pytest
+from agent.contracts.run import RunResult, RunStatus
 from agent.contracts.wait import WaitDescriptor, WaitKind
-from agent.runs.repository import InMemoryRunRepository
-from apps.cosa.worker.autopilot_run import (
-    run_customer_support_autopilot,
-    resume_customer_support_autopilot,
-)
-from apps.cosa.events.trigger_policy import EventTriggerRule
 from agent.governance.contracts import PinnedSpecIdentity
+from agent.runs.repository import InMemoryRunRepository
+
+from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
+from apps.cosa.events.trigger_policy import EventTriggerRule
+from apps.cosa.worker.autopilot_run import (
+    resume_customer_support_autopilot,
+    run_customer_support_autopilot,
+)
 
 
 class MockEventStreamManager:
@@ -41,6 +44,38 @@ class MockPlane:
 
 
 @pytest.mark.asyncio
+async def test_autopilot_fails_closed_when_registered_spec_lacks_input_scope():
+    plane = MockPlane()
+    plane.spec_registry = MagicMock()
+    plane.spec_registry.get = AsyncMock(
+        return_value=SimpleNamespace(
+            content=COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC.model_dump(
+                mode="json", exclude={"model_input_capability_ref"}
+            )
+        )
+    )
+    plane.kernel.run.return_value = RunResult(
+        run_id="run_ap_stale_spec_1",
+        status=RunStatus.COMPLETED,
+        final_output={"unreachable": True},
+    )
+
+    result = await run_customer_support_autopilot(
+        plane,
+        MockEventStreamManager(),
+        {
+            "run_id": "run_ap_stale_spec_1",
+            "workspace_id": "ws_1",
+            "agent_profile": "customer_support_autopilot",
+            "thread_ref": {"thread_id": "th_1"},
+        },
+    )
+
+    assert result == {"status": "failed", "reason": "agent_spec_content_invalid"}
+    plane.kernel.run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_autopilot_kill_switch_guard_cancels_run_if_rule_disabled():
     plane = MockPlane()
     stream_mgr = MockEventStreamManager()
@@ -51,7 +86,7 @@ async def test_autopilot_kill_switch_guard_cancels_run_if_rule_disabled():
         event_type="engagement.message.received.v1",
         agent_spec=PinnedSpecIdentity(
             spec_id="cosa.agents.customer_support_autopilot",
-            spec_version="1.0.0",
+            spec_version="1.1.0",
             spec_kind="agent",
             definition_hash="hash_1",
         ),
@@ -93,7 +128,7 @@ async def test_autopilot_suspends_when_approval_required():
         event_type="engagement.message.received.v1",
         agent_spec=PinnedSpecIdentity(
             spec_id="cosa.agents.customer_support_autopilot",
-            spec_version="1.0.0",
+            spec_version="1.1.0",
             spec_kind="agent",
             definition_hash="hash_2",
         ),
@@ -144,7 +179,7 @@ async def test_autopilot_resume_rechecks_rule_and_active_mode_before_send():
         event_type="engagement.message.received.v1",
         agent_spec=PinnedSpecIdentity(
             spec_id="cosa.agents.customer_support_autopilot",
-            spec_version="1.0.0",
+            spec_version="1.1.0",
             spec_kind="agent",
             definition_hash="hash_3",
         ),

@@ -21,6 +21,8 @@ from agent.contracts.capability import CapabilitySpec
 from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.governance.contracts import ExecutionMode
+from agent.registry.models import PublishedSpecRecord
+from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.repository import InMemoryRunRepository
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 from agent_testkit.fake_sdk_model import (
@@ -197,6 +199,113 @@ async def test_checkpoint_resume_approval_rejected_path():
     # Status completed with graceful rejection acknowledgment
     assert resumed.status == RunStatus.COMPLETED
     assert "rejected" in str(resumed.final_output).lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_checkpoint_resume_fails_closed_when_pinned_spec_is_missing():
+    repo = InMemoryRunRepository()
+    registry = CapabilityRegistry()
+    registry.register(
+        CapabilitySpec(
+            id="finance.payout.execute",
+            description="Execute financial payout",
+            input_schema={"type": "object", "properties": {}},
+        ),
+        lambda args: {},
+    )
+    executed_tools: list[dict] = []
+
+    async def capability_executor(tool_name: str, args: dict) -> dict:
+        executed_tools.append({"tool": tool_name, "args": args})
+        return {"status": "paid"}
+
+    call_id = "call_payout_missing_spec"
+    kernel = RealOpenAIAgentsSDKKernel(
+        repository=repo,
+        capability_registry=registry,
+        capability_executor=capability_executor,
+        model=FakeSDKModel(
+            responses=[
+                tool_call_response(
+                    call_id,
+                    "finance.payout.execute",
+                    arguments='{"amount": 500, "vendor": "Acme Corp"}',
+                )
+            ]
+        ),
+        policy_evaluator=lambda name, args, ctx=None: "REQUIRE_APPROVAL",
+    )
+    result = await kernel.run(_build_request(), _build_finance_spec())
+    assert result.status == RunStatus.WAITING_APPROVAL
+
+    kernel._spec_registry = InMemorySpecRegistryRepository()
+    resumed = await kernel.resume(
+        result.run_id,
+        result.interruptions_waits[0].checkpoint_ref,
+        {"approved": True, "approved_tool_calls": {call_id: True}},
+    )
+
+    assert resumed.status == RunStatus.FAILED
+    assert resumed.errors == ["PINNED_AGENT_SPEC_NOT_FOUND"]
+    assert executed_tools == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_checkpoint_resume_fails_closed_when_pinned_spec_content_is_stale():
+    repo = InMemoryRunRepository()
+    registry = CapabilityRegistry()
+    registry.register(
+        CapabilitySpec(
+            id="finance.payout.execute",
+            description="Execute financial payout",
+            input_schema={"type": "object", "properties": {}},
+        ),
+        lambda args: {},
+    )
+    call_id = "call_payout_stale_spec"
+    kernel = RealOpenAIAgentsSDKKernel(
+        repository=repo,
+        capability_registry=registry,
+        model=FakeSDKModel(
+            responses=[
+                tool_call_response(
+                    call_id,
+                    "finance.payout.execute",
+                    arguments='{"amount": 500, "vendor": "Acme Corp"}',
+                )
+            ]
+        ),
+        policy_evaluator=lambda name, args, ctx=None: "REQUIRE_APPROVAL",
+    )
+    spec = _build_finance_spec()
+    result = await kernel.run(_build_request(spec=spec), spec)
+    assert result.status == RunStatus.WAITING_APPROVAL
+
+    stale_registry = InMemorySpecRegistryRepository()
+    await stale_registry.publish(
+        PublishedSpecRecord(
+            spec_kind="agent",
+            spec_id=spec.id,
+            version=spec.version,
+            definition_hash=spec.definition_hash or spec.compute_hash(),
+            content=spec.model_dump(
+                mode="json", exclude={"model_input_capability_ref"}
+            ),
+            status="published",
+        )
+    )
+    kernel._spec_registry = stale_registry
+
+    resumed = await kernel.resume(
+        result.run_id,
+        result.interruptions_waits[0].checkpoint_ref,
+        {"approved": True, "approved_tool_calls": {call_id: True}},
+    )
+
+    assert resumed.status == RunStatus.FAILED
+    assert resumed.errors == ["PINNED_AGENT_SPEC_INVALID"]
 
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")

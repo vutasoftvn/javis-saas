@@ -90,7 +90,7 @@ describe("copilot.service", () => {
     await updateCopilotSettings(
       {
         agentSpecId: "cosa.agents.customer_support",
-        agentSpecVersion: "1.0.0",
+        agentSpecVersion: "1.1.0",
         agentSpecHash: "spec_hash_123",
         evalEvidenceRef: "eval_evidence_123",
         evalEvidenceHash: "spec_hash_123",
@@ -149,7 +149,7 @@ describe("copilot.service", () => {
     await updateCopilotSettings(
       {
         agentSpecId: "cosa.agents.customer_support",
-        agentSpecVersion: "1.0.0",
+        agentSpecVersion: "1.1.0",
         agentSpecHash: "spec_hash_123",
         evalEvidenceRef: "eval_evidence_123",
         evalEvidenceHash: "spec_hash_123",
@@ -201,7 +201,7 @@ describe("copilot.service", () => {
     await updateCopilotSettings(
       {
         agentSpecId: "cosa.agents.customer_support",
-        agentSpecVersion: "1.0.0",
+        agentSpecVersion: "1.1.0",
         agentSpecHash: "spec_hash_123",
         evalEvidenceRef: "eval_evidence_123",
         evalEvidenceHash: "spec_hash_123",

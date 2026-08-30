@@ -13,14 +13,16 @@ async def test_loads_registered_agent_spec_as_typed_model():
         PublishedSpecRecord(
             spec_kind="agent",
             spec_id=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id,
-            version="1.0.0",
+            version=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.version,
             definition_hash="h1",
             content=content,
             status="published",
         )
     )
     spec, reason = await load_registered_agent_spec(
-        repo, COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id, version="1.0.0"
+        repo,
+        COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id,
+        version=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.version,
     )
     assert reason is None
     assert spec is not None

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from agent.contracts.capability import CapabilityImplementationIdentity
 from agent.contracts.identity import PinnedSkillRef
@@ -48,6 +48,14 @@ class AgentSpec(BaseModel):
     output_schema: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     definition_hash: str | None = None
+
+    @model_validator(mode="after")
+    def keep_model_input_out_of_executable_tools(self) -> AgentSpec:
+        if self.model_input_capability_ref in self.capability_refs:
+            raise ValueError(
+                "model_input_capability_ref must not appear in capability_refs"
+            )
+        return self
 
     def compute_hash(self) -> str:
         """Tính SHA-256 hash chuẩn hoá cho toàn bộ nội dung của spec."""

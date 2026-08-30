@@ -106,16 +106,32 @@ async def run_customer_support_copilot(
     spec = COSA_CUSTOMER_SUPPORT_AGENT_SPEC
     if getattr(plane, "spec_registry", None):
         fetched_spec, spec_reason = await load_registered_agent_spec(
-            plane.spec_registry, COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id, version="1.0.0"
+            plane.spec_registry,
+            COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id,
+            version=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.version,
         )
-        if fetched_spec is not None:
-            spec = fetched_spec
-        elif spec_reason == "agent_spec_content_invalid":
-            logger.warning(
-                "Registered copilot spec %s invalid, falling back to in-code spec (reason=%s)",
+        if fetched_spec is None:
+            reason = spec_reason or "agent_spec_resolution_failed"
+            logger.error(
+                "Registered copilot spec %s unavailable; failing closed (reason=%s)",
                 COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id,
-                spec_reason,
+                reason,
             )
+            if stream_repo:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id="",
+                    event_type="run.failed",
+                    payload={
+                        "error": f"registered copilot spec unavailable: {reason}",
+                        "reason_code": reason,
+                    },
+                    correlation_id=correlation_id,
+                )
+            await callback_company_result(run_id, "failed")
+            return
+        spec = fetched_spec
 
     for cap in spec.capability_refs:
         if FORBIDDEN_CAP_RE.search(cap):

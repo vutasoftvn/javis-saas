@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-import contextlib
-
 from agent.registry.publisher import (
     publish_agent_spec,
     publish_model_policy_spec,
     publish_prompt_spec,
 )
-from agent.registry.repository import (
-    SpecRegistryRepository,
-    SpecVersionHashConflictError,
-)
+from agent.registry.repository import SpecRegistryRepository
 
 from apps.cosa.agents.specs import (
     COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
@@ -52,5 +47,4 @@ async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
         (publish_agent_spec, COSA_CUSTOMER_SUPPORT_AGENT_SPEC),
         (publish_agent_spec, COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC),
     ):
-        with contextlib.suppress(SpecVersionHashConflictError):
-            await fn(spec, repository=spec_registry, publisher="cosa-seed")  # type: ignore[arg-type]
+        await fn(spec, repository=spec_registry, publisher="cosa-seed")  # type: ignore[arg-type]

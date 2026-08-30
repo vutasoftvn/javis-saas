@@ -86,7 +86,7 @@ def test_customer_support_autopilot_write_rule_promotion_gate():
         event_type="engagement.message.received.v1",
         agent_spec=PinnedSpecIdentity(
             id="cosa.agents.customer_support_autopilot",
-            version="1.0.0",
+            version="1.1.0",
             definition_hash="hash_A",
         ),
         mode="write",

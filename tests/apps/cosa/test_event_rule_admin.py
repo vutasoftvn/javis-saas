@@ -110,7 +110,7 @@ async def test_create_and_list_engagement_write_rule(client):
         "eventType": "engagement.message.received.v1",
         "agentSpec": {
             "id": "cosa.agents.customer_support_autopilot",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "definitionHash": "hash_ap_1",
         },
         "mode": "write",

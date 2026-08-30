@@ -36,9 +36,14 @@ class ComplianceResolver:
         # scope riêng, vẫn phải được Company approve nhưng không được kernel
         # dựng thành tool. Tránh append lần hai nếu một spec cũ đã khai báo
         # nhầm cùng scope trong capability_refs.
-        capability_ids = list(spec.capability_refs)
-        if spec.model_input_capability_ref not in capability_ids:
-            capability_ids.append(spec.model_input_capability_ref)
+        capability_ids = list(
+            dict.fromkeys(
+                capability_id
+                for capability_id in spec.capability_refs
+                if capability_id != spec.model_input_capability_ref
+            )
+        )
+        capability_ids.append(spec.model_input_capability_ref)
 
         policy_snapshot_hash = ""
         if request.metadata:
