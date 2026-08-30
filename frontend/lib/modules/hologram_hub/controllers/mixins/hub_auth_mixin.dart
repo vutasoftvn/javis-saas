@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/network/realtime_service.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../modules/auth/services/auth_service.dart';
 
@@ -17,6 +18,7 @@ mixin HubAuthMixin on GetxController {
 
   Future<void> ensureAuthenticated() async {
     if (!AuthService.isAuthenticated) {
+      RealtimeService.disconnect();
       await authService.logout();
       Get.offAllNamed(AppRoutes.login);
       return;
@@ -26,6 +28,7 @@ mixin HubAuthMixin on GetxController {
       debugPrint(
         '[HologramHub] Token không hợp lệ hoặc đã hết hạn -> Tự động chuyển về màn Đăng nhập',
       );
+      RealtimeService.disconnect();
       await authService.logout();
       Get.offAllNamed(AppRoutes.login);
       return;
@@ -41,6 +44,7 @@ mixin HubAuthMixin on GetxController {
   }
 
   Future<void> logout() async {
+    RealtimeService.disconnect();
     await authService.logout();
     Get.offAllNamed(AppRoutes.login);
   }

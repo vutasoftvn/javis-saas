@@ -34,15 +34,20 @@ class RealtimeService {
     _listeners.remove(handler);
   }
 
+  static void disconnect() {
+    _instance.stop();
+  }
+
   Future<void> connect() async {
     _shouldReconnect = true;
     _reconnectTimer?.cancel();
     await _startSseStream();
   }
 
-  void disconnect() {
+  void stop() {
     _shouldReconnect = false;
     _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _subscription?.cancel();
     _subscription = null;
     _isConnected = false;

@@ -285,12 +285,15 @@ class ApiClient {
     return headers;
   }
 
+  static const Duration defaultTimeout = Duration(seconds: 15);
+  static const Duration uploadTimeout = Duration(seconds: 30);
+
   static Future<http.Response> get(String endpoint, {bool requiresAuth = true}) async {
     final offline = _offlineGuard(endpoint);
     if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
-    return client.get(url, headers: headers);
+    return client.get(url, headers: headers).timeout(defaultTimeout);
   }
 
   static Future<http.Response> post(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
@@ -298,7 +301,7 @@ class ApiClient {
     if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
-    return client.post(url, headers: headers, body: body != null ? jsonEncode(body) : null);
+    return client.post(url, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
   }
 
   static Future<http.Response> put(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
@@ -306,7 +309,7 @@ class ApiClient {
     if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
-    return client.put(url, headers: headers, body: body != null ? jsonEncode(body) : null);
+    return client.put(url, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
   }
 
   static Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
@@ -314,7 +317,7 @@ class ApiClient {
     if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
-    return client.patch(url, headers: headers, body: body != null ? jsonEncode(body) : null);
+    return client.patch(url, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
   }
 
   static Future<http.Response> delete(String endpoint, {bool requiresAuth = true}) async {
@@ -322,7 +325,7 @@ class ApiClient {
     if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
-    return client.delete(url, headers: headers);
+    return client.delete(url, headers: headers).timeout(defaultTimeout);
   }
 
   /// Task 6 — SSE dùng chung resolver/offline-guard/token/`X-Workspace-Id` với
@@ -341,7 +344,7 @@ class ApiClient {
     final request = http.Request('GET', resolveUri(endpoint));
     request.headers.addAll(headers);
     request.headers['Accept'] = 'text/event-stream';
-    return client.send(request);
+    return client.send(request).timeout(defaultTimeout);
   }
 
   /// Task 6 — multipart upload (vd. voice transcription) qua cùng
@@ -360,8 +363,8 @@ class ApiClient {
     request.headers.addAll(headers);
     if (fields != null) request.fields.addAll(fields);
     if (files != null) request.files.addAll(files);
-    final streamed = await client.send(request);
-    return http.Response.fromStream(streamed);
+    final streamed = await client.send(request).timeout(uploadTimeout);
+    return http.Response.fromStream(streamed).timeout(uploadTimeout);
   }
 
   /// Task 6 — form-urlencoded POST (vd. Vault ghi tài liệu — backend nhận qua
@@ -379,6 +382,6 @@ class ApiClient {
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     headers.remove('Content-Type');
     final url = resolveUri(endpoint);
-    return client.post(url, headers: headers, body: fields);
+    return client.post(url, headers: headers, body: fields).timeout(defaultTimeout);
   }
 }

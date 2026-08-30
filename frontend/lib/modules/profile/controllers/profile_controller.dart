@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../auth/services/auth_service.dart';
+import '../../../core/network/realtime_service.dart';
 import '../../../core/routing/app_routes.dart';
 
 class ProfileController extends GetxController {
@@ -100,6 +101,7 @@ class ProfileController extends GetxController {
   }
 
   Future<void> logout() async {
+    RealtimeService.disconnect();
     await _authService.logout();
     Get.offAllNamed(AppRoutes.login);
   }

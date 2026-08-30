@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:get/get.dart';
@@ -96,7 +97,14 @@ class HubChatMessageBubble extends StatelessWidget {
                             onTapLink: (text, href, title) {
                               if (href != null) {
                                 final uri = Uri.tryParse(href);
-                                if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+                                if (uri != null) {
+                                  final scheme = uri.scheme.toLowerCase();
+                                  final isHttps = scheme == 'https';
+                                  final isHttpInDebug = kDebugMode && scheme == 'http';
+                                  if (isHttps || isHttpInDebug) {
+                                    launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                }
                               }
                             },
                             styleSheet: MarkdownStyleSheet(

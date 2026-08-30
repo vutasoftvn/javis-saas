@@ -100,10 +100,10 @@ class VoiceService implements IVoiceService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final transcript = data['transcript'] as String?;
-        debugPrint('[VoiceService] Recognized transcript: $transcript');
+        debugPrint('[VoiceService] Transcription completed (length: ${transcript?.length ?? 0})');
         return transcript;
       }
-      debugPrint('[VoiceService] Transcription error: ${response.statusCode} ${response.body}');
+      debugPrint('[VoiceService] Transcription error: ${response.statusCode}');
       return null;
     } catch (e) {
       debugPrint('[VoiceService] Transcription exception: $e');

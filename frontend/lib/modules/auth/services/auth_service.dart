@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/realtime_service.dart';
 import '../../../core/services/secure_storage_service.dart';
 
 class WorkspaceSummary {
@@ -378,6 +379,7 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    RealtimeService.disconnect();
     _cachedToken = null;
     await SecureStorageService.delete('auth_token');
     await SecureStorageService.delete('local_session_token');

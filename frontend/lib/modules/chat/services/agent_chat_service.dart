@@ -54,7 +54,7 @@ class AgentChatService {
             .map((c) => ChatConversation.fromJson(c as Map<String, dynamic>))
             .toList();
       }
-      debugPrint('[AgentChatService] getConversations HTTP ${res.statusCode}: ${res.body}');
+      debugPrint('[AgentChatService] getConversations HTTP ${res.statusCode}');
       throw AgentChatApiException('Failed to fetch conversations', statusCode: res.statusCode, details: res.body);
     } catch (e, stack) {
       debugPrint('[AgentChatService] getConversations error: $e\n$stack');
@@ -70,7 +70,7 @@ class AgentChatService {
         return ChatConversation.fromJson(
             jsonDecode(res.body) as Map<String, dynamic>);
       }
-      debugPrint('[AgentChatService] getConversation HTTP ${res.statusCode}: ${res.body}');
+      debugPrint('[AgentChatService] getConversation HTTP ${res.statusCode}');
       throw AgentChatApiException('Failed to get conversation $conversationId', statusCode: res.statusCode);
     } catch (e) {
       debugPrint('[AgentChatService] getConversation error: $e');
@@ -95,7 +95,7 @@ class AgentChatService {
         return ChatConversation.fromJson(
             jsonDecode(res.body) as Map<String, dynamic>);
       }
-      debugPrint('[AgentChatService] createConversation HTTP ${res.statusCode}: ${res.body}');
+      debugPrint('[AgentChatService] createConversation HTTP ${res.statusCode}');
       throw AgentChatApiException('Failed to create conversation', statusCode: res.statusCode, details: res.body);
     } catch (e) {
       debugPrint('[AgentChatService] createConversation error: $e');
@@ -123,7 +123,7 @@ class AgentChatService {
         return ChatConversation.fromJson(
             jsonDecode(res.body) as Map<String, dynamic>);
       }
-      debugPrint('[AgentChatService] updateConversation HTTP ${res.statusCode}: ${res.body}');
+      debugPrint('[AgentChatService] updateConversation HTTP ${res.statusCode}');
       throw AgentChatApiException('Failed to update conversation', statusCode: res.statusCode);
     } catch (e) {
       debugPrint('[AgentChatService] updateConversation error: $e');
@@ -151,7 +151,7 @@ class AgentChatService {
       if (res.statusCode == 202 || res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       }
-      debugPrint('[AgentChatService] sendMessage HTTP ${res.statusCode}: ${res.body}');
+      debugPrint('[AgentChatService] sendMessage HTTP ${res.statusCode}');
       throw AgentChatApiException('Failed to send message', statusCode: res.statusCode, details: res.body);
     } catch (e) {
       debugPrint('[AgentChatService] sendMessage error: $e');
@@ -164,7 +164,7 @@ class AgentChatService {
       final url = _endpoint('/agent/runs/$runId/cancel');
       final res = await ApiClient.post(url);
       if (res.statusCode == 200) return;
-      debugPrint('[AgentChatService] cancelRun HTTP ${res.statusCode}: ${res.body}');
+      debugPrint('[AgentChatService] cancelRun HTTP ${res.statusCode}');
       throw AgentChatApiException('Failed to cancel run $runId', statusCode: res.statusCode, details: res.body);
     } catch (e, stack) {
       debugPrint('[AgentChatService] cancelRun error: $e\n$stack');
@@ -187,7 +187,7 @@ class AgentChatService {
         },
       );
       if (res.statusCode == 200) return true;
-      debugPrint('[AgentChatService] decideApproval HTTP ${res.statusCode}: ${res.body}');
+      debugPrint('[AgentChatService] decideApproval HTTP ${res.statusCode}');
       throw AgentChatApiException('Failed to decide approval $approvalId', statusCode: res.statusCode, details: res.body);
     } catch (e, stack) {
       debugPrint('[AgentChatService] decideApproval error: $e\n$stack');
@@ -241,7 +241,7 @@ class AgentChatService {
             ...decoded,
           };
         } catch (e) {
-          debugPrint('[AgentChatService] SSE json parse error: $e for $rawData');
+          debugPrint('[AgentChatService] SSE json parse error: $e');
         }
       }
     }

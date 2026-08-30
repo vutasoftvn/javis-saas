@@ -153,7 +153,7 @@ void main() {
       });
 
       await RealtimeService().connect();
-      RealtimeService().disconnect();
+      RealtimeService.disconnect();
 
       expect(captured, isNotNull);
       expect(captured!.url.path, '/relay/events/stream');
