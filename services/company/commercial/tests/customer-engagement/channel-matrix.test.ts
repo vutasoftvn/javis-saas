@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { and, eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "../../db";
@@ -22,7 +22,10 @@ import { runHousekeepingTick } from "../../services/customer-engagement/housekee
 import { setVerificationConfigResolverForTest } from "../../services/customer-engagement/channel-adapters/verification";
 import { setCustomConnectorGrantRunner } from "../../services/customer-engagement/connector-grant.client";
 import { setCustomChannelSecretResolver } from "../../services/customer-engagement/channel-secret";
-import { registerChannelAdapter } from "../../services/customer-engagement/channel-adapters/registry";
+import {
+  registerChannelAdapter,
+  resetChannelAdapterRegistryForTest,
+} from "../../services/customer-engagement/channel-adapters/registry";
 import { ZaloChannelAdapter } from "../../services/customer-engagement/channel-adapters/zalo-channel.adapter";
 import { activateChannelEndpointApi } from "../../handlers/customer-engagement/channel-admin.handler";
 
@@ -87,6 +90,14 @@ describe("P2 Customer Engagement Channel Matrix Tests", () => {
       verificationConfigRef: "verif_cfg_valid",
       status: "active",
     });
+  });
+
+  // Dọn dẹp các double mutable module-level (registry adapter, connector-grant runner, secret resolver)
+  // để test case này không rò rỉ trạng thái sang test case/khác file chạy sau.
+  afterEach(() => {
+    resetChannelAdapterRegistryForTest();
+    setCustomConnectorGrantRunner(null);
+    setCustomChannelSecretResolver(null);
   });
 
   function signRequest(bodyStr: string) {
@@ -277,7 +288,7 @@ describe("P2 Customer Engagement Channel Matrix Tests", () => {
       idempotencyKey: `del_${deliveryId}`,
     });
 
-    const stats = await deliveryRelayTick("worker-mat", 10);
+    const stats = await deliveryRelayTick("worker-mat", 10, wsId);
     expect(stats.sent).toBeGreaterThanOrEqual(1);
 
     const [delivery] = await db

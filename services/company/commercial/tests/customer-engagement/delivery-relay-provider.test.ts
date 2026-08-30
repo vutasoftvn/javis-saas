@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
 import {
@@ -12,7 +12,10 @@ import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { deliveryRelayTick } from "../../services/customer-engagement/delivery-relay.service";
 import { setCustomConnectorGrantRunner } from "../../services/customer-engagement/connector-grant.client";
 import { setCustomChannelSecretResolver } from "../../services/customer-engagement/channel-secret";
-import { registerChannelAdapter } from "../../services/customer-engagement/channel-adapters/registry";
+import {
+  registerChannelAdapter,
+  resetChannelAdapterRegistryForTest,
+} from "../../services/customer-engagement/channel-adapters/registry";
 import { ZaloChannelAdapter } from "../../services/customer-engagement/channel-adapters/zalo-channel.adapter";
 
 describe("Delivery Relay Real Provider Tests", () => {
@@ -56,6 +59,15 @@ describe("Delivery Relay Real Provider Tests", () => {
       verificationConfigRef: "verif_ref_1",
       status: "active",
     });
+  });
+
+  // Dọn dẹp các double mutable module-level (registry adapter, connector-grant runner, secret resolver)
+  // để test case này không rò rỉ trạng thái sang test case/khác file chạy sau — đây chính là nguồn gây
+  // flakiness của bộ test outbound relay khi các fixture khác workspace vô tình bị ảnh hưởng.
+  afterEach(() => {
+    resetChannelAdapterRegistryForTest();
+    setCustomConnectorGrantRunner(null);
+    setCustomChannelSecretResolver(null);
   });
 
   async function createFixture(opts?: {
@@ -213,5 +225,87 @@ describe("Delivery Relay Real Provider Tests", () => {
       .where(eq(engagementOutboundDeliveries.id, fixture.deliveryId));
     expect(delivery.status).toBe("failed");
     expect(delivery.deadLetterReason).toBe("ownership_changed");
+  });
+
+  it("should only dispatch deliveries scoped to the requested workspace, leaving other workspaces queued", async () => {
+    registerChannelAdapter(
+      "zalo",
+      new ZaloChannelAdapter({
+        fetchRunner: async () => ({
+          status: 200,
+          json: async () => ({ error: 0, data: { message_id: "iso_remote_1" } }),
+        }),
+      })
+    );
+
+    // Workspace A: dùng inbox/endpoint zalo do beforeEach tạo sẵn cho wsId.
+    const workspaceA = wsId;
+    const fixtureA = await createFixture();
+
+    // Workspace B: workspace hoàn toàn độc lập, dùng channel "api" để không cần
+    // connector grant / secret resolver riêng — chỉ cần đảm bảo delivery của B
+    // không bị relay tick của A đụng vào.
+    const workspaceB = generateSnowflake();
+    const inboxB = generateSnowflake();
+    const threadB = generateSnowflake();
+    const messageB = generateSnowflake();
+    const deliveryB = generateSnowflake();
+
+    await db.insert(engagementInboxes).values({
+      id: inboxB,
+      workspaceId: workspaceB,
+      channelType: "api",
+      name: "Isolation Workspace B Inbox",
+      slaPolicy: { firstResponseMinutes: 60 },
+    });
+
+    await db.insert(engagementThreads).values({
+      id: threadB,
+      workspaceId: workspaceB,
+      inboxId: inboxB,
+      status: "open",
+      correlationId: `corr_${threadB}`,
+    });
+
+    await db.insert(engagementMessages).values({
+      id: messageB,
+      workspaceId: workspaceB,
+      threadId: threadB,
+      direction: "outbound",
+      visibility: "customer",
+      senderKind: "agent",
+      body: "Workspace B outbound message",
+      bodyContentHash: "hash_ws_b",
+      deliveryState: "queued",
+      retentionUntil: new Date(Date.now() + 365 * 86400000),
+      idempotencyKey: `msg_key_${messageB}`,
+    });
+
+    await db.insert(engagementOutboundDeliveries).values({
+      id: deliveryB,
+      workspaceId: workspaceB,
+      threadId: threadB,
+      messageId: messageB,
+      channelType: "api",
+      status: "queued",
+      attemptCount: 0,
+      maxAttempts: 3,
+      idempotencyKey: `del_key_${deliveryB}`,
+    });
+
+    const result = await deliveryRelayTick("test-worker", 1, workspaceA);
+    expect(result.processed).toBe(1);
+
+    const [deliveryAAfter] = await db
+      .select()
+      .from(engagementOutboundDeliveries)
+      .where(eq(engagementOutboundDeliveries.id, fixtureA.deliveryId));
+    expect(deliveryAAfter.status).toBe("sent");
+
+    const [deliveryBAfter] = await db
+      .select()
+      .from(engagementOutboundDeliveries)
+      .where(eq(engagementOutboundDeliveries.id, deliveryB));
+    expect(deliveryBAfter.status).toBe("queued");
   });
 });
