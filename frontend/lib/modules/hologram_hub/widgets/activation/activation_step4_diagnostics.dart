@@ -17,7 +17,7 @@ class ActivationStep4Diagnostics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isFastSprint = selectedStage.index <= ProjectStage.s2SolutionValidation.index;
+    final isFastSprint = selectedStage.index <= ProjectStage.p2SolutionValidation.index;
 
     return Container(
       padding: const EdgeInsets.all(16),

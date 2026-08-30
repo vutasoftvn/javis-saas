@@ -15,8 +15,8 @@ class StageAdaptiveDomainPanel extends StatelessWidget {
 
   List<_DomainShortcutItem> _getShortcutsForStage() {
     switch (stage) {
-      case ProjectStage.s0Explore:
-      case ProjectStage.s1ProblemValidation:
+      case ProjectStage.p0Discovery:
+      case ProjectStage.p1ProblemValidation:
         return [
           _DomainShortcutItem(
             title: 'Trục Bằng Chứng & Giả Định',
@@ -44,7 +44,7 @@ class StageAdaptiveDomainPanel extends StatelessWidget {
           ),
         ];
 
-      case ProjectStage.s2SolutionValidation:
+      case ProjectStage.p2SolutionValidation:
         return [
           _DomainShortcutItem(
             title: 'Đặc Tả MVP & Value Prop',
@@ -72,7 +72,7 @@ class StageAdaptiveDomainPanel extends StatelessWidget {
           ),
         ];
 
-      case ProjectStage.s3BusinessValidation:
+      case ProjectStage.p3BuildValidate:
         return [
           _DomainShortcutItem(
             title: 'Unit Economics & Doanh Thu',
@@ -100,7 +100,7 @@ class StageAdaptiveDomainPanel extends StatelessWidget {
           ),
         ];
 
-      case ProjectStage.s4GoToMarket:
+      case ProjectStage.p4GoToMarket:
         return [
           _DomainShortcutItem(
             title: 'Kênh Marketing & Chiến Dịch',
@@ -128,8 +128,8 @@ class StageAdaptiveDomainPanel extends StatelessWidget {
           ),
         ];
 
-      case ProjectStage.s5OperateGrowth:
-      case ProjectStage.s6ScaleGovern:
+      case ProjectStage.p5OperateGrowth:
+      case ProjectStage.p6ScaleGovern:
         return [
           _DomainShortcutItem(
             title: 'Scoreboard & Kế Hoạch 12WY',

@@ -13,7 +13,7 @@ class DashboardController extends GetxController {
   final strategyInitialTabIndex = 0.obs;
 
   // Stage-Aware Adaptive Sidebar & Demo Mode
-  final selectedStage = ProjectStage.s2SolutionValidation.obs;
+  final selectedStage = ProjectStage.p2SolutionValidation.obs;
   final isStageFilteringEnabled = true.obs;
   final isDemoModeActive = true.obs;
 

@@ -25,13 +25,13 @@ void main() {
         'id': 999,
         'workspace_id': 1001,
         'project_id': 2001,
-        'from_stage': 'S1_PROBLEM_VALIDATION',
-        'to_stage': 'S2_SOLUTION_VALIDATION',
+        'from_stage': 'P1_PROBLEM_VALIDATION',
+        'to_stage': 'P2_SOLUTION_VALIDATION',
         'readiness_score': 0.85,
         'audit_status': 'APPROVED',
         'passed_criteria': [
           {
-            'id': 'S1_PROBLEM_EVIDENCE',
+            'id': 'P1_PROBLEM_EVIDENCE',
             'title': 'Xác thực nỗi đau khách hàng',
             'description': 'Đã có 2 giả định nỗi đau đạt chuẩn',
             'is_met': true,
@@ -46,8 +46,8 @@ void main() {
 
       final model = StageGateAuditModel.fromJson(json);
       expect(model.id, 999);
-      expect(model.fromStage, 'S1_PROBLEM_VALIDATION');
-      expect(model.toStage, 'S2_SOLUTION_VALIDATION');
+      expect(model.fromStage, 'P1_PROBLEM_VALIDATION');
+      expect(model.toStage, 'P2_SOLUTION_VALIDATION');
       expect(model.readinessScore, 0.85);
       expect(model.auditStatus, AuditStatus.approved);
       expect(model.passedCriteria.length, 1);
@@ -61,7 +61,7 @@ void main() {
         id: 1,
         workspaceId: 1001,
         projectId: 2001,
-        currentStage: 'S1_PROBLEM_VALIDATION',
+        currentStage: 'P1_PROBLEM_VALIDATION',
         ruleCode: 'NO_PAID_ADS_IN_EARLY_STAGE',
         severity: AlertSeverity.critical,
         title: 'Rủi ro Đốt Tiền Quảng Cáo Sớm',
@@ -91,13 +91,13 @@ void main() {
         id: 999,
         workspaceId: 1001,
         projectId: 2001,
-        fromStage: 'S1_PROBLEM_VALIDATION',
-        toStage: 'S2_SOLUTION_VALIDATION',
+        fromStage: 'P1_PROBLEM_VALIDATION',
+        toStage: 'P2_SOLUTION_VALIDATION',
         readinessScore: 0.80,
         auditStatus: AuditStatus.approved,
         passedCriteria: [
           StageGateCriteriaModel(
-            id: 'S1_EVIDENCE',
+            id: 'P1_EVIDENCE',
             title: 'Bằng chứng thực tế E2+',
             description: 'Đã tích lũy đủ bằng chứng',
             isMet: true,
@@ -115,7 +115,7 @@ void main() {
           home: Scaffold(
             body: StageGateAuditModal(
               projectId: 2001,
-              currentStage: ProjectStage.s1ProblemValidation,
+              currentStage: ProjectStage.p1ProblemValidation,
               audit: audit,
               onRunAudit: () {},
               onApplyTransition: (_) {},

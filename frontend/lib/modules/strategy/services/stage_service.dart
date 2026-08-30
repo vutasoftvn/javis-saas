@@ -25,35 +25,35 @@ class StageService {
     return [];
   }
 
-  Future<Map<String, dynamic>?> createStageTransition({
+  Future<Map<String, dynamic>?> applyStageTransition({
     required dynamic projectId,
-    required String fromStage,
     required String toStage,
-    String transitionType = 'PROMOTE',
-    String? rationale,
-    dynamic gateEvaluationId,
-    dynamic approvedBy,
+    String? reason,
+    bool? override,
+    String? overrideApprovalRef,
   }) async {
     try {
+      final pId = projectId?.toString() ?? '1';
       final body = <String, dynamic>{
-        'projectId': projectId?.toString() ?? '1',
-        'fromStage': fromStage,
         'toStage': toStage,
-        'transitionType': transitionType,
-        'rationale': rationale ?? 'Stage promotion initiated by founder',
+        'reason': reason ?? 'Stage promotion initiated by founder',
       };
-      if (gateEvaluationId != null) body['gateEvaluationId'] = gateEvaluationId.toString();
-      if (approvedBy != null) body['approvedBy'] = approvedBy.toString();
+      if (override == true) {
+        body['override'] = true;
+        if (overrideApprovalRef != null && overrideApprovalRef.isNotEmpty) {
+          body['overrideApprovalRef'] = overrideApprovalRef;
+        }
+      }
 
       final response = await ApiClient.post(
-        '/operations/strategy/stage-transitions',
+        '/operations/strategy/projects/$pId/stage',
         body: body,
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('StageService.createStageTransition error: $e');
+      debugPrint('StageService.applyStageTransition error: $e');
     }
     return null;
   }

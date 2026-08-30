@@ -250,7 +250,7 @@ class PestelSignalModel {
       resultingHypothesisId: json['resulting_hypothesis_id'] != null
           ? int.tryParse(json['resulting_hypothesis_id'].toString())
           : null,
-      stageCaptured: json['stage_captured'] ?? 'S0_EXPLORE',
+      stageCaptured: json['stage_captured'] ?? 'P0_DISCOVERY',
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -464,7 +464,7 @@ class StageLensSummaryModel {
   factory StageLensSummaryModel.fromJson(Map<String, dynamic> json) {
     return StageLensSummaryModel(
       projectId: int.tryParse(json['project_id']?.toString() ?? '') ?? 0,
-      projectStage: json['project_stage'] ?? 'S1_PROBLEM_VALIDATION',
+      projectStage: json['project_stage'] ?? 'P1_PROBLEM_VALIDATION',
       isBscUnlocked: json['is_bsc_unlocked'] == true,
       pestelSignals: (json['pestel_signals'] as List<dynamic>?)
               ?.map((e) => PestelSignalModel.fromJson(e as Map<String, dynamic>))

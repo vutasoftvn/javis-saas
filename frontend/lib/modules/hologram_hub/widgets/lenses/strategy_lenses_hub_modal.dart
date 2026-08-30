@@ -95,7 +95,7 @@ class _StrategyLensesHubModalState extends State<StrategyLensesHubModal>
     final swotItems = summary?.swotItems ?? [];
     final towsOptions = summary?.towsOptions ?? [];
     final bscGoals = summary?.bscGoals ?? [];
-    final isBscUnlocked = summary?.isBscUnlocked ?? (widget.currentStage == ProjectStage.s5OperateGrowth || widget.currentStage == ProjectStage.s6ScaleGovern);
+    final isBscUnlocked = summary?.isBscUnlocked ?? (widget.currentStage == ProjectStage.p5OperateGrowth || widget.currentStage == ProjectStage.p6ScaleGovern);
 
     return Container(
       width: 1080,

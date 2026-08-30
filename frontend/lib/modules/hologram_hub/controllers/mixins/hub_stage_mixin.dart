@@ -11,7 +11,7 @@ mixin HubStageMixin on GetxController {
 
   // ── Observables ──────────────────────────────────────────────────────────
   final stageContext = Rxn<StageContextModel>();
-  final currentProjectStage = ProjectStage.s1ProblemValidation.obs;
+  final currentProjectStage = ProjectStage.p1ProblemValidation.obs;
   final projectsList = <Map<String, dynamic>>[].obs;
   final selectedProjectId = Rxn<int>();
   final isStageLoading = false.obs;

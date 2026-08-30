@@ -234,22 +234,22 @@ class DashboardView extends GetView<DashboardController> {
 
   bool _isItemRecommendedForStage(int index, ProjectStage stage) {
     switch (stage) {
-      case ProjectStage.s0Explore:
-      case ProjectStage.s1ProblemValidation:
-        // S0/S1: Chat(0), Chiến lược - Evidence/Problem(3), Dự án(29), Kho tri thức(2), Nhiệm vụ(1), Phê duyệt(6)
+      case ProjectStage.p0Discovery:
+      case ProjectStage.p1ProblemValidation:
+        // P0/P1: Chat(0), Chiến lược - Evidence/Problem(3), Dự án(29), Kho tri thức(2), Nhiệm vụ(1), Phê duyệt(6)
         return [0, 3, 29, 2, 1, 6].contains(index);
-      case ProjectStage.s2SolutionValidation:
-        // S2: Chat(0), Chiến lược - MVP/Pricing(3), Dự án(29), Vận hành AI(31), Kho tri thức(2), Nhiệm vụ(1), Phê duyệt(6)
+      case ProjectStage.p2SolutionValidation:
+        // P2: Chat(0), Chiến lược - MVP/Pricing(3), Dự án(29), Vận hành AI(31), Kho tri thức(2), Nhiệm vụ(1), Phê duyệt(6)
         return [0, 3, 29, 31, 2, 1, 6].contains(index);
-      case ProjectStage.s3BusinessValidation:
-        // S3: Chat(0), Chiến lược - Unit Econ(3), Dự án(29), Kế toán(21), Bán hàng(23), Nhiệm vụ(1), Phê duyệt(6), Kho tri thức(2)
+      case ProjectStage.p3BuildValidate:
+        // P3: Chat(0), Chiến lược - Unit Econ(3), Dự án(29), Kế toán(21), Bán hàng(23), Nhiệm vụ(1), Phê duyệt(6), Kho tri thức(2)
         return [0, 3, 29, 21, 23, 1, 6, 2].contains(index);
-      case ProjectStage.s4GoToMarket:
-        // S4: Marketing(17), Bán hàng/CRM(23), Đội ngũ AI(20), Kế hoạch(28), Chiến lược(3), Dự án(29), Tasks(1), Approvals(6)
+      case ProjectStage.p4GoToMarket:
+        // P4: Marketing(17), Bán hàng/CRM(23), Đội ngũ AI(20), Kế hoạch(28), Chiến lược(3), Dự án(29), Tasks(1), Approvals(6)
         return [0, 17, 23, 20, 28, 3, 29, 1, 6, 2].contains(index);
-      case ProjectStage.s5OperateGrowth:
-      case ProjectStage.s6ScaleGovern:
-        // S5/S6: Tất cả đều ưu tiên
+      case ProjectStage.p5OperateGrowth:
+      case ProjectStage.p6ScaleGovern:
+        // P5/P6: Tất cả đều ưu tiên
         return true;
     }
   }

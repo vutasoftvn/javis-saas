@@ -112,8 +112,8 @@ mixin HubControlPlaneMixin on GetxController {
 
   // ── Phase 6: Stage Roster Loading ────────────────────────────────────────
 
-  /// Load Stage Roster theo stage code (ví dụ 'S2').
-  /// [stageCode]: 'S0' | 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6'
+  /// Load Stage Roster theo stage code (ví dụ 'P2').
+  /// [stageCode]: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | 'P5' | 'P6'
   Future<void> loadStageRoster(String stageCode) async {
     if (isStageRosterLoading.value) return;
     isStageRosterLoading.value = true;

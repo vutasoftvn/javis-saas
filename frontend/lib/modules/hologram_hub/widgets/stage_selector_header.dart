@@ -46,7 +46,7 @@ class StageSelectorHeader extends StatelessWidget {
 
     final ProjectStage stage = selectedProject != null
         ? ProjectStage.fromString(selectedProject['project_stage']?.toString())
-        : (contextModel?.projectStage ?? ProjectStage.s1ProblemValidation);
+        : (contextModel?.projectStage ?? ProjectStage.p1ProblemValidation);
 
     final String stageGoal = (contextModel?.stageGoal?.trim().isNotEmpty ?? false)
         ? contextModel!.stageGoal!.trim()

@@ -28,7 +28,7 @@ class _StrategyLensesTabState extends State<StrategyLensesTab> with SingleTicker
 
   List<Map<String, dynamic>> _projects = [];
   int? _selectedProjectId;
-  ProjectStage _currentStage = ProjectStage.s1ProblemValidation;
+  ProjectStage _currentStage = ProjectStage.p1ProblemValidation;
   StageLensSummaryModel? _summary;
   List<EvidenceModel> _evidences = [];
   bool _isLoading = true;

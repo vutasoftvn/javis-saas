@@ -44,11 +44,24 @@ mixin HubGateMixin on GetxController {
     }
   }
 
-  Future<void> applyStageTransition(int auditId, {String? rationale}) async {
+  Future<void> applyStageTransition({
+    dynamic projectId,
+    String? toStage,
+    String? reason,
+    bool? override,
+    String? overrideApprovalRef,
+    dynamic auditId,
+  }) async {
     try {
+      final pid = projectId ?? selectedProjectIdValue ?? '1';
+      final target = toStage ?? latestStageAudit.value?.toStage ?? 'P1_PROBLEM_VALIDATION';
       final ok = await stageGateService.applyStageTransition(
+        projectId: pid,
+        toStage: target,
+        reason: reason,
+        override: override,
+        overrideApprovalRef: overrideApprovalRef,
         auditId: auditId,
-        rationale: rationale,
       );
       if (ok) loadStageContext(projectId: selectedProjectIdValue);
     } catch (e) {

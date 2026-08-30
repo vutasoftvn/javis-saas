@@ -19,7 +19,6 @@ class StageGateService {
         body: {
           'projectId': projectId?.toString() ?? '1',
           'stagePolicyId': pId,
-          'humanOverride': false,
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -70,24 +69,30 @@ class StageGateService {
     return [];
   }
 
-  /// Áp dụng nâng cấp giai đoạn chính thức
+  /// Áp dụng nâng cấp giai đoạn chính thức qua canonical transition route
   Future<bool> applyStageTransition({
-    required dynamic auditId,
-    dynamic projectId,
-    String? fromStage,
-    String? toStage,
-    String? rationale,
+    required dynamic projectId,
+    required String toStage,
+    String? reason,
+    bool? override,
+    String? overrideApprovalRef,
+    dynamic auditId,
   }) async {
     try {
+      final pId = projectId?.toString() ?? '1';
+      final body = <String, dynamic>{
+        'toStage': toStage,
+        'reason': reason ?? 'Phê duyệt nâng cấp giai đoạn theo kết quả thẩm định Stage Gate.',
+      };
+      if (override == true) {
+        body['override'] = true;
+        if (overrideApprovalRef != null && overrideApprovalRef.isNotEmpty) {
+          body['overrideApprovalRef'] = overrideApprovalRef;
+        }
+      }
       final response = await ApiClient.post(
-        '/operations/strategy/stage-transitions',
-        body: {
-          'projectId': projectId?.toString() ?? '1',
-          'fromStage': fromStage ?? 'S0',
-          'toStage': toStage ?? 'S1',
-          'gateEvaluationId': auditId?.toString(),
-          'rationale': rationale ?? 'Phê duyệt nâng cấp giai đoạn theo kết quả thẩm định Stage Gate.',
-        },
+        '/operations/strategy/projects/$pId/stage',
+        body: body,
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {

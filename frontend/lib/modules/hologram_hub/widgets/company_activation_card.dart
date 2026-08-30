@@ -45,7 +45,7 @@ class _CompanyActivationCardState extends State<CompanyActivationCard> {
 
   // Step 2: Project & Stage
   final _projectTitleController = TextEditingController();
-  ProjectStage _selectedStage = ProjectStage.s1ProblemValidation;
+  ProjectStage _selectedStage = ProjectStage.p1ProblemValidation;
 
   // Step 3: Knowledge & Problem Context
   final _jtbdController = TextEditingController();

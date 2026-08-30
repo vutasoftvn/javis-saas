@@ -20,7 +20,7 @@ class _StageGateAuditTabState extends State<StageGateAuditTab> {
 
   List<Map<String, dynamic>> _projects = [];
   int? _selectedProjectId;
-  ProjectStage _currentStage = ProjectStage.s1ProblemValidation;
+  ProjectStage _currentStage = ProjectStage.p1ProblemValidation;
   StageGateAuditModel? _audit;
   bool _isLoading = true;
   bool _isAuditing = false;
@@ -92,10 +92,13 @@ class _StageGateAuditTabState extends State<StageGateAuditTab> {
     }
   }
 
-  Future<void> _applyTransition(int auditId) async {
+  Future<void> _applyTransition(String toStage) async {
     if (_selectedProjectId == null) return;
     try {
-      final success = await _stageGateService.applyStageTransition(auditId: auditId);
+      final success = await _stageGateService.applyStageTransition(
+        projectId: _selectedProjectId!,
+        toStage: toStage,
+      );
       if (success) {
         Get.snackbar(
           'Thành Công',
@@ -255,7 +258,7 @@ class _StageGateAuditTabState extends State<StageGateAuditTab> {
                             ),
                             if (isReady)
                               ElevatedButton(
-                                onPressed: () => _applyTransition(audit.id),
+                                onPressed: () => _applyTransition(audit.toStage),
                                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.black),
                                 child: const Text('Chuyển Sang Stage Kế Tiếp'),
                               ),
