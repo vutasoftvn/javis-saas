@@ -1,0 +1,63 @@
+ref: p3_pilot_v1
+version: "1.0.0"
+title: "Vận hành Pilot — Quản lý rủi ro và Chỉ số thành công (P3)"
+disclaimer: "Tình huống tổng hợp phục vụ học tập. KHÔNG phải dữ liệu vận hành thực."
+
+synthetic_dataset:
+  persona: "Founder dẫn dắt pilot với 3 khách hàng beta"
+  context: >
+    Bạn đang trong giai đoạn P3_PILOT với 3 khách hàng beta.
+    Pilot kéo dài 6 tuần. Bạn cần thiết lập metric contract, theo dõi tiến độ
+    và ra quyết định go/no-go dựa trên bằng chứng quan sát được.
+  synthetic_pilot_data:
+    pilot_duration_weeks: 6
+    customer_count: 3
+    metric_targets:
+      - name: "Activation Rate"
+        target: 0.8
+        current: 0.65
+      - name: "Weekly Active Users"
+        target: 10
+        current: 7
+      - name: "NPS"
+        target: 40
+        current: 32
+
+checkpoints:
+  - id: cp1
+    prompt: "Nhìn vào dữ liệu pilot tuần 3, bạn sẽ phân tích tình trạng như thế nào?"
+    expected_reasoning_keywords:
+      - "activation"
+      - "trend"
+      - "xu hướng"
+      - "gap"
+      - "bằng chứng"
+      - "evidence"
+    permitted_output_fields:
+      - "analysis"
+      - "risks_identified"
+
+  - id: cp2
+    prompt: "Khi nào bạn nên quyết định dừng pilot sớm? Căn cứ vào đâu?"
+    expected_reasoning_keywords:
+      - "stopping criteria"
+      - "tiêu chí dừng"
+      - "metric"
+      - "evidence"
+      - "risk"
+    permitted_output_fields:
+      - "stopping_criteria"
+      - "rationale"
+
+  - id: cp3
+    prompt: "Làm thế nào để bạn trình bày kết quả pilot cho investor mà không phóng đại số liệu?"
+    expected_reasoning_keywords:
+      - "honest"
+      - "trung thực"
+      - "confidence interval"
+      - "limitations"
+      - "giới hạn"
+      - "sample size"
+    permitted_output_fields:
+      - "presentation_outline"
+      - "caveats"

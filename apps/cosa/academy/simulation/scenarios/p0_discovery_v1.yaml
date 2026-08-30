@@ -1,0 +1,48 @@
+ref: p0_discovery_v1
+version: "1.0.0"
+title: "Khám phá Vấn đề — Phỏng vấn Khách hàng (P0)"
+disclaimer: "Tình huống tổng hợp phục vụ học tập. KHÔNG phải dữ liệu khách hàng thực."
+
+# Synthetic dataset — no live customer, financial, or operational data
+synthetic_dataset:
+  persona: "Co-founder B2B SaaS tìm kiếm product-market fit"
+  context: >
+    Bạn đang dẫn dắt một startup B2B SaaS giai đoạn sơ khai.
+    Bạn cần thực hiện 5 cuộc phỏng vấn khám phá để xác định vấn đề thực sự
+    của phân khúc khách hàng mid-market trong lĩnh vực quản lý nhân sự.
+  synthetic_customer_profiles:
+    - name: "Nguyễn Thị Hoa"
+      role: "HR Manager"
+      company_size: "150 nhân viên"
+      pain_points: ["Manual onboarding checklist", "Thiếu visibility vào tiến độ"]
+    - name: "Trần Minh Khoa"
+      role: "Operations Lead"
+      company_size: "80 nhân viên"
+      pain_points: ["Không có tool tích hợp", "Mất nhiều giờ mỗi tuần cho báo cáo thủ công"]
+
+checkpoints:
+  - id: cp1
+    prompt: "Bạn sẽ đặt câu hỏi gì trước tiên để tìm hiểu vấn đề của khách hàng?"
+    expected_reasoning_keywords:
+      - "pain"
+      - "problem"
+      - "vấn đề"
+      - "khó khăn"
+      - "hằng ngày"
+      - "thường xuyên"
+    permitted_output_fields:
+      - "question_text"
+      - "rationale"
+
+  - id: cp2
+    prompt: "Khách hàng mô tả quy trình onboarding hiện tại của họ. Bạn sẽ đặt câu hỏi tiếp theo như thế nào?"
+    expected_reasoning_keywords:
+      - "frequency"
+      - "tần suất"
+      - "how long"
+      - "bao lâu"
+      - "impact"
+      - "ảnh hưởng"
+    permitted_output_fields:
+      - "follow_up_question"
+      - "hypothesis_update"
