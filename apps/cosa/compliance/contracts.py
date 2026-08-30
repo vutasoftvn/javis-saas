@@ -19,6 +19,9 @@ class ComplianceSnapshot(BaseModel):
     data_profile_version: str
     snapshot_hash: str
     expires_at: datetime
+    policy_snapshot_hash: str = ""
+    evidence_hashes: list[str] = Field(default_factory=list)
+    rule_version_ids: list[str] = Field(default_factory=list)
 
 
 class AiComplianceUnavailable(Exception):

@@ -11,6 +11,7 @@ from agent.governance.contracts import ExecutionMode
 from agent.ids import uuid7  # LeafId UUIDv7 cho run_id (M2 §3)
 
 __all__ = [
+    "ComplianceDecisionPayload",
     "IdempotencyClaimRecord",
     "RunApprovalRecord",
     "RunCheckpointRecord",
@@ -18,6 +19,30 @@ __all__ = [
     "RunRecord",
     "RunToolCallRecord",
 ]
+
+
+class ComplianceDecisionPayload(BaseModel):
+    """Bản ghi structured compliance audit event (Task 9)."""
+
+    run_id: str
+    workspace_id: str
+    deployment_id: str
+    snapshot_hash: str
+    policy_snapshot_hash: str
+    capability_id: str
+    tool_call_id: str
+    checkpoint_ref: str
+    decision: str
+    reason_code: str | None = None
+    rule_version_ids: list[str] = Field(default_factory=list)
+    evidence_hashes: list[str] = Field(default_factory=list)
+    provider_model_ref: str | None = None
+    delegation_jti: str | None = None
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+
+    class Config:
+        frozen = True
+
 
 
 class RunRecord(BaseModel):

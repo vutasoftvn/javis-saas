@@ -128,6 +128,9 @@ class AiComplianceClient:
                 data_profile_version=str(data["dataProfileVersion"]),
                 snapshot_hash=str(data["snapshotHash"]),
                 expires_at=expires_at,
+                policy_snapshot_hash=str(data.get("policySnapshotHash") or ""),
+                evidence_hashes=list(data.get("evidenceHashes") or []),
+                rule_version_ids=list(data.get("legalVersionIds") or []),
             )
         except AiComplianceUnavailable:
             raise

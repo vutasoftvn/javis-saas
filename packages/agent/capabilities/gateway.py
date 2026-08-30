@@ -36,7 +36,12 @@ from agent.governance.contracts import (
 from agent.governance.floor import capability_floor, conjoin
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.governance.store import GovernanceStateStore
-from agent.runs.models import RunApprovalRecord, RunEventRecord, RunToolCallRecord
+from agent.runs.models import (
+    ComplianceDecisionPayload,
+    RunApprovalRecord,
+    RunEventRecord,
+    RunToolCallRecord,
+)
 from agent.runs.repository import InMemoryRunRepository, RunRepository
 
 __all__ = ["CapabilityGateway", "GatewayExecutionRequest", "GatewayExecutionResult"]
@@ -367,6 +372,139 @@ class CapabilityGateway:
                 payload={"tool_call_id": req.tool_call_id, "decision": decision_str},
             )
         )
+
+        # Compliance audit decision event (Task 9)
+        ctx_meta = (
+            req.context.metadata
+            if isinstance(req.context, InvocationContext)
+            else (req.context if isinstance(req.context, dict) else {})
+        )
+        snap = ctx_meta.get("compliance_snapshot")
+        if snap:
+            snap_status = (
+                snap.get("status")
+                if isinstance(snap, dict)
+                else getattr(snap, "status", None)
+            )
+            # Step 3: On resume/re-execution, historical snapshot supports explanation/replay only.
+            # If deployment has been suspended or is not APPROVED_FOR_USE, deny execution!
+            if snap_status and snap_status != "APPROVED_FOR_USE":
+                tc_record.status = "denied"
+                await self._repo.save_tool_call(tc_record)
+                await self._idempotency.fail(
+                    idem_claim.claim_id, error_message="Deployment suspended or not approved"
+                )
+                await self._repo.append_event(
+                    RunEventRecord(
+                        run_id=req.run_id,
+                        event_type="compliance.decision",
+                        payload=ComplianceDecisionPayload(
+                            run_id=req.run_id,
+                            workspace_id=str(resolved_workspace or ""),
+                            deployment_id=str(
+                                snap.get("deployment_id")
+                                if isinstance(snap, dict)
+                                else getattr(snap, "deployment_id", "")
+                            ),
+                            snapshot_hash=str(
+                                snap.get("snapshot_hash")
+                                if isinstance(snap, dict)
+                                else getattr(snap, "snapshot_hash", "")
+                            ),
+                            policy_snapshot_hash=str(
+                                snap.get("policy_snapshot_hash")
+                                if isinstance(snap, dict)
+                                else getattr(snap, "policy_snapshot_hash", "")
+                            ),
+                            capability_id=req.capability_id,
+                            tool_call_id=req.tool_call_id,
+                            checkpoint_ref=req.checkpoint_ref or "",
+                            decision="DENY",
+                            reason_code="DEPLOYMENT_SUSPENDED",
+                            rule_version_ids=list(
+                                snap.get("rule_version_ids")
+                                if isinstance(snap, dict)
+                                else getattr(snap, "rule_version_ids", [])
+                            ),
+                            evidence_hashes=list(
+                                snap.get("evidence_hashes")
+                                if isinstance(snap, dict)
+                                else getattr(snap, "evidence_hashes", [])
+                            ),
+                            provider_model_ref=str(
+                                snap.get("provider_profile_version")
+                                if isinstance(snap, dict)
+                                else getattr(snap, "provider_profile_version", "")
+                            ) or None,
+                            delegation_jti=str(
+                                ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti") or ""
+                            ) or None,
+                        ).model_dump(),
+                    )
+                )
+                return GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message="Execution denied: AI deployment is suspended or not approved",
+                )
+
+            # Normal compliance decision record
+            snapshot_hash = str(
+                snap.get("snapshot_hash")
+                if isinstance(snap, dict)
+                else getattr(snap, "snapshot_hash", "")
+            )
+            policy_snapshot_hash = str(
+                snap.get("policy_snapshot_hash")
+                if isinstance(snap, dict)
+                else getattr(snap, "policy_snapshot_hash", "")
+            )
+            deployment_id = str(
+                snap.get("deployment_id")
+                if isinstance(snap, dict)
+                else getattr(snap, "deployment_id", "")
+            )
+            evidence_hashes = list(
+                snap.get("evidence_hashes")
+                if isinstance(snap, dict)
+                else getattr(snap, "evidence_hashes", [])
+            )
+            rule_version_ids = list(
+                snap.get("rule_version_ids")
+                if isinstance(snap, dict)
+                else getattr(snap, "rule_version_ids", [])
+            )
+            provider_model_ref = (
+                snap.get("provider_profile_version")
+                if isinstance(snap, dict)
+                else getattr(snap, "provider_profile_version", None)
+            )
+            delegation_jti = (
+                ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti")
+            )
+
+            await self._repo.append_event(
+                RunEventRecord(
+                    run_id=req.run_id,
+                    event_type="compliance.decision",
+                    payload=ComplianceDecisionPayload(
+                        run_id=req.run_id,
+                        workspace_id=str(resolved_workspace or ""),
+                        deployment_id=deployment_id,
+                        snapshot_hash=snapshot_hash,
+                        policy_snapshot_hash=policy_snapshot_hash,
+                        capability_id=req.capability_id,
+                        tool_call_id=req.tool_call_id,
+                        checkpoint_ref=req.checkpoint_ref or "",
+                        decision=decision_str,
+                        reason_code=getattr(current_decision, "reason_code", None),
+                        rule_version_ids=rule_version_ids,
+                        evidence_hashes=evidence_hashes,
+                        provider_model_ref=str(provider_model_ref) if provider_model_ref else None,
+                        delegation_jti=str(delegation_jti) if delegation_jti else None,
+                    ).model_dump(),
+                )
+            )
 
         # Bước 7: Accumulate Governance (Monotonic Governance Accumulator) — durable,
         # load lại từ governance_store thay vì dict in-memory (đúng invariant monotonic

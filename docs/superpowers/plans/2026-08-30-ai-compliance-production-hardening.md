@@ -561,7 +561,7 @@ git commit -m "fix: align AI compliance center with Company API contract"
 - Decision event contains run_id, workspace_id, deployment_id, snapshot_hash, policy_snapshot_hash, capability_id, tool_call_id, checkpoint_ref, decision, reason_code, rule_version_ids, evidence_hashes, provider_model_ref, delegation_jti and timestamp.
 - It never contains Authorization, company_delegation, prompt, completion, raw subject reference, document content or unredacted model payload.
 
-- [ ] **Step 1: Write audit completeness and secrecy tests**
+- [x] **Step 1: Write audit completeness and secrecy tests**
 
 ~~~
 assert event.payload["snapshot_hash"] == approved_snapshot.snapshot_hash
@@ -570,20 +570,20 @@ assert "Bearer " not in json.dumps(event.model_dump())
 assert "customer@example.com" not in json.dumps(event.model_dump())
 ~~~
 
-- [ ] **Step 2: Add dedicated compliance decision payload**
+- [x] **Step 2: Add dedicated compliance decision payload**
 
 Extend existing run/tool event payloads and CapabilityGateway structured event creation; do not create a second event store. Logging uses allowlist serialization so unknown metadata keys, including delegation tokens, are excluded by default.
 
-- [ ] **Step 3: Preserve correct resume behavior**
+- [x] **Step 3: Preserve correct resume behavior**
 
 On resume, load persisted snapshot reference and re-resolve current suspension/emergency state. Historical snapshot supports explanation/replay only; it never overrides a present suspension, expired input or changed mandatory rule.
 
-- [ ] **Step 4: Run audit and gateway tests**
+- [x] **Step 4: Run audit and gateway tests**
 
 Run: pytest tests/agent/capabilities/test_gateway_compliance_audit.py tests/agent/capabilities/test_gateway.py tests/apps/cosa/compliance/test_log_redaction_contract.py -q
 Expected: PASS; audit reconstruction works from IDs/hashes and logs/events retain no sensitive payload or secret.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ~~~
 git add packages/agent apps/cosa/observability services/company/finance-legal tests/agent tests/apps/cosa
