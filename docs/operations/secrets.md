@@ -11,6 +11,12 @@
 | Staging / Production (Python + infra: `cosa-api`, `cosa-worker`, `cosa-ingestion-worker`, `postgres`, `minio`, Caddy) | **Coolify secrets / environment variables** (quyết định `ADR-DEPLOY-001`). Inject vào container lúc runtime, không nằm trong image, không commit. | `docker-compose.prod.yaml` dùng `${VAR:?required}` → thiếu biến = fail-closed khi `docker compose config`. |
 | Staging / Production (`services/cosa`, `services/company` — Encore/TS) | **Encore secret manager** (`encore secret set --type prod|staging <NAME>`). KHÔNG qua `.env`. | Encore tự quản DB connection string; secret nghiệp vụ khai qua `secret()` trong code. |
 
+Với topology `deploy/central_vps/docker-compose.prod.yaml`, `services-company` chạy
+trong container nên `COSA_COMPANY_DELEGATION_SECRET` được Coolify inject vào
+container cùng `cosa-api` và `cosa-worker`. Một deployment `services/company`
+được quản lý trực tiếp bởi Encore (không qua Compose này) dùng Encore secret
+manager theo bảng trên.
+
 Không dùng SOPS/Vault ở giai đoạn này — nếu chuyển sang, ghi ADR mới và cập nhật bảng trên.
 
 ## 2. Danh mục secret (xác nhận qua code)
@@ -19,7 +25,7 @@ Không dùng SOPS/Vault ở giai đoạn này — nếu chuyển sang, ghi ADR m
 |---|---|---|---|---|
 | `AGENT_DATABASE_URL` | `packages/agent` mọi repository factory; `apps/cosa` composition root | Coolify secret | Bắt buộc — thiếu → `RuntimeError` khi khởi động (`build_cosa_agent_plane`, no-silent-fallback) | Khi đổi mật khẩu Postgres app role |
 | `PLATFORM_JWT_SECRET` | `apps/cosa/auth/jwt.py::_get_jwt_secret()` (verify + mint delegation token); `services/cosa` `token.service.ts::signPlatformToken()` — **phải đối xứng 2 phía** | Coolify secret **và** Encore secret (cùng giá trị) | Bắt buộc — guard từ chối ở staging/prod nếu thiếu / `< 32` ký tự / bằng dev default | **Rotate trước go-live.** Làm mất hiệu lực mọi session đang mở → cửa sổ bảo trì |
-| `COSA_COMPANY_DELEGATION_SECRET` | JWT delegation COSA → Company: `apps/cosa/auth/jwt.py::_get_company_delegation_secret` và `services/company/shared/auth/cosa-delegation.service.ts::getDelegationSecret` | Coolify secret (cùng giá trị cho `services-company`, `cosa-api`, `cosa-worker`) | Bắt buộc cho cả ba consumer; không dùng chung với platform/session/service token | Rotate theo thứ tự deploy cả ba consumer |
+| `COSA_COMPANY_DELEGATION_SECRET` | JWT delegation COSA → Company: `apps/cosa/auth/jwt.py::_get_company_delegation_secret` và `services/company/shared/auth/cosa-delegation.service.ts::getDelegationSecret` | Coolify secret cho topology Compose (cùng giá trị cho `services-company`, `cosa-api`, `cosa-worker`); Encore secret manager nếu `services/company` được deploy trực tiếp bởi Encore | Bắt buộc cho cả ba consumer; không dùng chung với platform/session/service token | Rotate theo thứ tự deploy cả ba consumer |
 | `WORKER_SERVICE_JWT_SECRET` | Auth giữa `cosa-worker` ↔ control plane; `scripts/mint-worker-service-token.mjs` | Coolify secret | Bắt buộc cho worker auth | **Rotate trước go-live**, đồng bộ mint lại worker token |
 | `DEEPSEEK_API_KEY` | Model provider chính qua LiteLLM (`apps/cosa/composition/model_provider.py::build_deepseek_model`, `ADR-RUNTIME-002`) | Coolify secret | Bắt buộc cho runtime `openai_agents` production (fail-fast nếu thiếu) | **Rotate trước go-live** + định kỳ 90 ngày |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (hoặc S3 tương đương) | Artifact store, backup target (`scripts/backup/pg-backup.sh`) | Coolify secret | Bắt buộc nếu bật artifact/backup | **Rotate trước go-live** (dev default `minioadmin/minioadmin`) |
@@ -40,7 +46,7 @@ Nguyên tắc: **expand → cutover → contract** cho secret có consumer nhi�
 
 ### 3.2 `COSA_COMPANY_DELEGATION_SECRET` (3 consumer: `services-company` + `cosa-api` + `cosa-worker`)
 1. Sinh giá trị mới riêng cho delegation: `openssl rand -base64 48`. Không tái sử dụng `PLATFORM_JWT_SECRET`, `WORKER_SERVICE_JWT_SECRET`, `COSA_LOCAL_SERVICE_SECRET` hoặc các service token.
-2. Set cùng một giá trị trong Coolify cho `COSA_COMPANY_DELEGATION_SECRET` của cả `services-company`, `cosa-api` và `cosa-worker`.
+2. Với topology `deploy/central_vps/docker-compose.prod.yaml`, set cùng một giá trị trong Coolify cho `COSA_COMPANY_DELEGATION_SECRET` của cả `services-company`, `cosa-api` và `cosa-worker`. Nếu dùng deployment `services/company` được Encore quản lý trực tiếp, set cùng giá trị qua Encore secret manager cho deployment đó.
 3. Redeploy cả ba consumer trong cùng một cửa sổ thay đổi; không chỉ restart một service.
 4. Verify trên staging: `cosa-api` phát hành delegation JWT và `services-company` xác minh thành công; worker thực hiện luồng delegation thành công.
 5. Sau khi staging và production traffic ổn định, thu hồi giá trị cũ và xác nhận delegation token ký bằng giá trị cũ bị từ chối.
