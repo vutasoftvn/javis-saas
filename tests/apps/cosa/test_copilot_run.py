@@ -126,11 +126,14 @@ async def test_copilot_guard_fails_when_spec_has_write_capability(mock_plane, mo
 
 
 @pytest.mark.asyncio
-async def test_copilot_fails_closed_when_registered_spec_lacks_input_scope(
+async def test_copilot_fails_closed_when_registered_spec_content_is_invalid(
     mock_plane, mock_stream_mgr
 ):
+    """Simulates registry corruption/drift via a field with no default (`id`) so
+    this stays a genuine invalid-content test regardless of which other fields
+    later become optional — see the autopilot-copilot-initial-input-unblock plan."""
     stale_content = COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_dump(
-        mode="json", exclude={"model_input_capability_ref"}
+        mode="json", exclude={"id"}
     )
     mock_plane.spec_registry.get = AsyncMock(
         return_value=SimpleNamespace(content=stale_content)

@@ -44,13 +44,16 @@ class MockPlane:
 
 
 @pytest.mark.asyncio
-async def test_autopilot_fails_closed_when_registered_spec_lacks_input_scope():
+async def test_autopilot_fails_closed_when_registered_spec_content_is_invalid():
+    """Simulates registry corruption/drift via a field with no default (`id`) so
+    this stays a genuine invalid-content test regardless of which other fields
+    later become optional — see the autopilot-copilot-initial-input-unblock plan."""
     plane = MockPlane()
     plane.spec_registry = MagicMock()
     plane.spec_registry.get = AsyncMock(
         return_value=SimpleNamespace(
             content=COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC.model_dump(
-                mode="json", exclude={"model_input_capability_ref"}
+                mode="json", exclude={"id"}
             )
         )
     )
