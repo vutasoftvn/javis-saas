@@ -106,6 +106,9 @@ make schema-fingerprint-check
 *Nếu `schema-fingerprint-check` thất bại $\rightarrow$ DỪNG NGAY LẬP TỨC và chuyển sang mục 6 (Rollback).*
 
 ### Bước 4: Deploy Application Containers (Version N)
+
+**Lưu ý AgentSpec registry (từ AI Production Safety Closure, 2026-08-30):** `cosa-api`/`cosa-worker` tự động re-seed AgentSpec registry (`seed_cosa_agent_specs`) khi khởi động — không cần lệnh seed thủ công riêng. Nhưng vì mọi copilot/autopilot run và mọi resume run giờ fail-closed (`PINNED_AGENT_SPEC_NOT_FOUND`/`PINNED_AGENT_SPEC_INVALID`) nếu registry chưa có đúng version pin trong code đang chạy, **`cosa-api` và `cosa-worker` phải deploy cùng lúc** (không rolling một cái trước một cái sau) — nếu `cosa-api` lên version mới trước và mint run pin theo version mới trong khi `cosa-worker` cũ chưa restart/seed version đó, worker sẽ fail-closed toàn bộ run cho tới khi nó cũng được redeploy.
+
 Triển khai các container phiên bản mới và kiểm tra health check:
 ```bash
 # 1. Triển khai container app mới
