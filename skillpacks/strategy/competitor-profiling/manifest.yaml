@@ -32,6 +32,31 @@ runtime:
   tools:
     - web.search
 
+applicability:
+  project_stages:
+    - P1_PROBLEM_VALIDATION
+  gates:
+    - G1
+  required_context:
+    - workspace
+    - project
+  outputs:
+    - artifact
+
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+
+quality:
+  eval_suite: evals/strategy/competitor-profiling.yaml
+  required_negative_cases:
+    - missing-workspace
+    - cross-workspace
+
 permissions:
   required:
     - READ_LOCAL

@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: discovery.assumption-mapping
+  name: Venture Assumption Mapping & Classification
+  version: 1.0.0
+  description: 'Phân loại các giả định dự án theo 4 trục: Khả năng mong muốn (Desirability),
+    Tính khả thi (Feasibility), Khả năng sống sót (Viability), Tính trách nhiệm (Responsibility).'
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/discovery/assumption-mapping
+capability:
+  domain: discovery
+  category: discovery
+  intents:
+  - venture assumption mapping & classification
+  - discovery.assumption-mapping
+applicability:
+  project_stages:
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/discovery/assumption-mapping.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

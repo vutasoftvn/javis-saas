@@ -1,0 +1,54 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: ai.data-rights-review
+  name: AI Data Rights & Intellectual Property Audit
+  version: 1.0.0
+  description: Rà soát quyền sử dụng dữ liệu huấn luyện, bản quyền sở hữu trí tuệ
+    và điều khoản cấp phép dữ liệu AI.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/ai/data-rights-review
+capability:
+  domain: ai
+  category: ai
+  intents:
+  - ai data rights & intellectual property audit
+  - ai.data-rights-review
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G0
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/ai/data-rights-review.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

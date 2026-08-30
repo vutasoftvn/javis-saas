@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: product.core-workflow-map
+  name: Core User Workflow & Experience Journey
+  version: 1.0.0
+  description: Vẽ luồng trải nghiệm người dùng cốt lõi (happy path) và các điểm ma
+    sát tiềm ẩn của giải pháp.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/product/core-workflow-map
+capability:
+  domain: product
+  category: product
+  intents:
+  - core user workflow & experience journey
+  - product.core-workflow-map
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/product/core-workflow-map.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

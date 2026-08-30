@@ -33,6 +33,33 @@ runtime:
   tools:
     - strategy.experiment.create
 
+applicability:
+  project_stages:
+    - P2_SOLUTION_VALIDATION
+    - P3_BUILD_VALIDATE
+  gates:
+    - G2
+    - G3
+  required_context:
+    - workspace
+    - project
+  outputs:
+    - artifact
+
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+
+quality:
+  eval_suite: evals/strategy/experiment-design.yaml
+  required_negative_cases:
+    - missing-workspace
+    - cross-workspace
+
 permissions:
   required:
     - READ_LOCAL

@@ -1,0 +1,65 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: governance.policy-resolution
+  name: Stage Policy Resolution Engine
+  version: 1.0.0
+  description: Tra cứu và giải quyết các điều kiện tiên quyết của chính sách cổng
+    kiểm soát cho từng dự án.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/governance/policy-resolution
+capability:
+  domain: governance
+  category: governance
+  intents:
+  - stage policy resolution engine
+  - governance.policy-resolution
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/governance/policy-resolution.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - strategy.project.get
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

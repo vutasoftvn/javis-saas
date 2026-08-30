@@ -1,0 +1,54 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.channel-strategy
+  name: Early Customer Acquisition Channel Strategy
+  version: 1.0.0
+  description: Định hình chiến lược kênh tiếp cận khách hàng giai đoạn đầu (Outbound,
+    Content, Community, Partnerships).
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/channel-strategy
+capability:
+  domain: marketing
+  category: marketing
+  intents:
+  - early customer acquisition channel strategy
+  - marketing.channel-strategy
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G0
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/channel-strategy.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

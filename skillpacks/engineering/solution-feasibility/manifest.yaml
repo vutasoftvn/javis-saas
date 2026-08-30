@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: engineering.solution-feasibility
+  name: Technical Feasibility & Architecture Spike
+  version: 1.0.0
+  description: Đánh giá tính khả thi kỹ thuật, rủi ro tích hợp kiến trúc và phân tích
+    Build vs Buy vs Partner.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/engineering/solution-feasibility
+capability:
+  domain: engineering
+  category: engineering
+  intents:
+  - technical feasibility & architecture spike
+  - engineering.solution-feasibility
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/engineering/solution-feasibility.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

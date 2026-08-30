@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: discovery.interview-script
+  name: Customer Discovery Interview Script Generator
+  version: 1.0.0
+  description: Tạo kịch bản phỏng vấn khách hàng không thiên kiến tuân thủ The Mom
+    Test và JTBD.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/discovery/interview-script
+capability:
+  domain: discovery
+  category: discovery
+  intents:
+  - customer discovery interview script generator
+  - discovery.interview-script
+applicability:
+  project_stages:
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/discovery/interview-script.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

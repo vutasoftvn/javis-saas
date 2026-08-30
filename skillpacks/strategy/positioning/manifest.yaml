@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: strategy.positioning
+  name: Strategic Solution Positioning & Messaging
+  version: 1.0.0
+  description: Xác lập định vị giải pháp chiến lược và thông điệp cạnh tranh cốt lõi
+    cho giai đoạn P2.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/strategy/positioning
+capability:
+  domain: strategy
+  category: strategy
+  intents:
+  - strategic solution positioning & messaging
+  - strategy.positioning
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/positioning.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

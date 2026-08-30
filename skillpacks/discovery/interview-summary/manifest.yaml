@@ -1,0 +1,53 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: discovery.interview-summary
+  name: Discovery Interview Evidence Summarizer
+  version: 1.0.0
+  description: Tổng hợp transcript phỏng vấn thành các trích dẫn nguyên văn và bằng
+    chứng candidate phục vụ kiểm chứng vấn đề.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/discovery/interview-summary
+capability:
+  domain: discovery
+  category: discovery
+  intents:
+  - discovery interview evidence summarizer
+  - discovery.interview-summary
+applicability:
+  project_stages:
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/discovery/interview-summary.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - strategy.evidence.create
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

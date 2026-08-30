@@ -1,0 +1,54 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: analytics.instrumentation-plan
+  name: Product Analytics Instrumentation Plan
+  version: 1.0.0
+  description: Kế hoạch cài đặt đo lường telemetry, taxonomy sự kiện, ánh xạ danh
+    tính và kiểm tra chất lượng dữ liệu.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/analytics/instrumentation-plan
+capability:
+  domain: analytics
+  category: analytics
+  intents:
+  - product analytics instrumentation plan
+  - analytics.instrumentation-plan
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  gates:
+  - G2
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/analytics/instrumentation-plan.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

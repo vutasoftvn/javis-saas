@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: product.mvp-experiment-selection
+  name: Low-Cost Experiment Selection Guide
+  version: 1.0.0
+  description: Lựa chọn loại hình thực nghiệm kiểm chứng giải pháp chi phí thấp nhất
+    (Concierge, Wizard of Oz, Smoke Test, Prototype).
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/product/mvp-experiment-selection
+capability:
+  domain: product
+  category: product
+  intents:
+  - low-cost experiment selection guide
+  - product.mvp-experiment-selection
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/product/mvp-experiment-selection.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

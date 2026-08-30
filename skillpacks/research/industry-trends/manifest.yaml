@@ -1,0 +1,53 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: research.industry-trends
+  name: Industry Trends & Market Signals Scan
+  version: 1.0.0
+  description: Khảo sát xu hướng ngành, báo cáo thị trường và các tín hiệu công nghệ
+    mới hỗ trợ luận điểm khám phá.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/research/industry-trends
+capability:
+  domain: research
+  category: research
+  intents:
+  - industry trends & market signals scan
+  - research.industry-trends
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  gates:
+  - G0
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/research/industry-trends.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - web.search
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

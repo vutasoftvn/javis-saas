@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: product.opportunity-solution-tree
+  name: Opportunity Solution Tree Mapping
+  version: 1.0.0
+  description: Xây dựng cây cơ hội - giải pháp (Teresa Torres) nối từ mục tiêu mong
+    muốn đến các giải pháp và thực nghiệm kiểm chứng.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/product/opportunity-solution-tree
+capability:
+  domain: product
+  category: product
+  intents:
+  - opportunity solution tree mapping
+  - product.opportunity-solution-tree
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/product/opportunity-solution-tree.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

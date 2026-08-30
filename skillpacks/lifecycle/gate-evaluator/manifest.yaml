@@ -1,0 +1,66 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: lifecycle.gate-evaluator
+  name: Stage Gate Readiness Evaluator
+  version: 1.0.0
+  description: Đánh giá mức độ sẵn sàng vượt gate dựa trên bằng chứng đã được duyệt
+    (approved evidence) — chỉ mang tính khuyến nghị (recommendation-only).
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/lifecycle/gate-evaluator
+capability:
+  domain: lifecycle
+  category: lifecycle
+  intents:
+  - stage gate readiness evaluator
+  - lifecycle.gate-evaluator
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/lifecycle/gate-evaluator.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - strategy.gate_evaluation.create
+  - strategy.evidence.list
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

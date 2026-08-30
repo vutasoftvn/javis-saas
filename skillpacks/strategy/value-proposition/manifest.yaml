@@ -1,0 +1,53 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: strategy.value-proposition
+  name: Value Proposition Canvas & Solution Fit
+  version: 1.0.0
+  description: Khớp nối giải pháp sản phẩm với các nỗi đau và lợi ích đã được kiểm
+    chứng của khách hàng.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/strategy/value-proposition
+capability:
+  domain: strategy
+  category: strategy
+  intents:
+  - value proposition canvas & solution fit
+  - strategy.value-proposition
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/value-proposition.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - strategy.evidence.list
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

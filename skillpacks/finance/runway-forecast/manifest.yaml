@@ -1,0 +1,54 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: finance.runway-forecast
+  name: Runway Forecast & Cash Flow Projection
+  version: 1.0.0
+  description: Dự báo thời gian tồn tại của dòng tiền (runway), tỷ lệ đốt tiền (burn
+    rate) và các kịch bản tài chính cho dự án.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/finance/runway-forecast
+capability:
+  domain: finance
+  category: finance
+  intents:
+  - runway forecast & cash flow projection
+  - finance.runway-forecast
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G0
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/finance/runway-forecast.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

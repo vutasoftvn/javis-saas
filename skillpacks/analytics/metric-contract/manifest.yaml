@@ -1,0 +1,64 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: analytics.metric-contract
+  name: Metric Contract & KPI Definition
+  version: 1.0.0
+  description: Định nghĩa hợp đồng chỉ số (metric contract), công thức tính toán và
+    nguồn dữ liệu tin cậy cho dự án.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/analytics/metric-contract
+capability:
+  domain: analytics
+  category: analytics
+  intents:
+  - metric contract & kpi definition
+  - analytics.metric-contract
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/analytics/metric-contract.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

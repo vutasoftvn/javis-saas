@@ -1,0 +1,65 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: evidence.artifact-review
+  name: Artifact Quality & Evidence Review
+  version: 1.0.0
+  description: Đánh giá chất lượng và độ xác thực của các artifact dự án trước khi
+    đệ trình duyệt làm bằng chứng chính thức.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/evidence/artifact-review
+capability:
+  domain: evidence
+  category: evidence
+  intents:
+  - artifact quality & evidence review
+  - evidence.artifact-review
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/evidence/artifact-review.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - strategy.evidence.list
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

@@ -1,0 +1,53 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: strategy.icp-definition
+  name: Ideal Customer Profile & Problem Fit
+  version: 1.0.0
+  description: Xác lập chân dung khách hàng lý tưởng (ICP) chi tiết dựa trên các bằng
+    chứng phỏng vấn và dữ liệu khách hàng.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/strategy/icp-definition
+capability:
+  domain: strategy
+  category: strategy
+  intents:
+  - ideal customer profile & problem fit
+  - strategy.icp-definition
+applicability:
+  project_stages:
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/icp-definition.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - strategy.evidence.list
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

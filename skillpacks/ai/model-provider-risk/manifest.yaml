@@ -1,0 +1,54 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: ai.model-provider-risk
+  name: Foundation Model Provider Risk & Dependency Review
+  version: 1.0.0
+  description: Đánh giá rủi ro phụ thuộc vào nhà cung cấp mô hình nền tảng, độ trễ,
+    chi phí token và tính sẵn sàng chuyển đổi.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/ai/model-provider-risk
+capability:
+  domain: ai
+  category: ai
+  intents:
+  - foundation model provider risk & dependency review
+  - ai.model-provider-risk
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G0
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/ai/model-provider-risk.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

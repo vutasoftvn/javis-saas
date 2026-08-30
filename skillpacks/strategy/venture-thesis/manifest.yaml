@@ -1,0 +1,53 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: strategy.venture-thesis
+  name: Venture Thesis & Problem Discovery Formulation
+  version: 1.0.0
+  description: Soạn thảo và chuẩn hóa luận điểm khởi nghiệp (venture thesis), định
+    vị cơ hội thị trường và tiền đề cốt lõi.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/strategy/venture-thesis
+capability:
+  domain: strategy
+  category: strategy
+  intents:
+  - venture thesis & problem discovery formulation
+  - strategy.venture-thesis
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  gates:
+  - G0
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/venture-thesis.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - strategy.project.get
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

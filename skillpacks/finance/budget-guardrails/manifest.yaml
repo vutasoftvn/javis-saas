@@ -1,0 +1,54 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: finance.budget-guardrails
+  name: Budget Guardrails & Spending Policy
+  version: 1.0.0
+  description: Thiết lập hàng rào ngân sách kiểm soát chi phí thực nghiệm và chi tiêu
+    giai đoạn sớm.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/finance/budget-guardrails
+capability:
+  domain: finance
+  category: finance
+  intents:
+  - budget guardrails & spending policy
+  - finance.budget-guardrails
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  gates:
+  - G0
+  - G1
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/finance/budget-guardrails.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

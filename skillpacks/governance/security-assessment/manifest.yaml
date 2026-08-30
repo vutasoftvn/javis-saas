@@ -1,0 +1,64 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: governance.security-assessment
+  name: Security Posture & Vulnerability Review
+  version: 1.0.0
+  description: Đánh giá mức độ an toàn thông tin, rủi ro cấu hình, ủy quyền phân quyền
+    RBAC và ranh giới multi-tenant.
+publisher:
+  name: javis
+  type: official
+source:
+  type: local
+  path: skillpacks/governance/security-assessment
+capability:
+  domain: governance
+  category: governance
+  intents:
+  - security posture & vulnerability review
+  - governance.security-assessment
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/governance/security-assessment.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
