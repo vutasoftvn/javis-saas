@@ -218,6 +218,7 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
       claim: "8 out of 10 founders validate extreme demand for deterministic next-action system",
       sampleSize: 10,
       supportsOrRefutes: "supports",
+      status: "approved",
     });
     expect(evidenceItem.id).toBeDefined();
     expect(evidenceItem.strength).toBe(0.85);

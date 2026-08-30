@@ -75,11 +75,11 @@ export const runGateEvaluation = api(
 
     if (!policyRow) throw APIError.notFound("Stage policy not found");
 
-    // 2. Fetch project evidence from workspace
+    // 2. Fetch approved project evidence from workspace (candidate evidence is ignored by gates until approved)
     const evidenceRows = await db
       .select()
       .from(evidence)
-      .where(and(eq(evidence.projectId, BigInt(params.projectId)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)));
+      .where(and(eq(evidence.projectId, BigInt(params.projectId)), eq(evidence.workspaceId, wsId), eq(evidence.status, "approved"), isNull(evidence.deletedAt)));
 
     // 3. Evaluate deterministically without LLM - recommendation only
     const evaluation = evaluateGate({

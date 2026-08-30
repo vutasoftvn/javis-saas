@@ -1,12 +1,11 @@
 import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
-import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { EVIDENCE_RECORDED } from "../../../shared/events";
 import { scoreEvidence, EvidenceSourceType } from "../services/evidence-scoring.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
+import { assertLifecyclePrivileged, isLifecyclePrivileged } from "../services/lifecycle-authorization.service";
 
 const { evidence } = schema;
 
@@ -20,6 +19,10 @@ export interface Evidence {
   strength: number;
   confidence: number;
   supportsOrRefutes: string;
+  status: string;
+  reviewComment?: string | null;
+  reviewedByMemberId?: string | null;
+  reviewedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +38,7 @@ export interface RecordEvidenceParams {
   rawConfidence?: number;
   sampleSize?: number;
   supportsOrRefutes?: "supports" | "refutes" | "neutral";
+  status?: "candidate" | "approved";
 }
 
 export interface ListEvidenceParams {
@@ -42,6 +46,7 @@ export interface ListEvidenceParams {
   workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
   experimentId?: string | number;
+  status?: string;
 }
 
 export interface UpdateEvidenceParams {
@@ -65,6 +70,10 @@ function toEvidence(row: typeof evidence.$inferSelect): Evidence {
     strength: row.strength,
     confidence: row.confidence,
     supportsOrRefutes: row.supportsOrRefutes,
+    status: row.status,
+    reviewComment: row.reviewComment ?? null,
+    reviewedByMemberId: row.reviewedByMemberId ? row.reviewedByMemberId.toString() : null,
+    reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -81,6 +90,16 @@ export const recordEvidence = api(
 
     // Xác nhận project thuộc workspace này
     await getProjectInWorkspace(params.projectId, ctx);
+
+    let initialStatus = params.status ?? "candidate";
+    let reviewedByMemberId: bigint | null = null;
+    let reviewedAt: Date | null = null;
+
+    if (initialStatus === "approved") {
+      assertLifecyclePrivileged(ctx.membershipRole, "recordApprovedEvidence");
+      reviewedByMemberId = ctx.userId ? BigInt(ctx.userId) : null;
+      reviewedAt = new Date();
+    }
 
     // Auto-score evidence deterministically based on source type and sample size
     const scored = scoreEvidence({
@@ -103,6 +122,9 @@ export const recordEvidence = api(
         strength: scored.strength,
         confidence: scored.confidence,
         supportsOrRefutes: params.supportsOrRefutes ?? "supports",
+        status: initialStatus,
+        reviewedByMemberId,
+        reviewedAt,
       })
       .returning();
 
@@ -142,6 +164,9 @@ export const listEvidence = api(
     }
     if (params.experimentId) {
       conditions.push(eq(evidence.experimentId, BigInt(params.experimentId)));
+    }
+    if (params.status) {
+      conditions.push(eq(evidence.status, params.status));
     }
 
     const rows = await db
