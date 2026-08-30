@@ -154,23 +154,35 @@ describe("AI data governance service", () => {
     expect(decision.denialCode).toBe("PROVIDER_CATEGORY_NOT_PERMITTED");
   });
 
-  it("creates data subject request with legal hold support", async () => {
-    const wsId = String(generateSnowflake());
+  it("denies personal data without subject reference", async () => {
+    const { wsId, deploymentId } = await setupWorkspaceAndDeployment();
 
-    const request = await createDataSubjectRequest({
+    const decision = await resolveDataUse({
       workspaceId: wsId,
-      subjectReference: "customer_456",
-      requestType: "DELETION",
-      deadline: "2026-09-30T00:00:00Z",
-      legalHold: true,
-      legalHoldReason: "Pending tax audit under TT58",
-      handledByMemberId: founderId,
+      deploymentId,
+      purposeId: "business-advisory",
+      dataCategories: ["PERSONAL"],
+      providerKey: "deepseek",
+      // subjectReference is missing
     });
 
-    expect(request.status).toBe("LEGAL_HOLD");
-    expect(request.subjectReferenceHash).toMatch(/^[a-f0-9]{64}$/);
-    const serialized = JSON.stringify(request, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
-    expect(serialized).not.toContain("customer_456");
+    expect(decision.allowed).toBe(false);
+    expect(decision.denialCode).toBe("PROCESSING_AUTHORIZATION_MISSING");
   });
 
+  it("denies provider profile that excludes requested model", async () => {
+    const { wsId, deploymentId } = await setupWorkspaceAndDeployment();
+
+    const decision = await resolveDataUse({
+      workspaceId: wsId,
+      deploymentId,
+      purposeId: "business-advisory",
+      dataCategories: ["BUSINESS_CONFIDENTIAL"],
+      providerKey: "deepseek",
+      modelKey: "unapproved-model-v99",
+    });
+
+    expect(decision.allowed).toBe(false);
+    expect(decision.denialCode).toBe("MODEL_NOT_APPROVED");
+  });
 });

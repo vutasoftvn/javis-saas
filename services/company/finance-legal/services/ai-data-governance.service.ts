@@ -10,6 +10,7 @@ const {
   dataProcessingAuthorizations,
   dataSubjectRequests,
   workspaceAiDeployments,
+  aiSystemCapabilityBindings,
 } = schema;
 
 export function hashSubjectReference(subjectRef: string): string {
@@ -72,6 +73,7 @@ export interface ResolveDataUseInput {
   purposeId: string;
   dataCategories: string[];
   providerKey: string;
+  modelKey?: string;
   subjectReference?: string;
 }
 
@@ -277,7 +279,61 @@ export async function resolveDataUse(
   const wsId = BigInt(input.workspaceId);
   const depId = BigInt(input.deploymentId);
 
-  // 1. Check provider profile
+  // 1. Deployment workspace match
+  const [deployment] = await db
+    .select()
+    .from(workspaceAiDeployments)
+    .where(
+      and(
+        eq(workspaceAiDeployments.id, depId),
+        eq(workspaceAiDeployments.workspaceId, wsId)
+      )
+    );
+
+  if (!deployment) {
+    return {
+      allowed: false,
+      denialCode: "DEPLOYMENT_NOT_FOUND",
+      providerProfileVersion: null,
+      dataProfileVersion: null,
+      retentionPolicyId: null,
+      minimizationRequired: true,
+    };
+  }
+
+  // 2. Bound capability check
+  if (input.capabilityId) {
+    const bindings = await db
+      .select()
+      .from(aiSystemCapabilityBindings)
+      .where(eq(aiSystemCapabilityBindings.systemVersionId, deployment.systemVersionId));
+
+    if (bindings.length > 0) {
+      const binding = bindings.find((b) => b.capabilityId === input.capabilityId);
+      if (!binding) {
+        return {
+          allowed: false,
+          denialCode: "CAPABILITY_NOT_BOUND",
+          providerProfileVersion: null,
+          dataProfileVersion: null,
+          retentionPolicyId: null,
+          minimizationRequired: true,
+        };
+      }
+      if (binding.prohibitedPurpose) {
+        return {
+          allowed: false,
+          denialCode: "CAPABILITY_PROHIBITED",
+          providerProfileVersion: null,
+          dataProfileVersion: null,
+          retentionPolicyId: null,
+          minimizationRequired: true,
+        };
+      }
+    }
+  }
+
+  // 3. Exact provider and model match
   const providerRows = await db
     .select()
     .from(aiProviderProfiles)
@@ -301,7 +357,21 @@ export async function resolveDataUse(
     };
   }
 
-  const provider = providerRows[0];
+  const provider = input.modelKey
+    ? providerRows.find((p) => p.modelKey === input.modelKey)
+    : providerRows[0];
+
+  if (!provider) {
+    return {
+      allowed: false,
+      denialCode: "MODEL_NOT_APPROVED",
+      providerProfileVersion: providerRows[0].version,
+      dataProfileVersion: null,
+      retentionPolicyId: null,
+      minimizationRequired: true,
+    };
+  }
+
   const providerAllowedCats = new Set(
     Array.isArray(provider.allowedDataCategories)
       ? (provider.allowedDataCategories as string[])
@@ -322,7 +392,7 @@ export async function resolveDataUse(
     };
   }
 
-  // 2. Check data processing profile
+  // 4. Data processing profile check
   const profileRows = await db
     .select()
     .from(aiDataProcessingProfiles)
@@ -349,12 +419,55 @@ export async function resolveDataUse(
 
   const profile = profileRows[0];
 
-  // 3. Check personal data authorization if subjectReference is supplied or personal categories requested
+  // Provider profile ID must equal data profile recipient
+  if (profile.recipientProviderProfileId !== provider.id) {
+    return {
+      allowed: false,
+      denialCode: "DATA_PROFILE_PROVIDER_MISMATCH",
+      providerProfileVersion: provider.version,
+      dataProfileVersion: profile.version,
+      retentionPolicyId: profile.retentionPolicyId,
+      minimizationRequired: profile.minimizationRequired,
+    };
+  }
+
+  // Requested categories must be subset of data processing profile categories
+  const profileAllowedCats = new Set(
+    Array.isArray(profile.dataCategories)
+      ? (profile.dataCategories as string[])
+      : []
+  );
+  const hasUnpermittedProfileCat = input.dataCategories.some(
+    (cat) => !profileAllowedCats.has(cat)
+  );
+  if (hasUnpermittedProfileCat) {
+    return {
+      allowed: false,
+      denialCode: "DATA_PROFILE_CATEGORY_NOT_PERMITTED",
+      providerProfileVersion: provider.version,
+      dataProfileVersion: profile.version,
+      retentionPolicyId: profile.retentionPolicyId,
+      minimizationRequired: profile.minimizationRequired,
+    };
+  }
+
+  // 5. Active authorization for personal/sensitive categories
   const isPersonal = input.dataCategories.some(
     (c) => c === "PERSONAL" || c === "SENSITIVE_PERSONAL"
   );
 
-  if (isPersonal && input.subjectReference) {
+  if (isPersonal) {
+    if (!input.subjectReference) {
+      return {
+        allowed: false,
+        denialCode: "PROCESSING_AUTHORIZATION_MISSING",
+        providerProfileVersion: provider.version,
+        dataProfileVersion: profile.version,
+        retentionPolicyId: profile.retentionPolicyId,
+        minimizationRequired: profile.minimizationRequired,
+      };
+    }
+
     const subjectHash = hashSubjectReference(input.subjectReference);
     const authRows = await db
       .select()

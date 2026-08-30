@@ -141,3 +141,62 @@ class AiComplianceClient:
             )
 
         return snapshot
+
+    async def resolve_data_use(
+        self,
+        workspace_id: str,
+        deployment_id: str,
+        capability_id: str,
+        purpose_id: str,
+        data_categories: list[str] | set[str] | frozenset[str],
+        provider_key: str,
+        model_key: str = "",
+        subject_reference: str | None = None,
+        delegation_token: str | None = None,
+    ) -> Any:
+        url = f"{self._base_url}/finance-legal/ai-compliance/resolve-data-use"
+        headers = {
+            "X-Workspace-Id": str(workspace_id),
+            "Content-Type": "application/json",
+        }
+        if delegation_token:
+            headers["Authorization"] = f"Bearer {delegation_token}"
+
+        payload: dict[str, Any] = {
+            "deploymentId": str(deployment_id),
+            "capabilityId": capability_id,
+            "purposeId": purpose_id,
+            "dataCategories": list(data_categories),
+            "providerKey": provider_key,
+            "modelKey": model_key,
+        }
+        if subject_reference is not None:
+            payload["subjectReference"] = subject_reference
+
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post(url, headers=headers, json=payload)
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as err:
+            raise AiComplianceUnavailable("CONNECTION_ERROR", str(err)) from err
+        except Exception as err:
+            raise AiComplianceUnavailable("UNAVAILABLE", str(err)) from err
+
+        if response.status_code != 200:
+            raise AiComplianceUnavailable(f"HTTP_{response.status_code}", response.text)
+
+        try:
+            data = response.json()
+        except Exception as err:
+            raise AiComplianceUnavailable("INVALID_RESPONSE", str(err)) from err
+
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            allowed=data.get("allowed", False),
+            denial_code=data.get("denialCode"),
+            provider_profile_version=data.get("providerProfileVersion"),
+            data_profile_version=data.get("dataProfileVersion"),
+            retention_policy_id=data.get("retentionPolicyId"),
+            minimization_required=data.get("minimizationRequired", False),
+        )
+

@@ -71,6 +71,7 @@ export interface ResolveDataUseRequest {
   purposeId: string;
   dataCategories: string[];
   providerKey: string;
+  modelKey?: string;
   subjectReference?: string;
 }
 

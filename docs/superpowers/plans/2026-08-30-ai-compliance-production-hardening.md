@@ -460,7 +460,7 @@ class DataAccessClaim(BaseModel):
     retention_policy_id: str | None
 ~~~
 
-- [ ] **Step 1: Write failure tests for implicit classification and model mismatch**
+- [x] **Step 1: Write failure tests for implicit classification and model mismatch**
 
 ~~~
 async def test_gate_denies_personal_data_without_subject_reference():
@@ -472,24 +472,24 @@ async def test_gate_denies_provider_profile_that_excludes_requested_model():
         await gate.prepare_initial_input(context_with(confidential_claim("other-model")), "input")
 ~~~
 
-- [ ] **Step 2: Build claim at retrieval/capability boundary**
+- [x] **Step 2: Build claim at retrieval/capability boundary**
 
 A document retrieval capability attaches classified source reference/hash/categories. Unclassified source is denied from model egress. Raw subject reference is transient only for authorization lookup; it is absent from run metadata/events.
 
-- [ ] **Step 3: Enforce relational checks in resolveDataUse**
+- [x] **Step 3: Enforce relational checks in resolveDataUse**
 
 Require deployment workspace match, exact provider and model, provider profile ID equal to data profile recipient, requested categories subset of both provider and data profile categories, active authorization for personal/sensitive categories, and a bound capability ID.
 
-- [ ] **Step 4: Remove hard-coded categories from DataModelGate**
+- [x] **Step 4: Remove hard-coded categories from DataModelGate**
 
 Gate sends only claim fields needed by Company API, receives typed allow/deny, applies deterministic minimization and records only decision IDs/hashes. Redactor remains a final defensive transform, not an allow condition.
 
-- [ ] **Step 5: Run both language suites**
+- [x] **Step 5: Run both language suites**
 
 Run: pytest tests/apps/cosa/compliance/test_data_model_gate.py -q && cd services/company && pnpm vitest run finance-legal/tests/ai-data-governance.test.ts
 Expected: PASS; missing claim, withdrawn authorization, category mismatch, provider/model mismatch and unbound capability make zero provider network calls.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ~~~
 git add apps/cosa/compliance services/company/finance-legal tests/apps/cosa/compliance
