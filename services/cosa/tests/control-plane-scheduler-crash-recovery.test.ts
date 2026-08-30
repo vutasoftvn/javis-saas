@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as schedulerSvc from "../services/control-plane-scheduler.service";
 import * as leaseSvc from "../services/control-plane-lease.service";
+import * as workspaceScheduleSvc from "../services/workspace-schedule.service";
 import { db, schema } from "../models/db";
 import { eq } from "drizzle-orm";
 
-const { scheduledTasks, workers } = schema;
+const { scheduledTasks, workers, workspaceScheduleDefinitions, workspaceScheduleExecutions } = schema;
 
 // `pollDueTasks` claim theo thứ tự run_at (cũ nhất trước) trên TOÀN bộ bảng
 // — dọn sạch trước mỗi test để task vừa tạo trong test không bị các row sót
@@ -214,6 +215,77 @@ describe("Scheduled task crash recovery (Phase 3)", () => {
 
     const rows = await db.select().from(scheduledTasks).where(eq(scheduledTasks.id, task.id));
     expect(rows[0].claimedBy).toBe(claimedByA ? "worker_A" : "worker_B");
+  });
+});
+
+/**
+ * Task 8 — durable retry cho workspace schedule enqueue. Cùng họ crash-
+ * recovery vì cơ chế claim retryable rows phải chịu được 2 dispatch tick
+ * chạy đồng thời (nhiều replica control-plane, hoặc 1 tick chạy chồng lên
+ * tick trước do cron bị trễ) mà không double-enqueue / double-advance.
+ */
+describe("Workspace schedule enqueue-retry crash recovery (Task 8)", () => {
+  beforeEach(async () => {
+    await db.delete(workspaceScheduleExecutions);
+    await db.delete(workspaceScheduleDefinitions);
+  });
+
+  it("hai dispatch tick chạy đồng thời khi có 1 occurrence đang enqueue_retry -> chỉ 1 tick enqueue thành công, không double-advance definition", async () => {
+    const def = await workspaceScheduleSvc.createWorkspaceSchedule({
+      workspaceId: "ws_race",
+      createdBy: "user_alice",
+      scheduleKind: "daily",
+      timezone: "Asia/Ho_Chi_Minh",
+      hour: 9,
+      minute: 0,
+      promptTemplate: "Concurrent retry race",
+    });
+
+    const pastDue = new Date(Date.now() - 5000);
+    await db
+      .update(workspaceScheduleDefinitions)
+      .set({ nextRunAt: pastDue })
+      .where(eq(workspaceScheduleDefinitions.id, def.id));
+
+    // Seed a due retryable occurrence directly (as if a prior tick failed to enqueue it).
+    const execId = `sched_exec_race_${Date.now()}`;
+    await db.insert(workspaceScheduleExecutions).values({
+      id: execId,
+      definitionId: def.id,
+      workspaceId: def.workspaceId,
+      scheduledFor: pastDue,
+      promptTemplateSnapshot: def.promptTemplate,
+      agentProfileSnapshot: def.agentProfile,
+      connectorGrantIdsSnapshot: def.connectorGrantIds || [],
+      state: "enqueue_retry",
+      taskId: null,
+      attemptCount: 1,
+      nextAttemptAt: new Date(Date.now() - 1000),
+    });
+
+    const spy = vi.spyOn(schedulerSvc, "scheduleTask");
+
+    try {
+      // Two dispatch ticks racing over the same due retry row — FOR UPDATE
+      // SKIP LOCKED must ensure exactly one of them claims and enqueues it.
+      const [countA, countB] = await Promise.all([
+        workspaceScheduleSvc.dispatchDueWorkspaceSchedules(new Date()),
+        workspaceScheduleSvc.dispatchDueWorkspaceSchedules(new Date()),
+      ]);
+
+      expect(countA + countB).toBe(1);
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      const executions = await db
+        .select()
+        .from(workspaceScheduleExecutions)
+        .where(eq(workspaceScheduleExecutions.definitionId, def.id));
+      expect(executions.length).toBe(1);
+      expect(executions[0].taskId).toBeDefined();
+      expect(executions[0].state).toBe("queued");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

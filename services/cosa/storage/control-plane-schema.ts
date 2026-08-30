@@ -242,6 +242,12 @@ export const workspaceScheduleExecutions = controlPlaneSchema.table("workspace_s
   conversationId: text("conversation_id"),
   runId: text("run_id"),
   error: text("error"),
+  // Đếm số lần đã thử enqueue thất bại (state='enqueue_retry'), dùng để chốt
+  // terminal 'enqueue_failed' sau MAX_ENQUEUE_RETRIES lần thay vì retry vô hạn.
+  attemptCount: integer("attempt_count").default(0).notNull(),
+  // Thời điểm sớm nhất được phép thử enqueue lại (exponential backoff) — dispatcher
+  // chỉ claim các row enqueue_retry đã tới hạn, tránh retry dồn dập mỗi tick.
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

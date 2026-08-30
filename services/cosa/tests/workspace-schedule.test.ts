@@ -184,6 +184,74 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     }
   });
 
+  it("terminates into enqueue_failed after MAX_ENQUEUE_RETRIES consecutive enqueue failures (no infinite retry, no duplicate occurrence)", async () => {
+    const pastDue = new Date(Date.now() - 5000);
+    const def = await scheduleSvc.createWorkspaceSchedule({
+      workspaceId: "ws_1",
+      createdBy: "user_alice",
+      scheduleKind: "daily",
+      timezone: "Asia/Ho_Chi_Minh",
+      hour: 9,
+      minute: 0,
+      promptTemplate: "Always-fails scan",
+    });
+
+    await db
+      .update(workspaceScheduleDefinitions)
+      .set({ nextRunAt: pastDue })
+      .where(eq(workspaceScheduleDefinitions.id, def.id));
+
+    const spy = vi
+      .spyOn(schedulerSvc, "scheduleTask")
+      .mockRejectedValue(new Error("Simulated permanent enqueue failure"));
+
+    try {
+      // Force every retry attempt to be immediately due regardless of backoff,
+      // so the test doesn't need to sleep through exponential backoff windows.
+      for (let i = 0; i < scheduleSvc.MAX_ENQUEUE_RETRIES; i++) {
+        await scheduleSvc.dispatchDueWorkspaceSchedules(new Date());
+        await db
+          .update(workspaceScheduleExecutions)
+          .set({ nextAttemptAt: new Date(Date.now() - 1000) })
+          .where(eq(workspaceScheduleExecutions.definitionId, def.id));
+      }
+
+      const executions = await db
+        .select()
+        .from(workspaceScheduleExecutions)
+        .where(eq(workspaceScheduleExecutions.definitionId, def.id));
+
+      // Exactly one occurrence for this (definitionId, scheduledFor) — retries
+      // must never create a duplicate occurrence.
+      expect(executions.length).toBe(1);
+      expect(executions[0].taskId).toBeNull();
+      expect(executions[0].state).toBe("enqueue_failed");
+      expect(executions[0].attemptCount).toBe(scheduleSvc.MAX_ENQUEUE_RETRIES);
+      expect(executions[0].error).toBeTruthy();
+
+      // Definition must never have advanced past this occurrence — a task
+      // was never successfully dispatched for it.
+      const [defAfter] = await db
+        .select()
+        .from(workspaceScheduleDefinitions)
+        .where(eq(workspaceScheduleDefinitions.id, def.id));
+      expect(defAfter.nextRunAt?.getTime()).toBe(pastDue.getTime());
+
+      // One more tick must be a no-op: terminal rows are not retried further,
+      // and no duplicate occurrence gets created for the same slot.
+      const noopDispatch = await scheduleSvc.dispatchDueWorkspaceSchedules(new Date());
+      expect(noopDispatch).toBe(0);
+      const executionsAfterNoop = await db
+        .select()
+        .from(workspaceScheduleExecutions)
+        .where(eq(workspaceScheduleExecutions.definitionId, def.id));
+      expect(executionsAfterNoop.length).toBe(1);
+      expect(executionsAfterNoop[0].state).toBe("enqueue_failed");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("allows runScheduleNow to trigger immediate execution", async () => {
     const def = await scheduleSvc.createWorkspaceSchedule({
       workspaceId: "ws_1",
