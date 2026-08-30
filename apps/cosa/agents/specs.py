@@ -8,8 +8,11 @@ from agent.governance.contracts import AutonomyLevel
 
 __all__ = [
     "COSA_CUSTOMER_SUPPORT_AGENT_SPEC",
+    "COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC",
+    "COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT",
     "COSA_CUSTOMER_SUPPORT_PROMPT",
     "COSA_DEFAULT_MODEL_POLICY",
+    "COSA_DEPLOYED_AGENT_SPECS",
     "COSA_FINANCE_AGENT_SPEC",
     "COSA_FINANCE_PROMPT",
     "COSA_MARKETING_AGENT_SPEC",
@@ -256,4 +259,15 @@ COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC = AgentSpec(
     prompt_ref=COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Customer Support Autopilot (narrow FAQ)"},
+)
+
+# Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
+# runtime specs (skillpacks + prompts/model_policy/agent) và verify mọi
+# pinned_skills resolve được trước khi phục vụ traffic (Wave M2b).
+COSA_DEPLOYED_AGENT_SPECS = (
+    COSA_OPERATIONS_AGENT_SPEC,
+    COSA_FINANCE_AGENT_SPEC,
+    COSA_MARKETING_AGENT_SPEC,
+    COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
+    COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
 )

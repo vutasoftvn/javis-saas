@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import AsyncMock
+
+import pytest
+
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.skills.resolver import SkillResolver
+from agent_testkit.fake_sdk_model import FakeSDKModel
+
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
+from apps.cosa.agents.skillpack_seed import (
+    BuiltinSkillpackSeedError,
+    resolve_skillpacks_root,
+    seed_builtin_skillpacks,
+)
+from apps.cosa.agents.specs import COSA_DEPLOYED_AGENT_SPECS
+from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+SKILLPACKS_ROOT = REPO_ROOT / "skillpacks"
+
+
+@pytest.fixture
+def mock_company_client():
+    client = AsyncMock(spec=CompanyServiceClient)
+    client.get.return_value = {}
+    client.patch.return_value = {}
+    client.post.return_value = {}
+    return client
+
+
+@pytest.fixture
+def plane(mock_company_client) -> CosaAgentPlane:
+    return build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+
+
+@pytest.mark.asyncio
+async def test_seed_cosa_runtime_specs_resolves_all_pinned_skills(plane: CosaAgentPlane) -> None:
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+        skillpacks_root=SKILLPACKS_ROOT,
+    )
+    resolver = SkillResolver(plane.spec_registry)
+    for agent_spec in COSA_DEPLOYED_AGENT_SPECS:
+        resolved = await resolver.resolve(agent_spec.pinned_skills)
+        assert [item.id for item in resolved] == [pin.skill_id for pin in agent_spec.pinned_skills]
+
+
+@pytest.mark.asyncio
+async def test_seed_cosa_runtime_specs_is_idempotent(plane: CosaAgentPlane) -> None:
+    kwargs = {
+        "spec_registry": plane.spec_registry,
+        "capability_registry": plane.capability_registry,
+        "skillpacks_root": SKILLPACKS_ROOT,
+    }
+    await seed_cosa_runtime_specs(**kwargs)
+    await seed_cosa_runtime_specs(**kwargs)
+    expected_count = len(list(SKILLPACKS_ROOT.rglob("manifest.yaml")))
+    assert len(await plane.spec_registry.list_all(spec_kind="skill")) == expected_count
+
+
+def test_resolve_skillpacks_root_raises_on_missing_directory(tmp_path: Path) -> None:
+    missing = tmp_path / "does-not-exist"
+    with pytest.raises(BuiltinSkillpackSeedError):
+        resolve_skillpacks_root(missing)
+
+
+@pytest.mark.asyncio
+async def test_seed_builtin_skillpacks_raises_on_missing_bundle_root(
+    plane: CosaAgentPlane, tmp_path: Path
+) -> None:
+    missing = tmp_path / "does-not-exist"
+    capability_ids = {spec.id for spec in plane.capability_registry.list_specs()}
+
+    with pytest.raises(BuiltinSkillpackSeedError):
+        await seed_builtin_skillpacks(
+            plane.spec_registry,
+            capability_ids=capability_ids,
+            skillpacks_root=missing,
+        )
+
+    assert await plane.spec_registry.list_all(spec_kind="skill") == []
+
+
+@pytest.mark.asyncio
+async def test_seed_builtin_skillpacks_raises_on_contract_violation(
+    plane: CosaAgentPlane, tmp_path: Path
+) -> None:
+    broken_pack = tmp_path / "broken-pack"
+    broken_pack.mkdir()
+    # manifest.yaml cố ý thiếu toàn bộ section bắt buộc (publisher, source,
+    # capability, runtime, permissions, risk, trust) -> validate_skillpack_tree
+    # phải báo violation, KHÔNG được publish một phần rồi mới lỗi.
+    (broken_pack / "manifest.yaml").write_text(
+        "apiVersion: v1\nkind: Skillpack\nmetadata:\n  id: broken.pack\n",
+        encoding="utf-8",
+    )
+    (broken_pack / "SKILL.md").write_text(
+        "---\nname: broken-pack\ndescription: broken\n---\nBody.\n",
+        encoding="utf-8",
+    )
+    capability_ids = {spec.id for spec in plane.capability_registry.list_specs()}
+
+    with pytest.raises(BuiltinSkillpackSeedError):
+        await seed_builtin_skillpacks(
+            plane.spec_registry,
+            capability_ids=capability_ids,
+            skillpacks_root=tmp_path,
+        )
+
+    assert await plane.spec_registry.list_all(spec_kind="skill") == []

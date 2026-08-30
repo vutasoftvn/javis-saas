@@ -8,7 +8,11 @@ from agent.registry.repository import (
 )
 
 from apps.cosa.agents.seed import seed_cosa_agent_specs
-from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
+from apps.cosa.agents.specs import (
+    COSA_DEPLOYED_AGENT_SPECS,
+    COSA_FINANCE_AGENT_SPEC,
+    COSA_OPERATIONS_AGENT_SPEC,
+)
 
 
 @pytest.mark.asyncio
@@ -67,3 +71,18 @@ async def test_seed_fails_closed_on_same_version_stale_agent_content():
 
     with pytest.raises(SpecVersionHashConflictError):
         await seed_cosa_agent_specs(repo)
+
+
+@pytest.mark.asyncio
+async def test_seed_publishes_every_deployed_agent_spec():
+    """COSA_DEPLOYED_AGENT_SPECS (dùng bởi seed_cosa_runtime_specs để verify
+    pinned_skills) phải tương ứng đúng với những AgentSpec mà
+    seed_cosa_agent_specs() thực sự publish — tránh lệch giữa 2 danh sách."""
+    repo = InMemorySpecRegistryRepository()
+
+    await seed_cosa_agent_specs(repo)
+
+    for agent_spec in COSA_DEPLOYED_AGENT_SPECS:
+        record = await repo.get("agent", agent_spec.id, agent_spec.version)
+        assert record is not None
+        assert record.definition_hash == agent_spec.compute_hash()
