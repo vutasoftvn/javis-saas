@@ -179,3 +179,19 @@ describe("Evidence Kernel: idempotent source ingestion (Task 3b)", () => {
     expect(gateEvalApproved.result).toBe("passed");
   });
 });
+
+describe("Evidence Ingestion Academy Firewall (Task 1)", () => {
+  it("rejects ingestion with academy-artifact:// artifactRef", async () => {
+    const { assertNotAcademyReference } = await import("../../../academy/contracts");
+    expect(() =>
+      assertNotAcademyReference("academy-artifact://lesson/3/output", "artifactRef")
+    ).toThrowError(/academy|synthetic/i);
+  });
+
+  it("rejects ingestion with academy_* sourceRecordId", async () => {
+    const { assertNotAcademyReference } = await import("../../../academy/contracts");
+    expect(() =>
+      assertNotAcademyReference("academy_attempt_99", "sourceRecordId")
+    ).toThrowError(/academy/i);
+  });
+});

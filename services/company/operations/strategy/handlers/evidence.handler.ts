@@ -6,6 +6,7 @@ import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { scoreEvidence, EvidenceSourceType } from "../services/evidence-scoring.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 import { assertLifecyclePrivileged, isLifecyclePrivileged } from "../services/lifecycle-authorization.service";
+import { assertNotAcademyReference, assertNotAcademyTemplateDraft } from "../../../academy/contracts";
 
 const { evidence } = schema;
 
@@ -39,6 +40,9 @@ export interface RecordEvidenceParams {
   sampleSize?: number;
   supportsOrRefutes?: "supports" | "refutes" | "neutral";
   status?: "candidate" | "approved";
+  artifactRef?: string;
+  /** Kind of the source artifact, when evidence is derived from one (e.g. a workspace artifact). */
+  artifactKind?: string;
 }
 
 export interface ListEvidenceParams {
@@ -87,6 +91,13 @@ export const recordEvidence = api(
     }
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     const wsId = BigInt(ctx.workspaceId);
+
+    // Academy firewall: reject synthetic/academy artifact refs before any persistence
+    assertNotAcademyReference(params.artifactRef, "artifactRef");
+    assertNotAcademyReference((params as any).sourceRecordId, "sourceRecordId");
+    // Academy firewall: an academy_template_draft artifact is a labelled learning
+    // template, never eligible to become live evidence until a human replaces it.
+    assertNotAcademyTemplateDraft(params.artifactKind, "artifactKind");
 
     // Xác nhận project thuộc workspace này
     await getProjectInWorkspace(params.projectId, ctx);

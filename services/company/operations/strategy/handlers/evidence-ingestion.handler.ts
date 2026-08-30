@@ -9,6 +9,7 @@ import {
   IngestClaimInput,
   SourceSystem,
 } from "../services/evidence-ingestion.service";
+import { assertNotAcademyReference } from "../../../academy/contracts";
 
 export interface IngestEvidenceSourceRequest {
   authorization?: Header<"Authorization">;
@@ -32,6 +33,10 @@ export interface ListEvidenceIngestionsRequest {
 export const ingestEvidenceSourceEndpoint = api(
   { method: "POST", path: "/operations/strategy/evidence-ingestions", expose: true },
   async (params: IngestEvidenceSourceRequest): Promise<EvidenceIngestionReceipt> => {
+    // Academy firewall: reject synthetic artifact refs before source ingestion
+    assertNotAcademyReference(params.artifactRef, "artifactRef");
+    assertNotAcademyReference(params.sourceRecordId, "sourceRecordId");
+
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return ingestEvidenceSource(ctx, {
       projectId: params.projectId,

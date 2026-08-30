@@ -306,5 +306,110 @@ export const weeklyReviews = strategySchema.table("weekly_reviews", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 16. Pilot Runs (P3 Pilot Readiness / Tranche B1)
+export const pilotRuns = strategySchema.table("pilot_runs", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  experimentId: bigint("experiment_id", { mode: "bigint" }).references(() => experiments.id, { onDelete: "set null" }),
+  status: varchar("status", { length: 50 }).default("DRAFT").notNull(),
+  designPartnerEvidenceRefs: jsonb("design_partner_evidence_refs").default([]).notNull(),
+  metricContractArtifactRef: text("metric_contract_artifact_ref"),
+  instrumentationArtifactRef: text("instrumentation_artifact_ref"),
+  onboardingArtifactRef: text("onboarding_artifact_ref"),
+  supportEscalationArtifactRef: text("support_escalation_artifact_ref"),
+  rollbackArtifactRef: text("rollback_artifact_ref"),
+  releaseOwnerMemberId: bigint("release_owner_member_id", { mode: "bigint" }).notNull(),
+  approvedByMemberId: bigint("approved_by_member_id", { mode: "bigint" }),
+  approvalRef: text("approval_ref"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  activatedByMemberId: bigint("activated_by_member_id", { mode: "bigint" }),
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+  cancellationReason: text("cancellation_reason"),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
 
+// 17. Metric Contracts (Tranche B2 / Task 1)
+export const metricContracts = strategySchema.table("metric_contracts", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  metricKey: varchar("metric_key", { length: 100 }).notNull(),
+  displayName: text("display_name").notNull(),
+  unit: varchar("unit", { length: 50 }).notNull(),
+  numeratorDefinition: text("numerator_definition").notNull(),
+  denominatorDefinition: text("denominator_definition").notNull(),
+  cohortDefinition: text("cohort_definition").notNull(),
+  sourceMapping: jsonb("source_mapping").default({}).notNull(),
+  cadence: varchar("cadence", { length: 50 }).notNull(),
+  freshUntil: timestamp("fresh_until", { withTimezone: true }),
+  guardrail: text("guardrail"),
+  ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
+  decisionUse: text("decision_use").notNull(),
+  status: varchar("status", { length: 50 }).default("DRAFT").notNull(),
+  version: integer("version").default(1).notNull(),
+  approvalRef: text("approval_ref"),
+  changeRationale: text("change_rationale"),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  publishedByMemberId: bigint("published_by_member_id", { mode: "bigint" }),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
 
+// 18. Metric Snapshots (Tranche B2 / Task 2)
+export const metricSnapshots = strategySchema.table("metric_snapshots", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  contractVersionId: bigint("contract_version_id", { mode: "bigint" }).notNull().references(() => metricContracts.id, { onDelete: "cascade" }),
+  sourceSystem: varchar("source_system", { length: 50 }).notNull(),
+  sourceWindow: varchar("source_window", { length: 50 }).notNull(),
+  sourceRecordId: text("source_record_id").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
+  value: doublePrecision("value").notNull(),
+  numerator: doublePrecision("numerator"),
+  denominator: doublePrecision("denominator"),
+  qualityStatus: varchar("quality_status", { length: 30 }).default("VALID").notNull(),
+  qualityChecks: jsonb("quality_checks").default({}).notNull(),
+  evidenceIngestionId: bigint("evidence_ingestion_id", { mode: "bigint" }).references(() => evidenceIngestions.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 19. PMF Scoreboard Runs (Tranche B2 / Task 3)
+export const pmfScoreboardRuns = strategySchema.table("pmf_scoreboard_runs", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  contractVersionIds: jsonb("contract_version_ids").default([]).notNull(),
+  inputSnapshotIds: jsonb("input_snapshot_ids").default([]).notNull(),
+  reviewedEvidenceIds: jsonb("reviewed_evidence_ids").default([]).notNull(),
+  policyVersion: text("policy_version").default("v1").notNull(),
+  scoreComponents: jsonb("score_components").default([]).notNull(),
+  missingDataFlags: jsonb("missing_data_flags").default([]).notNull(),
+  reliabilityFlags: jsonb("reliability_flags").default([]).notNull(),
+  calculationHash: text("calculation_hash").notNull(),
+  result: varchar("result", { length: 50 }).notNull(),
+  humanReviewState: jsonb("human_review_state").default({}).notNull(),
+  calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 20. Maturity Assessments (Tranche B2 / Task 3)
+export const maturityAssessments = strategySchema.table("maturity_assessments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  scoreboardRunId: bigint("scoreboard_run_id", { mode: "bigint" }).references(() => pmfScoreboardRuns.id, { onDelete: "set null" }),
+  dimensions: jsonb("dimensions").default({}).notNull(),
+  assessedAt: timestamp("assessed_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
