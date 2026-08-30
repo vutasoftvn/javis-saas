@@ -55,6 +55,7 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "operations.task.list",
         "operations.task.read",
     ],
+    model_input_capability_ref="model.input.direct-user-message",
     prompt_ref=COSA_OPERATIONS_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Operations Specialist Agent"},
@@ -69,6 +70,7 @@ COSA_FINANCE_AGENT_SPEC = AgentSpec(
     capability_refs=[
         "finance.transaction.record",
     ],
+    model_input_capability_ref="model.input.direct-user-message",
     prompt_ref=COSA_FINANCE_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Finance Specialist Agent"},
@@ -84,6 +86,7 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
         "commercial.marketing_context.read",
         "web.search",
     ],
+    model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[
         PinnedSkillRef(
             skill_id="marketing.positioning",
@@ -140,6 +143,7 @@ COSA_CUSTOMER_SUPPORT_AGENT_SPEC = AgentSpec(
         "knowledge.profile.read",
         "engagement.message.draft",
     ],
+    model_input_capability_ref="model.input.direct-user-message",
     prompt_ref=COSA_CUSTOMER_SUPPORT_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Customer Support Copilot"},
@@ -169,6 +173,7 @@ COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC = AgentSpec(
         "engagement.message.send",  # REQUIRE_APPROVAL trừ template pre-authorize
         "engagement.assignment.write",  # để handoff
     ],
+    model_input_capability_ref="model.input.direct-user-message",
     prompt_ref=COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Customer Support Autopilot (narrow FAQ)"},

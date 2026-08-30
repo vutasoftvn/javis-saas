@@ -32,7 +32,12 @@ class _AlwaysCompleteKernel:
 
 
 def _base_agent_spec() -> AgentSpec:
-    return AgentSpec(id="test.agent.lab_lineage", version="1.0.0", autonomy_level=AutonomyLevel.L1)
+    return AgentSpec(
+        id="test.agent.lab_lineage",
+        version="1.0.0",
+        autonomy_level=AutonomyLevel.L1,
+        model_input_capability_ref="model.input.direct-user-message",
+    )
 
 
 def _base_skill() -> SkillSpec:

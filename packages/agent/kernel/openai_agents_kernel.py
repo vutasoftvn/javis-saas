@@ -314,7 +314,9 @@ class ManualToolLoopKernel:
 
         state.pending_tool_calls = remaining_pending
         spec = AgentSpec(
-            id=run_record.root_executable_id, version=run_record.root_executable_version
+            id=run_record.root_executable_id,
+            version=run_record.root_executable_version,
+            model_input_capability_ref="model.input.direct-user-message",
         )
 
         from opentelemetry import trace

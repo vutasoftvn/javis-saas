@@ -56,6 +56,7 @@ def _build_spec(cap_refs: list[str] | None = None) -> AgentSpec:
         version="1.0.0",
         instructions="You are a test agent.",
         capability_refs=cap_refs or [],
+        model_input_capability_ref="model.input.direct-user-message",
     ).with_hash()
 
 

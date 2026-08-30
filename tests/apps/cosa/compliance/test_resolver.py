@@ -61,6 +61,7 @@ def sample_spec() -> AgentSpec:
         role="Advisory Agent",
         instructions="Advisory only",
         capability_refs=["finance.read"],
+        model_input_capability_ref="model.input.direct-user-message",
     )
 
 
@@ -111,24 +112,34 @@ async def test_resolver_attaches_snapshot_hash(
 
 
 @pytest.mark.asyncio
-async def test_resolver_fails_closed_when_spec_declares_no_capabilities(
+async def test_resolver_scopes_direct_model_input_when_spec_declares_no_tools(
     sample_request: RunRequest,
 ) -> None:
-    """Task 4: một AgentSpec không khai báo capability_refs nào không thể
-    scope được 1 delegation — resolver phải fail-closed TRƯỚC khi gọi Company
-    (không round-trip với capability_ids rỗng)."""
-    spec_without_capabilities = AgentSpec(
-        id="cosa_no_capability_agent",
+    """A chat-only agent still has a governed non-tool input scope."""
+    spec_without_tools = AgentSpec(
+        id="cosa_chat_only_agent",
         instructions="Advisory only",
+        model_input_capability_ref="model.input.direct-user-message",
     )
-    client = FakeAiComplianceClient(error=AssertionError("client should not be called"))
+    now = datetime.now(UTC)
+    snapshot = ComplianceSnapshot(
+        workspace_id="ws_1",
+        deployment_id="dep_1",
+        assessment_id="ass_1",
+        mode="ADVISORY_ONLY",
+        status="APPROVED_FOR_USE",
+        allowed_capabilities=frozenset(["model.input.direct-user-message"]),
+        provider_profile_version="v3",
+        data_profile_version="v1",
+        snapshot_hash="sha256:abc123",
+        expires_at=now,
+    )
+    client = FakeAiComplianceClient(snapshot=snapshot)
     resolver = ComplianceResolver(client)
 
-    with pytest.raises(ComplianceDenied) as exc_info:
-        await resolver.resolve_for_run(sample_request, spec_without_capabilities)
+    await resolver.resolve_for_run(sample_request, spec_without_tools)
 
-    assert exc_info.value.code == "MISSING_CAPABILITIES"
-    assert client.calls == []
+    assert client.calls[0]["capability_ids"] == ["model.input.direct-user-message"]
 
 
 @pytest.mark.asyncio
@@ -159,7 +170,11 @@ async def test_resolver_mints_a_scoped_delegation_and_forwards_capability_ids(
 
     assert len(client.calls) == 1
     call = client.calls[0]
-    assert call["capability_ids"] == ["finance.read"]
+    assert call["capability_ids"] == [
+        "finance.read",
+        "model.input.direct-user-message",
+    ]
+    assert call["capability_ids"].count("model.input.direct-user-message") == 1
     assert call["workspace_id"] == "ws_1"
     assert isinstance(call["delegation_token"], str) and call["delegation_token"]
 

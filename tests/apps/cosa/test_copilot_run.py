@@ -98,6 +98,7 @@ async def test_copilot_guard_fails_when_spec_has_write_capability(mock_plane, mo
         version="1.0.0",
         autonomy_level=AutonomyLevel.L0_OBSERVE,
         instructions="Bad",
+        model_input_capability_ref="model.input.direct-user-message",
         capability_refs=["engagement.thread.read", "message.send"],
         prompt_ref=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.prompt_ref,
         model_policy_ref=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_policy_ref,

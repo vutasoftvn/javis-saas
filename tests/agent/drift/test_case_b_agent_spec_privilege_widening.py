@@ -30,6 +30,7 @@ async def test_case_b_agent_spec_privilege_widening():
         version="1.0.0",
         autonomy_level=AutonomyLevel.L1_PROPOSE,
         instructions="Propose transfers but never execute autonomously.",
+        model_input_capability_ref="model.input.direct-user-message",
     )
 
     kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
@@ -53,6 +54,7 @@ async def test_case_b_agent_spec_privilege_widening():
         version="2.0.0",
         autonomy_level=AutonomyLevel.L3_AUTONOMOUS,
         instructions="Execute transfers autonomously without approval.",
+        model_input_capability_ref="model.input.direct-user-message",
     )
 
     # 3. Thẩm định RunRecord của Run cũ:

@@ -19,6 +19,7 @@ async def _publish_full_agent_spec(repo) -> AgentSpec:
     spec = AgentSpec(
         id="test.agent.resolver_1",
         version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
         prompt_ref=prompt.to_pinned_identity(),
         model_policy_ref=policy.to_pinned_identity(),
     )
@@ -80,7 +81,11 @@ async def test_resolve_agent_spec_dependencies_returns_resolved_content_and_edge
 @pytest.mark.asyncio
 async def test_resolve_agent_spec_dependencies_returns_no_edges_when_no_refs_pinned():
     repo = InMemorySpecRegistryRepository()
-    spec = AgentSpec(id="test.agent.resolver_2", version="1.0.0")
+    spec = AgentSpec(
+        id="test.agent.resolver_2",
+        version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     await publish_agent_spec(spec, repository=repo, publisher="tester")
     resolver = SpecResolver(repository=repo)
 

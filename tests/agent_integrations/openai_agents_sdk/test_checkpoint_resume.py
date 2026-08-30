@@ -36,6 +36,7 @@ def _build_finance_spec() -> AgentSpec:
         version="1.0.0",
         instructions="You are an authorized finance disbursement agent.",
         capability_refs=["finance.payout.execute"],
+        model_input_capability_ref="model.input.direct-user-message",
     ).with_hash()
 
 
@@ -248,6 +249,7 @@ async def test_openai_agents_sdk_kernel_live_deepseek_tool_call():
         version="1.0.0",
         instructions="You are a helpful assistant. Always use calculator_multiply to multiply numbers.",
         capability_refs=["calculator_multiply"],
+        model_input_capability_ref="model.input.direct-user-message",
     ).with_hash()
 
     request = RunRequest(

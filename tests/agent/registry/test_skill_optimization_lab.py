@@ -55,7 +55,10 @@ def _make_executor() -> SkillCandidateExecutor:
     repo = InMemoryRunRepository()
     kernel = ManualToolLoopKernel(repository=repo, model_client=_KeywordAwareModelClient())
     base_agent_spec = AgentSpec(
-        id="test.agent.lab_base", version="1.0.0", instructions="Bạn là chuyên viên phân tích thị trường."
+        id="test.agent.lab_base",
+        version="1.0.0",
+        instructions="Bạn là chuyên viên phân tích thị trường.",
+        model_input_capability_ref="model.input.direct-user-message",
     )
     return SkillCandidateExecutor(kernel=kernel, base_agent_spec=base_agent_spec)
 

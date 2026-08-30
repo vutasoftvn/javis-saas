@@ -35,6 +35,7 @@ class AgentSpec(BaseModel):
     model_policy: dict[str, Any] = Field(default_factory=dict)
     autonomy_level: AutonomyLevel = AutonomyLevel.L1
     capability_refs: list[str] = Field(default_factory=list)
+    model_input_capability_ref: str
     pinned_skills: list[PinnedSkillRef] = Field(default_factory=list)
     prompt_ref: PinnedSpecIdentity | None = None
     model_policy_ref: PinnedSpecIdentity | None = None

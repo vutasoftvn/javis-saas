@@ -32,17 +32,13 @@ class ComplianceResolver:
         run_id = getattr(request, "run_id", None) or getattr(request, "id", None) or "run_initial"
         system_key = spec.id
 
-        # Task 4 — capability_ids khai báo đúng tập capability agent này cần
-        # dùng (spec.capability_refs), KHÔNG suy đoán/mở rộng. Rỗng ⇒ fail
-        # closed ngay ở đây thay vì gọi Company với 1 request rỗng (Company
-        # cũng từ chối, nhưng chặn sớm tránh vòng round-trip vô nghĩa và tránh
-        # mint 1 delegation token không phạm vi nào).
+        # capability_refs chỉ là executable tools. Direct model input có
+        # scope riêng, vẫn phải được Company approve nhưng không được kernel
+        # dựng thành tool. Tránh append lần hai nếu một spec cũ đã khai báo
+        # nhầm cùng scope trong capability_refs.
         capability_ids = list(spec.capability_refs)
-        if not capability_ids:
-            raise ComplianceDenied(
-                "MISSING_CAPABILITIES",
-                f"AgentSpec '{spec.id}' declares no capability_refs — cannot scope a compliance delegation",
-            )
+        if spec.model_input_capability_ref not in capability_ids:
+            capability_ids.append(spec.model_input_capability_ref)
 
         policy_snapshot_hash = ""
         if request.metadata:

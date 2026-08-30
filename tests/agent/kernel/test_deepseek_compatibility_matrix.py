@@ -92,7 +92,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     kernel_basic = ManualToolLoopKernel(repository=repo, model_client=MockDeepSeekClient(mode="basic"))
     res_basic = await kernel_basic.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Hello DeepSeek"}),
-        AgentSpec(id="agent1"),
+        AgentSpec(id="agent1", model_input_capability_ref="model.input.direct-user-message"),
     )
     matrix_profile["1. basic response"] = {
         "status": "PASS" if res_basic.status == RunStatus.COMPLETED and "DeepSeek" in str(res_basic.final_output) else "FAIL",
@@ -103,7 +103,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     kernel_struct = ManualToolLoopKernel(repository=repo, model_client=MockDeepSeekClient(mode="structured"))
     res_struct = await kernel_struct.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Analyze"}),
-        AgentSpec(id="agent1"),
+        AgentSpec(id="agent1", model_input_capability_ref="model.input.direct-user-message"),
     )
     parsed_json = json.loads(res_struct.final_output) if res_struct.final_output else {}
     matrix_profile["2. structured output"] = {
@@ -119,7 +119,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     )
     res_st = await kernel_st.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Research AI"}),
-        AgentSpec(id="agent1"),
+        AgentSpec(id="agent1", model_input_capability_ref="model.input.direct-user-message"),
     )
     matrix_profile["3. single tool call"] = {
         "status": "PASS" if res_st.status == RunStatus.COMPLETED else "FAIL",
@@ -134,7 +134,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     )
     res_pt = await kernel_pt.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Analyze both"}),
-        AgentSpec(id="agent1"),
+        AgentSpec(id="agent1", model_input_capability_ref="model.input.direct-user-message"),
     )
     matrix_profile["4. parallel tool calls"] = {
         "status": "PASS" if res_pt.status == RunStatus.COMPLETED else "FAIL",
@@ -145,7 +145,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     stream_events = []
     async for ev in kernel_basic.stream(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Stream test"}),
-        AgentSpec(id="agent1"),
+        AgentSpec(id="agent1", model_input_capability_ref="model.input.direct-user-message"),
     ):
         stream_events.append(ev)
     matrix_profile["5. streaming"] = {
@@ -170,7 +170,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     kernel_err = ManualToolLoopKernel(repository=repo, model_client=MockDeepSeekClient(mode="error"))
     res_err = await kernel_err.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Error"}),
-        AgentSpec(id="agent1"),
+        AgentSpec(id="agent1", model_input_capability_ref="model.input.direct-user-message"),
     )
     matrix_profile["8. error propagation"] = {
         "status": "PASS" if "error" in str(res_err.final_output).lower() or res_err.errors else "FAIL",
@@ -212,7 +212,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     )
     res_appr = await kernel_appr.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Transfer money"}),
-        AgentSpec(id="agent1"),
+        AgentSpec(id="agent1", model_input_capability_ref="model.input.direct-user-message"),
     )
     matrix_profile["12. approval interruption"] = {
         "status": "PASS" if res_appr.status == RunStatus.WAITING_APPROVAL and len(res_appr.interruptions_waits) > 0 else "FAIL",

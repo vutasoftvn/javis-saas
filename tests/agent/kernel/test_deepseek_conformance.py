@@ -55,6 +55,7 @@ async def test_openai_agents_kernel_single_turn_with_real_deepseek():
     spec = AgentSpec(
         id="deepseek_conformance_test_simple",
         version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
         instructions="You are a concise assistant. Answer in exactly 1-2 words.",
         model_policy={"model": "deepseek/deepseek-chat", "temperature": 0.0},
     ).with_hash()
@@ -105,6 +106,7 @@ async def test_openai_agents_kernel_deepseek_model_policy_honored():
     spec = AgentSpec(
         id="deepseek_conformance_test_policy",
         version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
         instructions="Be concise.",
         model_policy={
             "model": "deepseek/deepseek-chat",

@@ -261,7 +261,9 @@ class PydanticAIKernel:
             AgentSpec.model_validate(published.content)
             if published
             else AgentSpec(
-                id=run_record.root_executable_id, version=run_record.root_executable_version
+                id=run_record.root_executable_id,
+                version=run_record.root_executable_version,
+                model_input_capability_ref="model.input.direct-user-message",
             )
         )
         context: dict[str, Any] = dict(updates)

@@ -32,6 +32,7 @@ def _make_spec(capability_refs: list[str] | None = None) -> AgentSpec:
     spec = AgentSpec(
         id="test_agent",
         version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
         instructions="You are a test agent.",
         capability_refs=capability_refs or [],
     )

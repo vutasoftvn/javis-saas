@@ -39,6 +39,7 @@ async def test_unbound_capability_is_not_offered_to_sdk_model() -> None:
         id="finance_agent",
         instructions="Finance only",
         capability_refs=["finance.transaction.record"],
+        model_input_capability_ref="model.input.direct-user-message",
     )
 
     request = RunRequest(

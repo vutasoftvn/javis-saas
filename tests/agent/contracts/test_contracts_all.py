@@ -39,6 +39,7 @@ def test_agent_spec_definition_hash_determinism():
         instructions="Handle finance",
         autonomy_level=AutonomyLevel.L2,
         capability_refs=["finance.invoice.send"],
+        model_input_capability_ref="model.input.direct-user-message",
     )
     spec2 = AgentSpec(
         id="finance-agent",
@@ -46,6 +47,7 @@ def test_agent_spec_definition_hash_determinism():
         instructions="Handle finance",
         autonomy_level=AutonomyLevel.L2,
         capability_refs=["finance.invoice.send"],
+        model_input_capability_ref="model.input.direct-user-message",
     )
     spec3 = AgentSpec(
         id="finance-agent",
@@ -53,6 +55,7 @@ def test_agent_spec_definition_hash_determinism():
         instructions="Handle finance modified",
         autonomy_level=AutonomyLevel.L2,
         capability_refs=["finance.invoice.send"],
+        model_input_capability_ref="model.input.direct-user-message",
     )
 
     hash1 = spec1.compute_hash()
@@ -239,7 +242,10 @@ def test_pinned_skill_ref_converts_to_pinned_spec_identity():
 
 
 def test_agent_spec_defaults_have_no_pinned_dependency_refs():
-    spec = AgentSpec(id="test.agent.m2_1")
+    spec = AgentSpec(
+        id="test.agent.m2_1",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
 
     assert spec.prompt_ref is None
     assert spec.model_policy_ref is None
@@ -248,7 +254,10 @@ def test_agent_spec_defaults_have_no_pinned_dependency_refs():
 
 def test_agent_spec_fingerprint_changes_when_prompt_ref_is_set():
     prompt = PromptSpec(id="cofounder/system", version="1", text="Nội dung").with_hash()
-    base = AgentSpec(id="test.agent.m2_2")
+    base = AgentSpec(
+        id="test.agent.m2_2",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     with_prompt = base.model_copy(update={"prompt_ref": prompt.to_pinned_identity()})
 
     assert base.compute_hash() != with_prompt.compute_hash()
@@ -258,14 +267,25 @@ def test_agent_spec_fingerprint_changes_when_model_policy_ref_drifts():
     policy_v1 = ModelPolicySpec(id="default-deepseek-policy", version="1", model="deepseek-chat").with_hash()
     policy_v2 = ModelPolicySpec(id="default-deepseek-policy", version="1", model="deepseek-reasoner").with_hash()
 
-    spec_v1 = AgentSpec(id="test.agent.m2_3", model_policy_ref=policy_v1.to_pinned_identity())
-    spec_v2 = AgentSpec(id="test.agent.m2_3", model_policy_ref=policy_v2.to_pinned_identity())
+    spec_v1 = AgentSpec(
+        id="test.agent.m2_3",
+        model_policy_ref=policy_v1.to_pinned_identity(),
+        model_input_capability_ref="model.input.direct-user-message",
+    )
+    spec_v2 = AgentSpec(
+        id="test.agent.m2_3",
+        model_policy_ref=policy_v2.to_pinned_identity(),
+        model_input_capability_ref="model.input.direct-user-message",
+    )
 
     assert spec_v1.compute_hash() != spec_v2.compute_hash()
 
 
 def test_agent_spec_fingerprint_changes_when_tool_contract_refs_change():
-    base = AgentSpec(id="test.agent.m2_4")
+    base = AgentSpec(
+        id="test.agent.m2_4",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     with_contract = base.model_copy(
         update={
             "tool_contract_refs": [
@@ -281,7 +301,10 @@ from agent.knowledge.snapshot import KnowledgeSnapshot
 
 
 def test_agent_spec_defaults_to_no_knowledge_snapshot_ref():
-    spec = AgentSpec(id="test.agent.m6_1")
+    spec = AgentSpec(
+        id="test.agent.m6_1",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
 
     assert spec.knowledge_snapshot_ref is None
 
@@ -294,7 +317,10 @@ def test_agent_spec_fingerprint_changes_when_knowledge_snapshot_ref_is_set():
         embedding_model="text-embedding-3-small",
         embedding_version="1",
     ).with_hash()
-    base = AgentSpec(id="test.agent.m6_2")
+    base = AgentSpec(
+        id="test.agent.m6_2",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     with_ref = base.model_copy(update={"knowledge_snapshot_ref": snapshot.to_pinned_identity()})
 
     assert base.compute_hash() != with_ref.compute_hash()
@@ -307,4 +333,3 @@ def test_contracts_init_exports_same_class_as_target_module():
     from agent.contracts import ExecutionTargetSnapshot as FromInit
     from agent.contracts.target import ExecutionTargetSnapshot as FromTarget
     assert FromInit is FromTarget
-

@@ -29,7 +29,12 @@ async def test_full_run_event_sequence_maps_to_ag_ui_lifecycle_in_order():
     repo = InMemoryRunRepository()
     kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
 
-    spec = AgentSpec(id="test.agent.ag_ui", version="1.0.0", instructions="Bạn là trợ lý.")
+    spec = AgentSpec(
+        id="test.agent.ag_ui",
+        version="1.0.0",
+        instructions="Bạn là trợ lý.",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),

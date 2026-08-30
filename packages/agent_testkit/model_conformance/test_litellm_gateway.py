@@ -81,7 +81,11 @@ async def test_kernel_with_litellm_client_surfaces_specific_error_code_not_gener
     client = LiteLLMModelClient(model="deepseek-chat")
     kernel = ManualToolLoopKernel(repository=repo, model_client=client)
 
-    spec = AgentSpec(id="test.litellm.error_code", version="1.0.0")
+    spec = AgentSpec(
+        id="test.litellm.error_code",
+        version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),

@@ -22,6 +22,7 @@ async def test_kernel_end_to_end_execution_and_event_logging():
     spec = AgentSpec(
         id="general_assistant",
         instructions="You are a helpful assistant.",
+        model_input_capability_ref="model.input.direct-user-message",
     )
     request = RunRequest(
         principal="test_user",
@@ -55,7 +56,11 @@ async def test_kernel_approval_pause_and_resume():
         model_client=MockToolLoopModelClient(),
     )
 
-    spec = AgentSpec(id="finance_agent", instructions="Handle payouts.")
+    spec = AgentSpec(
+        id="finance_agent",
+        instructions="Handle payouts.",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="finance_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -94,7 +99,10 @@ async def test_kernel_cancellation():
     repo = InMemoryRunRepository()
     kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
 
-    spec = AgentSpec(id="long_agent")
+    spec = AgentSpec(
+        id="long_agent",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -138,7 +146,10 @@ async def test_kernel_model_provider_failure_is_typed_failed_not_completed():
     repo = InMemoryRunRepository()
     kernel = ManualToolLoopKernel(repository=repo, model_client=_RaisingModelClient())
 
-    spec = AgentSpec(id="general_assistant")
+    spec = AgentSpec(
+        id="general_assistant",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -206,7 +217,12 @@ async def test_kernel_run_composes_system_prompt_with_locale_policy():
     client = _CapturingModelClient()
     kernel = ManualToolLoopKernel(repository=repo, model_client=client)
 
-    spec = AgentSpec(id="test.agent.locale_1", version="1.0.0", instructions="Bạn là trợ lý tài chính.")
+    spec = AgentSpec(
+        id="test.agent.locale_1",
+        version="1.0.0",
+        instructions="Bạn là trợ lý tài chính.",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -252,7 +268,11 @@ async def test_kernel_allow_path_tool_execution_preserves_real_run_and_tool_call
     # đang được fix trong test này.
     kernel = ManualToolLoopKernel(repository=repo, capability_executor=gateway.execute, model_client=MockToolLoopModelClient())
 
-    spec = AgentSpec(id="test.agent.tool_identity_1", version="1.0.0")
+    spec = AgentSpec(
+        id="test.agent.tool_identity_1",
+        version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -276,7 +296,10 @@ async def test_kernel_raises_typed_error_when_model_client_not_configured():
     repo = InMemoryRunRepository()
     kernel = ManualToolLoopKernel(repository=repo)
 
-    spec = AgentSpec(id="general_assistant")
+    spec = AgentSpec(
+        id="general_assistant",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),

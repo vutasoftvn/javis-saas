@@ -33,6 +33,7 @@ def _build_spec(cap_refs: list[str] | None = None) -> AgentSpec:
         version="1.0.0",
         instructions="You are a test contract agent.",
         capability_refs=cap_refs or [],
+        model_input_capability_ref="model.input.direct-user-message",
     ).with_hash()
 
 
@@ -252,5 +253,4 @@ async def test_openai_agents_sdk_kernel_output_schema_validation_failure():
     assert result.status == RunStatus.FAILED
     assert any("Output validation failed" in err for err in result.errors)
     assert result.final_output["is_valid"] is False
-
 

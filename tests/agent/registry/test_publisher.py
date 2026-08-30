@@ -21,7 +21,12 @@ from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 @pytest.mark.asyncio
 async def test_publish_agent_spec_is_immutable_and_idempotent():
     repo = InMemorySpecRegistryRepository()
-    spec = AgentSpec(id="test.agent.registry_1", version="1.0.0", instructions="Ban đầu")
+    spec = AgentSpec(
+        id="test.agent.registry_1",
+        version="1.0.0",
+        instructions="Ban đầu",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
 
     record1 = await publish_agent_spec(spec, repository=repo, publisher="tester")
     assert record1.spec_kind == "agent"
@@ -34,12 +39,22 @@ async def test_publish_agent_spec_is_immutable_and_idempotent():
     assert record2.definition_hash == record1.definition_hash
 
     # Cùng version nhưng đổi nội dung -> phải reject, không được ghi đè
-    changed_spec = AgentSpec(id="test.agent.registry_1", version="1.0.0", instructions="Đã đổi nội dung")
+    changed_spec = AgentSpec(
+        id="test.agent.registry_1",
+        version="1.0.0",
+        instructions="Đã đổi nội dung",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     with pytest.raises(SpecVersionHashConflictError):
         await publish_agent_spec(changed_spec, repository=repo, publisher="tester")
 
     # Bump version thì publish được bình thường
-    v2_spec = AgentSpec(id="test.agent.registry_1", version="2.0.0", instructions="Đã đổi nội dung")
+    v2_spec = AgentSpec(
+        id="test.agent.registry_1",
+        version="2.0.0",
+        instructions="Đã đổi nội dung",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     record_v2 = await publish_agent_spec(v2_spec, repository=repo, publisher="tester")
     assert record_v2.version == "2.0.0"
     assert record_v2.definition_hash != record1.definition_hash
@@ -56,7 +71,12 @@ async def test_kernel_run_publishes_spec_to_registry():
     registry = InMemorySpecRegistryRepository()
     kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry, model_client=MockToolLoopModelClient())
 
-    spec = AgentSpec(id="test.agent.kernel_publish_1", version="1.0.0", instructions="Test kernel publish")
+    spec = AgentSpec(
+        id="test.agent.kernel_publish_1",
+        version="1.0.0",
+        instructions="Test kernel publish",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -109,6 +129,7 @@ async def test_publish_agent_spec_rejects_prompt_ref_not_in_registry():
     spec = AgentSpec(
         id="test.agent.m2_dep_1",
         version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
         prompt_ref=PinnedSpecIdentity(
             spec_kind="prompt", spec_id="cofounder/system", spec_version="1", definition_hash="a" * 64
         ),
@@ -129,6 +150,7 @@ async def test_publish_agent_spec_rejects_prompt_ref_with_hash_mismatch():
     spec = AgentSpec(
         id="test.agent.m2_dep_2",
         version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
         prompt_ref=PinnedSpecIdentity(
             spec_kind="prompt", spec_id="cofounder/system", spec_version="1", definition_hash="f" * 64
         ),
@@ -148,6 +170,7 @@ async def test_publish_agent_spec_succeeds_when_prompt_ref_matches_published_has
     spec = AgentSpec(
         id="test.agent.m2_dep_3",
         version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
         prompt_ref=published_prompt.to_pinned_identity(),
     )
 

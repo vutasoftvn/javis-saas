@@ -149,6 +149,7 @@ def build_functional_spec(functional_key: str) -> AgentSpec:
         version=entry.version,
         instructions="",
         capability_refs=list(entry.capability_refs),
+        model_input_capability_ref="model.input.direct-user-message",
         metadata={
             "functional_key": entry.functional_key,
             "title": entry.title,

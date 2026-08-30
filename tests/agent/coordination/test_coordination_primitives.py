@@ -60,7 +60,11 @@ async def test_specialist_delegate():
     kernel = MockKernel()
     delegate = SpecialistDelegate(kernel)
 
-    spec = AgentSpec(id="tax_specialist", instructions="Compute taxes")
+    spec = AgentSpec(
+        id="tax_specialist",
+        instructions="Compute taxes",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     res = await delegate.delegate(
         specialist_spec=spec,
         task_input={"income": 100000},
@@ -77,9 +81,30 @@ async def test_parallel_coordinator():
     coordinator = ParallelCoordinator(kernel)
 
     tasks = [
-        ParallelTask(task_id="market", spec=AgentSpec(id="market_specialist"), input_payload={"domain": "market"}),
-        ParallelTask(task_id="finance", spec=AgentSpec(id="finance_specialist"), input_payload={"domain": "finance"}),
-        ParallelTask(task_id="broken", spec=AgentSpec(id="broken_specialist"), input_payload={"domain": "broken"}),
+        ParallelTask(
+            task_id="market",
+            spec=AgentSpec(
+                id="market_specialist",
+                model_input_capability_ref="model.input.direct-user-message",
+            ),
+            input_payload={"domain": "market"},
+        ),
+        ParallelTask(
+            task_id="finance",
+            spec=AgentSpec(
+                id="finance_specialist",
+                model_input_capability_ref="model.input.direct-user-message",
+            ),
+            input_payload={"domain": "finance"},
+        ),
+        ParallelTask(
+            task_id="broken",
+            spec=AgentSpec(
+                id="broken_specialist",
+                model_input_capability_ref="model.input.direct-user-message",
+            ),
+            input_payload={"domain": "broken"},
+        ),
     ]
 
     res = await coordinator.execute_parallel(tasks)
@@ -141,8 +166,14 @@ async def test_supervisor_coordinator_end_to_end():
     supervisor = SupervisorCoordinator(kernel=kernel)
 
     specs = {
-        "sales": AgentSpec(id="sales_agent"),
-        "product": AgentSpec(id="product_agent"),
+        "sales": AgentSpec(
+            id="sales_agent",
+            model_input_capability_ref="model.input.direct-user-message",
+        ),
+        "product": AgentSpec(
+            id="product_agent",
+            model_input_capability_ref="model.input.direct-user-message",
+        ),
     }
 
     plan = supervisor.plan_mission(mission_goal="Scale product sales", specialist_specs=specs)

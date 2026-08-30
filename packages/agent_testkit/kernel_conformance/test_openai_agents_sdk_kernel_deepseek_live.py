@@ -36,6 +36,7 @@ async def test_openai_agents_sdk_kernel_with_real_deepseek_model():
     spec = AgentSpec(
         id="deepseek_live_test_agent",
         version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
         instructions="Bạn là trợ lý ngắn gọn. Trả lời đúng 1 câu, không giải thích thêm.",
     ).with_hash()
     request = RunRequest(

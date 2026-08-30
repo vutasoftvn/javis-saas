@@ -99,7 +99,12 @@ async def _submit_run(
     claim: DataAccessClaim | None = None,
     prompt: str = "Plan tasks for current quarter",
 ) -> RunResult:
-    spec = AgentSpec(id=system_key, instructions="Advisory only", capability_refs=capability_ids)
+    spec = AgentSpec(
+        id=system_key,
+        instructions="Advisory only",
+        capability_refs=capability_ids,
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     metadata: dict[str, Any] = {"capability_ids": capability_ids}
     if claim is not None:
         metadata["data_access_claim"] = claim

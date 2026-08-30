@@ -23,6 +23,7 @@ async def test_full_ai_compliance_lifecycle_flow() -> None:
     spec = AgentSpec(
         id="finance_advisor",
         instructions="Advisory only",
+        model_input_capability_ref="model.input.direct-user-message",
     )
 
     approved_snapshot = {

@@ -63,7 +63,12 @@ async def test_langchain_kernel_basic_response():
     repo = InMemoryRunRepository()
     kernel = LangChainKernel(repository=repo, chat_model=fake_model)
 
-    spec = AgentSpec(id="test.lc.basic", version="1.0.0", instructions="Bạn là trợ lý.")
+    spec = AgentSpec(
+        id="test.lc.basic",
+        version="1.0.0",
+        instructions="Bạn là trợ lý.",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -91,7 +96,11 @@ async def test_langchain_kernel_model_provider_failure_is_typed_failed_not_compl
     repo = InMemoryRunRepository()
     kernel = LangChainKernel(repository=repo, chat_model=fake_model)
 
-    spec = AgentSpec(id="test.lc.failure", version="1.0.0")
+    spec = AgentSpec(
+        id="test.lc.failure",
+        version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -139,7 +148,12 @@ async def test_langchain_kernel_tool_call_allow_path_preserves_exact_identity():
 
     kernel = LangChainKernel(repository=repo, chat_model=fake_model, capability_executor=gateway.execute)
 
-    spec = AgentSpec(id="test.lc.tool_call", version="1.0.0", capability_refs=["operations.task.list"])
+    spec = AgentSpec(
+        id="test.lc.tool_call",
+        version="1.0.0",
+        capability_refs=["operations.task.list"],
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -170,7 +184,11 @@ async def test_langchain_kernel_approval_pause_and_resume():
     repo = InMemoryRunRepository()
     kernel = LangChainKernel(repository=repo, chat_model=fake_model)
 
-    spec = AgentSpec(id="test.lc.approval", version="1.0.0")
+    spec = AgentSpec(
+        id="test.lc.approval",
+        version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
@@ -195,7 +213,11 @@ async def test_langchain_kernel_cancellation():
     repo = InMemoryRunRepository()
     kernel = LangChainKernel(repository=repo, chat_model=fake_model)
 
-    spec = AgentSpec(id="test.lc.cancel", version="1.0.0")
+    spec = AgentSpec(
+        id="test.lc.cancel",
+        version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),

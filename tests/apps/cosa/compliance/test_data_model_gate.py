@@ -105,6 +105,7 @@ async def test_withdrawn_authorization_prevents_model_call() -> None:
     advisory_spec = AgentSpec(
         id="advisory_agent",
         instructions="Advisory only",
+        model_input_capability_ref="model.input.direct-user-message",
     )
     request_with_personal_prompt = RunRequest(
         root_executable_ref="agent:advisory_agent",

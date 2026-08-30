@@ -23,6 +23,7 @@ async def test_suspended_deployment_never_reaches_fake_provider() -> None:
     spec = AgentSpec(
         id="advisory_agent",
         instructions="Advisory only",
+        model_input_capability_ref="model.input.direct-user-message",
     )
 
     suspended_snapshot = {

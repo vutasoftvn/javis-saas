@@ -61,6 +61,7 @@ export interface E2eSeedResult {
 }
 
 const BOUND_CAPABILITY_ID = "operations.task.list";
+const MODEL_INPUT_CAPABILITY_ID = "model.input.direct-user-message";
 const PROVIDER_KEY = "deepseek";
 const MODEL_KEY = "deepseek-chat";
 
@@ -103,6 +104,18 @@ export async function seedE2eComplianceScenario(scenario: E2eSeedScenario): Prom
     decisionDomain: "OPERATIONS",
     requiresHumanConfirmation: true,
     maySendToModel: false,
+    maxDataCategory: "BUSINESS_CONFIDENTIAL",
+    prohibitedPurpose: false,
+  });
+
+  await db.insert(aiSystemCapabilityBindings).values({
+    id: generateSnowflake(),
+    systemVersionId: versionId,
+    capabilityId: MODEL_INPUT_CAPABILITY_ID,
+    effectClass: "READ",
+    decisionDomain: "OPERATIONS",
+    requiresHumanConfirmation: false,
+    maySendToModel: true,
     maxDataCategory: "BUSINESS_CONFIDENTIAL",
     prohibitedPurpose: false,
   });
