@@ -40,6 +40,7 @@ Rotate mọi secret prod còn dùng giá trị dev/placeholder **trước** khi 
 Cửa sổ bảo trì bắt buộc cho `PLATFORM_JWT_SECRET` (rotate làm mọi session đang mở mất hiệu lực).
 
 - [ ] `PLATFORM_JWT_SECRET` — set đồng thời Coolify (`apps/cosa`) + `encore secret set --type prod` (`services/cosa`); redeploy `cosa-api` + `cosa-worker` + `services-cosa` cùng lúc.
+- [ ] `COSA_COMPANY_DELEGATION_SECRET` — sinh secret riêng, set cùng giá trị cho `services-company`, `cosa-api`, `cosa-worker`; redeploy cả ba; verify delegation trên staging trước khi cutover và thu hồi giá trị cũ sau khi traffic ổn định.
 - [ ] `WORKER_SERVICE_JWT_SECRET` — set Coolify; mint lại worker token (`scripts/mint-worker-service-token.mjs`); redeploy control plane + workers.
 - [ ] `DEEPSEEK_API_KEY` — tạo key mới ở dashboard; set Coolify; redeploy; thu hồi key cũ sau khi xác nhận traffic trên key mới.
 - [ ] MinIO `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` — thay cả artifact client lẫn env của `scripts/backup/pg-backup.sh`; xoá key `minioadmin` mặc định.

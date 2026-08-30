@@ -19,6 +19,7 @@ Không dùng SOPS/Vault ở giai đoạn này — nếu chuyển sang, ghi ADR m
 |---|---|---|---|---|
 | `AGENT_DATABASE_URL` | `packages/agent` mọi repository factory; `apps/cosa` composition root | Coolify secret | Bắt buộc — thiếu → `RuntimeError` khi khởi động (`build_cosa_agent_plane`, no-silent-fallback) | Khi đổi mật khẩu Postgres app role |
 | `PLATFORM_JWT_SECRET` | `apps/cosa/auth/jwt.py::_get_jwt_secret()` (verify + mint delegation token); `services/cosa` `token.service.ts::signPlatformToken()` — **phải đối xứng 2 phía** | Coolify secret **và** Encore secret (cùng giá trị) | Bắt buộc — guard từ chối ở staging/prod nếu thiếu / `< 32` ký tự / bằng dev default | **Rotate trước go-live.** Làm mất hiệu lực mọi session đang mở → cửa sổ bảo trì |
+| `COSA_COMPANY_DELEGATION_SECRET` | JWT delegation COSA → Company: `apps/cosa/auth/jwt.py::_get_company_delegation_secret` và `services/company/shared/auth/cosa-delegation.service.ts::getDelegationSecret` | Coolify secret (cùng giá trị cho `services-company`, `cosa-api`, `cosa-worker`) | Bắt buộc cho cả ba consumer; không dùng chung với platform/session/service token | Rotate theo thứ tự deploy cả ba consumer |
 | `WORKER_SERVICE_JWT_SECRET` | Auth giữa `cosa-worker` ↔ control plane; `scripts/mint-worker-service-token.mjs` | Coolify secret | Bắt buộc cho worker auth | **Rotate trước go-live**, đồng bộ mint lại worker token |
 | `DEEPSEEK_API_KEY` | Model provider chính qua LiteLLM (`apps/cosa/composition/model_provider.py::build_deepseek_model`, `ADR-RUNTIME-002`) | Coolify secret | Bắt buộc cho runtime `openai_agents` production (fail-fast nếu thiếu) | **Rotate trước go-live** + định kỳ 90 ngày |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (hoặc S3 tương đương) | Artifact store, backup target (`scripts/backup/pg-backup.sh`) | Coolify secret | Bắt buộc nếu bật artifact/backup | **Rotate trước go-live** (dev default `minioadmin/minioadmin`) |
@@ -37,12 +38,19 @@ Nguyên tắc: **expand → cutover → contract** cho secret có consumer nhi�
 4. Redeploy `cosa-api`, `cosa-worker`, `services-cosa` cùng lúc.
 5. Verify: token phát hành trước rotate → 401; đăng nhập lại → token mới verify OK (test trên staging trước — xem §5 checklist).
 
-### 3.2 `WORKER_SERVICE_JWT_SECRET`
+### 3.2 `COSA_COMPANY_DELEGATION_SECRET` (3 consumer: `services-company` + `cosa-api` + `cosa-worker`)
+1. Sinh giá trị mới riêng cho delegation: `openssl rand -base64 48`. Không tái sử dụng `PLATFORM_JWT_SECRET`, `WORKER_SERVICE_JWT_SECRET`, `COSA_LOCAL_SERVICE_SECRET` hoặc các service token.
+2. Set cùng một giá trị trong Coolify cho `COSA_COMPANY_DELEGATION_SECRET` của cả `services-company`, `cosa-api` và `cosa-worker`.
+3. Redeploy cả ba consumer trong cùng một cửa sổ thay đổi; không chỉ restart một service.
+4. Verify trên staging: `cosa-api` phát hành delegation JWT và `services-company` xác minh thành công; worker thực hiện luồng delegation thành công.
+5. Sau khi staging và production traffic ổn định, thu hồi giá trị cũ và xác nhận delegation token ký bằng giá trị cũ bị từ chối.
+
+### 3.3 `WORKER_SERVICE_JWT_SECRET`
 1. Set giá trị mới ở Coolify.
 2. `WORKER_SERVICE_JWT_SECRET=<new> node scripts/mint-worker-service-token.mjs <worker-id>` → cập nhật token cho từng worker.
 3. Redeploy control plane + workers.
 
-### 3.3 `DEEPSEEK_API_KEY` / MinIO keys / Postgres passwords
+### 3.4 `DEEPSEEK_API_KEY` / MinIO keys / Postgres passwords
 - API key: tạo key mới ở dashboard provider → set Coolify → redeploy → thu hồi key cũ sau khi xác nhận traffic chạy trên key mới.
 - MinIO: tạo access key mới → cập nhật cả artifact client lẫn `pg-backup.sh` env → xoá key cũ.
 - Postgres: `ALTER ROLE <role> WITH PASSWORD '<new>'` → cập nhật `*_DATABASE_URL` ở Coolify → redeploy → verify `/ready` 200.
@@ -67,4 +75,4 @@ Truy cập secret prod ghi log qua Coolify audit / Encore audit. Không chia s�
 
 ## 6. Checklist rotate trước go-live
 
-Xem [`docs/runbooks/prod-cutover.md`](../runbooks/prod-cutover.md) **Bước 0 — Secret Rotation (T-24h)**. Tối thiểu phải rotate + verify trên staging: `PLATFORM_JWT_SECRET`, `WORKER_SERVICE_JWT_SECRET`, `DEEPSEEK_API_KEY`, MinIO keys, Postgres app-role passwords.
+Xem [`docs/runbooks/prod-cutover.md`](../runbooks/prod-cutover.md) **Bước 0 — Secret Rotation (T-24h)**. Tối thiểu phải rotate + verify trên staging: `PLATFORM_JWT_SECRET`, `COSA_COMPANY_DELEGATION_SECRET`, `WORKER_SERVICE_JWT_SECRET`, `DEEPSEEK_API_KEY`, MinIO keys, Postgres app-role passwords.
