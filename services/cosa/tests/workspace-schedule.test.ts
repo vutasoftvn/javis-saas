@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import * as scheduleSvc from "../services/workspace-schedule.service";
+import * as schedulerSvc from "../services/control-plane-scheduler.service";
 import { db, schema } from "../models/db";
 
 const {
@@ -115,6 +116,72 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     // Idempotent: re-dispatching now should not create a duplicate execution
     const reDispatched = await scheduleSvc.dispatchDueWorkspaceSchedules(new Date());
     expect(reDispatched).toBe(0);
+  });
+
+  it("handles scheduleTask failure gracefully with enqueue_retry and retries on next tick", async () => {
+    const pastDue = new Date(Date.now() - 5000);
+    const def = await scheduleSvc.createWorkspaceSchedule({
+      workspaceId: "ws_1",
+      createdBy: "user_alice",
+      scheduleKind: "daily",
+      timezone: "Asia/Ho_Chi_Minh",
+      hour: 9,
+      minute: 0,
+      promptTemplate: "Retryable scan",
+    });
+
+    await db
+      .update(workspaceScheduleDefinitions)
+      .set({ nextRunAt: pastDue })
+      .where(eq(workspaceScheduleDefinitions.id, def.id));
+
+    let attempts = 0;
+    const originalScheduleTask = schedulerSvc.scheduleTask;
+    const spy = vi.spyOn(schedulerSvc, "scheduleTask").mockImplementation(async (input: any) => {
+      attempts++;
+      if (attempts === 1) {
+        throw new Error("Simulated enqueue failure");
+      }
+      return originalScheduleTask(input);
+    });
+
+    try {
+      // First tick: scheduleTask fails
+      const firstDispatch = await scheduleSvc.dispatchDueWorkspaceSchedules(new Date());
+      expect(firstDispatch).toBe(0);
+
+      // Verify execution is in 'enqueue_retry' and taskId is null
+      const executions = await db.select().from(workspaceScheduleExecutions);
+      expect(executions.length).toBe(1);
+      expect(executions[0].taskId).toBeNull();
+      expect(executions[0].state).toBe("enqueue_retry");
+
+      // Verify definition nextRunAt was NOT advanced
+      const [defAfterFirst] = await db
+        .select()
+        .from(workspaceScheduleDefinitions)
+        .where(eq(workspaceScheduleDefinitions.id, def.id));
+      expect(defAfterFirst.nextRunAt?.getTime()).toBe(pastDue.getTime());
+
+      // Second tick: retry succeeds
+      const secondDispatch = await scheduleSvc.dispatchDueWorkspaceSchedules(new Date());
+      expect(secondDispatch).toBe(1);
+
+      // Verify execution is now 'queued' with taskId
+      const executionsAfterSecond = await db.select().from(workspaceScheduleExecutions);
+      expect(executionsAfterSecond.length).toBe(1);
+      expect(executionsAfterSecond[0].taskId).toBeDefined();
+      expect(executionsAfterSecond[0].state).toBe("queued");
+
+      // Verify definition nextRunAt was advanced
+      const [defAfterSecond] = await db
+        .select()
+        .from(workspaceScheduleDefinitions)
+        .where(eq(workspaceScheduleDefinitions.id, def.id));
+      expect(defAfterSecond.nextRunAt?.getTime()).not.toBe(pastDue.getTime());
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("allows runScheduleNow to trigger immediate execution", async () => {

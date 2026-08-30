@@ -1,4 +1,5 @@
 import { eq, and, lte, gte, sql, count } from "drizzle-orm";
+import { APIError } from "encore.dev/api";
 import { db, schema } from "../models/db";
 import { scheduleTask } from "./control-plane-scheduler.service";
 
@@ -11,6 +12,8 @@ export type ScheduleKind = "one_time" | "daily" | "weekdays";
 export type ScheduleState = "enabled" | "paused" | "archived";
 export type ScheduleExecutionState =
   | "queued"
+  | "enqueue_retry"
+  | "enqueue_failed"
   | "running"
   | "succeeded"
   | "failed"
@@ -29,12 +32,16 @@ export const DEFAULT_DISPATCH_BATCH_SIZE = parseInt(
   process.env.COSA_SCHEDULE_DISPATCH_BATCH_SIZE || "25",
   10
 );
+export const MAX_ENQUEUE_RETRIES = parseInt(
+  process.env.COSA_SCHEDULE_MAX_ENQUEUE_RETRIES || "5",
+  10
+);
 
 export function validateIanaTimezone(tz: string): void {
   try {
     Intl.DateTimeFormat(undefined, { timeZone: tz });
   } catch {
-    throw new Error(`invalid IANA timezone: '${tz}'`);
+    throw APIError.invalidArgument(`invalid IANA timezone: '${tz}'`);
   }
 }
 
@@ -57,7 +64,7 @@ export function calculateNextRun(
   const h = hour ?? 0;
   const m = minute ?? 0;
   if (h < 0 || h > 23 || m < 0 || m > 59) {
-    throw new Error(`invalid hour (${h}) or minute (${m})`);
+    throw APIError.invalidArgument(`invalid hour (${h}) or minute (${m})`);
   }
 
   // Iterate up to 14 days ahead to find the next matching slot
@@ -178,7 +185,7 @@ export async function createWorkspaceSchedule(input: {
   validateIanaTimezone(tz);
 
   if (!input.promptTemplate || !input.promptTemplate.trim()) {
-    throw new Error("promptTemplate cannot be empty");
+    throw APIError.invalidArgument("promptTemplate cannot be empty");
   }
 
   // Check active schedule quota
@@ -193,7 +200,7 @@ export async function createWorkspaceSchedule(input: {
     );
 
   if (Number(activeCount) >= MAX_ACTIVE_SCHEDULES_PER_WORKSPACE) {
-    throw new Error(
+    throw APIError.resourceExhausted(
       `active schedule quota exceeded: maximum of ${MAX_ACTIVE_SCHEDULES_PER_WORKSPACE} enabled schedules allowed per workspace`
     );
   }
@@ -201,7 +208,7 @@ export async function createWorkspaceSchedule(input: {
   let nextRunAt: Date | null = null;
   if (input.scheduleKind === "one_time") {
     if (!input.runAt || input.runAt <= new Date()) {
-      throw new Error("one_time schedule requires runAt in the future");
+      throw APIError.invalidArgument("one_time schedule requires runAt in the future");
     }
     nextRunAt = input.runAt;
   } else {
@@ -242,6 +249,79 @@ export async function dispatchDueWorkspaceSchedules(
   now: Date = new Date(),
   limit: number = DEFAULT_DISPATCH_BATCH_SIZE
 ): Promise<number> {
+  let dispatchedCount = 0;
+
+  // 1. Re-attempt any existing executions in 'enqueue_retry' with null taskId
+  const retryExecutions = await db
+    .select()
+    .from(workspaceScheduleExecutions)
+    .where(
+      and(
+        eq(workspaceScheduleExecutions.state, "enqueue_retry"),
+        sql`${workspaceScheduleExecutions.taskId} IS NULL`
+      )
+    )
+    .limit(limit);
+
+  for (const execution of retryExecutions) {
+    try {
+      const task = await scheduleTask({
+        targetSpecId: "cosa.schedule-execution",
+        targetSpecKind: "agent",
+        coalescingKey: `schedule-execution:${execution.id}`,
+        inputPayload: {
+          task_type: "scheduled_session",
+          schedule_execution_id: execution.id,
+        },
+      });
+
+      await db
+        .update(workspaceScheduleExecutions)
+        .set({ taskId: task.id, state: "queued", error: null, updatedAt: new Date() })
+        .where(eq(workspaceScheduleExecutions.id, execution.id));
+
+      // Advance schedule definition nextRunAt if not advanced yet
+      const [def] = await db
+        .select()
+        .from(workspaceScheduleDefinitions)
+        .where(eq(workspaceScheduleDefinitions.id, execution.definitionId));
+
+      if (def && (!def.lastRunAt || def.lastRunAt < execution.scheduledFor)) {
+        let nextNextRun: Date | null = null;
+        let nextState: ScheduleState = def.state as ScheduleState;
+
+        if (def.scheduleKind === "one_time") {
+          nextNextRun = null;
+          nextState = "paused";
+        } else {
+          nextNextRun = calculateNextRun(
+            def.scheduleKind as ScheduleKind,
+            def.timezone,
+            def.hour,
+            def.minute,
+            def.weekdays as number[],
+            now
+          );
+        }
+
+        await db
+          .update(workspaceScheduleDefinitions)
+          .set({
+            lastRunAt: now,
+            nextRunAt: nextNextRun,
+            state: nextState,
+            updatedAt: new Date(),
+          })
+          .where(eq(workspaceScheduleDefinitions.id, def.id));
+      }
+
+      dispatchedCount++;
+    } catch (retryErr) {
+      console.error(`[ScheduleDispatcher] Retry enqueue failed for execution ${execution.id}:`, retryErr);
+    }
+  }
+
+  // 2. Dispatch due definitions
   const dueDefinitions = await db
     .select()
     .from(workspaceScheduleDefinitions)
@@ -252,8 +332,6 @@ export async function dispatchDueWorkspaceSchedules(
       )
     )
     .limit(limit);
-
-  let dispatchedCount = 0;
 
   for (const def of dueDefinitions) {
     const scheduledFor = def.nextRunAt || now;
@@ -278,9 +356,10 @@ export async function dispatchDueWorkspaceSchedules(
     }
 
     const execId = `sched_exec_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    let execution: any = null;
 
     try {
-      const [execution] = await db
+      const [inserted] = await db
         .insert(workspaceScheduleExecutions)
         .values({
           id: execId,
@@ -295,9 +374,24 @@ export async function dispatchDueWorkspaceSchedules(
         .onConflictDoNothing({ target: [workspaceScheduleExecutions.definitionId, workspaceScheduleExecutions.scheduledFor] })
         .returning();
 
-      if (!execution) {
-        // Idempotency: occurrence already created
-        continue;
+      if (!inserted) {
+        // Occurrence already created; check if it is pending retry
+        const [existing] = await db
+          .select()
+          .from(workspaceScheduleExecutions)
+          .where(
+            and(
+              eq(workspaceScheduleExecutions.definitionId, def.id),
+              eq(workspaceScheduleExecutions.scheduledFor, scheduledFor)
+            )
+          );
+        if (existing && existing.state === "enqueue_retry" && !existing.taskId) {
+          execution = existing;
+        } else {
+          continue;
+        }
+      } else {
+        execution = inserted;
       }
 
       // Enqueue to low-level scheduled_tasks with fixed target
@@ -313,10 +407,10 @@ export async function dispatchDueWorkspaceSchedules(
 
       await db
         .update(workspaceScheduleExecutions)
-        .set({ taskId: task.id, updatedAt: new Date() })
+        .set({ taskId: task.id, state: "queued", error: null, updatedAt: new Date() })
         .where(eq(workspaceScheduleExecutions.id, execution.id));
 
-      // Advance next_run_at
+      // Advance next_run_at only after durable storage of taskId
       let nextNextRun: Date | null = null;
       let nextState: ScheduleState = def.state as ScheduleState;
 
@@ -347,6 +441,16 @@ export async function dispatchDueWorkspaceSchedules(
       dispatchedCount++;
     } catch (err) {
       console.error(`[ScheduleDispatcher] Error dispatching schedule ${def.id}:`, err);
+      if (execution) {
+        await db
+          .update(workspaceScheduleExecutions)
+          .set({
+            state: "enqueue_retry",
+            error: err instanceof Error ? err.message : String(err),
+            updatedAt: new Date(),
+          })
+          .where(eq(workspaceScheduleExecutions.id, execution.id));
+      }
     }
   }
 
@@ -369,7 +473,7 @@ export async function runScheduleNow(input: {
     );
 
   if (!def) {
-    throw new Error("schedule definition not found in workspace");
+    throw APIError.notFound("schedule definition not found in workspace");
   }
 
   const now = new Date();
