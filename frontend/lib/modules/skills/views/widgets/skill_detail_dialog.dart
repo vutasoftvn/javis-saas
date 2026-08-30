@@ -19,7 +19,6 @@ class SkillDetailDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<SkillRegistryController>();
     final name = skill['name']?.toString() ?? 'Kỹ năng';
-    final domain = (skill['domain']?.toString() ?? 'general').toUpperCase();
     final status = (skill['status']?.toString() ?? 'candidate').toLowerCase();
     final version = skill['version']?.toString() ?? 'v1.0.0';
     final description = skill['description']?.toString() ?? 'Không có mô tả.';
@@ -28,7 +27,6 @@ class SkillDetailDialog extends StatelessWidget {
     final usageCount = (skill['usage_count'] as num?)?.toInt() ?? 0;
     final positive = (skill['positive_feedback'] as num?)?.toInt() ?? 0;
     final negative = (skill['negative_feedback'] as num?)?.toInt() ?? 0;
-    final createdBy = skill['created_by_agent']?.toString() ?? 'human_admin';
     final approvedBy = skill['approved_by_user_id']?.toString();
     final skillId = skill['id']?.toString() ?? '';
     final tools = (skill['tool_permissions'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];

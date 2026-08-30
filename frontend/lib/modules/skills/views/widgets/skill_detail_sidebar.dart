@@ -447,11 +447,11 @@ class _SkillDetailSidebarState extends State<SkillDetailSidebar> {
             children: [
               _buildInfoRow('Mã Kỹ năng (ID)', skillId.isNotEmpty ? skillId : '—'),
               const SizedBox(height: 4),
-              _buildInfoRow('Giai đoạn (Stages)', (skill['project_stages'] as List<dynamic>?)?.join(', ') ?? '—'),
+              _buildInfoRow('Giai đoạn (Stages)', (widget.skill['project_stages'] as List<dynamic>?)?.join(', ') ?? '—'),
               const SizedBox(height: 4),
-              _buildInfoRow('Quyền tự chủ (Autonomy)', '${skill['autonomy_ceiling'] ?? 'L0_OBSERVE'} (${skill['side_effect_class'] ?? 'R'})'),
+              _buildInfoRow('Quyền tự chủ (Autonomy)', '${widget.skill['autonomy_ceiling'] ?? 'L0_OBSERVE'} (${widget.skill['side_effect_class'] ?? 'R'})'),
               const SizedBox(height: 4),
-              _buildInfoRow('Bằng chứng tối thiểu', '${skill['min_source_refs'] ?? 0} refs'),
+              _buildInfoRow('Bằng chứng tối thiểu', '${widget.skill['min_source_refs'] ?? 0} refs'),
               const SizedBox(height: 4),
               _buildInfoRow('Nguồn gốc (Origin)', origin != null && origin.isNotEmpty ? origin : createdBy),
               if (adaptedFromSha != null && adaptedFromSha.isNotEmpty) ...[
