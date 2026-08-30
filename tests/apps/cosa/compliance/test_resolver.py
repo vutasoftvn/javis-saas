@@ -11,6 +11,8 @@ from apps.cosa.compliance.contracts import (
     ComplianceDenied,
     ComplianceSnapshot,
 )
+from apps.cosa.compliance.data_access_claim import DataAccessClaim
+from apps.cosa.compliance.data_egress_context import DirectMessageDataAccess
 from apps.cosa.compliance.resolver import ComplianceResolver
 
 
@@ -101,6 +103,10 @@ async def test_resolver_attaches_snapshot_hash(
         allowed_capabilities=frozenset(["finance.read"]),
         provider_profile_version="v3",
         data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
         snapshot_hash="sha256:abc123",
         expires_at=now,
     )
@@ -131,6 +137,10 @@ async def test_resolver_scopes_direct_model_input_when_spec_declares_no_tools(
         allowed_capabilities=frozenset(["model.input.direct-user-message"]),
         provider_profile_version="v3",
         data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
         snapshot_hash="sha256:abc123",
         expires_at=now,
     )
@@ -160,6 +170,10 @@ async def test_resolver_mints_a_scoped_delegation_and_forwards_capability_ids(
         allowed_capabilities=frozenset(["finance.read"]),
         provider_profile_version="v3",
         data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
         snapshot_hash="sha256:abc123",
         expires_at=now,
     )
@@ -205,6 +219,10 @@ async def test_resolver_deduplicates_tools_and_malformed_overlapping_input_scope
         ),
         provider_profile_version="v3",
         data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
         snapshot_hash="sha256:abc123",
         expires_at=now,
     )
@@ -231,6 +249,145 @@ async def test_resolver_denies_when_company_rejects_delegation_scope(
     )
     with pytest.raises(ComplianceDenied, match="DELEGATION_DENIED"):
         await resolver.resolve_for_run(sample_request, sample_spec)
+
+
+@pytest.mark.asyncio
+async def test_resolver_builds_data_access_claim_from_direct_message_context(
+    sample_request: RunRequest,
+    sample_spec: AgentSpec,
+) -> None:
+    """Task 4 — Data Egress Context: khi caller khai báo
+    `direct_message_data_access` trong metadata, resolver phải dựng
+    `DataAccessClaim` thật, LẤY provider/model/purpose/retention TỪ SNAPSHOT
+    (không phải từ context caller khai báo)."""
+    now = datetime.now(UTC)
+    snap = ComplianceSnapshot(
+        workspace_id="ws_1",
+        deployment_id="dep_1",
+        assessment_id="ass_1",
+        mode="ADVISORY_ONLY",
+        status="APPROVED_FOR_USE",
+        allowed_capabilities=frozenset(["finance.read"]),
+        provider_profile_version="v3",
+        data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
+        snapshot_hash="sha256:abc123",
+        expires_at=now,
+    )
+    direct_access = DirectMessageDataAccess.from_message(
+        message_id="msg_1",
+        content="Analyze finance",
+        categories=frozenset({"BUSINESS_CONFIDENTIAL"}),
+        subject_reference=None,
+    )
+    request_with_context = sample_request.model_copy(
+        update={"metadata": {"direct_message_data_access": direct_access}}
+    )
+    resolver = ComplianceResolver(FakeAiComplianceClient(snapshot=snap))
+
+    metadata = await resolver.resolve_for_run(request_with_context, sample_spec)
+
+    claim = metadata["data_access_claim"]
+    assert isinstance(claim, DataAccessClaim)
+    assert claim.workspace_id == "ws_1"
+    assert claim.deployment_id == "dep_1"
+    assert claim.capability_id == "model.input.direct-user-message"
+    assert claim.source_ref == "conversation_message:msg_1"
+    assert claim.categories == frozenset({"BUSINESS_CONFIDENTIAL"})
+    assert claim.provider_key == "deepseek"
+    assert claim.model_key == "deepseek-chat"
+    assert claim.purpose_id == "advisory"
+    assert claim.retention_policy_id == "retain-30d"
+
+
+@pytest.mark.asyncio
+async def test_resolver_builds_data_access_claim_from_plain_dict_context(
+    sample_request: RunRequest,
+    sample_spec: AgentSpec,
+) -> None:
+    """`direct_message_data_access` cũng có thể tới dưới dạng dict thô (vd.
+    sau khi round-trip qua JSON) — resolver phải coerce và validate y hệt
+    như khi nhận thẳng 1 `DirectMessageDataAccess`."""
+    now = datetime.now(UTC)
+    snap = ComplianceSnapshot(
+        workspace_id="ws_1",
+        deployment_id="dep_1",
+        assessment_id="ass_1",
+        mode="ADVISORY_ONLY",
+        status="APPROVED_FOR_USE",
+        allowed_capabilities=frozenset(["finance.read"]),
+        provider_profile_version="v3",
+        data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
+        snapshot_hash="sha256:abc123",
+        expires_at=now,
+    )
+    request_with_context = sample_request.model_copy(
+        update={
+            "metadata": {
+                "direct_message_data_access": {
+                    "categories": frozenset({"BUSINESS_CONFIDENTIAL"}),
+                    "subject_reference": None,
+                    "source_ref": "conversation_message:msg_2",
+                    "source_hash": "abc",
+                }
+            }
+        }
+    )
+    resolver = ComplianceResolver(FakeAiComplianceClient(snapshot=snap))
+
+    metadata = await resolver.resolve_for_run(request_with_context, sample_spec)
+
+    assert metadata["data_access_claim"].source_ref == "conversation_message:msg_2"
+
+
+@pytest.mark.asyncio
+async def test_resolver_denies_when_direct_message_context_is_invalid(
+    sample_request: RunRequest,
+    sample_spec: AgentSpec,
+) -> None:
+    """Category PERSONAL không có subject_reference là 1 context không hợp
+    lệ — fail-closed với DATA_ACCESS_CLAIM_MISSING, không im lặng bỏ qua và
+    không rơi về redactor-only."""
+    now = datetime.now(UTC)
+    snap = ComplianceSnapshot(
+        workspace_id="ws_1",
+        deployment_id="dep_1",
+        assessment_id="ass_1",
+        mode="ADVISORY_ONLY",
+        status="APPROVED_FOR_USE",
+        allowed_capabilities=frozenset(["finance.read"]),
+        provider_profile_version="v3",
+        data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
+        snapshot_hash="sha256:abc123",
+        expires_at=now,
+    )
+    request_with_context = sample_request.model_copy(
+        update={
+            "metadata": {
+                "direct_message_data_access": {
+                    "categories": frozenset({"PERSONAL"}),
+                    "subject_reference": None,
+                    "source_ref": "conversation_message:msg_3",
+                    "source_hash": "abc",
+                }
+            }
+        }
+    )
+    resolver = ComplianceResolver(FakeAiComplianceClient(snapshot=snap))
+
+    with pytest.raises(ComplianceDenied, match="DATA_ACCESS_CLAIM_MISSING"):
+        await resolver.resolve_for_run(request_with_context, sample_spec)
 
 
 @pytest.mark.asyncio

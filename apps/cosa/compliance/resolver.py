@@ -6,12 +6,21 @@ import jwt as _pyjwt
 from agent.contracts.run import RunRequest
 from agent.contracts.spec import AgentSpec
 
+from pydantic import ValidationError
+
 from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.compliance.company_client import AiComplianceClient
 from apps.cosa.compliance.contracts import (
     AiComplianceUnavailable,
     ComplianceDenied,
 )
+from apps.cosa.compliance.data_access_claim import DataAccessClaim
+from apps.cosa.compliance.data_egress_context import DirectMessageDataAccess
+
+# Snapshot phải cung cấp đủ 4 field này để resolver dựng DataAccessClaim —
+# provider/model/purpose/retention LUÔN lấy từ snapshot đã Company duyệt,
+# không bao giờ lấy từ context caller khai báo (xem data_egress_context.py).
+_CLAIM_PROVENANCE_FIELDS = ("provider_key", "model_key", "purpose_id", "retention_policy_id")
 
 
 class ComplianceResolver:
@@ -98,10 +107,80 @@ class ComplianceResolver:
         except Exception:
             delegation_ref = "unknown"
 
-        return {
+        result: dict[str, Any] = {
             "compliance_snapshot": snap_dict,
             "compliance_snapshot_ref": snap_hash,
             "compliance_snapshot_version": snap_version,
             "company_delegation_ref": delegation_ref,
             "_company_delegation_token": delegation_token,
         }
+
+        # Task 4 — Data Egress Context: nếu caller đã khai báo
+        # `direct_message_data_access` trong metadata (Task 5 sẽ là nơi tạo
+        # ra field này từ 1 request HTTP thật; ở Task 4 field này chỉ CÓ THỂ
+        # có mặt nếu 1 caller thật đã set nó — chưa bắt buộc luôn phải có),
+        # dựng `DataAccessClaim` thật để `CosaDataModelGate` không còn phải
+        # deny DATA_ACCESS_CLAIM_MISSING. Provider/model/purpose/retention
+        # LUÔN lấy từ snapshot vừa được Company duyệt — KHÔNG bao giờ lấy từ
+        # context caller khai báo, để tránh 1 caller tự xưng provider/model
+        # khác với cái Company đã approve.
+        raw_direct_access = (request.metadata or {}).get("direct_message_data_access")
+        if raw_direct_access is not None:
+            direct_access = self._coerce_direct_message_data_access(raw_direct_access)
+
+            if not spec.model_input_capability_ref:
+                raise ComplianceDenied(
+                    "DATA_ACCESS_CLAIM_MISSING",
+                    "DATA_ACCESS_CLAIM_MISSING: AgentSpec is missing "
+                    "model_input_capability_ref — cannot scope a data access claim",
+                )
+
+            missing_provenance = [
+                field_name
+                for field_name in _CLAIM_PROVENANCE_FIELDS
+                if not getattr(snapshot, field_name, None)
+            ]
+            if missing_provenance:
+                raise ComplianceDenied(
+                    "DATA_ACCESS_CLAIM_MISSING",
+                    "DATA_ACCESS_CLAIM_MISSING: compliance snapshot is missing "
+                    f"provenance field(s): {', '.join(missing_provenance)}",
+                )
+
+            result["data_access_claim"] = DataAccessClaim(
+                workspace_id=workspace_id,
+                deployment_id=snapshot.deployment_id,
+                capability_id=spec.model_input_capability_ref,
+                source_ref=direct_access.source_ref,
+                source_hash=direct_access.source_hash,
+                categories=direct_access.categories,
+                purpose_id=snapshot.purpose_id,
+                subject_reference=direct_access.subject_reference,
+                provider_key=snapshot.provider_key,
+                model_key=snapshot.model_key,
+                retention_policy_id=snapshot.retention_policy_id,
+            )
+
+        return result
+
+    @staticmethod
+    def _coerce_direct_message_data_access(raw: Any) -> DirectMessageDataAccess:
+        """`request.metadata` là `dict[str, Any]` tự do — Task 5 (HTTP layer)
+        sẽ đặt vào đây 1 `DirectMessageDataAccess` đã dựng sẵn, nhưng bất kỳ
+        caller nào serialize qua JSON/dict trước cũng phải được coi trọng
+        như nhau. Dict không hợp lệ (category rỗng, PERSONAL thiếu
+        subject_reference, ...) ⇒ fail-closed, không im lặng bỏ qua."""
+        if isinstance(raw, DirectMessageDataAccess):
+            return raw
+        if isinstance(raw, dict):
+            try:
+                return DirectMessageDataAccess(**raw)
+            except ValidationError as err:
+                raise ComplianceDenied(
+                    "DATA_ACCESS_CLAIM_MISSING", f"DATA_ACCESS_CLAIM_MISSING: {err}"
+                ) from err
+        raise ComplianceDenied(
+            "DATA_ACCESS_CLAIM_MISSING",
+            f"DATA_ACCESS_CLAIM_MISSING: unsupported direct_message_data_access type "
+            f"{type(raw).__name__}",
+        )

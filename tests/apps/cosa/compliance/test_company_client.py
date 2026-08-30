@@ -24,6 +24,10 @@ def test_compliance_snapshot_model_validation() -> None:
         allowed_capabilities=frozenset(["finance.read"]),
         provider_profile_version="v3",
         data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
         snapshot_hash="sha256:abc123",
         expires_at=now,
     )
@@ -57,6 +61,10 @@ def _valid_server_response_dict(**overrides: Any) -> dict[str, Any]:
         "allowedCapabilities": ["finance.read"],
         "providerProfileVersion": "v3",
         "dataProfileVersion": "v1",
+        "providerKey": "deepseek",
+        "modelKey": "deepseek-chat",
+        "purposeId": "advisory",
+        "retentionPolicyId": "retain-30d",
         "snapshotHash": "sha256:validhash123",
         "expiresAt": expiry,
     }
@@ -181,6 +189,32 @@ async def test_resolve_snapshot_contract_violation_missing_fields(monkeypatch: p
             delegation_token="token",
         )
     assert exc_info.value.code == "CONTRACT_VIOLATION"
+
+
+@pytest.mark.asyncio
+async def test_missing_provider_key_is_a_contract_violation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Task 4 — provenance field thiếu (providerKey) phải fail-closed với
+    CONTRACT_VIOLATION, không rơi về snapshot thiếu provider/model để
+    resolver sau đó dựng DataAccessClaim sai."""
+    incomplete = _valid_server_response_dict()
+    del incomplete["providerKey"]
+
+    async def fake_send(self: httpx.AsyncClient, request: httpx.Request, **kwargs: Any) -> httpx.Response:
+        return httpx.Response(200, json=incomplete, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "send", fake_send)
+
+    client = AiComplianceClient(base_url="http://company.internal")
+    with pytest.raises(AiComplianceUnavailable) as exc_info:
+        await client.resolve_snapshot(
+            workspace_id="ws_1",
+            run_id="run_1",
+            system_key="cosa-advisory",
+            capability_ids=["finance.read"],
+            delegation_token="token",
+        )
+    assert exc_info.value.code == "CONTRACT_VIOLATION"
+    assert "providerKey" in str(exc_info.value)
 
 
 @pytest.mark.asyncio

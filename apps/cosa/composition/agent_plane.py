@@ -600,6 +600,10 @@ def build_cosa_agent_plane(
                         allowed_capabilities=frozenset(capability_ids),
                         provider_profile_version="mock-1.0.0",
                         data_profile_version="mock-1.0.0",
+                        provider_key="mock-provider",
+                        model_key="mock-model",
+                        purpose_id="mock-purpose",
+                        retention_policy_id="mock-retention",
                         snapshot_hash="sha256:" + "0" * 64,
                         expires_at=datetime.now(UTC) + timedelta(days=1),
                     )

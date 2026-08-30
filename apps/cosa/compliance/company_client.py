@@ -27,6 +27,15 @@ _REQUIRED_FIELDS = (
     "dataProfileVersion",
     "snapshotHash",
     "expiresAt",
+    # Task 4 — provenance bắt buộc để resolver dựng DataAccessClaim thật từ
+    # snapshot (không lấy provider/model/purpose/retention từ đâu khác).
+    # Company (Task 2) đã đảm bảo route runtime luôn trả đủ 4 field này khi
+    # `provenanceComplete: true`; ở đây bắt buộc lại phía client để fail-
+    # closed nếu response cũ/hỏng thiếu field — không default về "" hay None.
+    "providerKey",
+    "modelKey",
+    "purposeId",
+    "retentionPolicyId",
 )
 
 
@@ -126,6 +135,10 @@ class AiComplianceClient:
                 allowed_capabilities=frozenset(data["allowedCapabilities"]),
                 provider_profile_version=str(data["providerProfileVersion"]),
                 data_profile_version=str(data["dataProfileVersion"]),
+                provider_key=str(data["providerKey"]),
+                model_key=str(data["modelKey"]),
+                purpose_id=str(data["purposeId"]),
+                retention_policy_id=str(data["retentionPolicyId"]),
                 snapshot_hash=str(data["snapshotHash"]),
                 expires_at=expires_at,
                 policy_snapshot_hash=str(data.get("policySnapshotHash") or ""),

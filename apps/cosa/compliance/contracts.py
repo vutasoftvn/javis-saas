@@ -17,6 +17,15 @@ class ComplianceSnapshot(BaseModel):
     allowed_capabilities: frozenset[str] = Field(default_factory=frozenset)
     provider_profile_version: str
     data_profile_version: str
+    # Task 4 — 4 field provenance bắt buộc (Task 2 đã thêm ở phía Company,
+    # đây là chỗ map lại phía Python client — trước Task 4 các field này
+    # KHÔNG có trên contract, khiến resolver không thể dựng DataAccessClaim
+    # thật từ snapshot). Không có default: thiếu field ⇒ lỗi validation ngay
+    # tại biên contract, không rơi xuống downstream code với giá trị rỗng.
+    provider_key: str
+    model_key: str
+    purpose_id: str
+    retention_policy_id: str
     snapshot_hash: str
     expires_at: datetime
     policy_snapshot_hash: str = ""
