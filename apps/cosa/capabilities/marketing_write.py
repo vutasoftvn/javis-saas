@@ -27,6 +27,7 @@ MARKETING_CONTEXT_WRITE_SPEC = CapabilitySpec(
     risk=CapabilityRisk.MEDIUM,
     approval_policy=ApprovalPolicy.ALWAYS,
     idempotency_semantics="payload_deterministic",
+    metadata={"action_class": "B"},
     input_schema={
         "type": "object",
         "properties": {
@@ -58,10 +59,11 @@ MARKETING_CONTEXT_WRITE_SPEC = CapabilitySpec(
 
 CAMPAIGN_ASSET_WRITE_SPEC = CapabilitySpec(
     id="commercial.campaign_asset.write",
-    description="Lưu trữ tài liệu và nội dung chiến dịch marketing (copy, email template, landing page) vào kho tài nguyên workspace.",
+    description="Lưu trữ tài liệu và nội dung chiến dịch marketing (copy, email template, landing page) vào kho tài nguyên workspace. Không publish ra ngoài.",
     risk=CapabilityRisk.LOW,
     approval_policy=ApprovalPolicy.NEVER,
     idempotency_semantics="payload_deterministic",
+    metadata={"action_class": "A"},
     input_schema={
         "type": "object",
         "properties": {
@@ -87,10 +89,11 @@ CAMPAIGN_ASSET_WRITE_SPEC = CapabilitySpec(
 
 EXPERIMENT_WRITE_SPEC = CapabilitySpec(
     id="commercial.experiment.write",
-    description="Tạo giả định hoặc thử nghiệm marketing mới chờ người duyệt và triển khai thực nghiệm.",
+    description="Tạo giả định hoặc thử nghiệm marketing mới gắn với metric_contract_id chờ duyệt.",
     risk=CapabilityRisk.MEDIUM,
     approval_policy=ApprovalPolicy.ALWAYS,
     idempotency_semantics="payload_deterministic",
+    metadata={"action_class": "B"},
     input_schema={
         "type": "object",
         "properties": {
@@ -100,10 +103,14 @@ EXPERIMENT_WRITE_SPEC = CapabilitySpec(
                 "type": "string",
                 "description": "Chỉ số đo lường (CTR, Conversion rate, CPL)",
             },
+            "metric_contract_id": {
+                "type": "string",
+                "description": "ID hợp đồng chỉ số đo lường bắt buộc",
+            },
             "target_value": {"type": "number", "description": "Giá trị mục tiêu"},
             "duration_days": {"type": "integer", "description": "Thời gian thử nghiệm (ngày)"},
         },
-        "required": ["hypothesis", "metric"],
+        "required": ["hypothesis", "metric", "metric_contract_id"],
     },
     output_schema={
         "type": "object",
@@ -111,6 +118,7 @@ EXPERIMENT_WRITE_SPEC = CapabilitySpec(
             "experiment_id": {"type": "string"},
             "status": {"type": "string"},
             "hypothesis": {"type": "string"},
+            "metric_contract_id": {"type": "string"},
         },
     },
 )
@@ -177,8 +185,15 @@ def create_campaign_asset_write_handler(
 ) -> Callable[[dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]]:
     """Tạo capability handler lưu trữ asset chiến dịch marketing."""
 
-    async def handle_campaign_asset_write(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
-        workspace_id = _resolve_workspace_id(args, ctx)
+    async def handle_campaign_asset_write(args: dict[str, Any], context: Any = None) -> dict[str, Any]:
+        workspace_id = _resolve_workspace_id(args, context)
+
+        # Anti-bypass check: cannot publish to public_url or direct external ad/page
+        if "public_url" in args or args.get("publish") is True or args.get("is_public") is True:
+            raise ValueError(
+                "commercial.campaign_asset.write is an internal artifact write; publishing to public_url is not permitted"
+            )
+
         asset_id = f"asset_{uuid.uuid4().hex[:12]}"
         asset_name = args.get("asset_name", "Untitled Asset")
         asset_type = args.get("asset_type", "copy")
@@ -200,8 +215,21 @@ def create_experiment_write_handler(
 ) -> Callable[[dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]]:
     """Tạo capability handler khởi tạo thử nghiệm marketing/chiến lược."""
 
-    async def handle_experiment_write(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
-        workspace_id = _resolve_workspace_id(args, ctx)
+    async def handle_experiment_write(args: dict[str, Any], context: Any = None) -> dict[str, Any]:
+        workspace_id = _resolve_workspace_id(args, context)
+
+        # Anti-bypass check: cannot spend, budget or auto-activate
+        if "budget" in args or "spend" in args or args.get("activate") is True:
+            raise ValueError(
+                "commercial.experiment.write cannot modify budget/spend or auto-activate"
+            )
+
+        metric_contract_id = args.get("metric_contract_id") or args.get("metric_contract_ref")
+        if not metric_contract_id or not str(metric_contract_id).strip():
+            raise ValueError(
+                "commercial.experiment.write requires a valid metric_contract_id reference"
+            )
+
         experiment_id = f"exp_{uuid.uuid4().hex[:12]}"
         hypothesis = args.get("hypothesis", "")
         metric = args.get("metric", "conversion_rate")
@@ -211,6 +239,7 @@ def create_experiment_write_handler(
             "experiment_id": experiment_id,
             "hypothesis": hypothesis,
             "metric": metric,
+            "metric_contract_id": str(metric_contract_id),
             "target_value": args.get("target_value"),
             "status": "pending_approval",
         }

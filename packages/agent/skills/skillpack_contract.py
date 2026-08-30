@@ -48,6 +48,7 @@ REGISTERED_STATIC_CAPABILITY_IDS = frozenset(
     {
         "operations.task.list",
         "operations.task.read",
+        "operations.task.create_draft",
         "finance.payout.execute",
         "finance.transaction.record",
         "web.search",
@@ -61,6 +62,11 @@ REGISTERED_STATIC_CAPABILITY_IDS = frozenset(
         "strategy.evidence.create",
         "strategy.gate_evaluation.create",
         "strategy.next_best_action.get",
+        "strategy.pilot.get",
+        "strategy.pilot.create_draft",
+        "analytics.metric_contract.get",
+        "analytics.pmf_scoreboard.get",
+        "analytics.pmf_scoreboard.propose",
     }
 )
 
@@ -740,7 +746,7 @@ def _validate_single_pack(
                     )
                 else:
                     ledger_entry = ledger[metadata_id]
-                    valid_statuses = {"pending", "adapted", "published", "pinned"}
+                    valid_statuses = {"pending", "adapted", "published", "pinned", "retired"}
                     if ledger_entry.get("status") not in valid_statuses:
                         violations.append(
                             SkillpackViolation(

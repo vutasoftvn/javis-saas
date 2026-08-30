@@ -18,6 +18,7 @@ ENGAGEMENT_MESSAGE_DRAFT_SPEC = CapabilitySpec(
     risk=CapabilityRisk.LOW,
     approval_policy=ApprovalPolicy.NEVER,
     idempotency_semantics="payload_deterministic",
+    metadata={"action_class": "A"},
     input_schema={
         "type": "object",
         "required": ["thread_id", "draft_body", "evidence_refs"],
@@ -55,7 +56,18 @@ def create_engagement_message_draft_handler() -> Callable[
 ]:
     """Tạo handler tạo draft artifact an toàn (no network / no side effect)."""
 
-    async def handle(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
+    async def handle(args: dict[str, Any], context: Any = None) -> dict[str, Any]:
+        # Anti-bypass check: reject any attempt to set send / deliver flag
+        if (
+            args.get("send") is True
+            or args.get("send_now") is True
+            or args.get("deliver") is True
+            or args.get("auto_send") is True
+        ):
+            raise ValueError(
+                "engagement.message.draft cannot execute external delivery or send messages"
+            )
+
         thread_id = args.get("thread_id")
         if not thread_id:
             raise ValueError("engagement.message.draft: thiếu thread_id")

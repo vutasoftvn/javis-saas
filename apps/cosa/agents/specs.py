@@ -72,6 +72,19 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
             version="1.0.0",
             definition_hash="cd5f56dfdc6178f0fadafbcdf585a9787eeee8393a783d9f01393a771d761f56",
         ),
+        # Tranche C (2026-08-31): L1_PROPOSE/artifact-only, no runtime.tools — safe
+        # to pin freely per Tranche C DoD ("Pin L0/L1 skills freely only after
+        # registry acceptance"). Acceptance: tests/apps/cosa/test_lifecycle_tranche_c_acceptance.py.
+        PinnedSkillRef(
+            skill_id="operations.sop-builder",
+            version="1.0.0",
+            definition_hash="c5afab97b0fa930e1f02f6e23a114aa8a617a59516a727d9c149c0d302913d02",
+        ),
+        PinnedSkillRef(
+            skill_id="operations.automation-design",
+            version="1.0.0",
+            definition_hash="148bb889f6220dafc4aa09445ca8534e4bb551016494e78d27782c2ecfe6ba93",
+        ),
     ],
     prompt_ref=COSA_OPERATIONS_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
@@ -99,6 +112,13 @@ COSA_FINANCE_AGENT_SPEC = AgentSpec(
             version="1.0.0",
             definition_hash="e06cd67cb3704a5328fd02f4f5d29ae11c1c0f44619f79015102e462cccb017f",
         ),
+        # Tranche C (2026-08-31): L1_PROPOSE/artifact-only, no runtime.tools — never
+        # records a transaction itself, only labels CAC/LTV inputs as assumptions.
+        PinnedSkillRef(
+            skill_id="finance.unit-economics",
+            version="1.0.0",
+            definition_hash="f9fcc77c264b1ad08a532d856e6cb9ccc65aaf00dfe7ff1e2dcbc9cd8b053341",
+        ),
     ],
     prompt_ref=COSA_FINANCE_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
@@ -119,8 +139,10 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
     pinned_skills=[
         PinnedSkillRef(
             skill_id="strategy.positioning",
-            version="1.0.0",
-            definition_hash="d8b80ecbc374710e705dd4b325bafc5c399e441b944042da888611e6894d916e",
+            version="1.1.0",
+            # 2026-08-31: nội dung nghiệp vụ ICP/JTBD/Switching-forces hợp nhất từ
+            # marketing.positioning (đã retire) — xem skill-source-attribution.md.
+            definition_hash="e3649b7d635f2d45ae56d9e2e2780364837708652e7541db2af0eb9eee54cc92",
         ),
         PinnedSkillRef(
             skill_id="research.deep-research",
@@ -136,6 +158,39 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
             skill_id="marketing.channel-strategy",
             version="1.0.0",
             definition_hash="d636130cf1c7dae3bdaadf1738e476421353d16c5bae3159dfa7ec62524f80a3",
+        ),
+        # Tranche C (2026-08-31): all L1_PROPOSE/artifact-only, no runtime.tools —
+        # safe to pin freely per Tranche C DoD ("Pin L0/L1 skills freely only after
+        # registry acceptance"). Acceptance: tests/apps/cosa/test_lifecycle_tranche_c_acceptance.py.
+        PinnedSkillRef(
+            skill_id="marketing.gtm-funnel",
+            version="1.0.0",
+            definition_hash="eead9ea09375bd5059c7dcbaf42838f9a3bc97c796917cb0e70a8576d6dc5327",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.content-strategy",
+            version="1.0.0",
+            definition_hash="fa10e76a98a0ecb0ab9e71508bdb53f4c3754abffbdfb2d8831e249d0513916c",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.landing-cro",
+            version="1.0.0",
+            definition_hash="37190f9c706299294ce60240515c611403ab62a459d7aae2049ae16f15331ff5",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.paid-experiments",
+            version="1.0.0",
+            definition_hash="6b3b3856d6f5049f4746c82f235e101237b5df40ae71e7e6c278d89418666730",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.brand-narrative",
+            version="1.0.0",
+            definition_hash="c0ed3ea3babeb1aec9a086d81d383b9371309f414125889a96a2f6443b056fd4",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.reputation-monitoring",
+            version="1.0.0",
+            definition_hash="2a35c36a8890cdf6bee3a4fe0be922caa185c02603a3128c47a959db607f76e0",
         ),
     ],
     prompt_ref=COSA_MARKETING_PROMPT.to_pinned_identity(),

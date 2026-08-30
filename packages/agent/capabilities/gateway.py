@@ -20,6 +20,12 @@ from agent.contracts.target import ExecutionTargetSnapshot
 logger = logging.getLogger(__name__)
 
 from agent.capabilities.canonicalization import compute_payload_hash
+from agent.capabilities.enablements import (
+    CapabilityEnablement,
+    EnablementStore,
+    InMemoryEnablementStore,
+    assert_enabled_for_invocation,
+)
 from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.errors import TenancyUnresolvedError
@@ -149,6 +155,7 @@ class CapabilityGateway:
             [str, GatewayExecutionRequest], Awaitable[ConnectorGrant | None]
         ]
         | None = None,
+        enablement_store: EnablementStore | None = None,
     ) -> None:
         self._registry = registry
         self._repo = repository or InMemoryRunRepository()
@@ -163,6 +170,7 @@ class CapabilityGateway:
         self._governance_store = governance_store or InMemoryGovernanceStateStore()
         self._idempotency = IdempotencyClaimService(self._repo)
         self._connector_grant_resolver = connector_grant_resolver
+        self._enablement_store = enablement_store or InMemoryEnablementStore()
 
     async def execute(self, req: GatewayExecutionRequest) -> GatewayExecutionResult:
         from opentelemetry import trace
@@ -273,6 +281,70 @@ class CapabilityGateway:
                 logger.warning(
                     f"[Gateway] Capability '{req.capability_id}' connector '{readiness.connector_ref}' is offline. Proceeding with warning - governance makes ultimate decision."
                 )
+
+        # Bước 4.8: Scoped Capability Enablement Verification (Tranche C / Task 1)
+        action_class = "R"
+        if isinstance(req.context, dict):
+            action_class = req.context.get("action_class") or spec.metadata.get("action_class") or "R"
+        elif hasattr(req.context, "action_class") and getattr(req.context, "action_class"):
+            action_class = getattr(req.context, "action_class")
+        else:
+            action_class = spec.metadata.get("action_class") or getattr(spec, "action_class", "R")
+
+        skill_hash = None
+        if isinstance(req.context, dict):
+            skill_hash = req.context.get("skill_hash") or req.context.get("definition_hash")
+            if not skill_hash:
+                pinned = req.context.get("pinned_skill") or req.context.get("skill_ref")
+                if isinstance(pinned, dict):
+                    skill_hash = pinned.get("definition_hash") or pinned.get("skill_hash")
+                elif hasattr(pinned, "definition_hash"):
+                    skill_hash = pinned.definition_hash
+        elif hasattr(req.context, "skill_hash"):
+            skill_hash = getattr(req.context, "skill_hash", None)
+
+        is_enabled, enb_error = await assert_enabled_for_invocation(
+            enablement_store=self._enablement_store,
+            workspace_id=str(resolved_workspace or ""),
+            capability_id=req.capability_id,
+            skill_hash=skill_hash,
+            action_class=action_class,
+            target_fingerprint="*",
+        )
+        if not is_enabled:
+            def_hash_val = spec.metadata.get("definition_hash") or getattr(spec, "definition_hash", None)
+            tc_record = RunToolCallRecord(
+                tool_call_id=req.tool_call_id,
+                run_id=req.run_id,
+                checkpoint_ref=req.checkpoint_ref,
+                capability_id=req.capability_id,
+                payload_hash=payload_hash,
+                input_payload=req.input_payload,
+                execution_target_snapshot=target_snapshot.model_dump(),
+                idempotency_key=idempotency_key,
+                status="denied",
+                spec_version=getattr(spec, "version", "1.0.0"),
+                definition_hash=def_hash_val or skill_hash,
+                error_message=enb_error,
+            )
+            await self._repo.save_tool_call(tc_record)
+            await self._repo.append_event(
+                RunEventRecord(
+                    run_id=req.run_id,
+                    event_type="capability.enablement_denied",
+                    payload={
+                        "tool_call_id": req.tool_call_id,
+                        "capability": req.capability_id,
+                        "reason": enb_error,
+                        "action_class": action_class,
+                    },
+                )
+            )
+            return GatewayExecutionResult(
+                tool_call_id=req.tool_call_id,
+                status="denied",
+                error_message=f"Execution of '{req.capability_id}' denied: {enb_error}",
+            )
 
         # Bước 5: Idempotency Check — atomic claim (Blueprint V2 §20; thay
         # check-then-act cũ vốn có race window giữa 2 worker cùng đọc "chưa completed"

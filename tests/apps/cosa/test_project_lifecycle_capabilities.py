@@ -14,7 +14,11 @@ from apps.cosa.capabilities.project_lifecycle import (
     create_strategy_evidence_create_handler,
     create_strategy_gate_evaluation_create_handler,
     create_strategy_next_best_action_get_handler,
+    create_strategy_pilot_create_draft_handler,
+    create_strategy_pilot_get_handler,
 )
+
+pytestmark = pytest.mark.integration
 
 
 @pytest.mark.asyncio
@@ -148,3 +152,55 @@ async def test_strategy_next_best_action_get_handler():
     )
     assert len(res["actions"]["items"]) == 1
     assert res["advisory"]["label"] == "insight"
+
+
+@pytest.mark.asyncio
+async def test_strategy_pilot_get_handler():
+    client = AsyncMock()
+    client.get.return_value = {"id": "plt-1", "status": "DRAFT"}
+
+    handler = create_strategy_pilot_get_handler(client)
+    res = await handler({"pilot_id": "plt-1"}, context={"workspace_id": "ws-123"})
+
+    client.get.assert_awaited_once_with(
+        "/operations/strategy/pilots/plt-1",
+        headers={"X-Workspace-Id": "ws-123"},
+    )
+    assert res["pilot"]["status"] == "DRAFT"
+    assert res["advisory"]["label"] == "insight"
+
+
+@pytest.mark.asyncio
+async def test_strategy_pilot_create_draft_handler():
+    client = AsyncMock()
+    client.post.return_value = {"id": "plt-2", "status": "DRAFT"}
+
+    handler = create_strategy_pilot_create_draft_handler(client)
+    res = await handler(
+        {
+            "project_id": "100",
+            "design_partner_evidence_refs": ["ev-1", "ev-2"],
+            "metric_contract_artifact_ref": "artifact://ws/metrics/v1",
+            "instrumentation_artifact_ref": "artifact://ws/inst/v1",
+            "onboarding_artifact_ref": "artifact://ws/onb/v1",
+            "rollback_artifact_ref": "artifact://ws/rb/v1",
+            "release_owner_member_id": "user-1",
+        },
+        context={"workspace_id": "ws-123"},
+    )
+
+    client.post.assert_awaited_once_with(
+        "/operations/strategy/pilots",
+        json={
+            "projectId": "100",
+            "designPartnerEvidenceRefs": ["ev-1", "ev-2"],
+            "metricContractArtifactRef": "artifact://ws/metrics/v1",
+            "instrumentationArtifactRef": "artifact://ws/inst/v1",
+            "onboardingArtifactRef": "artifact://ws/onb/v1",
+            "rollbackArtifactRef": "artifact://ws/rb/v1",
+            "releaseOwnerMemberId": "user-1",
+        },
+        headers={"X-Workspace-Id": "ws-123"},
+    )
+    assert res["pilot"]["status"] == "DRAFT"
+    assert res["advisory"]["label"] == "proposal"

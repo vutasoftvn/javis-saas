@@ -51,9 +51,7 @@ from apps.cosa.capabilities.venture_profile import (
 )
 from apps.cosa.capabilities.venture_stage import (
     VENTURE_STAGE_ASSESS_SPEC,
-    VENTURE_STAGE_TRANSITION_PROPOSE_SPEC,
     create_venture_stage_assess_handler,
-    create_venture_stage_transition_propose_handler,
 )
 
 __all__ = [
@@ -73,7 +71,6 @@ __all__ = [
     "VENTURE_PROFILE_PROPOSE_UPDATE_SPEC",
     "VENTURE_PROFILE_READ_SPEC",
     "VENTURE_STAGE_ASSESS_SPEC",
-    "VENTURE_STAGE_TRANSITION_PROPOSE_SPEC",
     "CompanyServiceClient",
     "CompanyServiceError",
     "create_engagement_assignment_write_handler",
@@ -92,5 +89,4 @@ __all__ = [
     "create_venture_profile_propose_update_handler",
     "create_venture_profile_read_handler",
     "create_venture_stage_assess_handler",
-    "create_venture_stage_transition_propose_handler",
 ]
