@@ -197,6 +197,7 @@ services:
       COSA_WORKER_SERVICE_TOKEN: ${COSA_WORKER_SERVICE_TOKEN:?COSA_WORKER_SERVICE_TOKEN required}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required in production}
       COSA_MAX_REQUEST_BYTES: ${COSA_MAX_REQUEST_BYTES:-10485760}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       ENVIRONMENT: production
       PYTHONUNBUFFERED: "1"
     depends_on:
@@ -239,6 +240,7 @@ services:
       # Worker gọi callback về services-company; cần URL nội bộ + service token.
       COMPANY_SERVICE_URL: http://services-company:4000
       COSA_SERVICE_TOKEN: ${COSA_SERVICE_TOKEN:?COSA_SERVICE_TOKEN required}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       ENVIRONMENT: production
       PYTHONUNBUFFERED: "1"
     depends_on:
@@ -297,6 +299,23 @@ services:
         limits: { memory: 1g, cpus: "1.0", pids: 256 }
 
   # --------------------------------------------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.95.0
+    container_name: cosa_prod_otel_collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:8889:8889"
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 256m, cpus: "0.5" }
+
+  # --------------------------------------------------------------------------
   caddy:
     image: caddy:2-alpine
     container_name: cosa_prod_caddy
@@ -324,3 +343,4 @@ volumes:
   prod_miniodata:
   prod_caddydata:
   prod_caddyconfig:
+

@@ -81,9 +81,14 @@ flowchart TB
 
 ## 3. Ngưỡng Cảnh báo Đề xuất (Alert Thresholds & SLOs)
 
+Chi tiết quy tắc cảnh báo production được định nghĩa tại [deploy/central_vps/prometheus/alerts.yaml](file:///Volumes/SSD/javis-saas/deploy/central_vps/prometheus/alerts.yaml) và OpenTelemetry Collector cấu hình tại [deploy/central_vps/otel-collector.yaml](file:///Volumes/SSD/javis-saas/deploy/central_vps/otel-collector.yaml).
+
 | Cảnh báo (Alert Name) | Mức độ | Điều kiện kích hoạt (Threshold) | Ý nghĩa / Hành động khắc phục |
 | :--- | :--- | :--- | :--- |
-| **`OutboxDeadLetterDetected`** | `CRITICAL` | `outboxDeadLetter > 0` | Có event không thể phân phối sau max retries. Cần kiểm tra lý do (`dead_letter_reason`) và gọi `/events/outbox/:id/retry` sau khi sửa lỗi. |
+| **`DeadLetterDetected`** | `CRITICAL` | `cosa_dead_letter_count > 0 or outboxDeadLetter > 0` trong 5 phút | Có event/task không thể phân phối sau max retries. Cần kiểm tra lý do (`dead_letter_reason`) và xử lý. |
+| **`ScheduleRetryAgeHigh`** | `WARNING` | `cosa_schedule_retry_age_seconds > 600` trong 5 phút | Scheduled task bị lỗi enqueue và kẹt ở trạng thái retry > 10m. |
+| **`BackupFreshnessHigh`** | `CRITICAL` | `backup_age > 24h` | Bản backup gần nhất cũ hơn 24 giờ, vi phạm cam kết RPO. |
+| **`AuthAbuseDetected`** | `CRITICAL` | `rate(http_failed_logins[5m]) > 10` | Tần suất đăng nhập thất bại tăng vọt, phát hiện tấn công brute-force. |
 | **`OutboxRelayLagHigh`** | `WARNING` | `outboxRelayLagSec > 60` trong 5 phút | Relay worker bị chậm hoặc tắc nghẽn outbox. Kiểm tra DB connection pool và outbox relay process. |
 | **`HighAgentRunErrorRate`** | `CRITICAL` | `rate(cosa_runs_total{outcome="failed"}[5m]) / rate(cosa_runs_total[5m]) > 0.05` | Tỷ lệ lỗi run > 5% trong 5 phút. Kiểm tra log exception, provider upstream (DeepSeek/OpenAI), hoặc schema validation. |
 | **`WorkerLeaseStallWithQueue`** | `CRITICAL` | `cosa_worker_active_leases == 0 and cosa_scheduler_queue_depth > 0` trong 2 phút | Có task trong queue nhưng không worker nào acquire lease để xử lý. Kiểm tra worker liveness và DB lock. |

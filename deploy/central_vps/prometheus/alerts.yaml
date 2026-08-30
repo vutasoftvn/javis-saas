@@ -1,0 +1,47 @@
+groups:
+  - name: cosa_operational_alerts
+    rules:
+      - alert: DeadLetterDetected
+        expr: cosa_dead_letter_count > 0 or outboxDeadLetter > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dead-letter queue has unprocessed failed tasks or events"
+          description: "Tasks or outbox events have exceeded max retry attempts and entered dead-letter state."
+
+      - alert: ScheduleRetryAgeHigh
+        expr: cosa_schedule_retry_age_seconds > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scheduled tasks remain in retry state for > 10 minutes"
+          description: "Workspace schedule occurrences have failed to enqueue and remain retryable for over 10m."
+
+      - alert: BackupFreshnessHigh
+        expr: (time() - backup_last_success_timestamp_seconds) / 3600 > 24
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database backup is older than 24 hours"
+          description: "Automated daily backup has not completed successfully within the required 24-hour RPO window."
+
+      - alert: AuthAbuseDetected
+        expr: rate(http_requests_total{status="401",handler=~".*login.*"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High rate of failed authentication attempts detected"
+          description: "Potential brute-force or credential stuffing attack observed on login endpoints."
+
+      - alert: ModelLatencyOrFailureSpike
+        expr: rate(cosa_runs_total{outcome="failed"}[5m]) / rate(cosa_runs_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Agent run failure rate exceeds 10%"
+          description: "High error rate observed in model calls or agent execution workflows."

@@ -30,3 +30,13 @@ def test_worker_has_company_url_and_token():
     e = _env("cosa-worker")
     assert e["COMPANY_SERVICE_URL"] == "http://services-company:4000"
     assert "${COSA_SERVICE_TOKEN:?" in e["COSA_SERVICE_TOKEN"]
+
+
+def test_observability_pipeline_in_compose():
+    doc = yaml.safe_load(COMPOSE.read_text())
+    assert "otel-collector" in doc["services"]
+    api_env = dict(doc["services"]["cosa-api"]["environment"])
+    assert api_env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://otel-collector:4318"
+    worker_env = dict(doc["services"]["cosa-worker"]["environment"])
+    assert worker_env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://otel-collector:4318"
+
