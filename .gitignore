@@ -85,3 +85,6 @@ encore.gen.*
 
 # Editor-local settings
 .vscode/
+
+# Local documents / data
+vb-ai/
