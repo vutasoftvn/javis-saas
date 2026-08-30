@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: product.prd
+  name: Product Requirements Document (PRD)
+  version: 1.0.0
+  description: Xây dựng tài liệu yêu cầu sản phẩm (PRD) hoàn chỉnh gồm bài toán, phạm vi tính năng, phi chức năng và tiêu chí nghiệm thu.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/product/prd
+capability:
+  domain: product
+  category: product
+  intents:
+  - product requirements document
+  - product.prd
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  gates:
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/product/prd.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-deploy
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: customer-success.support-copilot
+  name: Pilot Support Copilot & Ticket Escalation
+  version: 1.0.0
+  description: Trợ lý hỗ trợ khách hàng pilot, phân loại yêu cầu (Ticket Triage), soạn thảo câu trả lời và điều phối chuyển tiếp sự cố kỹ thuật (Escalation).
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/customer-success/support-copilot
+capability:
+  domain: customer-success
+  category: customer-success
+  intents:
+  - pilot support copilot
+  - customer-success.support-copilot
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  gates:
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/customer-success/support-copilot.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-message-send
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

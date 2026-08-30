@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: product.pilot-onboarding
+  name: Pilot Customer Onboarding Runbook
+  version: 1.0.0
+  description: Quy trình hướng dẫn tiếp nhận (Onboarding Runbook) cho khách hàng đối tác thiết kế tham gia thử nghiệm pilot.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/product/pilot-onboarding
+capability:
+  domain: product
+  category: product
+  intents:
+  - pilot onboarding runbook
+  - product.pilot-onboarding
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  gates:
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/product/pilot-onboarding.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-pilot-activation
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

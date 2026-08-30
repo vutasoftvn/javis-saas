@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: engineering.alpha-validation
+  name: Alpha Validation & Sanity Checklist
+  version: 1.0.0
+  description: Kế hoạch kiểm thử nội bộ, danh mục kiểm tra độ ổn định (Sanity/Regression) trước khi bàn giao cho Release Owner.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/engineering/alpha-validation
+capability:
+  domain: engineering
+  category: engineering
+  intents:
+  - alpha validation & sanity checklist
+  - engineering.alpha-validation
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  gates:
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/engineering/alpha-validation.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-release-execution
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

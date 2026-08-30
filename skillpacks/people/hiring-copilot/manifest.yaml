@@ -1,0 +1,53 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: people.hiring-copilot
+  name: Hiring Copilot
+  version: 1.0.0
+  description: Hỗ trợ soạn job description, thiết kế rubric phỏng vấn và tổng hợp phản hồi phỏng vấn; không xếp hạng ứng viên theo đặc điểm được bảo vệ, không ra quyết định tuyển dụng cuối cùng, cho giai đoạn Scale & Govern.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/people/hiring-copilot
+capability:
+  domain: people
+  category: people
+  intents:
+  - hiring copilot
+  - people.hiring-copilot
+applicability:
+  project_stages:
+  - P6_SCALE_GOVERN
+  gates:
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/people/hiring-copilot.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - protected-characteristic-ranking
+  - autonomous-hiring-decision
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: high
+trust:
+  tier: T0

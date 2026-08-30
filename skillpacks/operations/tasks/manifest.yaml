@@ -1,40 +1,63 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: operations.tasks
   name: Task Orchestration & Decomposition
-  version: 1.0.0
-  description: Phân rã mục tiêu thành công việc cụ thể, gán quyền thực thi, thời hạn và quản lý trạng thái công việc.
-
+  version: 2.0.0
+  description: Phân rã mục tiêu thành công việc cụ thể, tạo task nháp kèm lý do và bằng chứng, và tra cứu trạng thái task hiện có.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
-  path: skillpacks/tasks
-
+  path: skillpacks/operations/tasks
 capability:
   domain: operations
   category: tasks
   intents:
-    - create task
-    - list tasks
-    - update task status
-    - manage dependencies
-
+  - create task
+  - list tasks
+  - read task
+  - decompose goal into tasks
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates: []
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L2_BOUNDED
+  side_effect_class: B
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/operations/tasks.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-decision-reason
+  - missing-evidence-refs
 runtime:
-  environment: python
   entrypoint: SKILL.md
-
+  tools:
+  - operations.task.create_draft
+  - operations.task.list
+  - operations.task.read
 permissions:
   required:
-    - READ_LOCAL
-    - MODIFY_BUSINESS_DATA
-
+  - READ_LOCAL
 risk:
-  level: low
-
+  level: medium
 trust:
   tier: T0

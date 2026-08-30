@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: growth.referrals
+  name: Referral Program Design & Analysis
+  version: 1.0.0
+  description: Thiết kế và phân tích hiệu quả chương trình giới thiệu khách hàng (referral program) trong giai đoạn Operate & Growth.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/growth/referrals
+capability:
+  domain: growth
+  category: referrals
+  intents:
+  - referral program design & analysis
+  - growth.referrals
+applicability:
+  project_stages:
+  - P5_OPERATE_GROWTH
+  gates:
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/growth/referrals.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-reward-issuance
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

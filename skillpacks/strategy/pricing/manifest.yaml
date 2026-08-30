@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: strategy.pricing
+  name: Pricing Strategy & Value Architecture
+  version: 1.0.0
+  description: Xây dựng chiến lược giá, mô hình value metric và phân tích willingness-to-pay cho giai đoạn Solution Validation.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/strategy/pricing
+capability:
+  domain: strategy
+  category: strategy
+  intents:
+  - pricing strategy & value architecture
+  - strategy.pricing
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/pricing.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-billing-mutation
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

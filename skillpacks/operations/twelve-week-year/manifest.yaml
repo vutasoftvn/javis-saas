@@ -1,39 +1,56 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: operations.twelve_week_year
   name: 12 Week Year Execution System
-  version: 1.0.0
-  description: Hệ thống thực thi chu kỳ 12 tuần, lập kế hoạch chiến thuật và đo lường điểm kỷ luật thực thi hàng tuần.
-
+  version: 2.0.0
+  description: Soạn dự thảo kế hoạch 12 tuần, đề xuất cam kết chiến thuật hàng tuần và cách tính điểm kỷ luật thực thi để con người nhập vào hệ thống.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
-  path: skillpacks/twelve-week-year
-
+  path: skillpacks/operations/twelve-week-year
 capability:
   domain: operations
   category: twelve_week_year
   intents:
-    - create 12 week year plan
-    - record weekly execution score
-    - calculate execution rate
-
+  - draft 12 week year plan
+  - propose weekly commitment
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates: []
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/operations/twelve-week-year.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
 runtime:
-  environment: python
   entrypoint: SKILL.md
-
+  tools: []
 permissions:
   required:
-    - READ_LOCAL
-    - MODIFY_BUSINESS_DATA
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0

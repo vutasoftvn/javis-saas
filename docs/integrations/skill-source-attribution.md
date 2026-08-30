@@ -2,17 +2,18 @@
 
 **Ngày lập:** 2026-08-28  
 **Chương trình:** [Chương trình tích hợp marketingskills + makerskills vào COSA](./2026-08-28-marketingskills-makerskills-program.md) · §4  
-**Trạng thái:** Active (18/18 adapted)
+**Trạng thái:** Active (18/18 hạng mục gốc adapted; 1 đã `retired` — `marketing.positioning` — và kế thừa bởi 1 hàng bổ sung `strategy.positioning`, `pinned`, thêm 2026-08-31 khi hợp nhất nội dung tránh trùng lặp registry)
 
 Tài liệu này là sổ cái (ledger) theo dõi nguồn gốc, commit snapshot, giấy phép và trạng thái thích ứng (adaptation) của tất cả các skillpack được adapt từ các kho mã nguồn bên ngoài vào COSA.
 
 ---
 
-## 1. Bảng Inventory 18 hạng mục
+## 1. Bảng Inventory 18 hạng mục gốc + 1 hàng kế thừa (`strategy.positioning`, 2026-08-31)
 
 | cosa_skill_id | nhóm | upstream_repo | commit_sha | upstream_skill(s) | upstream_version | license | status | last_reviewed | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `marketing.positioning` | A | `coreyhaines31/marketingskills` | `b1aaa3619e747f4a836c61e03084c4a531de1262` | `product-marketing` | `1.0.0` | MIT | `adapted` | `2026-08-28` | ICP, persona, JTBD, pain, alternative, objection, switching force, customer language, proof point, brand voice; evidence vs assumption; version/changelog. |
+| `marketing.positioning` | A | `coreyhaines31/marketingskills` | `b1aaa3619e747f4a836c61e03084c4a531de1262` | `product-marketing` | `1.0.0` | MIT | `retired` | `2026-08-31` | ICP, persona, JTBD, pain, alternative, objection, switching force, customer language, proof point, brand voice; evidence vs assumption; version/changelog. **Retired 2026-08-31**: nội dung nghiệp vụ đã hợp nhất vào `strategy.positioning` (canonical ID, v1.1.0) để tránh trùng lặp registry; xem hàng `strategy.positioning` bên dưới. |
+| `strategy.positioning` | A | `coreyhaines31/marketingskills` | `b1aaa3619e747f4a836c61e03084c4a531de1262` | `product-marketing` | `1.0.0` | MIT | `pinned` | `2026-08-31` | Kế thừa nội dung từ `marketing.positioning` (đã retire, xem hàng trên) khi hợp nhất vào ID canonical Tranche A. Cùng khung ICP/Persona/JTBD/Switching-forces/Evidence-vs-Assumption; đã chuẩn hoá theo template Triggers/Anti-triggers governance. Pinned vào `cosa.agents.marketing` (`apps/cosa/agents/specs.py`). |
 | `marketing.market-research` | A | `coreyhaines31/marketingskills` | `b1aaa3619e747f4a836c61e03084c4a531de1262` | `customer-research`, `deep-research`, `company-brain` | `1.0.0` | MIT | `adapted` | `2026-08-28` | 3 chế độ (tài sản sẵn có / tín hiệu công khai / sơ cấp); quote nguyên văn; confidence/bias/recency; contradiction + gap + next steps; nguồn chưa review không lấn át. |
 | `marketing.copywriting` | A | `coreyhaines31/marketingskills` | `b1aaa3619e747f4a836c61e03084c4a531de1262` | `copywriting`, `copy-editing`, `cro`, `signup`, `onboarding`, `paywalls`, `popups` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Brief dựa evidence, page/form audit, headline/CTA variants, review copy, backlog experiment. |
 | `marketing.seo-plan` | A | `coreyhaines31/marketingskills` | `b1aaa3619e747f4a836c61e03084c4a531de1262` | `seo-audit`, `ai-seo`, `schema`, `site-architecture`, `content-strategy` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Intent cluster, content prioritization, AI-search visibility, technical audit, structured-data checklist. |
@@ -31,7 +32,7 @@ Tài liệu này là sổ cái (ledger) theo dõi nguồn gốc, commit snapshot
 | `platform.skill-adaptation` | C | `coreyhaines31/makerskills` | `33cb3870685a34522d91287869aef62170bdbcf7` | `skillify`, `pm`, `toolify` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Policy doc + validator rule + CI check: keep/adapt/add, license gate, attribution, version bump, cross-skill impact review. |
 | `operations.loop-hardening` | C | `coreyhaines31/makerskills` | `33cb3870685a34522d91287869aef62170bdbcf7` | `loopify` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Runbook + test template: idempotency key, transaction, retry/rate limit, first-run verification, bail-out. Trỏ `packages/agent/coordination/scheduler.py` + `runs/leases.py`; cấm cron local / self-wakeup trong prompt. |
 
-*Trạng thái hợp lệ cho `status`: `pending` → `adapted` → `published` → `pinned`.*
+*Trạng thái hợp lệ cho `status`: `pending` → `adapted` → `published` → `pinned` (terminal) hoặc `retired` (terminal, khi nội dung đã hợp nhất vào một skill canonical khác và skillpack gốc đã bị xoá khỏi registry).*
 
 ---
 

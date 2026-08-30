@@ -1,0 +1,51 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: ai.red-team
+  name: AI Red Teaming & Adversarial Robustness
+  version: 1.0.0
+  description: Kiểm thử tấn công đối kháng (Adversarial Prompting), phòng chống Prompt Injection, rò rỉ dữ liệu và kiểm chứng bộ đệm an toàn AI.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/ai/red-team
+capability:
+  domain: ai
+  category: ai
+  intents:
+  - ai red team & adversarial robustness
+  - ai.red-team
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  gates:
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/ai/red-team.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

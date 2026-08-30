@@ -1,0 +1,43 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: customer-success.health-scoring
+  name: Customer Health Scoring Framework
+  version: 1.0.0
+  description: Thiết lập mô hình chấm điểm sức khỏe tài khoản khách hàng dựa trên tần suất sử dụng, độ hài lòng và chỉ số telemetry.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/customer-success/health-scoring
+
+capability:
+  domain: customer-success
+  category: health_scoring
+  intents:
+    - customer health score
+    - diem suc khoe khach hang
+    - account health
+    - danh gia khach hang nguy co
+    - cs scoring
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - analytics.metric_contract.get
+    - commercial.marketing_context.read
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

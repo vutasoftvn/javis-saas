@@ -1,0 +1,51 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: product.feedback-synthesis
+  name: Pilot Feedback Synthesis & Insights
+  version: 1.0.0
+  description: Thu thập, phân loại và tổng hợp phản hồi từ khách hàng pilot thành các đề xuất cải tiến sản phẩm.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/product/feedback-synthesis
+capability:
+  domain: product
+  category: product
+  intents:
+  - pilot feedback synthesis & insights
+  - product.feedback-synthesis
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  gates:
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/product/feedback-synthesis.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

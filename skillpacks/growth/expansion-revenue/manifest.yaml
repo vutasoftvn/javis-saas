@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: growth.expansion-revenue
+  name: Expansion Revenue Analysis
+  version: 1.0.0
+  description: Phân tích cơ hội upsell/expansion revenue trên khách hàng hiện có, loại trừ khách hàng có rủi ro churn khỏi khuyến nghị upsell, cho giai đoạn Scale & Govern.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/growth/expansion-revenue
+capability:
+  domain: growth
+  category: growth
+  intents:
+  - expansion revenue analysis
+  - growth.expansion-revenue
+applicability:
+  project_stages:
+  - P6_SCALE_GOVERN
+  gates:
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/growth/expansion-revenue.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - churn-risk-upsell-exclusion
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

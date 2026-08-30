@@ -1,46 +1,63 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: strategy.stage-assessment
   name: Startup Stage Assessment
-  version: 1.0.0
-  description: Đánh giá giai đoạn phát triển của startup theo COSA framework (Genesis, Discovery, Validation, Efficiency, Scale) dựa trên dữ liệu thực tế và gate evaluation.
-
+  version: 2.0.0
+  description: Đánh giá giai đoạn phát triển của startup theo COSA framework (P0-P6) dựa trên dữ liệu thực tế đã lưu trong hệ thống.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/strategy/stage-assessment
-
 capability:
   domain: strategy
   category: stage_assessment
   intents:
-    - đánh giá giai đoạn startup
-    - xác định stage hiện tại
-    - startup stage assessment
-    - identify current stage
-    - đánh giá venture mới
-    - kiểm tra giai đoạn phát triển
-    - xây dựng venture mới
-    - đang xây sản phẩm mới bây giờ nên làm gì
-    - xây CRM cho agency bây giờ nên làm gì
-
+  - đánh giá giai đoạn startup
+  - xác định stage hiện tại
+  - startup stage assessment
+  - identify current stage
+  - đánh giá venture mới
+  - kiểm tra giai đoạn phát triển
+  - xây dựng venture mới
+  - đang xây sản phẩm mới bây giờ nên làm gì
+  - xây CRM cho agency bây giờ nên làm gì
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates: []
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/stage-assessment.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
 runtime:
-  environment: python
   entrypoint: SKILL.md
   tools:
-    - strategy.project.get
-
+  - strategy.project.get
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0

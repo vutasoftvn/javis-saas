@@ -26,19 +26,32 @@ Phân loại các giả định dự án theo 4 trục: Khả năng mong muốn 
 - Tuân thủ nguyên tắc anti-self-validation: Mọi bằng chứng trích xuất được tạo dưới dạng `candidate` và phải qua phê duyệt của Founder/Admin trước khi gate evaluation ghi nhận.
 
 ## Quy trình thực hiện (Steps)
-1. **Thu thập ngữ cảnh**: Đọc dữ liệu dự án và đối chiếu với chính sách giai đoạn hiện tại.
-2. **Xử lý chuyên môn**: Thực hiện phân tích, trích xuất thông tin hoặc lập kế hoạch theo chuẩn.
-3. **Đóng gói kết quả**: Tạo bản nháp artifact hoặc đề xuất (proposal) có bằng chứng dẫn chiếu.
-4. **Bàn giao kiểm duyệt**: Trình duyệt qua kênh Human Handoff nếu cần hành động có side-effect.
+1. **Rà soát giả định đã biết**: Đọc các giả định đã ghi nhận trước đó từ context/memory được cung cấp để tránh trùng lặp.
+2. **Bóc tách giả định ẩn**: Phân tích mô hình kinh doanh, chiến lược hoặc ý tưởng venture để tìm ra các giả định chưa được nói rõ.
+3. **Phân loại theo 4 trục**:
+   - *Desirability (Mong muốn)*: Khách hàng có thực sự muốn và cần giải pháp này không?
+   - *Feasibility (Khả thi)*: Đội ngũ có thể xây dựng và vận hành giải pháp này không?
+   - *Viability (Sống sót)*: Mô hình có tạo ra doanh thu/lợi nhuận bền vững không?
+   - *Responsibility (Trách nhiệm)*: Giải pháp có gây rủi ro đạo đức, pháp lý, hoặc tác động tiêu cực ngoài ý muốn không?
+4. **Soạn dự thảo mỗi giả định**: Với mỗi giả định, đề xuất `statement` (nội dung), trục phân loại, và câu hỏi kiểm chứng rõ ràng tương ứng.
+5. **Xác nhận kết quả**: Phản hồi danh sách giả định đã phân loại kèm câu hỏi kiểm chứng để founder xem xét (thứ tự ưu tiên kiểm chứng do `discovery.assumption-prioritization` đảm nhiệm).
 
 ## Allowed Tool Calls
-Không có công cụ trực tiếp (Artifact/Proposal only).
+Không có công cụ trực tiếp (Artifact/Proposal only). Skill này hiện chưa có capability ghi dữ liệu vào hệ thống — mọi giả định là dự thảo văn bản do con người nhập lại nếu muốn lưu trữ chính thức.
 
 ## Output Format
-- Trả về cấu trúc Markdown tiêu chuẩn gồm: Tóm tắt nhận định, Bằng chứng đối chiếu (Evidence citations), Đề xuất hành động (Proposal), và Rủi ro tồn đọng.
+```markdown
+### Danh Sách Giả Định Đã Phân Loại
+- **Dự Án**: [ID / Tên dự án]
+- **Giả Định**:
+  1. **[Statement]** — Trục: [Desirability / Feasibility / Viability / Responsibility]
+     - Câu hỏi kiểm chứng: [Câu hỏi cụ thể để test giả định]
+- **Giả định trùng lặp** (nếu có): [Ghi chú và đề xuất hợp nhất thay vì tạo mới]
+```
 
 ## Fallback & Handoff
 - Khi thiếu dữ liệu hoặc không đủ điều kiện an toàn, tạo thông báo Handoff đề xuất người dùng bổ sung thông tin.
+- Khi phát hiện giả định nội dung tương tự giả định đã có: nhắc nhở user và đề xuất cập nhật thay vì tạo mới.
 
 ## Eval Notes
 - Suite: `evals/discovery/assumption-mapping.yaml`

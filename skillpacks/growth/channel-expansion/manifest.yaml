@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: growth.channel-expansion
+  name: Channel Expansion Evaluation
+  version: 1.0.0
+  description: Đánh giá mở rộng sang một kênh thu hút khách hàng (acquisition channel) mới, bắt buộc dựa trên bằng chứng maturity G5 hiện có, cho giai đoạn Scale & Govern.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/growth/channel-expansion
+capability:
+  domain: growth
+  category: growth
+  intents:
+  - channel expansion evaluation
+  - growth.channel-expansion
+applicability:
+  project_stages:
+  - P6_SCALE_GOVERN
+  gates:
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/growth/channel-expansion.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-maturity-evidence
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

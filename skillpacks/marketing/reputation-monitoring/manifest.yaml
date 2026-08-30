@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.reputation-monitoring
+  name: Reputation & Sentiment Monitoring
+  version: 1.0.0
+  description: Theo dõi và phân tích sentiment/đánh giá công khai, không bao giờ tự phản hồi công khai — chỉ tạo dự thảo escalation nội bộ.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/reputation-monitoring
+capability:
+  domain: marketing
+  category: marketing
+  intents:
+  - reputation & sentiment monitoring
+  - marketing.reputation-monitoring
+applicability:
+  project_stages:
+  - P5_OPERATE_GROWTH
+  gates:
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/reputation-monitoring.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-public-response
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

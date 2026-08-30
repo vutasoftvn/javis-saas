@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.landing-cro
+  name: Landing Page CRO Audit & Test Proposal
+  version: 1.0.0
+  description: Kiểm toán tỷ lệ chuyển đổi (CRO) của landing page và đề xuất thiết kế A/B test, không tự triển khai thay đổi trang.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/landing-cro
+capability:
+  domain: marketing
+  category: marketing
+  intents:
+  - landing page cro audit & test proposal
+  - marketing.landing-cro
+applicability:
+  project_stages:
+  - P5_OPERATE_GROWTH
+  gates:
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/landing-cro.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-page-deploy
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

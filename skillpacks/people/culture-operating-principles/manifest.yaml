@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: people.culture-operating-principles
+  name: Culture & Operating Principles
+  version: 1.0.0
+  description: Soạn thảo/duy trì tài liệu văn hoá và nguyên tắc vận hành (culture & operating principles), cần con người phê duyệt trước khi áp dụng, cho giai đoạn Scale & Govern.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/people/culture-operating-principles
+capability:
+  domain: people
+  category: people
+  intents:
+  - culture and operating principles
+  - people.culture-operating-principles
+applicability:
+  project_stages:
+  - P6_SCALE_GOVERN
+  gates:
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/people/culture-operating-principles.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-adoption-without-approval
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

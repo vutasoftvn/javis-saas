@@ -1,44 +1,60 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: strategy.decision-capture
   name: Strategic Decision Capture & Governance Record
-  version: 1.1.0
-  description: Ghi nhận quyết định chiến lược lớn (Persevere, Pivot, Kill, Hold) với các câu hỏi chịu lực, lập luận đánh đổi, kết quả kỳ vọng và mốc ngày tái đánh giá.
-
+  version: 2.0.0
+  description: Soạn dự thảo ghi nhận quyết định chiến lược lớn (Persevere, Pivot, Kill, Hold) với các câu hỏi chịu lực, lập luận đánh đổi, kết quả kỳ vọng và mốc ngày tái đánh giá.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/strategy/decision-capture
-
 capability:
   domain: strategy
   category: governance
   intents:
-    - ghi nhận quyết định
-    - strategic decision capture
-    - pivot decision
-    - kill project decision
-    - decision log
-    - gate evaluation linkage
-    - revisit date
-
+  - ghi nhận quyết định
+  - strategic decision capture
+  - pivot decision
+  - kill project decision
+  - decision log
+  - gate evaluation linkage
+  - revisit date
+applicability:
+  project_stages:
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates: []
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/decision-capture.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
 runtime:
-  environment: python
   entrypoint: SKILL.md
   tools: []
-
 permissions:
   required:
-    - READ_LOCAL
-    - MODIFY_BUSINESS_DATA
-
+  - READ_LOCAL
 risk:
   level: medium
-
 trust:
   tier: T0

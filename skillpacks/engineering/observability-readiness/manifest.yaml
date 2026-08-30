@@ -1,0 +1,51 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: engineering.observability-readiness
+  name: Observability Readiness & Health Checks
+  version: 1.0.0
+  description: Thiết lập và kiểm tra tính sẵn sàng giám sát (Logs, Metrics, Traces, Alerts) trước khi đưa pilot vào vận hành thật.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/engineering/observability-readiness
+capability:
+  domain: engineering
+  category: engineering
+  intents:
+  - observability readiness & health checks
+  - engineering.observability-readiness
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  gates:
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/engineering/observability-readiness.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

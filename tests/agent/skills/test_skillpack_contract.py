@@ -860,6 +860,10 @@ class TestRepositoryContract:
             "product",
             "engineering",
             "ai",
+            "customer-success",
+            "customer_success",
+            "growth",
+            "people",
         }
 
         # Find all packs (directories with manifest.yaml and SKILL.md)

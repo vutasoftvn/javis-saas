@@ -6,7 +6,7 @@ description: Hướng dẫn quy trình đánh giá giai đoạn phát triển hi
 # Quy Trình Đánh Giá Giai Đoạn Startup (Startup Stage Assessment)
 
 ## 1. Mục Tiêu (Objective)
-Xác định chính xác giai đoạn phát triển hiện tại của venture (S0 Genesis, S1 Discovery, S2 Validation, S3 Efficiency, S4 Scale) và đối chiếu với các tiêu chí chuyển giao giai đoạn (Stage Gate Criteria).
+Xác định chính xác giai đoạn phát triển hiện tại của venture (P0_DISCOVERY → P6_SCALE_GOVERN) và đối chiếu với các tiêu chí chuyển giao giai đoạn (Stage Gate Criteria).
 
 ## 2. Khi Nào Dùng & Khi Nào Không Dùng (When to use & When NOT to use)
 - **Khi nào dùng**:
@@ -22,7 +22,7 @@ Xác định chính xác giai đoạn phát triển hiện tại của venture (
 
 ## 4. Các Bước Tất Định (Deterministic Steps)
 1. **Thu thập thông tin venture**: Gọi tool `strategy.project.get` để lấy thông tin stage hiện tại, mục tiêu và trạng thái dự án.
-2. **Lấy lịch sử đánh giá Gate**: Gọi tool `strategy.gate_evaluation.list` để kiểm tra các lần đánh giá gate gần nhất.
+2. **Lịch sử đánh giá Gate**: Skill này hiện chưa có capability tra cứu danh sách lịch sử gate evaluation — nếu context/caller đã cung cấp lịch sử đó, dùng để đối chiếu; nếu không, bỏ qua bước này và ghi rõ trong báo cáo là chưa có dữ liệu lịch sử.
 3. **Đối chiếu tiêu chí giai đoạn**:
    - Invariant §5.2: **Không được tự đặt stage bằng suy luận LLM tự do**. Phải đọc stage đã lưu trong DB qua tool và đối chiếu với các gate evaluation đã pass/fail.
 4. **Tổng hợp báo cáo**: Trình bày hiện trạng stage, các điều kiện đã đạt và các điều kiện còn thiếu để lên stage tiếp theo.
@@ -52,7 +52,7 @@ Xác định chính xác giai đoạn phát triển hiện tại của venture (
 
 ## 9. Ví Dụ Thực Tế (Practical Examples)
 - **Input**: "Founder mô tả venture mới trong lĩnh vực EdTech, muốn biết đang ở stage nào."
-- **Execution**: Gọi `strategy.project.get(id=...)` -> Stage: P0_DISCOVERY -> Trả về báo cáo P0.
+- **Execution**: Gọi tool `strategy.project.get(id=...)` -> Stage: P0_DISCOVERY -> Trả về báo cáo P0.
 
 ## 10. Yêu Cầu Bằng Chứng (Evidence Requirements)
 - Mọi nhận định về stage và độ sẵn sàng phải dựa trên kết quả trả về từ `strategy.project.get`.

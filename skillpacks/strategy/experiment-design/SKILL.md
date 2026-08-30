@@ -40,17 +40,16 @@ Thiết kế các thử nghiệm tinh gọn (Lean Experiments) nhằm thu thập
    - *Kịch bản 1: Validated (Đạt ngưỡng)* -> Chuyển sang giai đoạn phát triển tiếp theo hoặc mở rộng quy mô.
    - *Kịch bản 2: Invalidated (Dưới ngưỡng)* -> Xem xét điều chỉnh giả định hoặc pivot phương án giải pháp.
    - *Kịch bản 3: Inconclusive (Không đủ dữ liệu)* -> Tối ưu kênh phân phối hoặc chạy thêm 1 chu kỳ với mẫu lớn hơn.
-6. **Tạo Bản Ghi Thử Nghiệm**:
-   - Gọi tool `strategy.experiment.create` với `companyId`, `workspaceId`, `projectId`, `assumptionId`, `hypothesis`, `method`, `successCriteria`.
+6. **Soạn Bản Ghi Thử Nghiệm**: Tổng hợp `projectId`, `assumptionId`, `hypothesis`, `method`, `successCriteria` thành một bản ghi dự thảo hoàn chỉnh cho kế hoạch thử nghiệm.
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
-Không có tool call runtime nào được khai báo cho skillpack này. Agent tổng hợp và xuất bản thảo kế hoạch thử nghiệm để founder xem xét và quyết định.
+Không có tool call trực tiếp (Artifact & Proposal only). Skill này hiện chưa có capability ghi dữ liệu vào hệ thống — kế hoạch thử nghiệm là dự thảo văn bản, founder xem xét và triển khai thủ công.
 
 ## 6. Điểm Phê Duyệt (Approval Points)
-- `strategy.experiment.create` có `risk_level: medium`, yêu cầu policy kiểm tra quyền ghi dữ liệu (`MODIFY_BUSINESS_DATA`).
+- Không có (thuần artifact/proposal, không ghi dữ liệu).
 
 ## 7. Safe Fallback
-Khi tool `strategy.experiment.create` chưa khả dụng trong runtime, agent xuất toàn bộ kế hoạch thử nghiệm và khung giả thuyết định lượng dưới dạng markdown hoàn chỉnh để người dùng triển khai thủ công.
+Agent luôn xuất toàn bộ kế hoạch thử nghiệm và khung giả thuyết định lượng dưới dạng markdown hoàn chỉnh để người dùng triển khai thủ công.
 
 ## 8. Định Dạng Đầu Ra (Output Format)
 ```markdown

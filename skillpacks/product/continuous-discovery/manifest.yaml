@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: product.continuous-discovery
+  name: Continuous Discovery Habits
+  version: 1.0.0
+  description: Thiết lập và vận hành chu kỳ khám phá khách hàng liên tục (Teresa Torres model) với Opportunity Solution Tree và lịch phỏng vấn hàng tuần.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/product/continuous-discovery
+
+capability:
+  domain: product
+  category: discovery_habits
+  intents:
+    - continuous discovery
+    - kham pha lien tuc
+    - opportunity solution tree
+    - phong van hang tuan
+    - customer touchpoints
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.evidence.list
+    - strategy.evidence.create
+
+permissions:
+  required:
+    - READ_LOCAL
+    - WRITE_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

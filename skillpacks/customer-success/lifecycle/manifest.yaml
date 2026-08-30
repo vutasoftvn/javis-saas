@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: customer-success.lifecycle
+  name: Customer Lifecycle & Health Playbook Proposal
+  version: 1.0.0
+  description: Đề xuất playbook vòng đời khách hàng (onboarding, adoption, renewal, expansion) dựa trên tín hiệu sức khỏe tài khoản trong giai đoạn Operate & Growth.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/customer-success/lifecycle
+capability:
+  domain: customer-success
+  category: lifecycle
+  intents:
+  - customer lifecycle & health playbook proposal
+  - customer-success.lifecycle
+applicability:
+  project_stages:
+  - P5_OPERATE_GROWTH
+  gates:
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/customer-success/lifecycle.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-account-action
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

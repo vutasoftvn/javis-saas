@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: discovery.affinity-synthesis
+  name: Affinity Diagram Synthesis
+  version: 1.0.0
+  description: Tổng hợp dữ liệu phỏng vấn định tính, phản hồi người dùng thành các cụm chủ đề (thematic clusters) và ghi nhận evidence candidate.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/discovery/affinity-synthesis
+
+capability:
+  domain: discovery
+  category: synthesis
+  intents:
+    - affinity diagram
+    - tổng hợp phỏng vấn
+    - gom cụm insight
+    - thematic synthesis
+    - interview clustering
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.evidence.create
+    - strategy.evidence.list
+
+permissions:
+  required:
+    - READ_LOCAL
+    - WRITE_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

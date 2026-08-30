@@ -4,7 +4,7 @@ kind: Skill
 metadata:
   id: strategy.experiment-design
   name: Lean Experiment Design & Hypothesis Testing
-  version: 1.1.0
+  version: 1.2.0
   description: Thiết kế thử nghiệm kiểm chứng giả định chiến lược (smoke test, landing page, concierge, prototype, interview) với khung giả thuyết định lượng và cây quyết định phân nhánh.
 
 publisher:
@@ -62,7 +62,6 @@ quality:
 permissions:
   required:
     - READ_LOCAL
-    - MODIFY_BUSINESS_DATA
 
 risk:
   level: medium

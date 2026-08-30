@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: strategy.partnerships
+  name: Partnership Evaluation & Structuring
+  version: 1.0.0
+  description: Đánh giá cơ hội hợp tác (partnership) và đề xuất cấu trúc hợp tác; không bao giờ ký, cam kết, hoặc đại diện thẩm quyền ký kết hợp đồng, cho giai đoạn Scale & Govern.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/strategy/partnerships
+capability:
+  domain: strategy
+  category: strategy
+  intents:
+  - partnership evaluation and structuring
+  - strategy.partnerships
+applicability:
+  project_stages:
+  - P6_SCALE_GOVERN
+  gates:
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/partnerships.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-contract-signature
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: high
+trust:
+  tier: T0

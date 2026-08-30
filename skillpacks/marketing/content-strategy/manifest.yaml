@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.content-strategy
+  name: Content Pillar & Calendar Strategy
+  version: 1.0.0
+  description: Xây dựng chiến lược content pillar và lịch nội dung bám sát ICP và bằng chứng kênh phân phối.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/content-strategy
+capability:
+  domain: marketing
+  category: marketing
+  intents:
+  - content pillar & calendar strategy
+  - marketing.content-strategy
+applicability:
+  project_stages:
+  - P5_OPERATE_GROWTH
+  gates:
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/content-strategy.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - unsourced-claim
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

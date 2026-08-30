@@ -1,40 +1,57 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: operations.okr
   name: OKR Management & Alignment
-  version: 1.0.0
-  description: Quản lý chu kỳ OKR, phân rã mục tiêu (Objectives) và đo lường kết quả then chốt (Key Results).
-
+  version: 2.0.0
+  description: Soạn dự thảo chu kỳ OKR, phân rã mục tiêu (Objectives) và đề xuất cách đo lường kết quả then chốt (Key Results) để con người nhập vào hệ thống.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
-  path: skillpacks/okr
-
+  path: skillpacks/operations/okr
 capability:
   domain: operations
   category: okr
   intents:
-    - create okr cycle
-    - define objective
-    - update key result progress
-    - calculate okr score
-
+  - draft okr cycle
+  - define objective
+  - propose key result
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates: []
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/operations/okr.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
 runtime:
-  environment: python
   entrypoint: SKILL.md
-
+  tools: []
 permissions:
   required:
-    - READ_LOCAL
-    - MODIFY_BUSINESS_DATA
-
+  - READ_LOCAL
 risk:
-  level: medium
-
+  level: low
 trust:
   tier: T0

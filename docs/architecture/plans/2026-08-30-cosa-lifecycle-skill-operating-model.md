@@ -398,6 +398,49 @@ quality:
 
 B1 đưa tổng số skill published/pinned có thể dùng lên **62**; B2 chỉ bắt đầu sau pilot có dữ liệu và đưa tổng lên **72**; Tranche C đạt **95**. Một skill có thể tồn tại ở catalog nhưng chưa được pin vào `AgentSpec` trước khi capability/eval/gate đạt điều kiện.
 
+### 6.10. Tranche C release evidence (2026-08-31)
+
+Ghi nhận triển khai thật của 23 skill Tranche C (Task 4/5/6 của `docs/superpowers/plans/2026-08-30-cosa-lifecycle-skill-operating-tranche-c-growth-scale.md`): 22 pack mới + `marketing.copywriting` đã publish từ trước (không tạo lại). Người duyệt: phiên triển khai này (agentic session, 2026-08-31); acceptance evidence: `tests/apps/cosa/test_lifecycle_tranche_c_acceptance.py`, `scripts/validate_skillpacks.py` (0 vi phạm), `tests/agent/skills/eval/test_tranche_c_{marketing,revenue,scale}_evals.py` (93 test qua ba file). Tất cả 22 pack dùng `autonomy.ceiling: L1_PROPOSE`, `side_effect_class: A`, `runtime.tools: []` — artifact/proposal-only, không capability thực thi nào được cấp.
+
+| Skill ID | `definition_hash` (16 ký tự đầu) |
+| --- | --- |
+| `marketing.gtm-funnel` | `eead9ea09375bd50…` |
+| `marketing.content-strategy` | `fa10e76a98a0ecb0…` |
+| `marketing.landing-cro` | `37190f9c70629929…` |
+| `marketing.paid-experiments` | `6b3b3856d6f5049f…` |
+| `marketing.brand-narrative` | `c0ed3ea3babeb1ae…` |
+| `marketing.reputation-monitoring` | `2a35c36a8890cdf6…` |
+| `growth.ab-testing` | `c4834a09453cb6a0…` |
+| `sales.lead-lifecycle` | `35e29ac9d6fefc14…` |
+| `sales.enablement` | `e4ab3161301dc69e…` |
+| `sales.pipeline-analysis` | `48f1f2124a8a9704…` |
+| `finance.unit-economics` | `f9fcc77c264b1ad0…` |
+| `growth.referrals` | `43ad2bb927aed9aa…` |
+| `customer-success.lifecycle` | `369e4a50af9b5768…` |
+| `operations.sop-builder` | `c5afab97b0fa930e…` |
+| `operations.automation-design` | `148bb889f6220daf…` |
+| `growth.channel-expansion` | `0a267a3141be95c5…` |
+| `growth.expansion-revenue` | `e87dc64286b20821…` |
+| `strategy.segment-expansion` | `c7dc135c989a3688…` |
+| `strategy.geo-expansion` | `f28dfde94bff5263…` |
+| `strategy.partnerships` | `5e177f887e0e88d3…` |
+| `people.hiring-copilot` | `836a535495f9bc5f…` |
+| `people.culture-operating-principles` | `f4a9d77f054ce1c0…` |
+
+**Pin matrix (bảo thủ, chỉ pin vào agent role đã tồn tại):**
+
+| Agent | Skill Tranche C được pin |
+| --- | --- |
+| `cosa.agents.marketing` | 6 skill marketing (`gtm-funnel`, `content-strategy`, `landing-cro`, `paid-experiments`, `brand-narrative`, `reputation-monitoring`) |
+| `cosa.agents.operations` | `operations.sop-builder`, `operations.automation-design` |
+| `cosa.agents.finance` | `finance.unit-economics` |
+
+**Không pin** (published nhưng chưa gán agent, vì chưa có agent role nghiệp vụ tương ứng — không tự tạo Agent Profile mới theo Quy tắc #3 CLAUDE.md): `growth.ab-testing`, toàn bộ `sales.*`, `growth.referrals`, `growth.channel-expansion`, `growth.expansion-revenue`, `customer-success.lifecycle`, `strategy.segment-expansion`, `strategy.geo-expansion`, `strategy.partnerships`, `people.hiring-copilot`, `people.culture-operating-principles`.
+
+**Enabled-action matrix:** không có action nào trong 22 skill này được enable qua `packages/agent/capabilities/enablements.py` — toàn bộ ở mức `R`/`A` (read/artifact), không khai báo `runtime.tools`, nên không cần capability-enablement record. Không có expiry vì không có action nào được bật.
+
+**Lưu ý đối chiếu kho:** tổng số manifest thật trong `skillpacks/` tại thời điểm này là 117, cao hơn mục tiêu 95 skill của tài liệu này — phần chênh lệch (~22 pack) đến từ các skillpack được thêm ngoài phạm vi tài liệu này (domain `ai`, `commercial`, các pack discovery/product bổ sung...) ở các phiên làm việc khác, chưa được đối chiếu vào taxonomy 95-skill. Việc rà soát toàn bộ 117 pack theo đúng danh mục P0–P6 là việc còn tồn đọng, ngoài phạm vi Tranche C.
+
 ## 7. Vai trò agent: nhỏ, ổn định, compose theo skill
 
 Không tạo 95 agent. Các role dưới đây là trần kiến trúc; activate dần theo capability boundary thực tế.

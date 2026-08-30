@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: analytics.pmf-scoreboard
+  name: PMF Scoreboard Advisory Interpretation
+  version: 1.0.0
+  description: Truy vấn bảng điểm PMF đã tính toán tất định trong Company Services và đề xuất Action/Decision/Learn advisory memo cho Founder.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/analytics/pmf-scoreboard
+
+capability:
+  domain: analytics
+  category: pmf_scoreboard
+  intents:
+    - bang diem pmf
+    - pmf scoreboard
+    - danh gia pmf
+    - tinh diem fit
+    - pmf maturity
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - analytics.metric_contract.get
+    - analytics.pmf_scoreboard.get
+    - analytics.pmf_scoreboard.propose
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

@@ -89,10 +89,10 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     assert res_list.status_code == 200
     skills = res_list.json()
     assert len(skills) >= 18
-    mkt_positioning = next((s for s in skills if s["id"] == "marketing.positioning"), None)
+    mkt_positioning = next((s for s in skills if s["id"] == "strategy.positioning"), None)
     assert mkt_positioning is not None
     assert mkt_positioning["status"] == "PUBLISHED"
-    assert mkt_positioning["domain"] == "marketing"
+    assert mkt_positioning["domain"] == "strategy"
     assert mkt_positioning["definition_hash"] != ""
     assert "project_stages" in mkt_positioning
     assert "autonomy_ceiling" in mkt_positioning
@@ -229,25 +229,25 @@ async def test_skill_resolver_against_synced_skills(setup_env):
     res = client.post("/agent/skills/sync-built-in?workspace_id=ws-1")
     assert res.status_code == 200
 
-    # Get marketing.positioning spec record from registry
-    record = await plane.spec_registry.get("skill", "marketing.positioning", "1.1.0")
+    # Get strategy.positioning spec record from registry
+    record = await plane.spec_registry.get("skill", "strategy.positioning", "1.1.0")
     assert record is not None
 
     resolver = SkillResolver(plane.spec_registry)
 
     # 1. Resolve with correct definition_hash succeeds
     pinned_ref = PinnedSkillRef(
-        skill_id="marketing.positioning",
+        skill_id="strategy.positioning",
         version="1.1.0",
         definition_hash=record.definition_hash,
     )
     resolved = await resolver.resolve([pinned_ref])
     assert len(resolved) == 1
-    assert resolved[0].id == "marketing.positioning"
+    assert resolved[0].id == "strategy.positioning"
 
     # 2. Resolve with forged / wrong definition_hash raises SKILL_RESOLUTION_ERROR
     bad_ref = PinnedSkillRef(
-        skill_id="marketing.positioning",
+        skill_id="strategy.positioning",
         version="1.1.0",
         definition_hash="tampered_hash_value_123456",
     )

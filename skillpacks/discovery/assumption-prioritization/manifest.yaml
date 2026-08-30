@@ -3,7 +3,7 @@ kind: Skill
 metadata:
   id: discovery.assumption-prioritization
   name: Assumption Risk Matrix Prioritization
-  version: 1.0.0
+  version: 1.1.0
   description: Xếp hạng ưu tiên giả định theo mức độ rủi ro tử huyệt (fatal if wrong)
     và mức độ thiếu bằng chứng.
 publisher:

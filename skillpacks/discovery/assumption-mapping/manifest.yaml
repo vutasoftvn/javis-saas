@@ -3,7 +3,7 @@ kind: Skill
 metadata:
   id: discovery.assumption-mapping
   name: Venture Assumption Mapping & Classification
-  version: 1.0.0
+  version: 1.1.0
   description: 'Phân loại các giả định dự án theo 4 trục: Khả năng mong muốn (Desirability),
     Tính khả thi (Feasibility), Khả năng sống sót (Viability), Tính trách nhiệm (Responsibility).'
 publisher:

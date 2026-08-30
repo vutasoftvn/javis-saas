@@ -32,19 +32,19 @@ Ghi nhận bền vững các quyết định chiến lược quan trọng của 
    - Các chỉ số hoặc cột mốc cụ thể cần đạt được sau khi thực thi quyết định trong vòng 30 - 90 ngày.
 3. **Ấn định Mốc Ngày Tái Đánh Giá Bắt Buộc (Revisit Date)**:
    - Bắt buộc ấn định ngày cụ thể (YYYY-MM-DD) để xem xét lại tính hiệu quả của quyết định.
-4. **Ghi nhận quyết định chiến lược**:
-   - Gọi tool `strategy.decision_record.create` với `companyId`, `workspaceId`, `projectId`, `decision`, `gateEvaluationId` (nếu có trong context), `notes` (tổng hợp rationale, tradeoffs, expected outcomes, revisit date).
+4. **Soạn dự thảo bản ghi quyết định**:
+   - Tổng hợp `projectId`, `decision`, `gateEvaluationId` (nếu có trong context), `notes` (rationale, tradeoffs, expected outcomes, revisit date) thành một bản ghi dự thảo hoàn chỉnh.
 5. **Cập nhật định hướng & Lan tỏa**:
    - Tóm tắt tác động của quyết định tới OKR, kế hoạch 12 tuần và danh sách công việc tiếp theo.
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
-Không có tool call runtime nào được khai báo cho skillpack này. Agent tổng hợp và xuất bản thảo bản ghi quyết định để founder xem xét và phê duyệt.
+Không có tool call trực tiếp (Artifact & Proposal only). Skill này hiện chưa có capability ghi dữ liệu vào hệ thống — bản ghi quyết định là dự thảo văn bản, founder xem xét và lưu trữ chính thức thủ công.
 
 ## 6. Điểm Phê Duyệt (Approval Points)
-- `strategy.decision_record.create` có `risk_level: medium`, yêu cầu policy kiểm tra quyền ghi dữ liệu (`MODIFY_BUSINESS_DATA`).
+- Không có (thuần artifact/proposal, không ghi dữ liệu). Quyết định thật do Founder/Ban điều hành phê duyệt và lưu trữ ngoài phạm vi skill này.
 
 ## 7. Safe Fallback
-Khi tool `strategy.decision_record.create` chưa khả dụng trong runtime, agent xuất toàn bộ bản ghi quyết định với đầy đủ các câu hỏi chịu lực và mốc tái đánh giá dưới dạng markdown để lưu trữ thủ công.
+Agent luôn xuất toàn bộ bản ghi quyết định với đầy đủ các câu hỏi chịu lực và mốc tái đánh giá dưới dạng markdown để founder lưu trữ thủ công.
 
 ## 8. Định Dạng Đầu Ra (Output Format)
 ```markdown

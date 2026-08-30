@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: engineering.vertical-slice
+  name: End-to-End Vertical Slice Architecture
+  version: 1.0.0
+  description: Định nghĩa kiến trúc lát cắt dọc xuyên suốt từ UI, Backend API đến Cơ sở dữ liệu và hạ tầng kiểm thử.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/engineering/vertical-slice
+capability:
+  domain: engineering
+  category: engineering
+  intents:
+  - vertical slice architecture
+  - engineering.vertical-slice
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  gates:
+  - G3
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/engineering/vertical-slice.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-deploy
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

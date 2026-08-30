@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: customer-success.churn-analysis
+  name: Churn Root Cause Analysis
+  version: 1.0.0
+  description: Phân tích nguyên nhân gốc rễ khách hàng ngừng sử dụng và tổng hợp bằng chứng phục vụ cải tiến sản phẩm và chiến lược giữ chân.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/customer-success/churn-analysis
+
+capability:
+  domain: customer-success
+  category: churn_analysis
+  intents:
+    - churn analysis
+    - phan tich roi bo
+    - nguyen nhan khach huy
+    - exit interview
+    - churn audit
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.evidence.create
+    - analytics.metric_contract.get
+
+permissions:
+  required:
+    - READ_LOCAL
+    - WRITE_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

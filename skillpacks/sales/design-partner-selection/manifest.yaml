@@ -1,0 +1,52 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: sales.design-partner-selection
+  name: Design Partner Selection & Pilot Qualification
+  version: 1.0.0
+  description: Tuyển chọn, đánh giá tiêu chuẩn và thiết lập cam kết song phương với khách hàng đối tác thiết kế (Design Partners) cho giai đoạn thử nghiệm pilot.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/sales/design-partner-selection
+capability:
+  domain: sales
+  category: sales
+  intents:
+  - design partner selection & pilot qualification
+  - sales.design-partner-selection
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/sales/design-partner-selection.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-outbound-messaging
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0
