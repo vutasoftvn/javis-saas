@@ -147,12 +147,14 @@ class ChatController extends GetxController {
     }
 
     // Chỉ direct user text được phép gửi tới model trong đợt này —
-    // attachment/retrieval/connector output vẫn ngoài phạm vi (xem Global
-    // Constraint trong design doc). Attachment-only (không có text) bị
-    // reject rõ ràng thay vì âm thầm bỏ qua attachment.
-    if (content.isEmpty && attachments != null && attachments.isNotEmpty) {
-      sendBlockedReason.value =
-          'Attachment-only submissions are not supported yet. Add a text message to send.';
+    // Global Constraint: "Attachments, retrieval, connector output,
+    // autopilot, and copilot remain blocked" áp dụng cho MỌI trường hợp có
+    // attachment, không chỉ riêng attachment-only (không có text kèm theo).
+    // Vì vậy chặn ngay khi `attachments` không rỗng, bất kể `content` có
+    // hay không, để không có caller tương lai nào vô tình forward
+    // attachment egress ra ngoài phạm vi đợt này.
+    if (attachments != null && attachments.isNotEmpty) {
+      sendBlockedReason.value = 'Attachments are not supported yet. Send text only.';
       return;
     }
 

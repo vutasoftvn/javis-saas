@@ -287,6 +287,13 @@ void main() {
       final controller = ChatController(service: service);
       Get.put<ChatController>(controller);
 
+      // Composer now stacks classification chips + subject field + a
+      // blocked-reason line above the message row; give the test surface
+      // enough height so this extra content doesn't trip an unrelated
+      // RenderFlex overflow in the (fixed-size) test viewport.
+      await tester.binding.setSurfaceSize(const Size(800, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(
         const GetMaterialApp(
           home: ChatView(),
@@ -301,13 +308,69 @@ void main() {
 
       expect(find.textContaining('subject'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).first, 'Hello');
-      await tester.tap(find.byIcon(Icons.send));
+      // Type into the MESSAGE field explicitly (by Key, not `.first`) so
+      // the assertion below cannot be confused with the early-return for
+      // empty content — content is non-empty here, only the subject
+      // reference is missing.
+      await tester.enterText(
+        find.byKey(const Key('chat_message_field')),
+        'Hello',
+      );
+      expect(controller.textController.text, 'Hello');
+      // The subject-reference field (rendered because PERSONAL is
+      // selected) must remain untouched.
+      expect(controller.dataAccess.value.subjectReference, isNull);
+
+      // The Send icon button is disabled (onPressed: null) while invalid,
+      // so tapping it fires nothing — call the controller directly (same
+      // codepath `onSubmitted` on the message field uses) to exercise the
+      // classification gate itself.
+      await controller.sendMessage();
       await tester.pump();
 
-      // Send is blocked: no run started, no message appended for lack of
-      // a valid classification.
+      // Send is blocked specifically due to the missing subject reference
+      // (not the unrelated empty-content early return): message content
+      // is non-empty, classification is invalid, and the surfaced reason
+      // names the subject reference requirement.
+      expect(controller.canSendMessage, isFalse);
       expect(controller.messages, isEmpty);
+      expect(controller.sendBlockedReason.value, contains('subject'));
+    });
+  });
+
+  group('ChatController attachment guard', () {
+    test('sendMessage blocks attachments even with non-empty text content', () async {
+      var serviceCalled = false;
+      final mockClient = MockClient((request) async {
+        serviceCalled = true;
+        return http.Response('{}', 200);
+      });
+
+      final service = AgentChatService(client: mockClient);
+      final controller = ChatController(service: service);
+      Get.put<ChatController>(controller);
+
+      // Give the composer valid text and a valid classification so the
+      // ONLY thing that could block the send is the attachment guard.
+      controller.textController.text = 'Hello with attachment';
+      controller.toggleDataAccessCategory(DataAccessCategory.nonPersonal);
+      expect(controller.canSendMessage, isTrue);
+
+      await controller.sendMessage(
+        attachments: [
+          ChatAttachment(
+            id: 'att-1',
+            objectRef: 's3://bucket/file.pdf',
+            mediaType: 'application/pdf',
+            fileName: 'file.pdf',
+            size: 1024,
+          ),
+        ],
+      );
+
+      expect(serviceCalled, isFalse);
+      expect(controller.messages, isEmpty);
+      expect(controller.sendBlockedReason.value, contains('Attachments'));
     });
   });
 }

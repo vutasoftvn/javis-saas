@@ -704,6 +704,7 @@ class ChatView extends GetView<ChatController> {
               children: [
                 Expanded(
                   child: TextField(
+                    key: const Key('chat_message_field'),
                     controller: controller.textController,
                     style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
                     minLines: 1,
@@ -779,6 +780,7 @@ class ChatView extends GetView<ChatController> {
           if (declaration.requiresSubjectReference) ...[
             const SizedBox(height: 8),
             TextField(
+              key: const Key('chat_subject_reference_field'),
               style: const TextStyle(color: AppTheme.textDark, fontSize: 13),
               decoration: const InputDecoration(
                 hintText: 'Subject reference (who this personal data is about)',
