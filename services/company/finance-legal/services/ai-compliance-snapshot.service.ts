@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { eq, and, desc } from "drizzle-orm";
+import { APIError } from "encore.dev/api";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { getComplianceSnapshotInWorkspace } from "./ai-compliance-access.service";
@@ -11,7 +12,6 @@ const {
   aiComplianceEvidence,
   aiProviderProfiles,
   aiDataProcessingProfiles,
-  aiIncidents,
   aiSystemCatalog,
   aiSystemVersions,
   aiSystemCapabilityBindings,
@@ -42,17 +42,388 @@ export function computeCanonicalSha256(content: any): string {
   return `sha256:${hash}`;
 }
 
+/**
+ * Ném lỗi với `code` app-riêng (giữ đúng convention repo — xem
+ * ai-compliance-governance.service.ts) chồng lên `code: ErrCode` mặc định
+ * của Encore, để test có thể assert cả 2 tầng nếu cần. `base` quyết định
+ * HTTP status thật (Encore map theo class, không theo `.code` bị override).
+ */
+function fail(base: APIError, appCode: string): never {
+  (base as any).code = appCode;
+  throw base;
+}
+
+export interface ResolveApprovedSnapshotInput {
+  workspaceId: string | bigint;
+  systemKey: string;
+  capabilityIds: string[];
+}
+
+export interface RuntimeComplianceSnapshot {
+  workspaceId: string;
+  deploymentId: string;
+  assessmentId: string;
+  mode: "ADVISORY_ONLY";
+  status: "APPROVED_FOR_USE";
+  allowedCapabilities: string[];
+  capabilityBindingIds: string[];
+  evidenceIds: string[];
+  evidenceHashes: string[];
+  legalVersionIds: string[];
+  providerProfileId: string;
+  providerProfileVersion: string;
+  dataProfileId: string;
+  dataProfileVersion: string;
+  provenanceComplete: true;
+  policySnapshotHash: string;
+  snapshotHash: string;
+  issuedAt: string;
+  expiresAt: string;
+}
+
+/**
+ * Task 4 — thay `captureComplianceSnapshot` (tự tạo deployment/assessment
+ * mặc định rồi tự set APPROVED — lỗ hổng nghiêm trọng đã xác nhận) bằng
+ * resolver CHỈ ĐỌC dữ liệu đã approved thật. KHÔNG BAO GIỜ insert/update bất
+ * cứ bảng nào — nếu bất kỳ precondition nào không thoả, throw ngay, không có
+ * đường fallback nào tự sinh record để "cho qua".
+ *
+ * Chọn ĐÚNG 1 deployment theo (workspaceId, systemKey): phải APPROVED_FOR_USE
+ * + ADVISORY_ONLY, có assessment hiện hành APPROVED và chưa hết hạn, có đủ
+ * evidence, có provider profile APPROVED và data processing profile ACTIVE
+ * (cùng workspace), và mọi capabilityId được yêu cầu phải có binding khai
+ * báo (không prohibited) trên system_version của deployment đó.
+ */
+export async function resolveApprovedComplianceSnapshot(
+  input: ResolveApprovedSnapshotInput
+): Promise<RuntimeComplianceSnapshot> {
+  const wsId = BigInt(input.workspaceId);
+
+  if (!input.capabilityIds || input.capabilityIds.length === 0) {
+    throw APIError.invalidArgument(
+      "capabilityIds must be a non-empty list — runtime resolution cannot grant an unscoped snapshot"
+    );
+  }
+
+  // 1) System phải tồn tại — không suy diễn/tạo mới.
+  const [catalog] = await db
+    .select()
+    .from(aiSystemCatalog)
+    .where(eq(aiSystemCatalog.systemKey, input.systemKey));
+
+  if (!catalog) {
+    throw APIError.notFound(`AI system not found for systemKey=${input.systemKey}`);
+  }
+
+  const versionRows = await db
+    .select()
+    .from(aiSystemVersions)
+    .where(eq(aiSystemVersions.systemCatalogId, catalog.id));
+  const versionIds = versionRows.map((v) => v.id);
+
+  if (versionIds.length === 0) {
+    throw APIError.notFound(`AI system has no versions for systemKey=${input.systemKey}`);
+  }
+
+  // 2) Đúng 1 deployment APPROVED_FOR_USE trong workspace cho system này —
+  // lấy deployment mới nhất nếu (hiếm khi) có nhiều hơn 1 để xác định.
+  const [deployment] = await db
+    .select()
+    .from(workspaceAiDeployments)
+    .where(
+      and(
+        eq(workspaceAiDeployments.workspaceId, wsId),
+        inArray(workspaceAiDeployments.systemVersionId, versionIds),
+        eq(workspaceAiDeployments.status, "APPROVED_FOR_USE"),
+        eq(workspaceAiDeployments.mode, "ADVISORY_ONLY")
+      )
+    )
+    .orderBy(desc(workspaceAiDeployments.createdAt));
+
+  if (!deployment) {
+    throw APIError.notFound(
+      `No approved AI deployment found for workspace=${input.workspaceId} systemKey=${input.systemKey}`
+    );
+  }
+
+  // 3) Assessment hiện hành phải APPROVED và chưa hết hạn — không tự nâng
+  // cấp/tạo assessment mới ở đây; đây là route đọc, không phải governance.
+  if (!deployment.currentAssessmentId) {
+    fail(
+      APIError.alreadyExists("Deployment has no current assessment on record"),
+      "ASSESSMENT_NOT_APPROVED"
+    );
+  }
+
+  const [assessment] = await db
+    .select()
+    .from(aiRiskAssessments)
+    .where(
+      and(
+        eq(aiRiskAssessments.id, deployment.currentAssessmentId!),
+        eq(aiRiskAssessments.workspaceId, wsId)
+      )
+    );
+
+  if (!assessment) {
+    fail(
+      APIError.alreadyExists("Current assessment record could not be found"),
+      "ASSESSMENT_NOT_APPROVED"
+    );
+  }
+
+  if (assessment.status !== "APPROVED") {
+    fail(
+      APIError.alreadyExists(`Current assessment status is ${assessment.status}, not APPROVED`),
+      "ASSESSMENT_NOT_APPROVED"
+    );
+  }
+
+  if (assessment.expiresAt.getTime() <= Date.now()) {
+    fail(
+      APIError.alreadyExists(`Current assessment expired at ${assessment.expiresAt.toISOString()}`),
+      "ASSESSMENT_EXPIRED"
+    );
+  }
+
+  // 4) Evidence bắt buộc — cùng precondition với approveAiAssessment, verify
+  // lại ở đây vì evidence có thể bị xoá sau khi assessment đã approved.
+  const evidenceRows = await db
+    .select()
+    .from(aiComplianceEvidence)
+    .where(
+      and(
+        eq(aiComplianceEvidence.workspaceId, wsId),
+        eq(aiComplianceEvidence.assessmentId, assessment.id)
+      )
+    )
+    .orderBy(aiComplianceEvidence.id);
+
+  if (evidenceRows.length === 0) {
+    fail(
+      APIError.alreadyExists("Compliance evidence is required before runtime resolution"),
+      "EVIDENCE_REQUIRED"
+    );
+  }
+
+  // 5) Provider profile APPROVED (workspace-scoped) — cùng precondition với
+  // approveAiAssessment (không match theo binding cụ thể — ngoài phạm vi
+  // Task 4, xem task-4-report.md quyết định thiết kế).
+  const [providerProfile] = await db
+    .select()
+    .from(aiProviderProfiles)
+    .where(
+      and(eq(aiProviderProfiles.workspaceId, wsId), eq(aiProviderProfiles.status, "APPROVED"))
+    )
+    .orderBy(desc(aiProviderProfiles.createdAt));
+
+  if (!providerProfile) {
+    fail(
+      APIError.alreadyExists("An approved AI provider profile is required for runtime resolution"),
+      "PROVIDER_PROFILE_REQUIRED"
+    );
+  }
+
+  // 6) Data processing profile ACTIVE cho đúng deployment.
+  const [dataProfile] = await db
+    .select()
+    .from(aiDataProcessingProfiles)
+    .where(
+      and(
+        eq(aiDataProcessingProfiles.deploymentId, deployment.id),
+        eq(aiDataProcessingProfiles.workspaceId, wsId),
+        eq(aiDataProcessingProfiles.status, "ACTIVE")
+      )
+    )
+    .orderBy(desc(aiDataProcessingProfiles.createdAt));
+
+  if (!dataProfile) {
+    fail(
+      APIError.alreadyExists("An active AI data processing profile is required for runtime resolution"),
+      "DATA_PROFILE_REQUIRED"
+    );
+  }
+
+  // 7) Mọi capabilityId yêu cầu phải có binding khai báo, không prohibited —
+  // capability không nằm trong catalog của system_version này bị coi là
+  // out-of-scope (404), cùng nhóm với "system không tồn tại" ở bước 1 (quyết
+  // định thiết kế — xem task-4-report.md).
+  const bindingRows = await db
+    .select()
+    .from(aiSystemCapabilityBindings)
+    .where(eq(aiSystemCapabilityBindings.systemVersionId, deployment.systemVersionId));
+
+  const bindingByCapability = new Map(bindingRows.map((b) => [b.capabilityId, b]));
+  const requestedCapabilityIds = [...input.capabilityIds].sort();
+  const grantedBindingIds: string[] = [];
+
+  for (const capabilityId of requestedCapabilityIds) {
+    const binding = bindingByCapability.get(capabilityId);
+    if (!binding || binding.prohibitedPurpose) {
+      throw APIError.notFound(
+        `Requested capability is out of scope for this deployment: ${capabilityId}`
+      );
+    }
+    grantedBindingIds.push(binding.id.toString());
+  }
+  grantedBindingIds.sort();
+
+  // provenanceComplete luôn true tới đây — provider/data profile đã verify ở
+  // bước 5/6 (khác hẳn captureComplianceSnapshot cũ, vốn cho phép null).
+  const providerProfileId = providerProfile.id;
+  const dataProfileId = dataProfile.id;
+
+  // "model key/version" theo brief — lấy trực tiếp từ provider profile đã
+  // chọn (modelKey/version bất biến theo hàng, không có cột riêng trên
+  // snapshot — xem task-4-report.md quyết định thiết kế tránh migration mới).
+  const modelKey = providerProfile.modelKey;
+
+  const evidencePairs = evidenceRows
+    .map((e) => ({ id: e.id.toString(), contentHash: e.contentHash }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const evidenceIds = evidencePairs.map((e) => e.id);
+  const evidenceHashes = evidencePairs.map((e) => e.contentHash);
+
+  // legalVersionIds: schema hiện tại KHÔNG có liên kết thật từ
+  // assessment/deployment tới regulationVersions (chỉ có cột jsonb rỗng trên
+  // snapshot, chưa từng được wire ở đâu — xem Task 2). Giữ rỗng, không bịa
+  // liên kết chưa tồn tại; đưa vào canonical payload dạng mảng rỗng để tương
+  // thích ngược khi liên kết thật được thêm sau này.
+  const legalVersionIds: string[] = [];
+  const legalVersionPairs: Array<{ id: string; contentHash: string }> = [];
+
+  const providerProfileVersion = providerProfile.version;
+  const dataProfileVersion = dataProfile.version;
+
+  const policySnapshotHash = computeCanonicalSha256({
+    workspaceId: wsId.toString(),
+    deploymentId: deployment.id.toString(),
+    assessmentId: assessment.id.toString(),
+    mode: "ADVISORY_ONLY",
+    status: "APPROVED_FOR_USE",
+    allowedCapabilities: requestedCapabilityIds,
+    providerProfileVersion,
+    dataProfileVersion,
+  });
+
+  const issuedAt = new Date();
+  // expiresAt = min(assessment.expiresAt, ...các mốc hết hạn khác nếu có).
+  // Provider profile / data profile / source review KHÔNG có cột expiry
+  // trong schema hiện tại (chỉ có reviewedAt) — không tự bịa ra một hạn cố
+  // định (đây chính là lỗi "90-day fallback" brief yêu cầu xoá bỏ). Vì vậy
+  // hiện tại chỉ có 1 mốc thật để lấy min: assessment.expiresAt. Nếu sau này
+  // legalVersionIds có contentHash thật kèm effectiveTo, thêm vào đây.
+  const expiresAt = new Date(assessment.expiresAt.getTime());
+
+  const canonicalPayload = {
+    workspaceId: wsId.toString(),
+    deploymentId: deployment.id.toString(),
+    assessmentId: assessment.id.toString(),
+    assessmentExpiresAt: assessment.expiresAt.toISOString(),
+    capabilityBindingIds: grantedBindingIds,
+    evidence: evidencePairs,
+    legalVersions: legalVersionPairs,
+    providerProfileId: providerProfileId.toString(),
+    providerProfileVersion,
+    modelKey,
+    dataProfileId: dataProfileId.toString(),
+    dataProfileVersion,
+    policySnapshotHash,
+    issuedAt: issuedAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+  };
+
+  const snapshotHash = computeCanonicalSha256(canonicalPayload);
+
+  return {
+    workspaceId: wsId.toString(),
+    deploymentId: deployment.id.toString(),
+    assessmentId: assessment.id.toString(),
+    mode: "ADVISORY_ONLY",
+    status: "APPROVED_FOR_USE",
+    allowedCapabilities: requestedCapabilityIds,
+    capabilityBindingIds: grantedBindingIds,
+    evidenceIds,
+    evidenceHashes,
+    legalVersionIds,
+    providerProfileId: providerProfileId.toString(),
+    providerProfileVersion,
+    dataProfileId: dataProfileId.toString(),
+    dataProfileVersion,
+    provenanceComplete: true,
+    policySnapshotHash,
+    snapshotHash,
+    issuedAt: issuedAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+
+export interface ResolveRuntimeSnapshotInput extends ResolveApprovedSnapshotInput {
+  runId: string;
+  /**
+   * Hash caller (apps/cosa) kỳ vọng — chỉ dùng để echo/audit-trace, KHÔNG
+   * gate kết quả: server luôn trả về trạng thái approved THẬT tại thời điểm
+   * gọi; ép so khớp với hash cũ caller cache sẽ biến 1 route read-only thành
+   * fail-closed sai khi policy vừa được duyệt hợp lệ nhưng caller chưa kịp
+   * refresh cache — vi phạm đúng nguyên tắc "đọc dữ liệu approved thật" mà
+   * Task 4 yêu cầu. Xem task-4-report.md.
+   */
+  policySnapshotHash: string;
+}
+
+/**
+ * Entry point cho route runtime (dùng delegation COSA→Company, Task 3) — bọc
+ * resolveApprovedComplianceSnapshot, không thêm side effect nào. runId hiện
+ * chỉ dùng để verify delegation ở tầng handler (không thuộc canonical
+ * payload — 2 run khác nhau cùng trạng thái approved phải ra cùng hash).
+ */
+export async function resolveRuntimeComplianceSnapshot(
+  input: ResolveRuntimeSnapshotInput
+): Promise<RuntimeComplianceSnapshot> {
+  return resolveApprovedComplianceSnapshot(input);
+}
+
+async function getSystemKeyForVersion(systemVersionId: bigint): Promise<string> {
+  const [version] = await db
+    .select()
+    .from(aiSystemVersions)
+    .where(eq(aiSystemVersions.id, systemVersionId));
+
+  if (!version) {
+    throw APIError.notFound("AI system version not found");
+  }
+
+  const [catalog] = await db
+    .select()
+    .from(aiSystemCatalog)
+    .where(eq(aiSystemCatalog.id, version.systemCatalogId));
+
+  if (!catalog) {
+    throw APIError.notFound("AI system catalog not found");
+  }
+
+  return catalog.systemKey;
+}
+
+/**
+ * Admin/audit operation — GỌI CHUNG resolver approved-only ở trên, KHÔNG còn
+ * tự tạo deployment/assessment/APPROVED mặc định (lỗ hổng đã xác nhận, xem
+ * task-4-brief.md). Nếu caller không truyền deploymentIdInput, dùng deployment
+ * mới nhất của workspace — nếu workspace chưa có deployment nào, throw 404,
+ * không tự sinh baseline.
+ *
+ * Ghi lại đúng 1 bản snapshot (audit trail) từ dữ liệu approved thật —
+ * capabilityIds dùng để capture là TOÀN BỘ capability đã khai báo (không
+ * prohibited) trên system_version của deployment, vì đây là bản chụp audit
+ * toàn diện, không phải 1 yêu cầu runtime hẹp theo capability cụ thể.
+ */
 export async function captureComplianceSnapshot(
   workspaceId: string | bigint,
   deploymentIdInput?: string | bigint
 ): Promise<typeof aiComplianceSnapshots.$inferSelect> {
   const wsId = BigInt(workspaceId);
 
-  // Find deployment or create active reference. Khi deploymentIdInput được
-  // truyền từ caller, PHẢI xác nhận deployment đó thuộc đúng workspaceId
-  // trước khi dùng — nếu không, một workspace khác có thể chụp snapshot
-  // "gắn" vào deployment của workspace khác (cross-workspace IDOR).
-  let deploymentRow = deploymentIdInput
+  const deployment = deploymentIdInput
     ? (await db
         .select()
         .from(workspaceAiDeployments)
@@ -68,192 +439,54 @@ export async function captureComplianceSnapshot(
         .where(eq(workspaceAiDeployments.workspaceId, wsId))
         .orderBy(desc(workspaceAiDeployments.createdAt)))[0];
 
-  let assessmentId: bigint;
-  if (!deploymentRow) {
-    // Generate minimal catalog/version/deployment/assessment for baseline snapshot
-    const catalogId = generateSnowflake();
-    const versionId = generateSnowflake();
-    const depId = generateSnowflake();
-    const assessId = generateSnowflake();
-
-    await db.insert(aiSystemCatalog).values({
-      id: catalogId,
-      systemKey: `default-system-${Date.now()}`,
-      name: "Default System",
-      allowedPurposes: ["advisory"],
-      prohibitedPurposes: [],
-      lifecycleStatus: "ACTIVE",
-    });
-
-    await db.insert(aiSystemVersions).values({
-      id: versionId,
-      systemCatalogId: catalogId,
-      version: "1.0.0",
-      configHash: "sha256:default",
-      status: "ACTIVE",
-    });
-
-    const [dep] = await db
-      .insert(workspaceAiDeployments)
-      .values({
-        id: depId,
-        workspaceId: wsId,
-        systemVersionId: versionId,
-        mode: "ADVISORY_ONLY",
-        status: "ASSESSED",
-        founderMemberId: generateSnowflake(),
-      })
-      .returning();
-
-    const [ass] = await db
-      .insert(aiRiskAssessments)
-      .values({
-        id: assessId,
-        workspaceId: wsId,
-        deploymentId: depId,
-        classification: "OUT_OF_CATALOG",
-        intendedPurpose: "advisory",
-        controls: ["HUMAN_CONFIRMATION"],
-        status: "APPROVED",
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      })
-      .returning();
-
-    deploymentRow = dep;
-    assessmentId = ass.id;
-  } else {
-    if (deploymentRow.currentAssessmentId) {
-      assessmentId = deploymentRow.currentAssessmentId;
-    } else {
-      const assessments = await db
-        .select()
-        .from(aiRiskAssessments)
-        .where(eq(aiRiskAssessments.deploymentId, deploymentRow.id))
-        .orderBy(desc(aiRiskAssessments.createdAt));
-      if (assessments.length > 0) {
-        assessmentId = assessments[0].id;
-      } else {
-        const assessId = generateSnowflake();
-        const [ass] = await db
-          .insert(aiRiskAssessments)
-          .values({
-            id: assessId,
-            workspaceId: wsId,
-            deploymentId: deploymentRow.id,
-            classification: "OUT_OF_CATALOG",
-            intendedPurpose: "advisory",
-            controls: ["HUMAN_CONFIRMATION"],
-            status: "PENDING",
-            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          })
-          .returning();
-        assessmentId = ass.id;
-      }
-    }
+  if (!deployment) {
+    throw APIError.notFound(
+      `No AI deployment found for workspace=${workspaceId} — capture requires an existing deployment, it never creates one`
+    );
   }
 
-  const providerRows = await db
-    .select()
-    .from(aiProviderProfiles)
-    .where(eq(aiProviderProfiles.workspaceId, wsId))
-    .orderBy(desc(aiProviderProfiles.createdAt));
+  const systemKey = await getSystemKeyForVersion(deployment.systemVersionId);
 
-  const dataProfileRows = await db
-    .select()
-    .from(aiDataProcessingProfiles)
-    .where(eq(aiDataProcessingProfiles.deploymentId, deploymentRow.id))
-    .orderBy(desc(aiDataProcessingProfiles.createdAt));
-
-  const providerProfileVersion = providerRows[0]?.version || "1.0.0";
-  const dataProfileVersion = dataProfileRows[0]?.version || "1.0.0";
-
-  // Provenance thật (Task 2 reviewer fix — task-2-brief.md "Produces"): thay
-  // vì chỉ lưu version dạng text, snapshot giờ lưu ID thật của
-  // binding/evidence/provider profile/data profile đã dùng, để verify lại
-  // được sau này (Task 4 resolver). Chỉ set providerProfileId/dataProfileId
-  // khi có row thật (providerRows[0]/dataProfileRows[0] tồn tại) — KHÔNG bịa
-  // ID khi workspace chưa có provider/data profile nào (giữ nguyên hành vi
-  // "advisory-only, thiếu gì để trống nấy" đã có sẵn ở đây).
-  const providerProfileId = providerRows[0]?.id ?? null;
-  const dataProfileId = dataProfileRows[0]?.id ?? null;
-
-  const evidenceRows = await db
-    .select()
-    .from(aiComplianceEvidence)
-    .where(
-      and(
-        eq(aiComplianceEvidence.workspaceId, wsId),
-        eq(aiComplianceEvidence.assessmentId, assessmentId)
-      )
-    )
-    .orderBy(desc(aiComplianceEvidence.createdAt));
-  // .toString() bắt buộc: cột đích là jsonb, Drizzle serialize bằng
-  // JSON.stringify() — JSON.stringify không biết serialize BigInt (throw
-  // TypeError ngay khi mảng có ít nhất 1 phần tử), nên phải tự convert sang
-  // string trước khi đưa vào mảng jsonb. Áp dụng cho MỌI id kiểu bigint ghi
-  // vào cột jsonb trong function này (capabilityBindingIds, evidenceIds).
-  const evidenceIds = evidenceRows.map((e) => e.id.toString());
-  const evidenceHashes = evidenceRows.map((e) => e.contentHash);
-
-  const capabilityBindingRows = await db
+  const declaredBindings = await db
     .select()
     .from(aiSystemCapabilityBindings)
-    .where(eq(aiSystemCapabilityBindings.systemVersionId, deploymentRow.systemVersionId));
-  const capabilityBindingIds = capabilityBindingRows.map((b) => b.id.toString());
+    .where(eq(aiSystemCapabilityBindings.systemVersionId, deployment.systemVersionId));
 
-  // provenanceComplete: chỉ true khi cả provider profile lẫn data profile
-  // đều verify được bằng ID thật (không NULL). Evidence/binding rỗng vẫn
-  // được coi là hợp lệ (nghĩa là hiện tại chưa có, không phải "không verify
-  // được") — cùng quy tắc với backfill ở migration 29.
-  const provenanceComplete = providerProfileId !== null && dataProfileId !== null;
+  const capabilityIds = declaredBindings
+    .filter((b) => !b.prohibitedPurpose)
+    .map((b) => b.capabilityId);
 
-  const policyContent = {
-    workspaceId: wsId.toString(),
-    deploymentId: deploymentRow.id.toString(),
-    assessmentId: assessmentId.toString(),
-    mode: deploymentRow.mode,
-    status: deploymentRow.status,
-    providerProfileVersion,
-    dataProfileVersion,
-    allowedCapabilities: [],
-  };
+  const resolved = await resolveApprovedComplianceSnapshot({
+    workspaceId: wsId,
+    systemKey,
+    capabilityIds,
+  });
 
-  const policySnapshotHash = computeCanonicalSha256(policyContent);
-
-  const snapshotPayload = {
-    ...policyContent,
-    policySnapshotHash,
-    issuedAt: new Date().toISOString(),
-  };
-
-  const snapshotHash = computeCanonicalSha256(snapshotPayload);
   const snapshotId = generateSnowflake();
-  const now = new Date();
-  const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
   const [created] = await db
     .insert(aiComplianceSnapshots)
     .values({
       id: snapshotId,
       workspaceId: wsId,
-      deploymentId: deploymentRow.id,
-      assessmentId,
-      mode: "ADVISORY_ONLY",
-      status: deploymentRow.status,
-      allowedCapabilities: [],
-      providerProfileVersion,
-      dataProfileVersion,
-      legalVersionIds: [],
-      capabilityBindingIds,
-      evidenceIds,
-      evidenceHashes,
-      providerProfileId,
-      dataProfileId,
-      provenanceComplete,
-      policySnapshotHash,
-      snapshotHash,
-      issuedAt: now,
-      expiresAt,
+      deploymentId: BigInt(resolved.deploymentId),
+      assessmentId: BigInt(resolved.assessmentId),
+      mode: resolved.mode,
+      status: resolved.status,
+      allowedCapabilities: resolved.allowedCapabilities,
+      providerProfileVersion: resolved.providerProfileVersion,
+      dataProfileVersion: resolved.dataProfileVersion,
+      legalVersionIds: resolved.legalVersionIds,
+      capabilityBindingIds: resolved.capabilityBindingIds,
+      evidenceIds: resolved.evidenceIds,
+      evidenceHashes: resolved.evidenceHashes,
+      providerProfileId: BigInt(resolved.providerProfileId),
+      dataProfileId: BigInt(resolved.dataProfileId),
+      provenanceComplete: resolved.provenanceComplete,
+      policySnapshotHash: resolved.policySnapshotHash,
+      snapshotHash: resolved.snapshotHash,
+      issuedAt: new Date(resolved.issuedAt),
+      expiresAt: new Date(resolved.expiresAt),
     })
     .returning();
 
@@ -266,20 +499,43 @@ export async function verifySnapshotIntegrity(
 ): Promise<boolean> {
   const snapshot = await getComplianceSnapshotInWorkspace(workspaceId, snapshotId);
 
-  const payloadToVerify = {
+  // Tái tạo lại chính xác canonical payload đã dùng để tính snapshotHash lúc
+  // capture (xem resolveApprovedComplianceSnapshot) từ các cột đã lưu — mọi
+  // field cần thiết đều có cột thật (Task 2 provenance), trừ modelKey (không
+  // có cột riêng, join lại qua providerProfileId — xem quyết định thiết kế
+  // trong task-4-report.md).
+  let modelKey: string | null = null;
+  if (snapshot.providerProfileId) {
+    const [providerProfile] = await db
+      .select()
+      .from(aiProviderProfiles)
+      .where(eq(aiProviderProfiles.id, snapshot.providerProfileId));
+    modelKey = providerProfile?.modelKey ?? null;
+  }
+
+  const evidenceIds = (snapshot.evidenceIds as string[]) || [];
+  const evidenceHashes = (snapshot.evidenceHashes as string[]) || [];
+  const evidencePairs = evidenceIds.map((id, i) => ({ id, contentHash: evidenceHashes[i] }));
+
+  const canonicalPayload = {
     workspaceId: snapshot.workspaceId.toString(),
     deploymentId: snapshot.deploymentId.toString(),
     assessmentId: snapshot.assessmentId.toString(),
-    mode: snapshot.mode,
-    status: snapshot.status,
+    assessmentExpiresAt: snapshot.expiresAt.toISOString(),
+    capabilityBindingIds: (snapshot.capabilityBindingIds as string[]) || [],
+    evidence: evidencePairs,
+    legalVersions: [] as Array<{ id: string; contentHash: string }>,
+    providerProfileId: snapshot.providerProfileId ? snapshot.providerProfileId.toString() : null,
     providerProfileVersion: snapshot.providerProfileVersion,
+    modelKey,
+    dataProfileId: snapshot.dataProfileId ? snapshot.dataProfileId.toString() : null,
     dataProfileVersion: snapshot.dataProfileVersion,
-    allowedCapabilities: snapshot.allowedCapabilities,
     policySnapshotHash: snapshot.policySnapshotHash,
     issuedAt: snapshot.issuedAt.toISOString(),
+    expiresAt: snapshot.expiresAt.toISOString(),
   };
 
-  const calculatedHash = computeCanonicalSha256(payloadToVerify);
+  const calculatedHash = computeCanonicalSha256(canonicalPayload);
   return calculatedHash === snapshot.snapshotHash;
 }
 
@@ -292,16 +548,3 @@ export async function listSnapshots(
     .where(eq(aiComplianceSnapshots.workspaceId, BigInt(workspaceId)))
     .orderBy(desc(aiComplianceSnapshots.createdAt));
 }
-
-export interface ResolveComplianceSnapshotInput {
-  workspaceId: string | bigint;
-  deploymentId?: string | bigint;
-  policySnapshotHash?: string;
-}
-
-export async function resolveComplianceSnapshot(
-  input: ResolveComplianceSnapshotInput
-): Promise<typeof aiComplianceSnapshots.$inferSelect> {
-  return captureComplianceSnapshot(input.workspaceId, input.deploymentId);
-}
-

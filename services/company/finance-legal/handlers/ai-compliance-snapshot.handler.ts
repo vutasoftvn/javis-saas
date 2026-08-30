@@ -22,12 +22,23 @@ export interface ListSnapshotsRequest {
   authorization?: Header<"Authorization">;
 }
 
-// Non-exposed internal snapshot route as required by plan
+// Non-exposed internal snapshot route as required by plan.
+//
+// Task 4 fix: trước đây gọi `captureComplianceSnapshot(ctx.workspaceId,
+// ctx.workforceMemberId || ctx.userId)` — tham số thứ 2 của
+// captureComplianceSnapshot là deploymentIdInput, KHÔNG PHẢI member id. Vì
+// memberId gần như không bao giờ trùng 1 deployment id thật, mọi lệnh gọi
+// route này trước đây luôn rơi vào nhánh "deployment không tìm thấy" của
+// code cũ — chính là nhánh tự tạo deployment/assessment/APPROVED mặc định
+// (lỗ hổng đã xác nhận, xem task-4-brief.md). Giờ đây captureComplianceSnapshot
+// không còn tự tạo gì cả — bỏ tham số sai này, dùng deployment mới nhất của
+// workspace (audit operation, không cần chỉ định deploymentId cụ thể qua
+// route công khai này).
 export const captureComplianceSnapshotApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/snapshots", expose: false },
   async (req: CaptureSnapshotRequest) => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
-    return captureComplianceSnapshot(ctx.workspaceId, ctx.workforceMemberId || ctx.userId);
+    return captureComplianceSnapshot(ctx.workspaceId);
   }
 );
 

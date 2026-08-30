@@ -15,6 +15,7 @@ export * from "./ai-compliance-governance.handler";
 export * from "./ai-data-governance.handler";
 export * from "./ai-incident-response.handler";
 export * from "./ai-compliance-snapshot.handler";
+export * from "./ai-compliance-runtime.handler";
 
 
 

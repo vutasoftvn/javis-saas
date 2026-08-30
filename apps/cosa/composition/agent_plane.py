@@ -554,22 +554,36 @@ def build_cosa_agent_plane(
         ):
 
             class _MockAiComplianceClient:
+                # Task 4: ComplianceResolver.resolve_for_run giờ luôn mint 1
+                # delegation JWT (Task 3) và truyền capability_ids xuống
+                # client — chữ ký mock này phải khớp interface thật
+                # (AiComplianceClient.resolve_snapshot) dù chỉ dùng cho
+                # test/mock model, để không TypeError khi gọi kwargs mới.
                 async def resolve_snapshot(
                     self,
                     workspace_id: str,
                     run_id: str,
                     system_key: str,
-                    policy_snapshot_hash: str | None = None,
+                    capability_ids: list[str],
+                    delegation_token: str,
+                    policy_snapshot_hash: str = "",
                 ):
-                    return {
-                        "workspace_id": workspace_id,
-                        "deployment_id": f"dep_{workspace_id}",
-                        "system_key": system_key,
-                        "mode": "ADVISORY_ONLY",
-                        "status": "APPROVED_FOR_USE",
-                        "allowed_capabilities": ["*"],
-                        "data_class_authorizations": ["*"],
-                    }
+                    from datetime import UTC, datetime, timedelta
+
+                    from apps.cosa.compliance.contracts import ComplianceSnapshot
+
+                    return ComplianceSnapshot(
+                        workspace_id=workspace_id,
+                        deployment_id=f"dep_{workspace_id}",
+                        assessment_id=f"assess_{workspace_id}",
+                        mode="ADVISORY_ONLY",
+                        status="APPROVED_FOR_USE",
+                        allowed_capabilities=frozenset(capability_ids),
+                        provider_profile_version="mock-1.0.0",
+                        data_profile_version="mock-1.0.0",
+                        snapshot_hash="sha256:" + "0" * 64,
+                        expires_at=datetime.now(UTC) + timedelta(days=1),
+                    )
 
             compliance_resolver = ComplianceResolver(client=_MockAiComplianceClient())  # type: ignore[arg-type]
         else:

@@ -22,14 +22,31 @@ class FakeAiComplianceClient:
     ) -> None:
         self.snapshot = snapshot
         self.error = error
+        # Spy — capture đúng kwargs resolver truyền xuống client, để test
+        # xác nhận capability_ids/delegation_token thật sự được truyền
+        # (Task 4: resolver phải mint delegation và khai báo capability_ids,
+        # không còn gọi client với policy_snapshot_hash rời rạc như cũ).
+        self.calls: list[dict] = []
 
     async def resolve_snapshot(
         self,
         workspace_id: str,
         run_id: str,
         system_key: str,
-        policy_snapshot_hash: str | None = None,
+        capability_ids: list[str],
+        delegation_token: str,
+        policy_snapshot_hash: str = "",
     ) -> ComplianceSnapshot:
+        self.calls.append(
+            {
+                "workspace_id": workspace_id,
+                "run_id": run_id,
+                "system_key": system_key,
+                "capability_ids": capability_ids,
+                "delegation_token": delegation_token,
+                "policy_snapshot_hash": policy_snapshot_hash,
+            }
+        )
         if self.error:
             raise self.error
         if self.snapshot:
@@ -43,6 +60,7 @@ def sample_spec() -> AgentSpec:
         id="cosa_advisory_agent",
         role="Advisory Agent",
         instructions="Advisory only",
+        capability_refs=["finance.read"],
     )
 
 
@@ -90,3 +108,86 @@ async def test_resolver_attaches_snapshot_hash(
     assert metadata["compliance_snapshot_ref"] == "sha256:abc123"
     assert metadata["compliance_snapshot"]["mode"] == "ADVISORY_ONLY"
     assert metadata["compliance_snapshot_version"] == "v1"
+
+
+@pytest.mark.asyncio
+async def test_resolver_fails_closed_when_spec_declares_no_capabilities(
+    sample_request: RunRequest,
+) -> None:
+    """Task 4: một AgentSpec không khai báo capability_refs nào không thể
+    scope được 1 delegation — resolver phải fail-closed TRƯỚC khi gọi Company
+    (không round-trip với capability_ids rỗng)."""
+    spec_without_capabilities = AgentSpec(
+        id="cosa_no_capability_agent",
+        instructions="Advisory only",
+    )
+    client = FakeAiComplianceClient(error=AssertionError("client should not be called"))
+    resolver = ComplianceResolver(client)
+
+    with pytest.raises(ComplianceDenied) as exc_info:
+        await resolver.resolve_for_run(sample_request, spec_without_capabilities)
+
+    assert exc_info.value.code == "MISSING_CAPABILITIES"
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_resolver_mints_a_scoped_delegation_and_forwards_capability_ids(
+    sample_request: RunRequest,
+    sample_spec: AgentSpec,
+) -> None:
+    """Task 4 wiring: resolver phải mint 1 delegation JWT có cấu trúc (Task
+    3) và truyền đúng capability_ids khai báo trong spec xuống client —
+    trước Task 4, verifyCosaDelegation tồn tại nhưng zero call site thật."""
+    now = datetime.now(UTC)
+    snap = ComplianceSnapshot(
+        workspace_id="ws_1",
+        deployment_id="dep_1",
+        assessment_id="ass_1",
+        mode="ADVISORY_ONLY",
+        status="APPROVED_FOR_USE",
+        allowed_capabilities=frozenset(["finance.read"]),
+        provider_profile_version="v3",
+        data_profile_version="v1",
+        snapshot_hash="sha256:abc123",
+        expires_at=now,
+    )
+    client = FakeAiComplianceClient(snapshot=snap)
+    resolver = ComplianceResolver(client)
+
+    await resolver.resolve_for_run(sample_request, sample_spec)
+
+    assert len(client.calls) == 1
+    call = client.calls[0]
+    assert call["capability_ids"] == ["finance.read"]
+    assert call["workspace_id"] == "ws_1"
+    assert isinstance(call["delegation_token"], str) and call["delegation_token"]
+
+
+@pytest.mark.asyncio
+async def test_resolver_denies_when_company_rejects_delegation_scope(
+    sample_request: RunRequest,
+    sample_spec: AgentSpec,
+) -> None:
+    """Company trả 403 (delegation scope failure) -> client raise
+    AiComplianceUnavailable("DELEGATION_DENIED", ...) -> resolver phải fail
+    closed qua ComplianceDenied, không lộ ra như một lỗi khác."""
+    resolver = ComplianceResolver(
+        FakeAiComplianceClient(error=AiComplianceUnavailable("DELEGATION_DENIED"))
+    )
+    with pytest.raises(ComplianceDenied, match="DELEGATION_DENIED"):
+        await resolver.resolve_for_run(sample_request, sample_spec)
+
+
+@pytest.mark.asyncio
+async def test_resolver_denies_when_approval_incomplete_or_expired(
+    sample_request: RunRequest,
+    sample_spec: AgentSpec,
+) -> None:
+    """Company trả 409 (approval incomplete/expired) -> fail closed, không
+    bao giờ coi im lặng/lỗi là "đã approved"."""
+    resolver = ComplianceResolver(
+        FakeAiComplianceClient(error=AiComplianceUnavailable("APPROVAL_INCOMPLETE_OR_EXPIRED"))
+    )
+    with pytest.raises(ComplianceDenied, match="APPROVAL_INCOMPLETE_OR_EXPIRED"):
+        await resolver.resolve_for_run(sample_request, sample_spec)

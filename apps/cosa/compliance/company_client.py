@@ -10,6 +10,25 @@ from apps.cosa.compliance.contracts import (
     ComplianceSnapshot,
 )
 
+# Task 4 — mọi field bên dưới PHẢI có mặt trong response của route runtime
+# (services/company/finance-legal/handlers/ai-compliance-runtime.handler.ts).
+# Trước Task 4, code cũ dùng `.get(key, default)` để tự điền mode/status/
+# provider_profile_version khi thiếu — đây chính là kiểu "fail-open" khiến
+# một response thiếu dữ liệu bị hiểu nhầm thành ADVISORY_ONLY/APPROVED_FOR_USE
+# giả. Giờ đây field thiếu ⇒ CONTRACT_VIOLATION (fail-closed), không default.
+_REQUIRED_FIELDS = (
+    "workspaceId",
+    "deploymentId",
+    "assessmentId",
+    "mode",
+    "status",
+    "allowedCapabilities",
+    "providerProfileVersion",
+    "dataProfileVersion",
+    "snapshotHash",
+    "expiresAt",
+)
+
 
 class AiComplianceClient:
     def __init__(
@@ -27,16 +46,26 @@ class AiComplianceClient:
         workspace_id: str,
         run_id: str,
         system_key: str,
-        policy_snapshot_hash: str | None = None,
+        capability_ids: list[str],
+        delegation_token: str,
+        policy_snapshot_hash: str = "",
     ) -> ComplianceSnapshot:
-        url = f"{self._base_url}/finance-legal/ai-compliance/snapshots"
+        """Gọi route runtime private (Task 4) — KHÔNG còn gọi route capture
+        cũ (`POST /finance-legal/ai-compliance/snapshots`, vốn tự tạo
+        deployment/assessment/APPROVED mặc định — lỗ hổng đã xác nhận). Route
+        mới CHỈ đọc, dùng delegation có cấu trúc COSA→Company (Task 3) thay vì
+        session user, và yêu cầu khai báo đúng tập capability_ids cần dùng.
+        """
+        url = f"{self._base_url}/finance-legal/ai-compliance/runtime/snapshots/resolve"
         headers = {
             "X-Workspace-Id": str(workspace_id),
+            "Authorization": f"Bearer {delegation_token}",
             "Content-Type": "application/json",
         }
         payload = {
             "runId": run_id,
             "systemKey": system_key,
+            "capabilityIds": list(capability_ids),
             "policySnapshotHash": policy_snapshot_hash,
         }
 
@@ -49,7 +78,18 @@ class AiComplianceClient:
             raise AiComplianceUnavailable("UNAVAILABLE", str(err)) from err
 
         if response.status_code == 404:
-            raise AiComplianceUnavailable("NOT_READY", "Snapshot or deployment not ready")
+            raise AiComplianceUnavailable(
+                "NOT_READY", "No approved deployment/capability found for this system"
+            )
+        if response.status_code == 409:
+            raise AiComplianceUnavailable(
+                "APPROVAL_INCOMPLETE_OR_EXPIRED",
+                "Current approval is incomplete, missing evidence/profiles, or expired",
+            )
+        if response.status_code == 403:
+            raise AiComplianceUnavailable(
+                "DELEGATION_DENIED", "Delegation scope check failed at Company"
+            )
         if response.status_code != 200:
             raise AiComplianceUnavailable(f"HTTP_{response.status_code}", response.text)
 
@@ -60,31 +100,37 @@ class AiComplianceClient:
                 "INVALID_RESPONSE", "Invalid JSON from company service"
             ) from err
 
+        if not isinstance(data, dict):
+            raise AiComplianceUnavailable("CONTRACT_VIOLATION", "Response is not a JSON object")
+
+        missing = [f for f in _REQUIRED_FIELDS if data.get(f) is None]
+        if missing:
+            raise AiComplianceUnavailable(
+                "CONTRACT_VIOLATION", f"Response missing required field(s): {', '.join(missing)}"
+            )
+
         try:
-            expires_at = data.get("expiresAt") or data.get("expires_at")
-            if isinstance(expires_at, str):
-                expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            expires_at_raw = data["expiresAt"]
+            expires_at = (
+                datetime.fromisoformat(expires_at_raw.replace("Z", "+00:00"))
+                if isinstance(expires_at_raw, str)
+                else expires_at_raw
+            )
 
             snapshot = ComplianceSnapshot(
-                workspace_id=str(data.get("workspaceId") or data.get("workspace_id")),
-                deployment_id=str(data.get("deploymentId") or data.get("deployment_id")),
-                assessment_id=str(data.get("assessmentId") or data.get("assessment_id")),
-                mode=data.get("mode", "ADVISORY_ONLY"),
-                status=data.get("status", "APPROVED_FOR_USE"),
-                allowed_capabilities=frozenset(
-                    data.get("allowedCapabilities") or data.get("allowed_capabilities") or []
-                ),
-                provider_profile_version=str(
-                    data.get("providerProfileVersion")
-                    or data.get("provider_profile_version")
-                    or "1.0.0"
-                ),
-                data_profile_version=str(
-                    data.get("dataProfileVersion") or data.get("data_profile_version") or "1.0.0"
-                ),
-                snapshot_hash=str(data.get("snapshotHash") or data.get("snapshot_hash")),
+                workspace_id=str(data["workspaceId"]),
+                deployment_id=str(data["deploymentId"]),
+                assessment_id=str(data["assessmentId"]),
+                mode=data["mode"],
+                status=data["status"],
+                allowed_capabilities=frozenset(data["allowedCapabilities"]),
+                provider_profile_version=str(data["providerProfileVersion"]),
+                data_profile_version=str(data["dataProfileVersion"]),
+                snapshot_hash=str(data["snapshotHash"]),
                 expires_at=expires_at,
             )
+        except AiComplianceUnavailable:
+            raise
         except Exception as err:
             raise AiComplianceUnavailable("CONTRACT_VIOLATION", str(err)) from err
 

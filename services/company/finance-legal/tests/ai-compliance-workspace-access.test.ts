@@ -24,7 +24,7 @@ import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { eq } from "drizzle-orm";
 
-const { aiSystemCatalog, aiSystemVersions, aiComplianceEvidence } = schema;
+const { aiSystemCatalog, aiSystemVersions, aiComplianceEvidence, aiSystemCapabilityBindings } = schema;
 
 /**
  * Hostile-workspace regression suite cho ADR-AI-COMPLIANCE-RUNTIME-001.
@@ -193,7 +193,23 @@ describe("AI compliance workspace access hardening", () => {
     const workspaceA = String(generateSnowflake());
     const workspaceB = String(generateSnowflake());
 
-    const snapshot = await captureComplianceSnapshot(workspaceA);
+    // Task 4: captureComplianceSnapshot không còn tự tạo deployment/assessment
+    // mặc định — phải seed 1 chuỗi approved thật (deployment + assessment +
+    // evidence + provider/data profile + capability binding) trước khi gọi.
+    const { deployment } = await createApprovedDeployment(workspaceA);
+    await db.insert(aiSystemCapabilityBindings).values({
+      id: generateSnowflake(),
+      systemVersionId: deployment.systemVersionId,
+      capabilityId: "draft-legal-memo",
+      effectClass: "DRAFT",
+      decisionDomain: "LEGAL",
+      requiresHumanConfirmation: true,
+      maySendToModel: false,
+      maxDataCategory: "BUSINESS_CONFIDENTIAL",
+      prohibitedPurpose: false,
+    });
+
+    const snapshot = await captureComplianceSnapshot(workspaceA, deployment.id);
 
     await expect(
       verifySnapshotIntegrity(workspaceB, String(snapshot.id))

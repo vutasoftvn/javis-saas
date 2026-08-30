@@ -32,7 +32,15 @@ def test_compliance_snapshot_model_validation() -> None:
 
 @pytest.mark.asyncio
 async def test_company_client_raises_unavailable_on_connection_error() -> None:
+    # Task 4: resolve_snapshot giờ đòi capability_ids + delegation_token
+    # (route runtime dùng delegation Task 3, không còn route capture cũ).
     client = AiComplianceClient(base_url="http://127.0.0.1:59999")
     with pytest.raises(AiComplianceUnavailable) as exc_info:
-        await client.resolve_snapshot("ws_1", "run_1", "cosa-advisory")
+        await client.resolve_snapshot(
+            "ws_1",
+            "run_1",
+            "cosa-advisory",
+            capability_ids=["finance.read"],
+            delegation_token="test-delegation-token",
+        )
     assert exc_info.value.code in ("CONNECTION_ERROR", "NOT_READY", "UNAVAILABLE")
