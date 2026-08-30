@@ -46,7 +46,7 @@ export default function Home() {
       {/* 5 Core Architectural Pillars (Bento Grid) */}
       <BentoFeatures />
 
-      {/* LiveKit Realtime Voice & 3D Hologram Hub */}
+      {/* Bot Enterprise & 3D Hologram Hub */}
       <VoiceHologramPreview />
 
       {/* Interactive ROI & Operational Savings Calculator */}

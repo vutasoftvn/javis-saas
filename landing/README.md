@@ -12,10 +12,10 @@ Trang đích (Landing Page) chính thức của **COSA OS** — Hệ Điều Hà
 ## 📦 Cấu Trúc Các Phân Hệ (Sections)
 1. `Navbar`: Header cố định với hiệu ứng Blur Glassmorphic, trạng thái live của hệ thống và CTA.
 2. `HeroSection`: Holographic Terminal mô phỏng luồng AI Worker, RAG memory và điều phối công ty.
-3. `SocialProofBar`: Các đối tác công nghệ hạ tầng (LiveKit, PostgreSQL pgvector, MinIO, Hostinger VPS MCP, DeepSeek, OpenRouter, DSPy).
+3. `SocialProofBar`: Các đối tác công nghệ hạ tầng (Bot Enterprise, PostgreSQL pgvector, MinIO, Hostinger VPS MCP, DeepSeek, OpenRouter, DSPy).
 4. `LivePlayground`: Trải nghiệm tương tác đa kịch bản doanh nghiệp (Chiến lược OKR, Tạo Landing CRM, Thẩm định Pháp lý).
-5. `BentoFeatures`: 5 trụ cột kiến trúc (Autonomous AI Workforce, LiveKit Realtime Voice, Enterprise Vault RAG, Company Runtime OKRs, Modular Landing & CRM).
-6. `VoiceHologramPreview`: Trực quan hóa âm thanh 3D thời gian thực với trợ lý điều hành giọng nói.
+5. `BentoFeatures`: 5 trụ cột kiến trúc (Autonomous AI Workforce, Bot Enterprise, Enterprise Vault RAG, Company Runtime OKRs, Modular Landing & CRM).
+6. `VoiceHologramPreview`: Trực quan hóa tương tác đa kênh và âm thanh 3D thời gian thực với Bot Enterprise.
 7. `RoiCalculator`: Bộ tính toán ROI và số giờ làm việc tiết kiệm theo quy mô nhân sự.
 8. `SecurityArchitecture`: Kiến trúc bảo mật On-Premise, Zero Data Retention, Snowflake 64-bit ID.
 9. `PricingSection`: Bảng giá minh bạch với toggle thanh toán theo tháng / năm.

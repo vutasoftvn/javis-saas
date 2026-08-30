@@ -114,15 +114,15 @@ export const LivePlayground: React.FC<LivePlaygroundProps> = ({ onOpenLeadModal 
     },
     {
       id: "finance-voice",
-      title: "Kiểm Soát Kế Toán TT88 & Duyệt Chi Bằng Giọng Nói",
+      title: "Kiểm Soát Kế Toán Thông tư 58/TT-BTC & Duyệt Chi Bằng Giọng Nói",
       category: "Tài Chính & Quản Trị Phê Duyệt",
       icon: ShieldCheck,
-      agentsInvolved: ["CFO Apex", "LiveKit Voice", "Founder / CEO"],
+      agentsInvolved: ["CFO Apex", "Trợ Lý AI", "Founder / CEO"],
       prompt: "Khẩu lệnh: “COSA, kiểm tra dòng tiền tuần này và phê duyệt ngân sách máy chủ 15 triệu.”",
       executionSteps: [
         {
           agent: "CFO Apex",
-          role: "Giám Đốc Tài Chính TT88",
+          role: "Giám Đốc Tài Chính Thông tư 58/TT-BTC",
           action: "Trích xuất sổ cái thu chi & Đánh giá tác động dòng tiền",
           output: "Số dư hiện tại 850M VNĐ. Khoản chi 15M nằm trong định mức dự phòng quý.",
           status: "Hoàn thành trong 0.5s",
@@ -135,17 +135,17 @@ export const LivePlayground: React.FC<LivePlaygroundProps> = ({ onOpenLeadModal 
           status: "Hoàn thành trong 0.2s",
         },
         {
-          agent: "LiveKit Voice",
-          role: "Trợ Lý Giọng Nói Realtime",
-          action: "Phản hồi qua loa thoại & Tiếp nhận khẩu lệnh 'Đồng ý phê duyệt'",
-          output: "Khớp giọng nói, mở khóa giao dịch và gửi ủy nhiệm chi tự động.",
+          agent: "Trợ Lý AI",
+          role: "Trợ Lý Điều Hành Giọng Nói & Chat",
+          action: "Phản hồi trực tiếp & Tiếp nhận lệnh 'Đồng ý phê duyệt'",
+          output: "Xác thực bảo mật, mở khóa giao dịch và gửi ủy nhiệm chi tự động.",
           status: "Hoàn thành trong 0.3s (Độ trễ <280ms)",
         },
       ],
       deliverables: {
         title: "Biên Bản Phê Duyệt Tài Chính Mã Hóa",
         type: "Cryptographic Audit Ledger",
-        preview: "Transaction: #TX-98402 (Chi phí hạ tầng Server)\n  ├─ Trạng thái: APPROVED qua Giọng Nói Founder\n  ├─ Checkpoint: 8492049182390184 (Snowflake ID)\n  └─ Cập nhật tự động vào sổ cái Kế toán TT88",
+        preview: "Transaction: #TX-98402 (Chi phí hạ tầng Server)\n  ├─ Trạng thái: APPROVED qua Giọng Nói Founder\n  ├─ Checkpoint: 8492049182390184 (Snowflake ID)\n  └─ Cập nhật tự động vào sổ cái Kế toán Thông tư 58/TT-BTC",
       },
     },
   ];

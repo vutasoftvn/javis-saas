@@ -3,7 +3,7 @@ import { Sparkles } from "lucide-react";
 
 export const SocialProofBar: React.FC = () => {
   const techStack = [
-    { name: "LiveKit Realtime", tag: "Full-Duplex Voice" },
+    { name: "COSA AI Voice & Chat", tag: "Realtime Assistant" },
     { name: "PostgreSQL Local", tag: "Data Plane & pgvector" },
     { name: "Encore.ts Microservices", tag: "Event-driven Backend" },
     { name: "Flutter Desktop", tag: "macOS / Windows Native" },

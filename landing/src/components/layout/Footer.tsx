@@ -41,7 +41,7 @@ export const Footer: React.FC = () => {
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0d172a] border border-cosa-border text-xs text-slate-300 font-mono">
                 <FileCheck className="w-3.5 h-3.5 text-cosa-sky" />
-                <span>Kế toán TT88 / TT58</span>
+                <span>Kế toán Thông tư 58/TT-BTC</span>
               </div>
             </div>
           </div>
@@ -66,9 +66,9 @@ export const Footer: React.FC = () => {
               Công Nghệ Nền Tảng
             </h4>
             <ul className="space-y-2.5 text-sm">
-              <li><a href="#voice-hub" className="hover:text-white transition-colors">LiveKit Realtime Voice (<span className="text-cosa-cyan">&lt;300ms</span>)</a></li>
+              <li><a href="#ai-assistant" className="hover:text-white transition-colors">Trợ Lý AI Điều Hành (<span className="text-cosa-cyan">&lt;280ms</span>)</a></li>
               <li><a href="#architecture" className="hover:text-white transition-colors">Bảo Mật Local Data Plane Postgres</a></li>
-              <li><a href="#architecture" className="hover:text-white transition-colors">Enterprise Vault & pgvector RAG</a></li>
+              <li><a href="#architecture" className="hover:text-white transition-colors">Secure Vault & pgvector RAG</a></li>
               <li><a href="#architecture" className="hover:text-white transition-colors">Snowflake 64-bit ID B-Tree</a></li>
               <li><a href="#architecture" className="hover:text-white transition-colors">Triển Khai Máy Chủ Riêng (On-Premise)</a></li>
             </ul>
@@ -101,7 +101,7 @@ export const Footer: React.FC = () => {
           <p>© {new Date().getFullYear()} COSA OS. Nền tảng điều hành doanh nghiệp AI tự trị hàng đầu Việt Nam.</p>
           <div className="flex items-center gap-6">
             <span className="text-slate-400">PostgreSQL Local + Supabase Central Architecture</span>
-            <span className="text-cosa-cyan font-mono">v13.2 Enterprise</span>
+            <span className="text-cosa-cyan font-mono">v13.2 Stable</span>
           </div>
         </div>
       </div>

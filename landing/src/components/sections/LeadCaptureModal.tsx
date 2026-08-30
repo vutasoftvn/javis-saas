@@ -132,7 +132,7 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
               </div>
               <h3 className="text-xl font-bold text-white">Đăng Ký Quyền Dùng Sớm</h3>
               <p className="text-xs text-slate-400 mt-1">
-                Nhận tài khoản trải nghiệm 14 ngày trọn gói kèm buổi demo 1-on-1 từ chuyên gia giải pháp.
+                Gói OPC hoàn toàn miễn phí (0đ) cho giai đoạn phân tích dự án, nghiên cứu người dùng &amp; lập kế hoạch.
               </p>
             </div>
 
@@ -165,7 +165,7 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
 
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Email doanh nghiệp *
+                  Email công việc *
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -176,7 +176,7 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="name@company.com"
+                    placeholder="founder@company.com"
                     className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#04070e] border border-cosa-border focus:border-cosa-cyan text-xs text-white placeholder-slate-600 transition-all"
                   />
                 </div>
@@ -204,7 +204,7 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Tên công ty *
+                    Công ty / Dự án *
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -231,11 +231,12 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
                   onChange={(e) => setFormData({ ...formData, priorityInterest: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl bg-[#04070e] border border-cosa-border focus:border-cosa-cyan text-xs text-white transition-all"
                 >
+                  <option value="OPC - Phân Tích Dự Án & Người Dùng (Free)">OPC - Phân Tích Dự Án &amp; Người Dùng (Miễn Phí)</option>
                   <option value="Trọn bộ Hệ điều hành COSA OS">Trọn bộ COSA OS</option>
-                  <option value="Chiến Lược 12 Tuần & OKRs">Chiến Lược 12 Tuần & OKRs</option>
+                  <option value="Chiến Lược 12 Tuần & OKRs">Chiến Lược 12 Tuần &amp; OKRs</option>
                   <option value="Unified Workforce (AI + Human)">Nhân sự Hợp nhất (AI + Người)</option>
-                  <option value="Kế Toán TT88 & Phê Duyệt Chi">Kế Toán TT88 & Phê Duyệt Chi</option>
-                  <option value="LiveKit Realtime Voice">Trợ lý Giọng nói LiveKit</option>
+                  <option value="Kế Toán Thông tư 58/TT-BTC & Phê Duyệt Chi">Kế Toán Thông tư 58/TT-BTC</option>
+                  <option value="Trợ Lý AI Đa Nhiệm">Trợ Lý AI Đa Nhiệm</option>
                   <option value="Bảo Mật On-Premise">Triển khai Máy chủ Riêng</option>
                 </select>
               </div>

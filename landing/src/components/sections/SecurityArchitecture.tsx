@@ -37,8 +37,8 @@ export const SecurityArchitecture: React.FC = () => {
     },
     {
       icon: FileCheck2,
-      title: "Chuẩn Mực Kế Toán TT88 & AI Governance",
-      desc: "Sổ sách tài chính tương thích chuẩn Thông tư 88/TT58 Việt Nam, tích hợp danh mục quy định pháp lý và nhật ký kiểm toán mật mã không thể sửa đổi.",
+      title: "Chuẩn Mực Kế Toán Thông tư 58/TT-BTC & AI Governance",
+      desc: "Sổ sách tài chính tương thích chuẩn Thông tư 58/TT-BTC Việt Nam, tích hợp danh mục quy định pháp lý và nhật ký kiểm toán mật mã không thể sửa đổi.",
     },
   ];
 

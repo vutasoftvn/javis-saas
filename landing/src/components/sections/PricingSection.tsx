@@ -18,22 +18,23 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenLeadModal 
 
   const tiers = [
     {
-      id: "starter",
-      name: "Starter / Solo Founder",
-      badge: "Dành cho Khởi Nghiệp",
-      desc: "Lý tưởng cho các Founder hoặc nhóm nhỏ muốn tự động hóa công việc và gia tăng năng suất gấp 5 lần.",
-      priceMonthly: "1,500,000",
-      priceAnnual: "1,200,000",
+      id: "opc",
+      name: "OPC - Doanh Nghiệp Một Người",
+      badge: "Free Phân Tích Dự Án",
+      desc: "Dành riêng cho mô hình One-Person Company (OPC) & Solo Founder: Miễn phí trọn đời giai đoạn phân tích dự án, nghiên cứu người dùng và lập kế hoạch.",
+      priceMonthly: "0",
+      priceAnnual: "0",
       features: [
-        "1 Workspace & Không giới hạn dự án",
-        "3 Core AI Agents (Chiến Lược, Vận Hành, Bán Hàng)",
-        "Sổ cái thu chi cơ bản chuẩn Thông tư 88",
-        "Quản trị OKRs & Bảng việc Kanban",
-        "Enterprise Vault lưu trữ 10GB",
-        "Triển khai Docker Compose cục bộ 1 lệnh",
+        "Miễn phí 100% giai đoạn Phân Tích Dự Án & Người Dùng",
+        "Khảo sát User Persona, Pain-points & Chân dung khách hàng",
+        "Tự động sinh PRD, Functional Specs & Lộ trình 12 tuần",
+        "1 Workspace cá nhân dành riêng cho Solo Founder",
+        "Quản trị OKRs chiến lược & Bảng công việc Kanban",
+        "Enterprise Vault lưu trữ hồ sơ phân tích 5GB",
+        "Nâng cấp linh hoạt khi bước vào giai đoạn vận hành tự trị",
       ],
       popular: false,
-      ctaText: "Đăng Ký Early Access 14 Ngày",
+      ctaText: "Bắt Đầu Phân Tích Miễn Phí",
     },
     {
       id: "growth",
@@ -43,14 +44,14 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenLeadModal 
       priceMonthly: "4,500,000",
       priceAnnual: "3,600,000",
       features: [
+        "Bao gồm toàn bộ tính năng phân tích dự án & người dùng",
         "Cơ cấu Nhân Sự Hợp Nhất (AI + Người thật)",
-        "Trọn bộ 6 Chuyên viên AI chuyên trách",
-        "LiveKit Realtime Voice đàm thoại hai chiều (<300ms)",
-        "Kế toán TT88/TT58, dự báo Runway & Burn rate",
+        "Trọn bộ 6 Chuyên viên AI chuyên trách tự trị",
+        "Trợ lý AI đàm thoại hai chiều & điều hành (<280ms)",
+        "Kế toán Thông tư 58/TT-BTC, dự báo Runway & Burn rate",
         "Chốt chặn phê duyệt rủi ro (Human-in-the-loop)",
         "B2B CRM Pipeline 360 & Tự động chấm điểm ICP",
         "Kho tri thức RAG Vault 100GB với pgvector",
-        "Hỗ trợ kỹ thuật ưu tiên từ đội ngũ kỹ sư",
       ],
       popular: true,
       ctaText: "Nhận Thẻ Early Access VIP",
@@ -85,16 +86,16 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenLeadModal 
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-14">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cosa-cyan/10 border border-cosa-cyan/30 text-cosa-cyan text-xs font-mono">
             <Zap className="w-3.5 h-3.5" />
-            <span>TRANSPARENT PRICING & EARLY ACCESS</span>
+            <span>TRANSPARENT PRICING &amp; FREE DISCOVERY</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-[1.3] sm:leading-[1.22] pb-2">
             Đầu Tư Tinh Gọn Cho{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue inline-block pt-1">
-              Tương Lai Doanh Nghiệp Tự Trị
+              OPC &amp; Doanh Nghiệp Tự Trị
             </span>
           </h2>
           <p className="text-slate-400 text-base sm:text-lg">
-            Chi phí chỉ bằng một phần nhỏ lương của một nhân viên, nhưng sở hữu sức mạnh vận hành của cả một đội ngũ chuyên gia AI và hệ thống điều hành tiêu chuẩn quốc tế.
+            Hoàn toàn <strong className="text-cosa-emerald">Miễn Phí 0đ</strong> cho mô hình OPC (Doanh nghiệp một người) trong giai đoạn phân tích dự án và nghiên cứu người dùng. Sẵn sàng đồng hành mở rộng khi bạn tăng tốc vận hành.
           </p>
 
           {/* Monthly / Annual Toggle */}
@@ -155,16 +156,26 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenLeadModal 
                 <div className="py-6 border-y border-slate-800 my-4">
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-extrabold text-white font-mono">
-                      {isAnnual ? tier.priceAnnual : tier.priceMonthly}
+                      {tier.priceMonthly === "0" ? "0 VNĐ" : (isAnnual ? tier.priceAnnual : tier.priceMonthly)}
                     </span>
-                    {tier.priceMonthly !== "Liên hệ" && (
+                    {tier.priceMonthly !== "Liên hệ" && tier.priceMonthly !== "0" && (
                       <span className="text-xs text-slate-400 font-mono">VNĐ / tháng</span>
                     )}
+                    {tier.priceMonthly === "0" && (
+                      <span className="text-xs text-cosa-emerald font-mono font-bold">/ Miễn Phí Vĩnh Viễn</span>
+                    )}
                   </div>
-                  {isAnnual && tier.priceMonthly !== "Liên hệ" && (
-                    <div className="text-[11px] text-slate-500 font-mono mt-1">
-                      Thanh toán theo chu kỳ 12 tháng
+                  {tier.priceMonthly === "0" ? (
+                    <div className="text-[11px] text-cosa-emerald font-mono mt-1 flex items-center gap-1">
+                      <span>✓</span>
+                      <span>Free trọn đời giai đoạn phân tích dự án &amp; người dùng</span>
                     </div>
+                  ) : (
+                    isAnnual && tier.priceMonthly !== "Liên hệ" && (
+                      <div className="text-[11px] text-slate-500 font-mono mt-1">
+                        Thanh toán theo chu kỳ 12 tháng
+                      </div>
+                    )
                   )}
                 </div>
 

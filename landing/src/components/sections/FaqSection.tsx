@@ -14,7 +14,11 @@ export const FaqSection: React.FC = () => {
   const faqs: FaqItem[] = [
     {
       q: "COSA OS khác gì so với việc sử dụng ChatGPT hay Claude thông thường?",
-      a: "ChatGPT hoặc Claude là mô hình ngôn ngữ đơn lẻ, chỉ phản hồi dạng văn bản trong khung chat cá nhân. COSA OS là một Hệ điều hành doanh nghiệp tự trị toàn diện: cung cấp mô hình WorkforceMember hợp nhất nhân sự Người thật & Chuyên viên AI trên cùng một sơ đồ tổ chức, chu kỳ quản trị chiến lược 12 tuần gắn liền bảng việc Kanban, sổ cái tài chính chuẩn Thông tư 88 và Trợ lý Giọng nói Realtime LiveKit đàm thoại hai chiều dưới 300ms.",
+      a: "ChatGPT hoặc Claude là mô hình ngôn ngữ đơn lẻ, chỉ phản hồi dạng văn bản trong khung chat cá nhân. COSA OS là một Hệ điều hành doanh nghiệp tự trị toàn diện: cung cấp mô hình WorkforceMember hợp nhất nhân sự Người thật & Chuyên viên AI trên cùng một sơ đồ tổ chức, chu kỳ quản trị chiến lược 12 tuần gắn liền bảng việc Kanban, sổ cái tài chính chuẩn Thông tư 58/TT-BTC và Trợ lý AI điều hành đàm thoại hai chiều dưới 280ms.",
+    },
+    {
+      q: "Mô hình OPC (Doanh nghiệp một người) có phù hợp không và chính sách Miễn phí phân tích dự án là gì?",
+      a: "COSA OS được xây dựng hoàn hảo cho mô hình OPC (One-Person Company - Doanh nghiệp một người) và Solo Founder. Bạn được cấp trọn bộ công cụ AI để phân tích dự án, nghiên cứu chân dung người dùng (User Persona), khảo sát nghiệp vụ và lập kế hoạch chiến lược 12 tuần hoàn toàn MIỄN PHÍ TRỌN ĐỜI (0đ). Khi bạn sẵn sàng mở rộng sang giai đoạn vận hành tự trị với 6 Chuyên viên AI và sổ cái kế toán Thông tư 58/TT-BTC, bạn mới cần cân nhắc nâng cấp lên các gói tiếp theo.",
     },
     {
       q: "Dữ liệu kinh doanh của công ty tôi có được bảo mật và tự lưu trữ không?",
@@ -25,8 +29,8 @@ export const FaqSection: React.FC = () => {
       a: "Tuyệt đối không. Hệ thống áp dụng cơ chế Human-in-the-loop Governance qua 3 cấp độ tự chủ: L0 (Chỉ quan sát & lập báo cáo), L1 (Đề xuất kế hoạch), L2 (Thực thi giới hạn). Mọi hành động tài chính, duyệt chi ngân sách, xuất hợp đồng pháp lý hay gửi email quan trọng đều bắt buộc phải có con người phê duyệt (REQUIRE_APPROVAL) được gắn mã chữ ký cryptographic audit log.",
     },
     {
-      q: "Hệ thống có tương thích với chuẩn mực kế toán Việt Nam (Thông tư 88 / TT58) không?",
-      a: "Có. Cụm dịch vụ Finance-Legal của COSA OS được tích hợp sẵn danh mục chế độ kế toán theo Thông tư 88 và TT58 của Bộ Tài chính Việt Nam, hỗ trợ theo dõi kỳ kế toán, sổ chi tiết doanh thu chi phí, dự báo dòng tiền thuần, Runway và mức độ đốt tiền (Burn rate) theo thời gian thực.",
+      q: "Hệ thống có tương thích với chuẩn mực kế toán Việt Nam (Thông tư 58/TT-BTC) không?",
+      a: "Có. Cụm dịch vụ Finance-Legal của COSA OS được tích hợp sẵn danh mục chế độ kế toán theo Thông tư 58/TT-BTC của Bộ Tài chính Việt Nam, hỗ trợ theo dõi kỳ kế toán, sổ chi tiết doanh thu chi phí, dự báo dòng tiền thuần, Runway và mức độ đốt tiền (Burn rate) theo thời gian thực.",
     },
     {
       q: "Làm thế nào để đăng ký Early Access và nhận tài khoản trải nghiệm 14 ngày?",

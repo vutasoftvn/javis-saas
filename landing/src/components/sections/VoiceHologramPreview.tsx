@@ -27,15 +27,15 @@ export const VoiceHologramPreview: React.FC = () => {
       latency: "190ms",
     },
     {
-      command: "“Dự báo dòng tiền thuần tháng tới theo chế độ kế toán Thông tư 88 nếu chốt thêm 3 hợp đồng Enterprise.”",
+      command: "“Dự báo dòng tiền thuần tháng tới theo chế độ kế toán Thông tư 58/TT-BTC nếu chốt thêm 3 hợp đồng lớn.”",
       response: "“Dòng tiền thặng dư sẽ tăng thêm 350 triệu VNĐ, Runway công ty kéo dài thêm 4.5 tháng. Em đã tự động đồng bộ vào sổ cái tài chính.”",
-      agent: "CFO Apex (Tài Chính TT88)",
+      agent: "CFO Apex (Tài Chính Thông tư 58/TT-BTC)",
       latency: "210ms",
     },
   ];
 
   return (
-    <section id="voice-hub" className="py-24 bg-[#070c18] relative overflow-hidden border-t border-cosa-border">
+    <section id="ai-assistant" className="py-24 bg-[#070c18] relative overflow-hidden border-t border-cosa-border">
       {/* Background Holographic Aura */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] bg-cosa-cyan/10 blur-[160px] pointer-events-none" />
 
@@ -54,15 +54,15 @@ export const VoiceHologramPreview: React.FC = () => {
                 <div className="w-full h-full bg-[#04070e] rounded-full flex flex-col items-center justify-center p-4">
                   <Mic className="w-10 h-10 text-cosa-cyan animate-pulse mb-2" />
                   <span className="text-[11px] font-mono uppercase tracking-widest text-cosa-cyan font-bold">
-                    LIVEKIT REALTIME
+                    COSA AI
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-mono mt-0.5">FULL DUPLEX</span>
+                  <span className="text-[10px] text-emerald-400 font-mono mt-0.5">SMART ASSISTANT</span>
                 </div>
               </div>
 
               {/* Orbiting Tech Badges */}
               <div className="absolute -top-2 px-3 py-1 rounded-full bg-[#0d172a] border border-cosa-cyan/40 text-[11px] font-mono text-cosa-cyan shadow-lg">
-                Opus 48kHz HD Audio
+                Voice &amp; Chat Realtime
               </div>
               <div className="absolute -bottom-2 px-3 py-1 rounded-full bg-[#0d172a] border border-emerald-500/40 text-[11px] font-mono text-emerald-400 shadow-lg">
                 Độ trễ: &lt; 250ms
@@ -74,7 +74,7 @@ export const VoiceHologramPreview: React.FC = () => {
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
                 <span className="flex items-center gap-1.5 text-cosa-cyan">
                   <Radio className="w-3.5 h-3.5 animate-pulse" />
-                  <span>Dải Sóng Giọng Nói Trực Tuyến</span>
+                  <span>Kênh Tương Tác Bot Doanh Nghiệp</span>
                 </span>
                 <span className="text-emerald-400 font-bold">ACTIVE STREAMING</span>
               </div>
@@ -98,7 +98,7 @@ export const VoiceHologramPreview: React.FC = () => {
           <div className="lg:col-span-6 space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cosa-sky/10 border border-cosa-sky/30 text-cosa-sky text-xs font-mono">
               <Headphones className="w-3.5 h-3.5" />
-              <span>VOICE-FIRST OPERATING SYSTEM</span>
+              <span>BOT ENTERPRISE &amp; REALTIME AI</span>
             </div>
 
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-[1.3] sm:leading-[1.25] pb-2">
@@ -109,7 +109,7 @@ export const VoiceHologramPreview: React.FC = () => {
             </h2>
 
             <p className="text-slate-300 text-base leading-relaxed">
-              Không cần chuyển đổi phức tạp giữa nhiều cửa sổ. Nhà sáng lập có thể trò chuyện trực tiếp với COSA OS qua khẩu lệnh tiếng Việt để kiểm tra tiến độ, phân bổ công việc và phê duyệt ngân sách ngay tức thì.
+              Không cần chuyển đổi phức tạp giữa nhiều cửa sổ. Nhà sáng lập có thể trò chuyện trực tiếp với Bot Enterprise qua khẩu lệnh tiếng Việt để kiểm tra tiến độ, phân bổ công việc và phê duyệt ngân sách ngay tức thì.
             </p>
 
             {/* Interactive Sample Cards */}

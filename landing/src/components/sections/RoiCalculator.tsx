@@ -65,12 +65,12 @@ export const RoiCalculator: React.FC<RoiCalculatorProps> = ({ onOpenLeadModal })
                   Quy mô nhân sự doanh nghiệp:
                 </label>
                 <span className="text-lg font-bold font-mono text-cosa-cyan px-3 py-1 rounded-lg bg-[#0d172a] border border-slate-700">
-                  {teamSize} Nhân sự
+                  {teamSize === 1 ? "1 Người (OPC - Doanh nghiệp 1 người)" : `${teamSize} Nhân sự`}
                 </span>
               </div>
               <input
                 type="range"
-                min="3"
+                min="1"
                 max="150"
                 step="1"
                 value={teamSize}
@@ -78,11 +78,20 @@ export const RoiCalculator: React.FC<RoiCalculatorProps> = ({ onOpenLeadModal })
                 className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cosa-cyan"
               />
               <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                <span>3 người (Seed Startup)</span>
-                <span>50 người (SME)</span>
+                <span className="text-cosa-cyan font-semibold">1 người (OPC)</span>
+                <span>30 người (SME)</span>
                 <span>150+ người (Scaleup)</span>
               </div>
             </div>
+
+            {teamSize === 1 && (
+              <div className="p-3.5 rounded-xl bg-cosa-emerald/10 border border-cosa-emerald/30 text-xs text-cosa-emerald flex items-center gap-2.5 animate-fadeIn">
+                <Sparkles className="w-4 h-4 shrink-0 text-cosa-emerald animate-pulse" />
+                <span>
+                  <strong>Đặc quyền Mô hình OPC:</strong> Miễn phí 100% (0đ) cho giai đoạn phân tích dự án, nghiên cứu chân dung người dùng và lập kế hoạch chiến lược 12 tuần!
+                </span>
+              </div>
+            )}
 
             {/* Slider 2: Average Salary */}
             <div className="space-y-3 pt-2">

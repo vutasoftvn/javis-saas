@@ -13,7 +13,7 @@ export const TestimonialsSection: React.FC = () => {
     {
       name: "Lê Hoàng Nam",
       role: "Chief Operating Officer, E-commerce Logistics",
-      quote: "Tính năng LiveKit Realtime Voice cho phép tôi rà soát toàn bộ số liệu doanh thu và tồn kho khi đang lái xe hoặc di chuyển giữa các kho. Độ trễ cực thấp và phản hồi vô cùng chuẩn xác.",
+      quote: "Tính năng Trợ Lý AI cho phép tôi rà soát toàn bộ số liệu doanh thu và tồn kho khi đang lái xe hoặc di chuyển giữa các kho. Phản hồi tức thì và vô cùng chuẩn xác.",
       metric: "Quản trị tức thời 24/7",
       avatarBg: "from-cosa-emerald to-teal-500",
     },

@@ -2,6 +2,7 @@ import React from "react";
 import {
   Users,
   Mic,
+  Bot,
   Database,
   Target,
   Layers,
@@ -46,13 +47,13 @@ export const BentoFeatures: React.FC = () => {
               <div>
                 <span className="text-xs font-mono uppercase text-cosa-cyan tracking-wider">Trụ Cột 01</span>
                 <h3 className="text-xl sm:text-2xl font-bold text-white">
-                  Lực Lượng Lao Động Hợp Nhất (Unified Workforce)
+                  Unified Workforce · Sức Mạnh Cho Doanh Nghiệp Một Người (OPC)
                 </h3>
               </div>
             </div>
 
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
-              Mô hình <strong className="text-white">WorkforceMember</strong> độc bản: Đưa nhân sự Người thật và Chuyên viên AI vào cùng một cơ cấu tổ chức, phân nhiệm rõ ràng theo 3 cấp độ tự chủ: <span className="text-cosa-cyan font-mono font-semibold">L0 (Quan sát)</span>, <span className="text-cosa-sky font-mono font-semibold">L1 (Đề xuất)</span> và <span className="text-cosa-emerald font-mono font-semibold">L2 (Thực thi)</span>.
+              Mô hình <strong className="text-white">WorkforceMember</strong> độc bản: Tối ưu cho <strong className="text-cosa-cyan">OPC (One-Person Company)</strong> và Startup. Cho phép 1 Founder lãnh đạo 6 Chuyên viên AI phối hợp với nhân sự thực, phân nhiệm rõ ràng theo 3 cấp độ tự chủ: <span className="text-cosa-cyan font-mono font-semibold">L0 (Quan sát)</span>, <span className="text-cosa-sky font-mono font-semibold">L1 (Đề xuất)</span> và <span className="text-cosa-emerald font-mono font-semibold">L2 (Thực thi)</span>. <span className="text-cosa-emerald font-semibold">Hoàn toàn miễn phí cho giai đoạn phân tích dự án &amp; người dùng.</span>
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 font-mono text-xs">
@@ -62,7 +63,7 @@ export const BentoFeatures: React.FC = () => {
                 { title: "VP Sales Rex", desc: "Pipeline B2B & Chấm điểm Lead ICP", color: "text-cosa-emerald" },
                 { title: "CTO Nexus", desc: "Phân bổ Engineering Tasks & Sandbox", color: "text-cosa-violet" },
                 { title: "Legal Lex", desc: "Thẩm định Hợp đồng & Tuân thủ", color: "text-cosa-amber" },
-                { title: "CFO Apex", desc: "Sổ cái Kế toán TT88 & Dòng tiền", color: "text-rose-400" },
+                { title: "CFO Apex", desc: "Sổ cái Kế toán Thông tư 58/TT-BTC", color: "text-rose-400" },
               ].map((ag, i) => (
                 <div key={i} className="p-3 rounded-xl bg-[#0d172a] border border-cosa-border/80">
                   <div className={`font-bold ${ag.color}`}>{ag.title}</div>
@@ -72,37 +73,37 @@ export const BentoFeatures: React.FC = () => {
             </div>
           </div>
 
-          {/* Card 2: Realtime Voice (4 cols) */}
+          {/* Card 2: Bot Enterprise (4 cols) */}
           <div className="lg:col-span-4 p-8 rounded-3xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all duration-300 relative group overflow-hidden shadow-xl flex flex-col justify-between">
             <div className="absolute bottom-0 right-0 w-60 h-60 bg-cosa-sky/10 rounded-tl-full blur-2xl pointer-events-none" />
 
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 rounded-2xl bg-gradient-to-br from-cosa-sky to-cosa-blue text-slate-950 font-bold shadow-[0_0_20px_rgba(56,189,248,0.4)]">
-                  <Mic className="w-6 h-6" />
+                  <Bot className="w-6 h-6" />
                 </div>
                 <div>
                   <span className="text-xs font-mono uppercase text-cosa-sky tracking-wider">Trụ Cột 02</span>
-                  <h3 className="text-xl font-bold text-white">LiveKit Realtime Voice</h3>
+                  <h3 className="text-xl font-bold text-white">Trợ Lý AI Đa Nhiệm</h3>
                 </div>
               </div>
 
               <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                Tương tác giọng nói hai chiều <strong className="text-white">Full-duplex</strong> với độ trễ siêu thấp dưới 300ms, hỗ trợ ngắt lời tự nhiên và điều khiển toàn bộ ứng dụng qua khẩu lệnh tiếng Việt.
+                Trợ lý AI Doanh nghiệp điều hành thông minh, hỗ trợ tương tác đa kênh thời gian thực, phản hồi siêu tốc dưới 280ms và điều khiển toàn bộ ứng dụng bằng ngôn ngữ tự nhiên.
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#0d172a] border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-400">Độ Trễ Phản Hồi</span>
+                <span className="text-slate-400">Tốc Độ Xử Lý</span>
                 <span className="text-cosa-emerald font-bold">&lt; 280ms</span>
               </div>
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-400">Ngắt Lời Tự Nhiên</span>
-                <span className="text-cosa-cyan">Barge-in VAD</span>
+                <span className="text-slate-400">Tương Tác Đa Kênh</span>
+                <span className="text-cosa-cyan">Voice &amp; Chat Realtime</span>
               </div>
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-400">Voice Tools</span>
+                <span className="text-slate-400">Enterprise Tools</span>
                 <span className="text-white">Nav · Ask · Approve</span>
               </div>
             </div>
@@ -140,7 +141,7 @@ export const BentoFeatures: React.FC = () => {
             </ul>
           </div>
 
-          {/* Card 4: Finance TT88 & Governance (4 cols) */}
+          {/* Card 4: Finance Thông tư 58/TT-BTC & Governance (4 cols) */}
           <div className="lg:col-span-4 p-8 rounded-3xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all duration-300 relative group overflow-hidden shadow-xl">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 rounded-2xl bg-gradient-to-br from-cosa-amber to-orange-500 text-slate-950 font-bold shadow-[0_0_20px_rgba(245,158,11,0.4)]">
@@ -148,12 +149,12 @@ export const BentoFeatures: React.FC = () => {
               </div>
               <div>
                 <span className="text-xs font-mono uppercase text-cosa-amber tracking-wider">Trụ Cột 04</span>
-                <h3 className="text-xl font-bold text-white">Kế Toán TT88 & Phê Duyệt</h3>
+                <h3 className="text-xl font-bold text-white">Kế Toán Thông tư 58/TT-BTC</h3>
               </div>
             </div>
 
             <p className="text-slate-300 text-sm leading-relaxed mb-4">
-              Sổ cái tài chính chuẩn mực <strong className="text-white">Thông tư 88 / TT58</strong>. Dự báo dòng tiền, Runway, Burn rate đi kèm <strong className="text-white">Chốt chặn Phê duyệt rủi ro</strong>.
+              Sổ cái tài chính chuẩn mực <strong className="text-white">Thông tư 58/TT-BTC</strong>. Dự báo dòng tiền, Runway, Burn rate đi kèm <strong className="text-white">Chốt chặn Phê duyệt rủi ro</strong>.
             </p>
 
             <ul className="space-y-2 text-xs text-slate-400 font-mono">

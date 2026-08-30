@@ -10,6 +10,7 @@ import {
   Mic,
   Radio,
   Users,
+  Target,
 } from "lucide-react";
 
 interface HeroSectionProps {
@@ -20,11 +21,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
   const [activeTab, setActiveTab] = useState<"terminal" | "agents" | "voice">("terminal");
 
   const commandSteps = [
-    { time: "00:01.02", tag: "STRATEGY-SYNC", text: "Khởi động Chu kỳ 12 Tuần: Phân rã 4 Objectives & 12 Key Results cấp công ty", color: "text-cosa-cyan" },
-    { time: "00:01.35", tag: "WORKFORCE-DISPATCH", text: "Phân bổ 18 Tasks tự động cho Nhân sự Thực + Chuyên viên AI (L1/L2 Autonomy)", color: "text-cosa-sky" },
-    { time: "00:01.88", tag: "FINANCE-TT88", text: "Đồng bộ sổ cái thu chi TT88: Dự báo dòng tiền ròng Q3 thặng dư 1.48 tỷ VNĐ", color: "text-cosa-emerald" },
-    { time: "00:02.40", tag: "GOVERNANCE-GATE", text: "Hành động chi ngân sách quảng cáo > 20M: Yêu cầu Founder phê duyệt (REQUIRE_APPROVAL)", color: "text-cosa-amber" },
-    { time: "00:03.12", tag: "LIVEKIT-VOICE", text: "Hologram Voice Agent sẵn sàng: Điều khiển toàn bộ dashboard bằng khẩu lệnh tiếng Việt", color: "text-cosa-violet" },
+    { time: "00:00.82", tag: "OPC-DISCOVERY", text: "Phân tích Dự án & Chân dung Người dùng (User Persona) hoàn tất: Khuyến nghị 3 tính năng cốt lõi (FREE TIER)", color: "text-cosa-emerald" },
+    { time: "00:01.20", tag: "STRATEGY-SYNC", text: "Khởi động Chu kỳ 12 Tuần: Phân rã 4 Objectives & 12 Key Results cấp công ty", color: "text-cosa-cyan" },
+    { time: "00:01.55", tag: "WORKFORCE-DISPATCH", text: "Phân bổ 18 Tasks tự động cho Nhân sự Thực + Chuyên viên AI (L1/L2 Autonomy)", color: "text-cosa-sky" },
+    { time: "00:02.10", tag: "FINANCE-TT58", text: "Đồng bộ sổ cái thu chi Thông tư 58/TT-BTC: Dự báo dòng tiền ròng Q3 thặng dư 1.48 tỷ VNĐ", color: "text-cosa-emerald" },
+    { time: "00:02.80", tag: "AI-ASSISTANT", text: "Trợ lý AI sẵn sàng: Điều khiển toàn bộ dashboard bằng ngôn ngữ tự nhiên", color: "text-cosa-violet" },
   ];
 
   return (
@@ -35,25 +36,68 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
       <div className="absolute top-1/3 right-10 w-[400px] h-[400px] bg-blue-glow opacity-40 blur-[100px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center max-w-4xl mx-auto space-y-6">
-          {/* Top Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#0d172a]/90 border border-cosa-cyan/40 text-cosa-cyan text-xs font-mono backdrop-blur-md shadow-[0_0_15px_rgba(0,240,255,0.2)]">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-            <span>COSA OS · HỆ ĐIỀU HÀNH DOANH NGHIỆP AI TỰ TRỊ</span>
-          </div>
+        <div className="text-center max-w-6xl mx-auto space-y-6">
 
           {/* Main Headline */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.3] sm:leading-[1.22] lg:leading-[1.18] pb-2">
-            Vận Hành Doanh Nghiệp Tự Trị Cho{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue neon-text-glow inline-block pt-1">
-              Nhà Sáng Lập Hiện Đại
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight flex flex-col items-center gap-2 sm:gap-3 pb-1 max-w-4xl mx-auto">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue neon-text-glow inline-block py-1 leading-tight">
+              HỆ ĐIỀU HÀNH DOANH NGHIỆP AI
+            </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue neon-text-glow inline-block py-1 leading-tight">
+              &amp; MÔ HÌNH OPC
             </span>
           </h1>
 
-          {/* Subtitle */}
-          <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Hợp nhất <strong className="text-white">Lực lượng Lao động AI & Người thật</strong> trong một sơ đồ tổ chức duy nhất. Vận hành chu kỳ chiến lược <strong className="text-white">12-Week Year & OKRs</strong>, quản trị dòng tiền <strong className="text-white">Kế toán TT88/TT58</strong> và điều khiển rảnh tay bằng <strong className="text-white">Giọng nói Realtime LiveKit</strong>.
-          </p>
+          {/* 3 Core Highlight Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 w-full max-w-6xl mx-auto pt-2 pb-2 text-left">
+            {/* Card 1: Hợp nhất... */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#080f1e]/90 border border-cosa-cyan/30 hover:border-cosa-cyan/70 transition-all shadow-[0_0_25px_rgba(0,240,255,0.08)] group h-full flex flex-col justify-start">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-cosa-cyan/15 border border-cosa-cyan/30 flex items-center justify-center text-cosa-cyan group-hover:scale-105 transition-transform shrink-0">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xs font-mono uppercase text-cosa-cyan tracking-wider">Trụ Cột Nhân Sự</span>
+                  <h3 className="text-base font-bold text-white">Hợp Nhất AI &amp; Người Thật</h3>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300 leading-relaxed text-justify">
+                Hợp nhất <strong className="text-white">Lực lượng Lao động AI &amp; Người thật</strong> trong một cơ cấu tổ chức duy nhất, tối ưu cho mô hình <strong className="text-cosa-cyan">OPC (Doanh nghiệp một người)</strong> và startup tăng trưởng.
+              </p>
+            </div>
+
+            {/* Card 2: Vận hành chu... */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#080f1e]/90 border border-cosa-violet/30 hover:border-cosa-violet/70 transition-all shadow-[0_0_25px_rgba(139,92,246,0.08)] group h-full flex flex-col justify-start">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-cosa-violet/15 border border-cosa-violet/30 flex items-center justify-center text-cosa-violet group-hover:scale-105 transition-transform shrink-0">
+                  <Target className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xs font-mono uppercase text-cosa-violet tracking-wider">Trụ Cột Vận Hành</span>
+                  <h3 className="text-base font-bold text-white">Vận Hành 12 Tuần &amp; TT 58</h3>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300 leading-relaxed text-justify">
+                Vận hành chu kỳ chiến lược <strong className="text-white">12-Week Year &amp; OKRs</strong>, quản trị dòng tiền <strong className="text-white">Thông tư 58/TT-BTC</strong> với chốt chặn phê duyệt tài chính tức thời.
+              </p>
+            </div>
+
+            {/* Card 3: Miễn phí... */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#080f1e]/90 border border-cosa-emerald/40 hover:border-cosa-emerald/80 transition-all shadow-[0_0_25px_rgba(16,185,129,0.12)] group h-full flex flex-col justify-start">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-cosa-emerald/15 border border-cosa-emerald/30 flex items-center justify-center text-cosa-emerald group-hover:scale-105 transition-transform shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xs font-mono uppercase text-cosa-emerald tracking-wider font-bold">100% Free 0đ</span>
+                  <h3 className="text-base font-bold text-white">Miễn Phí Phân Tích Dự Án</h3>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300 leading-relaxed text-justify">
+                <strong className="text-cosa-emerald">Miễn phí 100%</strong> cho giai đoạn phân tích dự án, nghiên cứu chân dung người dùng (User Persona) và lập kế hoạch PRD cho mô hình OPC.
+              </p>
+            </div>
+          </div>
 
           {/* CTA Group */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -62,16 +106,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
               className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-base text-slate-950 bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue hover:from-white hover:to-cosa-cyan shadow-[0_0_30px_rgba(0,240,255,0.4)] hover:shadow-[0_0_45px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 transform active:scale-95"
             >
               <Sparkles className="w-5 h-5 text-slate-950" />
-              <span>Đăng Ký Quyền Sử Dụng Sớm</span>
+              <span>Đăng Ký Sớm (Free Gói OPC)</span>
               <ArrowRight className="w-5 h-5 text-slate-950" />
             </button>
 
             <a
-              href="#features"
+              href="#pricing"
               className="w-full sm:w-auto px-7 py-4 rounded-xl font-semibold text-base text-slate-200 bg-[#0d172a]/90 hover:bg-[#141c2e] border border-cosa-border hover:border-cosa-cyan/50 shadow-lg transition-all flex items-center justify-center gap-2"
             >
               <Play className="w-4 h-4 text-cosa-cyan fill-cosa-cyan/20" />
-              <span>Khám Phá 4 Cụm Nghiệp Vụ</span>
+              <span>Khám Phá Gói Miễn Phí Phân Tích</span>
             </a>
           </div>
 
@@ -86,8 +130,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
               <div className="text-xs text-slate-400">Hợp nhất AI + Người thật</div>
             </div>
             <div className="p-3 rounded-xl bg-[#0d172a]/60 border border-cosa-border/60 backdrop-blur-md">
-              <div className="text-2xl font-bold text-cosa-sky font-mono">&lt; 300ms</div>
-              <div className="text-xs text-slate-400">Độ trễ Voice LiveKit</div>
+              <div className="text-2xl font-bold text-cosa-sky font-mono">&lt; 280ms</div>
+              <div className="text-xs text-slate-400">Phản hồi Trợ Lý AI</div>
             </div>
             <div className="p-3 rounded-xl bg-[#0d172a]/60 border border-cosa-border/60 backdrop-blur-md">
               <div className="text-2xl font-bold text-cosa-violet font-mono">100%</div>
@@ -114,36 +158,33 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
               <div className="flex items-center gap-1 bg-[#0d172a] p-1 rounded-lg border border-cosa-border">
                 <button
                   onClick={() => setActiveTab("terminal")}
-                  className={`px-3 py-1 rounded text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${
-                    activeTab === "terminal"
-                      ? "bg-cosa-cyan/20 text-cosa-cyan border border-cosa-cyan/40"
-                      : "text-slate-400 hover:text-white"
-                  }`}
+                  className={`px-3 py-1 rounded text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${activeTab === "terminal"
+                    ? "bg-cosa-cyan/20 text-cosa-cyan border border-cosa-cyan/40"
+                    : "text-slate-400 hover:text-white"
+                    }`}
                 >
                   <Terminal className="w-3.5 h-3.5" />
                   <span>Operations Stream</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("agents")}
-                  className={`px-3 py-1 rounded text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${
-                    activeTab === "agents"
-                      ? "bg-cosa-cyan/20 text-cosa-cyan border border-cosa-cyan/40"
-                      : "text-slate-400 hover:text-white"
-                  }`}
+                  className={`px-3 py-1 rounded text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${activeTab === "agents"
+                    ? "bg-cosa-cyan/20 text-cosa-cyan border border-cosa-cyan/40"
+                    : "text-slate-400 hover:text-white"
+                    }`}
                 >
                   <Users className="w-3.5 h-3.5" />
                   <span>AI Workforce (6)</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("voice")}
-                  className={`px-3 py-1 rounded text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${
-                    activeTab === "voice"
-                      ? "bg-cosa-cyan/20 text-cosa-cyan border border-cosa-cyan/40"
-                      : "text-slate-400 hover:text-white"
-                  }`}
+                  className={`px-3 py-1 rounded text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${activeTab === "voice"
+                    ? "bg-cosa-cyan/20 text-cosa-cyan border border-cosa-cyan/40"
+                    : "text-slate-400 hover:text-white"
+                    }`}
                 >
                   <Radio className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
-                  <span>LiveKit Voice</span>
+                  <span>Trợ Lý AI</span>
                 </button>
               </div>
             </div>
@@ -181,7 +222,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
                     { role: "B2B Sales Pipeline & CRM", name: "VP Sales Rex", model: "DeepSeek V3", status: "L1 · Chấm Điểm ICP", color: "border-cosa-emerald text-cosa-emerald" },
                     { role: "Kiến Trúc & Phân Bổ Tasks", name: "CTO Nexus", model: "Claude 3.7", status: "L1 · Phân Rã Engineering", color: "border-cosa-violet text-cosa-violet" },
                     { role: "Thẩm Định Hợp Đồng & Tuân Thủ", name: "Legal Lex", model: "DeepSeek R1", status: "L0 · Audit Pháp Lý", color: "border-cosa-amber text-cosa-amber" },
-                    { role: "Sổ Cái Kế Toán TT88 & Dòng Tiền", name: "CFO Apex", model: "DeepSeek V3", status: "L1 · Đề Xuất (Cần Duyệt Chi)", color: "border-rose-400 text-rose-400" },
+                    { role: "Sổ Cái Kế Toán Thông tư 58/TT-BTC", name: "CFO Apex", model: "DeepSeek V3", status: "L1 · Đề Xuất (Cần Duyệt Chi)", color: "border-rose-400 text-rose-400" },
                   ].map((ag, i) => (
                     <div key={i} className="p-3 rounded-xl bg-[#0d172a]/90 border border-cosa-border hover:border-cosa-cyan/40 transition-all">
                       <div className="flex items-center justify-between mb-1">
@@ -207,9 +248,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-white font-bold text-base">Hologram Voice Agent Hub (LiveKit Full-Duplex)</h4>
+                    <h4 className="text-white font-bold text-base">Trợ Lý AI Điều Hành Đa Nhiệm</h4>
                     <p className="text-xs text-slate-400 max-w-md">
-                      Hội thoại giọng nói thời gian thực &lt;300ms. Điều khiển toàn bộ bảng Kanban, duyệt chi ngân sách và tra cứu dữ liệu khách hàng bằng giọng nói tự nhiên.
+                      Tương tác thời gian thực phản hồi &lt;280ms. Điều khiển toàn bộ bảng Kanban, duyệt chi ngân sách và tra cứu dữ liệu khách hàng bằng ngôn ngữ tự nhiên.
                     </p>
                   </div>
                   {/* Waveform visualizer */}
