@@ -84,27 +84,7 @@ class VoiceService implements IVoiceService {
         return null;
       }
 
-      final endpoint = Uri(
-        path: '/chat/transcribe-voice',
-        queryParameters: {'workspace_id': workspaceId},
-      ).toString();
-
-      final response = await ApiClient.sendMultipart(
-        endpoint,
-        fields: {'language': language},
-        files: [
-          http.MultipartFile.fromBytes('file', audioBytes, filename: 'voice_input.m4a'),
-        ],
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final transcript = data['transcript'] as String?;
-        debugPrint('[VoiceService] Transcription completed (length: ${transcript?.length ?? 0})');
-        return transcript;
-      }
-      debugPrint('[VoiceService] Transcription error: ${response.statusCode}');
-      return null;
+      return await uploadAndTranscribe(audioBytes, workspaceId: workspaceId, language: language);
     } catch (e) {
       debugPrint('[VoiceService] Transcription exception: $e');
       return null;
@@ -114,5 +94,40 @@ class VoiceService implements IVoiceService {
       // recording regardless of whether the upload succeeded.
       unawaited(audioFile.delete().catchError((_) => audioFile));
     }
+  }
+
+  /// Upload audio đã ghi và log kết quả — tách riêng khỏi
+  /// [stopRecordingAndTranscribe] để test được hành vi redact log (không log
+  /// transcript/response body thô) mà không cần giả lập micro/file system
+  /// thật. `@visibleForTesting` vì method này không nằm trong
+  /// [IVoiceService] — nó là chi tiết triển khai, chỉ public để
+  /// `voice_service_logging_test.dart` có thể gọi trực tiếp và bắt log thật.
+  @visibleForTesting
+  Future<String?> uploadAndTranscribe(
+    List<int> audioBytes, {
+    required String workspaceId,
+    String language = 'vi',
+  }) async {
+    final endpoint = Uri(
+      path: '/chat/transcribe-voice',
+      queryParameters: {'workspace_id': workspaceId},
+    ).toString();
+
+    final response = await ApiClient.sendMultipart(
+      endpoint,
+      fields: {'language': language},
+      files: [
+        http.MultipartFile.fromBytes('file', audioBytes, filename: 'voice_input.m4a'),
+      ],
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final transcript = data['transcript'] as String?;
+      debugPrint('[VoiceService] Transcription completed (length: ${transcript?.length ?? 0})');
+      return transcript;
+    }
+    debugPrint('[VoiceService] Transcription error: ${response.statusCode}');
+    return null;
   }
 }

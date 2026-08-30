@@ -84,3 +84,38 @@ export async function createSecondWorkspace(): Promise<TestSecondWorkspace> {
     workspaceId: workspaceId.toString(),
   };
 }
+
+/**
+ * Thêm một user với role chỉ định vào workspace có sẵn.
+ */
+export async function addMemberToWorkspace(
+  workspaceId: string,
+  role: string = "member"
+): Promise<{ userId: string; bearerToken: string }> {
+  await new Promise((r) => setTimeout(r, 2));
+  const userId = generateSnowflake();
+  const membershipId = generateSnowflake();
+  const displayName = `Member User ${role}`;
+  const email = `member-${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
+
+  await db.transaction(async (tx) => {
+    await tx.insert(identityUserProjections).values({
+      id: userId,
+      email,
+      displayName,
+    });
+    await tx.insert(identityWorkspaceMemberships).values({
+      id: membershipId,
+      workspaceId: BigInt(workspaceId),
+      userId,
+      role,
+    });
+  });
+
+  const token = signAccessToken(userId.toString());
+  return {
+    userId: userId.toString(),
+    bearerToken: `Bearer ${token}`,
+  };
+}
+

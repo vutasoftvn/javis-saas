@@ -30,7 +30,11 @@ async def test_strategy_project_get_handler():
     with pytest.raises(ValueError, match="workspace_id is required"):
         await handler({"project_id": "100"}, context=None)
 
-    res = await handler({"project_id": "100", "workspace_id": "ws-123"}, context=None)
+    # Context takes precedence and payload mismatch raises ValueError
+    with pytest.raises(ValueError, match="Cross-tenant workspace_id mismatch"):
+        await handler({"project_id": "100", "workspace_id": "ws-spoofed"}, context={"workspace_id": "ws-123"})
+
+    res = await handler({"project_id": "100"}, context={"workspace_id": "ws-123"})
 
     client.get.assert_awaited_once_with(
         "/operations/strategy/stage-context",

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-import yaml
 
+import yaml
 from agent.skills.contracts import (
     AutonomyPolicy,
     EvidenceRequirement,

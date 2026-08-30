@@ -38,7 +38,7 @@ Ghi nhận bền vững các quyết định chiến lược quan trọng của 
    - Tóm tắt tác động của quyết định tới OKR, kế hoạch 12 tuần và danh sách công việc tiếp theo.
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
-- `strategy.decision_record.create`: Tạo bản ghi quyết định chiến lược trong hệ thống.
+Không có tool call runtime nào được khai báo cho skillpack này. Agent tổng hợp và xuất bản thảo bản ghi quyết định để founder xem xét và phê duyệt.
 
 ## 6. Điểm Phê Duyệt (Approval Points)
 - `strategy.decision_record.create` có `risk_level: medium`, yêu cầu policy kiểm tra quyền ghi dữ liệu (`MODIFY_BUSINESS_DATA`).

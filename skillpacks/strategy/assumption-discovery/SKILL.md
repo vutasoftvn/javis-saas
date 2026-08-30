@@ -30,8 +30,7 @@ Phân tích mô hình kinh doanh, chiến lược hoặc ý tưởng venture đ�
 4. **Xác nhận kết quả**: Phản hồi cho user danh sách các giả định đã ghi nhận kèm độ ưu tiên kiểm chứng.
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
-- `strategy.assumption.list`: Lấy danh sách giả định.
-- `strategy.assumption.create`: Tạo mới bản ghi giả định.
+Không có tool call runtime nào được khai báo cho skillpack này. Agent tổng hợp và xuất bản thảo danh sách giả định để founder xem xét.
 
 ## 6. Điểm Phê Duyệt (Approval Points)
 - `strategy.assumption.create` có `risk_level: medium`, yêu cầu policy kiểm tra quyền ghi dữ liệu (`MODIFY_BUSINESS_DATA`).

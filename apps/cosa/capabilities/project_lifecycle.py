@@ -176,7 +176,7 @@ def create_strategy_project_get_handler(client: CompanyServiceClient):
             layer="CURRENT_LAW",
             label="insight",
             content=f"Thông tin stage context cho project {project_id}.",
-            sources=[f"project:{project_id}"],
+            sources=[{"source": f"project:{project_id}"}],
             confidence=1.0,
             next_actions=["Xem xét bằng chứng và các yêu cầu gate của giai đoạn hiện tại"],
         )
@@ -204,7 +204,7 @@ def create_strategy_evidence_list_handler(client: CompanyServiceClient):
             layer="CURRENT_LAW",
             label="insight",
             content=f"Đã tìm thấy {len(items)} bằng chứng cho project {payload['project_id']}.",
-            sources=[f"evidence_list:{payload['project_id']}"],
+            sources=[{"source": f"evidence_list:{payload['project_id']}"}],
             confidence=1.0,
             next_actions=[],
         )
@@ -242,7 +242,7 @@ def create_strategy_evidence_create_handler(client: CompanyServiceClient):
             layer="CURRENT_LAW",
             label="proposal",
             content=f"Đã tạo candidate evidence cho project {payload['project_id']}: '{payload['claim']}'. Đang chờ founder phê duyệt.",
-            sources=[f"evidence:{res.get('id', '')}"],
+            sources=[{"source": f"evidence:{res.get('id', '')}"}],
             confidence=0.95,
             next_actions=[
                 "Founder xem xét và phê duyệt candidate evidence trước khi đánh giá gate"
@@ -282,7 +282,7 @@ def create_strategy_gate_evaluation_create_handler(client: CompanyServiceClient)
                 f"Kết quả: {result_status}, Yêu cầu đạt: {req_met}. "
                 "Lưu ý: Đánh giá gate chỉ mang tính khuyến nghị, không tự động chuyển giai đoạn."
             ),
-            sources=[f"gate_eval:{res.get('id', '')}"],
+            sources=[{"source": f"gate_eval:{res.get('id', '')}"}],
             confidence=1.0,
             next_actions=["Chuyển giai đoạn chính thức qua endpoint transition nếu đạt điều kiện"],
         )
@@ -307,7 +307,7 @@ def create_strategy_next_best_action_get_handler(client: CompanyServiceClient):
             layer="CURRENT_LAW",
             label="insight",
             content=f"Đã truy vấn Next Best Actions cho project {project_id}.",
-            sources=[f"project_nba:{project_id}"],
+            sources=[{"source": f"project_nba:{project_id}"}],
             confidence=1.0,
             next_actions=[],
         )

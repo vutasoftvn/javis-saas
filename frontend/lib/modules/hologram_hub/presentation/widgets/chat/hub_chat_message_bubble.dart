@@ -5,15 +5,38 @@ import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:frontend/modules/hologram_hub/controllers/hologram_hub_controller.dart';
 
+/// Task 7 — chỉ cho phép mở link `https://` trong markdown chat; `http://`
+/// chỉ được phép ở debug build (test thủ công/dev), không bao giờ ở
+/// production. Tách thành hàm top-level thuần (không phụ thuộc platform
+/// channel của `url_launcher`) để test được trực tiếp — xem
+/// `hub_chat_message_bubble_link_guard_test.dart`.
+@visibleForTesting
+bool isExternalLinkSchemeAllowed(String scheme, {bool debugMode = kDebugMode}) {
+  final normalized = scheme.toLowerCase();
+  if (normalized == 'https') return true;
+  return debugMode && normalized == 'http';
+}
+
+typedef LaunchUrlFn = Future<bool> Function(Uri url, {LaunchMode mode});
+
 class HubChatMessageBubble extends StatelessWidget {
   final Map<String, dynamic> message;
   final HologramHubController controller;
 
-  const HubChatMessageBubble({
+  /// Injection point cho test — mặc định dùng `launchUrl` thật của
+  /// `url_launcher`. Test truyền một fake để bắt lại URI đã "mở" mà không
+  /// cần mock platform channel.
+  final LaunchUrlFn launchUrlOverride;
+
+  // Không thể const vì launchUrlOverride mặc định trỏ tới hàm launchUrl thật
+  // (không phải const expression) — cần vậy để inject launcher giả trong test.
+  // ignore: prefer_const_constructors_in_immutables
+  HubChatMessageBubble({
     super.key,
     required this.message,
     required this.controller,
-  });
+    LaunchUrlFn? launchUrlOverride,
+  }) : launchUrlOverride = launchUrlOverride ?? launchUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -97,13 +120,8 @@ class HubChatMessageBubble extends StatelessWidget {
                             onTapLink: (text, href, title) {
                               if (href != null) {
                                 final uri = Uri.tryParse(href);
-                                if (uri != null) {
-                                  final scheme = uri.scheme.toLowerCase();
-                                  final isHttps = scheme == 'https';
-                                  final isHttpInDebug = kDebugMode && scheme == 'http';
-                                  if (isHttps || isHttpInDebug) {
-                                    launchUrl(uri, mode: LaunchMode.externalApplication);
-                                  }
+                                if (uri != null && isExternalLinkSchemeAllowed(uri.scheme)) {
+                                  launchUrlOverride(uri, mode: LaunchMode.externalApplication);
                                 }
                               }
                             },

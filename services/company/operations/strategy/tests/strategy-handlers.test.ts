@@ -32,6 +32,7 @@ import {
   listEvidence,
   updateEvidence,
 } from "../handlers/evidence.handler";
+import { reviewEvidence } from "../handlers/evidence-review.handler";
 import {
   createInterview,
   getInterview,
@@ -208,7 +209,7 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     });
     expect(signal.id).toBeDefined();
 
-    // 7. Record Evidence (auto-scored)
+    // 7. Record Evidence (candidate by default, auto-scored)
     const evidenceItem = await recordEvidence({
       authorization: wsA.bearerToken,
       workspaceId: wsA.workspaceId,
@@ -218,11 +219,21 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
       claim: "8 out of 10 founders validate extreme demand for deterministic next-action system",
       sampleSize: 10,
       supportsOrRefutes: "supports",
-      status: "approved",
     });
     expect(evidenceItem.id).toBeDefined();
+    expect(evidenceItem.status).toBe("candidate");
     expect(evidenceItem.strength).toBe(0.85);
     expect(evidenceItem.confidence).toBeGreaterThanOrEqual(0.8);
+
+    // 7b. Founder reviews and approves evidence for gate evaluation
+    const approvedEvidence = await reviewEvidence({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      id: evidenceItem.id,
+      action: "approve",
+      comment: "Founder verified interview logs",
+    });
+    expect(approvedEvidence.status).toBe("approved");
 
     // 8. Create Policy & Evaluate Gate
     const policy = await createStagePolicy({

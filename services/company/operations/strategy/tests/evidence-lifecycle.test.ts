@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { createTestWorkspaceWithMember, createSecondWorkspace } from "../../tests/_helpers";
+import { createTestWorkspaceWithMember, createSecondWorkspace, addMemberToWorkspace } from "../../tests/_helpers";
 import { createProject } from "../../handlers/project.handler";
 import { createStagePolicy } from "../handlers/stage-policy.handler";
-import { recordEvidence, getEvidence, listEvidence } from "../handlers/evidence.handler";
+import { recordEvidence, getEvidence, listEvidence, updateEvidence } from "../handlers/evidence.handler";
 import { reviewEvidence } from "../handlers/evidence-review.handler";
 import { runGateEvaluation } from "../handlers/gate-evaluation.handler";
 
@@ -29,29 +29,28 @@ describe("Evidence Kernel: candidate-to-approved lifecycle & workspace boundary"
       requirements: [
         {
           key: "interview_req",
-          minCount: 1,
           sourceType: "customer_interview",
-          description: "At least 1 customer interview",
+          minCount: 1,
+          description: "1 customer interview",
         },
       ],
     });
 
-    // 1. Ingest evidence as candidate (default)
-    const candidateEvidence = await recordEvidence({
+    // 1. Record evidence without approval (default is candidate)
+    const candEvidence = await recordEvidence({
       authorization: ws.bearerToken,
       workspaceId: ws.workspaceId,
       projectId: project.id,
       sourceType: "customer_interview",
-      claim: "8 out of 10 users verified the problem",
+      claim: "Customer validated problem exists",
       sampleSize: 10,
       supportsOrRefutes: "supports",
     });
 
-    expect(candidateEvidence.id).toBeDefined();
-    expect(candidateEvidence.status).toBe("candidate");
-    expect(candidateEvidence.reviewedAt).toBeNull();
+    expect(candEvidence.status).toBe("candidate");
+    expect(candEvidence.reviewedAt).toBeNull();
 
-    // 2. Gate evaluation while evidence is still candidate -> gate should FAIL (requirementsMet = false)
+    // 2. Gate evaluation ignores candidate evidence -> requirements not met
     const gateEvalCandidate = await runGateEvaluation({
       authorization: ws.bearerToken,
       workspaceId: ws.workspaceId,
@@ -61,30 +60,30 @@ describe("Evidence Kernel: candidate-to-approved lifecycle & workspace boundary"
     expect(gateEvalCandidate.requirementsMet).toBe(false);
     expect(gateEvalCandidate.result).toBe("failed");
 
-    // 3. Tenant boundary check: workspaceB cannot review ws evidence
+    // 3. Workspace boundary: Workspace B member cannot review Workspace A evidence
     await expect(
       reviewEvidence({
         authorization: wsB.bearerToken,
         workspaceId: wsB.workspaceId,
-        id: candidateEvidence.id,
+        id: candEvidence.id,
         action: "approve",
       })
-    ).rejects.toMatchObject({ code: "not_found" });
+    ).rejects.toThrow(/not found/i);
 
-    // 4. Privileged review: approve evidence
+    // 4. Founder reviews and approves evidence in Workspace A
     const approvedEvidence = await reviewEvidence({
       authorization: ws.bearerToken,
       workspaceId: ws.workspaceId,
-      id: candidateEvidence.id,
+      id: candEvidence.id,
       action: "approve",
-      comment: "Verified with 10 real interview recordings.",
+      comment: "Verified audio transcript & interview notes",
     });
 
     expect(approvedEvidence.status).toBe("approved");
-    expect(approvedEvidence.reviewComment).toBe("Verified with 10 real interview recordings.");
+    expect(approvedEvidence.reviewComment).toBe("Verified audio transcript & interview notes");
     expect(approvedEvidence.reviewedAt).toBeDefined();
 
-    // 5. Gate evaluation after approval -> gate should PASS
+    // 5. Gate evaluation now includes approved evidence -> requirements met
     const gateEvalApproved = await runGateEvaluation({
       authorization: ws.bearerToken,
       workspaceId: ws.workspaceId,
@@ -95,7 +94,7 @@ describe("Evidence Kernel: candidate-to-approved lifecycle & workspace boundary"
     expect(gateEvalApproved.result).toBe("passed");
   });
 
-  it("direct recording of approved evidence by founder is allowed", async () => {
+  it("direct recording of approved evidence is forbidden and candidate creation is enforced", async () => {
     const ws = await createTestWorkspaceWithMember();
 
     const project = await createProject({
@@ -106,18 +105,51 @@ describe("Evidence Kernel: candidate-to-approved lifecycle & workspace boundary"
       lifecycleStage: "P0_DISCOVERY",
     });
 
-    const directApproved = await recordEvidence({
+    // 1. Attempting to record approved evidence directly is rejected
+    await expect(
+      recordEvidence({
+        authorization: ws.bearerToken,
+        workspaceId: ws.workspaceId,
+        projectId: project.id,
+        sourceType: "customer_interview",
+        claim: "Founder verified directly in field test",
+        sampleSize: 15,
+        supportsOrRefutes: "supports",
+        status: "approved" as any,
+      })
+    ).rejects.toThrow(/candidate/i);
+
+    // 2. Creating candidate evidence succeeds
+    const cand = await recordEvidence({
       authorization: ws.bearerToken,
       workspaceId: ws.workspaceId,
       projectId: project.id,
       sourceType: "customer_interview",
-      claim: "Founder verified directly in field test",
+      claim: "Valid candidate claim",
       sampleSize: 15,
       supportsOrRefutes: "supports",
-      status: "approved",
     });
+    expect(cand.status).toBe("candidate");
 
-    expect(directApproved.status).toBe("approved");
-    expect(directApproved.reviewedAt).toBeDefined();
+    // 3. Founder reviews and approves
+    const reviewed = await reviewEvidence({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: cand.id,
+      action: "approve",
+      comment: "Approved by founder",
+    });
+    expect(reviewed.status).toBe("approved");
+
+    // 4. Update on approved evidence requires privileged role
+    const member = await addMemberToWorkspace(ws.workspaceId, "member");
+    await expect(
+      updateEvidence({
+        authorization: member.bearerToken,
+        workspaceId: ws.workspaceId,
+        id: cand.id,
+        claim: "Tampered claim by member",
+      })
+    ).rejects.toThrow(/privilege|founder|admin/i);
   });
 });

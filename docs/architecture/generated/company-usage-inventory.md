@@ -1,14 +1,13 @@
 # Company usage inventory (GENERATED — `scripts/company_usage_inventory.py`)
 
-Nguồn intent: [M0 §4](../plans/2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md) & [M2 Cutover Design Spec](file:///Volumes/SSD/javis-saas/docs/superpowers/specs/2026-08-30-workspace-canonical-m2-cutover-design.md).
+Nguồn intent: [M0 §4](../plans/2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md).
 Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2 chạm file.
-
 
 | Lớp | Occurrences | Files |
 |---|---|---|
-| LEGACY_TENANCY (M2 xóa) | 202 | 34 |
+| LEGACY_TENANCY (M2 xóa) | 203 | 34 |
 | VALID_KEEP (giữ nguyên) | 85 | 28 |
-| REVIEW (chưa phân loại) | 732 | 212 |
+| REVIEW (chưa phân loại) | 749 | 218 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -22,8 +21,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/migrations/1_baseline_identity_and_agent_policy.up.sql | 8 |
 | services/cosa/storage/schema.ts | 7 |
 | frontend/lib/data/models/company_pulse_model.dart | 4 |
+| frontend/lib/data/models/stage_model.dart | 4 |
 | services/cosa/migrations/retired_pre_baseline_v1/1_create_control_plane.up.sql | 4 |
-| frontend/lib/data/models/stage_model.dart | 3 |
 | services/company/identity/services/sync.service.ts | 3 |
 | services/cosa/migrations/1_baseline_identity_and_agent_policy.down.sql | 3 |
 | services/cosa/migrations/retired_pre_baseline_v1/4_add_agent_policy.up.sql | 3 |
@@ -64,15 +63,15 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/worker/copilot_run.py | 14 |
 | services/company/operations/migrations/11_dedupe_strategy_company_workspace_id.up.sql | 14 |
 | packages/agent/migrations/017_workspace_only_tenancy.sql | 13 |
+| services/cosa/services/workspace-connector.service.ts | 13 |
 | apps/cosa/compliance/resolver.py | 12 |
+| frontend/lib/data/models/stage_model.dart | 12 |
 | services/company/operations/migrations/11_dedupe_strategy_company_workspace_id.down.sql | 12 |
-| services/cosa/services/workspace-connector.service.ts | 12 |
 | apps/cosa/capabilities/client.py | 11 |
 | apps/cosa/composition/agent_plane.py | 10 |
 | frontend/lib/modules/auth/views/register_view.dart | 10 |
 | packages/agent/capabilities/readiness.py | 10 |
 | services/cosa/migrations/1_baseline_identity_and_agent_policy.up.sql | 10 |
-| frontend/lib/data/models/stage_model.dart | 9 |
 | services/cosa/migrations/20_backfill_platform_workspaces.up.sql | 9 |
 | apps/cosa/composition/context_assembler.py | 8 |
 | apps/cosa/worker/handlers.py | 8 |
@@ -85,6 +84,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/migrations/13_workspace_only_product_scope.down.sql | 7 |
 | services/cosa/migrations/retired_pre_baseline_v1/1_create_control_plane.up.sql | 7 |
 | apps/cosa/capabilities/finance_write.py | 6 |
+| apps/cosa/capabilities/project_lifecycle.py | 6 |
 | apps/cosa/compliance/company_client.py | 6 |
 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart | 6 |
 | frontend/lib/shared/widgets/company_scope_switcher.dart | 6 |
@@ -134,6 +134,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/services/platform.client.ts | 3 |
 | services/cosa/handlers/agent-policy.handler.ts | 3 |
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
+| services/cosa/handlers/workspace-connector.handler.ts | 3 |
 | apps/cosa/capabilities/legal_read.py | 2 |
 | apps/cosa/capabilities/legal_write.py | 2 |
 | apps/cosa/capabilities/operations_write.py | 2 |
@@ -252,6 +253,10 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/migrations/24_workspace_stage_lifecycle_rename.up.sql | 1 |
 | services/company/operations/migrations/25_workspace_stage_transition_cas.up.sql | 1 |
 | services/company/operations/migrations/26_project_lifecycle_stage.up.sql | 1 |
+| services/company/operations/migrations/27_evidence_candidate_lifecycle.down.sql | 1 |
+| services/company/operations/migrations/27_evidence_candidate_lifecycle.up.sql | 1 |
+| services/company/operations/migrations/28_evidence_ingestions.down.sql | 1 |
+| services/company/operations/migrations/28_evidence_ingestions.up.sql | 1 |
 | services/company/operations/tests/_helpers.ts | 1 |
 | services/company/package.json | 1 |
 | services/company/shared/auth/workspace-access.ts | 1 |

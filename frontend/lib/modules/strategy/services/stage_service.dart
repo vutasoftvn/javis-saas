@@ -81,7 +81,7 @@ class StageService {
 
   Future<StageContextModel?> getStageContext({int? projectId}) async {
     try {
-      final query = projectId != null ? '?project_id=$projectId' : '';
+      final query = projectId != null ? '?projectId=$projectId' : '';
       final response = await ApiClient.get('/operations/strategy/stage-context$query');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;

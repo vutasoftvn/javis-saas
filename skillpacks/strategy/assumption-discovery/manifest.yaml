@@ -29,9 +29,7 @@ capability:
 runtime:
   environment: python
   entrypoint: SKILL.md
-  tools:
-    - strategy.assumption.create
-    - strategy.assumption.list
+  tools: []
 
 permissions:
   required:

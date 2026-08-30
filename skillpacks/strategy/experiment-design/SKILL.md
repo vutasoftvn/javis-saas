@@ -44,7 +44,7 @@ Thiết kế các thử nghiệm tinh gọn (Lean Experiments) nhằm thu thập
    - Gọi tool `strategy.experiment.create` với `companyId`, `workspaceId`, `projectId`, `assumptionId`, `hypothesis`, `method`, `successCriteria`.
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
-- `strategy.experiment.create`: Tạo mới bản ghi thử nghiệm trong hệ thống.
+Không có tool call runtime nào được khai báo cho skillpack này. Agent tổng hợp và xuất bản thảo kế hoạch thử nghiệm để founder xem xét và quyết định.
 
 ## 6. Điểm Phê Duyệt (Approval Points)
 - `strategy.experiment.create` có `risk_level: medium`, yêu cầu policy kiểm tra quyền ghi dữ liệu (`MODIFY_BUSINESS_DATA`).

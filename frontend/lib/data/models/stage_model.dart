@@ -252,23 +252,46 @@ class StageContextModel {
   });
 
   factory StageContextModel.fromJson(Map<String, dynamic> json) {
+    if (json.containsKey('workspace') && json['workspace'] is Map) {
+      final ws = json['workspace'] as Map<String, dynamic>;
+      final prj = json['project'] as Map<String, dynamic>?;
+      return StageContextModel(
+        workspaceId: int.tryParse(ws['workspaceId']?.toString() ?? '') ?? 0,
+        companyStage: ws['lifecycleStage']?.toString() ?? 'P0_DISCOVERY',
+        companyVision: null,
+        companyMission: null,
+        companyValues: const [],
+        projectId: prj != null ? int.tryParse(prj['id']?.toString() ?? '') : null,
+        projectTitle: prj?['title']?.toString(),
+        projectType: null,
+        projectStage: ProjectStage.fromString(prj?['lifecycleStage']?.toString() ?? ws['lifecycleStage']?.toString() ?? 'P0_DISCOVERY'),
+        stageStartedAt: prj?['stageEnteredAt'] != null ? DateTime.tryParse(prj!['stageEnteredAt'].toString()) : null,
+        stageGoal: null,
+        criticalConstraints: const [],
+        exitCriteria: const {},
+        stageMetadata: const {},
+        policy: StagePolicyModel.fromJson(const {}),
+      );
+    }
     return StageContextModel(
-      workspaceId: json['workspace_id'] ?? 0,
-      companyStage: json['company_stage'] ?? 'P5_OPERATE_GROWTH',
-      companyVision: json['company_vision'],
-      companyMission: json['company_mission'],
-      companyValues: List<String>.from(json['company_values'] ?? []),
-      projectId: json['project_id'],
-      projectTitle: json['project_title'],
-      projectType: json['project_type'],
-      projectStage: ProjectStage.fromString(json['project_stage']),
-      stageStartedAt: json['stage_started_at'] != null
-          ? DateTime.tryParse(json['stage_started_at'])
+      workspaceId: json['workspace_id'] ?? json['workspaceId'] ?? 0,
+      companyStage: json['company_stage'] ?? json['companyStage'] ?? 'P0_DISCOVERY',
+      companyVision: json['company_vision'] ?? json['companyVision'],
+      companyMission: json['company_mission'] ?? json['companyMission'],
+      companyValues: List<String>.from(json['company_values'] ?? json['companyValues'] ?? []),
+      projectId: json['project_id'] != null
+          ? int.tryParse(json['project_id'].toString())
+          : (json['projectId'] != null ? int.tryParse(json['projectId'].toString()) : null),
+      projectTitle: json['project_title'] ?? json['projectTitle'],
+      projectType: json['project_type'] ?? json['projectType'],
+      projectStage: ProjectStage.fromString(json['project_stage'] ?? json['projectStage'] ?? json['lifecycleStage']),
+      stageStartedAt: (json['stage_started_at'] ?? json['stageStartedAt'] ?? json['stageEnteredAt']) != null
+          ? DateTime.tryParse((json['stage_started_at'] ?? json['stageStartedAt'] ?? json['stageEnteredAt']).toString())
           : null,
-      stageGoal: json['stage_goal'],
-      criticalConstraints: List<String>.from(json['critical_constraints'] ?? []),
-      exitCriteria: Map<String, dynamic>.from(json['exit_criteria'] ?? {}),
-      stageMetadata: Map<String, dynamic>.from(json['stage_metadata'] ?? {}),
+      stageGoal: json['stage_goal'] ?? json['stageGoal'],
+      criticalConstraints: List<String>.from(json['critical_constraints'] ?? json['criticalConstraints'] ?? []),
+      exitCriteria: Map<String, dynamic>.from(json['exit_criteria'] ?? json['exitCriteria'] ?? {}),
+      stageMetadata: Map<String, dynamic>.from(json['stage_metadata'] ?? json['stageMetadata'] ?? {}),
       policy: StagePolicyModel.fromJson(json['policy'] ?? {}),
     );
   }

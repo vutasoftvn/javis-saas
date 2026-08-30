@@ -186,24 +186,36 @@ def test_skill_candidate_workspace_isolation(setup_env):
     """Verify that candidates created in workspace-A are isolated from workspace-B."""
     client: TestClient = setup_env["client"]
 
-    # Create candidate in workspace-A
+    # 1. Spoofed workspace_id is rejected
+    res_spoof = client.post(
+        "/agent/skills/candidates",
+        json={
+            "name": "Secret Strategy Pack",
+            "domain": "strategy",
+            "instructions": "Confidential playbook.",
+            "workspace_id": "workspace-spoofed",
+        },
+    )
+    assert res_spoof.status_code == 400
+
+    # 2. Create candidate in authenticated workspace ws-1
     res = client.post(
         "/agent/skills/candidates",
         json={
             "name": "Secret Strategy Pack",
             "domain": "strategy",
             "instructions": "Confidential playbook.",
-            "workspace_id": "workspace-A",
+            "workspace_id": "ws-1",
         },
     )
     assert res.status_code == 201
 
-    # Workspace-A sees it
-    res_a = client.get("/agent/skills?workspace_id=workspace-A")
+    # Workspace ws-1 sees it
+    res_a = client.get("/agent/skills?workspace_id=ws-1")
     assert any(s["id"] == "secret-strategy-pack" for s in res_a.json())
 
-    # Workspace-B does not see it
-    res_b = client.get("/agent/skills?workspace_id=workspace-B")
+    # Workspace ws-2 does not see it
+    res_b = client.get("/agent/skills?workspace_id=ws-2")
     assert not any(s["id"] == "secret-strategy-pack" for s in res_b.json())
 
 

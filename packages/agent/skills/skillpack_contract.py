@@ -41,11 +41,6 @@ class SkillpackViolation:
 # Each entry has a documented target removal date / phase.
 KNOWN_PENDING_CAPABILITIES: dict[str, str] = {
     "analytics.read": "Target removal: Part C Commercial integration (2026-08-28)",
-    "strategy.assumption.create": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.assumption.list": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.decision_record.create": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.experiment.create": "Target removal: Phase B runtime activation (2026-08-28)",
-    "strategy.gate_evaluation.list": "Target removal: Phase B runtime activation (2026-08-28)",
 }
 
 

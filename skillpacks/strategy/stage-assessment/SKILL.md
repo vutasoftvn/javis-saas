@@ -29,7 +29,6 @@ Xác định chính xác giai đoạn phát triển hiện tại của venture (
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
 - `strategy.project.get`: Đọc thông tin dự án/venture.
-- `strategy.gate_evaluation.list`: Lấy danh sách kết quả đánh giá gate.
 
 ## 6. Điểm Phê Duyệt (Approval Points)
 - Không có (Thao tác chỉ đọc `READ_LOCAL`, risk level LOW).
@@ -38,7 +37,7 @@ Xác định chính xác giai đoạn phát triển hiện tại của venture (
 ```markdown
 ### Báo Cáo Đánh Giá Giai Đoạn Venture
 - **Tên Venture / Project**: [Tên dự án]
-- **Giai đoạn Hiện Tại**: [S0 / S1 / S2 / S3 / S4]
+- **Giai đoạn Hiện Tại**: [P0 / P1 / P2 / P3 / P4 / P5 / P6]
 - **Tình trạng Gate Review**: [Passed / Pending / Chưa thực hiện]
 - **Các Tiêu Chí Đạt Được**:
   - [Tiêu chí 1]
@@ -53,7 +52,7 @@ Xác định chính xác giai đoạn phát triển hiện tại của venture (
 
 ## 9. Ví Dụ Thực Tế (Practical Examples)
 - **Input**: "Founder mô tả venture mới trong lĩnh vực EdTech, muốn biết đang ở stage nào."
-- **Execution**: Gọi `strategy.project.get(id=...)` -> Stage: S1_DISCOVERY -> Gọi `strategy.gate_evaluation.list(...)` -> Trả về báo cáo S1.
+- **Execution**: Gọi `strategy.project.get(id=...)` -> Stage: P0_DISCOVERY -> Trả về báo cáo P0.
 
 ## 10. Yêu Cầu Bằng Chứng (Evidence Requirements)
-- Mọi nhận định về stage và độ sẵn sàng phải dựa trên kết quả trả về từ `strategy.project.get` và `strategy.gate_evaluation.list`.
+- Mọi nhận định về stage và độ sẵn sàng phải dựa trên kết quả trả về từ `strategy.project.get`.

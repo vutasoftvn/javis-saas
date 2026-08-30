@@ -30,8 +30,7 @@ capability:
 runtime:
   environment: python
   entrypoint: SKILL.md
-  tools:
-    - strategy.decision_record.create
+  tools: []
 
 permissions:
   required:

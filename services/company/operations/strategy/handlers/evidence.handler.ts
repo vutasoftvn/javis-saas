@@ -91,14 +91,8 @@ export const recordEvidence = api(
     // Xác nhận project thuộc workspace này
     await getProjectInWorkspace(params.projectId, ctx);
 
-    let initialStatus = params.status ?? "candidate";
-    let reviewedByMemberId: bigint | null = null;
-    let reviewedAt: Date | null = null;
-
-    if (initialStatus === "approved") {
-      assertLifecyclePrivileged(ctx.membershipRole, "recordApprovedEvidence");
-      reviewedByMemberId = ctx.userId ? BigInt(ctx.userId) : null;
-      reviewedAt = new Date();
+    if (params.status && params.status !== "candidate") {
+      throw APIError.invalidArgument("Evidence can only be created as 'candidate'; approval requires privileged review");
     }
 
     // Auto-score evidence deterministically based on source type and sample size
@@ -122,9 +116,9 @@ export const recordEvidence = api(
         strength: scored.strength,
         confidence: scored.confidence,
         supportsOrRefutes: params.supportsOrRefutes ?? "supports",
-        status: initialStatus,
-        reviewedByMemberId,
-        reviewedAt,
+        status: "candidate",
+        reviewedByMemberId: null,
+        reviewedAt: null,
       })
       .returning();
 
@@ -185,6 +179,19 @@ export const updateEvidence = api(
   async (params: UpdateEvidenceParams): Promise<Evidence> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     const wsId = BigInt(ctx.workspaceId);
+
+    // Fetch existing record to verify review state
+    const [existing] = await db
+      .select()
+      .from(evidence)
+      .where(and(eq(evidence.id, BigInt(params.id)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)))
+      .limit(1);
+
+    if (!existing) throw APIError.notFound("Evidence not found");
+
+    if (existing.status === "approved" || existing.status === "reviewed") {
+      assertLifecyclePrivileged(ctx.membershipRole, "updateApprovedEvidence");
+    }
 
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.claim !== undefined) updateValues.claim = params.claim;

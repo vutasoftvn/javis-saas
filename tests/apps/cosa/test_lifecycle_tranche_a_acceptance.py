@@ -19,8 +19,15 @@ from apps.cosa.agents.specs import (
 )
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.capabilities.project_lifecycle import (
+    create_strategy_evidence_create_handler,
+    create_strategy_gate_evaluation_create_handler,
+    create_strategy_project_get_handler,
+)
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+
+pytestmark = pytest.mark.integration
 
 TRANCHE_A_CANONICAL_COUNT = 48
 
@@ -135,3 +142,43 @@ def test_tranche_a_cross_workspace_isolation_and_no_side_effects(acceptance_env)
     # Workspace B query cannot see Workspace A candidate
     res_b = client.get("/agent/skills?workspace_id=ws-accept-b")
     assert not any(s["id"] == "acceptance-custom-skill" for s in res_b.json())
+
+
+@pytest.mark.asyncio
+async def test_tranche_a_lifecycle_capabilities_operating_slice(acceptance_env):
+    """Tranche A Acceptance: Capability handlers strictly enforce candidate status and workspace boundaries."""
+    company_client = acceptance_env["company_client"]
+
+    # 1. Project Get capability
+    proj_handler = create_strategy_project_get_handler(company_client)
+    res_proj = await proj_handler(
+        {"project_id": "proj-1"},
+        context={"workspace_id": "ws-accept-a"},
+    )
+    assert res_proj["project"]["project"]["lifecycleStage"] == "P0_DISCOVERY"
+    assert res_proj["advisory"]["label"] == "insight"
+
+    # 2. Evidence Create capability: enforces candidate status and proposals
+    ev_handler = create_strategy_evidence_create_handler(company_client)
+    res_ev = await ev_handler(
+        {
+            "project_id": "proj-1",
+            "source_type": "customer_interview",
+            "claim": "Customer problem verified",
+        },
+        context={"workspace_id": "ws-accept-a"},
+    )
+    assert res_ev["evidence"]["status"] == "candidate"
+    assert res_ev["advisory"]["label"] == "proposal"
+
+    # 3. Gate Evaluation capability: returns assessment without mutating project stage
+    gate_handler = create_strategy_gate_evaluation_create_handler(company_client)
+    res_gate = await gate_handler(
+        {
+            "project_id": "proj-1",
+            "stage_policy_id": "policy-p0",
+        },
+        context={"workspace_id": "ws-accept-a"},
+    )
+    assert res_gate["advisory"]["label"] == "insight"
+

@@ -34,7 +34,6 @@ runtime:
   entrypoint: SKILL.md
   tools:
     - strategy.project.get
-    - strategy.gate_evaluation.list
 
 permissions:
   required:
