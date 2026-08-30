@@ -125,7 +125,7 @@ class SkillDetailDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Domain: $domain • ID: $skillId • Nguồn: $createdBy',
+                        'Stages: ${(skill['project_stages'] as List<dynamic>?)?.join(', ') ?? '—'} • Autonomy: ${skill['autonomy_ceiling'] ?? 'L0_OBSERVE'} (${skill['side_effect_class'] ?? 'R'}) • ID: $skillId',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 11,

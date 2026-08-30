@@ -30,11 +30,28 @@ async def test_resolve_marketing_agent_pinned_skills():
     resolved_skills = await resolver.resolve(COSA_MARKETING_AGENT_SPEC.pinned_skills)
     assert len(resolved_skills) == len(COSA_MARKETING_AGENT_SPEC.pinned_skills)
     resolved_ids = {s.id for s in resolved_skills}
-    assert "marketing.positioning" in resolved_ids
-    assert "marketing.copywriting" in resolved_ids
-    assert "marketing.market-research" in resolved_ids
+    assert "strategy.positioning" in resolved_ids
     assert "research.deep-research" in resolved_ids
     assert "strategy.competitor-profiling" in resolved_ids
+    assert "marketing.channel-strategy" in resolved_ids
+
+    # 2. Resolve Operations agent pinned skills
+    from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC, COSA_FINANCE_AGENT_SPEC
+    ops_skills = await resolver.resolve(COSA_OPERATIONS_AGENT_SPEC.pinned_skills)
+    assert len(ops_skills) == len(COSA_OPERATIONS_AGENT_SPEC.pinned_skills)
+    assert {s.id for s in ops_skills} == {
+        "lifecycle.context-resolver",
+        "lifecycle.next-best-action",
+        "operations.weekly-review",
+    }
+
+    # 3. Resolve Finance agent pinned skills
+    fin_skills = await resolver.resolve(COSA_FINANCE_AGENT_SPEC.pinned_skills)
+    assert len(fin_skills) == len(COSA_FINANCE_AGENT_SPEC.pinned_skills)
+    assert {s.id for s in fin_skills} == {
+        "finance.runway-forecast",
+        "finance.budget-guardrails",
+    }
 
 
 @pytest.mark.asyncio

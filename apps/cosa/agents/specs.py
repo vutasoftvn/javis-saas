@@ -56,6 +56,23 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "operations.task.read",
     ],
     model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[
+        PinnedSkillRef(
+            skill_id="lifecycle.context-resolver",
+            version="1.0.0",
+            definition_hash="d2cd448f9012ae55f12d20b40315b79f517136fc8b55577f651dd4e36d2bcb98",
+        ),
+        PinnedSkillRef(
+            skill_id="lifecycle.next-best-action",
+            version="1.0.0",
+            definition_hash="4f554c271dcd05e47dfcb4480f10e760dc02c24e0b510046b220afe415527ab9",
+        ),
+        PinnedSkillRef(
+            skill_id="operations.weekly-review",
+            version="1.0.0",
+            definition_hash="cd5f56dfdc6178f0fadafbcdf585a9787eeee8393a783d9f01393a771d761f56",
+        ),
+    ],
     prompt_ref=COSA_OPERATIONS_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Operations Specialist Agent"},
@@ -71,6 +88,18 @@ COSA_FINANCE_AGENT_SPEC = AgentSpec(
         "finance.transaction.record",
     ],
     model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[
+        PinnedSkillRef(
+            skill_id="finance.runway-forecast",
+            version="1.0.0",
+            definition_hash="4110f57eb5088169680d96c5b03e32effd59365ae6c9915697f29c4a827688ee",
+        ),
+        PinnedSkillRef(
+            skill_id="finance.budget-guardrails",
+            version="1.0.0",
+            definition_hash="e06cd67cb3704a5328fd02f4f5d29ae11c1c0f44619f79015102e462cccb017f",
+        ),
+    ],
     prompt_ref=COSA_FINANCE_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Finance Specialist Agent"},
@@ -89,29 +118,24 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[
         PinnedSkillRef(
-            skill_id="marketing.positioning",
-            version="1.1.0",
-            definition_hash="05f65f8c04f42a1a5dea76f3e467ee22f9f38ab803557e1df4b91981d2a55e25",
-        ),
-        PinnedSkillRef(
-            skill_id="marketing.copywriting",
-            version="1.1.0",
-            definition_hash="cec633990817dd05491b19266ec1c205e33ea8a7a7cfd5a2ead8d5a9e28af3b4",
-        ),
-        PinnedSkillRef(
-            skill_id="marketing.market-research",
-            version="1.1.0",
-            definition_hash="fb17a38702638b4fcff15c6e5bdf1f64a080236844811372fb8d5e63cd8a2295",
+            skill_id="strategy.positioning",
+            version="1.0.0",
+            definition_hash="d8b80ecbc374710e705dd4b325bafc5c399e441b944042da888611e6894d916e",
         ),
         PinnedSkillRef(
             skill_id="research.deep-research",
             version="1.0.0",
-            definition_hash="4bb8d06eb82dd9bc771a9402f92ca1abaaf89a9905bb8a47a2675d9852216f77",
+            definition_hash="e84d6dbfbf4d6d1f868fcdfb9287e1a6b11187a4db0f3fba32076f1be1034619",
         ),
         PinnedSkillRef(
             skill_id="strategy.competitor-profiling",
             version="1.0.0",
-            definition_hash="3f3d352844862a297603f831dfa777b83d0e91db34af958c8636e30b648d0eb9",
+            definition_hash="c3bc6ce06f41005b679dd1092a9060b9cc1c3064190d16638f322c27eaeb084f",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.channel-strategy",
+            version="1.0.0",
+            definition_hash="d636130cf1c7dae3bdaadf1738e476421353d16c5bae3159dfa7ec62524f80a3",
         ),
     ],
     prompt_ref=COSA_MARKETING_PROMPT.to_pinned_identity(),

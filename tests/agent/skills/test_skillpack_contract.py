@@ -852,6 +852,14 @@ class TestRepositoryContract:
             "okr",
             "tasks",
             "twelve-week-year",
+            "lifecycle",
+            "evidence",
+            "governance",
+            "analytics",
+            "discovery",
+            "product",
+            "engineering",
+            "ai",
         }
 
         # Find all packs (directories with manifest.yaml and SKILL.md)
@@ -863,7 +871,7 @@ class TestRepositoryContract:
                 if manifest_path.exists() and skillmd_path.exists():
                     packs.append(item)
 
-        assert 16 <= len(packs) <= 34, f"Expected between 16 and 34 packs, found {len(packs)}"
+        assert len(packs) >= 48, f"Expected at least 48 packs, found {len(packs)}"
 
         for pack in sorted(packs):
             manifest_path = pack / "manifest.yaml"

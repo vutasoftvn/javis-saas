@@ -363,8 +363,8 @@ jobs:
           AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
       - name: Validate skillpack contracts
         run: PYTHONPATH=packages:. python scripts/validate_skillpacks.py
-      - name: Run skillpack contract tests
-        run: PYTHONPATH=packages:. python -m pytest tests/agent/skills/test_skillpack_contract.py -q
+      - name: Run skillpack contract and evaluation tests
+        run: PYTHONPATH=packages:. python -m pytest tests/agent/skills/test_skillpack_contract.py tests/agent/skills/test_lifecycle_skill_contract.py tests/agent/skills/eval/ -q
       - run: mkdir -p test-results
       - run: PYTHONPATH=packages:. pytest tests/agent packages/agent_testkit -m "not integration" --cov=packages/agent --cov-report=xml:test-results/coverage-unit.xml --cov-fail-under=80 -q --junitxml=test-results/unit.xml
         env:
