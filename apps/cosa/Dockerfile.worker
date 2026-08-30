@@ -1,4 +1,7 @@
 FROM python:3.11-slim
+
+RUN groupadd -g 1001 app && useradd -u 1001 -g app -m -s /bin/sh app
+
 WORKDIR /app
 COPY packages/agent/requirements.txt /app/packages/agent/requirements.txt
 COPY apps/cosa/requirements.txt /app/apps/cosa/requirements.txt
@@ -7,5 +10,9 @@ COPY packages/agent /app/agent
 COPY packages/agent_integrations /app/agent_integrations
 COPY packages/agent_testkit /app/agent_testkit
 COPY apps/cosa /app/apps/cosa
+RUN chown -R app:app /app
+
+USER app
 ENV PYTHONPATH=/app
 CMD ["python", "-m", "apps.cosa.worker.main"]
+

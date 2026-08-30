@@ -18,12 +18,12 @@ ENV PATH="/root/.encore/bin:$PATH"
 
 # Copy package descriptors and install npm dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci || npm install
 
 # Copy application source code
 COPY . .
-RUN cd /app/company && npm install
-RUN cd /app/cosa && npm install
+RUN cd /app/company && (npm ci || npm install)
+RUN cd /app/cosa && (npm ci || npm install)
 
 # Ports exposed:
 # 4000: Encore API Gateway (company)
@@ -33,3 +33,4 @@ EXPOSE 4000 4001 9400
 
 # Default command: run Encore with watch mode enabled and listening on all interfaces
 CMD ["encore", "run", "--listen=0.0.0.0:4000", "--browser=never"]
+

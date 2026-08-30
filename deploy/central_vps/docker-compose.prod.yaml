@@ -100,12 +100,17 @@ services:
     logging: *default-logging
 
   # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
   services-company:
     build:
       context: ../..
       dockerfile: services/Dockerfile
     container_name: cosa_prod_services_company
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp:size=128m
     command: ["encore", "run", "--listen=0.0.0.0:4000", "--browser=never"]
     working_dir: /app/company
     environment:
@@ -141,6 +146,10 @@ services:
       dockerfile: services/Dockerfile
     container_name: cosa_prod_services_cosa
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp:size=128m
     command: ["encore", "run", "--listen=0.0.0.0:4001", "--browser=never"]
     working_dir: /app/cosa
     environment:
@@ -169,6 +178,10 @@ services:
       dockerfile: apps/cosa/Dockerfile.api
     container_name: cosa_prod_api
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp:size=128m
     environment:
       AGENT_DATABASE_URL: ${AGENT_DATABASE_URL:?AGENT_DATABASE_URL required}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
@@ -211,6 +224,10 @@ services:
       dockerfile: apps/cosa/Dockerfile.worker
     container_name: cosa_prod_worker
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp:size=128m
     environment:
       AGENT_DATABASE_URL: ${AGENT_DATABASE_URL:?AGENT_DATABASE_URL required}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}

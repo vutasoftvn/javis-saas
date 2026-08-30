@@ -9,26 +9,35 @@ from apps.cosa.capabilities._advisory_envelope import wrap_advisory
 from apps.cosa.capabilities.client import CompanyServiceClient
 
 __all__ = [
-    "STRATEGY_PROJECT_GET_SPEC",
-    "STRATEGY_EVIDENCE_LIST_SPEC",
     "STRATEGY_EVIDENCE_CREATE_SPEC",
+    "STRATEGY_EVIDENCE_LIST_SPEC",
     "STRATEGY_GATE_EVALUATION_CREATE_SPEC",
     "STRATEGY_NEXT_BEST_ACTION_GET_SPEC",
-    "create_strategy_project_get_handler",
-    "create_strategy_evidence_list_handler",
+    "STRATEGY_PROJECT_GET_SPEC",
     "create_strategy_evidence_create_handler",
+    "create_strategy_evidence_list_handler",
     "create_strategy_gate_evaluation_create_handler",
     "create_strategy_next_best_action_get_handler",
+    "create_strategy_project_get_handler",
 ]
 
 
 def _extract_workspace_id(payload: dict[str, Any], context: Any = None) -> str:
-    ws_id = payload.get("workspace_id")
-    if not ws_id and context is not None:
+    ctx_ws_id = None
+    if context is not None:
         if isinstance(context, dict):
-            ws_id = context.get("workspace_id")
+            ctx_ws_id = context.get("workspace_id")
         else:
-            ws_id = getattr(context, "workspace_id", None)
+            ctx_ws_id = getattr(context, "workspace_id", None)
+
+    payload_ws_id = payload.get("workspace_id")
+
+    if ctx_ws_id and payload_ws_id and str(ctx_ws_id) != str(payload_ws_id):
+        raise ValueError(
+            f"Cross-tenant workspace_id mismatch: context='{ctx_ws_id}', payload='{payload_ws_id}'"
+        )
+
+    ws_id = ctx_ws_id or payload_ws_id
     if not ws_id:
         raise ValueError("workspace_id is required")
     return str(ws_id)
@@ -183,9 +192,9 @@ def create_strategy_evidence_list_handler(client: CompanyServiceClient):
         headers = {"X-Workspace-Id": ws_id}
         params: dict[str, Any] = {"projectId": str(payload["project_id"])}
 
-        if "experiment_id" in payload and payload["experiment_id"]:
+        if payload.get("experiment_id"):
             params["experimentId"] = str(payload["experiment_id"])
-        if "status" in payload and payload["status"]:
+        if payload.get("status"):
             params["status"] = str(payload["status"])
 
         res = await client.get("/operations/strategy/evidence", params=params, headers=headers)
@@ -216,7 +225,7 @@ def create_strategy_evidence_create_handler(client: CompanyServiceClient):
             "claim": payload["claim"],
             "status": "candidate",  # Agents can only propose candidate evidence
         }
-        if "experiment_id" in payload and payload["experiment_id"]:
+        if payload.get("experiment_id"):
             post_body["experimentId"] = str(payload["experiment_id"])
         if "sample_size" in payload and payload["sample_size"] is not None:
             post_body["sampleSize"] = payload["sample_size"]
@@ -224,7 +233,7 @@ def create_strategy_evidence_create_handler(client: CompanyServiceClient):
             post_body["rawStrength"] = payload["raw_strength"]
         if "raw_confidence" in payload and payload["raw_confidence"] is not None:
             post_body["rawConfidence"] = payload["raw_confidence"]
-        if "supports_or_refutes" in payload and payload["supports_or_refutes"]:
+        if payload.get("supports_or_refutes"):
             post_body["supportsOrRefutes"] = payload["supports_or_refutes"]
 
         res = await client.post("/operations/strategy/evidence", json=post_body, headers=headers)
@@ -235,7 +244,9 @@ def create_strategy_evidence_create_handler(client: CompanyServiceClient):
             content=f"Đã tạo candidate evidence cho project {payload['project_id']}: '{payload['claim']}'. Đang chờ founder phê duyệt.",
             sources=[f"evidence:{res.get('id', '')}"],
             confidence=0.95,
-            next_actions=["Founder xem xét và phê duyệt candidate evidence trước khi đánh giá gate"],
+            next_actions=[
+                "Founder xem xét và phê duyệt candidate evidence trước khi đánh giá gate"
+            ],
         )
 
         return {"evidence": res, "advisory": advisory}

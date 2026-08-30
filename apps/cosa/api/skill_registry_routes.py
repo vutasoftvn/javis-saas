@@ -6,11 +6,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import yaml
 from agent.registry.publisher import publish_skill_spec
 from agent.registry.repository import SpecVersionHashConflictError
 from agent.skills.candidate_store import (
     InMemorySkillCandidateStore,
+    PostgresSkillCandidateStore,
     SkillCandidateStore,
     SkillFeedbackRecord,
 )
@@ -22,7 +22,6 @@ from agent.skills.contracts import (
     SkillStatus,
 )
 from agent.skills.skillpack_contract import (
-    _extract_source_attribution_record,
     get_registered_capability_ids,
     validate_skillpack_tree,
 )
@@ -54,7 +53,13 @@ def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
     """Dependency injection helper cho SkillCandidateStore."""
     store = getattr(request.app.state, "skill_candidate_store", None)
     if store is None:
-        store = InMemorySkillCandidateStore()
+        session_factory = getattr(request.app.state, "session_factory", None) or getattr(
+            request.app.state, "db_session_factory", None
+        )
+        if session_factory is not None:
+            store = PostgresSkillCandidateStore(session_factory)
+        else:
+            store = InMemorySkillCandidateStore()
         request.app.state.skill_candidate_store = store
     return store
 
@@ -109,7 +114,9 @@ async def list_skills(
         spec_status = r.status.upper() if r.status else "PUBLISHED"
         refs = content.get("references") or {}
         raw_app = content.get("applicability") or {}
-        spec_domain = refs.get("category") or raw_app.get("domain") or content.get("domain") or "general"
+        spec_domain = (
+            refs.get("category") or raw_app.get("domain") or content.get("domain") or "general"
+        )
 
         if domain and spec_domain.lower() != domain.lower():
             continue
@@ -128,9 +135,11 @@ async def list_skills(
         adapted_sha = str(raw_sha) if raw_sha is not None else None
 
         stages = raw_app.get("project_stages", [])
-        project_stages = [
-            s.value if hasattr(s, "value") else str(s) for s in stages
-        ] if isinstance(stages, list) else []
+        project_stages = (
+            [s.value if hasattr(s, "value") else str(s) for s in stages]
+            if isinstance(stages, list)
+            else []
+        )
 
         raw_autonomy = content.get("autonomy") or {}
         raw_evidence = content.get("evidence_requirement") or {}
@@ -165,10 +174,7 @@ async def list_skills(
     candidates = await candidate_store.list_candidates(ws_id, status=status)
     for c in candidates:
         cand_skill = c.proposed_skill
-        cand_domain = str(
-            cand_skill.references.get("category")
-            or "general"
-        )
+        cand_domain = str(cand_skill.references.get("category") or "general")
 
         if domain and cand_domain.lower() != domain.lower():
             continue
@@ -227,6 +233,13 @@ async def sync_built_in_skills(
     Chạy validate_skillpack_tree trước; nếu 0 violation, publish từng skillpack
     vào SpecRegistryRepository (idempotent theo hash). KHÔNG đụng cap_registry.
     """
+    if identity:
+        role = (identity.role_id or "").lower()
+        if role and role not in {"founder", "co-founder", "admin"}:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Sync built-in skills requires founder or admin privilege (current role: {identity.role_id})",
+            )
     repo_root = _find_repo_root()
     skillpacks_root = repo_root / "skillpacks"
 
@@ -271,8 +284,7 @@ async def sync_built_in_skills(
 
         category = spec.references.get("category", "general")
         project_stages = [
-            s.value if hasattr(s, "value") else str(s)
-            for s in spec.applicability.project_stages
+            s.value if hasattr(s, "value") else str(s) for s in spec.applicability.project_stages
         ]
 
         try:
@@ -315,7 +327,12 @@ async def create_candidate(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Tạo mới một SkillCandidate trong workspace."""
-    ws_id = req.workspace_id or (identity.workspace_id if identity else None)
+    if identity and req.workspace_id and str(identity.workspace_id) != str(req.workspace_id):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cross-tenant workspace_id mismatch: identity='{identity.workspace_id}', request='{req.workspace_id}'",
+        )
+    ws_id = (identity.workspace_id if identity else None) or req.workspace_id
     if not ws_id:
         raise HTTPException(
             status_code=400,
@@ -411,7 +428,18 @@ async def promote_skill(
 
     BẮT BUỘC có approved_by và approval_reason (human approval gate).
     """
-    if not req.approved_by or not req.approval_reason:
+    if identity:
+        role = (identity.role_id or "").lower()
+        if role and role not in {"founder", "co-founder", "admin"}:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Promotion requires founder or admin privilege (current role: {identity.role_id})",
+            )
+        approved_by = identity.platform_user_id or identity.principal_id or req.approved_by
+    else:
+        approved_by = req.approved_by
+
+    if not approved_by or not req.approval_reason:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="approved_by và approval_reason là bắt buộc để promote skill lên sản xuất",
@@ -435,7 +463,7 @@ async def promote_skill(
 
         spec = cand.proposed_skill.model_copy(deep=True)
         spec.status = SkillStatus.PUBLISHED
-        spec.publisher = req.approved_by
+        spec.publisher = approved_by
         if req.version:
             spec.version = req.version
 
@@ -443,7 +471,7 @@ async def promote_skill(
             record = await publish_skill_spec(
                 spec,
                 repository=plane.spec_registry,
-                publisher=req.approved_by,
+                publisher=approved_by,
             )
             await candidate_store.update_candidate_status(
                 ws_id,

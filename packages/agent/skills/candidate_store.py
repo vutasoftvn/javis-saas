@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -145,10 +145,9 @@ class PostgresSkillCandidateStore:
     async def save_candidate(self, workspace_id: str, candidate: SkillCandidate) -> SkillCandidate:
         from sqlalchemy import text
 
-        async with self._session_factory() as session:
-            async with session.begin():
-                query = text(
-                    """
+        async with self._session_factory() as session, session.begin():
+            query = text(
+                """
                     INSERT INTO agent_skill_candidates (
                         candidate_id, workspace_id, parent_run_id, skill_id,
                         proposed_skill, evidence_refs, eval_score, status, updated_at
@@ -164,24 +163,22 @@ class PostgresSkillCandidateStore:
                         status = EXCLUDED.status,
                         updated_at = now()
                     """
-                )
-                import json
+            )
+            import json
 
-                await session.execute(
-                    query,
-                    {
-                        "candidate_id": candidate.candidate_id,
-                        "workspace_id": str(workspace_id),
-                        "parent_run_id": candidate.parent_run_id,
-                        "skill_id": candidate.proposed_skill.id,
-                        "proposed_skill": json.dumps(
-                            candidate.proposed_skill.model_dump(mode="json")
-                        ),
-                        "evidence_refs": json.dumps(candidate.evidence_refs),
-                        "eval_score": candidate.eval_score,
-                        "status": candidate.status.value,
-                    },
-                )
+            await session.execute(
+                query,
+                {
+                    "candidate_id": candidate.candidate_id,
+                    "workspace_id": str(workspace_id),
+                    "parent_run_id": candidate.parent_run_id,
+                    "skill_id": candidate.proposed_skill.id,
+                    "proposed_skill": json.dumps(candidate.proposed_skill.model_dump(mode="json")),
+                    "evidence_refs": json.dumps(candidate.evidence_refs),
+                    "eval_score": candidate.eval_score,
+                    "status": candidate.status.value,
+                },
+            )
         return candidate.model_copy(deep=True)
 
     async def get_candidate(self, workspace_id: str, candidate_id: str) -> SkillCandidate | None:
@@ -265,70 +262,68 @@ class PostgresSkillCandidateStore:
     ) -> SkillCandidate | None:
         from sqlalchemy import text
 
-        async with self._session_factory() as session:
-            async with session.begin():
-                if eval_score is not None:
-                    query = text(
-                        """
-                        UPDATE agent_skill_candidates
-                        SET status = :status, eval_score = :eval_score, updated_at = now()
-                        WHERE workspace_id = :workspace_id AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
-                        """
-                    )
-                    await session.execute(
-                        query,
-                        {
-                            "workspace_id": str(workspace_id),
-                            "candidate_id": candidate_id,
-                            "status": status.value,
-                            "eval_score": eval_score,
-                        },
-                    )
-                else:
-                    query = text(
-                        """
-                        UPDATE agent_skill_candidates
-                        SET status = :status, updated_at = now()
-                        WHERE workspace_id = :workspace_id AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
-                        """
-                    )
-                    await session.execute(
-                        query,
-                        {
-                            "workspace_id": str(workspace_id),
-                            "candidate_id": candidate_id,
-                            "status": status.value,
-                        },
-                    )
-        return await self.get_candidate(workspace_id, candidate_id)
-
-    async def save_feedback(self, feedback: SkillFeedbackRecord) -> SkillFeedbackRecord:
-        from sqlalchemy import text
-
-        async with self._session_factory() as session:
-            async with session.begin():
+        async with self._session_factory() as session, session.begin():
+            if eval_score is not None:
                 query = text(
                     """
-                    INSERT INTO agent_skill_feedback (
-                        feedback_id, workspace_id, skill_id, version, success, rating, notes, created_at
-                    ) VALUES (
-                        :feedback_id, :workspace_id, :skill_id, :version, :success, :rating, :notes, :created_at
-                    )
+                    UPDATE agent_skill_candidates
+                    SET status = :status, eval_score = :eval_score, updated_at = now()
+                    WHERE workspace_id = :workspace_id AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
                     """
                 )
                 await session.execute(
                     query,
                     {
-                        "feedback_id": feedback.feedback_id,
-                        "workspace_id": feedback.workspace_id,
-                        "skill_id": feedback.skill_id,
-                        "version": feedback.version,
-                        "success": feedback.success,
-                        "rating": feedback.rating,
-                        "notes": feedback.notes,
-                        "created_at": feedback.created_at,
+                        "workspace_id": str(workspace_id),
+                        "candidate_id": candidate_id,
+                        "status": status.value,
+                        "eval_score": eval_score,
                     },
                 )
+            else:
+                query = text(
+                    """
+                    UPDATE agent_skill_candidates
+                    SET status = :status, updated_at = now()
+                    WHERE workspace_id = :workspace_id AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
+                    """
+                )
+                await session.execute(
+                    query,
+                    {
+                        "workspace_id": str(workspace_id),
+                        "candidate_id": candidate_id,
+                        "status": status.value,
+                    },
+                )
+        return await self.get_candidate(workspace_id, candidate_id)
+
+    async def save_feedback(self, feedback: SkillFeedbackRecord) -> SkillFeedbackRecord:
+        from sqlalchemy import text
+
+        async with self._session_factory() as session, session.begin():
+            query = text(
+                """
+                INSERT INTO agent_skill_feedback (
+                    feedback_id, workspace_id, skill_id, version, success, rating, notes, created_at
+                ) VALUES (
+                    :feedback_id, :workspace_id, :skill_id, :version, :success, :rating, :notes, :created_at
+                )
+                """
+            )
+            await session.execute(
+                query,
+                {
+                    "feedback_id": feedback.feedback_id,
+                    "workspace_id": feedback.workspace_id,
+                    "skill_id": feedback.skill_id,
+                    "version": feedback.version,
+                    "success": feedback.success,
+                    "rating": feedback.rating,
+                    "notes": feedback.notes,
+                    "created_at": feedback.created_at,
+                },
+            )
         return feedback.model_copy(deep=True)
 
     async def list_feedback(self, workspace_id: str, skill_id: str) -> list[SkillFeedbackRecord]:
@@ -373,4 +368,3 @@ class PostgresSkillCandidateStore:
             elif fb.success is not None:
                 scores.append(1.0 if fb.success else 0.0)
         return round(sum(scores) / len(scores), 3) if scores else None
-
