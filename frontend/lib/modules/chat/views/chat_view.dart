@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/ai_advisory_disclosure.dart';
 import '../controllers/chat_controller.dart';
 import '../models/chat_models.dart';
+import '../models/data_access_declaration.dart';
 
 class ChatView extends GetView<ChatController> {
 
@@ -362,23 +363,37 @@ class ChatView extends GetView<ChatController> {
     return Obx(() {
       final msgs = controller.messages;
       if (msgs.isEmpty) {
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.chat_outlined, size: 48, color: AppTheme.textDimDark.withValues(alpha: 0.5)),
-              const SizedBox(height: 12),
-              const Text(
-                'How can I help you today?',
-                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 15, fontWeight: FontWeight.w500),
+        // Bọc trong LayoutBuilder + SingleChildScrollView để tránh RenderFlex
+        // overflow khi composer bên dưới cao hơn (đã thêm data access
+        // selector ở Task 6) làm co hẹp vùng hiển thị message trên màn hình
+        // thấp/test viewport — vẫn giữ hành vi căn giữa khi đủ chỗ.
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.chat_outlined, size: 48, color: AppTheme.textDimDark.withValues(alpha: 0.5)),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'How can I help you today?',
+                        style: TextStyle(color: AppTheme.textMutedDark, fontSize: 15, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Ask questions, request analysis, or execute approved workflows.',
+                        style: TextStyle(color: AppTheme.textDimDark, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Ask questions, request analysis, or execute approved workflows.',
-                style: TextStyle(color: AppTheme.textDimDark, fontSize: 12),
-              ),
-            ],
-          ),
+            );
+          },
         );
       }
 
@@ -680,34 +695,109 @@ class ChatView extends GetView<ChatController> {
         border: Border(top: BorderSide(color: AppTheme.borderDark)),
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: TextField(
-                controller: controller.textController,
-                style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
-                minLines: 1,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  hintText: 'Type your message or ask anything...',
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            _buildDataAccessSelector(),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller.textController,
+                    style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      hintText: 'Type your message or ask anything...',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    onSubmitted: (_) => controller.sendMessage(),
+                  ),
                 ),
-                onSubmitted: (_) => controller.sendMessage(),
-              ),
+                const SizedBox(width: 8),
+                Obx(() {
+                  final canSend = controller.canSendMessage;
+                  return IconButton.filled(
+                    onPressed: canSend ? () => controller.sendMessage() : null,
+                    icon: const Icon(Icons.send, size: 18),
+                    style: IconButton.styleFrom(
+                      backgroundColor: canSend ? AppTheme.primary : AppTheme.borderDark,
+                      foregroundColor: const Color(0xFF04070E),
+                    ),
+                  );
+                }),
+              ],
             ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              onPressed: () => controller.sendMessage(),
-              icon: const Icon(Icons.send, size: 18),
-              style: IconButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: const Color(0xFF04070E),
-              ),
-            ),
+            Obx(() {
+              final reason = controller.sendBlockedReason.value;
+              if (reason.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  reason,
+                  style: const TextStyle(color: AppTheme.warning, fontSize: 12),
+                ),
+              );
+            }),
           ],
         ),
       ),
     );
+  }
+
+  /// Category chips (chọn 1 hoặc nhiều) + ô nhập subject reference — chỉ
+  /// hiện khi đã chọn PERSONAL/SENSITIVE_PERSONAL. Bắt buộc khai báo
+  /// classification trước khi Send được bật (khớp field `data_access` bắt
+  /// buộc của API — Task 5).
+  Widget _buildDataAccessSelector() {
+    return Obx(() {
+      final declaration = controller.dataAccess.value;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Data access classification',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: DataAccessCategory.values.map((category) {
+              final selected = declaration.categories.contains(category);
+              return FilterChip(
+                label: Text(category.label, style: const TextStyle(fontSize: 12)),
+                selected: selected,
+                onSelected: (_) => controller.toggleDataAccessCategory(category),
+                selectedColor: AppTheme.primary.withValues(alpha: 0.25),
+                backgroundColor: AppTheme.surfaceDark,
+                labelStyle: TextStyle(color: selected ? AppTheme.primary : AppTheme.textMutedDark),
+              );
+            }).toList(),
+          ),
+          if (declaration.requiresSubjectReference) ...[
+            const SizedBox(height: 8),
+            TextField(
+              style: const TextStyle(color: AppTheme.textDark, fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: 'Subject reference (who this personal data is about)',
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              onChanged: controller.setDataAccessSubjectReference,
+            ),
+            if (!declaration.hasSubjectReference) ...[
+              const SizedBox(height: 4),
+              const Text(
+                'Add a subject reference before sending personal data.',
+                style: TextStyle(color: AppTheme.warning, fontSize: 11),
+              ),
+            ],
+          ],
+        ],
+      );
+    });
   }
 
   String _formatProfileName(String key) {

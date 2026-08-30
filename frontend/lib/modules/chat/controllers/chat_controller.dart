@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../models/chat_models.dart';
+import '../models/data_access_declaration.dart';
 import '../services/agent_chat_service.dart';
 
 class ChatController extends GetxController {
@@ -25,6 +26,32 @@ class ChatController extends GetxController {
 
   final toolActivities = <ChatToolActivity>[].obs;
   final pendingApprovals = <ChatApproval>[].obs;
+
+  /// Khai báo phân loại dữ liệu (data access) người dùng chọn cho tin nhắn
+  /// SẮP gửi — bắt buộc khớp field `data_access` của API (Task 5). Reset về
+  /// rỗng sau mỗi lần gửi thành công để tránh rò rỉ classification cũ sang
+  /// tin nhắn mới.
+  final dataAccess = const DataAccessDeclaration().obs;
+
+  /// Send chỉ được bật khi đã chọn category hợp lệ (và có subject_reference
+  /// nếu category yêu cầu) — validate phía client trước khi gọi API để UX
+  /// tốt hơn 422 từ server.
+  bool get canSendMessage => dataAccess.value.isValid;
+
+  void toggleDataAccessCategory(DataAccessCategory category) {
+    final current = Set<DataAccessCategory>.from(dataAccess.value.categories);
+    if (!current.remove(category)) {
+      current.add(category);
+    }
+    dataAccess.value = dataAccess.value.copyWith(categories: current);
+  }
+
+  void setDataAccessSubjectReference(String value) {
+    dataAccess.value = dataAccess.value.copyWith(
+      subjectReference: value,
+      clearSubjectReference: value.trim().isEmpty,
+    );
+  }
 
   final textController = TextEditingController();
   final scrollController = ScrollController();
@@ -111,11 +138,33 @@ class ChatController extends GetxController {
     }
   }
 
+  final sendBlockedReason = ''.obs;
+
   Future<void> sendMessage({List<ChatAttachment>? attachments}) async {
     final content = textController.text.trim();
     if (content.isEmpty && (attachments == null || attachments.isEmpty)) {
       return;
     }
+
+    // Chỉ direct user text được phép gửi tới model trong đợt này —
+    // attachment/retrieval/connector output vẫn ngoài phạm vi (xem Global
+    // Constraint trong design doc). Attachment-only (không có text) bị
+    // reject rõ ràng thay vì âm thầm bỏ qua attachment.
+    if (content.isEmpty && attachments != null && attachments.isNotEmpty) {
+      sendBlockedReason.value =
+          'Attachment-only submissions are not supported yet. Add a text message to send.';
+      return;
+    }
+
+    if (!canSendMessage) {
+      sendBlockedReason.value = dataAccess.value.categories.isEmpty
+          ? 'Select a data access category before sending.'
+          : 'Add a subject reference before sending personal data.';
+      return;
+    }
+    sendBlockedReason.value = '';
+
+    final dataAccessForRequest = dataAccess.value;
 
     if (activeConversation.value == null) {
       await createNewConversation();
@@ -158,12 +207,16 @@ class ChatController extends GetxController {
     final response = await _service.sendMessage(
       conv.id,
       content: content,
+      dataAccess: dataAccessForRequest,
       attachments: attachments?.map((a) => a.toJson()).toList(),
     );
 
     if (response != null && response['run_id'] != null) {
       final runId = response['run_id'].toString();
       currentRunId.value = runId;
+      // Reset classification sau khi gửi thành công — tránh rò rỉ
+      // classification cũ (vd. SENSITIVE_PERSONAL) sang tin nhắn tiếp theo.
+      dataAccess.value = const DataAccessDeclaration();
       _subscribeToSSE(runId, assistantMessage);
     } else {
       assistantMessage.content = 'Failed to initiate agent run. Please try again.';

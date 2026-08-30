@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/network/api_client.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../models/chat_models.dart';
+import '../models/data_access_declaration.dart';
 
 class AgentChatApiException implements Exception {
   final String message;
@@ -151,6 +152,7 @@ class AgentChatService {
   Future<Map<String, dynamic>?> sendMessage(
     String conversationId, {
     required String content,
+    required DataAccessDeclaration dataAccess,
     List<Map<String, dynamic>>? attachments,
   }) async {
     try {
@@ -163,6 +165,7 @@ class AgentChatService {
           'content': content,
           'role': 'user',
           'attachments': ?attachments,
+          'data_access': dataAccess.toJson(),
         }),
       );
       if (res.statusCode == 202 || res.statusCode == 200) {
