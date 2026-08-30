@@ -1,17 +1,12 @@
 import { api, APIError, Header } from "encore.dev/api";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
-import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
-import { GATE_EVALUATED } from "../../../shared/events";
 import { evaluateGate, BlockingRiskItem } from "../services/gate-evaluation.service";
-import { assessProjectStage } from "../services/stage-assessment.service";
-import { buildProjectPhaseChangedEvent } from "../events/venture-stage-events";
-import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 
-const { gateEvaluations, stagePolicies, evidence, projects } = schema;
+const { gateEvaluations, stagePolicies, evidence } = schema;
 
 export interface GateEvaluation {
   id: string;
@@ -34,7 +29,6 @@ export interface RunGateEvaluationParams {
   projectId: string | number;
   stagePolicyId: string | number;
   blockingRisks?: BlockingRiskItem[];
-  humanOverride?: boolean;
 }
 
 export interface ListGateEvaluationsParams {
@@ -87,7 +81,7 @@ export const runGateEvaluation = api(
       .from(evidence)
       .where(and(eq(evidence.projectId, BigInt(params.projectId)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)));
 
-    // 3. Evaluate deterministically without LLM
+    // 3. Evaluate deterministically without LLM - recommendation only
     const evaluation = evaluateGate({
       policy: {
         id: policyRow.id.toString(),
@@ -104,103 +98,29 @@ export const runGateEvaluation = api(
         supportsOrRefutes: e.supportsOrRefutes,
       })),
       blockingRisks: params.blockingRisks,
-      humanOverride: params.humanOverride,
+      humanOverride: false,
     });
 
-    // 4. Save evaluation record and update project phase if passed
-    const row = await db.transaction(async (tx) => {
-      const [saved] = await tx
-        .insert(gateEvaluations)
-        .values({
-          id: generateSnowflake(),
-          workspaceId: wsId,
-          projectId: BigInt(params.projectId),
-          stagePolicyId: BigInt(params.stagePolicyId),
-          requirementsMet: evaluation.requirementsMet,
-          evidenceScore: evaluation.evidenceScore,
-          blockingRisks: evaluation.blockingRisks as any[],
-          result: evaluation.result,
-          rationale: evaluation.rationale,
-          humanOverride: evaluation.humanOverride,
-        })
-        .returning();
+    // 4. Save evaluation record (recommendation-only: never alters project stage or writes outbox)
+    const [saved] = await db
+      .insert(gateEvaluations)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: wsId,
+        projectId: BigInt(params.projectId),
+        stagePolicyId: BigInt(params.stagePolicyId),
+        requirementsMet: evaluation.requirementsMet,
+        evidenceScore: evaluation.evidenceScore,
+        blockingRisks: evaluation.blockingRisks as any[],
+        result: evaluation.result,
+        rationale: evaluation.rationale,
+        humanOverride: false,
+      })
+      .returning();
 
-      if (!saved) throw APIError.internal("failed to save gate evaluation");
+    if (!saved) throw APIError.internal("failed to save gate evaluation");
 
-      if (evaluation.result === "passed") {
-        const [projectRow] = await tx
-          .select()
-          .from(projects)
-          .where(and(eq(projects.id, BigInt(params.projectId)), eq(projects.workspaceId, wsId)))
-          .limit(1);
-
-        if (projectRow) {
-          const passedGateRows = await tx
-            .select({
-              stagePolicyId: gateEvaluations.stagePolicyId,
-              result: gateEvaluations.result,
-            })
-            .from(gateEvaluations)
-            .where(
-              and(
-                eq(gateEvaluations.projectId, BigInt(params.projectId)),
-                eq(gateEvaluations.result, "passed"),
-                isNull(gateEvaluations.deletedAt)
-              )
-            );
-
-          const policyIds = [...new Set(passedGateRows.map((g) => g.stagePolicyId).filter((id): id is bigint => id !== null))];
-          const policyMap = new Map<string, string>();
-          if (policyIds.length > 0) {
-            const pRows = await tx
-              .select({ id: stagePolicies.id, stageKey: stagePolicies.stageKey })
-              .from(stagePolicies)
-              .where(inArray(stagePolicies.id, policyIds));
-            pRows.forEach((p) => policyMap.set(p.id.toString(), p.stageKey));
-          }
-
-          const passedGateSummaries = passedGateRows.map((g) => ({
-            stageKey: (g.stagePolicyId ? policyMap.get(g.stagePolicyId.toString()) : undefined) || policyRow.stageKey,
-            result: g.result,
-          }));
-
-          const assessment = assessProjectStage({
-            currentStage: projectRow.lifecycleStage || "P0_DISCOVERY",
-            evidenceList: evidenceRows.map((e) => ({
-              id: e.id,
-              sourceType: e.sourceType,
-              strength: e.strength,
-              confidence: e.confidence,
-              supportsOrRefutes: e.supportsOrRefutes,
-            })),
-            passedGates: passedGateSummaries,
-          });
-
-          if (assessment.recommendedStage && assessment.recommendedStage !== projectRow.lifecycleStage) {
-            await tx
-              .update(projects)
-              .set({
-                lifecycleStage: assessment.recommendedStage,
-                updatedAt: new Date(),
-              })
-              .where(eq(projects.id, projectRow.id));
-
-            const event = buildProjectPhaseChangedEvent({
-              projectId: projectRow.id.toString(),
-              workspaceId: wsId.toString(),
-              fromPhase: projectRow.lifecycleStage || "P0_DISCOVERY",
-              toPhase: assessment.recommendedStage,
-              actorMemberId: ctx.userId ?? null,
-            });
-            await appendOutboxEvent(tx, event);
-          }
-        }
-      }
-
-      return saved;
-    });
-
-    return toGateEvaluation(row);
+    return toGateEvaluation(saved);
   }
 );
 
@@ -247,14 +167,14 @@ export const listGateEvaluations = api(
 export const updateGateEvaluation = api(
   { method: "PATCH", path: "/operations/strategy/gate-evaluations/:id", expose: true },
   async ({ authorization, workspaceId, id, humanOverride, rationale }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string; humanOverride?: boolean; rationale?: string }): Promise<GateEvaluation> => {
+    if (humanOverride !== undefined) {
+      throw APIError.invalidArgument("Gate evaluation cannot be overridden directly; use stage transition endpoint with approval");
+    }
+
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     const wsId = BigInt(ctx.workspaceId);
 
     const updateValues: Record<string, any> = { updatedAt: new Date() };
-    if (humanOverride !== undefined) {
-      updateValues.humanOverride = humanOverride;
-      if (humanOverride) updateValues.result = "passed";
-    }
     if (rationale !== undefined) updateValues.rationale = rationale;
 
     const [row] = await db
@@ -284,3 +204,4 @@ export const deleteGateEvaluation = api(
     return { success: true };
   }
 );
+

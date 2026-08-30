@@ -11,8 +11,8 @@ import { buildProjectPhaseChangedEvent } from "../events/venture-stage-events";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { PROJECT_STAGES } from "./stage-assessment.service";
 
-// Union tường minh (KHÔNG `(typeof PROJECT_STAGES)[number]`) — Encore API type
-// analyzer không xử lý được indexed-access type trên request/response field.
+import { isLifecyclePrivileged } from "./lifecycle-authorization.service";
+
 export type ProjectLifecycleStage =
   | "P0_DISCOVERY"
   | "P1_PROBLEM_VALIDATION"
@@ -21,9 +21,6 @@ export type ProjectLifecycleStage =
   | "P4_GO_TO_MARKET"
   | "P5_OPERATE_GROWTH"
   | "P6_SCALE_GOVERN";
-
-// M1 §7 — chỉ role này mới được đi tiếp khi thiếu policy / override.
-const PRIVILEGED_ROLES = new Set(["founder", "co-founder", "admin"]);
 
 export interface ProjectTransitionParams {
   workspaceId: bigint;
@@ -51,6 +48,12 @@ export interface ProjectTransitionResult {
 export async function transitionProjectStage(
   p: ProjectTransitionParams
 ): Promise<ProjectTransitionResult> {
+  if (p.override) {
+    if (!p.overrideApprovalRef || !p.overrideApprovalRef.trim()) {
+      throw APIError.invalidArgument("overrideApprovalRef is required when override=true");
+    }
+  }
+
   const [proj] = await db
     .select({
       id: projects.id,
@@ -112,7 +115,7 @@ export async function transitionProjectStage(
     .orderBy(desc(projectStageTransitionPolicies.projectId))
     .limit(1);
 
-  const privileged = !!p.actorRole && PRIVILEGED_ROLES.has(p.actorRole);
+  const privileged = isLifecyclePrivileged(p.actorRole);
   const isForward = toIndex === currentIndex + 1;
 
   if (isForward) {

@@ -122,6 +122,17 @@ describe("project stage lifecycle (M4 §3)", () => {
       })
     ).rejects.toMatchObject({ code: "failed_precondition" });
 
+    await expect(
+      transitionProjectStage({
+        workspaceId: wsId,
+        projectId: pid,
+        toStage: "P1_PROBLEM_VALIDATION",
+        reason: "override without ref",
+        actorRole: "founder",
+        override: true,
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+
     const ok = await transitionProjectStage({
       workspaceId: wsId,
       projectId: pid,
@@ -129,6 +140,7 @@ describe("project stage lifecycle (M4 §3)", () => {
       reason: "founder override",
       actorRole: "founder",
       override: true,
+      overrideApprovalRef: "APPROVAL-REF-001",
     });
     expect(ok.overrideApplied).toBe(true);
     const [jr] = await db
@@ -136,6 +148,7 @@ describe("project stage lifecycle (M4 §3)", () => {
       .from(projectStageTransitions)
       .where(eq(projectStageTransitions.projectId, pid));
     expect(jr.overrideFlag).toBe(true);
+    expect(jr.overrideApprovalRef).toBe("APPROVAL-REF-001");
     expect(jr.policyVersion).toBe("v1");
   });
 

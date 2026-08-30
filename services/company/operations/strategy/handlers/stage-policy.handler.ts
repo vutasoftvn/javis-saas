@@ -1,9 +1,9 @@
 import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
-import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { assertLifecyclePrivileged } from "../services/lifecycle-authorization.service";
 
 const { stagePolicies } = schema;
 
@@ -62,6 +62,7 @@ export const createStagePolicy = api(
       throw APIError.invalidArgument("stageKey is required");
     }
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    assertLifecyclePrivileged(ctx.membershipRole, "createStagePolicy");
     const wsId = BigInt(ctx.workspaceId);
 
     const [row] = await db
@@ -125,6 +126,7 @@ export const updateStagePolicy = api(
   { method: "PATCH", path: "/operations/strategy/stage-policies/:id", expose: true },
   async (params: UpdateStagePolicyParams): Promise<StagePolicy> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    assertLifecyclePrivileged(ctx.membershipRole, "updateStagePolicy");
     const wsId = BigInt(ctx.workspaceId);
 
     const updateValues: Record<string, any> = { updatedAt: new Date() };
@@ -149,6 +151,7 @@ export const deleteStagePolicy = api(
   { method: "DELETE", path: "/operations/strategy/stage-policies/:id", expose: true },
   async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    assertLifecyclePrivileged(ctx.membershipRole, "deleteStagePolicy");
     const wsId = BigInt(ctx.workspaceId);
 
     const [row] = await db

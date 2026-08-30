@@ -241,9 +241,38 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     expect(gateEval.id).toBeDefined();
     expect(gateEval.requirementsMet).toBe(true);
     expect(gateEval.result).toBe("passed");
+    expect(gateEval.humanOverride).toBe(false);
 
-    // Check project phase was updated and outbox event emitted
+    // Gate evaluation is recommendation-only: project stage has NOT changed yet
     const { getProject } = await import("../../handlers/project.handler");
+    const unchangedProject = await getProject({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      id: project.id,
+    });
+    expect(unchangedProject.lifecycleStage).toBe("P1_PROBLEM_VALIDATION");
+
+    // Patch with humanOverride should be rejected
+    const { updateGateEvaluation } = await import("../handlers/gate-evaluation.handler");
+    await expect(
+      updateGateEvaluation({
+        authorization: wsA.bearerToken,
+        workspaceId: wsA.workspaceId,
+        id: gateEval.id,
+        humanOverride: true,
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+
+    // Official transition via transition endpoint
+    const { transitionProjectStageEndpoint } = await import("../handlers/project-stage.handler");
+    await transitionProjectStageEndpoint({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      id: project.id,
+      toStage: "P2_SOLUTION_VALIDATION",
+      reason: "Gate evaluation passed",
+    });
+
     const updatedProject = await getProject({
       authorization: wsA.bearerToken,
       workspaceId: wsA.workspaceId,
