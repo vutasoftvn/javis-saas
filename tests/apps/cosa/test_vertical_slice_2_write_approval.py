@@ -85,7 +85,10 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
         # 2. Gửi Message yêu cầu ghi nhận giao dịch lớn (CFO review approval required)
         res_msg = await ac.post(
             f"/agent/conversations/{conv_id}/messages",
-            json={"content": "Record high-value transaction of $60,000 for server purchase"},
+            json={
+                "content": "Record high-value transaction of $60,000 for server purchase",
+                "data_access": {"categories": ["BUSINESS_CONFIDENTIAL"]},
+            },
         )
         assert res_msg.status_code == 202
         run_id = res_msg.json()["run_id"]
@@ -166,7 +169,10 @@ async def test_scheduled_task_payload_never_contains_raw_bearer_token(test_app_f
         conv_id = res_conv.json()["id"]
         await ac.post(
             f"/agent/conversations/{conv_id}/messages",
-            json={"content": "Execute wire payout $500 to Vendor X"},
+            json={
+                "content": "Execute wire payout $500 to Vendor X",
+                "data_access": {"categories": ["BUSINESS_CONFIDENTIAL"]},
+            },
         )
 
     tasks = await plane.scheduler.poll_due_tasks()

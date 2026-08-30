@@ -197,6 +197,18 @@ async def _execute_run_task_inner(
         payload={"role": "assistant"},
     )
 
+    run_metadata: dict[str, Any] = {"policy_snapshot": snapshot.model_dump()}
+    # Task 5 — forward context egress đã hash (source_ref/source_hash/
+    # categories/subject_reference) từ payload đã schedule (Task 5 HTTP
+    # layer) vào RunRequest.metadata["direct_message_data_access"] để
+    # ComplianceResolver.resolve_for_run (Task 4) đọc được và dựng
+    # DataAccessClaim thật. Payload này CHỈ chứa context đã hash — không có
+    # nội dung message thô (constraint bắt buộc của Task 5), nên forward
+    # nguyên trạng là an toàn cho audit/event downstream.
+    direct_message_data_access = payload.get("direct_message_data_access")
+    if direct_message_data_access is not None:
+        run_metadata["direct_message_data_access"] = direct_message_data_access
+
     req = RunRequest(
         run_id=run_id,
         principal=principal,
@@ -204,7 +216,7 @@ async def _execute_run_task_inner(
         input={"prompt": user_prompt},
         workspace_id=workspace_id,
         conversation_id=conversation_id,
-        metadata={"policy_snapshot": snapshot.model_dump()},
+        metadata=run_metadata,
     )
 
     # Task 5 — resolve compliance (mint company delegation + AI compliance

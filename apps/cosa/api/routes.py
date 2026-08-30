@@ -16,11 +16,14 @@ from agent.conversations.models import (
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
+from pydantic import ValidationError
+
 from apps.cosa.api.event_stream import (
     UX_EVENT_TYPES,
     get_cosa_event_stream_manager,
     redact_ux_event_payload,
 )
+from apps.cosa.compliance.data_egress_context import DirectMessageDataAccess
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
@@ -255,6 +258,26 @@ async def create_message(
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
+    # Task 5 — validate phân loại dữ liệu TRƯỚC bất kỳ side effect nào (lưu
+    # message / tạo run / schedule task). `MessageDataAccess` chỉ giữ input
+    # thô từ client; reuse đúng validator của `DirectMessageDataAccess`
+    # (category rỗng, hoặc PERSONAL/SENSITIVE_PERSONAL thiếu subject_reference
+    # — apps/cosa/compliance/data_egress_context.py) thay vì viết lại logic
+    # đó ở HTTP layer. `source_ref`/`source_hash` ở đây chỉ là placeholder để
+    # trigger validator — giá trị thật được tính lại bên dưới, SAU khi
+    # message đã lưu, từ nội dung đã persist.
+    try:
+        DirectMessageDataAccess(
+            categories=frozenset(req.data_access.categories),
+            subject_reference=req.data_access.subject_reference,
+            source_ref="pending",
+            source_hash="pending",
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
     run_id = f"run_{uuid.uuid4().hex[:16]}"
     stream_mgr = get_cosa_event_stream_manager()
     stream_mgr.start_run(run_id)
@@ -280,6 +303,17 @@ async def create_message(
         for a in (req.attachments or [])
     ]
     stored_user_message = await plane.conversation_repository.add_message(user_message, attachments)
+
+    # Task 5 — dựng context egress THẬT từ ID + nội dung ĐÃ LƯU (không phải
+    # `req.content` thô trước khi persist) để `source_hash` phản ánh đúng
+    # dữ liệu đã ghi vào DB — audit sau này chứng minh được claim khớp với
+    # bản ghi thật, không phải input round-trip qua HTTP layer.
+    direct_message_data_access = DirectMessageDataAccess.from_message(
+        message_id=stored_user_message.message_id,
+        content=stored_user_message.content,
+        categories=frozenset(req.data_access.categories),
+        subject_reference=req.data_access.subject_reference,
+    )
 
     agent_profile = conv.active_agent_profile or "operations"
 
@@ -312,6 +346,12 @@ async def create_message(
             "principal": identity.principal_id,
             "workspace_id": identity.workspace_id,
             "delegation_token": identity.mint_delegation(),
+            # Chỉ context đã hash (source_ref/source_hash/categories/
+            # subject_reference) — KHÔNG chứa nội dung message thô. Constraint
+            # bắt buộc: durable queue payload không được mang raw content
+            # ngoài `user_prompt` đã có sẵn (dùng cho model input, không phải
+            # cho compliance audit trail).
+            "direct_message_data_access": direct_message_data_access.model_dump(mode="json"),
         },
     )
 

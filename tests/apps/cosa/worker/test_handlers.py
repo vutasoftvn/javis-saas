@@ -80,3 +80,47 @@ async def test_execute_run_task_resolves_exact_spec_after_seeding():
     messages = await plane.conversation_repository.list_messages("conv_1")
     assert not any(m.status == "failed" for m in messages)
     assert any(m.role == "assistant" and m.status == "completed" for m in messages)
+
+
+class _SpyComplianceResolver:
+    """Ghi lại `RunRequest` thật đã được truyền vào
+    `ComplianceResolver.resolve_for_run` (Task 4) — dùng để chứng minh Task 5
+    forward đúng `direct_message_data_access` (server-generated
+    source_ref/source_hash, không phải nội dung message thô) từ payload đã
+    schedule vào `RunRequest.metadata`, mà không cần mock lại toàn bộ resolver
+    thật."""
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+        self.request = None
+
+    async def resolve_for_run(self, request, spec):
+        self.request = request
+        return await self._inner.resolve_for_run(request, spec)
+
+
+@pytest.mark.asyncio
+async def test_worker_forwards_server_provenance():
+    plane = _plane()
+    await seed_cosa_agent_specs(plane.spec_registry)
+    stream_mgr = CosaEventStreamManager()
+
+    resolver = _SpyComplianceResolver(plane.compliance_resolver)
+    plane.compliance_resolver = resolver
+
+    payload = _payload(
+        direct_message_data_access={
+            "categories": ["NON_PERSONAL"],
+            "subject_reference": None,
+            "source_ref": "conversation_message:msg_123",
+            "source_hash": "deadbeef",
+        }
+    )
+
+    await execute_run_task(plane, stream_mgr, payload)
+
+    assert resolver.request is not None
+    context = resolver.request.metadata["direct_message_data_access"]
+    assert context["source_ref"] == "conversation_message:msg_123"
+    assert context["source_hash"] != "plan next quarter"
+    assert "content" not in context

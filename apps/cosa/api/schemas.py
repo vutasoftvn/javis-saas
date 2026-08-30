@@ -24,6 +24,7 @@ __all__ = [
     "MessageAttachmentCreate",
     "MessageAttachmentResponse",
     "MessageCreate",
+    "MessageDataAccess",
     "MessageResponse",
     "ReviewKnowledgeIngestionRequest",
     "ReviewKnowledgeIngestionResponse",
@@ -71,11 +72,32 @@ class MessageAttachmentResponse(BaseModel):
     knowledge_ingest_status: str = "COMPLETED"
 
 
+class MessageDataAccess(BaseModel):
+    """Khai báo phân loại dữ liệu của caller (Flutter/HTTP client) cho 1 tin
+    nhắn trực tiếp — Task 5 (nối HTTP thật vào Task 4 Data Egress Context).
+
+    Đây CHỈ là input thô từ client; server (route `create_message`) sẽ tự
+    tính `source_ref`/`source_hash` từ nội dung ĐÃ LƯU (không tin nội dung
+    client tự khai báo băm) trước khi dựng `DirectMessageDataAccess` thật
+    (`apps/cosa/compliance/data_egress_context.py::from_message`) — validate
+    category/subject_reference dùng lại đúng validator ở model đó, không viết
+    trùng ở đây.
+    """
+
+    categories: list[str]
+    subject_reference: str | None = None
+
+
 class MessageCreate(BaseModel):
     content: str
     role: str = "user"
     parent_message_id: str | None = None
     attachments: list[MessageAttachmentCreate] | None = None
+    # Bắt buộc — không optional/default. Mọi tin nhắn trực tiếp đi vào model
+    # input đều phải khai báo phân loại dữ liệu TRƯỚC KHI lưu/schedule run
+    # (Task 5 — đóng gap DATA_ACCESS_CLAIM_MISSING cho luồng chat thật, khác
+    # tool-only run vốn không set field metadata này — xem resolver.py Task 4).
+    data_access: MessageDataAccess
 
 
 class MessageResponse(BaseModel):

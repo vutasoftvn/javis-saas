@@ -79,7 +79,10 @@ async def test_vertical_slice_1_read_path(test_app):
         # 2. Gửi Message kích hoạt Run
         res_msg = await ac.post(
             f"/agent/conversations/{conv_id}/messages",
-            json={"content": "Please list all in_progress operations tasks"},
+            json={
+                "content": "Please list all in_progress operations tasks",
+                "data_access": {"categories": ["NON_PERSONAL"]},
+            },
         )
         assert res_msg.status_code == 202
         run_data = res_msg.json()

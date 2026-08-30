@@ -122,7 +122,7 @@ async def test_e2e_2_auth_and_workspace_isolation(e2e_http_client: httpx.AsyncCl
     # 4. User B attempts to append message into User A's conversation -> 404
     post_b_res = await e2e_http_client.post(
         f"/agent/conversations/{conv_id}/messages",
-        json={"content": "Attempting cross-tenant injection"},
+        json={"content": "Attempting cross-tenant injection", "data_access": {"categories": ["NON_PERSONAL"]}},
         headers={
             "Authorization": f"Bearer {bob_token}",
             "X-Workspace-Id": WS_2,
@@ -169,7 +169,7 @@ async def test_e2e_3_dispatch_worker_result(e2e_http_client: httpx.AsyncClient, 
     # 2. Dispatch a message to trigger an agent run
     msg_res = await e2e_http_client.post(
         f"/agent/conversations/{conv_id}/messages",
-        json={"content": "Review operations pipeline"},
+        json={"content": "Review operations pipeline", "data_access": {"categories": ["NON_PERSONAL"]}},
         headers={
             "Authorization": f"Bearer {alice_token}",
             "X-Workspace-Id": WS_1,

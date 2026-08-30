@@ -69,7 +69,10 @@ async def test_tenant_b_cannot_read_tenant_a_conversation(test_app):
 
         res_msg = await ac.post(
             f"/agent/conversations/{conv_id}/messages",
-            json={"content": "trying to inject into tenant A's conversation"},
+            json={
+                "content": "trying to inject into tenant A's conversation",
+                "data_access": {"categories": ["NON_PERSONAL"]},
+            },
         )
         assert res_msg.status_code == 404
 
@@ -104,7 +107,7 @@ async def test_tenant_b_cannot_cancel_or_read_events_of_tenant_a_run(test_app):
         conv_id = res_conv.json()["id"]
         res_msg = await ac.post(
             f"/agent/conversations/{conv_id}/messages",
-            json={"content": "list tasks"},
+            json={"content": "list tasks", "data_access": {"categories": ["NON_PERSONAL"]}},
         )
         run_id = res_msg.json()["run_id"]
 
