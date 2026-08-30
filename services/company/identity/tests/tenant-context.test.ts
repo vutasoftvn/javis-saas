@@ -6,7 +6,7 @@ import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { eq } from "drizzle-orm";
 
-const { identityWorkspaceMemberships } = schema;
+const { identityWorkspaceMemberships, identityWorkforceMembers } = schema;
 
 describe("resolveTenantContext", () => {
   it("generates a new unique correlationId if none is provided", async () => {
@@ -214,5 +214,48 @@ describe("resolveTenantContext", () => {
         workspaceId: nonMemberWorkspaceId,
       })
     ).rejects.toThrow();
+  });
+
+  it("scopes workforceMemberId to the requested workspace when the same human user has workforce records in two workspaces", async () => {
+    const user = await createTestSession({
+      email: `wf-scope-${Date.now()}@example.com`,
+      displayName: "Workforce Scope Test",
+    });
+
+    const workspaceA = BigInt(user.workspaceId);
+    const workspaceB = await createWorkspaceRecord({ name: "Second Workspace for Workforce Scope Test" });
+    await db.insert(identityWorkspaceMemberships).values({
+      id: generateSnowflake(),
+      workspaceId: BigInt(workspaceB.id),
+      userId: BigInt(user.userId),
+      role: "member",
+    });
+
+    const workforceA = generateSnowflake();
+    const workforceB = generateSnowflake();
+    await db.insert(identityWorkforceMembers).values([
+      {
+        id: workforceA,
+        workspaceId: workspaceA,
+        memberType: "HUMAN",
+        humanUserId: BigInt(user.userId),
+        roleTitle: "Founder",
+      },
+      {
+        id: workforceB,
+        workspaceId: BigInt(workspaceB.id),
+        memberType: "HUMAN",
+        humanUserId: BigInt(user.userId),
+        roleTitle: "Member",
+      },
+    ]);
+
+    const ctx = await resolveTenantContext({
+      authorization: `Bearer ${user.accessToken}`,
+      workspaceId: workspaceB.id,
+    });
+
+    expect(ctx.workforceMemberId).toBe(workforceB.toString());
+    expect(ctx.workforceMemberId).not.toBe(workforceA.toString());
   });
 });

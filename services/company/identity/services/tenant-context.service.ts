@@ -107,7 +107,12 @@ export async function resolveTenantContext(
   const [wfMember] = await db
     .select({ id: identityWorkforceMembers.id })
     .from(identityWorkforceMembers)
-    .where(eq(identityWorkforceMembers.humanUserId, localUserId))
+    .where(
+      and(
+        eq(identityWorkforceMembers.humanUserId, localUserId),
+        eq(identityWorkforceMembers.workspaceId, targetWorkspaceId)
+      )
+    )
     .limit(1);
 
   if (wfMember) {
