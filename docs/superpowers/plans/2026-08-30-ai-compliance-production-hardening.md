@@ -396,7 +396,7 @@ git commit -m "feat: propagate compliance delegation through agent runs"
 - Executable rule exposes ruleId, ruleVersion, sourceVersionId, sourceContentHash, effectiveFrom, effectiveTo, reviewStatus and predicate.
 - Evidence exposes evidenceId, contentHash, evidenceType, reviewerMemberId, reviewedAt, conclusion and sourceVersionIds; it never stores evidence body.
 
-- [ ] **Step 1: Create authoritative source register and failing provenance test**
+- [x] **Step 1: Create authoritative source register and failing provenance test**
 
 Record official URL, publication/effective dates, downloaded artifact location, SHA-256, reviewer, verification date and legal layer. Mark current unverified/incorrect seed records non-executable. Include corrections for Law 134/2025/QH15, Decree 142/2026/NĐ-CP, Decision 33/2026/QĐ-TTg, Circular 05/2026/TT-BKHCN and wrongly described Decision 804/QĐ-TTg.
 
@@ -408,24 +408,24 @@ it("does not emit a CURRENT_LAW control from an unverified source version", asyn
 });
 ~~~
 
-- [ ] **Step 2: Add migration 30 without editing seed 28**
+- [x] **Step 2: Add migration 30 without editing seed 28**
 
 Insert corrected metadata only after named legal reviewer provides exact source artifact and hash. Set superseded/incorrect version records inactive with a correction reason; retain audit history. Add normalized source-version relations to evidence/rules and fields needed for conclusion/pinpoint.
 
-- [ ] **Step 3: Replace static legal conclusion path**
+- [x] **Step 3: Replace static legal conclusion path**
 
 assessAiApplicability may use static code only to evaluate typed predicates from published database rules. It returns PROFESSIONAL_REVIEW_REQUIRED when no reviewed active rule applies; it never labels an unverified keyword hit CURRENT_LAW or PROHIBITED.
 
-- [ ] **Step 4: Tie runtime snapshot to legal provenance**
+- [x] **Step 4: Tie runtime snapshot to legal provenance**
 
 Resolver selects active applicable rule/source version IDs and hashes, includes them in canonical snapshot, and rejects a deployment whose mandatory active rule lacks reviewed evidence.
 
-- [ ] **Step 5: Verify date boundaries and tamper detection**
+- [x] **Step 5: Verify date boundaries and tamper detection**
 
 Run: cd services/company && pnpm vitest run finance-legal/tests/ai-legal-provenance.test.ts finance-legal/tests/ai-compliance-runtime-snapshot.test.ts
 Expected: PASS; a rule is inactive before effective date, inactive after supersession, and changing a source/evidence hash changes snapshot hash.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ~~~
 git add services/company/finance-legal/migrations/30_ai_legal_source_corrections.* services/company/finance-legal/services/ai-legal-applicability.service.ts services/company/shared/db/schema/legal.ts services/company/finance-legal/tests/ai-legal-provenance.test.ts docs/legal/ai-regulatory-source-register.md

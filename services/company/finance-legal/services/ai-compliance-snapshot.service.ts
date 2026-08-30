@@ -4,6 +4,7 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { getComplianceSnapshotInWorkspace } from "./ai-compliance-access.service";
+import { assessAiApplicability } from "./ai-legal-applicability.service";
 
 const {
   aiComplianceSnapshots,
@@ -15,6 +16,7 @@ const {
   aiSystemCatalog,
   aiSystemVersions,
   aiSystemCapabilityBindings,
+  regulationVersions,
 } = schema;
 
 export function canonicalJsonStringify(obj: any): string {
@@ -284,13 +286,57 @@ export async function resolveApprovedComplianceSnapshot(
   const evidenceIds = evidencePairs.map((e) => e.id);
   const evidenceHashes = evidencePairs.map((e) => e.contentHash);
 
-  // legalVersionIds: schema hiện tại KHÔNG có liên kết thật từ
-  // assessment/deployment tới regulationVersions (chỉ có cột jsonb rỗng trên
-  // snapshot, chưa từng được wire ở đâu — xem Task 2). Giữ rỗng, không bịa
-  // liên kết chưa tồn tại; đưa vào canonical payload dạng mảng rỗng để tương
-  // thích ngược khi liên kết thật được thêm sau này.
-  const legalVersionIds: string[] = [];
-  const legalVersionPairs: Array<{ id: string; contentHash: string }> = [];
+  // 8) Legal provenance & applicability — Task 6 Step 4:
+  // Resolver chọn các active applicable rule/source version IDs & hashes từ DB,
+  // đưa vào canonical snapshot hash, và reject nếu deployment vi phạm hoặc thiếu mandatory evidence.
+  const evalDate = new Date();
+  const applicabilityResult = await assessAiApplicability({
+    workspaceId: wsId.toString(),
+    deploymentMode: deployment.mode,
+    intendedPurpose: assessment.intendedPurpose,
+    decisionDomain: (catalog as any).decisionDomain ?? "GENERAL",
+    providerProfileStatus: providerProfile.status,
+    lastAssessmentAt: assessment.approvedAt ? assessment.approvedAt.toISOString() : assessment.createdAt.toISOString(),
+    asOfDate: evalDate,
+  });
+
+  if (applicabilityResult.blockingRule || applicabilityResult.currentLawBlocks.length > 0) {
+    fail(
+      APIError.alreadyExists(
+        `Deployment blocked by legal rule ${applicabilityResult.blockingRule?.ruleId ?? applicabilityResult.currentLawBlocks[0]}`
+      ),
+      "LEGAL_RULE_BLOCKED"
+    );
+  }
+
+  // Reject nếu mandatory active rule thiếu reviewed evidence
+  for (const rule of applicabilityResult.matchedRules) {
+    if (rule.mandatoryEvidenceType) {
+      const hasEvidence = evidenceRows.some(
+        (e) => e.evidenceType === rule.mandatoryEvidenceType && (e as any).conclusion !== "NON_COMPLIANT"
+      );
+      if (!hasEvidence) {
+        fail(
+          APIError.alreadyExists(
+            `Mandatory compliance evidence missing for rule ${rule.ruleId}: ${rule.mandatoryEvidenceType}`
+          ),
+          "MANDATORY_EVIDENCE_MISSING"
+        );
+      }
+    }
+  }
+
+  const legalVersionMap = new Map<string, string>();
+  for (const rule of applicabilityResult.matchedRules) {
+    if (rule.sourceVersionId && rule.sourceContentHash) {
+      legalVersionMap.set(rule.sourceVersionId, rule.sourceContentHash);
+    }
+  }
+
+  const legalVersionPairs = Array.from(legalVersionMap.entries())
+    .map(([id, contentHash]) => ({ id, contentHash }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const legalVersionIds = legalVersionPairs.map((p) => p.id);
 
   const providerProfileVersion = providerProfile.version;
   const dataProfileVersion = dataProfile.version;
@@ -307,13 +353,16 @@ export async function resolveApprovedComplianceSnapshot(
   });
 
   const issuedAt = new Date();
-  // expiresAt = min(assessment.expiresAt, ...các mốc hết hạn khác nếu có).
-  // Provider profile / data profile / source review KHÔNG có cột expiry
-  // trong schema hiện tại (chỉ có reviewedAt) — không tự bịa ra một hạn cố
-  // định (đây chính là lỗi "90-day fallback" brief yêu cầu xoá bỏ). Vì vậy
-  // hiện tại chỉ có 1 mốc thật để lấy min: assessment.expiresAt. Nếu sau này
-  // legalVersionIds có contentHash thật kèm effectiveTo, thêm vào đây.
-  const expiresAt = new Date(assessment.expiresAt.getTime());
+  let expiryTimestamp = assessment.expiresAt.getTime();
+  for (const rule of applicabilityResult.matchedRules) {
+    if (rule.effectiveTo) {
+      const toTime = new Date(rule.effectiveTo).getTime();
+      if (!isNaN(toTime) && toTime < expiryTimestamp) {
+        expiryTimestamp = toTime;
+      }
+    }
+  }
+  const expiresAt = new Date(expiryTimestamp);
 
   const canonicalPayload = {
     workspaceId: wsId.toString(),
@@ -517,14 +566,34 @@ export async function verifySnapshotIntegrity(
   const evidenceHashes = (snapshot.evidenceHashes as string[]) || [];
   const evidencePairs = evidenceIds.map((id, i) => ({ id, contentHash: evidenceHashes[i] }));
 
+  // Reconstruct legalVersionPairs from regulationVersions using snapshot.legalVersionIds
+  const legalVersionIds = (snapshot.legalVersionIds as string[]) || [];
+  let legalVersionPairs: Array<{ id: string; contentHash: string }> = [];
+  if (legalVersionIds.length > 0) {
+    const versionRows = await db
+      .select()
+      .from(regulationVersions)
+      .where(inArray(regulationVersions.id, legalVersionIds.map(BigInt)));
+    const versionMap = new Map(versionRows.map((v) => [String(v.id), v.contentHash || ""]));
+    legalVersionPairs = legalVersionIds
+      .map((id) => ({ id, contentHash: versionMap.get(id) || "" }))
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  }
+
+  const [assessment] = await db
+    .select()
+    .from(aiRiskAssessments)
+    .where(eq(aiRiskAssessments.id, snapshot.assessmentId));
+  const assessmentExpiresAt = assessment?.expiresAt ? assessment.expiresAt.toISOString() : snapshot.expiresAt.toISOString();
+
   const canonicalPayload = {
     workspaceId: snapshot.workspaceId.toString(),
     deploymentId: snapshot.deploymentId.toString(),
     assessmentId: snapshot.assessmentId.toString(),
-    assessmentExpiresAt: snapshot.expiresAt.toISOString(),
+    assessmentExpiresAt,
     capabilityBindingIds: (snapshot.capabilityBindingIds as string[]) || [],
     evidence: evidencePairs,
-    legalVersions: [] as Array<{ id: string; contentHash: string }>,
+    legalVersions: legalVersionPairs,
     providerProfileId: snapshot.providerProfileId ? snapshot.providerProfileId.toString() : null,
     providerProfileVersion: snapshot.providerProfileVersion,
     modelKey,

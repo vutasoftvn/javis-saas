@@ -1,35 +1,57 @@
-import { eq } from "drizzle-orm";
+import { eq, and, lte, or, isNull, gte, ne } from "drizzle-orm";
 import { db, schema } from "../models/db";
 
-const { regulationSources, regulationVersions, applicabilityRules } = schema;
+const { aiApplicabilityRules, regulationVersions, regulationSources } = schema;
 
 export interface AiApplicabilityInput {
   workspaceId: string;
   deploymentMode: string;
   intendedPurpose: string;
   decisionDomain: string;
-  capabilityEffectClass: string;
-  dataCategories: string[];
-  providerProfileStatus: string;
+  capabilityEffectClass?: string;
+  dataCategories?: string[];
+  providerProfileStatus?: string;
   lastAssessmentAt?: string;
+  asOfDate?: string | Date;
 }
 
-export interface AiApplicabilityRule {
+export interface ExecutableRule {
+  ruleId: string;
+  ruleVersion: string;
+  sourceVersionId: string;
+  sourceContentHash: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  reviewStatus: string;
+  layer: "CURRENT_LAW" | "POLICY_WATCH" | "PROFESSIONAL_REVIEW";
+  effect: "BLOCK" | "REVIEW" | "NOTICE";
+  reasonCode: string;
+  description?: string | null;
+  predicate: Record<string, any>;
+  mandatoryEvidenceType?: string | null;
+}
+
+// Backward-compatible alias
+export type AiApplicabilityRule = ExecutableRule | {
   id: string;
   layer: "CURRENT_LAW" | "POLICY_WATCH" | "PROFESSIONAL_REVIEW";
   effect: "BLOCK" | "REVIEW" | "NOTICE";
   reasonCode: string;
   description?: string;
   predicate: Record<string, any>;
-}
+};
 
 export interface AiApplicabilityResult {
   currentLawBlocks: string[];
   professionalReviewRequired: string[];
   policyWatchItems: string[];
   matchedRuleIds: string[];
+  matchedRules: ExecutableRule[];
+  blockingRule?: ExecutableRule;
   recheckRequired: boolean;
 }
+
+const PLACEHOLDER_EMPTY_HASH = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 const PROHIBITED_DOMAINS = new Set(["HR", "HEALTH", "EDUCATION", "BIOMETRIC", "CREDIT"]);
 const PROHIBITED_KEYWORDS = [
@@ -62,8 +84,8 @@ export function matchesPredicate(
     return false;
   }
   if (predicate.isProhibitedDomain) {
-    const isDomainProhibited = PROHIBITED_DOMAINS.has(input.decisionDomain.toUpperCase());
-    const purposeLower = input.intendedPurpose.toLowerCase();
+    const isDomainProhibited = PROHIBITED_DOMAINS.has((input.decisionDomain || "").toUpperCase());
+    const purposeLower = (input.intendedPurpose || "").toLowerCase();
     const hasKeyword = PROHIBITED_KEYWORDS.some((kw) => purposeLower.includes(kw.toLowerCase()));
     if (!isDomainProhibited && !hasKeyword) return false;
   }
@@ -74,7 +96,7 @@ export function matchesPredicate(
     return false;
   }
   if (predicate.purposeKeywords && Array.isArray(predicate.purposeKeywords)) {
-    const purposeLower = input.intendedPurpose.toLowerCase();
+    const purposeLower = (input.intendedPurpose || "").toLowerCase();
     const matches = predicate.purposeKeywords.some((kw: string) => purposeLower.includes(kw.toLowerCase()));
     if (!matches) return false;
   }
@@ -85,7 +107,7 @@ export function matchesPredicate(
 }
 
 export function evaluateAiRule(
-  rule: AiApplicabilityRule,
+  rule: ExecutableRule | AiApplicabilityRule,
   input: AiApplicabilityInput
 ): "BLOCK" | "REVIEW" | "NOTICE" | "NO_MATCH" {
   if (!matchesPredicate(rule.predicate, input)) return "NO_MATCH";
@@ -94,75 +116,114 @@ export function evaluateAiRule(
   return "NOTICE";
 }
 
-export const STATUTORY_AI_RULES: AiApplicabilityRule[] = [
-  {
-    id: "STATUTORY_MODE_ADVISORY",
-    layer: "CURRENT_LAW",
-    effect: "BLOCK",
-    reasonCode: "NON_ADVISORY_MODE",
-    description: "COSA chỉ cho phép chế độ ADVISORY_ONLY phục vụ doanh nghiệp tư nhân",
-    predicate: { deploymentModeNotEquals: "ADVISORY_ONLY" },
-  },
-  {
-    id: "STATUTORY_PROHIBITED_DOMAINS",
-    layer: "CURRENT_LAW",
-    effect: "BLOCK",
-    reasonCode: "PROHIBITED_DECISION_DOMAIN",
-    description: "Cấm triển khai quyết định tự động trong các miền tác động lớn: nhân sự, tín dụng, y tế, giáo dục, sinh trắc học",
-    predicate: { isProhibitedDomain: true },
-  },
-  {
-    id: "STATUTORY_PROVIDER_APPROVED",
-    layer: "CURRENT_LAW",
-    effect: "BLOCK",
-    reasonCode: "PROVIDER_NOT_APPROVED",
-    description: "Nhà cung cấp mô hình phải có hồ sơ APPROVED trước khi xử lý dữ liệu",
-    predicate: { providerProfileStatusNotEquals: "APPROVED" },
-  },
-  {
-    id: "STATUTORY_LEGAL_PROFESSIONAL_REVIEW",
-    layer: "PROFESSIONAL_REVIEW",
-    effect: "REVIEW",
-    reasonCode: "PROFESSIONAL_LEGAL_REVIEW_REQUIRED",
-    description: "Phân tích pháp lý chiến lược hoặc tác động bên ngoài cần chuyên gia rà soát",
-    predicate: {
-      decisionDomain: "LEGAL",
-      purposeKeywords: ["litigation", "dispute", "tranh chấp", "khởi kiện", "tố tụng"],
-    },
-  },
-  {
-    id: "POLICY_WATCH_QD804",
-    layer: "POLICY_WATCH",
-    effect: "NOTICE",
-    reasonCode: "POLICY_WATCH_AI_STRATEGY_804",
-    description: "Theo dõi định hướng Chiến lược AI quốc gia theo Quyết định 804/QĐ-TTg",
-    predicate: { alwaysNotice: true },
-  },
-  {
-    id: "POLICY_WATCH_QD1528",
-    layer: "POLICY_WATCH",
-    effect: "NOTICE",
-    reasonCode: "POLICY_WATCH_DATA_STRATEGY_1528",
-    description: "Theo dõi định hướng triển khai chiến lược dữ liệu theo Quyết định 1528/QĐ-TTg",
-    predicate: { alwaysNotice: true },
-  },
-];
+/**
+ * Lấy danh sách các quy tắc thực thi (ExecutableRule) hợp lệ và còn hiệu lực từ database.
+ * Chỉ nhận các quy tắc gắn với bản quy phạm pháp luật đã được thẩm định (status = 'ACTIVE',
+ * content_hash thật, không dùng empty placeholder hash).
+ */
+export async function fetchActiveExecutableRules(asOfDate: Date = new Date()): Promise<ExecutableRule[]> {
+  const asOfStr = asOfDate.toISOString().slice(0, 10);
 
+  try {
+    const rows = await db
+      .select({
+        rule: aiApplicabilityRules,
+        version: regulationVersions,
+      })
+      .from(aiApplicabilityRules)
+      .innerJoin(regulationVersions, eq(aiApplicabilityRules.regulationVersionId, regulationVersions.id))
+      .where(
+        and(
+          eq(aiApplicabilityRules.reviewStatus, "REVIEWED"),
+          eq(regulationVersions.status, "ACTIVE"),
+          ne(regulationVersions.contentHash, PLACEHOLDER_EMPTY_HASH),
+          lte(aiApplicabilityRules.effectiveFrom, asOfStr),
+          or(isNull(aiApplicabilityRules.effectiveTo), gte(aiApplicabilityRules.effectiveTo, asOfStr)),
+          lte(regulationVersions.effectiveFrom, asOfStr),
+          or(isNull(regulationVersions.effectiveTo), gte(regulationVersions.effectiveTo, asOfStr))
+        )
+      );
+
+    return rows.map(({ rule, version }) => ({
+      ruleId: rule.ruleId,
+      ruleVersion: rule.ruleVersion,
+      sourceVersionId: String(rule.regulationVersionId),
+      sourceContentHash: version.contentHash || rule.sourceContentHash,
+      effectiveFrom: rule.effectiveFrom,
+      effectiveTo: rule.effectiveTo,
+      reviewStatus: rule.reviewStatus,
+      layer: rule.layer as "CURRENT_LAW" | "POLICY_WATCH" | "PROFESSIONAL_REVIEW",
+      effect: rule.effect as "BLOCK" | "REVIEW" | "NOTICE",
+      reasonCode: rule.reasonCode,
+      description: rule.description,
+      predicate: (rule.predicate || {}) as Record<string, any>,
+      mandatoryEvidenceType: rule.mandatoryEvidenceType,
+    }));
+  } catch (err) {
+    // Nếu bảng chưa sẵn sàng hoặc kết nối lỗi, trả về mảng rỗng để assessAiApplicability
+    // chuyển sang PROFESSIONAL_REVIEW_REQUIRED thay vì tự động thông qua.
+    return [];
+  }
+}
+
+/**
+ * Đánh giá tính khả thi và áp dụng pháp luật của AI deployment.
+ * Chỉ sử dụng static code để đối chiếu predicate của các quy tắc lấy từ cơ sở dữ liệu đã thẩm định.
+ * Nếu không có quy tắc đã thẩm định nào áp dụng, trả về PROFESSIONAL_REVIEW_REQUIRED;
+ * Không bao giờ tự động gán nhãn CURRENT_LAW hoặc PROHIBITED chỉ dựa vào keyword chưa thẩm định.
+ */
 export async function assessAiApplicability(
-  input: AiApplicabilityInput
+  input: AiApplicabilityInput,
+  options?: { rules?: ExecutableRule[] }
 ): Promise<AiApplicabilityResult> {
+  const evalDate = input.asOfDate ? new Date(input.asOfDate) : new Date();
+  const rules = options?.rules ?? (await fetchActiveExecutableRules(evalDate));
+
   const currentLawBlocks: string[] = [];
   const professionalReviewRequired: string[] = [];
   const policyWatchItems: string[] = [];
   const matchedRuleIds: string[] = [];
+  const matchedRules: ExecutableRule[] = [];
+  let blockingRule: ExecutableRule | undefined;
 
-  for (const rule of STATUTORY_AI_RULES) {
+  // Nếu không có luật/quy tắc đã thẩm định nào có hiệu lực:
+  if (rules.length === 0) {
+    return {
+      currentLawBlocks: [],
+      professionalReviewRequired: ["PROFESSIONAL_REVIEW_REQUIRED"],
+      policyWatchItems: [],
+      matchedRuleIds: [],
+      matchedRules: [],
+      recheckRequired: true,
+    };
+  }
+
+  for (const rule of rules) {
+    // Bảo đảm quy tắc không dùng source version chưa thẩm định hoặc hash rỗng
+    if (
+      rule.reviewStatus !== "REVIEWED" ||
+      !rule.sourceContentHash ||
+      rule.sourceContentHash === PLACEHOLDER_EMPTY_HASH
+    ) {
+      continue;
+    }
+
+    // Kiểm tra ranh giới thời gian hiệu lực
+    const effFrom = new Date(rule.effectiveFrom);
+    if (evalDate < effFrom) continue;
+    if (rule.effectiveTo && evalDate > new Date(rule.effectiveTo)) continue;
+
     const evalOutcome = evaluateAiRule(rule, input);
     if (evalOutcome === "NO_MATCH") continue;
 
-    matchedRuleIds.push(rule.id);
+    matchedRuleIds.push(rule.ruleId);
+    matchedRules.push(rule);
+
     if (evalOutcome === "BLOCK") {
       currentLawBlocks.push(rule.reasonCode);
+      if (!blockingRule) {
+        blockingRule = rule;
+      }
     } else if (evalOutcome === "REVIEW") {
       professionalReviewRequired.push(rule.reasonCode);
     } else if (evalOutcome === "NOTICE") {
@@ -170,25 +231,32 @@ export async function assessAiApplicability(
     }
   }
 
-  // Check assessment recency (recheck required if lastAssessmentAt is older than 180 days or missing)
+  // Recency check: nếu chưa từng đánh giá hoặc đánh giá quá 180 ngày -> yêu cầu tái đánh giá
   let recheckRequired = false;
   if (!input.lastAssessmentAt) {
     recheckRequired = true;
   } else {
     const assessmentDate = new Date(input.lastAssessmentAt);
-    const ageInDays = (Date.now() - assessmentDate.getTime()) / (1000 * 60 * 60 * 24);
+    const ageInDays = (evalDate.getTime() - assessmentDate.getTime()) / (1000 * 60 * 60 * 24);
     if (isNaN(ageInDays) || ageInDays > 180) {
       recheckRequired = true;
     }
   }
 
-  return {
+  const result: AiApplicabilityResult = {
     currentLawBlocks: Array.from(new Set(currentLawBlocks)),
     professionalReviewRequired: Array.from(new Set(professionalReviewRequired)),
     policyWatchItems: Array.from(new Set(policyWatchItems)),
     matchedRuleIds,
+    matchedRules,
     recheckRequired,
   };
+
+  if (blockingRule) {
+    result.blockingRule = blockingRule;
+  }
+
+  return result;
 }
 
 export async function assessWorkspaceAiApplicability(

@@ -23,6 +23,12 @@ export const regulationVersions = legalSchema.table("regulation_versions", {
   effectiveFrom: date("effective_from").notNull(),
   effectiveTo: date("effective_to"),
   supersededById: bigint("superseded_by_id", { mode: "bigint" }),
+  status: text("status").default("ACTIVE").notNull(),
+  contentHash: text("content_hash"),
+  correctionReason: text("correction_reason"),
+  artifactPath: text("artifact_path"),
+  reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -231,6 +237,9 @@ export const aiComplianceEvidence = legalSchema.table(
     evidenceType: text("evidence_type").notNull(),
     uriReference: text("uri_reference").notNull(),
     contentHash: text("content_hash").notNull(),
+    conclusion: text("conclusion").default("COMPLIANT").notNull(),
+    sourceVersionIds: jsonb("source_version_ids").default([]).notNull(),
+    ruleIds: jsonb("rule_ids").default([]).notNull(),
     checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
     reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -245,6 +254,30 @@ export const aiComplianceEvidence = legalSchema.table(
     }),
   ]
 );
+
+export const aiApplicabilityRules = legalSchema.table("ai_applicability_rules", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  ruleId: text("rule_id").notNull().unique(),
+  ruleVersion: text("rule_version").default("1.0.0").notNull(),
+  regulationSourceId: bigint("regulation_source_id", { mode: "bigint" })
+    .notNull()
+    .references(() => regulationSources.id, { onDelete: "cascade" }),
+  regulationVersionId: bigint("regulation_version_id", { mode: "bigint" })
+    .notNull()
+    .references(() => regulationVersions.id, { onDelete: "cascade" }),
+  sourceContentHash: text("source_content_hash").notNull(),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"),
+  reviewStatus: text("review_status").default("REVIEWED").notNull(),
+  layer: text("layer").notNull(),
+  effect: text("effect").notNull(),
+  reasonCode: text("reason_code").notNull(),
+  description: text("description"),
+  predicate: jsonb("predicate").notNull(),
+  mandatoryEvidenceType: text("mandatory_evidence_type"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const aiProviderProfiles = legalSchema.table(
   "ai_provider_profiles",
