@@ -267,10 +267,19 @@ class LangChainKernel:
                 tool_res = await self._execute_tool(
                     tool_name, args, run_id=run_id, tool_call_id=call_id
                 )
+                # Audit event chỉ lưu hash — cùng nguyên tắc Task 9 áp dụng cho
+                # CapabilityGateway/RealOpenAIAgentsSDKKernel/ManualToolLoopKernel
+                # (đều ghi vào chung bảng `agent.run_events`). `tool_res` thô vẫn
+                # đi vào `state.messages`/`completed_tool_calls` để tiếp tục
+                # reasoning loop — không bị ảnh hưởng.
                 await self._emit_event(
                     run_id,
                     "tool.completed",
-                    {"tool_call_id": call_id, "result": tool_res},
+                    {
+                        "tool_call_id": call_id,
+                        "output_hash": compute_payload_hash(tool_res),
+                        "output_present": tool_res is not None,
+                    },
                     correlation_id,
                 )
 
@@ -372,10 +381,21 @@ class LangChainKernel:
 
             state.messages.append(ai_msg)
             if ai_msg.content:
+                # Audit event nội bộ kernel này KHÔNG phải kênh hiển thị UI thật —
+                # đường hiển thị thật đọc `RunResult.final_output` sau khi
+                # `kernel.run()` trả về rồi tự emit `message.delta` riêng vào bảng
+                # `run_stream_events` (apps/cosa/worker/handlers.py, qua
+                # `CosaEventStreamManager.emit()`), độc lập với `agent.run_events`
+                # mà `_emit_event` ở đây ghi vào. Vì vậy chỉ lưu hash ở đây, không
+                # ảnh hưởng hiển thị chat thật.
                 await self._emit_event(
                     run_id,
                     "message.delta",
-                    {"content": ai_msg.content, "role": "assistant"},
+                    {
+                        "content_hash": compute_payload_hash(ai_msg.content),
+                        "content_present": True,
+                        "role": "assistant",
+                    },
                     correlation_id,
                 )
 
@@ -385,8 +405,17 @@ class LangChainKernel:
                 await self._repo.update_run_status(
                     run_id, status=RunStatus.COMPLETED, final_output=final_out
                 )
+                # Audit event chỉ lưu hash — final_output thô thật đi qua
+                # RunRecord.final_output (update_run_status ở trên) và RunResult
+                # trả về ngay dưới.
                 await self._emit_event(
-                    run_id, "run.completed", {"final_output": final_out}, correlation_id
+                    run_id,
+                    "run.completed",
+                    {
+                        "final_output_hash": compute_payload_hash(final_out),
+                        "final_output_present": final_out is not None,
+                    },
+                    correlation_id,
                 )
                 return RunResult(
                     run_id=run_id,
@@ -516,7 +545,11 @@ class LangChainKernel:
                 await self._emit_event(
                     run_id,
                     "tool.completed",
-                    {"tool_call_id": call_id, "result": tool_res},
+                    {
+                        "tool_call_id": call_id,
+                        "output_hash": compute_payload_hash(tool_res),
+                        "output_present": tool_res is not None,
+                    },
                     correlation_id,
                 )
 
