@@ -15,6 +15,8 @@ from agent.skills.candidate_store import (
     SkillFeedbackRecord,
 )
 from agent.skills.contracts import (
+    LifecycleApplicability,
+    ProjectLifecycleStage,
     SkillCandidate,
     SkillSpec,
     SkillStatus,
@@ -105,16 +107,15 @@ async def list_skills(
     for r in records:
         content = r.content or {}
         spec_status = r.status.upper() if r.status else "PUBLISHED"
-        spec_domain = (
-            content.get("applicability", {}).get("domain") or content.get("domain") or "general"
-        )
+        refs = content.get("references") or {}
+        raw_app = content.get("applicability") or {}
+        spec_domain = refs.get("category") or raw_app.get("domain") or content.get("domain") or "general"
 
         if domain and spec_domain.lower() != domain.lower():
             continue
         if status and spec_status.lower() != status.lower():
             continue
 
-        refs = content.get("references") or {}
         raw_origin = refs.get("origin")
         if isinstance(raw_origin, dict):
             origin = raw_origin.get("repository") or raw_origin.get("upstream") or str(raw_origin)
@@ -125,6 +126,15 @@ async def list_skills(
 
         raw_sha = refs.get("upstream_commit") or refs.get("commit")
         adapted_sha = str(raw_sha) if raw_sha is not None else None
+
+        stages = raw_app.get("project_stages", [])
+        project_stages = [
+            s.value if hasattr(s, "value") else str(s) for s in stages
+        ] if isinstance(stages, list) else []
+
+        raw_autonomy = content.get("autonomy") or {}
+        raw_evidence = content.get("evidence_requirement") or {}
+        raw_quality = content.get("quality") or {}
 
         item = SkillListItem(
             id=r.spec_id,
@@ -142,6 +152,11 @@ async def list_skills(
             instructions=content.get("instructions"),
             references=refs,
             created_at=r.created_at.isoformat() if r.created_at else None,
+            project_stages=project_stages,
+            autonomy_ceiling=raw_autonomy.get("ceiling", "L0_OBSERVE"),
+            side_effect_class=raw_autonomy.get("side_effect_class", "R"),
+            min_source_refs=raw_evidence.get("min_source_refs", 0),
+            eval_suite=raw_quality.get("eval_suite") if raw_quality else None,
         )
         items.append(item)
         seen_ids.add(r.spec_id)
@@ -151,7 +166,7 @@ async def list_skills(
     for c in candidates:
         cand_skill = c.proposed_skill
         cand_domain = str(
-            (cand_skill.applicability.get("domain") if cand_skill.applicability else "general")
+            cand_skill.references.get("category")
             or "general"
         )
 
@@ -166,6 +181,11 @@ async def list_skills(
             if isinstance(raw_cand_origin, dict)
             else str(raw_cand_origin)
         )
+
+        project_stages = [
+            s.value if hasattr(s, "value") else str(s)
+            for s in cand_skill.applicability.project_stages
+        ]
 
         item = SkillListItem(
             id=cand_skill.id,
@@ -184,6 +204,11 @@ async def list_skills(
             references=cand_skill.references,
             candidate_id=c.candidate_id,
             created_at=cand_skill.created_at.isoformat() if cand_skill.created_at else None,
+            project_stages=project_stages,
+            autonomy_ceiling=cand_skill.autonomy.ceiling,
+            side_effect_class=cand_skill.autonomy.side_effect_class,
+            min_source_refs=cand_skill.evidence_requirement.min_source_refs,
+            eval_suite=cand_skill.quality.eval_suite if cand_skill.quality else None,
         )
         items.append(item)
 
@@ -230,6 +255,8 @@ async def sync_built_in_skills(
     get_registered_capability_ids()
     synced_items: list[SyncSkillItem] = []
 
+    from apps.cosa.api.skillpack_mapper import parse_skillpack_spec
+
     for manifest_path in sorted(skillpacks_root.rglob("manifest.yaml")):
         pack_dir = manifest_path.parent
         skillmd_path = pack_dir / "SKILL.md"
@@ -237,52 +264,16 @@ async def sync_built_in_skills(
             continue
 
         try:
-            manifest_text = manifest_path.read_text(encoding="utf-8")
-            manifest_data = yaml.safe_load(manifest_text) or {}
-            skillmd_text = skillmd_path.read_text(encoding="utf-8")
+            spec = parse_skillpack_spec(pack_dir)
         except Exception as e:
             logger.warning("Không thể đọc skillpack tại %s: %s", pack_dir, e)
             continue
 
-        metadata = manifest_data.get("metadata", {})
-        skill_id = metadata.get("id") or pack_dir.name
-        version = metadata.get("version", "1.0.0")
-        name = metadata.get("name", skill_id)
-        description = metadata.get("description", "")
-        category = metadata.get("category") or pack_dir.parent.name or "general"
-
-        # Capabilities từ manifest.runtime.tools đã lọc
-        runtime_config = manifest_data.get("runtime", {})
-        raw_tools = runtime_config.get("tools") or manifest_data.get("tools") or []
-        required_capabilities = [tool for tool in raw_tools if isinstance(tool, str)]
-
-        # References / Attribution
-        source_config = manifest_data.get("source", {})
-        upstream_record = _extract_source_attribution_record(skillmd_text) or {}
-
-        rel_source_path = f"skillpacks/{pack_dir.relative_to(skillpacks_root)}"
-        references = {
-            "source_path": source_config.get("path") or rel_source_path,
-            "origin": upstream_record.get("upstream") or source_config.get("origin") or "built-in",
-            "upstream_commit": upstream_record.get("commit")
-            or source_config.get("commit")
-            or "adapted",
-        }
-
-        instructions = _extract_instructions_body(skillmd_text)
-
-        spec = SkillSpec(
-            id=skill_id,
-            version=version,
-            name=name,
-            description=description,
-            instructions=instructions,
-            applicability={"domain": category},
-            required_capabilities=required_capabilities,
-            references=references,
-            status=SkillStatus.PUBLISHED,
-            publisher="cosa_built_in",
-        )
+        category = spec.references.get("category", "general")
+        project_stages = [
+            s.value if hasattr(s, "value") else str(s)
+            for s in spec.applicability.project_stages
+        ]
 
         try:
             record = await publish_skill_spec(
@@ -297,6 +288,9 @@ async def sync_built_in_skills(
                     definition_hash=record.definition_hash,
                     published=True,
                     domain=category,
+                    project_stages=project_stages,
+                    autonomy_ceiling=spec.autonomy.ceiling,
+                    side_effect_class=spec.autonomy.side_effect_class,
                 )
             )
         except SpecVersionHashConflictError as exc:
@@ -338,9 +332,12 @@ async def create_candidate(
         name=req.name,
         description=req.description,
         instructions=req.instructions,
-        applicability={"domain": req.domain, "scope": req.scope},
+        applicability=LifecycleApplicability(
+            project_stages=[ProjectLifecycleStage.P0_DISCOVERY],
+            required_context=req.required_context,
+        ),
         required_capabilities=req.required_capabilities or req.tool_permissions,
-        references={"created_by_agent": req.created_by_agent},
+        references={"created_by_agent": req.created_by_agent, "category": req.domain},
         status=SkillStatus.CANDIDATE,
         publisher=req.created_by_agent or (identity.platform_user_id if identity else "user"),
     )
@@ -653,7 +650,7 @@ async def update_skill(
         if body.get("instructions"):
             cand.proposed_skill.instructions = body["instructions"]
         if body.get("domain"):
-            cand.proposed_skill.applicability["domain"] = body["domain"]
+            cand.proposed_skill.references["category"] = body["domain"]
         if "tool_permissions" in body and isinstance(body["tool_permissions"], list):
             cand.proposed_skill.required_capabilities = body["tool_permissions"]
         if "required_capabilities" in body and isinstance(body["required_capabilities"], list):

@@ -34,6 +34,11 @@ class SkillListItem(BaseModel):
     references: dict[str, Any] = Field(default_factory=dict)
     candidate_id: str | None = None
     created_at: str | None = None
+    project_stages: list[str] = Field(default_factory=list)
+    autonomy_ceiling: str = "L0_OBSERVE"
+    side_effect_class: str = "R"
+    min_source_refs: int = 0
+    eval_suite: str | None = None
 
 
 class SyncSkillItem(BaseModel):
@@ -42,6 +47,9 @@ class SyncSkillItem(BaseModel):
     definition_hash: str
     published: bool = True
     domain: str = "general"
+    project_stages: list[str] = Field(default_factory=list)
+    autonomy_ceiling: str = "L0_OBSERVE"
+    side_effect_class: str = "R"
 
 
 class SyncBuiltInResponse(BaseModel):

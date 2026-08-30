@@ -91,27 +91,27 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
         PinnedSkillRef(
             skill_id="marketing.positioning",
             version="1.1.0",
-            definition_hash="d5240b71c7958e06d84f7886614acf8646fa3c666984a5056a95b7ffa68daabb",
+            definition_hash="05f65f8c04f42a1a5dea76f3e467ee22f9f38ab803557e1df4b91981d2a55e25",
         ),
         PinnedSkillRef(
             skill_id="marketing.copywriting",
             version="1.1.0",
-            definition_hash="cf2d69d751846b0365fbe9293144bccf8e77997165ae9cf4308fec17fbdf6a1c",
+            definition_hash="cec633990817dd05491b19266ec1c205e33ea8a7a7cfd5a2ead8d5a9e28af3b4",
         ),
         PinnedSkillRef(
             skill_id="marketing.market-research",
             version="1.1.0",
-            definition_hash="3942ecce51f3d89a709c8ae1d149f8a4538b9889ecb6cfad1c623a713a70eca5",
+            definition_hash="fb17a38702638b4fcff15c6e5bdf1f64a080236844811372fb8d5e63cd8a2295",
         ),
         PinnedSkillRef(
             skill_id="research.deep-research",
             version="1.0.0",
-            definition_hash="c143319403eddd8f82dd235e61d0ef4b26ffc8f767a6876e67f0512c2bc8d960",
+            definition_hash="4bb8d06eb82dd9bc771a9402f92ca1abaaf89a9905bb8a47a2675d9852216f77",
         ),
         PinnedSkillRef(
             skill_id="strategy.competitor-profiling",
             version="1.0.0",
-            definition_hash="98e06c0d61535a1bb8398fceb30daf85c5380fd06ac843eef5dfb8eb5d026aa8",
+            definition_hash="3f3d352844862a297603f831dfa777b83d0e91db34af958c8636e30b648d0eb9",
         ),
     ],
     prompt_ref=COSA_MARKETING_PROMPT.to_pinned_identity(),

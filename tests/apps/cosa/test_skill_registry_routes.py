@@ -75,6 +75,9 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     assert "skill_id" in sample_skill
     assert "definition_hash" in sample_skill
     assert sample_skill["published"] is True
+    assert "project_stages" in sample_skill
+    assert "autonomy_ceiling" in sample_skill
+    assert "side_effect_class" in sample_skill
 
     # 3. Second sync-built-in is idempotent
     res2 = client.post("/agent/skills/sync-built-in?workspace_id=ws-1")
@@ -91,6 +94,10 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     assert mkt_positioning["status"] == "PUBLISHED"
     assert mkt_positioning["domain"] == "marketing"
     assert mkt_positioning["definition_hash"] != ""
+    assert "project_stages" in mkt_positioning
+    assert "autonomy_ceiling" in mkt_positioning
+    assert "side_effect_class" in mkt_positioning
+    assert "min_source_refs" in mkt_positioning
 
     # 5. Create Candidate
     cand_payload = {
