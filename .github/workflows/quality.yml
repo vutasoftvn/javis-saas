@@ -441,7 +441,7 @@ jobs:
           COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
       - run: mkdir -p test-results
       # Integration tests with deterministic (fake) model — no real API key needed
-      - run: PYTHONPATH=. pytest tests/agent tests/apps/cosa -m "integration and not live_provider and not durability" --cov=packages/agent --cov=apps/cosa --cov-report=xml:test-results/coverage-integration.xml --cov-fail-under=80 -q --junitxml=test-results/integration.xml
+      - run: PYTHONPATH=. pytest tests/agent tests/apps/cosa tests/integration -m "integration and not live_provider and not durability" --cov=packages/agent --cov=apps/cosa --cov-report=xml:test-results/coverage-integration.xml --cov-fail-under=80 -q --junitxml=test-results/integration.xml
         env:
           AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent

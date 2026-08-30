@@ -102,6 +102,10 @@ def test_tranche_a_full_sync_and_resolution_acceptance(acceptance_env):
         "lifecycle.context-resolver",
         "lifecycle.next-best-action",
         "operations.weekly-review",
+        # Tranche C additions (2026-08-31): L1_PROPOSE/artifact-only, pinned per
+        # Tranche C DoD ("Pin L0/L1 skills freely after registry acceptance").
+        "operations.sop-builder",
+        "operations.automation-design",
     }
 
     # 4. Resolve Marketing Agent pinned skills
@@ -112,6 +116,13 @@ def test_tranche_a_full_sync_and_resolution_acceptance(acceptance_env):
         "research.deep-research",
         "strategy.competitor-profiling",
         "marketing.channel-strategy",
+        # Tranche C additions (2026-08-31): L1_PROPOSE/artifact-only.
+        "marketing.gtm-funnel",
+        "marketing.content-strategy",
+        "marketing.landing-cro",
+        "marketing.paid-experiments",
+        "marketing.brand-narrative",
+        "marketing.reputation-monitoring",
     }
 
     # 5. Resolve Finance Agent pinned skills
@@ -120,6 +131,8 @@ def test_tranche_a_full_sync_and_resolution_acceptance(acceptance_env):
     assert {s.id for s in fin_resolved} == {
         "finance.runway-forecast",
         "finance.budget-guardrails",
+        # Tranche C addition (2026-08-31): L1_PROPOSE/artifact-only.
+        "finance.unit-economics",
     }
 
 
