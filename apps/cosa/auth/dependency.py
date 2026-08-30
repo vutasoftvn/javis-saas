@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from apps.cosa.auth.jwt import (
     InvalidPlatformTokenError,
+    mint_company_delegation,
     mint_delegation_token,
     mint_local_delegation_token,
     verify_local_session_token,
@@ -59,6 +60,31 @@ class AuthenticatedIdentity(BaseModel):
         if self.token_kind == "local_session":
             return mint_local_delegation_token(self.platform_user_id, ttl_seconds=ttl_seconds)
         return mint_delegation_token(self.platform_user_id, ttl_seconds=ttl_seconds)
+
+    def mint_company_delegation(
+        self, *, run_id: str, capability_ids: list[str], ttl_seconds: int = 600
+    ) -> str:
+        """Task 3 — delegation CÓ CẤU TRÚC (scoped) để gọi sang
+        services/company thay mặt đúng workspace đã cross-check của identity
+        này + đúng run_id/capability_ids caller khai báo. Khác hẳn
+        mint_delegation() ở trên (chỉ re-sign lại shape token gốc để giảm rủi
+        ro lộ bearer token dài hạn trong durable queue) — hàm này không mang
+        theo bearer token gốc và bị verify chặt theo scope ở phía Company
+        (cosa-delegation.service.ts::verifyCosaDelegation), không phải chỉ
+        verify được cùng secret là đủ.
+
+        `workspace_id` LUÔN lấy từ `self.workspace_id` (đã cross-check qua
+        `POST /identity/tenant-context/resolve`) — KHÔNG nhận workspace_id
+        làm tham số, để không thể mint delegation cho workspace khác với
+        workspace caller đã được xác thực.
+        """
+        return mint_company_delegation(
+            sub=self.platform_user_id,
+            workspace_id=self.workspace_id,
+            run_id=run_id,
+            capability_ids=capability_ids,
+            ttl_seconds=ttl_seconds,
+        )
 
 
 _workspace_tenant_context_client: WorkspaceTenantContextClient | None = None

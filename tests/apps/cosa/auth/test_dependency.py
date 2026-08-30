@@ -241,6 +241,38 @@ async def test_platform_token_still_accepted_as_fallback():
     jwt.decode(deleg, SECRET, algorithms=["HS256"], audience="cosa")  # platform-shaped
 
 
+_COMPANY_DELEGATION_SECRET = "cosa-company-delegation-dev-secret-change-in-prod"
+
+
+@pytest.mark.asyncio
+async def test_authenticated_identity_mints_scoped_company_delegation():
+    """AuthenticatedIdentity.mint_company_delegation() (Task 3) phải phát
+    hành delegation CÓ CẤU TRÚC ràng buộc đúng workspace đã resolve của
+    identity này + run_id/capability_ids do caller khai báo — KHÔNG mang
+    theo bearer token gốc, khác hẳn mint_delegation() (chỉ re-sign shape cũ)."""
+    set_workspace_tenant_context_client(_workspace_client_returning("ws1"))
+    identity = await get_authenticated_identity(
+        authorization=f"Bearer {_token(sub='42')}", x_workspace_id="ws1"
+    )
+
+    token = identity.mint_company_delegation(
+        run_id="run-1", capability_ids=["finance.read"]
+    )
+    decoded = jwt.decode(
+        token,
+        _COMPANY_DELEGATION_SECRET,
+        algorithms=["HS256"],
+        audience="company",
+        issuer="cosa",
+    )
+    assert decoded["sub"] == "42"
+    assert decoded["principal_id"] == "user:42"
+    assert decoded["workspace_id"] == "ws1"
+    assert decoded["run_id"] == "run-1"
+    assert decoded["capability_ids"] == ["finance.read"]
+    assert decoded["jti"]
+
+
 @pytest.mark.asyncio
 async def test_garbage_token_rejected_401():
     with pytest.raises(HTTPException) as exc:

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import os
 import time
+import uuid
 
 import jwt
 
 __all__ = [
     "InvalidPlatformTokenError",
+    "mint_company_delegation",
     "mint_delegation_token",
     "mint_local_delegation_token",
     "verify_local_session_token",
@@ -24,6 +26,17 @@ _DEV_DEFAULT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
 # token này cho luồng business; giữ đối xứng secret với token.service.ts.
 _LOCAL_SESSION_DEV_DEFAULT_SECRET = "cosa-dev-jwt-secret-do-not-use-in-prod"
 
+# Task 3 (AI compliance hardening) — secret RIÊNG cho delegation có cấu trúc
+# (scoped) COSA -> Company (mint_company_delegation / verifyCosaDelegation ở
+# services/company/shared/auth/cosa-delegation.service.ts). KHÔNG tái dùng
+# PLATFORM_JWT_SECRET (đối xứng với services/cosa, chiều ký khác — services/cosa
+# ký, apps/cosa verify) hay JWT_SECRET (đối xứng với services/company local
+# session, cũng sai chiều — services/company ký, apps/cosa verify). Chiều cần
+# ở đây là apps/cosa KÝ, services/company VERIFY — chưa từng có secret nào
+# đi đúng chiều này trước Task 3, nên dùng biến env mới, đơn mục đích.
+_COMPANY_DELEGATION_DEV_DEFAULT_SECRET = "cosa-company-delegation-dev-secret-change-in-prod"
+_COMPANY_DELEGATION_MAX_TTL_SECONDS = 600
+
 
 def _get_jwt_secret() -> str:
     env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
@@ -35,6 +48,18 @@ def _get_jwt_secret() -> str:
             f"PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters and not use default key in {env_name} environment"
         )
     return secret or _DEV_DEFAULT_SECRET
+
+
+def _get_company_delegation_secret() -> str:
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    secret = os.environ.get("COSA_COMPANY_DELEGATION_SECRET")
+    if env_name in ("production", "staging", "prod") and (
+        not secret or secret == _COMPANY_DELEGATION_DEV_DEFAULT_SECRET or len(secret) < 32
+    ):
+        raise RuntimeError(
+            f"COSA_COMPANY_DELEGATION_SECRET must be explicitly set with >= 32 characters and not use default key in {env_name} environment"
+        )
+    return secret or _COMPANY_DELEGATION_DEV_DEFAULT_SECRET
 
 
 def _get_local_session_secret() -> str:
@@ -114,5 +139,50 @@ def mint_delegation_token(platform_user_id: str, *, ttl_seconds: int = 600) -> s
         "sub": platform_user_id,
         "aud": "cosa",
         "exp": int(time.time()) + ttl_seconds,
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def mint_company_delegation(
+    *,
+    sub: str,
+    workspace_id: str,
+    run_id: str,
+    capability_ids: list[str],
+    ttl_seconds: int = _COMPANY_DELEGATION_MAX_TTL_SECONDS,
+) -> str:
+    """Mint delegation JWT CÓ CẤU TRÚC (scoped) để apps/cosa gọi sang
+    services/company thay mặt đúng 1 workspace + 1 run + đúng tập capability
+    đã khai báo — verify bằng verifyCosaDelegation (services/company/shared/
+    auth/cosa-delegation.service.ts).
+
+    Khác hẳn mint_delegation_token/mint_local_delegation_token ở trên (chỉ
+    re-sign lại {sub, aud?, exp} để giảm rủi ro lộ bearer token dài hạn khi
+    lưu vào durable queue) — hàm này KHÔNG mang theo bearer token gốc của
+    user, KHÔNG có quyền rộng hơn những gì được khai báo tường minh:
+    - `sub`: Company identity user/member ID đã xác thực cục bộ (KHÔNG phải
+      platform_user_id thô — caller phải tự resolve trước khi gọi hàm này).
+    - `workspace_id`/`run_id`: đã được verify (workspace cross-check, run đã
+      tạo) trước khi mint — hàm này KHÔNG tự resolve/verify lại.
+    - `capability_ids`: đúng tập capability caller khai báo cần dùng, không
+      hơn — verify phía Company reject nếu capability được dùng không nằm
+      trong danh sách này.
+
+    TTL tối đa CỨNG 600 giây (§ giảm cửa sổ rủi ro nếu payload này bị lộ) —
+    truyền ttl_seconds lớn hơn KHÔNG kéo dài thời hạn thật, giá trị bị cắt về
+    600. Durable task payload không bao giờ chứa bearer token gốc của user.
+    """
+    secret = _get_company_delegation_secret()
+    ttl = min(ttl_seconds, _COMPANY_DELEGATION_MAX_TTL_SECONDS)
+    payload = {
+        "iss": "cosa",
+        "aud": "company",
+        "sub": sub,
+        "principal_id": f"user:{sub}",
+        "workspace_id": workspace_id,
+        "run_id": run_id,
+        "capability_ids": list(capability_ids),
+        "jti": str(uuid.uuid4()),
+        "exp": int(time.time()) + ttl,
     }
     return jwt.encode(payload, secret, algorithm="HS256")

@@ -65,6 +65,19 @@ export const identityWorkspaceMemberships = coreSchema.table("workspace_membersh
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
+// Task 3 (AI compliance hardening) — chống replay cho scoped COSA->Company
+// delegation JWT (mint_company_delegation ở apps/cosa/auth/jwt.py). Mỗi jti
+// chỉ được "consume" đúng 1 lần cho 1 cặp (run_id, capability_id) trước khi
+// thực hiện side effect (EXTERNAL call hoặc mutation) — không dùng cho
+// READ-only snapshot resolution (idempotent tự nhiên, chỉ cần exp hợp lệ).
+export const identityCosaDelegationReplays = coreSchema.table("cosa_delegation_replays", {
+  jti: text("jti").primaryKey(),
+  workspaceId: text("workspace_id").notNull(),
+  runId: text("run_id").notNull(),
+  capabilityId: text("capability_id").notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const identityWorkforceMembers = coreSchema.table("workforce_members", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
