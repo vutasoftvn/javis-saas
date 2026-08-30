@@ -19,7 +19,8 @@ def test_customer_support_autopilot_spec_structure_and_hashes():
     # Spec is pinned and write mode (L2_EXECUTE / L2_ACT)
     spec = COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
     assert spec.id == "cosa.agents.customer_support_autopilot"
-    assert spec.version == "1.1.0"
+    assert spec.version == "1.2.0"
+    assert spec.model_input_capability_ref is None
     assert spec.autonomy_level in (AutonomyLevel.L2, AutonomyLevel.L2_EXECUTE, AutonomyLevel.L2_EXECUTE_WITH_APPROVAL)
 
     # Required narrow capabilities for FAQ autopilot

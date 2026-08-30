@@ -12,14 +12,28 @@ from apps.cosa.agents.specs import (
 )
 
 
-def test_chat_capable_agent_specs_use_new_immutable_version() -> None:
+def test_direct_chat_capable_agent_specs_use_new_immutable_version() -> None:
     assert {
         COSA_OPERATIONS_AGENT_SPEC.version,
         COSA_FINANCE_AGENT_SPEC.version,
         COSA_MARKETING_AGENT_SPEC.version,
+    } == {"1.1.0"}
+    assert COSA_OPERATIONS_AGENT_SPEC.model_input_capability_ref == "model.input.direct-user-message"
+    assert COSA_FINANCE_AGENT_SPEC.model_input_capability_ref == "model.input.direct-user-message"
+    assert COSA_MARKETING_AGENT_SPEC.model_input_capability_ref == "model.input.direct-user-message"
+
+
+def test_customer_support_specs_do_not_declare_direct_model_input() -> None:
+    """Autopilot/copilot never take direct, user-classified chat input — their
+    RunRequest.input is a structured task descriptor (thread_id/contact_id/intent),
+    not free text a user classified. Declaring model_input_capability_ref here was
+    scope creep from an earlier task; restoring both to None here."""
+    assert {
         COSA_CUSTOMER_SUPPORT_AGENT_SPEC.version,
         COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC.version,
-    } == {"1.1.0"}
+    } == {"1.2.0"}
+    assert COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_input_capability_ref is None
+    assert COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC.model_input_capability_ref is None
 
 
 def test_operations_agent_spec_pins_prompt_ref():

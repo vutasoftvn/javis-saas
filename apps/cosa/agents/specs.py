@@ -134,7 +134,7 @@ COSA_CUSTOMER_SUPPORT_PROMPT = PromptSpec(
 
 COSA_CUSTOMER_SUPPORT_AGENT_SPEC = AgentSpec(
     id="cosa.agents.customer_support",
-    version="1.1.0",
+    version="1.2.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,  # artifact_only: chỉ read + tạo artifact
     instructions=COSA_CUSTOMER_SUPPORT_PROMPT.text,
     capability_refs=[
@@ -143,7 +143,7 @@ COSA_CUSTOMER_SUPPORT_AGENT_SPEC = AgentSpec(
         "knowledge.profile.read",
         "engagement.message.draft",
     ],
-    model_input_capability_ref="model.input.direct-user-message",
+    model_input_capability_ref=None,
     prompt_ref=COSA_CUSTOMER_SUPPORT_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Customer Support Copilot"},
@@ -162,7 +162,7 @@ COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT = PromptSpec(
 
 COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC = AgentSpec(
     id="cosa.agents.customer_support_autopilot",
-    version="1.1.0",
+    version="1.2.0",
     autonomy_level=AutonomyLevel.L2_EXECUTE,  # write mode: act / execute
     instructions=COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT.text,
     capability_refs=[
@@ -173,7 +173,7 @@ COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC = AgentSpec(
         "engagement.message.send",  # REQUIRE_APPROVAL trừ template pre-authorize
         "engagement.assignment.write",  # để handoff
     ],
-    model_input_capability_ref="model.input.direct-user-message",
+    model_input_capability_ref=None,
     prompt_ref=COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Customer Support Autopilot (narrow FAQ)"},
