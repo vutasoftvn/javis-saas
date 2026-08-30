@@ -336,7 +336,7 @@ git commit -m "fix: resolve AI compliance snapshots from approved state only"
 - RunRequest.metadata carries company_delegation_ref, never raw token in event/audit payload.
 - InvocationContext.delegation_identity stores jti or nonsecret fingerprint. Sensitive metadata is excluded from event serialization.
 
-- [ ] **Step 1: Write end-to-end propagation test**
+- [x] **Step 1: Write end-to-end propagation test**
 
 ~~~
 async def test_worker_passes_bound_delegation_to_snapshot_and_capability_clients():
@@ -349,15 +349,15 @@ async def test_worker_passes_bound_delegation_to_snapshot_and_capability_clients
 Run: pytest tests/apps/cosa/compliance/test_run_delegation.py -q
 Expected: FAIL because worker uses delegation for policy snapshot only and omits it from RunRequest/context.
 
-- [ ] **Step 2: Mint after run ID and resolved spec are known**
+- [x] **Step 2: Mint after run ID and resolved spec are known**
 
 At scheduling, resolve AgentSpec capability IDs and mint delegation bound to generated run_id. Worker rejects a task that lacks or cannot verify delegation; it cannot fall back to scheduled_worker_service_token for Company calls.
 
-- [ ] **Step 3: Resolve compliance before kernel execution**
+- [x] **Step 3: Resolve compliance before kernel execution**
 
 After policy snapshot and before plane.kernel.run, call ComplianceResolver.resolve_for_run with delegation. Merge immutable snapshot metadata into RunRequest and emit only a reason code if it fails.
 
-- [ ] **Step 4: Forward headers only from InvocationContext**
+- [x] **Step 4: Forward headers only from InvocationContext**
 
 ~~~
 headers = {
@@ -370,12 +370,12 @@ headers = {
 
 Company capability handlers build these values from InvocationContext, never tool arguments. OpenAI kernel propagates delegation_identity, compliance_snapshot_ref and policy snapshot reference into every InvocationContext.
 
-- [ ] **Step 5: Run dedicated suites**
+- [x] **Step 5: Run dedicated suites**
 
 Run: pytest tests/apps/cosa/compliance/test_run_delegation.py tests/apps/cosa/compliance/test_company_client.py tests/e2e/test_ai_compliance_flow.py -q
 Expected: PASS; expired/missing delegation makes zero Company requests and zero model calls.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ~~~
 git add apps/cosa packages/agent packages/agent_integrations tests/apps/cosa tests/e2e

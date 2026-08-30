@@ -19,6 +19,7 @@ from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
+from apps.cosa.compliance.contracts import ComplianceDenied
 from apps.cosa.observability.otel import inject_trace_carrier, trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.worker.autopilot_run import (
@@ -99,8 +100,25 @@ async def _execute_run_task_inner(
     agent_profile = payload.get("agent_profile") or "operations"
     principal = payload["principal"]
     workspace_id = payload["workspace_id"]
-    bearer_token = payload.get("delegation_token", "scheduled_worker_service_token")
     stream_repo = plane.stream_event_repository
+    bearer_token = payload.get("delegation_token")
+    if not bearer_token:
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content="Missing delegation token — run rejected",
+            run_id=run_id,
+            status_="failed",
+        )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": "missing_delegation_token"},
+        )
+        return
 
     local_spec = (
         COSA_FINANCE_AGENT_SPEC if "finance" in agent_profile else COSA_OPERATIONS_AGENT_SPEC
@@ -188,6 +206,74 @@ async def _execute_run_task_inner(
         conversation_id=conversation_id,
         metadata={"policy_snapshot": snapshot.model_dump()},
     )
+
+    # Task 5 — resolve compliance (mint company delegation + AI compliance
+    # snapshot) TRƯỚC khi vào kernel, đúng vị trí "sau khi run_id + AgentSpec
+    # capability_ids đã resolve" (spec ở trên đã qua SpecResolver, run_id đã
+    # có sẵn từ payload). Trước đây bước này nằm ẩn bên trong
+    # RealOpenAIAgentsSDKKernel.run() — SAU KHI worker đã handoff, không có
+    # cách nào chặn run trước khi tốn 1 lệnh gọi kernel. Fail-closed: run
+    # không có compliance_resolver cấu hình, hoặc resolver từ chối
+    # (ComplianceDenied), đều KHÔNG được gọi plane.kernel.run() — không có
+    # đường fallback dùng scheduled_worker_service_token cho Company calls.
+    compliance_resolver = getattr(plane, "compliance_resolver", None)
+    if compliance_resolver is None:
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content="AI compliance resolver not configured — run rejected",
+            run_id=run_id,
+            status_="failed",
+        )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": "compliance_resolver_unavailable"},
+        )
+        return
+
+    try:
+        compliance_metadata = await compliance_resolver.resolve_for_run(req, spec)
+    except ComplianceDenied as exc:
+        # Chỉ emit reason code (exc.code) — KHÔNG emit str(exc)/message chi
+        # tiết ra event/audit payload để tránh rò rỉ nội dung lỗi từ Company
+        # (vd. có thể chứa cấu trúc lỗi nội bộ) vào timeline client-facing.
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=f"AI compliance check failed — run rejected: {exc.code}",
+            run_id=run_id,
+            status_="failed",
+        )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": "compliance_denied", "reason_code": exc.code},
+        )
+        return
+
+    # `_company_delegation_token` là raw JWT — giữ trong req.metadata (in
+    # process, không bao giờ persist nguyên bản vào RunRecord/event — xem
+    # kernel._execute_tool loại field này khỏi InvocationContext.metadata
+    # trước khi dùng cho audit) chỉ để kernel forward Authorization header
+    # cho các lệnh gọi Company trong đúng phạm vi run này.
+    if "_company_delegation_token" not in compliance_metadata:
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": "compliance_denied", "reason_code": "MISSING_DELEGATION_TOKEN"},
+        )
+        return
+
+    req.metadata.update(compliance_metadata)
 
     _run_start = time.monotonic()
     try:

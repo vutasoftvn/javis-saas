@@ -287,6 +287,20 @@ async def create_message(
     # 1 scheduled task durable (plane.scheduler); apps/cosa/worker/main.py poll
     # + acquire lease + thực thi ở process riêng. Theo Master Guide §5 /
     # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.6 Phase 4.
+    #
+    # Task 5 — `identity.mint_delegation()` bên dưới CHỈ phục vụ
+    # CosaTenantPolicyClient.get_snapshot() (policy snapshot) trong worker,
+    # KHÔNG phải company delegation dùng cho AI compliance/Company capability
+    # calls. Company delegation có cấu trúc (Task 3:
+    # `mint_company_delegation`/`identity.mint_company_delegation`) CỐ Ý
+    # KHÔNG được mint ở đây — tại thời điểm này (trước dispatch) chưa có
+    # AgentSpec đã qua registry resolve (chỉ có `agent_profile` thô), nên
+    # capability_ids chưa chính xác để scope delegation. Việc mint đó xảy ra
+    # ở `apps.cosa.worker.handlers._execute_run_task_inner`, SAU khi
+    # `SpecResolver` đã resolve đúng AgentSpec (fingerprint + capability_refs
+    # thật) và run_id đã có sẵn từ payload — "mint sau khi run_id + AgentSpec
+    # capability_ids đã resolve" đúng nghĩa hơn nếu làm ở đây với spec local
+    # chưa qua registry.
     await plane.scheduler.schedule(
         target_spec_id=f"cosa.{agent_profile}",
         input_payload={

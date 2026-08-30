@@ -42,6 +42,12 @@ class InvocationContext(BaseModel):
 
     # Mode
     execution_mode: ExecutionMode = ExecutionMode.WORKFLOW
+    # Task 5 — jti (hoặc fingerprint không nhạy cảm khác) của company
+    # delegation JWT đã dùng cho compliance resolve của run này (gán ở
+    # agent_integrations.openai_agents_sdk.kernel::RealOpenAIAgentsSDKKernel
+    # ._execute_tool, từ `context["company_delegation_ref"]` —
+    # apps.cosa.compliance.resolver.ComplianceResolver.resolve_for_run trả
+    # về). KHÔNG BAO GIỜ là raw JWT — an toàn để đưa vào audit/event.
     delegation_identity: str | None = None
 
     metadata: dict[str, Any] = Field(default_factory=dict)

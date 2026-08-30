@@ -221,6 +221,16 @@ class RealOpenAIAgentsSDKKernel:
         checkpoint_ref = str(ctx.get("checkpoint_ref") or f"ckpt_{run_id}_{tool_call_id}")
         exec_mode = ctx.get("execution_mode") or ExecutionMode.AGENT
 
+        # Task 5 — `_company_delegation_token` (raw JWT, do
+        # apps.cosa.compliance.resolver.ComplianceResolver mint) KHÔNG bao
+        # giờ được đưa vào InvocationContext.metadata — field đó có thể bị
+        # log/serialize cho audit. `delegation_identity` (jti, đã an toàn để
+        # audit) đi vào field frozen riêng của InvocationContext thay vì
+        # metadata rời rạc.
+        raw_delegation_token = ctx.get("_company_delegation_token")
+        delegation_identity = ctx.get("company_delegation_ref") or ctx.get("delegation_identity")
+        safe_metadata = {k: v for k, v in ctx.items() if k != "_company_delegation_token"}
+
         inv_ctx = InvocationContext(
             run_id=run_id,
             tool_call_id=tool_call_id,
@@ -237,44 +247,70 @@ class RealOpenAIAgentsSDKKernel:
             execution_mode=exec_mode
             if isinstance(exec_mode, ExecutionMode)
             else ExecutionMode.AGENT,
-            metadata=ctx,
+            delegation_identity=str(delegation_identity) if delegation_identity else None,
+            metadata=safe_metadata,
         )
 
-        result = None
-        if self._capability_executor:
-            try:
-                if asyncio.iscoroutinefunction(self._capability_executor):
-                    result = await self._capability_executor(tool_name, args, inv_ctx)
-                else:
-                    result = self._capability_executor(tool_name, args, inv_ctx)
-            except TypeError:
-                pass
+        # Task 5 §Step 4 — header xác thực cho các lệnh gọi Company
+        # (CompanyServiceClient) trong PHẠM VI đúng tool call này, dựng
+        # HOÀN TOÀN từ InvocationContext (run_id, workspace_id,
+        # capability_identity, delegation token đã resolve trước kernel.run)
+        # — KHÔNG BAO GIỜ đọc từ `args` (đối số do model sinh ra). Không có
+        # raw_delegation_token (vd. run không cấu hình compliance resolver —
+        # dev/test kernel-level) ⇒ không set Authorization, cuộc gọi Company
+        # đi không có header xác thực như hành vi cũ trước Task 5.
+        from agent.capabilities.outbound_headers import (
+            reset_outbound_headers,
+            set_outbound_headers,
+        )
 
-            if result is None:
+        outbound_headers: dict[str, str] = {
+            "X-Workspace-Id": inv_ctx.workspace_id,
+            "X-COSA-Run-Id": inv_ctx.run_id,
+            "X-COSA-Capability-Id": inv_ctx.capability_identity or tool_name,
+        }
+        if raw_delegation_token:
+            outbound_headers["Authorization"] = f"Bearer {raw_delegation_token}"
+        headers_token = set_outbound_headers(outbound_headers)
+
+        try:
+            result = None
+            if self._capability_executor:
                 try:
                     if asyncio.iscoroutinefunction(self._capability_executor):
-                        result = await self._capability_executor(tool_name, args)
+                        result = await self._capability_executor(tool_name, args, inv_ctx)
                     else:
-                        result = self._capability_executor(tool_name, args)
+                        result = self._capability_executor(tool_name, args, inv_ctx)
                 except TypeError:
-                    req = GatewayExecutionRequest(
-                        run_id=run_id,
-                        capability_id=tool_name,
-                        input_payload=args,
-                        principal=principal,
-                        checkpoint_ref=checkpoint_ref,
-                        tool_call_id=tool_call_id,
-                        execution_mode=exec_mode
-                        if isinstance(exec_mode, ExecutionMode)
-                        else ExecutionMode.AGENT,
-                        workspace_id=workspace_id,
-                        context=inv_ctx,
-                    )
-                    if asyncio.iscoroutinefunction(self._capability_executor):
-                        res = await self._capability_executor(req)
-                    else:
-                        res = self._capability_executor(req)
-                    result = res.output_payload if hasattr(res, "output_payload") else res
+                    pass
+
+                if result is None:
+                    try:
+                        if asyncio.iscoroutinefunction(self._capability_executor):
+                            result = await self._capability_executor(tool_name, args)
+                        else:
+                            result = self._capability_executor(tool_name, args)
+                    except TypeError:
+                        req = GatewayExecutionRequest(
+                            run_id=run_id,
+                            capability_id=tool_name,
+                            input_payload=args,
+                            principal=principal,
+                            checkpoint_ref=checkpoint_ref,
+                            tool_call_id=tool_call_id,
+                            execution_mode=exec_mode
+                            if isinstance(exec_mode, ExecutionMode)
+                            else ExecutionMode.AGENT,
+                            workspace_id=workspace_id,
+                            context=inv_ctx,
+                        )
+                        if asyncio.iscoroutinefunction(self._capability_executor):
+                            res = await self._capability_executor(req)
+                        else:
+                            res = self._capability_executor(req)
+                        result = res.output_payload if hasattr(res, "output_payload") else res
+        finally:
+            reset_outbound_headers(headers_token)
 
         if result is None:
             result = {"status": "success", "executed_tool": tool_name, "params": args}
@@ -300,7 +336,15 @@ class RealOpenAIAgentsSDKKernel:
             resolved_skills = await self._skill_resolver.resolve(spec.pinned_skills)
             skill_texts = [s.instructions for s in resolved_skills if s.instructions]
 
-        if self._compliance_resolver:
+        # Task 5 — worker (apps/cosa/worker/handlers.py::_execute_run_task_inner)
+        # giờ resolve compliance TRƯỚC khi gọi kernel.run(), đúng vị trí "mint
+        # sau khi run_id + AgentSpec capability_ids đã resolve" — kernel chỉ
+        # còn tự resolve như fallback khi caller khác gọi kernel.run() trực
+        # tiếp mà chưa resolve trước (vd. test kernel-level, hoặc composition
+        # root khác không đi qua worker COSA). Guard bằng key
+        # "compliance_snapshot" đã có trong metadata — tránh mint delegation
+        # 2 lần cho cùng 1 run khi worker đã resolve.
+        if self._compliance_resolver and "compliance_snapshot" not in request.metadata:
             compliance_metadata = await self._compliance_resolver.resolve_for_run(request, spec)
             request.metadata.update(compliance_metadata)
 

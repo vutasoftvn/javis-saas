@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import jwt as _pyjwt
 from agent.contracts.run import RunRequest
 from agent.contracts.spec import AgentSpec
 
@@ -82,8 +83,24 @@ class ComplianceResolver:
             snap_dict.get("data_profile_version") if isinstance(snap_dict, dict) else "v1"
         )
 
+        # Task 5 — decode KHÔNG verify chữ ký chỉ để đọc lại claim `jti` của
+        # chính token mình vừa mint ở trên (không phải input từ bên ngoài,
+        # nên bỏ qua verify signature/exp ở đây là an toàn) — dùng làm
+        # `delegation_identity`/`company_delegation_ref`: 1 fingerprint
+        # KHÔNG nhạy cảm, an toàn để đưa vào event/audit payload, khác hẳn
+        # `_company_delegation_token` (raw JWT) — key có tiền tố `_` báo hiệu
+        # caller (worker/kernel) phải tự loại field này trước khi serialize
+        # bất kỳ phần nào của RunRequest.metadata vào event/audit.
+        try:
+            unverified = _pyjwt.decode(delegation_token, options={"verify_signature": False})
+            delegation_ref = unverified.get("jti") or "unknown"
+        except Exception:
+            delegation_ref = "unknown"
+
         return {
             "compliance_snapshot": snap_dict,
             "compliance_snapshot_ref": snap_hash,
             "compliance_snapshot_version": snap_version,
+            "company_delegation_ref": delegation_ref,
+            "_company_delegation_token": delegation_token,
         }

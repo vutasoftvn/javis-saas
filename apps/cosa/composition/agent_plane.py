@@ -172,6 +172,7 @@ class CosaAgentPlane:
         event_intake_deps: Any | None = None,
         memory_service: Any | None = None,
         knowledge_ingestion_service: Any | None = None,
+        compliance_resolver: Any | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -194,6 +195,14 @@ class CosaAgentPlane:
         self.event_intake_deps = event_intake_deps
         self.memory_service = memory_service
         self.knowledge_ingestion_service = knowledge_ingestion_service
+        # Task 5 — expose ở plane level (không chỉ giấu trong kernel private
+        # attribute) để apps/cosa/worker/handlers.py có thể gọi
+        # `resolve_for_run()` TRƯỚC `plane.kernel.run()`, đúng vị trí "mint
+        # sau khi run_id + AgentSpec capability_ids đã resolve" — trước Task
+        # 5, compliance resolve chỉ tồn tại như 1 side-effect ẩn bên trong
+        # kernel.run(), gọi SAU khi worker đã handoff, không có cách nào
+        # worker chặn request trước khi tốn 1 lệnh gọi kernel.
+        self.compliance_resolver = compliance_resolver
 
         # SQLAlchemy AsyncEngine đã tạo trong build_cosa_agent_plane() (nếu
         # dùng Postgres*Repository mặc định) — đóng qua close_cosa_agent_plane()
@@ -516,6 +525,7 @@ def build_cosa_agent_plane(
     )
 
     # 4. Execution Kernel
+    _plane_compliance_resolver: Any | None = None
     if runtime == "langchain":
         # Import lazy — chỉ nhánh này mới yêu cầu langchain-core/langchain-deepseek.
         from agent_integrations.langchain.kernel import LangChainKernel
@@ -542,16 +552,25 @@ def build_cosa_agent_plane(
 
             resolved_model = build_deepseek_model()
 
-        from unittest.mock import AsyncMock, MagicMock
-
         from apps.cosa.compliance import AiComplianceClient, ComplianceResolver
         from apps.cosa.compliance.data_model_gate import CosaDataModelGate
 
-        if (
-            model is not None
-            or isinstance(client, (AsyncMock, MagicMock))
-            or isinstance(getattr(client, "get", None), (AsyncMock, MagicMock))
-        ):
+        # Task 5 — trước đây nhánh này tự kích hoạt bằng cách "đánh hơi" kiểu
+        # runtime của `client` (`isinstance(client, AsyncMock/MagicMock)`) —
+        # code smell vì composition root SẢN XUẤT lại rẽ nhánh theo kiểu Python
+        # nội bộ của 1 test double, không phải theo 1 quyết định cấu hình
+        # tường minh. Thay bằng 2 tín hiệu tường minh, không suy đoán kiểu:
+        # (1) `model` được test/dev truyền tay (đã là tín hiệu "đây là môi
+        # trường test" từ trước Task 5, giữ nguyên để không phá vỡ test hiện
+        # có truyền model= mà không truyền client=), hoặc (2) feature flag
+        # env `COSA_COMPLIANCE_MOCK=1` — dùng khi cần mock compliance client
+        # độc lập với việc có truyền `model` hay không (vd. dev local chưa
+        # cấu hình COMPANY_SERVICE_URL cho ai-compliance route).
+        use_mock_compliance_client = model is not None or os.getenv(
+            "COSA_COMPLIANCE_MOCK", ""
+        ).strip().lower() in ("1", "true", "yes")
+
+        if use_mock_compliance_client:
 
             class _MockAiComplianceClient:
                 # Task 4: ComplianceResolver.resolve_for_run giờ luôn mint 1
@@ -603,6 +622,7 @@ def build_cosa_agent_plane(
             compliance_resolver=compliance_resolver,
             model_input_guard=model_input_guard,
         )
+        _plane_compliance_resolver = compliance_resolver
 
     elif runtime == "manual_tool_loop":
         # Kernel manual-loop cũ (đổi tên từ OpenAIAgentsKernel) — vẫn dùng
@@ -652,4 +672,5 @@ def build_cosa_agent_plane(
         event_intake_deps=event_intake_deps,
         memory_service=memory_service,
         knowledge_ingestion_service=knowledge_ingestion_service,
+        compliance_resolver=_plane_compliance_resolver,
     )

@@ -91,10 +91,20 @@ class CompanyServiceClient:
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
+        from agent.capabilities.outbound_headers import get_outbound_headers
+
         from apps.cosa.observability.otel import inject_trace_carrier
 
         url = f"{self.base_url}/{path.lstrip('/')}"
         req_headers = dict(self.default_headers)
+        # Task 5 — header xác thực (Authorization, X-Workspace-Id,
+        # X-COSA-Run-Id, X-COSA-Capability-Id) do kernel set ambient TỪ
+        # InvocationContext của tool call đang chạy (KHÔNG phải từ đối số của
+        # handler/tool). Merge SAU default_headers nhưng TRƯỚC `headers`
+        # tường minh (nếu caller truyền `headers=` rõ ràng cho nhu cầu khác,
+        # nó vẫn thắng — không có call site nào hiện tại truyền Authorization
+        # tường minh qua tham số này).
+        req_headers.update(get_outbound_headers())
         if headers:
             req_headers.update(headers)
         req_headers = inject_trace_carrier(req_headers)
