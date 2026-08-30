@@ -12,4 +12,5 @@ export * from "./decision-record.handler";
 export * from "./next-best-action.handler";
 export * from "./venture-profile.handler";
 export * from "./weekly-review.handler";
-
+export * from "./evidence-review.handler";
+export * from "./evidence-ingestion.handler";

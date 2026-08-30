@@ -62,12 +62,28 @@ export const experiments = strategySchema.table("experiments", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
+// 5a. Evidence Ingestions (Idempotent source intake receipt)
+export const evidenceIngestions = strategySchema.table("evidence_ingestions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  sourceSystem: varchar("source_system", { length: 50 }).notNull(),
+  sourceRecordId: text("source_record_id").notNull(),
+  sourcePayloadHash: text("source_payload_hash").notNull(),
+  artifactRef: text("artifact_ref"),
+  sourceUrl: text("source_url"),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  ingestedByMemberId: bigint("ingested_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // 5. Evidence
 export const evidence = strategySchema.table("evidence", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   experimentId: bigint("experiment_id", { mode: "bigint" }).references(() => experiments.id, { onDelete: "set null" }),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  evidenceIngestionId: bigint("evidence_ingestion_id", { mode: "bigint" }).references(() => evidenceIngestions.id, { onDelete: "set null" }),
   sourceType: varchar("source_type", { length: 50 }).notNull(),
   claim: text("claim").notNull(),
   strength: doublePrecision("strength").default(0.0).notNull(),
@@ -77,6 +93,12 @@ export const evidence = strategySchema.table("evidence", {
   reviewComment: text("review_comment"),
   reviewedByMemberId: bigint("reviewed_by_member_id", { mode: "bigint" }),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  artifactRef: text("artifact_ref"),
+  sourceUrl: text("source_url"),
+  sourceSystem: varchar("source_system", { length: 50 }),
+  factOrInference: varchar("fact_or_inference", { length: 30 }).default("inference").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }),
+  freshUntil: timestamp("fresh_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
