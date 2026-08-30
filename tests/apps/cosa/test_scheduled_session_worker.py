@@ -14,7 +14,10 @@ from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.worker.main import dispatch_one_task
-from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+from tests.apps.cosa.policy_test_helpers import (
+    configure_mock_client_allows_data_use,
+    fake_active_tenant_policy_client,
+)
 
 import pytest_asyncio
 
@@ -31,6 +34,8 @@ async def worker_setup():
     lease_mgr = RunLeaseManager()
 
     mock_client = AsyncMock(spec=CompanyServiceClient)
+
+    configure_mock_client_allows_data_use(mock_client)
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),

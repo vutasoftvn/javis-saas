@@ -40,7 +40,11 @@ from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.compliance.contracts import ComplianceDenied
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.worker.handlers import execute_run_task
-from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+from tests.apps.cosa.policy_test_helpers import (
+    configure_mock_client_allows_data_use,
+    fake_active_tenant_policy_client,
+    fake_data_access_claim,
+)
 
 _RAW_SECRET_TOKEN = "eyJ.super-secret-company-delegation-jwt.body"  # nosec - test fixture chuỗi giả
 
@@ -75,8 +79,9 @@ class FakeComplianceResolver:
         return base
 
 
-def _plane():
+def _plane(company_client: Any | None = None):
     return build_cosa_agent_plane(
+        company_client=company_client,
         repository=InMemoryRunRepository(),
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
@@ -286,12 +291,23 @@ async def test_worker_passes_bound_delegation_to_snapshot_and_capability_clients
     3. Raw token / 'Bearer ' KHÔNG BAO GIỜ xuất hiện trong stream events hay messages.
     """
     import httpx
+    from unittest.mock import AsyncMock
+
     from agent_testkit.fake_sdk_model import text_response, tool_call_response
     from apps.cosa.capabilities.client import CompanyServiceClient
 
-    plane = _plane()
+    # Task 7 (2026-08-30) — CosaDataModelGate giờ deny khi thiếu
+    # DataAccessClaim thật; mock riêng client của gate (KHÔNG phải client
+    # của tool call, dựng riêng bên dưới trong _capability_executor) để: (a)
+    # gate không cần 1 Company server thật đang chạy, (b) lệnh gọi
+    # resolve_data_use của gate không lẫn vào `company_client_calls` — biến
+    # chỉ nhằm đếm đúng 1 lệnh gọi list_tasks của tool call thật.
+    gate_client = configure_mock_client_allows_data_use(AsyncMock(spec=CompanyServiceClient))
+    plane = _plane(company_client=gate_client)
     await seed_cosa_agent_specs(plane.spec_registry)
-    fake_resolver = FakeComplianceResolver()
+    fake_resolver = FakeComplianceResolver(
+        extra_metadata={"data_access_claim": fake_data_access_claim(capability_id="operations.task.list")}
+    )
     plane.compliance_resolver = fake_resolver
 
     company_client_calls: list[dict[str, Any]] = []

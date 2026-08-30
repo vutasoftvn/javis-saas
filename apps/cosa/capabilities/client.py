@@ -83,6 +83,74 @@ class CompanyServiceClient:
     async def list_tasks(self, workspace_id: str) -> dict[str, Any]:
         return await self.get("/operations/tasks", params={"workspaceId": workspace_id})
 
+    async def resolve_data_use(
+        self,
+        workspace_id: str,
+        deployment_id: str,
+        capability_id: str,
+        purpose_id: str,
+        data_categories: list[str] | set[str] | frozenset[str],
+        provider_key: str,
+        model_key: str = "",
+        subject_reference: str | None = None,
+        delegation_token: str | None = None,
+    ) -> Any:
+        """Gọi `POST /finance-legal/ai-compliance/resolve-data-use` (Task 7).
+
+        Đây là method mà `CosaDataModelGate.prepare_initial_input`
+        (`apps/cosa/compliance/data_model_gate.py`) kiểm tra qua
+        `hasattr(self._client, "resolve_data_use")` trước khi enforce
+        relational check thật. Trước Task 7, `CompanyServiceClient` KHÔNG có
+        method này ⇒ `hasattr` luôn `False` với client thật trong production
+        ⇒ toàn bộ nhánh enforcement rơi thẳng về `redactor.sanitize()` không
+        kiểm tra category/provider/authorization nào (dead code — xác nhận
+        bằng audit 2026-08-30). Thêm method thật ở đây khiến `hasattr` trả về
+        `True` với MỌI instance `CompanyServiceClient` thật, không chỉ với
+        mock trong test.
+
+        Lệnh gọi này xảy ra TRƯỚC khi kernel gọi model — tại thời điểm đó
+        CHƯA có tool call nào đang chạy nên header ambient
+        (`agent.capabilities.outbound_headers`, do kernel set quanh đúng 1
+        lệnh gọi capability — xem `RealOpenAIAgentsSDKKernel._invoke_capability`)
+        chưa được set. Vì vậy method này tự build header
+        Authorization/X-Workspace-Id tường minh từ tham số `delegation_token`
+        thay vì trông chờ ambient context, rồi truyền qua tham số `headers=`
+        của `self.post()` — tham số đó vẫn thắng ambient theo đúng convention
+        đã có ở `_request()` (`req_headers.update(get_outbound_headers());
+        if headers: req_headers.update(headers)`).
+        """
+        headers: dict[str, str] = {"X-Workspace-Id": str(workspace_id)}
+        if delegation_token:
+            headers["Authorization"] = f"Bearer {delegation_token}"
+
+        payload: dict[str, Any] = {
+            "deploymentId": str(deployment_id),
+            "capabilityId": capability_id,
+            "purposeId": purpose_id,
+            "dataCategories": list(data_categories),
+            "providerKey": provider_key,
+            "modelKey": model_key,
+        }
+        if subject_reference is not None:
+            payload["subjectReference"] = subject_reference
+
+        data = await self.post(
+            "/finance-legal/ai-compliance/resolve-data-use",
+            json=payload,
+            headers=headers,
+        )
+
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            allowed=data.get("allowed", False),
+            denial_code=data.get("denialCode"),
+            provider_profile_version=data.get("providerProfileVersion"),
+            data_profile_version=data.get("dataProfileVersion"),
+            retention_policy_id=data.get("retentionPolicyId"),
+            minimization_required=data.get("minimizationRequired", False),
+        )
+
     async def _request(
         self,
         method: str,

@@ -18,13 +18,17 @@ from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
-from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+from tests.apps.cosa.policy_test_helpers import (
+    configure_mock_client_allows_data_use,
+    fake_active_tenant_policy_client,
+)
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
 
 
 @pytest.fixture
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
+    configure_mock_client_allows_data_use(mock_client)
     mock_client.get.return_value = {
         "tasks": [{"id": 1, "title": "Launch Q4 Strategy", "status": "in_progress"}],
         "total": 1,

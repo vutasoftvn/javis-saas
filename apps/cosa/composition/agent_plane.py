@@ -604,7 +604,47 @@ def build_cosa_agent_plane(
                         expires_at=datetime.now(UTC) + timedelta(days=1),
                     )
 
-            compliance_resolver = ComplianceResolver(client=_MockAiComplianceClient())  # type: ignore[arg-type]
+            class _MockComplianceResolverWithDefaultClaim:
+                """CHỈ dùng trong nhánh test/dev-mock (`use_mock_compliance_client`).
+
+                Task 7 (2026-08-30) — `CosaDataModelGate.prepare_initial_input`
+                giờ DENY khi thiếu `DataAccessClaim` thật trên đường
+                compliance-gated (xem `apps/cosa/compliance/data_model_gate.py`).
+                Đa số test hiện có KHÔNG kiểm thử data governance nhưng vẫn cần
+                chạy hết 1 run thật qua kernel — wrapper này bổ sung 1 claim
+                mặc định tối thiểu vào metadata SAU KHI resolver mock trả
+                snapshot, để các test đó không phải tự dựng claim thủ công.
+                KHÔNG áp dụng cho nhánh production thật (else-branch dưới) —
+                production vẫn deny khi thiếu claim, đúng quyết định Task 7.
+                Đây là scaffolding tạm thời cho tới khi có Data Egress Context
+                thật (docs/superpowers/specs/2026-08-30-data-egress-context-prerequisite.md).
+                """
+
+                def __init__(self, inner: Any) -> None:
+                    self._inner = inner
+
+                async def resolve_for_run(self, request: RunRequest, spec: AgentSpec) -> dict[str, Any]:
+                    result = dict(await self._inner.resolve_for_run(request, spec))
+                    if "data_access_claim" not in result and "claim" not in result:
+                        from apps.cosa.compliance.data_access_claim import DataAccessClaim
+
+                        snap = result.get("compliance_snapshot") or {}
+                        result["data_access_claim"] = DataAccessClaim(
+                            workspace_id=str(request.workspace_id or snap.get("workspace_id") or ""),
+                            deployment_id=str(snap.get("deployment_id") or f"dep_{request.workspace_id}"),
+                            capability_id="model.input",
+                            source_ref="mock://compliance/default-claim",
+                            source_hash="sha256:" + "0" * 64,
+                            categories=frozenset(["BUSINESS_CONFIDENTIAL"]),
+                            purpose_id="advisory",
+                            provider_key="deepseek",
+                            model_key="deepseek-chat",
+                        )
+                    return result
+
+            compliance_resolver = _MockComplianceResolverWithDefaultClaim(
+                ComplianceResolver(client=_MockAiComplianceClient())  # type: ignore[arg-type]
+            )
         else:
             base_url = getattr(client, "base_url", None) or getattr(client, "_base_url", None)
             if base_url is None:

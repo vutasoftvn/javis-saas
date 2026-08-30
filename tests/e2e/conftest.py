@@ -111,12 +111,28 @@ def worker_token(e2e_env):
 async def e2e_agent_plane(e2e_env) -> AsyncIterator[CosaAgentPlane]:
     """CosaAgentPlane fixture connected to real DB with scheduler."""
     os.environ["COSA_MODEL_PROVIDER"] = "fake"
+    from unittest.mock import AsyncMock
+
     from agent.coordination.scheduler import RunScheduler
     from agent.runs.leases import RunLeaseManager
-    from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+
+    from apps.cosa.capabilities.client import CompanyServiceClient
+    from tests.apps.cosa.policy_test_helpers import (
+        configure_mock_client_allows_data_use,
+        fake_active_tenant_policy_client,
+    )
+
+    # Task 7 (2026-08-30) — CosaDataModelGate giờ deny khi thiếu
+    # DataAccessClaim thật trên đường compliance-gated. Mock compliance
+    # resolver (kích hoạt bởi model=FakeSDKModel() trong agent_plane.py) tự
+    # gắn 1 claim mặc định tối thiểu, nhưng gate vẫn cần 1 client hỗ trợ
+    # resolve_data_use không đòi hỏi server Company thật đang chạy trong
+    # môi trường e2e test này.
+    mock_company_client = configure_mock_client_allows_data_use(AsyncMock(spec=CompanyServiceClient))
 
     plane = build_cosa_agent_plane(
         database_url=e2e_env["db_agent"],
+        company_client=mock_company_client,
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
         tenant_policy_client=fake_active_tenant_policy_client(workspace_id=WS_1),

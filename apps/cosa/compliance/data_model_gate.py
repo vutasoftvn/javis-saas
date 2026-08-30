@@ -24,27 +24,39 @@ class CosaDataModelGate:
             if isinstance(raw_c, DataAccessClaim):
                 claim = raw_c
 
-        snap = run_context.get("compliance_snapshot") or {}
-        dep_id = (
-            claim.deployment_id
-            if claim
-            else (
-                snap.get("deployment_id")
-                if isinstance(snap, dict)
-                else getattr(snap, "deployment_id", None)
-            )
-        )
-        ws_id = claim.workspace_id if claim else run_context.get("workspace_id")
-        purpose_id = claim.purpose_id if claim else run_context.get("purpose_id", "advisory")
-        provider_key = claim.provider_key if claim else run_context.get("provider_key", "deepseek")
-        model_key = claim.model_key if claim else run_context.get("model_key", "")
-        capability_id = claim.capability_id if claim else "model.input"
-        categories = (
-            list(claim.categories)
-            if claim
-            else list(run_context.get("data_categories") or ["BUSINESS_CONFIDENTIAL"])
-        )
-        subject_ref = claim.subject_reference if claim else run_context.get("subject_reference")
+        # Task 7 audit (2026-08-30) — con đường DUY NHẤT sản xuất
+        # (`apps.cosa.composition.agent_plane.build_cosa_agent_plane`, runtime
+        # "openai_agents" mặc định) LUÔN wire `CosaDataModelGate` cùng lúc với
+        # `compliance_resolver` — tức MỌI lần gate này chạy với `self._client`
+        # khác `None` đều là 1 run compliance-gated thật (không tồn tại
+        # đường chạy "openai_agents runtime nhưng bỏ qua compliance" nào khác
+        # — xác nhận bằng đọc agent_plane.py dòng ~607-624). Vì vậy: nếu
+        # KHÔNG có claim thật (không ai gắn category/provider/model thật vào
+        # run_context) mà gate lại có client — tức đang ở nhánh compliance-
+        # gated — PHẢI deny ngay, KHÔNG được suy đoán category/provider/model
+        # mặc định rồi rơi về `redactor.sanitize()` (đây chính là hành vi
+        # "tests green, feature inert" mà audit phát hiện ở Task 7).
+        #
+        # `self._client is None` (gate dựng tay không truyền client, dùng
+        # trong vài unit/smoke test đọc riêng gate) là con đường KHÔNG
+        # compliance-gated — hợp lệ để giữ hành vi redactor-only cũ trong
+        # giai đoạn chuyển tiếp cho tới khi có "Data Egress Context" thật
+        # (xem docs/superpowers/specs/2026-08-30-data-egress-context-prerequisite.md).
+        #
+        # LƯU Ý QUAN TRỌNG (ghi trong task-7-report.md): vì con đường
+        # compliance-gated là con đường DUY NHẤT của toàn bộ runtime sản
+        # xuất, và hiện KHÔNG có capability/retrieval nào build
+        # `DataAccessClaim` thật, nhánh deny này sẽ chặn TẤT CẢ các run thật
+        # cho tới khi Data Egress Context tồn tại — đây là hệ quả cố ý, không
+        # phải lỗi, theo đúng quyết định "fail-closed cho riêng đường
+        # compliance-gated, không fallback che giấu" của người dùng.
+        if claim is None:
+            if self._client is not None:
+                raise ComplianceDenied("DATA_ACCESS_CLAIM_MISSING")
+            return self._redactor.sanitize(raw_input)
+
+        categories = list(claim.categories)
+        subject_ref = claim.subject_reference
 
         # Personal data guard: if personal/sensitive categories requested, subject_reference must be present
         is_personal = any(cat in ("PERSONAL", "SENSITIVE_PERSONAL") for cat in categories)
@@ -55,13 +67,13 @@ class CosaDataModelGate:
             delegation_token = run_context.get("_company_delegation_token") or run_context.get("delegation_token")
 
             decision = await self._client.resolve_data_use(
-                workspace_id=str(ws_id) if ws_id else "",
-                deployment_id=str(dep_id) if dep_id else "",
-                capability_id=capability_id,
-                purpose_id=purpose_id,
+                workspace_id=claim.workspace_id,
+                deployment_id=claim.deployment_id,
+                capability_id=claim.capability_id,
+                purpose_id=claim.purpose_id,
                 data_categories=categories,
-                provider_key=provider_key,
-                model_key=model_key,
+                provider_key=claim.provider_key,
+                model_key=claim.model_key,
                 subject_reference=subject_ref,
                 delegation_token=delegation_token,
             )

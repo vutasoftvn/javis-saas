@@ -18,13 +18,17 @@ from agent_testkit.fake_sdk_model import FakeSDKModel, text_response, tool_call_
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
-from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+from tests.apps.cosa.policy_test_helpers import (
+    configure_mock_client_allows_data_use,
+    fake_active_tenant_policy_client,
+)
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
 
 
 @pytest.fixture
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
+    configure_mock_client_allows_data_use(mock_client)
     mock_client.post.return_value = {
         "payout_id": "po_slice2_777",
         "status": "committed",
@@ -132,6 +136,7 @@ def test_app_for_payload_shape():
     """Separate fixture cho payload shape test để tránh conflict với
     drain_worker_queue() của main flow test."""
     mock_client = AsyncMock(spec=CompanyServiceClient)
+    configure_mock_client_allows_data_use(mock_client)
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),
