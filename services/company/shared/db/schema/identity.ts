@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, integer, timestamp, primaryKey } from "drizzle-orm/pg-core";
 
 export const coreSchema = pgSchema("core");
 
@@ -70,13 +70,24 @@ export const identityWorkspaceMemberships = coreSchema.table("workspace_membersh
 // chỉ được "consume" đúng 1 lần cho 1 cặp (run_id, capability_id) trước khi
 // thực hiện side effect (EXTERNAL call hoặc mutation) — không dùng cho
 // READ-only snapshot resolution (idempotent tự nhiên, chỉ cần exp hợp lệ).
-export const identityCosaDelegationReplays = coreSchema.table("cosa_delegation_replays", {
-  jti: text("jti").primaryKey(),
-  workspaceId: text("workspace_id").notNull(),
-  runId: text("run_id").notNull(),
-  capabilityId: text("capability_id").notNull(),
-  consumedAt: timestamp("consumed_at", { withTimezone: true }).defaultNow().notNull(),
-});
+// Composite PK thật (jti, capabilityId) — `jti` chứa ĐÚNG JWT ID từ claim
+// (không phải chuỗi tổng hợp "${jti}:${capabilityId}"). 1 delegation có thể
+// khai báo nhiều capability_ids; mỗi capability được "consume" đúng 1 lần,
+// độc lập với các capability khác của cùng delegation — composite PK diễn
+// đạt đúng ràng buộc đó ở tầng DB thay vì chỉ ở cách app-layer build key.
+export const identityCosaDelegationReplays = coreSchema.table(
+  "cosa_delegation_replays",
+  {
+    jti: text("jti").notNull(),
+    capabilityId: text("capability_id").notNull(),
+    workspaceId: text("workspace_id").notNull(),
+    runId: text("run_id").notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.jti, table.capabilityId] }),
+  })
+);
 
 export const identityWorkforceMembers = coreSchema.table("workforce_members", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),

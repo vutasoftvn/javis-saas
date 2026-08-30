@@ -8,14 +8,21 @@
 --
 -- Bảng này chỉ dùng cho EXTERNAL call / mutation (side effect thật) — verify
 -- Company (cosa-delegation.service.ts::consumeCosaDelegation) INSERT ... ON
--- CONFLICT DO NOTHING theo PK jti; nếu không insert được (đã tồn tại) coi là
--- replay và từ chối. READ-only snapshot resolution KHÔNG ghi bảng này.
+-- CONFLICT DO NOTHING theo composite PK (jti, capability_id); nếu không
+-- insert được (cặp đã tồn tại) coi là replay và từ chối. READ-only snapshot
+-- resolution KHÔNG ghi bảng này.
+--
+-- `jti` chứa ĐÚNG JWT ID thật từ claim (không phải chuỗi tổng hợp) — 1
+-- delegation có thể khai báo nhiều capability_ids và mỗi capability được
+-- phép "dùng" đúng 1 lần độc lập với nhau, nên PK là composite (jti,
+-- capability_id) chứ không phải (jti) một mình.
 CREATE TABLE core.cosa_delegation_replays (
-  jti TEXT PRIMARY KEY,
+  jti TEXT NOT NULL,
+  capability_id TEXT NOT NULL,
   workspace_id TEXT NOT NULL,
   run_id TEXT NOT NULL,
-  capability_id TEXT NOT NULL,
-  consumed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  consumed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (jti, capability_id)
 );
 
 CREATE INDEX cosa_delegation_replays_workspace_run_idx

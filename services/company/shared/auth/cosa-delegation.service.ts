@@ -193,19 +193,25 @@ export async function consumeCosaDelegation(
     throw new Error("cosa delegation expired");
   }
 
+  // `jti` là ĐÚNG JWT ID thật từ claim (không phải chuỗi tổng hợp) — 1
+  // delegation có thể mang nhiều capability_ids, và mỗi capability cần được
+  // consume độc lập (xem test "allows consuming distinct capabilities..."),
+  // nên ràng buộc chống replay thật ở tầng DB là composite PK (jti,
+  // capability_id) (services/company/shared/db/schema/identity.ts) — không
+  // phải chỉ (jti) một mình. INSERT ... ON CONFLICT DO NOTHING theo đúng
+  // composite PK này để atomic/race-safe: 2 request đồng thời cùng
+  // (jti, capabilityId) chỉ 1 request insert thành công.
   const inserted = await db
     .insert(identityCosaDelegationReplays)
     .values({
-      // jti một mình đã là PK toàn cục duy nhất (UUID do COSA sinh) — nhưng
-      // 1 delegation có thể mang nhiều capability_ids, và mỗi capability cần
-      // được consume độc lập (xem test "allows consuming distinct
-      // capabilities..."), nên khoá thực tế chống replay là (jti, capability).
-      jti: `${claims.jti}:${capabilityId}`,
+      jti: claims.jti,
+      capabilityId,
       workspaceId: claims.workspace_id,
       runId: claims.run_id,
-      capabilityId,
     })
-    .onConflictDoNothing({ target: identityCosaDelegationReplays.jti })
+    .onConflictDoNothing({
+      target: [identityCosaDelegationReplays.jti, identityCosaDelegationReplays.capabilityId],
+    })
     .returning({ jti: identityCosaDelegationReplays.jti });
 
   if (inserted.length === 0) {

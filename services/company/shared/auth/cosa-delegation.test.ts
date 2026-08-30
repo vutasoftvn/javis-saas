@@ -5,6 +5,7 @@
 // Trước Task 3 không có gì để test ở đây — "delegation" cũ chỉ re-sign lại
 // {sub, aud?, exp} phía apps/cosa, services/company chưa từng verify claim
 // có cấu trúc nào. RED ban đầu: cosa-delegation.service.ts chưa tồn tại.
+import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { afterAll, describe, expect, it } from "vitest";
 import {
@@ -185,5 +186,70 @@ describe("cosa-delegation", () => {
 
     await expect(consumeCosaDelegation(claims, "finance.read")).resolves.not.toThrow();
     await expect(consumeCosaDelegation(claims, "finance.write")).resolves.not.toThrow();
+  });
+
+  it("persists the real jti (not a composite string) and enforces uniqueness via the composite (jti, capability_id) primary key", async () => {
+    const token = mintCompanyDelegation({
+      sub: "member-1",
+      workspace_id: "w1",
+      run_id: "r-replay-3",
+      capability_ids: ["finance.read", "finance.write"],
+    });
+    const claims = verifyCosaDelegation(token, {
+      workspaceId: "w1",
+      runId: "r-replay-3",
+      capabilityId: "finance.read",
+    });
+
+    await consumeCosaDelegation(claims, "finance.read");
+    await consumeCosaDelegation(claims, "finance.write");
+
+    const rows = await db
+      .select()
+      .from(identityCosaDelegationReplays)
+      .where(eq(identityCosaDelegationReplays.jti, claims.jti));
+
+    // Cùng jti thật (không phải chuỗi tổng hợp "jti:capability") xuất hiện ở
+    // đúng 2 hàng — 1 hàng mỗi capability đã consume — chứng minh cột `jti`
+    // chứa JWT ID thật và ràng buộc duy nhất nằm ở composite PK (jti,
+    // capability_id), không phải ở cách app-layer tự ghép chuỗi.
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.capabilityId).sort()).toEqual(["finance.read", "finance.write"]);
+    for (const row of rows) {
+      expect(row.jti).toBe(claims.jti);
+    }
+
+    // Insert trùng đúng (jti, capability_id) phải bị chặn qua ON CONFLICT ở
+    // tầng DB (composite PK) — race-safe, không phụ thuộc app-layer kiểm tra
+    // trước khi insert.
+    const duplicateInsert = await db
+      .insert(identityCosaDelegationReplays)
+      .values({
+        jti: claims.jti,
+        capabilityId: "finance.read",
+        workspaceId: claims.workspace_id,
+        runId: claims.run_id,
+      })
+      .onConflictDoNothing({
+        target: [identityCosaDelegationReplays.jti, identityCosaDelegationReplays.capabilityId],
+      })
+      .returning({ jti: identityCosaDelegationReplays.jti });
+    expect(duplicateInsert).toHaveLength(0);
+
+    // Insert cùng jti nhưng capability_id KHÁC (chưa từng consume) phải OK —
+    // đúng ngữ nghĩa composite PK, không phải PK đơn cột jti.
+    const newCapabilityInsert = await db
+      .insert(identityCosaDelegationReplays)
+      .values({
+        jti: claims.jti,
+        capabilityId: "finance.admin",
+        workspaceId: claims.workspace_id,
+        runId: claims.run_id,
+      })
+      .onConflictDoNothing({
+        target: [identityCosaDelegationReplays.jti, identityCosaDelegationReplays.capabilityId],
+      })
+      .returning({ jti: identityCosaDelegationReplays.jti });
+    expect(newCapabilityInsert).toHaveLength(1);
   });
 });
