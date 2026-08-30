@@ -1018,3 +1018,26 @@ description: Broken
         assert len(violations) == 0, (
             f"Expected no violations for real repository, found {len(violations)}: {violations}"
         )
+
+    @pytest.mark.parametrize(
+        ("relative_path", "skill_id"),
+        [
+            ("operations/tasks", "operations.tasks"),
+            ("operations/twelve-week-year", "operations.twelve_week_year"),
+            ("operations/okr", "operations.okr"),
+        ],
+    )
+    def test_operations_pack_source_path_matches_domain(self, relative_path: str, skill_id: str) -> None:
+        """
+        Regression test: verify operations skillpacks are correctly located
+        and have matching metadata, domain, and source path after relocation.
+
+        Validates:
+        - metadata.id matches expected skill_id
+        - capability.domain is "operations"
+        - source.path matches the expected skillpacks location
+        """
+        manifest = yaml.safe_load((REPO_ROOT / "skillpacks" / relative_path / "manifest.yaml").read_text())
+        assert manifest["metadata"]["id"] == skill_id
+        assert manifest["capability"]["domain"] == "operations"
+        assert manifest["source"]["path"] == f"skillpacks/{relative_path}"
