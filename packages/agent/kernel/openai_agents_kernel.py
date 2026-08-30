@@ -285,10 +285,19 @@ class ManualToolLoopKernel:
                     run_record=run_record,
                     checkpoint_ref=checkpoint_ref,
                 )
+                # Audit event chỉ lưu hash — cùng nguyên tắc Task 9 áp dụng cho
+                # CapabilityGateway/RealOpenAIAgentsSDKKernel (đều ghi vào chung
+                # bảng `agent.run_events`). `tool_res` thô vẫn đi vào
+                # `state.messages`/`completed_tool_calls` ngay dưới đây để tiếp
+                # tục reasoning loop — không bị ảnh hưởng.
                 await self._emit_event(
                     run_id,
                     "tool.completed",
-                    {"tool_call_id": call_id, "result": tool_res},
+                    {
+                        "tool_call_id": call_id,
+                        "output_hash": compute_payload_hash(tool_res),
+                        "output_present": tool_res is not None,
+                    },
                     correlation_id,
                 )
 
@@ -428,7 +437,11 @@ class ManualToolLoopKernel:
                         await self._emit_event(
                             run_id,
                             "run.failed",
-                            {"error": f"Output validation failed: {errs}"},
+                            {
+                                "error_type": "OutputValidationError",
+                                "error_hash": compute_payload_hash(errs),
+                                "error_count": len(errs),
+                            },
                             correlation_id,
                         )
                         return RunResult(
@@ -442,8 +455,17 @@ class ManualToolLoopKernel:
                 await self._repo.update_run_status(
                     run_id, status=RunStatus.COMPLETED, final_output=final_out
                 )
+                # Audit event chỉ lưu hash — final_output thô vẫn đi qua
+                # RunRecord.final_output (update_run_status ở trên) và RunResult
+                # trả về ngay dưới, đây mới là kênh caller thật đọc.
                 await self._emit_event(
-                    run_id, "run.completed", {"final_output": final_out}, correlation_id
+                    run_id,
+                    "run.completed",
+                    {
+                        "final_output_hash": compute_payload_hash(final_out),
+                        "final_output_present": final_out is not None,
+                    },
+                    correlation_id,
                 )
                 return RunResult(
                     run_id=run_id,
@@ -583,10 +605,19 @@ class ManualToolLoopKernel:
                     tool_call_id=call_id,
                     run_record=run_record,
                 )
+                # Audit event chỉ lưu hash — cùng nguyên tắc Task 9 áp dụng cho
+                # CapabilityGateway/RealOpenAIAgentsSDKKernel (đều ghi vào chung
+                # bảng `agent.run_events`). `tool_res` thô vẫn đi vào
+                # `state.messages`/`completed_tool_calls` ngay dưới đây để tiếp
+                # tục reasoning loop — không bị ảnh hưởng.
                 await self._emit_event(
                     run_id,
                     "tool.completed",
-                    {"tool_call_id": call_id, "result": tool_res},
+                    {
+                        "tool_call_id": call_id,
+                        "output_hash": compute_payload_hash(tool_res),
+                        "output_present": tool_res is not None,
+                    },
                     correlation_id,
                 )
 

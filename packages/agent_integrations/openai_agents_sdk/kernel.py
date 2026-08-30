@@ -187,8 +187,20 @@ class RealOpenAIAgentsSDKKernel:
                 context=context,
                 cap_spec=cap_spec,
             )
+            # Audit event `tool.completed` chỉ lưu HASH của result, không lưu nội
+            # dung thô — cùng nguyên tắc đã áp dụng cho CapabilityGateway
+            # (packages/agent/capabilities/gateway.py, Task 9), vì cùng ghi vào
+            # bảng `agent.run_events`. `result` thô vẫn được trả về nguyên vẹn
+            # ở return value của `_on_invoke` (SDK dùng để tiếp tục reasoning
+            # loop) — chỉ audit event log mới bị redact.
             await self._emit_event(
-                run_id, "tool.completed", {"tool_call_id": call_id, "result": result}
+                run_id,
+                "tool.completed",
+                {
+                    "tool_call_id": call_id,
+                    "output_hash": compute_payload_hash(result),
+                    "output_present": result is not None,
+                },
             )
             return result
 
@@ -447,10 +459,15 @@ class RealOpenAIAgentsSDKKernel:
                 )
             except Exception as e:
                 await self._repo.update_run_status(run_id, RunStatus.FAILED)
+                # Exception message có thể echo lại input/prompt của người dùng
+                # (model_input_guard raise khi phát hiện nội dung vi phạm) — audit
+                # event chỉ lưu type + hash, không lưu message thô. `RunResult.errors`
+                # (trả trực tiếp cho caller của kernel.run(), không phải audit log
+                # persist Postgres) vẫn giữ message thật để caller debug/hiển thị.
                 await self._emit_event(
                     run_id,
                     "run.failed",
-                    {"error": str(e)},
+                    {"error_type": type(e).__name__, "error_hash": compute_payload_hash(str(e))},
                     correlation_id,
                 )
                 return RunResult(
@@ -597,7 +614,15 @@ class RealOpenAIAgentsSDKKernel:
             return RunResult(run_id=run_id, status=RunStatus.CANCELLED)
         except Exception as e:
             await self._repo.update_run_status(run_id, RunStatus.FAILED)
-            await self._emit_event(run_id, "run.failed", {"error": str(e)}, correlation_id)
+            # Exception từ Runner.run() có thể echo model output/tool result/prompt
+            # thô trong message — audit event chỉ lưu type + hash, không lưu
+            # nguyên văn (cùng nguyên tắc với nhánh model_input_guard ở trên).
+            await self._emit_event(
+                run_id,
+                "run.failed",
+                {"error_type": type(e).__name__, "error_hash": compute_payload_hash(str(e))},
+                correlation_id,
+            )
             return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[str(e)])
 
         interruptions = sdk_result.interruptions
@@ -683,10 +708,19 @@ class RealOpenAIAgentsSDKKernel:
                 await self._repo.update_run_status(
                     run_id, status=RunStatus.FAILED, final_output=val_fail.model_dump()
                 )
+                # jsonschema.ValidationError message thường echo lại giá trị output
+                # thô không hợp lệ (vd. "'x@y.com' is not of type ...") — audit event
+                # chỉ lưu hash + số lượng lỗi, không lưu nguyên văn `errs`.
+                # `RunResult.errors`/`val_fail` (trả cho caller thật, không phải
+                # audit log) vẫn giữ chi tiết thật để debug.
                 await self._emit_event(
                     run_id,
                     "run.failed",
-                    {"error": f"Output validation failed: {errs}"},
+                    {
+                        "error_type": "OutputValidationError",
+                        "error_hash": compute_payload_hash(errs),
+                        "error_count": len(errs),
+                    },
                     correlation_id,
                 )
                 return RunResult(
@@ -700,7 +734,20 @@ class RealOpenAIAgentsSDKKernel:
         await self._repo.update_run_status(
             run_id, status=RunStatus.COMPLETED, final_output=final_out
         )
-        await self._emit_event(run_id, "run.completed", {"final_output": final_out}, correlation_id)
+        # Audit event chỉ lưu hash của final_output — final_output thô THẬT vẫn
+        # đi qua RunRecord.final_output (cột riêng, update_run_status ở trên) và
+        # RunResult trả về bên dưới, đây là các kênh mà worker/copilot/autopilot
+        # đọc thật (apps/cosa/worker/handlers.py, autopilot_run.py,
+        # copilot_run.py) — không đọc từ payload của event `run.completed`.
+        await self._emit_event(
+            run_id,
+            "run.completed",
+            {
+                "final_output_hash": compute_payload_hash(final_out),
+                "final_output_present": final_out is not None,
+            },
+            correlation_id,
+        )
         return RunResult(
             run_id=run_id,
             status=RunStatus.COMPLETED,
