@@ -202,7 +202,9 @@ class LoginView extends GetView<AuthController> {
                             ),
                             const SizedBox(width: 8),
                             const Text(
-                              'Ghi nhớ đăng nhập',
+                              // Chỉ ghi nhớ tài khoản (identifier), KHÔNG lưu mật khẩu — xem
+                              // AuthController._loadSavedCredentials()/login().
+                              'Ghi nhớ tài khoản này',
                               style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                             ),
                           ],

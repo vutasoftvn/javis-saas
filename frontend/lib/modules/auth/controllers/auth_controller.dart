@@ -46,11 +46,16 @@ class AuthController extends GetxController {
   Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     final savedIdentifier = prefs.getString('saved_identifier');
-    final savedPassword = prefs.getString('saved_password');
 
-    if (savedIdentifier != null && savedPassword != null) {
+    // Bản cài đặt cũ (trước khi vá lỗi) có thể còn key `saved_password` lưu
+    // mật khẩu dạng plaintext trong SharedPreferences — xoá ngay, không bao
+    // giờ đọc/gán giá trị này vào passwordController.
+    if (prefs.containsKey('saved_password')) {
+      await prefs.remove('saved_password');
+    }
+
+    if (savedIdentifier != null) {
       identifierController.text = savedIdentifier;
-      passwordController.text = savedPassword;
       rememberMe.value = true;
     }
   }
@@ -120,14 +125,14 @@ class AuthController extends GetxController {
       return;
     }
 
-    // Save or remove remembered credentials based on rememberMe
+    // Chỉ ghi nhớ identifier (email/số điện thoại) — KHÔNG BAO GIỜ lưu mật
+    // khẩu dạng plaintext vào SharedPreferences. Token phiên đăng nhập đã có
+    // secure storage riêng (xem AuthService.syncFromPlatform).
     final prefs = await SharedPreferences.getInstance();
     if (rememberMe.value) {
       await prefs.setString('saved_identifier', identifier);
-      await prefs.setString('saved_password', password);
     } else {
       await prefs.remove('saved_identifier');
-      await prefs.remove('saved_password');
     }
 
     if (workspaces.length == 1) {
