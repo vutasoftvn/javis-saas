@@ -135,15 +135,81 @@ async def test_gate_denies_when_claim_missing_and_client_configured_zero_network
     run_context = {
         "workspace_id": "ws_1",
         "compliance_snapshot": {"deployment_id": "dep_1", "status": "APPROVED_FOR_USE"},
+        "model_input_capability_ref": "model.input.direct-user-message",
         # Cố tình KHÔNG có "data_access_claim"/"claim" — mô phỏng đúng thực
         # trạng production hiện tại (chưa có capability/retrieval nào build
-        # claim thật).
+        # claim thật) cho MỘT spec THẬT SỰ khai báo model_input_capability_ref.
     }
 
     with pytest.raises(ComplianceDenied, match="DATA_ACCESS_CLAIM_MISSING"):
         await gate.prepare_initial_input(run_context, "Plan Q4 tasks")
 
     mock_client.resolve_data_use.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_gate_allows_specs_without_model_input_capability_ref_through_redactor() -> None:
+    """Autopilot/copilot (Task 2) never set model_input_capability_ref, so their
+    initial input — a structured task descriptor, not user-classified free text —
+    must not be denied for lacking a DataAccessClaim. It keeps the same
+    redactor-only treatment it had before any compliance-hardening work."""
+    mock_client = AsyncMock()
+    gate = CosaDataModelGate(client=mock_client)
+
+    run_context = {
+        "workspace_id": "ws_1",
+        "compliance_snapshot": {"deployment_id": "dep_1", "status": "APPROVED_FOR_USE"},
+        # model_input_capability_ref absent entirely, same as a real autopilot run.
+    }
+
+    result = await gate.prepare_initial_input(run_context, '{"thread_id": "th_1"}')
+
+    assert result == '{"thread_id": "th_1"}'
+    mock_client.resolve_data_use.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_autopilot_like_spec_reaches_model_without_claim_while_chat_spec_is_denied() -> None:
+    """Direct regression guard for the fix in this task: a spec without
+    model_input_capability_ref (autopilot/copilot-shaped) must reach the model
+    even with no DataAccessClaim anywhere in context, while a spec that does
+    declare it (chat-shaped) must still be denied — proving the fix does not
+    weaken the existing chat guarantee."""
+    autopilot_like_spec = AgentSpec(
+        id="autopilot_like_agent",
+        instructions="Task descriptor only",
+        capability_refs=["engagement.thread.read"],
+        model_input_capability_ref=None,
+    )
+    chat_like_spec = AgentSpec(
+        id="chat_like_agent",
+        instructions="Direct chat",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
+    request = RunRequest(
+        root_executable_ref="agent:autopilot_like_agent",
+        workspace_id="ws_1",
+        principal="system:autopilot:ws_1",
+        input={"thread_id": "th_1", "intent": "faq"},
+    )
+
+    allowed_model = FakeSDKModel(responses=[text_response("ok")])
+    allowed_kernel = RealOpenAIAgentsSDKKernel(
+        model=allowed_model,
+        model_input_guard=CosaDataModelGate(client=AsyncMock()),
+    )
+    allowed_result = await allowed_kernel.run(request, autopilot_like_spec)
+    assert allowed_result.status == RunStatus.COMPLETED
+    assert allowed_model.call_count == 1
+
+    denied_model = FakeSDKModel(responses=[text_response("unreachable")])
+    denied_kernel = RealOpenAIAgentsSDKKernel(
+        model=denied_model,
+        model_input_guard=CosaDataModelGate(client=AsyncMock()),
+    )
+    denied_result = await denied_kernel.run(request, chat_like_spec)
+    assert denied_result.status == RunStatus.FAILED
+    assert denied_model.call_count == 0
 
 
 @pytest.mark.asyncio

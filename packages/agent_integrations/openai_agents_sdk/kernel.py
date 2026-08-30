@@ -407,6 +407,7 @@ class RealOpenAIAgentsSDKKernel:
         context["execution_mode"] = request.execution_mode
         context["root_spec_identity"] = spec.id
         context["root_definition_hash"] = pinned_spec.definition_hash
+        context["model_input_capability_ref"] = spec.model_input_capability_ref
 
         compliance_snapshot = context.get("compliance_snapshot")
         if compliance_snapshot:
