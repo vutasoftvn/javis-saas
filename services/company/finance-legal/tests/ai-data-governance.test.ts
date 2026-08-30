@@ -185,4 +185,26 @@ describe("AI data governance service", () => {
     expect(decision.allowed).toBe(false);
     expect(decision.denialCode).toBe("MODEL_NOT_APPROVED");
   });
+
+  it("creates data subject request with legal hold support", async () => {
+    // Khôi phục lại test này — commit 7a7435fb xoá nó khi thêm 2 test
+    // resolveDataUse phía trên mà không có test tương đương nào khác che phủ
+    // hành vi legal-hold của createDataSubjectRequest (Task 7 audit finding).
+    const wsId = String(generateSnowflake());
+
+    const request = await createDataSubjectRequest({
+      workspaceId: wsId,
+      subjectReference: "customer_456",
+      requestType: "DELETION",
+      deadline: "2026-09-30T00:00:00Z",
+      legalHold: true,
+      legalHoldReason: "Pending tax audit under TT58",
+      handledByMemberId: founderId,
+    });
+
+    expect(request.status).toBe("LEGAL_HOLD");
+    expect(request.subjectReferenceHash).toMatch(/^[a-f0-9]{64}$/);
+    const serialized = JSON.stringify(request, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+    expect(serialized).not.toContain("customer_456");
+  });
 });
