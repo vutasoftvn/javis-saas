@@ -306,7 +306,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 describe("Task 4: connector authorization ownership enforcement", () => {
   // Principal A ("user_a_task4") tries to manage authorizations owned by principal B
   // ("user_b_task4"). A workspace member relationship (Task 3's check) is not enough:
-  // only the owner (or an audited founder/admin override) may grant/revoke.
+  // only the owner (or an audited founder/co-founder override) may grant/revoke.
   const PRINCIPAL_A = "user_a_task4";
   const PRINCIPAL_B = "user_b_task4";
   let currentCallerMembershipRole = "member";

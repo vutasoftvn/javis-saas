@@ -140,8 +140,8 @@ export const grantConnectorEndpoint = api(
     const claims = verifyPlatformToken(token);
 
     // Verify caller is a member of the workspace, and lấy membershipRole đã được
-    // services/company xác thực để xác định override founder/admin (không dùng role tự
-    // khai trong JWT của caller).
+    // services/company xác thực để xác định override founder/co-founder (không dùng role
+    // tự khai trong JWT của caller).
     const membership = await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
     const allowManageOthers = CONNECTOR_MANAGE_OTHERS_ROLES.has(membership.membershipRole);
 
@@ -167,7 +167,7 @@ export const revokeGrantEndpoint = api(
     const claims = verifyPlatformToken(token);
 
     // Verify caller is a member of the workspace, và lấy membershipRole đã xác thực để
-    // xác định override founder/admin.
+    // xác định override founder/co-founder.
     const membership = await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
     const allowManageOthers = CONNECTOR_MANAGE_OTHERS_ROLES.has(membership.membershipRole);
 

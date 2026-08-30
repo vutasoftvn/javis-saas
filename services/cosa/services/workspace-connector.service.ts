@@ -240,7 +240,7 @@ export async function grantConnectorToSession(input: {
   const authRecord = auth.connector_authorizations;
 
   // Một member chỉ được thao tác trên connector authorization của chính mình, trừ khi
-  // có override founder/admin đã qua kiểm tra (audited) từ tầng gọi.
+  // có override founder/co-founder đã qua kiểm tra (audited) từ tầng gọi.
   if (authRecord.principalId !== input.callerPrincipalId && !input.allowManageOthers) {
     throw APIError.permissionDenied(
       "connector authorization belongs to another principal (authorization owner mismatch)"
