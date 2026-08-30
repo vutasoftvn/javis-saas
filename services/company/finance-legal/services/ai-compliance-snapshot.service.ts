@@ -309,6 +309,20 @@ export async function resolveApprovedComplianceSnapshot(
     );
   }
 
+  // Migration 31 — reject khi có rule active khớp deployment nhưng CHƯA được
+  // luật sư/chuyên gia pháp lý xác nhận review (reviewStatus != 'REVIEWED').
+  // Đây KHÔNG phải BLOCK (không tự động kết luận vi phạm luật khi chưa qua
+  // thẩm định con người), nhưng cũng không được lờ đi cho qua tự động — runtime
+  // resolution phải fail-closed cho tới khi có review thật.
+  if (applicabilityResult.professionalReviewRequired.length > 0) {
+    fail(
+      APIError.alreadyExists(
+        `Deployment requires human legal review before runtime approval: ${applicabilityResult.professionalReviewRequired.join(", ")}`
+      ),
+      "LEGAL_REVIEW_PENDING"
+    );
+  }
+
   // Reject nếu mandatory active rule thiếu reviewed evidence
   for (const rule of applicabilityResult.matchedRules) {
     if (rule.mandatoryEvidenceType) {

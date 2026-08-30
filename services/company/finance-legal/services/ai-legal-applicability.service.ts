@@ -134,7 +134,12 @@ export async function fetchActiveExecutableRules(asOfDate: Date = new Date()): P
       .innerJoin(regulationVersions, eq(aiApplicabilityRules.regulationVersionId, regulationVersions.id))
       .where(
         and(
-          eq(aiApplicabilityRules.reviewStatus, "REVIEWED"),
+          // Migration 31: KHÔNG lọc reviewStatus ở tầng SQL nữa — rule ở
+          // trạng thái 'PENDING_REVIEW' vẫn phải được fetch để vòng lặp bên
+          // dưới đánh giá predicate và phát PROFESSIONAL_REVIEW_REQUIRED khi
+          // khớp, thay vì biến mất hoàn toàn (fail-open im lặng — đúng lỗ
+          // hổng đã audit phát hiện: rule bị gán review_status giả trước đó
+          // khiến 1 rule pending review có thể bị bỏ qua vô thanh vô tức).
           eq(regulationVersions.status, "ACTIVE"),
           ne(regulationVersions.contentHash, PLACEHOLDER_EMPTY_HASH),
           lte(aiApplicabilityRules.effectiveFrom, asOfStr),
@@ -199,12 +204,10 @@ export async function assessAiApplicability(
   }
 
   for (const rule of rules) {
-    // Bảo đảm quy tắc không dùng source version chưa thẩm định hoặc hash rỗng
-    if (
-      rule.reviewStatus !== "REVIEWED" ||
-      !rule.sourceContentHash ||
-      rule.sourceContentHash === PLACEHOLDER_EMPTY_HASH
-    ) {
+    // Bảo đảm quy tắc không dùng nguồn có hash rỗng/placeholder giả — đây là
+    // vấn đề "document identity" (nguồn không xác định), khác với vấn đề
+    // "chưa được luật sư duyệt" (reviewStatus) xử lý riêng bên dưới.
+    if (!rule.sourceContentHash || rule.sourceContentHash === PLACEHOLDER_EMPTY_HASH) {
       continue;
     }
 
@@ -220,13 +223,28 @@ export async function assessAiApplicability(
     matchedRules.push(rule);
 
     if (evalOutcome === "BLOCK") {
-      currentLawBlocks.push(rule.reasonCode);
-      if (!blockingRule) {
-        blockingRule = rule;
+      if (rule.reviewStatus === "REVIEWED") {
+        currentLawBlocks.push(rule.reasonCode);
+        if (!blockingRule) {
+          blockingRule = rule;
+        }
+      } else {
+        // Migration 31 — rule có document identity thật (hash hợp lệ) và
+        // predicate khớp, NHƯNG chưa có luật sư/chuyên gia pháp lý xác nhận
+        // review (reviewStatus != 'REVIEWED', vd 'PENDING_REVIEW'). KHÔNG
+        // được tự động BLOCK theo luật chưa qua thẩm định con người — nhưng
+        // cũng không được lờ đi (im lặng bỏ qua sẽ fail-open, đúng lỗ hổng
+        // migration 30 tạo ra khi tự gán reviewer giả): bắt buộc
+        // PROFESSIONAL_REVIEW_REQUIRED thay vì CURRENT_LAW/BLOCK.
+        professionalReviewRequired.push(rule.reasonCode);
       }
     } else if (evalOutcome === "REVIEW") {
+      // Rule PROFESSIONAL_REVIEW vốn dĩ chưa từng tự động BLOCK/cho qua —
+      // giữ nguyên hành vi bất kể reviewStatus của chính rule đó.
       professionalReviewRequired.push(rule.reasonCode);
     } else if (evalOutcome === "NOTICE") {
+      // NOTICE thuần thông tin theo dõi chính sách, chưa từng gate quyết
+      // định nào — giữ nguyên hành vi bất kể reviewStatus.
       policyWatchItems.push(rule.reasonCode);
     }
   }

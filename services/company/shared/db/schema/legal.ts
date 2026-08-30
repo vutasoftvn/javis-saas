@@ -29,6 +29,13 @@ export const regulationVersions = legalSchema.table("regulation_versions", {
   artifactPath: text("artifact_path"),
   reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  // Migration 31: reviewerMemberId/reviewedAt chỉ là audit trail "ai/khi nào
+  // đã CLAIM đã review" (migration 30 từng tự gán reviewerMemberId=1 mà không
+  // có workforce member thật/xác nhận thật — vi phạm rule 5 CLAUDE.md). Cột
+  // này mới là nguồn sự thật cho "đã có xác nhận review pháp lý THẬT chưa" —
+  // mặc định false, chỉ true khi có người có thẩm quyền pháp lý xác nhận qua
+  // quy trình review thật (không phải seed/migration tự set).
+  legalReviewConfirmed: boolean("legal_review_confirmed").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
