@@ -4,7 +4,13 @@ TEST_DATABASE_URL ?=
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate
+
+ai-compliance-production-gate:
+	cd services/company && pnpm vitest run finance-legal/tests/ai-compliance-*.test.ts
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/compliance tests/e2e/test_ai_compliance_company_http.py -q
+	cd frontend && flutter test test/modules/legal/ai_compliance_service_test.dart test/data/models/ai_compliance_models_test.dart
+
 
 dev:
 	$(MAKE) services-docker-up

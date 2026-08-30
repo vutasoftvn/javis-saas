@@ -603,7 +603,7 @@ git commit -m "feat: record replayable AI compliance decisions safely"
 - E2E starts or targets a real Company HTTP service/test container and private runtime endpoint; it does not substitute fake snapshot client.
 - make ai-compliance-production-gate is the one local CI command for this path.
 
-- [ ] **Step 1: Write production-path acceptance test**
+- [x] **Step 1: Write production-path acceptance test**
 
 ~~~
 async def test_approved_run_reaches_company_then_model_once():
@@ -619,11 +619,11 @@ async def test_suspended_or_cross_workspace_run_never_reaches_model():
     assert fake_model.call_count == 0
 ~~~
 
-- [ ] **Step 2: Cover negative matrix using real HTTP**
+- [x] **Step 2: Cover negative matrix using real HTTP**
 
 Add missing/expired/wrong-audience delegation; missing approved deployment; empty/unbound capability set; stale assessment/evidence/provider/data profile; withdrawn authorization; model mismatch; cross-workspace resource ID; UI request contract mismatch.
 
-- [ ] **Step 3: Add deterministic local gate**
+- [x] **Step 3: Add deterministic local gate**
 
 ~~~
 ai-compliance-production-gate:
@@ -634,16 +634,16 @@ ai-compliance-production-gate:
 
 Use repository bootstrap conventions; never embed credentials in Makefile/workflow.
 
-- [ ] **Step 4: Wire gate to CI after local reproducibility**
+- [x] **Step 4: Wire gate to CI after local reproducibility**
 
 Add the Make target as a quality.yml job. Preserve existing tenancy, TypeScript, Python and Flutter jobs; this is an added cross-plane gate, not a replacement.
 
-- [ ] **Step 5: Run release verification**
+- [x] **Step 5: Run release verification**
 
 Run: make ai-compliance-production-gate
 Expected: PASS. Then run the repository’s existing broader quality command. Record actual command output and migration versions in the release description; do not claim production readiness without these results.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ~~~
 git add tests/e2e services/company/finance-legal/tests .github/workflows/quality.yml Makefile docs/architecture/specs/README.md

@@ -24,3 +24,13 @@ Master document (`markdown/AI_Agent_OS_Master_Architecture.md`) vẫn là nguồ
 
 
 **ADR liên quan (đặt hướng đi, xem trước khi code):** `docs/architecture/adr/ADR-012` (legacy/backend frozen), `ADR-013` (agentos/ là target, thay legacy/agent_runtime dần), `ADR-014` (PermissionLevel L0-L3A-L3 canonical), `ADR-015` (agentos/workflows/ canonical).
+
+## AI Compliance Production Hardening Specification
+
+- **Specification & Implementation Plan:** `docs/superpowers/plans/2026-08-30-ai-compliance-production-hardening.md`
+- **Statutory Source Provenance:** `docs/architecture/specs/legal-rules-matrix.md` anchored to Vietnamese Official Gazette signed PDFs (`vb-ai/`).
+- **Production Verification Gate:** `make ai-compliance-production-gate`
+  - Company TypeScript Private & Governance contract tests (`vitest run finance-legal/tests/ai-compliance-*.test.ts`)
+  - COSA & E2E HTTP Acceptance Tests (`pytest tests/apps/cosa/compliance tests/e2e/test_ai_compliance_company_http.py -q`)
+  - Flutter Frontend Compliance Center tests (`flutter test test/modules/legal/ai_compliance_service_test.dart test/data/models/ai_compliance_models_test.dart`)
+
