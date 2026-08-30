@@ -187,14 +187,19 @@ export async function captureComplianceSnapshot(
       )
     )
     .orderBy(desc(aiComplianceEvidence.createdAt));
-  const evidenceIds = evidenceRows.map((e) => e.id);
+  // .toString() bắt buộc: cột đích là jsonb, Drizzle serialize bằng
+  // JSON.stringify() — JSON.stringify không biết serialize BigInt (throw
+  // TypeError ngay khi mảng có ít nhất 1 phần tử), nên phải tự convert sang
+  // string trước khi đưa vào mảng jsonb. Áp dụng cho MỌI id kiểu bigint ghi
+  // vào cột jsonb trong function này (capabilityBindingIds, evidenceIds).
+  const evidenceIds = evidenceRows.map((e) => e.id.toString());
   const evidenceHashes = evidenceRows.map((e) => e.contentHash);
 
   const capabilityBindingRows = await db
     .select()
     .from(aiSystemCapabilityBindings)
     .where(eq(aiSystemCapabilityBindings.systemVersionId, deploymentRow.systemVersionId));
-  const capabilityBindingIds = capabilityBindingRows.map((b) => b.id);
+  const capabilityBindingIds = capabilityBindingRows.map((b) => b.id.toString());
 
   // provenanceComplete: chỉ true khi cả provider profile lẫn data profile
   // đều verify được bằng ID thật (không NULL). Evidence/binding rỗng vẫn
