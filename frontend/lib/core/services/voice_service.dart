@@ -70,7 +70,6 @@ class VoiceService implements IVoiceService {
     }
 
     final workspaceId = await SecureStorageService.read('workspace_id');
-    final token = await SecureStorageService.read('auth_token');
     if (workspaceId == null) return null;
 
     final audioFile = File(path);
@@ -85,23 +84,18 @@ class VoiceService implements IVoiceService {
         return null;
       }
 
-      final apiUri = Uri.parse(ApiClient.baseUrl);
-      final uri = apiUri.replace(
-        path: '${apiUri.path}/chat/transcribe-voice',
+      final endpoint = Uri(
+        path: '/chat/transcribe-voice',
         queryParameters: {'workspace_id': workspaceId},
-      );
+      ).toString();
 
-      final request = http.MultipartRequest('POST', uri);
-      if (token != null && token.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $token';
-      }
-      request.files.add(
-        http.MultipartFile.fromBytes('file', audioBytes, filename: 'voice_input.m4a'),
+      final response = await ApiClient.sendMultipart(
+        endpoint,
+        fields: {'language': language},
+        files: [
+          http.MultipartFile.fromBytes('file', audioBytes, filename: 'voice_input.m4a'),
+        ],
       );
-      request.fields['language'] = language;
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;

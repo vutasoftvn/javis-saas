@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
-import 'package:http/http.dart' as http;
-
 import '../../../core/network/api_client.dart';
 import '../../../core/services/secure_storage_service.dart';
 
@@ -34,19 +32,14 @@ abstract class ChatGateway {
 }
 
 class ChatService implements ChatGateway {
-  ChatService({http.Client? client}) : _client = client ?? http.Client();
-
-  final http.Client _client;
+  ChatService();
 
   @override
   Future<List<dynamic>> getSessions() async {
     final scope = await _scope();
     if (scope == null) return [];
 
-    final response = await _client.get(
-      _uri(_sessionsPath(scope), scope.workspaceId),
-      headers: await _headers(),
-    );
+    final response = await ApiClient.get(_endpoint(_sessionsPath(), scope.workspaceId));
     if (response.statusCode != 200) return [];
     return (jsonDecode(response.body) as Map<String, dynamic>)['sessions'] ??
         [];
@@ -57,10 +50,7 @@ class ChatService implements ChatGateway {
     final scope = await _scope();
     if (scope == null) return [];
 
-    final response = await _client.get(
-      _uri(_messagesPath(scope, sessionId), scope.workspaceId),
-      headers: await _headers(),
-    );
+    final response = await ApiClient.get(_endpoint(_messagesPath(sessionId), scope.workspaceId));
     if (response.statusCode != 200) return [];
     return (jsonDecode(response.body) as Map<String, dynamic>)['messages'] ??
         [];
@@ -75,14 +65,13 @@ class ChatService implements ChatGateway {
     final scope = await _scope();
     if (scope == null) return null;
 
-    final response = await _client.post(
-      _uri(_sessionsPath(scope), scope.workspaceId),
-      headers: await _headers(),
-      body: jsonEncode({
+    final response = await ApiClient.post(
+      _endpoint(_sessionsPath(), scope.workspaceId),
+      body: {
         'title': title,
         'provider': ?provider,
         'model': ?model,
-      }),
+      },
     );
     if (response.statusCode != 200) return null;
     return jsonDecode(response.body) as Map<String, dynamic>;
@@ -97,14 +86,13 @@ class ChatService implements ChatGateway {
     final scope = await _scope();
     if (scope == null) return null;
 
-    final response = await _client.post(
-      _uri(_messagesPath(scope, sessionId), scope.workspaceId),
-      headers: await _headers(),
-      body: jsonEncode({
+    final response = await ApiClient.post(
+      _endpoint(_messagesPath(sessionId), scope.workspaceId),
+      body: {
         'role': 'user',
         'content': content,
         'client_message_id': clientMessageId,
-      }),
+      },
     );
     if (response.statusCode != 200) return null;
     return jsonDecode(response.body) as Map<String, dynamic>;
@@ -117,18 +105,14 @@ class ChatService implements ChatGateway {
   }) async* {
     final scope = await _scope();
     if (scope == null) return;
-    final request = http.Request(
-      'GET',
-      _uri(
-        '/chat/sessions/$sessionId/stream',
-        scope.workspaceId,
-        extraQuery: afterMessageId == null
-            ? null
-            : {'after_message_id': afterMessageId},
-      ),
+    final endpoint = _endpoint(
+      '/chat/sessions/$sessionId/stream',
+      scope.workspaceId,
+      extraQuery: afterMessageId == null
+          ? null
+          : {'after_message_id': afterMessageId},
     );
-    request.headers.addAll(await _headers());
-    final response = await _client.send(request);
+    final response = await ApiClient.openSse(endpoint);
     String? event;
     await for (final line
         in response.stream
@@ -156,10 +140,7 @@ class ChatService implements ChatGateway {
     final scope = await _scope();
     if (scope == null) return false;
 
-    final response = await _client.post(
-      _uri(_cancelPath(scope, sessionId), scope.workspaceId),
-      headers: await _headers(),
-    );
+    final response = await ApiClient.post(_endpoint(_cancelPath(sessionId), scope.workspaceId));
     return response.statusCode == 200;
   }
 
@@ -169,12 +150,8 @@ class ChatService implements ChatGateway {
       final scope = await _scope();
       if (scope == null) return false;
 
-      final url = _uri(_sessionPath(scope, sessionId), scope.workspaceId);
-      final response = await _client.delete(
-        url,
-        headers: await _headers(),
-      );
-      
+      final response = await ApiClient.delete(_endpoint(_sessionPath(sessionId), scope.workspaceId));
+
       if (response.statusCode != 200) {
         debugPrint('Delete session failed: ${response.statusCode} - ${response.body}');
         return false;
@@ -186,46 +163,35 @@ class ChatService implements ChatGateway {
     }
   }
 
-  Uri _uri(
-    String endpoint,
+  String _endpoint(
+    String path,
     String workspaceId, {
     Map<String, String>? extraQuery,
   }) {
-    final apiUri = Uri.parse(ApiClient.baseUrl);
-    return apiUri.replace(
-      path: apiUri.path + endpoint,
+    return Uri(
+      path: path,
       queryParameters: {'workspace_id': workspaceId, ...?extraQuery},
-    );
+    ).toString();
   }
 
-  String _sessionsPath(_ChatScope scope) =>
-      <String>['/chat', 'sessions'].join('/');
+  String _sessionsPath() => <String>['/chat', 'sessions'].join('/');
 
-  String _sessionPath(_ChatScope scope, String sessionId) =>
+  String _sessionPath(String sessionId) =>
       <String>['/chat', 'sessions', sessionId].join('/');
 
-  String _messagesPath(_ChatScope scope, String sessionId) => <String>[
+  String _messagesPath(String sessionId) => <String>[
     '/chat',
     'sessions',
     sessionId,
     'messages',
   ].join('/');
 
-  String _cancelPath(_ChatScope scope, String sessionId) => <String>[
+  String _cancelPath(String sessionId) => <String>[
     '/chat',
     'sessions',
     sessionId,
     'cancel',
   ].join('/');
-
-  Future<Map<String, String>> _headers() async {
-    final token = await SecureStorageService.read('local_session_token') ?? await SecureStorageService.read('auth_token');
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
-  }
 
   Future<_ChatScope?> _scope() async {
     final workspaceId = await SecureStorageService.read('workspace_id');

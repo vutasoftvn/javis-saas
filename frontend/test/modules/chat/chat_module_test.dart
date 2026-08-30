@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/modules/chat/models/chat_models.dart';
 import 'package:frontend/modules/chat/models/data_access_declaration.dart';
 import 'package:frontend/modules/chat/services/agent_chat_service.dart';
@@ -16,12 +17,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  late http.Client realClient;
+
   setUp(() {
+    realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({
       'auth_token': 'test_jwt_token',
       'workspace_id': 'ws-1',
     });
     Get.reset();
+  });
+
+  tearDown(() {
+    ApiClient.client = realClient;
+    ApiClient.clearRuntimeContext();
   });
 
   group('Chat Models Test', () {
@@ -109,7 +118,8 @@ void main() {
         return http.Response('Not Found', 404);
       });
 
-      final service = AgentChatService(client: mockClient);
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
       final list = await service.getConversations();
       expect(list.length, 1);
       expect(list[0].id, 'conv-1');
@@ -136,7 +146,8 @@ void main() {
         return http.Response('Not Found', 404);
       });
 
-      final service = AgentChatService(client: mockClient);
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
       final res = await service.sendMessage(
         'conv-1',
         content: 'Hello test',
@@ -164,7 +175,8 @@ void main() {
         );
       });
 
-      final service = AgentChatService(client: mockClient);
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
       const declaration = DataAccessDeclaration(
         categories: {DataAccessCategory.businessConfidential},
       );
@@ -196,7 +208,8 @@ void main() {
         return http.Response('Not Found', 404);
       });
 
-      final service = AgentChatService(client: mockClient);
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
       final ok = await service.decideApproval('appr-1', approved: true);
       expect(ok, isTrue);
     });
@@ -254,7 +267,8 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      final service = AgentChatService(client: mockClient);
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
       final controller = ChatController(service: service);
       Get.put<ChatController>(controller);
 
@@ -283,7 +297,8 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      final service = AgentChatService(client: mockClient);
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
       final controller = ChatController(service: service);
       Get.put<ChatController>(controller);
 
@@ -346,7 +361,8 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      final service = AgentChatService(client: mockClient);
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
       final controller = ChatController(service: service);
       Get.put<ChatController>(controller);
 

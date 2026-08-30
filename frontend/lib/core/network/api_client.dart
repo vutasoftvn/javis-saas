@@ -2,6 +2,20 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../services/secure_storage_service.dart';
 
+/// M5 §5 — ném ra khi `_offlineGuard` chặn một request business (REMOTE_ACCESS +
+/// node OFFLINE). Các transport primitive dùng chung (SSE/multipart/form) không
+/// thể trả `http.Response` 503 tổng hợp như get/post JSON (một số caller cần một
+/// tín hiệu lỗi rõ ràng thay vì đọc statusCode của response), nên bọc lại thành
+/// exception mang theo response 503 gốc để caller vẫn đọc được `message`.
+class ApiOfflineException implements Exception {
+  ApiOfflineException(this.response);
+
+  final http.Response response;
+
+  @override
+  String toString() => 'ApiOfflineException: ${response.statusCode} ${response.body}';
+}
+
 class ApiClient {
   static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
   static String? _customBaseUrl;
@@ -309,5 +323,62 @@ class ApiClient {
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.delete(url, headers: headers);
+  }
+
+  /// Task 6 — SSE dùng chung resolver/offline-guard/token/`X-Workspace-Id` với
+  /// get/post/... thay vì để từng service tự `Uri.parse(ApiClient.baseUrl)`.
+  /// [extraHeaders] cho các trường hợp cần thêm header ngoài chuẩn (vd.
+  /// `Last-Event-ID` khi resume một run event stream).
+  static Future<http.StreamedResponse> openSse(
+    String endpoint, {
+    Map<String, String>? extraHeaders,
+    bool requiresAuth = true,
+  }) async {
+    final offline = _offlineGuard(endpoint);
+    if (offline != null) throw ApiOfflineException(offline);
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
+    if (extraHeaders != null) headers.addAll(extraHeaders);
+    final request = http.Request('GET', resolveUri(endpoint));
+    request.headers.addAll(headers);
+    request.headers['Accept'] = 'text/event-stream';
+    return client.send(request);
+  }
+
+  /// Task 6 — multipart upload (vd. voice transcription) qua cùng
+  /// resolver/offline-guard/token/`X-Workspace-Id`. `Content-Type` do
+  /// `http.MultipartRequest` tự set (đè header JSON mặc định) khi `finalize()`.
+  static Future<http.Response> sendMultipart(
+    String endpoint, {
+    Map<String, String>? fields,
+    List<http.MultipartFile>? files,
+    bool requiresAuth = true,
+  }) async {
+    final offline = _offlineGuard(endpoint);
+    if (offline != null) throw ApiOfflineException(offline);
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
+    final request = http.MultipartRequest('POST', resolveUri(endpoint));
+    request.headers.addAll(headers);
+    if (fields != null) request.fields.addAll(fields);
+    if (files != null) request.files.addAll(files);
+    final streamed = await client.send(request);
+    return http.Response.fromStream(streamed);
+  }
+
+  /// Task 6 — form-urlencoded POST (vd. Vault ghi tài liệu — backend nhận qua
+  /// `Form(...)`, không phải JSON) qua cùng resolver/offline-guard/token/
+  /// `X-Workspace-Id`. Bỏ `Content-Type: application/json` mặc định để
+  /// `http.Request.bodyFields` tự set `application/x-www-form-urlencoded`
+  /// (giữ Content-Type JSON sẽ làm `bodyFields` ném `StateError`).
+  static Future<http.Response> sendForm(
+    String endpoint,
+    Map<String, String> fields, {
+    bool requiresAuth = true,
+  }) async {
+    final offline = _offlineGuard(endpoint);
+    if (offline != null) throw ApiOfflineException(offline);
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
+    headers.remove('Content-Type');
+    final url = resolveUri(endpoint);
+    return client.post(url, headers: headers, body: fields);
   }
 }

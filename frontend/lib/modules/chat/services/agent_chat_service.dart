@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_client.dart';
-import '../../../core/services/secure_storage_service.dart';
 import '../models/chat_models.dart';
 import '../models/data_access_declaration.dart';
 
@@ -20,32 +18,21 @@ class AgentChatApiException implements Exception {
 }
 
 class AgentChatService {
-  AgentChatService({http.Client? client}) : _client = client ?? http.Client();
+  AgentChatService();
 
-  final http.Client _client;
-
-  Future<Map<String, String>> _headers() async {
-    final token = await SecureStorageService.read('auth_token');
-    final workspaceId = await SecureStorageService.read('workspace_id');
-
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-      if (workspaceId != null && workspaceId.isNotEmpty)
-        'X-Workspace-Id': workspaceId,
-    };
-  }
-
-  Uri _uri(String path, [Map<String, dynamic>? queryParameters]) {
-    final base = Uri.parse(ApiClient.agentOsBaseUrl);
+  /// Task 6 — endpoint đi qua `ApiClient` (resolver route `/agent/*` tới
+  /// AgentOS plane, xem `ApiClient.resolveUri`), thay vì tự dựng URI trên
+  /// `agentOsBaseUrl`. Null-value query key được loại ngay tại call site bằng
+  /// cú pháp `?value` map-entry (không đưa vào map này).
+  String _endpoint(String path, [Map<String, dynamic>? queryParameters]) {
     final normalizedPath = path.startsWith('/') ? path : '/$path';
-    return base.replace(
-      path: '${base.path}$normalizedPath',
-      queryParameters: queryParameters?.map(
-        (k, v) => MapEntry(k, v?.toString() ?? ''),
-      ),
-    );
+    if (queryParameters == null || queryParameters.isEmpty) {
+      return normalizedPath;
+    }
+    return Uri(
+      path: normalizedPath,
+      queryParameters: queryParameters.map((k, v) => MapEntry(k, v.toString())),
+    ).toString();
   }
 
   Future<List<ChatConversation>> getConversations({
@@ -54,13 +41,12 @@ class AgentChatService {
     int offset = 0,
   }) async {
     try {
-      final headers = await _headers();
-      final url = _uri('/agent/conversations', {
+      final url = _endpoint('/agent/conversations', {
         'include_archived': includeArchived,
         'limit': limit,
         'offset': offset,
       });
-      final res = await _client.get(url, headers: headers);
+      final res = await ApiClient.get(url);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         final items = (data['items'] as List<dynamic>?) ?? [];
@@ -78,9 +64,8 @@ class AgentChatService {
 
   Future<ChatConversation?> getConversation(String conversationId) async {
     try {
-      final headers = await _headers();
-      final url = _uri('/agent/conversations/$conversationId');
-      final res = await _client.get(url, headers: headers);
+      final url = _endpoint('/agent/conversations/$conversationId');
+      final res = await ApiClient.get(url);
       if (res.statusCode == 200) {
         return ChatConversation.fromJson(
             jsonDecode(res.body) as Map<String, dynamic>);
@@ -98,15 +83,13 @@ class AgentChatService {
     String? activeAgentProfile,
   }) async {
     try {
-      final headers = await _headers();
-      final url = _uri('/agent/conversations');
-      final res = await _client.post(
+      final url = _endpoint('/agent/conversations');
+      final res = await ApiClient.post(
         url,
-        headers: headers,
-        body: jsonEncode({
+        body: {
           'title': title ?? 'New Conversation',
           'active_agent_profile': activeAgentProfile,
-        }),
+        },
       );
       if (res.statusCode == 201 || res.statusCode == 200) {
         return ChatConversation.fromJson(
@@ -127,8 +110,7 @@ class AgentChatService {
     bool? archived,
   }) async {
     try {
-      final headers = await _headers();
-      final url = _uri('/agent/conversations/$conversationId');
+      final url = _endpoint('/agent/conversations/$conversationId');
       final body = <String, dynamic>{};
       if (title != null) body['title'] = title;
       if (activeAgentProfile != null) {
@@ -136,7 +118,7 @@ class AgentChatService {
       }
       if (archived != null) body['archived'] = archived;
 
-      final res = await _client.patch(url, headers: headers, body: jsonEncode(body));
+      final res = await ApiClient.patch(url, body: body);
       if (res.statusCode == 200) {
         return ChatConversation.fromJson(
             jsonDecode(res.body) as Map<String, dynamic>);
@@ -156,17 +138,15 @@ class AgentChatService {
     List<Map<String, dynamic>>? attachments,
   }) async {
     try {
-      final headers = await _headers();
-      final url = _uri('/agent/conversations/$conversationId/messages');
-      final res = await _client.post(
+      final url = _endpoint('/agent/conversations/$conversationId/messages');
+      final res = await ApiClient.post(
         url,
-        headers: headers,
-        body: jsonEncode({
+        body: {
           'content': content,
           'role': 'user',
           'attachments': ?attachments,
           'data_access': dataAccess.toJson(),
-        }),
+        },
       );
       if (res.statusCode == 202 || res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
@@ -181,9 +161,8 @@ class AgentChatService {
 
   Future<void> cancelRun(String runId) async {
     try {
-      final headers = await _headers();
-      final url = _uri('/agent/runs/$runId/cancel');
-      final res = await _client.post(url, headers: headers);
+      final url = _endpoint('/agent/runs/$runId/cancel');
+      final res = await ApiClient.post(url);
       if (res.statusCode == 200) return;
       debugPrint('[AgentChatService] cancelRun HTTP ${res.statusCode}: ${res.body}');
       throw AgentChatApiException('Failed to cancel run $runId', statusCode: res.statusCode, details: res.body);
@@ -199,15 +178,13 @@ class AgentChatService {
     String? reason,
   }) async {
     try {
-      final headers = await _headers();
-      final url = _uri('/agent/approvals/$approvalId/decision');
-      final res = await _client.post(
+      final url = _endpoint('/agent/approvals/$approvalId/decision');
+      final res = await ApiClient.post(
         url,
-        headers: headers,
-        body: jsonEncode({
+        body: {
           'approved': approved,
           'reason': reason,
-        }),
+        },
       );
       if (res.statusCode == 200) return true;
       debugPrint('[AgentChatService] decideApproval HTTP ${res.statusCode}: ${res.body}');
@@ -222,18 +199,14 @@ class AgentChatService {
     String runId, {
     int? sinceSequence,
   }) async* {
-    final headers = await _headers();
-    if (sinceSequence != null) {
-      headers['Last-Event-ID'] = sinceSequence.toString();
-    }
-    final url = _uri('/agent/runs/$runId/events', {
+    final extraHeaders = <String, String>{
+      if (sinceSequence != null) 'Last-Event-ID': sinceSequence.toString(),
+    };
+    final url = _endpoint('/agent/runs/$runId/events', {
       'since_sequence': ?sinceSequence,
     });
 
-    final request = http.Request('GET', url);
-    request.headers.addAll(headers);
-
-    final streamedResponse = await _client.send(request);
+    final streamedResponse = await ApiClient.openSse(url, extraHeaders: extraHeaders);
 
     String? currentEvent;
     int? currentId;
@@ -276,9 +249,8 @@ class AgentChatService {
 
   // SessionView Read Model (Task 1)
   Future<SessionViewModel> getSessionView(String conversationId) async {
-    final headers = await _headers();
-    final url = _uri('/agent/sessions/$conversationId');
-    final res = await _client.get(url, headers: headers);
+    final url = _endpoint('/agent/sessions/$conversationId');
+    final res = await ApiClient.get(url);
     if (res.statusCode == 200) {
       return SessionViewModel.fromJson(
         jsonDecode(res.body) as Map<String, dynamic>,
@@ -295,9 +267,8 @@ class AgentChatService {
   Future<List<WorkspaceArtifactModel>> getConversationArtifacts(
     String conversationId,
   ) async {
-    final headers = await _headers();
-    final url = _uri('/agent/conversations/$conversationId/artifacts');
-    final res = await _client.get(url, headers: headers);
+    final url = _endpoint('/agent/conversations/$conversationId/artifacts');
+    final res = await ApiClient.get(url);
     if (res.statusCode == 200) {
       final list = jsonDecode(res.body) as List<dynamic>;
       return list
@@ -313,12 +284,10 @@ class AgentChatService {
 
   // Connectors Sandbox (Task 3)
   Future<Map<String, dynamic>> installConnector(String connectorKey) async {
-    final headers = await _headers();
-    final url = _uri('/agent/connectors/install');
-    final res = await _client.post(
+    final url = _endpoint('/agent/connectors/install');
+    final res = await ApiClient.post(
       url,
-      headers: headers,
-      body: jsonEncode({'connector_key': connectorKey}),
+      body: {'connector_key': connectorKey},
     );
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
@@ -332,9 +301,8 @@ class AgentChatService {
 
   // Schedules (Task 4)
   Future<List<WorkspaceScheduleModel>> listSchedules() async {
-    final headers = await _headers();
-    final url = _uri('/agent/schedules');
-    final res = await _client.get(url, headers: headers);
+    final url = _endpoint('/agent/schedules');
+    final res = await ApiClient.get(url);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final items = (data['items'] as List<dynamic>?) ?? [];
@@ -360,12 +328,10 @@ class AgentChatService {
     String agentProfile = 'operations',
     List<String> connectorGrantIds = const [],
   }) async {
-    final headers = await _headers();
-    final url = _uri('/agent/schedules');
-    final res = await _client.post(
+    final url = _endpoint('/agent/schedules');
+    final res = await ApiClient.post(
       url,
-      headers: headers,
-      body: jsonEncode({
+      body: {
         'schedule_kind': scheduleKind,
         'timezone': timezone,
         'run_at': runAt?.toIso8601String(),
@@ -375,7 +341,7 @@ class AgentChatService {
         'prompt_template': promptTemplate,
         'agent_profile': agentProfile,
         'connector_grant_ids': connectorGrantIds,
-      }),
+      },
     );
     if (res.statusCode == 200) {
       return WorkspaceScheduleModel.fromJson(
@@ -390,9 +356,8 @@ class AgentChatService {
   }
 
   Future<Map<String, dynamic>> runScheduleNow(String scheduleId) async {
-    final headers = await _headers();
-    final url = _uri('/agent/schedules/$scheduleId/run-now');
-    final res = await _client.post(url, headers: headers);
+    final url = _endpoint('/agent/schedules/$scheduleId/run-now');
+    final res = await ApiClient.post(url);
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     }

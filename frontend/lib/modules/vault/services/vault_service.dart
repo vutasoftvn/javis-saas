@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/secure_storage_service.dart';
@@ -56,25 +55,17 @@ class VaultService {
       throw Exception('Chưa xác định workspace hiện tại');
     }
 
-    final token = await SecureStorageService.read('local_session_token') ?? await SecureStorageService.read('auth_token');
     final encodedPath = Uri.encodeComponent(path);
-    final apiUri = Uri.parse(ApiClient.baseUrl);
-    final uri = apiUri.replace(
-      path: '${apiUri.path}/vault/documents/$encodedPath',
+    final endpoint = Uri(
+      path: '/vault/documents/$encodedPath',
       queryParameters: {'workspace_id': workspaceId},
-    );
+    ).toString();
 
-    final response = await http.post(
-      uri,
-      headers: {
-        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-      },
-      body: {
-        'content': content,
-        'kind': kind,
-        'base_revision_id': ?baseRevisionId,
-      },
-    );
+    final response = await ApiClient.sendForm(endpoint, {
+      'content': content,
+      'kind': kind,
+      'base_revision_id': ?baseRevisionId,
+    });
 
     if (response.statusCode != 200) {
       throw Exception('Không thể lưu tài liệu (${response.statusCode})');

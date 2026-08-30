@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../services/secure_storage_service.dart';
 import 'api_client.dart';
 
@@ -13,7 +12,11 @@ class RealtimeService {
   RealtimeService._internal();
 
   final List<RealtimeEventHandler> _listeners = [];
-  http.Client? _client;
+  // Task 6 — SSE giờ mở qua `ApiClient.openSse` (dùng chung `ApiClient.client`
+  // static). Không còn giữ `http.Client` riêng để đóng khi disconnect (đóng
+  // client static sẽ phá luôn mọi request khác của app) — thay vào đó huỷ
+  // subscription của stream đang lắng nghe.
+  StreamSubscription<String>? _subscription;
   bool _isConnected = false;
   bool _shouldReconnect = true;
   Timer? _reconnectTimer;
@@ -40,35 +43,27 @@ class RealtimeService {
   void disconnect() {
     _shouldReconnect = false;
     _reconnectTimer?.cancel();
-    _client?.close();
-    _client = null;
+    _subscription?.cancel();
+    _subscription = null;
     _isConnected = false;
   }
 
   Future<void> _startSseStream() async {
     final workspaceId = await SecureStorageService.read('workspace_id');
-    final token = await SecureStorageService.read('auth_token');
 
-    if (workspaceId == null || token == null) {
+    if (workspaceId == null) {
       _scheduleReconnect();
       return;
     }
 
     try {
-      _client?.close();
-      _client = http.Client();
+      _subscription?.cancel();
 
-      final apiUri = Uri.parse(ApiClient.baseUrl);
-      final streamUri = apiUri.replace(
-        path: '${apiUri.path}/events/stream',
+      final endpoint = Uri(
+        path: '/events/stream',
         queryParameters: {'workspace_id': workspaceId},
-      );
-
-      final request = http.Request('GET', streamUri)
-        ..headers['Accept'] = 'text/event-stream'
-        ..headers['Authorization'] = 'Bearer $token';
-
-      final response = await _client!.send(request);
+      ).toString();
+      final response = await ApiClient.openSse(endpoint);
 
       if (response.statusCode == 200) {
         _isConnected = true;
@@ -76,7 +71,7 @@ class RealtimeService {
 
         String currentEvent = 'message';
 
-        response.stream
+        _subscription = response.stream
             .transform(utf8.decoder)
             .transform(const LineSplitter())
             .listen(
