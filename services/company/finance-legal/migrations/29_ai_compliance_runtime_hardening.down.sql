@@ -3,6 +3,24 @@
 -- trước (vì chúng phụ thuộc vào composite UNIQUE của bảng cha), sau đó drop
 -- composite UNIQUE.
 
+-- Rollback phần 3 (snapshot provenance columns) trước — drop FK rồi cột.
+ALTER TABLE legal.ai_compliance_snapshots
+  DROP CONSTRAINT IF EXISTS ai_compliance_snapshots_workspace_data_profile_fk;
+
+ALTER TABLE legal.ai_compliance_snapshots
+  DROP CONSTRAINT IF EXISTS ai_compliance_snapshots_workspace_provider_fk;
+
+ALTER TABLE legal.ai_compliance_snapshots
+  DROP COLUMN IF EXISTS provenance_complete,
+  DROP COLUMN IF EXISTS data_profile_id,
+  DROP COLUMN IF EXISTS provider_profile_id,
+  DROP COLUMN IF EXISTS evidence_hashes,
+  DROP COLUMN IF EXISTS evidence_ids,
+  DROP COLUMN IF EXISTS capability_binding_ids;
+
+ALTER TABLE legal.ai_data_processing_profiles
+  DROP CONSTRAINT IF EXISTS ai_data_processing_profiles_workspace_id_id_key;
+
 ALTER TABLE legal.ai_compliance_snapshots
   DROP CONSTRAINT IF EXISTS ai_compliance_snapshots_workspace_assessment_fk;
 

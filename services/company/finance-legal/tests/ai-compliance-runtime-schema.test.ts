@@ -295,6 +295,158 @@ describe("AI compliance runtime schema — database-level workspace ownership", 
     ).rejects.toThrow();
   });
 
+  it("rejects a compliance snapshot whose provider_profile_id belongs to another workspace", async () => {
+    const workspaceA = generateSnowflake();
+    const workspaceB = generateSnowflake();
+    const deploymentB = await seedDeployment(workspaceB);
+    const assessmentB = await seedAssessment(workspaceB, deploymentB);
+    const providerProfileA = await seedProviderProfile(workspaceA);
+
+    await expect(
+      db.insert(aiComplianceSnapshots).values({
+        id: generateSnowflake(),
+        workspaceId: workspaceB,
+        deploymentId: deploymentB,
+        assessmentId: assessmentB,
+        mode: "ADVISORY_ONLY",
+        status: "DRAFT",
+        allowedCapabilities: [],
+        providerProfileVersion: "1.0.0",
+        dataProfileVersion: "1.0.0",
+        legalVersionIds: [],
+        providerProfileId: providerProfileA,
+        policySnapshotHash: "sha256:cross-workspace-provider",
+        snapshotHash: `sha256:cross-workspace-provider-${Date.now()}`,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      })
+    ).rejects.toThrow();
+  });
+
+  it("rejects a compliance snapshot whose data_profile_id belongs to another workspace", async () => {
+    const workspaceA = generateSnowflake();
+    const workspaceB = generateSnowflake();
+    const deploymentA = await seedDeployment(workspaceA);
+    const deploymentB = await seedDeployment(workspaceB);
+    const assessmentB = await seedAssessment(workspaceB, deploymentB);
+
+    const dataProfileAId = generateSnowflake();
+    await db.insert(aiDataProcessingProfiles).values({
+      id: dataProfileAId,
+      workspaceId: workspaceA,
+      deploymentId: deploymentA,
+      purposeId: "runtime-schema-test",
+      dataCategories: [],
+      retentionPolicyId: "retention-30d",
+      version: "v1",
+      status: "ACTIVE",
+    });
+
+    await expect(
+      db.insert(aiComplianceSnapshots).values({
+        id: generateSnowflake(),
+        workspaceId: workspaceB,
+        deploymentId: deploymentB,
+        assessmentId: assessmentB,
+        mode: "ADVISORY_ONLY",
+        status: "DRAFT",
+        allowedCapabilities: [],
+        providerProfileVersion: "1.0.0",
+        dataProfileVersion: "1.0.0",
+        legalVersionIds: [],
+        dataProfileId: dataProfileAId,
+        policySnapshotHash: "sha256:cross-workspace-data-profile",
+        snapshotHash: `sha256:cross-workspace-data-profile-${Date.now()}`,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      })
+    ).rejects.toThrow();
+  });
+
+  it("exposes snapshot provenance columns with the correct types and does not fabricate values when left unset", async () => {
+    const workspaceId = generateSnowflake();
+    const deploymentId = await seedDeployment(workspaceId);
+    const assessmentId = await seedAssessment(workspaceId, deploymentId);
+
+    // Insert a "legacy-style" snapshot the way old code (pre reviewer-fix)
+    // did: only providerProfileVersion/dataProfileVersion as text, no real
+    // provenance IDs supplied. The DB must NOT invent ids/hashes to fill the
+    // new provenance columns — they must fall back to safe, honest defaults
+    // ([], [], [], NULL, NULL, false), never fabricated values.
+    const [snapshot] = await db
+      .insert(aiComplianceSnapshots)
+      .values({
+        id: generateSnowflake(),
+        workspaceId,
+        deploymentId,
+        assessmentId,
+        mode: "ADVISORY_ONLY",
+        status: "DRAFT",
+        allowedCapabilities: [],
+        providerProfileVersion: "1.0.0",
+        dataProfileVersion: "1.0.0",
+        legalVersionIds: [],
+        policySnapshotHash: "sha256:legacy-style",
+        snapshotHash: `sha256:legacy-style-${Date.now()}`,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      })
+      .returning();
+
+    expect(Array.isArray(snapshot.capabilityBindingIds)).toBe(true);
+    expect(snapshot.capabilityBindingIds).toEqual([]);
+    expect(Array.isArray(snapshot.evidenceIds)).toBe(true);
+    expect(snapshot.evidenceIds).toEqual([]);
+    expect(Array.isArray(snapshot.evidenceHashes)).toBe(true);
+    expect(snapshot.evidenceHashes).toEqual([]);
+    expect(snapshot.providerProfileId).toBeNull();
+    expect(snapshot.dataProfileId).toBeNull();
+    expect(snapshot.provenanceComplete).toBe(false);
+  });
+
+  it("marks provenance complete only when a real, workspace-matching provider and data profile are linked", async () => {
+    const workspaceId = generateSnowflake();
+    const deploymentId = await seedDeployment(workspaceId);
+    const assessmentId = await seedAssessment(workspaceId, deploymentId);
+    const providerProfileId = await seedProviderProfile(workspaceId);
+
+    const dataProfileId = generateSnowflake();
+    await db.insert(aiDataProcessingProfiles).values({
+      id: dataProfileId,
+      workspaceId,
+      deploymentId,
+      purposeId: "runtime-schema-test",
+      dataCategories: [],
+      recipientProviderProfileId: providerProfileId,
+      retentionPolicyId: "retention-30d",
+      version: "v1",
+      status: "ACTIVE",
+    });
+
+    const [snapshot] = await db
+      .insert(aiComplianceSnapshots)
+      .values({
+        id: generateSnowflake(),
+        workspaceId,
+        deploymentId,
+        assessmentId,
+        mode: "ADVISORY_ONLY",
+        status: "DRAFT",
+        allowedCapabilities: [],
+        providerProfileVersion: "v1",
+        dataProfileVersion: "v1",
+        legalVersionIds: [],
+        providerProfileId,
+        dataProfileId,
+        provenanceComplete: true,
+        policySnapshotHash: "sha256:full-provenance",
+        snapshotHash: `sha256:full-provenance-${Date.now()}`,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      })
+      .returning();
+
+    expect(snapshot.providerProfileId).toBe(providerProfileId);
+    expect(snapshot.dataProfileId).toBe(dataProfileId);
+    expect(snapshot.provenanceComplete).toBe(true);
+  });
+
   it("still allows a same-workspace parent/child chain to be created", async () => {
     const workspaceId = generateSnowflake();
     const deploymentId = await seedDeployment(workspaceId);

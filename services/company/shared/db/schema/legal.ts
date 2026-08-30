@@ -294,6 +294,9 @@ export const aiDataProcessingProfiles = legalSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
+    // Migration 29 mục 3: composite unique key — cho phép
+    // ai_compliance_snapshots.data_profile_id FK theo (workspace_id, id).
+    unique("ai_data_processing_profiles_workspace_id_id_key").on(t.workspaceId, t.id),
     // Migration 29: deployment_id / recipient_provider_profile_id phải cùng
     // workspace với deployment/provider profile cha tương ứng — composite
     // FK, NOT VALID trên 1 row rác lịch sử mỗi quan hệ (xem migration 29
@@ -425,6 +428,18 @@ export const aiComplianceSnapshots = legalSchema.table(
     providerProfileVersion: text("provider_profile_version").notNull(),
     dataProfileVersion: text("data_profile_version").notNull(),
     legalVersionIds: jsonb("legal_version_ids").default([]).notNull(),
+    // Migration 29 mục 3 (reviewer fix — task-2-brief.md "Produces"):
+    // provenance thật của snapshot, không chỉ version dạng text.
+    capabilityBindingIds: jsonb("capability_binding_ids").default([]).notNull(),
+    evidenceIds: jsonb("evidence_ids").default([]).notNull(),
+    evidenceHashes: jsonb("evidence_hashes").default([]).notNull(),
+    // nullable — composite FK bên dưới cho phép NULL (MATCH SIMPLE mặc
+    // định); NULL nghĩa là chưa verify được provider/data profile thật.
+    providerProfileId: bigint("provider_profile_id", { mode: "bigint" }),
+    dataProfileId: bigint("data_profile_id", { mode: "bigint" }),
+    // true chỉ khi providerProfileId VÀ dataProfileId đều verify được — Task
+    // 4 resolver phải coi false là "unusable", không tự suy diễn/lấp đầy.
+    provenanceComplete: boolean("provenance_complete").default(false).notNull(),
     policySnapshotHash: text("policy_snapshot_hash").notNull(),
     snapshotHash: text("snapshot_hash").notNull().unique(),
     issuedAt: timestamp("issued_at", { withTimezone: true }).defaultNow().notNull(),
@@ -445,6 +460,20 @@ export const aiComplianceSnapshots = legalSchema.table(
       name: "ai_compliance_snapshots_workspace_assessment_fk",
       columns: [t.workspaceId, t.assessmentId],
       foreignColumns: [aiRiskAssessments.workspaceId, aiRiskAssessments.id],
+    }),
+    // Migration 29 mục 3: provider_profile_id / data_profile_id phải cùng
+    // workspace với provider/data profile cha tương ứng — composite FK, VÀ
+    // validated ngay (không NOT VALID) vì cột hoàn toàn mới + backfill chỉ
+    // set giá trị verified (xem migration 29 up.sql mục 3).
+    foreignKey({
+      name: "ai_compliance_snapshots_workspace_provider_fk",
+      columns: [t.workspaceId, t.providerProfileId],
+      foreignColumns: [aiProviderProfiles.workspaceId, aiProviderProfiles.id],
+    }),
+    foreignKey({
+      name: "ai_compliance_snapshots_workspace_data_profile_fk",
+      columns: [t.workspaceId, t.dataProfileId],
+      foreignColumns: [aiDataProcessingProfiles.workspaceId, aiDataProcessingProfiles.id],
     }),
   ]
 );

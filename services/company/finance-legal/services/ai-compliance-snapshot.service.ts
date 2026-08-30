@@ -14,6 +14,7 @@ const {
   aiIncidents,
   aiSystemCatalog,
   aiSystemVersions,
+  aiSystemCapabilityBindings,
 } = schema;
 
 export function canonicalJsonStringify(obj: any): string {
@@ -166,6 +167,41 @@ export async function captureComplianceSnapshot(
   const providerProfileVersion = providerRows[0]?.version || "1.0.0";
   const dataProfileVersion = dataProfileRows[0]?.version || "1.0.0";
 
+  // Provenance thật (Task 2 reviewer fix — task-2-brief.md "Produces"): thay
+  // vì chỉ lưu version dạng text, snapshot giờ lưu ID thật của
+  // binding/evidence/provider profile/data profile đã dùng, để verify lại
+  // được sau này (Task 4 resolver). Chỉ set providerProfileId/dataProfileId
+  // khi có row thật (providerRows[0]/dataProfileRows[0] tồn tại) — KHÔNG bịa
+  // ID khi workspace chưa có provider/data profile nào (giữ nguyên hành vi
+  // "advisory-only, thiếu gì để trống nấy" đã có sẵn ở đây).
+  const providerProfileId = providerRows[0]?.id ?? null;
+  const dataProfileId = dataProfileRows[0]?.id ?? null;
+
+  const evidenceRows = await db
+    .select()
+    .from(aiComplianceEvidence)
+    .where(
+      and(
+        eq(aiComplianceEvidence.workspaceId, wsId),
+        eq(aiComplianceEvidence.assessmentId, assessmentId)
+      )
+    )
+    .orderBy(desc(aiComplianceEvidence.createdAt));
+  const evidenceIds = evidenceRows.map((e) => e.id);
+  const evidenceHashes = evidenceRows.map((e) => e.contentHash);
+
+  const capabilityBindingRows = await db
+    .select()
+    .from(aiSystemCapabilityBindings)
+    .where(eq(aiSystemCapabilityBindings.systemVersionId, deploymentRow.systemVersionId));
+  const capabilityBindingIds = capabilityBindingRows.map((b) => b.id);
+
+  // provenanceComplete: chỉ true khi cả provider profile lẫn data profile
+  // đều verify được bằng ID thật (không NULL). Evidence/binding rỗng vẫn
+  // được coi là hợp lệ (nghĩa là hiện tại chưa có, không phải "không verify
+  // được") — cùng quy tắc với backfill ở migration 29.
+  const provenanceComplete = providerProfileId !== null && dataProfileId !== null;
+
   const policyContent = {
     workspaceId: wsId.toString(),
     deploymentId: deploymentRow.id.toString(),
@@ -203,6 +239,12 @@ export async function captureComplianceSnapshot(
       providerProfileVersion,
       dataProfileVersion,
       legalVersionIds: [],
+      capabilityBindingIds,
+      evidenceIds,
+      evidenceHashes,
+      providerProfileId,
+      dataProfileId,
+      provenanceComplete,
       policySnapshotHash,
       snapshotHash,
       issuedAt: now,
