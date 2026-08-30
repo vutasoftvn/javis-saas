@@ -178,6 +178,8 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
         authorizationId: authA.id,
         grantedBy: "user_bob",
         allowedActions: ["read"],
+        callerPrincipalId: "user_bob",
+        allowManageOthers: false,
       })
     ).rejects.toThrow(/mismatch/i);
   });
@@ -243,6 +245,8 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
       authorizationId: authorization.id,
       grantedBy: "user_alice",
       allowedActions: ["sandbox.read"],
+      callerPrincipalId: "user_alice",
+      allowManageOthers: false,
     });
 
     const successAssert = await connectorSvc.assertConnectorInvocation({
@@ -296,5 +300,165 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
         connectorKey: "sandbox-read",
       })
     ).rejects.toThrow();
+  });
+});
+
+describe("Task 4: connector authorization ownership enforcement", () => {
+  // Principal A ("user_a_task4") tries to manage authorizations owned by principal B
+  // ("user_b_task4"). A workspace member relationship (Task 3's check) is not enough:
+  // only the owner (or an audited founder/admin override) may grant/revoke.
+  const PRINCIPAL_A = "user_a_task4";
+  const PRINCIPAL_B = "user_b_task4";
+  let currentCallerMembershipRole = "member";
+
+  beforeEach(() => {
+    // membershipRole simulates what services/company returns for the *caller* of the
+    // current request (verified server-side, not self-declared in the caller's JWT).
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return {
+          status: 200,
+          ok: true,
+          json: async () => ({
+            platformCompanyId: "1",
+            membershipRole: currentCallerMembershipRole,
+          }),
+        } as any;
+      })
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    currentCallerMembershipRole = "member";
+  });
+
+  async function setupAuthorizationOwnedByB(workspaceId: string) {
+    const inst = await connectorSvc.installWorkspaceConnector({
+      workspaceId,
+      connectorKey: "sandbox-read",
+      installedBy: PRINCIPAL_B,
+    });
+    const auth = await connectorSvc.registerConnectorAuthorization({
+      installationId: inst.id,
+      workspaceId,
+      principalId: PRINCIPAL_B,
+      secretRef: "secret://cosa-connectors/task4-b-secret",
+      grantedScopes: ["read"],
+      expiresAt: new Date(Date.now() + 3600000),
+    });
+    return auth;
+  }
+
+  it("rejects grantConnectorEndpoint when a non-owner member (A) grants B's authorization", async () => {
+    const auth = await setupAuthorizationOwnedByB("ws_task4_grant_reject");
+    currentCallerMembershipRole = "member";
+    const tokenA = signPlatformToken(PRINCIPAL_A);
+
+    await expect(
+      grantConnectorEndpoint({
+        authorization: `Bearer ${tokenA}`,
+        workspaceId: "ws_task4_grant_reject",
+        conversationId: "conv_task4_grant_reject",
+        authorizationId: auth.id,
+      })
+    ).rejects.toThrow(/authorization owner/i);
+  });
+
+  it("allows grantConnectorEndpoint when the owner (B) grants their own authorization", async () => {
+    const auth = await setupAuthorizationOwnedByB("ws_task4_grant_owner");
+    currentCallerMembershipRole = "member";
+    const tokenB = signPlatformToken(PRINCIPAL_B);
+
+    const res = await grantConnectorEndpoint({
+      authorization: `Bearer ${tokenB}`,
+      workspaceId: "ws_task4_grant_owner",
+      conversationId: "conv_task4_grant_owner",
+      authorizationId: auth.id,
+    });
+
+    expect(res.authorizationId).toBe(auth.id);
+  });
+
+  it("allows grantConnectorEndpoint when caller (A) has an audited founder override", async () => {
+    const auth = await setupAuthorizationOwnedByB("ws_task4_grant_override");
+    currentCallerMembershipRole = "founder";
+    const tokenA = signPlatformToken(PRINCIPAL_A);
+
+    const res = await grantConnectorEndpoint({
+      authorization: `Bearer ${tokenA}`,
+      workspaceId: "ws_task4_grant_override",
+      conversationId: "conv_task4_grant_override",
+      authorizationId: auth.id,
+    });
+
+    expect(res.authorizationId).toBe(auth.id);
+  });
+
+  it("rejects revokeGrantEndpoint when a non-owner member (A) revokes B's grant", async () => {
+    const auth = await setupAuthorizationOwnedByB("ws_task4_revoke_reject");
+    currentCallerMembershipRole = "member";
+    const tokenB = signPlatformToken(PRINCIPAL_B);
+    const grant = await grantConnectorEndpoint({
+      authorization: `Bearer ${tokenB}`,
+      workspaceId: "ws_task4_revoke_reject",
+      conversationId: "conv_task4_revoke_reject",
+      authorizationId: auth.id,
+    });
+
+    const tokenA = signPlatformToken(PRINCIPAL_A);
+    await expect(
+      revokeGrantEndpoint({
+        authorization: `Bearer ${tokenA}`,
+        workspaceId: "ws_task4_revoke_reject",
+        conversationId: "conv_task4_revoke_reject",
+        grantId: grant.id,
+      })
+    ).rejects.toThrow(/authorization owner/i);
+  });
+
+  it("allows revokeGrantEndpoint when the owner (B) revokes their own grant", async () => {
+    const auth = await setupAuthorizationOwnedByB("ws_task4_revoke_owner");
+    currentCallerMembershipRole = "member";
+    const tokenB = signPlatformToken(PRINCIPAL_B);
+    const grant = await grantConnectorEndpoint({
+      authorization: `Bearer ${tokenB}`,
+      workspaceId: "ws_task4_revoke_owner",
+      conversationId: "conv_task4_revoke_owner",
+      authorizationId: auth.id,
+    });
+
+    const res = await revokeGrantEndpoint({
+      authorization: `Bearer ${tokenB}`,
+      workspaceId: "ws_task4_revoke_owner",
+      conversationId: "conv_task4_revoke_owner",
+      grantId: grant.id,
+    });
+
+    expect(res.ok).toBe(true);
+  });
+
+  it("allows revokeGrantEndpoint when caller (A) has an audited admin override", async () => {
+    const auth = await setupAuthorizationOwnedByB("ws_task4_revoke_override");
+    currentCallerMembershipRole = "member";
+    const tokenB = signPlatformToken(PRINCIPAL_B);
+    const grant = await grantConnectorEndpoint({
+      authorization: `Bearer ${tokenB}`,
+      workspaceId: "ws_task4_revoke_override",
+      conversationId: "conv_task4_revoke_override",
+      authorizationId: auth.id,
+    });
+
+    currentCallerMembershipRole = "admin";
+    const tokenA = signPlatformToken(PRINCIPAL_A);
+    const res = await revokeGrantEndpoint({
+      authorization: `Bearer ${tokenA}`,
+      workspaceId: "ws_task4_revoke_override",
+      conversationId: "conv_task4_revoke_override",
+      grantId: grant.id,
+    });
+
+    expect(res.ok).toBe(true);
   });
 });

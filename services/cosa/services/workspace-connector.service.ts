@@ -214,6 +214,10 @@ export async function grantConnectorToSession(input: {
   grantedBy: string;
   allowedActions: string[];
   expiresAt?: Date | null;
+  // Danh tính người gọi thực (đã xác thực) và cờ override đã được kiểm tra ở tầng
+  // handler dựa trên membershipRole do services/company xác nhận — không tự suy diễn ở đây.
+  callerPrincipalId: string;
+  allowManageOthers: boolean;
 }) {
   const [auth] = await db
     .select()
@@ -234,6 +238,15 @@ export async function grantConnectorToSession(input: {
   }
 
   const authRecord = auth.connector_authorizations;
+
+  // Một member chỉ được thao tác trên connector authorization của chính mình, trừ khi
+  // có override founder/admin đã qua kiểm tra (audited) từ tầng gọi.
+  if (authRecord.principalId !== input.callerPrincipalId && !input.allowManageOthers) {
+    throw APIError.permissionDenied(
+      "connector authorization belongs to another principal (authorization owner mismatch)"
+    );
+  }
+
   if (authRecord.state !== "active" || authRecord.expiresAt < new Date()) {
     throw new Error("connector_reauth_required: authorization is not active or has expired");
   }
@@ -285,7 +298,37 @@ export async function revokeSessionGrant(input: {
   workspaceId: string;
   conversationId: string;
   grantId: string;
+  callerPrincipalId: string;
+  allowManageOthers: boolean;
 }) {
+  // Load grant cùng authorization (cùng workspace + conversation) trước khi ghi, để biết
+  // ai là chủ sở hữu authorization đứng sau session grant này.
+  const [row] = await db
+    .select({
+      grant: sessionConnectorGrants,
+      auth: connectorAuthorizations,
+    })
+    .from(sessionConnectorGrants)
+    .innerJoin(connectorAuthorizations, eq(sessionConnectorGrants.authorizationId, connectorAuthorizations.id))
+    .where(
+      and(
+        eq(sessionConnectorGrants.id, input.grantId),
+        eq(sessionConnectorGrants.workspaceId, input.workspaceId),
+        eq(sessionConnectorGrants.conversationId, input.conversationId),
+        eq(connectorAuthorizations.workspaceId, input.workspaceId)
+      )
+    );
+
+  if (!row) {
+    return null;
+  }
+
+  if (row.auth.principalId !== input.callerPrincipalId && !input.allowManageOthers) {
+    throw APIError.permissionDenied(
+      "connector authorization belongs to another principal (authorization owner mismatch)"
+    );
+  }
+
   const [updated] = await db
     .update(sessionConnectorGrants)
     .set({
@@ -293,13 +336,7 @@ export async function revokeSessionGrant(input: {
       revokedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(sessionConnectorGrants.id, input.grantId),
-        eq(sessionConnectorGrants.workspaceId, input.workspaceId),
-        eq(sessionConnectorGrants.conversationId, input.conversationId)
-      )
-    )
+    .where(eq(sessionConnectorGrants.id, row.grant.id))
     .returning();
 
   return updated || null;

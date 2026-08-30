@@ -124,6 +124,13 @@ export const registerAuthorizationEndpoint = api(
   }
 );
 
+// Các membershipRole được services/company xác nhận (không tự khai trong JWT của caller)
+// coi là có quyền override quản lý connector authorization của principal khác.
+// Theo tenant-context.service.ts (services/company/identity) "founder"/"co-founder" có
+// toàn quyền ("*"); "admin" được liệt kê rõ trong yêu cầu nghiệp vụ của task này
+// (founder/admin override) nên cũng được coi là override-capable ở COSA side.
+const CONNECTOR_MANAGE_OTHERS_ROLES = new Set(["founder", "co-founder", "admin"]);
+
 export const grantConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/grant", expose: true },
   async (params: GrantConnectorParams): Promise<SessionConnectorGrantResponse> => {
@@ -131,8 +138,11 @@ export const grantConnectorEndpoint = api(
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
 
-    // Verify caller is a member of the workspace
-    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    // Verify caller is a member of the workspace, and lấy membershipRole đã được
+    // services/company xác thực để xác định override founder/admin (không dùng role tự
+    // khai trong JWT của caller).
+    const membership = await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    const allowManageOthers = CONNECTOR_MANAGE_OTHERS_ROLES.has(membership.membershipRole);
 
     const res = await connectorSvc.grantConnectorToSession({
       workspaceId: params.workspaceId,
@@ -141,6 +151,8 @@ export const grantConnectorEndpoint = api(
       grantedBy: claims.sub,
       allowedActions: params.allowedActions || [],
       expiresAt: params.expiresAt ? new Date(params.expiresAt) : null,
+      callerPrincipalId: claims.sub,
+      allowManageOthers,
     });
     return res;
   }
@@ -151,15 +163,19 @@ export const revokeGrantEndpoint = api(
   async (params: RevokeGrantParams) => {
     if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
-    verifyPlatformToken(token);
+    const claims = verifyPlatformToken(token);
 
-    // Verify caller is a member of the workspace
-    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    // Verify caller is a member of the workspace, và lấy membershipRole đã xác thực để
+    // xác định override founder/admin.
+    const membership = await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    const allowManageOthers = CONNECTOR_MANAGE_OTHERS_ROLES.has(membership.membershipRole);
 
     const res = await connectorSvc.revokeSessionGrant({
       workspaceId: params.workspaceId,
       conversationId: params.conversationId,
       grantId: params.grantId,
+      callerPrincipalId: claims.sub,
+      allowManageOthers,
     });
     return { ok: !!res };
   }
