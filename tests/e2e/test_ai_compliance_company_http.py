@@ -14,21 +14,19 @@ dữ liệu THẬT được seed qua đúng service function governance thật (
 insert tắt qua HTTP giả). Không còn `httpx.MockTransport`, không còn
 monkeypatch `httpx.AsyncClient.__init__` ở bất kỳ đâu trong file này.
 
-Giới hạn đã xác nhận khi build lại test này bằng HTTP thật (ghi trong
-task-10-report.md, không che giấu):
-- `POST /finance-legal/ai-compliance/resolve-data-use` xác thực qua
-  `requireWorkspaceAccess` (yêu cầu access token phiên người dùng thật, xem
-  `identity/services/tenant-context.service.ts::resolveTenantContext`) —
-  KHÔNG chấp nhận delegation JWT COSA→Company mà
-  `CosaDataModelGate`/`AiComplianceClient.resolve_data_use` gửi lên trong
-  runtime thật. Đây là 1 gap wiring THẬT phát hiện lần đầu khi test này chạy
-  round-trip HTTP thật (route đó trước nay chưa từng được gọi qua HTTP thật
-  trong test nào) — nằm ngoài phạm vi Task 10 (test authenticity), cần 1 task
-  wiring riêng để quyết định route này nên verify theo delegation hay theo
-  session người dùng. Test "model mismatch" bên dưới vì vậy assert đúng hành
-  vi THẬT hiện tại của hệ thống (401 ⇒ fail-closed, model không bao giờ được
-  gọi) thay vì giả lập 1 phản hồi MODEL_NOT_APPROVED sạch mà hệ thống thật
-  chưa thể trả về.
+Phát hiện + sửa trong lúc build lại test này bằng HTTP thật (ghi chi tiết
+trong task-10-report.md): `POST /finance-legal/ai-compliance/resolve-data-use`
+trước đây CHỈ xác thực qua `requireWorkspaceAccess` (session người dùng thật)
+— nhưng caller thật duy nhất của route (`CosaDataModelGate`/
+`AiComplianceClient.resolve_data_use`, gọi từ runtime kernel) luôn gửi
+delegation JWT COSA→Company, nên route luôn 401 trên đường thật (gap phát
+hiện lần đầu khi test này chạy round-trip HTTP thật — route đó trước nay
+chưa từng được gọi qua HTTP thật trong test nào). Đã sửa: route giờ chấp
+nhận delegation JWT hợp lệ trước (`verifyCosaDelegationForCapability`, xem
+`services/company/shared/auth/cosa-delegation.service.ts`), rơi về session
+người dùng nếu không áp dụng được. Các test bên dưới ("model mismatch",
+"revoked authorization") vì vậy verify được round-trip đầy đủ qua HTTP thật
+với delegation JWT thật — không còn giới hạn nào ở route này.
 """
 
 from __future__ import annotations
@@ -43,6 +41,7 @@ from agent.contracts.spec import AgentSpec
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
 
+from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.compliance import AiComplianceClient, ComplianceResolver
 from apps.cosa.compliance.contracts import (
     AiComplianceUnavailable,
@@ -273,10 +272,10 @@ async def test_personal_data_without_subject_reference_never_reaches_model(
 async def test_model_mismatch_claim_never_reaches_model(
     real_company_service: CompanyServiceHandle,
 ) -> None:
-    """Xem giới hạn ghi ở đầu file: `resolve-data-use` hiện 401 với delegation
-    token thật (gap wiring auth riêng, ngoài phạm vi Task 10) — nên assert
-    đúng hành vi fail-closed THẬT của hệ thống hôm nay (never reaches model),
-    không giả lập 1 lý do từ chối "sạch" mà hệ thống thật chưa trả về được."""
+    """Round-trip đầy đủ qua `resolve-data-use` thật (delegation JWT thật,
+    xem fix ở đầu file) — Company trả `MODEL_NOT_APPROVED` thật vì
+    `model_key` không khớp provider profile đã seed, kernel fail-closed
+    trước khi gọi model."""
     seeded = await _seed(real_company_service, "approved")
     fake_model = FakeSDKModel(responses=[text_response("unreachable")])
     kernel, _client = _build_kernel(real_company_service.base_url, fake_model)
@@ -309,20 +308,39 @@ async def test_model_mismatch_claim_never_reaches_model(
 async def test_revoked_authorization_denies_personal_data_use(
     real_company_service: CompanyServiceHandle,
 ) -> None:
-    """`resolve-data-use` bị chặn bởi gap auth ghi ở đầu file — verify trực
-    tiếp qua service TS thật bằng cách gọi cùng con đường Python client sẽ
-    dùng (không mock), nhưng bằng chính route + workspace/context hợp lệ mà
-    route đó CHẤP NHẬN hôm nay là không khả thi qua HTTP thật (route yêu cầu
-    session người dùng thật, ngoài phạm vi seed E2E hiện có). Test này vì
-    vậy verify đúng phần đã CHẮC CHẮN thật và HTTP thật: seed thật tạo +
-    withdraw thật 1 `data_processing_authorization`, xác nhận trạng thái WITHDRAWN
-    được ghi nhận thật trong Company DB thật qua chính response HTTP thật
-    của endpoint seed (authorizationId trả về), làm bằng chứng dữ liệu âm
-    tồn tại thật cho môi trường CI kiểm tra thủ công/tương lai khi gap auth
-    ở trên được đóng."""
+    """Round-trip đầy đủ qua `resolve-data-use` thật: seed thật grant rồi
+    withdraw thật 1 `data_processing_authorization` cho `subjectReference`,
+    sau đó mint đúng delegation JWT thật mà `ComplianceResolver` dùng trong
+    production (`mint_company_delegation`) và gọi
+    `AiComplianceClient.resolve_data_use` trực tiếp — Company phải trả
+    `allowed=False, denialCode=PROCESSING_AUTHORIZATION_WITHDRAWN` thật, qua
+    HTTP thật, không giả lập."""
     seeded = await _seed(real_company_service, "revoked_authorization")
     assert seeded.get("authorizationId")
     assert seeded.get("subjectReference")
+
+    client = AiComplianceClient(base_url=real_company_service.base_url)
+    delegation_token = mint_company_delegation(
+        sub="founder_1",
+        workspace_id=seeded["workspaceId"],
+        run_id="run_revoked_auth",
+        capability_ids=["operations.task.list"],
+    )
+
+    decision = await client.resolve_data_use(
+        workspace_id=seeded["workspaceId"],
+        deployment_id=seeded["deploymentId"],
+        capability_id="operations.task.list",
+        purpose_id="advisory",
+        data_categories=["PERSONAL"],
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        subject_reference=seeded["subjectReference"],
+        delegation_token=delegation_token,
+    )
+
+    assert decision.allowed is False
+    assert decision.denial_code == "PROCESSING_AUTHORIZATION_WITHDRAWN"
 
 
 @pytest.mark.asyncio
