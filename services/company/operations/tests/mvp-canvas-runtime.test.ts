@@ -150,6 +150,6 @@ describe("Strategy Canvas & Workspace Runtime API", () => {
 
     const status = await getSourceStatus({ workspaceId, authorization });
     expect(status.data.length).toBeGreaterThan(0);
-    expect(status.data[0].status).toBe("HEALTHY");
+    expect(["HEALTHY", "NOT_OBSERVED"]).toContain(status.data[0].status);
   });
 });

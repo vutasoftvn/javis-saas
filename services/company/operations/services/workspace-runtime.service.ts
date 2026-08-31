@@ -4,6 +4,7 @@ import { db, schema } from "../models/db";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { mvpList, mvpItem, MvpSuccess, MvpSourceRef } from "../../shared/contracts/mvp-response";
+import { RuntimeOverviewQuery } from "../application/runtime/runtime-overview-query";
 
 const { tasks, taskDependencies, runtimeSourceSignals, runtimeSnoozes } = schema;
 
@@ -39,14 +40,14 @@ export async function getNeedsYouService(ctx: TenantContext): Promise<MvpSuccess
   const now = new Date();
 
   // Find active snoozes for current actor
-  const activeSnoozes = ctx.memberId
+  const activeSnoozes = ctx.workforceMemberId
     ? await db
         .select()
         .from(runtimeSnoozes)
         .where(
           and(
             eq(runtimeSnoozes.workspaceId, wsId),
-            eq(runtimeSnoozes.actorMemberId, BigInt(ctx.memberId)),
+            eq(runtimeSnoozes.actorMemberId, BigInt(ctx.workforceMemberId)),
             gt(runtimeSnoozes.snoozedUntil, now)
           )
         )
@@ -57,14 +58,14 @@ export async function getNeedsYouService(ctx: TenantContext): Promise<MvpSuccess
   const items: RuntimeItem[] = [];
 
   // 1. Pending tasks assigned to actor (or unassigned needing attention)
-  if (ctx.memberId) {
+  if (ctx.workforceMemberId) {
     const memberTasks = await db
       .select()
       .from(tasks)
       .where(
         and(
           eq(tasks.workspaceId, wsId),
-          eq(tasks.assigneeMemberId, BigInt(ctx.memberId)),
+          eq(tasks.assigneeMemberId, BigInt(ctx.workforceMemberId)),
           isNull(tasks.deletedAt),
           inArray(tasks.status, ["TODO", "IN_PROGRESS", "REVIEW"])
         )
@@ -80,7 +81,7 @@ export async function getNeedsYouService(ctx: TenantContext): Promise<MvpSuccess
         sourceKind: "company_db",
         sourceId: t.id.toString(),
         title: t.title,
-        description: t.description,
+        description: null,
         state: t.status,
         severity: t.priority === "URGENT" || t.priority === "HIGH" ? "HIGH" : "MEDIUM",
         sourceRef: { kind: "company_db", ref: `operating.tasks:${t.id}` },
@@ -228,14 +229,14 @@ export async function getWorkInspectorService(
         sourceKind: "company_db",
         sourceId: t.id.toString(),
         title: t.title,
-        description: t.description,
+        description: null,
         state: t.status,
         severity: "MEDIUM",
         sourceRef: { kind: "company_db", ref: `operating.tasks:${t.id}` },
         actionUrl: `/operations/tasks/${t.id}`,
         createdAt: t.createdAt.toISOString(),
         observedAt: t.updatedAt.toISOString(),
-        payload: { priority: t.priority, projectId: t.projectId?.toString() },
+        payload: { priority: t.priority, initiativeId: t.initiativeId?.toString() },
         dependencies: [],
       },
       [{ kind: "company_db", ref: `operating.tasks:${t.id}` }]
@@ -286,12 +287,12 @@ export async function snoozeRuntimeItemService(
   sourceId: string,
   snoozedUntilIso: string
 ): Promise<MvpSuccess<{ snoozed: boolean }>> {
-  if (!ctx.memberId) {
+  if (!ctx.workforceMemberId) {
     throw APIError.unauthenticated("Actor member identity required to snooze");
   }
 
   const wsId = BigInt(ctx.workspaceId);
-  const actorMemberId = BigInt(ctx.memberId);
+  const actorMemberId = BigInt(ctx.workforceMemberId);
   const snoozedUntil = new Date(snoozedUntilIso);
   const now = new Date();
 
@@ -329,28 +330,10 @@ export async function snoozeRuntimeItemService(
 }
 
 export async function getSourceStatusService(ctx: TenantContext): Promise<MvpSuccess<readonly SourceStatus[]>> {
-  const now = new Date().toISOString();
+  const query = new RuntimeOverviewQuery();
+  const statuses = await query.getSourceStatuses(ctx.workspaceId);
   return mvpList(
-    [
-      {
-        sourceKind: "company_db",
-        plane: "company",
-        status: "HEALTHY",
-        lastObservedAt: now,
-      },
-      {
-        sourceKind: "agent_db",
-        plane: "agent",
-        status: "HEALTHY",
-        lastObservedAt: now,
-      },
-      {
-        sourceKind: "control_plane",
-        plane: "platform",
-        status: "HEALTHY",
-        lastObservedAt: now,
-      },
-    ],
+    statuses as unknown as readonly SourceStatus[],
     [{ kind: "company_db", ref: "operating.runtime_source_signals" }]
   );
 }
