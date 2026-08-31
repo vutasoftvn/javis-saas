@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/network/realtime_service.dart';
 import '../../../../core/routing/app_routes.dart';
-import '../../../../core/services/secure_storage_service.dart';
 import '../../../../modules/auth/services/auth_service.dart';
-import '../../../../modules/onboarding/services/company_identity_gate.dart';
 
 mixin HubAuthMixin on GetxController {
   // ── Abstract service getter ──────────────────────────────────────────────
@@ -18,9 +16,7 @@ mixin HubAuthMixin on GetxController {
 
   // ── Public API ───────────────────────────────────────────────────────────
 
-  Future<void> ensureAuthenticated({
-    Future<void> Function(String workspaceId)? companyIdentityCheck,
-  }) async {
+  Future<void> ensureAuthenticated() async {
     if (!AuthService.isAuthenticated) {
       RealtimeService.disconnect();
       await authService.logout();
@@ -44,15 +40,6 @@ mixin HubAuthMixin on GetxController {
     if (me['role'] != null) {
       userRole.value =
           me['role'] == 'admin' ? 'Founder Mode' : (me['role'] as String);
-    }
-
-    // Gate duy nhất cho yêu cầu "workspace phải có Vision/Mission/Values" —
-    // bắt cả workspace vừa tạo lẫn workspace cũ thiếu dữ liệu. Chặn cho tới
-    // khi founder điền xong (CompanyIdentityGate hiện modal non-dismissible).
-    final workspaceId = await SecureStorageService.read('workspace_id');
-    if (workspaceId != null && workspaceId.isNotEmpty) {
-      final check = companyIdentityCheck ?? CompanyIdentityGate.checkAndPrompt;
-      await check(workspaceId);
     }
   }
 

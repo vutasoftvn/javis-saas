@@ -89,45 +89,32 @@ void main() {
     });
   });
 
-  group('HologramHubController Company Identity Gate', () {
-    // authService.getMe() gọi ApiClient (http.Client thật theo mặc định) —
-    // mock ở đây để test không phụ thuộc vào việc có server thật đang chạy
-    // ở localhost:4000 hay không (cùng pattern với company_identity_service_test.dart).
+  group('HologramHubController Non-blocking Authentication', () {
     late http.Client originalClient;
 
     setUp(() {
       originalClient = ApiClient.client;
-      ApiClient.client = MockClient((request) async {
-        if (request.url.path == '/identity/me') {
-          return http.Response(
-            '{"display_name":"Test User","role":"member"}',
-            200,
-          );
-        }
-        return http.Response('{}', 200);
-      });
     });
 
     tearDown(() {
       ApiClient.client = originalClient;
     });
 
-    test('ensureAuthenticated calls CompanyIdentityGate.checkAndPrompt with the stored workspace_id', () async {
-      var promptedWorkspaceId = '';
+    test("ensureAuthenticated does not fetch or prompt for workspace orientation", () async {
+      final requestedPaths = <String>[];
+      ApiClient.client = MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.url.path == "/identity/me") {
+          return http.Response('{"display_name":"Test User","role":"member"}', 200);
+        }
+        return http.Response("not found", 404);
+      });
+
+      AuthService.setCachedToken("test_token");
       final controller = HologramHubController();
-      // AuthService.isAuthenticated phụ thuộc trạng thái static toàn cục được
-      // set qua AuthService.init()/setCachedToken ở nơi khác trong test suite;
-      // ở đây chỉ verify gate được GỌI ĐÚNG workspace_id khi auth hợp lệ —
-      // dùng setCachedToken trực tiếp để không phụ thuộc thứ tự chạy test khác.
-      AuthService.setCachedToken('test_token');
+      await controller.ensureAuthenticated();
 
-      await controller.ensureAuthenticated(
-        companyIdentityCheck: (workspaceId) async {
-          promptedWorkspaceId = workspaceId;
-        },
-      );
-
-      expect(promptedWorkspaceId, 'ws_123');
+      expect(requestedPaths, ["/identity/me"]);
     });
   });
 }
