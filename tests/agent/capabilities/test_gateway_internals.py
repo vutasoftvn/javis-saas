@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 from agent.capabilities.gateway import GatewayExecutionRequest
-from agent.capabilities.gateway_internals import TenancyVerifier
+from agent.capabilities.gateway_internals import InputValidator, TenancyVerifier
+from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
 from agent.governance.contracts import CapabilityRisk
@@ -136,3 +137,38 @@ async def test_tenancy_verifier_explicit_req_overrides_context(tenancy_verifier)
     ws, principal = await tenancy_verifier.verify(spec, req)
     assert ws == "ws_req"
     assert principal == "user_req"
+
+
+@pytest.fixture
+def input_validator():
+    return InputValidator(CapabilityRegistry())
+
+
+def test_input_validator_valid(input_validator):
+    """Valid input passes validation."""
+    spec = CapabilitySpec(
+        id="test.spec",
+        version="1.0.0",
+        input_schema={
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+        },
+    )
+    errors = input_validator.validate(spec, {"id": "obj_123"})
+    assert errors == []
+
+
+def test_input_validator_missing_required(input_validator):
+    """Missing required field returns error."""
+    spec = CapabilitySpec(
+        id="test.spec",
+        version="1.0.0",
+        input_schema={
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+        },
+    )
+    errors = input_validator.validate(spec, {})
+    assert len(errors) > 0

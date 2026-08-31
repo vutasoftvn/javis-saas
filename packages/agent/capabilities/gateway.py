@@ -25,7 +25,7 @@ from agent.capabilities.enablements import (
     InMemoryEnablementStore,
     assert_enabled_for_invocation,
 )
-from agent.capabilities.gateway_internals import TenancyVerifier
+from agent.capabilities.gateway_internals import InputValidator, TenancyVerifier
 from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.errors import TenancyUnresolvedError
@@ -212,7 +212,8 @@ class CapabilityGateway:
             )
 
         # Bước 2: Validate input schema
-        val_errors = self._registry.validate_input(spec, req.input_payload)
+        validator = InputValidator(self._registry)
+        val_errors = validator.validate(spec, req.input_payload)
         if val_errors:
             return GatewayExecutionResult(
                 tool_call_id=req.tool_call_id,

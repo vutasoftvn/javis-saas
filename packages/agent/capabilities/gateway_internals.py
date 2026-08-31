@@ -9,7 +9,7 @@ from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["TenancyVerifier"]
+__all__ = ["InputValidator", "TenancyVerifier"]
 
 
 class TenancyVerifier:
@@ -69,3 +69,18 @@ class TenancyVerifier:
             raise TenancyUnresolvedError(err_msg, details={"capability": req.capability_id})
 
         return resolved_workspace or "", resolved_principal or ""
+
+
+class InputValidator:
+    """Kiểm tra input payload khớp với spec schema (delegate cho CapabilityRegistry)."""
+
+    def __init__(self, registry: Any) -> None:  # CapabilityRegistry
+        self._registry = registry
+
+    def validate(self, spec: CapabilitySpec, input_payload: dict[str, Any]) -> list[str]:
+        """Validate input against spec schema.
+
+        Returns:
+            List of error messages (empty = valid).
+        """
+        return self._registry.validate_input(spec, input_payload)
