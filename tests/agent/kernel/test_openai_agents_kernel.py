@@ -313,3 +313,229 @@ async def test_kernel_raises_typed_error_when_model_client_not_configured():
 
     run_rec = await repo.get_run(result.run_id)
     assert run_rec.error_details["code"] == RuntimeErrorCode.MODEL_PROVIDER_ERROR.value
+
+
+@pytest.mark.asyncio
+async def test_kernel_output_schema_validation_success():
+    """Kernel run với output_schema được set thành công validate valid JSON output."""
+    repo = InMemoryRunRepository()
+    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
+
+    spec = AgentSpec(
+        id="validator_agent",
+        instructions="Validate and return structured output.",
+        model_input_capability_ref="model.input.direct-user-message",
+        output_schema={
+            "type": "object",
+            "required": ["score", "verdict"],
+            "properties": {
+                "score": {"type": "integer"},
+                "verdict": {"type": "string"},
+            },
+        },
+    )
+
+    # Mock client sẽ return JSON output without tool calls
+    class _OutputSchemaMockClient:
+        class _Completions:
+            async def create(self, **kwargs):
+                class _Msg:
+                    content = '{"score": 95, "verdict": "pass"}'
+                    tool_calls = []
+
+                class _Choice:
+                    message = _Msg()
+
+                class _Resp:
+                    choices = [_Choice()]
+                    usage = None
+
+                return _Resp()
+
+        @property
+        def chat(self):
+            class _Chat:
+                completions = _OutputSchemaMockClient._Completions()
+
+            return _Chat()
+
+    kernel_with_mock = ManualToolLoopKernel(
+        repository=repo, model_client=_OutputSchemaMockClient()
+    )
+
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "Validate this"},
+    )
+
+    result = await kernel_with_mock.run(request, spec)
+
+    assert result.status == RunStatus.COMPLETED
+    assert isinstance(result.final_output, dict)
+    assert result.final_output["score"] == 95
+    assert result.final_output["verdict"] == "pass"
+
+    # Verify event was logged
+    events = await repo.list_events(result.run_id)
+    event_types = [e.event_type for e in events]
+    assert "run.completed" in event_types
+    assert "run.failed" not in event_types
+
+
+@pytest.mark.asyncio
+async def test_kernel_output_schema_validation_failure():
+    """Kernel run với output_schema detect invalid JSON output và fail run."""
+    repo = InMemoryRunRepository()
+
+    spec = AgentSpec(
+        id="validator_agent_fail",
+        instructions="Validate and return structured output.",
+        model_input_capability_ref="model.input.direct-user-message",
+        output_schema={
+            "type": "object",
+            "required": ["score", "verdict"],
+            "properties": {
+                "score": {"type": "integer"},
+                "verdict": {"type": "string"},
+            },
+        },
+    )
+
+    # Mock client returns output that fails schema validation
+    class _FailingOutputSchemaMockClient:
+        class _Completions:
+            async def create(self, **kwargs):
+                class _Msg:
+                    # Missing 'verdict' field — validation should fail
+                    content = '{"score": "not_a_number"}'
+                    tool_calls = []
+
+                class _Choice:
+                    message = _Msg()
+
+                class _Resp:
+                    choices = [_Choice()]
+                    usage = None
+
+                return _Resp()
+
+        @property
+        def chat(self):
+            class _Chat:
+                completions = _FailingOutputSchemaMockClient._Completions()
+
+            return _Chat()
+
+    kernel = ManualToolLoopKernel(
+        repository=repo, model_client=_FailingOutputSchemaMockClient()
+    )
+
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "This should fail validation"},
+    )
+
+    result = await kernel.run(request, spec)
+
+    assert result.status == RunStatus.FAILED
+    assert result.errors
+    assert any("validation" in err.lower() for err in result.errors)
+    # final_output ở đây sẽ là ValidationFailure dict (có is_valid=False)
+    assert result.final_output is not None
+    assert result.final_output.get("is_valid") is False
+
+    # Verify run record was marked FAILED
+    run_rec = await repo.get_run(result.run_id)
+    assert run_rec.status == RunStatus.FAILED
+
+    # Verify event was logged
+    events = await repo.list_events(result.run_id)
+    event_types = [e.event_type for e in events]
+    assert "run.failed" in event_types
+    assert "run.completed" not in event_types
+
+
+@pytest.mark.asyncio
+async def test_kernel_output_schema_skip_when_not_set():
+    """Kernel run không có output_schema ignore validation và complete normally."""
+    repo = InMemoryRunRepository()
+
+    spec = AgentSpec(
+        id="no_schema_agent",
+        instructions="Just return text.",
+        model_input_capability_ref="model.input.direct-user-message",
+        # Deliberately NO output_schema set
+    )
+
+    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
+
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "Hello"},
+    )
+
+    result = await kernel.run(request, spec)
+
+    # Should complete successfully without validation since no schema
+    assert result.status == RunStatus.COMPLETED
+    assert "Processed: Hello" in str(result.final_output)
+
+
+@pytest.mark.asyncio
+async def test_kernel_output_schema_with_markdown_code_block():
+    """Kernel extract JSON từ markdown code block khi validate schema."""
+    repo = InMemoryRunRepository()
+
+    spec = AgentSpec(
+        id="markdown_schema_agent",
+        instructions="Return JSON in markdown code block.",
+        model_input_capability_ref="model.input.direct-user-message",
+        output_schema={
+            "type": "object",
+            "required": ["status"],
+            "properties": {"status": {"type": "string"}},
+        },
+    )
+
+    # Mock client returns JSON wrapped in markdown code block
+    class _MarkdownOutputMockClient:
+        class _Completions:
+            async def create(self, **kwargs):
+                class _Msg:
+                    content = '```json\n{"status": "ok"}\n```'
+                    tool_calls = []
+
+                class _Choice:
+                    message = _Msg()
+
+                class _Resp:
+                    choices = [_Choice()]
+                    usage = None
+
+                return _Resp()
+
+        @property
+        def chat(self):
+            class _Chat:
+                completions = _MarkdownOutputMockClient._Completions()
+
+            return _Chat()
+
+    kernel = ManualToolLoopKernel(
+        repository=repo, model_client=_MarkdownOutputMockClient()
+    )
+
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "Get status"},
+    )
+
+    result = await kernel.run(request, spec)
+
+    assert result.status == RunStatus.COMPLETED
+    assert isinstance(result.final_output, dict)
+    assert result.final_output["status"] == "ok"
