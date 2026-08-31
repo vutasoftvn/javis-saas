@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 129 | 34 |
 | VALID_KEEP (giữ nguyên) | 97 | 30 |
-| REVIEW (chưa phân loại) | 828 | 242 |
+| REVIEW (chưa phân loại) | 827 | 242 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -138,7 +138,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/services/token.service.ts | 3 |
 | services/company/operations/application/runtime/runtime-overview-query.ts | 3 |
 | services/company/operations/services/twelve-week-year.service.ts | 3 |
-| services/company/shared/db/schema/identity.ts | 3 |
 | services/cosa/handlers/agent-policy.handler.ts | 3 |
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
 | services/cosa/handlers/workspace-connector.handler.ts | 3 |
@@ -168,6 +167,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/services/okr.service.ts | 2 |
 | services/company/package-lock.json | 2 |
 | services/company/shared/contracts/mvp-response.ts | 2 |
+| services/company/shared/db/schema/identity.ts | 2 |
 | services/company/shared/services/workspace-resolver.service.ts | 2 |
 | apps/cosa/academy/contracts.py | 1 |
 | apps/cosa/academy/simulation/engine.py | 1 |
