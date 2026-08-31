@@ -6,22 +6,22 @@ const DEV_PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-pr
 const DEV_PLATFORM_URL = "http://127.0.0.1:4001";
 const PLATFORM_REQUEST_TIMEOUT_MS = 5000;
 
-function getPlatformJwtSecret(): string {
+export function getPlatformJwtSecret(): string {
   const secret = process.env.PLATFORM_JWT_SECRET;
   if (isStagingOrProd()) {
     if (!secret || secret === DEV_PLATFORM_JWT_SECRET || secret.length < 32) {
-      throw new Error("PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
+      throw APIError.internal("PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
     }
     return secret;
   }
   return secret || DEV_PLATFORM_JWT_SECRET;
 }
 
-function getPlatformUrl(): string {
+export function getPlatformUrl(): string {
   const url = process.env.PLATFORM_API_BASE_URL;
   if (isStagingOrProd()) {
     if (!url || url === DEV_PLATFORM_URL) {
-      throw new Error("PLATFORM_API_BASE_URL must be explicitly set in staging/production, cannot use default URL");
+      throw APIError.internal("PLATFORM_API_BASE_URL must be explicitly set in staging/production, cannot use default URL");
     }
     return url;
   }
