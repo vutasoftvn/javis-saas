@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent.capabilities.enablements import InMemoryEnablementStore
+from agent.capabilities.enablements import CapabilityEnablement, InMemoryEnablementStore
 from agent.capabilities.gateway import GatewayExecutionRequest
 from agent.capabilities.gateway_internals import (
     EnablementValidator,
@@ -329,6 +329,87 @@ async def test_enablement_validator_enabled(enablement_validator):
         capability_id="test.spec",
         workspace_id="ws_1",
         context={},
+    )
+
+    assert is_enabled is True
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_enablement_validator_denied_no_matching_record(enablement_validator):
+    """action_class outside (R, A) with a resolvable skill_hash but NO matching
+    enablement record for (workspace_id, capability_id, action_class, skill_hash)
+    is denied fail-closed. Mirrors test_char_enablement_denied_no_record but
+    exercises EnablementValidator.validate() directly, no gateway involved."""
+    spec = CapabilitySpec(
+        id="test.capability.write",
+        version="1.0.0",
+        metadata={"action_class": "W"},
+    )
+
+    is_enabled, error = await enablement_validator.validate(
+        spec=spec,
+        capability_id="test.capability.write",
+        workspace_id="ws_test",
+        context={"skill_hash": "hash_write_v1"},
+    )
+
+    assert is_enabled is False
+    assert error is not None
+    assert "No enablement record found" in error
+
+
+@pytest.mark.asyncio
+async def test_enablement_validator_denied_missing_skill_hash(enablement_validator):
+    """action_class outside (R, A) with NO skill_hash resolvable anywhere in
+    context is denied fail-closed, with a distinct reason from "no record
+    found". Mirrors test_char_enablement_missing_skill_hash_denied."""
+    spec = CapabilitySpec(
+        id="test.capability.write",
+        version="1.0.0",
+        metadata={"action_class": "W"},
+    )
+
+    is_enabled, error = await enablement_validator.validate(
+        spec=spec,
+        capability_id="test.capability.write",
+        workspace_id="ws_test",
+        context={},
+    )
+
+    assert is_enabled is False
+    assert error is not None
+    assert "requires exact skill definition_hash" in error
+
+
+@pytest.mark.asyncio
+async def test_enablement_validator_allowed_with_active_record():
+    """An active ENABLED record matching (workspace, capability, skill_hash,
+    action_class) lets validate() report enabled with no error. Mirrors
+    test_char_enablement_allowed_with_active_record."""
+    store = InMemoryEnablementStore()
+    await store.save_enablement(
+        CapabilityEnablement(
+            workspace_id="ws_test",
+            capability_id="test.capability.write",
+            skill_hash="hash_write_v1",
+            action_class="W",
+            target_fingerprint="*",
+            status="ENABLED",
+        )
+    )
+    validator = EnablementValidator(store)
+    spec = CapabilitySpec(
+        id="test.capability.write",
+        version="1.0.0",
+        metadata={"action_class": "W"},
+    )
+
+    is_enabled, error = await validator.validate(
+        spec=spec,
+        capability_id="test.capability.write",
+        workspace_id="ws_test",
+        context={"skill_hash": "hash_write_v1"},
     )
 
     assert is_enabled is True
