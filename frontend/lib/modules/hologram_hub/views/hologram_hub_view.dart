@@ -240,6 +240,14 @@ class HologramHubView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
+          // Hiển thị Banner gợi ý khởi tạo dự án đầu tiên khi chưa có Project nào
+          Obx(() {
+            if (!controller.hasProjects.value) {
+              return _buildFirstProjectBanner(context, controller);
+            }
+            return const SizedBox.shrink();
+          }),
+
           // B & C: Responsive Grid (Side-by-Side on Desktop, Stacked on Mobile)
           if (isWide)
             Row(
@@ -294,6 +302,278 @@ class HologramHubView extends StatelessWidget {
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+  Widget _buildFirstProjectBanner(
+    BuildContext context,
+    FounderCommandCenterController controller,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.4), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 650;
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.rocket_launch, color: Color(0xFF818CF8), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Khởi tạo Dự án Đầu tiên',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Workspace hiện chưa có dự án nào. Hãy thiết lập dự án để AI Co-Founder đề xuất Top 3 trọng tâm và kích hoạt chu trình 12-Week Year!',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.75),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showCreateProjectDialog(context, controller),
+                    icon: const Icon(Icons.add, size: 18, color: Colors.white),
+                    label: const Text('Khởi tạo dự án ngay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      elevation: 4,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.rocket_launch, color: Color(0xFF818CF8), size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Khởi tạo Dự án & Lộ trình Đầu tiên',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Workspace hiện chưa có dự án nào. Hãy thiết lập dự án để AI Co-Founder đề xuất Top 3 trọng tâm và kích hoạt chu trình 12-Week Year!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.75),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                onPressed: () => _showCreateProjectDialog(context, controller),
+                icon: const Icon(Icons.add, size: 18, color: Colors.white),
+                label: const Text('Khởi tạo dự án', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  elevation: 4,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCreateProjectDialog(
+    BuildContext context,
+    FounderCommandCenterController controller,
+  ) {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    String selectedStage = 'P1_PROBLEM_VALIDATION';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF0F172A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: Color(0xFF334155), width: 1),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.rocket_launch, color: Color(0xFF6366F1), size: 22),
+                  SizedBox(width: 10),
+                  Text(
+                    'Khởi tạo dự án mới',
+                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Tên dự án *', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: titleController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Ví dụ: Nền tảng B2B SaaS cho Doanh nghiệp',
+                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
+                        filled: true,
+                        fillColor: const Color(0xFF1E293B),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Mô tả bài toán / JTBD *', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: descriptionController,
+                      maxLines: 3,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Mô tả vấn đề khách hàng đang gặp phải, giải pháp dự kiến...',
+                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
+                        filled: true,
+                        fillColor: const Color(0xFF1E293B),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Giai đoạn dự án (Stage)', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedStage,
+                          dropdownColor: const Color(0xFF1E293B),
+                          isExpanded: true,
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          items: const [
+                            DropdownMenuItem(value: 'P1_PROBLEM_VALIDATION', child: Text('P1: Xác thực Vấn đề (Problem Validation)')),
+                            DropdownMenuItem(value: 'P2_SOLUTION_FIT', child: Text('P2: Phù hợp Giải pháp (Solution Fit)')),
+                            DropdownMenuItem(value: 'P3_MVP_BUILD', child: Text('P3: Xây dựng MVP (MVP Build)')),
+                            DropdownMenuItem(value: 'P4_PMF_GROWTH', child: Text('P4: Tăng trưởng & PMF (PMF Growth)')),
+                            DropdownMenuItem(value: 'P5_SCALE_OPERATE', child: Text('P5: Vận hành Quy mô lớn (Scale & Operate)')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setModalState(() => selectedStage = val);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Hủy', style: TextStyle(color: Colors.white60)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final title = titleController.text.trim();
+                    final desc = descriptionController.text.trim();
+                    if (title.isEmpty) {
+                      Get.snackbar(
+                        'Thiếu thông tin',
+                        'Vui lòng nhập tên dự án',
+                        snackPosition: SnackPosition.TOP,
+                        backgroundColor: const Color(0xFFEF4444),
+                        colorText: Colors.white,
+                      );
+                      return;
+                    }
+                    Navigator.pop(dialogContext);
+                    await controller.createFirstProject(
+                      title: title,
+                      description: desc.isNotEmpty ? desc : 'Khởi tạo dự án đầu tiên cho doanh nghiệp.',
+                      stage: selectedStage,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Khởi tạo dự án', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

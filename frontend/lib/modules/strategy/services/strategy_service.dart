@@ -512,7 +512,7 @@ class StrategyService {
     final workspaceId = await _getWorkspaceId();
     if (workspaceId == null) return [];
     try {
-      final response = await ApiClient.get('/strategy/projects?workspace_id=$workspaceId');
+      final response = await ApiClient.get('/operations/projects?workspace_id=$workspaceId');
       return _decodeList(response, 'projects');
     } catch (_) {
       return [];
@@ -532,15 +532,18 @@ class StrategyService {
   }) async {
     final workspaceId = await _requireWorkspaceId();
     final response = await ApiClient.post(
-      '/strategy/projects?workspace_id=$workspaceId',
+      '/operations/projects?workspace_id=$workspaceId',
       body: {
         'title': title,
         'description': ?description,
+        'lifecycleStage': ?(projectStage ?? phase),
         'phase': ?phase,
         'project_stage': ?projectStage,
         'stage_goal': ?stageGoal,
         'current_gate': ?currentGate,
         'status': ?status,
+        'startDate': startDate?.toIso8601String(),
+        'endDate': endDate?.toIso8601String(),
         'start_date': startDate?.toIso8601String(),
         'end_date': endDate?.toIso8601String(),
       },
@@ -559,12 +562,15 @@ class StrategyService {
   }) async {
     final workspaceId = await _requireWorkspaceId();
     final response = await ApiClient.put(
-      '/strategy/projects/$projectId?workspace_id=$workspaceId',
+      '/operations/projects/$projectId?workspace_id=$workspaceId',
       body: {
         'title': ?title,
+        'lifecycleStage': ?phase,
         'phase': ?phase,
         'current_gate': ?currentGate,
         'status': ?status,
+        'startDate': startDate?.toIso8601String(),
+        'endDate': endDate?.toIso8601String(),
         'start_date': startDate?.toIso8601String(),
         'end_date': endDate?.toIso8601String(),
       },
@@ -574,7 +580,7 @@ class StrategyService {
 
   Future<void> deleteProject(String projectId) async {
     final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.delete('/strategy/projects/$projectId?workspace_id=$workspaceId');
+    final response = await ApiClient.delete('/operations/projects/$projectId?workspace_id=$workspaceId');
     _decode(response);
   }
 

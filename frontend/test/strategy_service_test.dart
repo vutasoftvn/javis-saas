@@ -144,11 +144,28 @@ void main() {
     test('deleteProject calls DELETE on the project endpoint', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'DELETE');
-        expect(request.url.path, '/strategy/projects/project-1');
+        expect(request.url.path, '/operations/projects/project-1');
         return http.Response('', 204);
       });
 
       await StrategyService().deleteProject('project-1');
+    });
+
+    test('createProject calls POST on the operations projects endpoint', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/operations/projects');
+        final body = jsonDecode(request.body);
+        expect(body['title'], 'Test Project');
+        expect(body['lifecycleStage'], 'P1_PROBLEM_VALIDATION');
+        return http.Response(jsonEncode({'id': 'proj-123', 'title': 'Test Project'}), 200);
+      });
+
+      final res = await StrategyService().createProject(
+        title: 'Test Project',
+        projectStage: 'P1_PROBLEM_VALIDATION',
+      );
+      expect(res['id'], 'proj-123');
     });
   });
 }

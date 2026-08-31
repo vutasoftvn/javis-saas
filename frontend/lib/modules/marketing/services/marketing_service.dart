@@ -104,7 +104,7 @@ class MarketingService {
   Future<List<dynamic>> getProjects() async {
     final workspaceId = await _requireWorkspaceId();
     try {
-      final response = await ApiClient.get('/strategy/projects?workspace_id=$workspaceId');
+      final response = await ApiClient.get('/operations/projects?workspace_id=$workspaceId');
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body);
         return data is Map && data['projects'] is List ? (data['projects'] as List<dynamic>) : [];

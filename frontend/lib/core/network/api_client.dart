@@ -131,6 +131,19 @@ class ApiClient {
     if (normalized.startsWith('/api/v1/tasks')) {
       return '/operations${normalized.substring(7)}';
     }
+    if (RegExp(r'^/strategy/projects/[^/]+/(stage(\?.*)?|stage/transitions(\?.*)?|next-best-actions(\?.*)?|ranked-assumptions(\?.*)?|proposed-experiments(\?.*)?)$').hasMatch(normalized)) {
+      return '/operations$normalized';
+    }
+    if (normalized == '/strategy/projects' ||
+        normalized.startsWith('/strategy/projects?') ||
+        RegExp(r'^/strategy/projects/([^/?]+)(\?.*)?$').hasMatch(normalized)) {
+      return '/operations/projects${normalized.substring(18)}';
+    }
+    if (normalized == '/api/v1/strategy/projects' ||
+        normalized.startsWith('/api/v1/strategy/projects?') ||
+        RegExp(r'^/api/v1/strategy/projects/([^/?]+)(\?.*)?$').hasMatch(normalized)) {
+      return '/operations/projects${normalized.substring(25)}';
+    }
     if (normalized.startsWith('/sales/')) {
       return '/commercial/${normalized.substring(7)}';
     }

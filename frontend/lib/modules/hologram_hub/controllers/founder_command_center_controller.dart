@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/models/company_pulse_model.dart';
@@ -5,12 +7,31 @@ import '../../../data/models/founder_decision_model.dart';
 import '../../../data/models/workforce_pack_model.dart';
 import '../../../modules/hologram_hub/services/cofounder_api_service.dart';
 import '../../../modules/approvals/services/approvals_service.dart';
+import '../../../modules/chat/services/agent_chat_service.dart';
+import '../../../modules/chat/models/data_access_declaration.dart';
+
+import '../../../core/services/secure_storage_service.dart';
+import '../../../modules/strategy/services/strategy_service.dart';
 
 class FounderCommandCenterController extends GetxController {
   final ApprovalsService _approvalsService = ApprovalsService();
+  final AgentChatService _chatService = AgentChatService();
+
+  // Task 5 (`/agent/conversations/{id}/messages`) đòi hỏi phân loại
+  // `data_access` không rỗng cho mọi tin nhắn — chat sheet này là kênh trao
+  // đổi business (không nhập PII), nên khai báo cố định BUSINESS_CONFIDENTIAL,
+  // không cần subject_reference.
+  static const _chatDataAccess = DataAccessDeclaration(
+    categories: {DataAccessCategory.businessConfidential},
+  );
+
+  String? _cofounderConversationId;
+  StreamSubscription<Map<String, dynamic>>? _chatSseSubscription;
 
   // Reactive state
   final RxBool isLoading = false.obs;
+  final RxBool hasProjects = true.obs;
+  final RxList<dynamic> projectsList = <dynamic>[].obs;
   final Rx<CompanyPulseModel?> pulse = Rx<CompanyPulseModel?>(null);
   final RxList<NextBestActionModel> top3Actions = <NextBestActionModel>[].obs;
   final RxList<FounderDecisionModel> pendingDecisions = <FounderDecisionModel>[].obs;
@@ -31,6 +52,7 @@ class FounderCommandCenterController extends GetxController {
 
   @override
   void onClose() {
+    _chatSseSubscription?.cancel();
     chatInputController.dispose();
     super.onClose();
   }
@@ -39,9 +61,29 @@ class FounderCommandCenterController extends GetxController {
   Future<void> loadDashboardData() async {
     isLoading.value = true;
     try {
-      final pulseRes = await CoFounderApiService.getCompanyPulse();
-      final top3Res = await CoFounderApiService.getTop3Focus();
-      final decisionsRes = await CoFounderApiService.listPendingDecisions();
+      final wsId = await SecureStorageService.read('workspace_id');
+      final strategyService = StrategyService();
+
+      List<dynamic> projects = [];
+      try {
+        projects = await strategyService.getProjects();
+      } catch (e) {
+        debugPrint('[FounderCommandCenter] getProjects error: $e');
+      }
+
+      projectsList.assignAll(projects);
+      hasProjects.value = projects.isNotEmpty;
+
+      final activeProjectId = projects.isNotEmpty ? projects.first['id'] : null;
+
+      final pulseRes = await CoFounderApiService.getCompanyPulse(
+        workspaceId: wsId,
+        projectId: activeProjectId,
+      );
+      final top3Res = (activeProjectId != null)
+          ? await CoFounderApiService.getTop3Focus(workspaceId: wsId, projectId: activeProjectId)
+          : <NextBestActionModel>[];
+      final decisionsRes = await CoFounderApiService.listPendingDecisions(workspaceId: wsId);
       final packsRes = await CoFounderApiService.listWorkforcePacks();
 
       pulse.value = pulseRes;
@@ -60,6 +102,47 @@ class FounderCommandCenterController extends GetxController {
       } catch (_) {
         pendingApprovals.clear();
       }
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Khởi tạo dự án đầu tiên theo flow
+  Future<bool> createFirstProject({
+    required String title,
+    required String description,
+    String stage = 'P1_PROBLEM_VALIDATION',
+  }) async {
+    isLoading.value = true;
+    try {
+      final strategyService = StrategyService();
+      await strategyService.createProject(
+        title: title,
+        description: description,
+        projectStage: stage,
+        stageGoal: 'Xác thực mục tiêu trọng tâm của giai đoạn $stage',
+        status: 'active',
+        startDate: DateTime.now(),
+      );
+      await loadDashboardData();
+      Get.snackbar(
+        'Đã khởi tạo dự án',
+        'Dự án "$title" đã được thiết lập thành công. AI Co-Founder đã sẵn sàng đồng hành!',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFF10B981),
+        colorText: Colors.white,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] createFirstProject error: $e');
+      Get.snackbar(
+        'Không thể tạo dự án',
+        'Lỗi: $e',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
+      return false;
     } finally {
       isLoading.value = false;
     }
@@ -180,29 +263,91 @@ class FounderCommandCenterController extends GetxController {
   /// G2 P0.8 / G3 §10.4: khi request thất bại, trước đây hiện một câu trả
   /// lời "đã tiếp nhận và đang điều phối" giả — founder tin nhầm là tin nhắn
   /// đã được xử lý dù chưa hề tạo Mission nào. Giờ hiện đúng trạng thái lỗi.
+  ///
+  /// Trước đây gọi `CoFounderApiService.chatWithCoFounder` → `/cofounder/chat`,
+  /// một endpoint chưa từng tồn tại ở bất kỳ backend nào (luôn 404). Chat thật
+  /// đi qua AgentOS conversation/message/SSE flow (`apps/cosa/api/routes.py`),
+  /// đúng pattern `AgentChatService` module `chat` đã dùng — tái dùng lại thay
+  /// vì tạo route giả thứ hai.
   Future<void> sendChatMessage(String message) async {
-    if (message.trim().isEmpty) return;
+    final trimmed = message.trim();
+    if (trimmed.isEmpty) return;
 
-    chatMessages.add({'role': 'user', 'content': message});
+    chatMessages.add({'role': 'user', 'content': trimmed});
     chatInputController.clear();
     isChatLoading.value = true;
 
     try {
-      final res = await CoFounderApiService.chatWithCoFounder(message: message);
-      final reply = res['message'] ?? 'Tôi đã tiếp nhận ý kiến của bạn.';
-      chatMessages.add({'role': 'cosa', 'content': reply});
-    } on CoFounderChatException catch (e) {
-      chatMessages.add({
-        'role': 'error',
-        'content': 'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission. (${e.message})',
-      });
+      _cofounderConversationId ??= (await _chatService.createConversation(
+        title: 'Founder Command Center',
+        activeAgentProfile: 'operations',
+      ))
+          ?.id;
+      final conversationId = _cofounderConversationId;
+      if (conversationId == null) {
+        throw Exception('Không tạo được conversation với COSA runtime.');
+      }
+
+      final response = await _chatService.sendMessage(
+        conversationId,
+        content: trimmed,
+        dataAccess: _chatDataAccess,
+      );
+      final runId = response?['run_id']?.toString();
+      if (runId == null) {
+        throw Exception('COSA runtime không trả về run_id.');
+      }
+
+      final assistantMsg = <String, String>{'role': 'cosa', 'content': ''};
+      chatMessages.add(assistantMsg);
+      _subscribeChatSse(runId, assistantMsg);
     } catch (e) {
       chatMessages.add({
         'role': 'error',
-        'content': 'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission.',
+        'content': 'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission. ($e)',
       });
-    } finally {
       isChatLoading.value = false;
     }
+  }
+
+  void _subscribeChatSse(String runId, Map<String, String> assistantMsg) {
+    _chatSseSubscription?.cancel();
+    _chatSseSubscription = _chatService.streamRunEvents(runId).listen(
+      (event) {
+        final eventType = event['event_type']?.toString() ?? '';
+        final payload = (event['payload'] as Map<String, dynamic>?) ?? {};
+        switch (eventType) {
+          case 'message.delta':
+            final delta = payload['delta']?.toString() ?? '';
+            final idx = chatMessages.indexOf(assistantMsg);
+            if (idx != -1) {
+              assistantMsg['content'] = (assistantMsg['content'] ?? '') + delta;
+              chatMessages[idx] = assistantMsg;
+            }
+            break;
+          case 'run.completed':
+            if ((assistantMsg['content'] ?? '').isEmpty && payload['output'] != null) {
+              final idx = chatMessages.indexOf(assistantMsg);
+              assistantMsg['content'] = payload['output'].toString();
+              if (idx != -1) chatMessages[idx] = assistantMsg;
+            }
+            isChatLoading.value = false;
+            break;
+          case 'run.failed':
+          case 'run.cancelled':
+            final idx = chatMessages.indexOf(assistantMsg);
+            if (idx != -1) {
+              assistantMsg['role'] = 'error';
+              assistantMsg['content'] =
+                  (assistantMsg['content'] ?? '').isEmpty ? 'Mission thất bại hoặc bị huỷ.' : assistantMsg['content']!;
+              chatMessages[idx] = assistantMsg;
+            }
+            isChatLoading.value = false;
+            break;
+        }
+      },
+      onError: (_) => isChatLoading.value = false,
+      onDone: () => isChatLoading.value = false,
+    );
   }
 }
