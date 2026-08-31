@@ -2554,3 +2554,63 @@ git log --oneline -10  # Verify all 8 helper extractions + orchestrator refactor
 **External behavior unchanged:** No caller of `CapabilityGateway.execute()` sees any difference. All 26 dependent files work unchanged.
 
 **Test coverage:** 13 characterization tests + 20+ unit tests for helpers = 33+ tests pinning exact behavior before/during/after refactor.
+
+---
+
+## Completion Record (2026-08-31)
+
+**Trạng thái: HOÀN TẤT** — cả 8 helper đã được extract và `_execute_internal()`
+trở thành thin orchestrator gọi 8 helper theo đúng thứ tự gốc (không reorder).
+
+### Commit history (theo thứ tự thực hiện)
+
+| Commit | Nội dung |
+| --- | --- |
+| `b2170885` | Task 1: characterization tests cho `_execute_internal` |
+| `93bdd270` | Task 2: extract `TenancyVerifier` |
+| `b0b932d8` | Task 3: extract `InputValidator` |
+| `d1b54827` | Task 4: extract `IdempotencyCoordinator` |
+| `e89a4a0b` + `1cd7cead` | Task 5: extract `EnablementValidator` (+ focused test coverage) |
+| `fb65c7f3` + `d9490f46` | Task 6: extract `ComplianceAuditor` (+ fix thứ tự side-effect deny path) |
+| `925cd909` | Task 7: extract `ApprovalGateDecider` |
+| `ff310675` | Task 8 + 9: extract `ConnectorGrantResolver` + `AmbientGovernanceVerifier` |
+
+### Kết quả verify cuối (Task 11)
+
+- `pytest tests/agent/capabilities/`: **119 passed** (bao gồm 13 characterization
+  tests + toàn bộ unit tests 8 helper).
+- `pytest tests/agent/capabilities/test_gateway_internals.py`: **43 passed**
+  (8 helper hoạt động độc lập).
+- `ruff check packages/agent/capabilities/gateway.py gateway_internals.py
+  tests/agent/capabilities/test_gateway_internals.py`: **All checks passed**.
+- API contract `CapabilityGateway.execute()` / `GatewayExecutionResult` không đổi.
+- Ràng buộc `packages/agent` không import `services/company` / `services/cosa`
+  được giữ nguyên (helper dùng import cục bộ `GatewayExecutionResult` để tránh
+  circular import, không kéo service nào vào).
+
+### Deviation so với plan (đã cố ý, để giữ behavior nguyên trạng)
+
+1. **Task 6 `ComplianceAuditor.audit()`** trả về 3-tuple (thêm
+   `pending_deny_event`) thay vì 2-tuple như plan — để giữ đúng thứ tự side-effect
+   deny path gốc (`tc_record.save` + `idempotency.fail` TRƯỚC event
+   `compliance.decision` DENY), tránh ghi trùng event DENY khi resume sau restart.
+2. **Task 8 `ConnectorGrantResolver`** trả về `ConnectorGrantResolution` (dataclass)
+   thay vì tuple 3 phần tử đơn giản — vì code thật có HAI nhánh deny khác nhau
+   (`connector_grant.resolver_error` vs `connector_grant.denied`, payload/error
+   message khác nhau) mà pseudocode trong plan chỉ mô tả một nhánh gộp. Interface
+   mới giữ nguyên byte-for-byte cả hai nhánh.
+3. **Task 10 pseudocode trong plan bị reorder bước** (đặt enablement sau idempotency,
+   đảo thứ tự compliance/policy) — KHÔNG áp dụng vì trái với chính Goal của plan
+   ("calls helpers in exact current sequence, no reordering"). Thay vào đó
+   `_execute_internal()` giữ nguyên thứ tự 10 bước hiện tại, chỉ thay inline code
+   bằng lời gọi helper. Đây cũng là cách 7 extraction trước đã làm.
+
+### Chú ý khi audit lại (bài học)
+
+- Header "Phase 1 Complete" trong Summary là target của plan, KHÔNG được coi là
+  bằng chứng implementation đã xong. Bằng chứng thực tế là: 8 class tồn tại trong
+  `gateway_internals.py`, `gateway.py` không còn chứa logic inline của 8 concern,
+  và 119 tests xanh.
+- Working tree còn chứa các thay đổi chưa commit KHÔNG thuộc plan này
+  (`apps/cosa/api/*` route split + `tests/apps/cosa/test_routes_split_baseline.py`)
+  — đã được giữ nguyên, không đưa vào commit nào của plan này.
