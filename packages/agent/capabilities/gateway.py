@@ -25,6 +25,7 @@ from agent.capabilities.enablements import (
     InMemoryEnablementStore,
     assert_enabled_for_invocation,
 )
+from agent.capabilities.gateway_internals import TenancyVerifier
 from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.errors import TenancyUnresolvedError
@@ -33,8 +34,6 @@ from agent.contracts.wait import WaitDescriptor, WaitKind
 from agent.governance.accumulator import InvocationGovernanceState
 from agent.governance.ambient import verify_ambient_governance
 from agent.governance.contracts import (
-    ApprovalPolicy,
-    CapabilityRisk,
     ExecutionMode,
     PolicyOutcome,
 )
@@ -199,40 +198,17 @@ class CapabilityGateway:
         spec = reg.spec
 
         # Bước 1.5: Tenancy Fail-Closed Verification (A2)
-        needs_tenancy = (
-            spec.risk in (CapabilityRisk.HIGH, CapabilityRisk.CRITICAL, CapabilityRisk.MEDIUM)
-            or spec.approval_policy == ApprovalPolicy.ALWAYS
-        )
-
-        resolved_workspace = req.workspace_id
-        resolved_principal: str | None = req.principal
-
-        if not resolved_workspace:
-            if isinstance(req.context, dict):
-                resolved_workspace = req.context.get("workspace_id")
-            elif hasattr(req.context, "workspace_id"):
-                resolved_workspace = req.context.workspace_id
-        if not resolved_principal:
-            if isinstance(req.context, dict):
-                resolved_principal = req.context.get("principal")
-            elif hasattr(req.context, "principal"):
-                resolved_principal = req.context.principal
-
-        if needs_tenancy and (
-            not resolved_workspace
-            or str(resolved_workspace).strip() in ("", "default", "default_workspace")
-            or not resolved_principal
-            or str(resolved_principal).strip() in ("", "default")
-        ):
-            err_msg = (
-                f"Execution of '{req.capability_id}' failed: tenancy unresolved "
-                f"(workspace_id={resolved_workspace!r}, principal={resolved_principal!r})"
-            )
+        verifier = TenancyVerifier()
+        try:
+            # resolved_principal không được dùng lại sau bước tenancy (chỉ resolved_workspace
+            # được dùng ở các bước sau) — giữ tên rõ nghĩa qua verify(), không đổi hành vi.
+            resolved_workspace, _resolved_principal = await verifier.verify(spec, req)
+        except TenancyUnresolvedError as e:
             return GatewayExecutionResult(
                 tool_call_id=req.tool_call_id,
                 status="failed",
-                error_message=err_msg,
-                failure=TenancyUnresolvedError(err_msg, details={"capability": req.capability_id}),
+                error_message=str(e),
+                failure=e,
             )
 
         # Bước 2: Validate input schema
