@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../chat/models/data_access_declaration.dart';
+import '../../chat/services/agent_chat_service.dart';
+import '../services/company_identity_draft_parser.dart';
 import '../services/company_identity_service.dart';
 
 /// Modal chặn cứng bắt founder điền Vision/Mission/Core Values — dùng chung
@@ -21,6 +26,15 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
   final _valuesController = TextEditingController();
   final _service = CompanyIdentityService();
 
+  final _chatService = AgentChatService();
+  String? _conversationId;
+  StreamSubscription<Map<String, dynamic>>? _aiSseSubscription;
+  bool _isAiLoading = false;
+
+  static const _aiDataAccess = DataAccessDeclaration(
+    categories: {DataAccessCategory.businessConfidential},
+  );
+
   bool _isSaving = false;
   String? _errorMessage;
 
@@ -34,6 +48,7 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
 
   @override
   void dispose() {
+    _aiSseSubscription?.cancel();
     _visionController.dispose();
     _missionController.dispose();
     _valuesController.dispose();
@@ -75,6 +90,78 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
     }
   }
 
+  Future<void> _askAiToDraft() async {
+    setState(() {
+      _isAiLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      _conversationId ??= (await _chatService.createConversation(
+        title: 'Company Identity Draft',
+        activeAgentProfile: 'strategy',
+      ))
+          ?.id;
+      final conversationId = _conversationId;
+      if (conversationId == null) {
+        throw Exception('Không tạo được conversation với COSA runtime.');
+      }
+
+      final response = await _chatService.sendMessage(
+        conversationId,
+        content:
+            'Hãy soạn Vision, Mission và Core Values cho công ty này. '
+            'Trả lời ĐÚNG định dạng sau, mỗi mục một dòng bắt đầu bằng nhãn viết hoa:\n'
+            'VISION: <nội dung>\nMISSION: <nội dung>\nVALUES: <nội dung>',
+        dataAccess: _aiDataAccess,
+      );
+      final runId = response?['run_id']?.toString();
+      if (runId == null) {
+        throw Exception('COSA runtime không trả về run_id.');
+      }
+      _subscribeAiSse(runId);
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Không nhờ được AI soạn: $e';
+        _isAiLoading = false;
+      });
+    }
+  }
+
+  void _subscribeAiSse(String runId) {
+    final buffer = StringBuffer();
+    _aiSseSubscription?.cancel();
+    _aiSseSubscription = _chatService.streamRunEvents(runId).listen(
+      (event) {
+        final eventType = event['event_type']?.toString() ?? '';
+        final payload = (event['payload'] as Map<String, dynamic>?) ?? {};
+        if (eventType == 'message.delta') {
+          buffer.write(payload['delta']?.toString() ?? '');
+        } else if (eventType == 'run.completed' ||
+            eventType == 'run.failed' ||
+            eventType == 'run.cancelled') {
+          _applyAiDraft(buffer.toString());
+        }
+      },
+      onError: (_) => setState(() => _isAiLoading = false),
+      onDone: () => setState(() => _isAiLoading = false),
+    );
+  }
+
+  void _applyAiDraft(String rawText) {
+    final draft = parseCompanyIdentityDraft(rawText);
+    setState(() {
+      if (draft.isComplete) {
+        _visionController.text = draft.vision!;
+        _missionController.text = draft.mission!;
+        _valuesController.text = draft.coreValues!;
+      } else if (rawText.trim().isNotEmpty) {
+        _visionController.text =
+            '[AI trả lời không đúng định dạng — vui lòng tách thủ công]\n\n$rawText';
+      }
+      _isAiLoading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -95,6 +182,20 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
                 'Founder cần điền đủ 3 mục này trước khi vào Command Center.',
               ),
               const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton(
+                  onPressed: _isAiLoading ? null : _askAiToDraft,
+                  child: _isAiLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Nhờ AI soạn'),
+                ),
+              ),
+              const SizedBox(height: 12),
               TextField(
                 key: const Key('company_identity_vision_field'),
                 controller: _visionController,

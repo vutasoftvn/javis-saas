@@ -1,6 +1,7 @@
 // frontend/test/company_identity_modal_test.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -8,10 +9,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/modules/onboarding/widgets/company_identity_modal.dart';
 
+// `SecureStorageService.read()` gọi `FlutterSecureStorage().read()` trước —
+// một lệnh platform-channel thật. Trong `test()` trần, lệnh này ném
+// `MissingPluginException` ngay (rơi xuống fallback SharedPreferences), NHƯNG
+// trong `testWidgets()` nó KHÔNG throw — treo vĩnh viễn, khiến mọi call qua
+// `ApiClient` (vốn gọi `SecureStorageService.read` để lấy auth header) hang.
+// Mock method channel này để trả về null ngay, ép rơi xuống nhánh
+// SharedPreferences như mong đợi trong test.
+const MethodChannel _secureStorageChannel =
+    MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({
     'workspace_id': 'ws_1',
+  });
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(_secureStorageChannel, (MethodCall methodCall) async {
+    if (methodCall.method == 'read') return null;
+    if (methodCall.method == 'readAll') return <String, String>{};
+    return null;
   });
 
   late http.Client originalClient;
@@ -79,5 +96,80 @@ void main() {
     await pumpModal(tester);
     expect(find.byIcon(Icons.close), findsNothing);
     expect(find.byType(BackButton), findsNothing);
+  });
+
+  testWidgets('"Nhờ AI soạn" fills the three fields from a well-formed SSE reply', (tester) async {
+    ApiClient.client = MockClient((request) async {
+      final path = request.url.path;
+      if (path == '/agent/conversations' && request.method == 'POST') {
+        return http.Response(
+          '{"id":"conv_1","workspace_id":"ws1","created_by_principal":"p1",'
+          '"title":"Company Identity Draft","created_at":"2026-08-31T00:00:00Z",'
+          '"updated_at":"2026-08-31T00:00:00Z"}',
+          201,
+        );
+      }
+      if (path == '/agent/conversations/conv_1/messages' && request.method == 'POST') {
+        return http.Response('{"run_id":"run_1","status":"accepted"}', 202);
+      }
+      if (path == '/agent/runs/run_1/events') {
+        return http.Response(
+          'event: message.delta\n'
+          'data: {"payload":{"delta":"VISION: Tro thanh so 1.\\nMISSION: Trao quyen cho founder.\\nVALUES: Minh bach, Toc do."}}\n\n'
+          'event: run.completed\n'
+          'data: {"payload":{"output":null}}\n\n',
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      }
+      return http.Response('not found', 404);
+    });
+
+    await pumpModal(tester);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Nhờ AI soạn'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Tro thanh so 1.'), findsOneWidget);
+    expect(find.text('Trao quyen cho founder.'), findsOneWidget);
+    expect(find.text('Minh bach, Toc do.'), findsOneWidget);
+  });
+
+  testWidgets('"Nhờ AI soạn" falls back to dumping raw text into Vision when reply is malformed', (tester) async {
+    ApiClient.client = MockClient((request) async {
+      final path = request.url.path;
+      if (path == '/agent/conversations' && request.method == 'POST') {
+        return http.Response(
+          '{"id":"conv_1","workspace_id":"ws1","created_by_principal":"p1",'
+          '"title":"Company Identity Draft","created_at":"2026-08-31T00:00:00Z",'
+          '"updated_at":"2026-08-31T00:00:00Z"}',
+          201,
+        );
+      }
+      if (path == '/agent/conversations/conv_1/messages' && request.method == 'POST') {
+        return http.Response('{"run_id":"run_1","status":"accepted"}', 202);
+      }
+      if (path == '/agent/runs/run_1/events') {
+        return http.Response(
+          'event: message.delta\n'
+          'data: {"payload":{"delta":"Cau tra loi tu do khong dung dinh dang."}}\n\n'
+          'event: run.completed\n'
+          'data: {"payload":{"output":null}}\n\n',
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      }
+      return http.Response('not found', 404);
+    });
+
+    await pumpModal(tester);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Nhờ AI soạn'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      find.textContaining('Cau tra loi tu do khong dung dinh dang.'),
+      findsOneWidget,
+    );
   });
 }
