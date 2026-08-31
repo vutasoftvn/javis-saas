@@ -4,7 +4,7 @@ TEST_DATABASE_URL ?=
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check mvp-e2e-purity-check
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze frontend-coverage-check boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check mvp-e2e-purity-check
 
 # Task 10 (audit fix, 2026-08-30) — trước đây `tests/e2e/test_ai_compliance_company_http.py`
 # dùng `httpx.MockTransport` tự viết giả lập response Company (fake snapshot
@@ -72,6 +72,10 @@ frontend-test:
 
 frontend-analyze:
 	cd frontend && flutter analyze
+
+frontend-coverage-check:
+	cd frontend && flutter test --coverage
+	node scripts/check_frontend_coverage.mjs frontend/coverage/lcov.info --minimum=46
 
 boundary-check:
 	# packages/agent phải độc lập với services/*, apps/* (chỉ apps/cosa mới

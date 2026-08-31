@@ -57,6 +57,11 @@ def _workspace_migrator_database_url() -> str:
     )
 
 
+def external_company_base_url() -> str | None:
+    configured = os.environ.get("E2E_BASE_URL_COMPANY", "").strip()
+    return configured.rstrip("/") or None
+
+
 def _pick_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
@@ -150,9 +155,25 @@ def _wait_until_ready(base_url: str, proc: subprocess.Popen) -> None:
 
 @pytest.fixture(scope="session")
 def real_company_service() -> Iterator[CompanyServiceHandle]:
+    configured_base_url = external_company_base_url()
+    if configured_base_url:
+        try:
+            response = httpx.get(f"{configured_base_url}/healthz", timeout=10.0)
+        except httpx.HTTPError as err:
+            pytest.fail(
+                f"Configured E2E Company service is unreachable at {configured_base_url}: {err}"
+            )
+        if response.status_code != 200:
+            pytest.fail(
+                "Configured E2E Company service did not report ready health at "
+                f"{configured_base_url}/healthz: {response.status_code} {response.text}"
+            )
+        yield CompanyServiceHandle(base_url=configured_base_url)
+        return
+
     encore_bin = shutil.which("encore")
     if not encore_bin:
-        pytest.skip(
+        pytest.fail(
             "`encore` CLI not found on PATH — cannot boot a real Company service for this E2E "
             "gate. Install via https://encore.dev/install.sh (see .github/workflows/quality.yml "
             "'Install Encore CLI' step) instead of falling back to a mock transport."
@@ -161,7 +182,7 @@ def real_company_service() -> Iterator[CompanyServiceHandle]:
     db_url = _workspace_database_url()
     reachable, reason = _postgres_reachable(db_url)
     if not reachable:
-        pytest.skip(
+        pytest.fail(
             f"Postgres at {db_url!r} is not reachable ({reason}) — cannot seed/boot a real "
             "Company service for this E2E gate. Start it via `make services-docker-up` + "
             "`scripts/bootstrap-postgres-cluster.sh` (or the CI 'services'/"

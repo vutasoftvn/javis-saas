@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
+import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
+import { createTask, updateTaskStatus } from "../handlers/task.handler";
+import { createTaskDependency } from "../handlers/task-dependency.handler";
 import {
   listCanvases,
   createCanvas,
@@ -151,5 +154,70 @@ describe("Strategy Canvas & Workspace Runtime API", () => {
     const status = await getSourceStatus({ workspaceId, authorization });
     expect(status.data.length).toBeGreaterThan(0);
     expect(["HEALTHY", "NOT_OBSERVED"]).toContain(status.data[0].status);
+  });
+
+  it("projects canonical task states, priorities, and unresolved prerequisites", async () => {
+    const session = await createTestSession({
+      email: `runtime-projection-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
+      displayName: "Runtime Projection Test",
+    });
+    const workspaceId = session.workspaceId;
+    const authorization = `Bearer ${session.accessToken}`;
+    const member = await hireWorkforceMember({
+      workspaceId,
+      memberType: "HUMAN",
+      roleTitle: "Operations",
+      humanUserId: session.userId,
+      authorization,
+    });
+
+    const todo = await createTask({
+      workspaceId,
+      authorization,
+      title: "Prepare launch brief",
+      priority: "medium",
+      assigneeMemberId: member.id,
+    });
+    const inProgress = await createTask({
+      workspaceId,
+      authorization,
+      title: "Approve supplier contract",
+      priority: "high",
+      assigneeMemberId: member.id,
+    });
+    await updateTaskStatus({ id: inProgress.id, status: "in_progress", workspaceId, authorization });
+
+    const waitingApproval = await createTask({
+      workspaceId,
+      authorization,
+      title: "Review pricing exception",
+      priority: "urgent",
+      assigneeMemberId: member.id,
+    });
+    await updateTaskStatus({ id: waitingApproval.id, status: "waiting_approval", workspaceId, authorization });
+
+    const needsYou = await listNeedsYou({ workspaceId, authorization });
+    const needsYouByTitle = new Map(needsYou.data.map((item) => [item.title, item]));
+    expect(needsYouByTitle.get(todo.title)).toMatchObject({ state: "todo", severity: "MEDIUM" });
+    expect(needsYouByTitle.get(inProgress.title)).toMatchObject({ state: "in_progress", severity: "HIGH" });
+    expect(needsYouByTitle.get(waitingApproval.title)).toMatchObject({ state: "waiting_approval", severity: "HIGH" });
+
+    const prerequisite = await createTask({ workspaceId, authorization, title: "Provision production database" });
+    const dependent = await createTask({ workspaceId, authorization, title: "Deploy application" });
+    await createTaskDependency({
+      workspaceId,
+      authorization,
+      taskId: dependent.id,
+      dependsOnTaskId: prerequisite.id,
+    });
+
+    let blockers = await listBlockers({ workspaceId, authorization });
+    expect(blockers.data).toEqual(
+      expect.arrayContaining([expect.objectContaining({ sourceId: dependent.id, title: `Blocked Task: ${dependent.title}` })])
+    );
+
+    await updateTaskStatus({ id: prerequisite.id, status: "done", workspaceId, authorization });
+    blockers = await listBlockers({ workspaceId, authorization });
+    expect(blockers.data).not.toEqual(expect.arrayContaining([expect.objectContaining({ sourceId: dependent.id })]));
   });
 });

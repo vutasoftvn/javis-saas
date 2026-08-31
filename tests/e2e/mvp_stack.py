@@ -1,15 +1,16 @@
-"""Cross-plane real MVP test stack harness.
+"""Contracts for the planned cross-plane MVP E2E stack.
 
-Boots real local Company, Control Plane, and Agent Platform services on isolated
-loopback ports with real migrations and zero MockTransport.
+This module deliberately does not start processes or provide a fallback
+transport. Release tests must use the real stack fixture when that broader
+program is implemented.
 """
+
 from __future__ import annotations
 
-import os
 import socket
-import time
 from dataclasses import dataclass, field
 from typing import Any
+
 import httpx
 
 
@@ -30,27 +31,54 @@ class ServiceClient:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-        eff_token = token if token is not None else self.token
-        eff_ws = workspace_id if workspace_id is not None else self.workspace_id
-        if eff_token:
-            headers["Authorization"] = f"Bearer {eff_token}"
-        if eff_ws:
-            headers["X-Workspace-Id"] = eff_ws
+        effective_token = token if token is not None else self.token
+        effective_workspace_id = workspace_id if workspace_id is not None else self.workspace_id
+        if effective_token:
+            headers["Authorization"] = f"Bearer {effective_token}"
+        if effective_workspace_id:
+            headers["X-Workspace-Id"] = effective_workspace_id
         return headers
 
-    def get(self, path: str, *, token: str | None = None, workspace_id: str | None = None, params: dict[str, Any] | None = None) -> httpx.Response:
+    def get(
+        self,
+        path: str,
+        *,
+        token: str | None = None,
+        workspace_id: str | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> httpx.Response:
         with httpx.Client(base_url=self.base_url, timeout=10.0) as client:
             return client.get(path, headers=self._headers(token, workspace_id), params=params)
 
-    def post(self, path: str, *, json: Any = None, token: str | None = None, workspace_id: str | None = None) -> httpx.Response:
+    def post(
+        self,
+        path: str,
+        *,
+        json: Any = None,
+        token: str | None = None,
+        workspace_id: str | None = None,
+    ) -> httpx.Response:
         with httpx.Client(base_url=self.base_url, timeout=10.0) as client:
             return client.post(path, json=json, headers=self._headers(token, workspace_id))
 
-    def put(self, path: str, *, json: Any = None, token: str | None = None, workspace_id: str | None = None) -> httpx.Response:
+    def put(
+        self,
+        path: str,
+        *,
+        json: Any = None,
+        token: str | None = None,
+        workspace_id: str | None = None,
+    ) -> httpx.Response:
         with httpx.Client(base_url=self.base_url, timeout=10.0) as client:
             return client.put(path, json=json, headers=self._headers(token, workspace_id))
 
-    def delete(self, path: str, *, token: str | None = None, workspace_id: str | None = None) -> httpx.Response:
+    def delete(
+        self,
+        path: str,
+        *,
+        token: str | None = None,
+        workspace_id: str | None = None,
+    ) -> httpx.Response:
         with httpx.Client(base_url=self.base_url, timeout=10.0) as client:
             return client.delete(path, headers=self._headers(token, workspace_id))
 
@@ -61,8 +89,10 @@ class MvpStack:
     platform: ServiceClient
     agent: ServiceClient
     uses_mock_transport: bool = False
-    migration_versions: dict[str, str] = field(default_factory=lambda: {
-        "company": "33_mvp_strategy_canvas_runtime",
-        "agent": "022_workforce_assignments_and_runtime_outbox",
-        "control_plane": "28_workspace_settings_audit",
-    })
+    migration_versions: dict[str, str] = field(
+        default_factory=lambda: {
+            "company": "33_mvp_strategy_canvas_runtime",
+            "agent": "022_workforce_assignments_and_runtime_outbox",
+            "control_plane": "28_workspace_settings_audit",
+        }
+    )

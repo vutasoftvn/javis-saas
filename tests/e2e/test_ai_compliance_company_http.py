@@ -50,7 +50,7 @@ from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKerne
 from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
 from fastapi.testclient import TestClient
 
-from apps.cosa.agents.seed import seed_cosa_agent_specs
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.capabilities.client import CompanyServiceClient
@@ -156,7 +156,10 @@ async def _build_real_pipeline_plane(base_url: str, fake_model: FakeSDKModel) ->
         model=fake_model,
     )
     plane.compliance_resolver = ComplianceResolver(AiComplianceClient(base_url=base_url))
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     return plane
 
 

@@ -1,5 +1,6 @@
 import { APIError } from "encore.dev/api";
-import { and, eq, gt, desc, isNull, inArray } from "drizzle-orm";
+import { and, eq, gt, desc, isNull, inArray, notInArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db, schema } from "../models/db";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -57,7 +58,7 @@ export async function getNeedsYouService(ctx: TenantContext): Promise<MvpSuccess
 
   const items: RuntimeItem[] = [];
 
-  // 1. Pending tasks assigned to actor (or unassigned needing attention)
+  // 1. Active tasks assigned to the current actor.
   if (ctx.workforceMemberId) {
     const memberTasks = await db
       .select()
@@ -67,7 +68,7 @@ export async function getNeedsYouService(ctx: TenantContext): Promise<MvpSuccess
           eq(tasks.workspaceId, wsId),
           eq(tasks.assigneeMemberId, BigInt(ctx.workforceMemberId)),
           isNull(tasks.deletedAt),
-          inArray(tasks.status, ["TODO", "IN_PROGRESS", "REVIEW"])
+          inArray(tasks.status, ["todo", "in_progress", "waiting_approval"])
         )
       )
       .limit(20);
@@ -83,7 +84,7 @@ export async function getNeedsYouService(ctx: TenantContext): Promise<MvpSuccess
         title: t.title,
         description: null,
         state: t.status,
-        severity: t.priority === "URGENT" || t.priority === "HIGH" ? "HIGH" : "MEDIUM",
+        severity: t.priority === "urgent" || t.priority === "high" ? "HIGH" : "MEDIUM",
         sourceRef: { kind: "company_db", ref: `operating.tasks:${t.id}` },
         actionUrl: `/operations/tasks/${t.id}`,
         createdAt: t.createdAt.toISOString(),
@@ -132,6 +133,7 @@ export async function getNeedsYouService(ctx: TenantContext): Promise<MvpSuccess
 
 export async function getBlockersService(ctx: TenantContext): Promise<MvpSuccess<readonly RuntimeItem[]>> {
   const wsId = BigInt(ctx.workspaceId);
+  const prerequisiteTasks = alias(tasks, "runtime_prerequisite_tasks");
 
   const blockers: RuntimeItem[] = [];
 
@@ -143,30 +145,38 @@ export async function getBlockersService(ctx: TenantContext): Promise<MvpSuccess
       blockingTaskId: taskDependencies.dependsOnTaskId,
       createdAt: taskDependencies.createdAt,
       taskTitle: tasks.title,
-      taskStatus: tasks.status,
     })
     .from(taskDependencies)
     .innerJoin(tasks, eq(taskDependencies.taskId, tasks.id))
-    .where(and(eq(tasks.workspaceId, wsId), isNull(tasks.deletedAt)))
+    .innerJoin(prerequisiteTasks, eq(taskDependencies.dependsOnTaskId, prerequisiteTasks.id))
+    .where(
+      and(
+        eq(tasks.workspaceId, wsId),
+        eq(prerequisiteTasks.workspaceId, wsId),
+        eq(taskDependencies.status, "PENDING"),
+        isNull(taskDependencies.deletedAt),
+        isNull(tasks.deletedAt),
+        isNull(prerequisiteTasks.deletedAt),
+        notInArray(prerequisiteTasks.status, ["done", "cancelled"])
+      )
+    )
     .limit(20);
 
   for (const d of deps) {
-    if (d.taskStatus !== "DONE" && d.taskStatus !== "COMPLETED") {
-      blockers.push({
-        id: `dep_${d.id}`,
-        workspaceId: ctx.workspaceId.toString(),
-        sourceKind: "company_db",
-        sourceId: d.taskId.toString(),
-        title: `Blocked Task: ${d.taskTitle}`,
-        description: `Waiting on dependency task #${d.blockingTaskId}`,
-        state: "BLOCKED",
-        severity: "HIGH",
-        sourceRef: { kind: "company_db", ref: `operating.task_dependencies:${d.id}` },
-        actionUrl: `/operations/tasks/${d.taskId}`,
-        createdAt: d.createdAt.toISOString(),
-        observedAt: d.createdAt.toISOString(),
-      });
-    }
+    blockers.push({
+      id: `dep_${d.id}`,
+      workspaceId: ctx.workspaceId.toString(),
+      sourceKind: "company_db",
+      sourceId: d.taskId.toString(),
+      title: `Blocked Task: ${d.taskTitle}`,
+      description: `Waiting on dependency task #${d.blockingTaskId}`,
+      state: "BLOCKED",
+      severity: "HIGH",
+      sourceRef: { kind: "company_db", ref: `operating.task_dependencies:${d.id}` },
+      actionUrl: `/operations/tasks/${d.taskId}`,
+      createdAt: d.createdAt.toISOString(),
+      observedAt: d.createdAt.toISOString(),
+    });
   }
 
   // 2. Projected agent failure signals

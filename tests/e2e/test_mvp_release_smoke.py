@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import time
+
 import httpx
-import pytest
 
 
 def test_full_mvp_release_smoke(real_company_service):
@@ -13,11 +14,10 @@ def test_full_mvp_release_smoke(real_company_service):
 
     # 1. Identity
     reg = client.post(
-        "/identity/test-session",
-        json={"email": "smoke-tester@example.com", "displayName": "Smoke Tester"},
+        "/identity/_e2e/session",
+        json={"email": f"smoke-tester-{time.time_ns()}@example.com", "displayName": "Smoke Tester"},
     )
-    if reg.status_code != 200:
-        pytest.skip(f"Identity test session creation failed: {reg.text}")
+    assert reg.status_code == 200, f"Identity test session creation failed: {reg.text}"
 
     data = reg.json()
     token = data["accessToken"]

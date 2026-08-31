@@ -1,4 +1,4 @@
-"""End-to-End HTTP Integration Test for Vault Subsystem."""
+"""In-process HTTP integration coverage for the Vault subsystem."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import asyncio
 
 import httpx
 import pytest
-
 from agent.artifacts import InMemoryArtifactRepository
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
@@ -28,9 +27,11 @@ from tests.apps.cosa.policy_test_helpers import (
     stub_active_tenant_policy_client,
 )
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
-def e2e_app():
+def agent_app():
     plane = build_cosa_agent_plane(
         company_client=StubCompanyServiceClient(),
         tenant_policy_client=stub_active_tenant_policy_client(),
@@ -51,12 +52,12 @@ def e2e_app():
 
 
 @pytest.mark.asyncio
-async def test_full_vault_lifecycle_e2e(e2e_app) -> None:
+async def test_full_vault_lifecycle_in_process(agent_app) -> None:
     workspace_id = "ws_e2e_vault"
-    override_authenticated_identity(e2e_app, workspace_id=workspace_id, role_id="founder")
+    override_authenticated_identity(agent_app, workspace_id=workspace_id, role_id="founder")
 
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=e2e_app),
+        transport=httpx.ASGITransport(app=agent_app),
         base_url="http://test",
     ) as client:
         # 1. Initially empty documents list

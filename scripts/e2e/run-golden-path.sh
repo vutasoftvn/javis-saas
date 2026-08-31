@@ -33,6 +33,12 @@ if [ -f .env.e2e ]; then
   set +a
 fi
 
+# The Docker profile starts Company on the host loopback port. The pytest
+# fixture must use that process rather than silently starting a second local
+# service or skipping when the Encore CLI is absent on the host.
+export E2E_BASE_URL_COMPANY="${E2E_BASE_URL_COMPANY:-http://127.0.0.1:4000}"
+export E2E_TEST_SEED_ENABLED=1
+
 docker compose --profile e2e up -d --build --wait
 trap 'echo "🧹 Tearing down E2E stack..."; docker compose --profile e2e down -v' EXIT
 

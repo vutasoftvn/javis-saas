@@ -48,13 +48,24 @@ export async function appendOutboxEvent(
   }).onConflictDoNothing({ target: eventOutbox.eventId });
 }
 
-export async function claimDueOutboxEvents(workerId: string, limit: number): Promise<OutboxRow[]> {
+/**
+ * Claim due events globally, or only for one workspace when a relay worker is
+ * intentionally sharded by tenant. The optional scope also keeps callers from
+ * claiming unrelated tenants while recovering a known event.
+ */
+export async function claimDueOutboxEvents(
+  workerId: string,
+  limit: number,
+  workspaceId?: string,
+): Promise<OutboxRow[]> {
   const token = `${workerId}:${randomUUID().slice(0, 12)}`;
+  const workspaceScope = workspaceId ? sql`AND workspace_id = ${workspaceId}` : sql``;
   const rows = await db.execute(sql`
     WITH due AS (
       SELECT id FROM integration.event_outbox
-      WHERE status = 'pending'
-         OR (status = 'claimed' AND visibility_timeout_at < now())
+      WHERE (status = 'pending'
+         OR (status = 'claimed' AND visibility_timeout_at < now()))
+        ${workspaceScope}
       ORDER BY occurred_at
       FOR UPDATE SKIP LOCKED
       LIMIT ${limit}

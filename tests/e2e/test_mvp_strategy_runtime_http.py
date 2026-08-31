@@ -4,10 +4,9 @@ Ensures truth-only contracts and workspace isolation without mock transports.
 
 from __future__ import annotations
 
-import httpx
-import pytest
+import time
 
-from tests.e2e.mvp_stack import MvpStack
+import httpx
 
 
 def test_strategy_and_workspace_runtime_live(real_company_service):
@@ -16,13 +15,14 @@ def test_strategy_and_workspace_runtime_live(real_company_service):
 
     # Create test session 1 (workspace A)
     client = httpx.Client(base_url=base_url, timeout=10.0)
-    email_a = f"test-user-a-{pytest.importorskip('time').time()}@example.com"
+    email_a = f"test-user-a-{time.time()}@example.com"
     reg_a = client.post(
-        "/identity/test-session",
+        "/identity/_e2e/session",
         json={"email": email_a, "displayName": "Workspace A Founder"},
     )
-    if reg_a.status_code != 200:
-        pytest.skip(f"Identity test session creation failed ({reg_a.status_code}): {reg_a.text}")
+    assert reg_a.status_code == 200, (
+        f"Identity test session creation failed ({reg_a.status_code}): {reg_a.text}"
+    )
 
     data_a = reg_a.json()
     token_a = data_a["accessToken"]
@@ -94,13 +94,16 @@ def test_strategy_and_workspace_runtime_live(real_company_service):
     assert status_res.status_code == 200
     status_json = status_res.json()
     assert len(status_json["data"]) > 0
-    assert status_json["data"][0]["status"] == "HEALTHY"
+    assert status_json["data"][0]["status"] == "NOT_OBSERVED"
 
     # 8. Workspace Isolation Check: Query canvas from Workspace B
-    email_b = f"test-user-b-{pytest.importorskip('time').time()}@example.com"
+    email_b = f"test-user-b-{time.time()}@example.com"
     reg_b = client.post(
-        "/identity/test-session",
+        "/identity/_e2e/session",
         json={"email": email_b, "displayName": "Workspace B Founder"},
+    )
+    assert reg_b.status_code == 200, (
+        f"Identity test session creation failed ({reg_b.status_code}): {reg_b.text}"
     )
     data_b = reg_b.json()
     headers_b = {

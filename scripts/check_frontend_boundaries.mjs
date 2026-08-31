@@ -8,6 +8,19 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const defaultFrontendLibDir = path.join(rootDir, 'frontend', 'lib');
 
+const legacyWorkspaceScopedImportAllowlist = new Set([
+  'core/services/function_status_service.dart',
+  'modules/approvals/services/approvals_service.dart',
+  'modules/finance/services/finance_service.dart',
+  'modules/legal/services/ai_compliance_service.dart',
+  'modules/legal/services/legal_service.dart',
+  'modules/sales/services/sales_service.dart',
+  'modules/strategy/services/next_best_action_service.dart',
+  'modules/strategy/services/outcomes_service.dart',
+  'modules/tasks/services/task_service.dart',
+  'modules/workflows/services/workflows_service.dart',
+]);
+
 let violations = [];
 
 function recordViolation(baseDir, filePath, lineNum, rule, explanation) {
@@ -52,15 +65,22 @@ function checkFile(baseDir, filePath) {
 
     const rawImport = importMatch[1];
 
-    // Rule 1: No importing WorkspaceScopedService from new features or migrated modules
-    if (currentFeature != null) {
-      if (rawImport.includes('workspace_scoped_service.dart')) {
+    if (rawImport.includes('workspace_scoped_service.dart')) {
+      if (currentFeature != null) {
         recordViolation(
           baseDir,
           filePath,
           lineNum,
           'NO_LEGACY_WORKSPACE_SCOPED_SERVICE',
           'Features must use MvpRequestClient/MvpEndpoint directly rather than legacy WorkspaceScopedService'
+        );
+      } else if (!legacyWorkspaceScopedImportAllowlist.has(relFromLib)) {
+        recordViolation(
+          baseDir,
+          filePath,
+          lineNum,
+          'LEGACY_WORKSPACE_SCOPED_ALLOWLIST',
+          'Only frozen compatibility callers may import legacy WorkspaceScopedService'
         );
       }
     }

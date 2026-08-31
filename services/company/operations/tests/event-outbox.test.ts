@@ -35,11 +35,31 @@ describe("event outbox", () => {
     expect(await readOutbox(workspaceId, "task", task.id)).toHaveLength(1);
   });
 
+  it("claims only the requested workspace when a relay shard is scoped", async () => {
+    const foreignWorkspace = await makeAuthedWorkspace("Outbox Foreign Claim Inc");
+    const targetWorkspace = await makeAuthedWorkspace("Outbox Target Claim Inc");
+    const foreignEvent = evt(foreignWorkspace.workspaceId, "t_foreign_claim");
+    const targetEvent = evt(targetWorkspace.workspaceId, "t_target_claim");
+    await db.transaction(async (tx) => {
+      await appendOutboxEvent(tx, foreignEvent);
+      await appendOutboxEvent(tx, targetEvent);
+    });
+    await db.execute(sql`
+      UPDATE integration.event_outbox
+      SET occurred_at = now() - interval '1 day'
+      WHERE event_id = ${foreignEvent.eventId}::uuid
+    `);
+
+    const claimed = await claimDueOutboxEvents("scoped-worker", 1, targetWorkspace.workspaceId);
+    expect(claimed).toHaveLength(1);
+    expect(claimed[0]?.eventId).toBe(targetEvent.eventId);
+  });
+
   it("leaves a retryable pending row when relay fails", async () => {
     const { workspaceId } = await makeAuthedWorkspace("Outbox Retry Inc");
     const e = evt(workspaceId, "t_retry");
     await db.transaction((tx) => appendOutboxEvent(tx, e));
-    const claimed = await claimDueOutboxEvents("worker-a", 100);
+    const claimed = await claimDueOutboxEvents("worker-a", 100, workspaceId);
     const c = claimed.find((r) => r.eventId === e.eventId)!;
     await failOutboxEvent(c.eventId, c.claimToken!, "connection refused");
     const [row] = await readOutbox(workspaceId, "task", "t_retry");
@@ -53,7 +73,7 @@ describe("event outbox", () => {
     const e = evt(workspaceId, "t_dlq");
     await db.transaction((tx) => appendOutboxEvent(tx, e));
     for (let i = 0; i < 8; i++) {
-      const claimed = await claimDueOutboxEvents("worker-a", 100);
+      const claimed = await claimDueOutboxEvents("worker-a", 100, workspaceId);
       const c = claimed.find((r) => r.eventId === e.eventId);
       if (c) {
         await failOutboxEvent(c.eventId, c.claimToken!, `fail ${i}`);
@@ -68,14 +88,14 @@ describe("event outbox", () => {
     const { workspaceId } = await makeAuthedWorkspace("Outbox Fencing Inc");
     const e = evt(workspaceId, "t_fence");
     await db.transaction((tx) => appendOutboxEvent(tx, e));
-    const claimedFirst = await claimDueOutboxEvents("worker-a", 100);
+    const claimedFirst = await claimDueOutboxEvents("worker-a", 100, workspaceId);
     const first = claimedFirst.find((r) => r.eventId === e.eventId)!;
     // visibility hết hạn → worker khác claim lại
     await db.execute(
       sql`UPDATE integration.event_outbox SET visibility_timeout_at = now() - interval '1 minute'
        WHERE event_id = ${first.eventId}::uuid`
     );
-    const claimedSecond = await claimDueOutboxEvents("worker-b", 100);
+    const claimedSecond = await claimDueOutboxEvents("worker-b", 100, workspaceId);
     const second = claimedSecond.find((r) => r.eventId === e.eventId)!;
     expect(second.eventId).toBe(first.eventId);
     expect(await completeOutboxEvent(first.eventId, first.claimToken!)).toBe(false);
@@ -88,8 +108,8 @@ describe("event outbox", () => {
       await db.transaction((tx) => appendOutboxEvent(tx, evt(workspaceId, `t_sl_${i}`)));
     }
     const [a, b] = await Promise.all([
-      claimDueOutboxEvents("worker-a", 3),
-      claimDueOutboxEvents("worker-b", 3),
+      claimDueOutboxEvents("worker-a", 3, workspaceId),
+      claimDueOutboxEvents("worker-b", 3, workspaceId),
     ]);
     const ids = new Set([...a, ...b].map((r) => r.eventId));
     expect(ids.size).toBe(a.length + b.length);

@@ -9,9 +9,11 @@ from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
 from apps.cosa.compliance.data_model_gate import CosaDataModelGate
 from apps.cosa.compliance.redaction import Redactor
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.asyncio
-async def test_full_ai_compliance_lifecycle_flow() -> None:
+async def test_ai_compliance_lifecycle_in_process() -> None:
     # 1. Approved deployment executes successfully with PII redaction
     fake_model = FakeSDKModel(responses=[text_response("Analysis complete: advisory only.")])
     gate = CosaDataModelGate(redactor=Redactor())
