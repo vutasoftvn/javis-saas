@@ -16,6 +16,8 @@ COSA là **Founder / Company Operating System với Agent Platform composable**.
 2. `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md` — kiến trúc target đã audit (Master M1).
 3. `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md` — plan triển khai theo phase, có Definition of Done cụ thể.
 
+**CẢNH BÁO (2026-08-31, phát hiện trong Task 11 của agentos-auth-contract-frontend-parity):** Cả 5 file được liệt kê ở mục 0-3 phía trên và `DB_FINAL_CUTOVER.md` đã bị xóa khỏi repo trong commit `34507dd9` (2026-08-27) và chưa được khôi phục hoặc thay thế. `docs/archive/2026-08/` có các file tên tương tự nhưng KHÔNG phải bản thay thế tương đương. Cần quyết định của người có đủ ngữ cảnh: khôi phục từ git history, viết tài liệu kế thừa mới, hay viết lại toàn bộ mục này — xem chi tiết trong report của task 11 (thư mục `.superpowers/sdd/2026-08-31-agentos-auth-contract-frontend-parity/`, file `task-11-report.md`).
+
 Khi các file trên xung đột với comment cũ trong code hoặc trí nhớ của bạn: **file có số thứ tự nhỏ hơn thắng** (Mục 0 thắng tất cả trong phạm vi của nó). File #0/#1 có thể sửa đổi quyết định trong #2/#3 (vd. runtime strategy, vị trí control-plane) — khi có mâu thuẫn, ưu tiên số nhỏ hơn nhưng kiểm tra ADR liên quan trong `docs/architecture/adr/` trước khi hành động.
 
 **Runtime:** OpenAI Agents SDK là primary execution runtime, DeepSeek là primary model provider (qua LiteLLM), LangChain là optional adapter — theo `ADR-RUNTIME-002` (2026-08-25, supersede `ADR-RUNTIME-001` LangChain-primary — quyết định đó chưa từng implement và bị đảo ngược sau khi phát hiện mâu thuẫn giữa header ACCEPTED và code default thật).
