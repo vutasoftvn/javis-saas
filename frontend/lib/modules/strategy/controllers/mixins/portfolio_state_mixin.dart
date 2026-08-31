@@ -5,6 +5,7 @@ import '../../services/strategy_service.dart';
 mixin PortfolioStateMixin on GetxController {
   StrategyService get strategyService;
   RxBool get isSaving;
+  RxnString get errorMessage;
 
   Future<void> runGuarded(Future<void> Function() action, {bool showSnackbar = false});
 
@@ -31,7 +32,9 @@ mixin PortfolioStateMixin on GetxController {
 
   Future<void> loadPortfolios() async {
     await runGuarded(() async {
-      portfolios.value = await strategyService.getPortfolios();
+      final result = await strategyService.getPortfolios();
+      portfolios.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       if (portfolios.isNotEmpty && selectedPortfolioId.value == null) {
         await selectPortfolio(portfolios.first['id']?.toString() ?? '');
       }
@@ -50,7 +53,9 @@ mixin PortfolioStateMixin on GetxController {
 
   Future<void> loadPortfolioProjects(String portfolioId) async {
     await runGuarded(() async {
-      currentPortfolioProjects.value = await strategyService.getPortfolioProjects(portfolioId);
+      final result = await strategyService.getPortfolioProjects(portfolioId);
+      currentPortfolioProjects.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
     });
   }
 
@@ -115,10 +120,12 @@ mixin PortfolioStateMixin on GetxController {
         strategyService.getPortfolioDependencies(portfolioId),
         strategyService.getPortfolioOptions(portfolioId),
       ]);
-      currentPortfolioTows.value = results[0];
-      currentPortfolioSynergies.value = results[1];
-      currentPortfolioDependencies.value = results[2];
-      currentPortfolioOptions.value = results[3];
+      currentPortfolioTows.value = results[0].items;
+      currentPortfolioSynergies.value = results[1].items;
+      currentPortfolioDependencies.value = results[2].items;
+      currentPortfolioOptions.value = results[3].items;
+      final failed = results.firstWhereOrNull((r) => r.errorMessage != null);
+      if (failed != null) errorMessage.value = failed.errorMessage;
     });
   }
 
@@ -126,7 +133,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.addPortfolioTowsOption(portfolioId, quadrant: quadrant, title: title);
-      currentPortfolioTows.value = await strategyService.getPortfolioTows(portfolioId);
+      final result = await strategyService.getPortfolioTows(portfolioId);
+      currentPortfolioTows.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Đã thêm định hướng TOWS', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -136,7 +145,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.addPortfolioSynergy(portfolioId, sourceProjectId: sourceProjectId, targetProjectId: targetProjectId, synergyType: synergyType, description: description, estimatedValue: estimatedValue);
-      currentPortfolioSynergies.value = await strategyService.getPortfolioSynergies(portfolioId);
+      final result = await strategyService.getPortfolioSynergies(portfolioId);
+      currentPortfolioSynergies.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Đã thêm điểm cộng hưởng', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -146,7 +157,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.deletePortfolioSynergy(portfolioId, synergyId);
-      currentPortfolioSynergies.value = await strategyService.getPortfolioSynergies(portfolioId);
+      final result = await strategyService.getPortfolioSynergies(portfolioId);
+      currentPortfolioSynergies.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Đã xóa quan hệ cộng hưởng', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -156,7 +169,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.addPortfolioDependency(portfolioId, predecessorProjectId: predecessorProjectId, successorProjectId: successorProjectId, dependencyType: dependencyType, description: description);
-      currentPortfolioDependencies.value = await strategyService.getPortfolioDependencies(portfolioId);
+      final result = await strategyService.getPortfolioDependencies(portfolioId);
+      currentPortfolioDependencies.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Đã ghi nhận phụ thuộc', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -166,7 +181,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.deletePortfolioDependency(portfolioId, dependencyId);
-      currentPortfolioDependencies.value = await strategyService.getPortfolioDependencies(portfolioId);
+      final result = await strategyService.getPortfolioDependencies(portfolioId);
+      currentPortfolioDependencies.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Đã xóa quan hệ phụ thuộc', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -176,7 +193,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.createPortfolioOption(portfolioId, title: title, description: description, strategicFitScore: strategicFitScore, feasibilityScore: feasibilityScore, riskLevel: riskLevel);
-      currentPortfolioOptions.value = await strategyService.getPortfolioOptions(portfolioId);
+      final result = await strategyService.getPortfolioOptions(portfolioId);
+      currentPortfolioOptions.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Đã thêm Tùy Chọn Chiến Lược', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -186,7 +205,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.updatePortfolioOption(portfolioId, optionId, status: newStatus);
-      currentPortfolioOptions.value = await strategyService.getPortfolioOptions(portfolioId);
+      final result = await strategyService.getPortfolioOptions(portfolioId);
+      currentPortfolioOptions.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Đã cập nhật trạng thái tùy chọn', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -209,7 +230,9 @@ mixin PortfolioStateMixin on GetxController {
 
   Future<void> loadPortfolioCycles(String portfolioId) async {
     await runGuarded(() async {
-      currentPortfolioCycles.value = await strategyService.getPortfolioCycles(portfolioId);
+      final result = await strategyService.getPortfolioCycles(portfolioId);
+      currentPortfolioCycles.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
     });
   }
 
@@ -217,7 +240,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.createPortfolioCycle(portfolioId, title: title);
-      currentPortfolioCycles.value = await strategyService.getPortfolioCycles(portfolioId);
+      final result = await strategyService.getPortfolioCycles(portfolioId);
+      currentPortfolioCycles.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Đã khởi tạo chu kỳ danh mục "$title"', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -227,7 +252,9 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.activatePortfolioCycle(cycleId);
-      currentPortfolioCycles.value = await strategyService.getPortfolioCycles(portfolioId);
+      final result = await strategyService.getPortfolioCycles(portfolioId);
+      currentPortfolioCycles.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
       Get.snackbar('Thành công', 'Kích hoạt Chu kỳ Portfolio 12WY thành công', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
     isSaving.value = false;
@@ -235,16 +262,19 @@ mixin PortfolioStateMixin on GetxController {
 
   Future<void> loadCeoNextActions() async {
     await runGuarded(() async {
-      ceoNextActions.value = await strategyService.getCeoNextActions(limit: 5);
+      final result = await strategyService.getCeoNextActions(limit: 5);
+      ceoNextActions.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
     });
   }
 
   Future<void> evaluateCeoNextActions({String? projectId, String? portfolioId}) async {
     isSaving.value = true;
     await runGuarded(() async {
-      final rankings = await strategyService.evaluateCeoNextActions(projectId: projectId, portfolioId: portfolioId);
-      if (rankings.isNotEmpty) {
-        ceoNextActions.value = rankings.map((r) => r['candidate']).toList();
+      final result = await strategyService.evaluateCeoNextActions(projectId: projectId, portfolioId: portfolioId);
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
+      if (result.items.isNotEmpty) {
+        ceoNextActions.value = result.items.map((r) => r['candidate']).toList();
       } else {
         await loadCeoNextActions();
       }
@@ -265,13 +295,17 @@ mixin PortfolioStateMixin on GetxController {
 
   Future<void> loadModelRunsAudit() async {
     await runGuarded(() async {
-      modelRunsAudit.value = await strategyService.getModelRunsAudit(limit: 20);
+      final result = await strategyService.getModelRunsAudit(limit: 20);
+      modelRunsAudit.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
     });
   }
 
   Future<void> loadModelProfiles() async {
     await runGuarded(() async {
-      modelProfiles.value = await strategyService.getModelProfiles();
+      final result = await strategyService.getModelProfiles();
+      modelProfiles.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
     });
   }
 

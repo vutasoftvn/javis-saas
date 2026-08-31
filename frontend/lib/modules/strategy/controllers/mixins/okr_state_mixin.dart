@@ -5,6 +5,7 @@ import '../../services/strategy_service.dart';
 mixin OkrStateMixin on GetxController {
   StrategyService get strategyService;
   RxBool get isSaving;
+  RxnString get errorMessage;
 
   Future<void> runGuarded(Future<void> Function() action, {bool showSnackbar = false});
 
@@ -16,17 +17,20 @@ mixin OkrStateMixin on GetxController {
 
   Future<void> loadOkrs() async {
     await runGuarded(() async {
-      final cycles = await strategyService.getOkrCycles();
-      okrCycles.value = cycles;
-      if (cycles.isNotEmpty && selectedCycleId.value == null) {
-        selectedCycleId.value = cycles.first['id']?.toString();
+      final cyclesResult = await strategyService.getOkrCycles();
+      okrCycles.value = cyclesResult.items;
+      if (cyclesResult.errorMessage != null) errorMessage.value = cyclesResult.errorMessage;
+      if (cyclesResult.items.isNotEmpty && selectedCycleId.value == null) {
+        selectedCycleId.value = cyclesResult.items.first['id']?.toString();
       }
 
-      final objs = await strategyService.getObjectives(cycleId: selectedCycleId.value);
-      objectives.value = objs;
+      final objsResult = await strategyService.getObjectives(cycleId: selectedCycleId.value);
+      objectives.value = objsResult.items;
+      if (objsResult.errorMessage != null) errorMessage.value = objsResult.errorMessage;
 
-      final krs = await strategyService.getKeyResults();
-      keyResults.value = krs;
+      final krsResult = await strategyService.getKeyResults();
+      keyResults.value = krsResult.items;
+      if (krsResult.errorMessage != null) errorMessage.value = krsResult.errorMessage;
     });
   }
 

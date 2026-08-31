@@ -52,11 +52,12 @@ class ProjectOrchestrationController extends GetxController {
   Future<void> loadStages(String projectId) async {
     isLoading.value = true;
     await _runGuarded(() async {
-      final list = await _service.getProjectStages(projectId);
-      stages.value = list;
-      final active = list.firstWhereOrNull((s) => s['status'] == 'ACTIVE');
+      final result = await _service.getProjectStages(projectId);
+      stages.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
+      final active = result.items.firstWhereOrNull((s) => s['status'] == 'ACTIVE');
       if (active != null) {
-        activeStage.value = Map<String, dynamic>.from(active as Map);
+        activeStage.value = Map<String, dynamic>.from(active);
       } else {
         activeStage.value = null;
       }
@@ -216,7 +217,9 @@ class ProjectOrchestrationController extends GetxController {
   Future<void> generateServiceAssessment(String projectId, String stageId) async {
     isLoading.value = true;
     await _runGuarded(() async {
-      serviceAssessments.value = await _service.generateStageServiceAssessment(projectId, stageId);
+      final result = await _service.generateStageServiceAssessment(projectId, stageId);
+      serviceAssessments.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
     });
     isLoading.value = false;
   }
@@ -228,7 +231,9 @@ class ProjectOrchestrationController extends GetxController {
   ) async {
     isSaving.value = true;
     await _runGuarded(() async {
-      serviceAssessments.value = await _service.confirmStageServiceAssessment(projectId, stageId, decisions);
+      final result = await _service.confirmStageServiceAssessment(projectId, stageId, decisions);
+      serviceAssessments.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
     });
     isSaving.value = false;
   }
@@ -287,7 +292,9 @@ class ProjectOrchestrationController extends GetxController {
   Future<void> loadWorkspaceTemplates() async {
     isLoading.value = true;
     await _runGuarded(() async {
-      workspaceTemplates.value = await _service.getWorkspaceTemplates();
+      final result = await _service.getWorkspaceTemplates();
+      workspaceTemplates.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
     });
     isLoading.value = false;
   }

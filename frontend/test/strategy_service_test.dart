@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
@@ -36,18 +37,59 @@ void main() {
         );
       });
 
-      final canvases = await StrategyService().getCanvases();
+      final result = await StrategyService().getCanvases();
 
-      expect(canvases, hasLength(1));
-      expect(canvases.first['name'], 'Q1 Strategy');
+      expect(result.items, hasLength(1));
+      expect(result.items.first['name'], 'Q1 Strategy');
+      expect(result.isUnavailable, isFalse);
+      expect(result.errorMessage, isNull);
     });
 
-    test('getCanvases returns an empty list when the request fails', () async {
+    // Trước đây 404/500/lỗi mạng đều bị `_decodeList` gộp thành `[]`, khiến
+    // UI không phân biệt được "chưa có canvas" với "gọi API thất bại". Giờ
+    // getCanvases() trả StrategyListResult để expose đúng 3 trạng thái.
+    test('getCanvases exposes a failure with a message on a 500', () async {
       ApiClient.client = MockClient((request) async => http.Response('server error', 500));
 
-      final canvases = await StrategyService().getCanvases();
+      final result = await StrategyService().getCanvases();
 
-      expect(canvases, isEmpty);
+      expect(result.items, isEmpty);
+      expect(result.isUnavailable, isFalse);
+      expect(result.errorMessage, isNotEmpty);
+    });
+
+    // Không có endpoint list nào trong service này được xác nhận là "optional
+    // theo thiết kế" (xem strategy_list_result.dart) — nên một 404 trên
+    // canvases vẫn là lỗi thật (failure), không phải unavailable.
+    test('getCanvases exposes a failure (not unavailable) on a 404', () async {
+      ApiClient.client = MockClient((request) async => http.Response('missing', 404));
+
+      final result = await StrategyService().getCanvases();
+
+      expect(result.items, isEmpty);
+      expect(result.isUnavailable, isFalse);
+      expect(result.errorMessage, isNotEmpty);
+    });
+
+    test('getCanvases exposes a failure on malformed JSON', () async {
+      ApiClient.client = MockClient(
+        (request) async => http.Response('not json', 200, headers: {'content-type': 'application/json'}),
+      );
+
+      final result = await StrategyService().getCanvases();
+
+      expect(result.items, isEmpty);
+      expect(result.errorMessage, isNotEmpty);
+    });
+
+    test('getCanvases exposes a failure with a message on a transport error', () async {
+      ApiClient.client = MockClient((_) async => throw const SocketException('offline'));
+
+      final result = await StrategyService().getCanvases();
+
+      expect(result.items, isEmpty);
+      expect(result.isUnavailable, isFalse);
+      expect(result.errorMessage, isNotEmpty);
     });
 
     test('createCanvas posts name/description and decodes the created canvas', () async {
@@ -133,12 +175,29 @@ void main() {
   });
 
   group('projects', () {
-    test('getProjects returns an empty list when the request throws', () async {
+    test('getProjects preserves a network failure instead of an empty success', () async {
       ApiClient.client = MockClient((request) async => throw Exception('network down'));
 
-      final projects = await StrategyService().getProjects();
+      final result = await StrategyService().getProjects();
 
-      expect(projects, isEmpty);
+      expect(result.items, isEmpty);
+      expect(result.errorMessage, isNotEmpty);
+    });
+
+    test('getProjects exposes a failure on a 403', () async {
+      ApiClient.client = MockClient(
+        (request) async => http.Response(
+          jsonEncode({'detail': 'Không có quyền'}),
+          403,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
+      );
+
+      final result = await StrategyService().getProjects();
+
+      expect(result.items, isEmpty);
+      expect(result.isUnavailable, isFalse);
+      expect(result.errorMessage, 'Không có quyền');
     });
 
     test('deleteProject calls DELETE on the project endpoint', () async {

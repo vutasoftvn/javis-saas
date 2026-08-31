@@ -5,6 +5,7 @@ import '../../services/strategy_service.dart';
 mixin TwelveWyStateMixin on GetxController {
   StrategyService get strategyService;
   RxBool get isSaving;
+  RxnString get errorMessage;
 
   Future<void> runGuarded(Future<void> Function() action, {bool showSnackbar = false});
 
@@ -14,14 +15,17 @@ mixin TwelveWyStateMixin on GetxController {
 
   Future<void> loadExecution() async {
     await runGuarded(() async {
-      final cycles = await strategyService.getTwelveWeekCycles();
-      twelveWeekCycles.value = cycles;
+      final cyclesResult = await strategyService.getTwelveWeekCycles();
+      twelveWeekCycles.value = cyclesResult.items;
+      if (cyclesResult.errorMessage != null) errorMessage.value = cyclesResult.errorMessage;
 
-      final plans = await strategyService.getWeeklyPlans();
-      weeklyPlans.value = plans;
+      final plansResult = await strategyService.getWeeklyPlans();
+      weeklyPlans.value = plansResult.items;
+      if (plansResult.errorMessage != null) errorMessage.value = plansResult.errorMessage;
 
-      final commitments = await strategyService.getWeeklyCommitments();
-      weeklyCommitments.value = commitments;
+      final commitmentsResult = await strategyService.getWeeklyCommitments();
+      weeklyCommitments.value = commitmentsResult.items;
+      if (commitmentsResult.errorMessage != null) errorMessage.value = commitmentsResult.errorMessage;
     });
   }
 

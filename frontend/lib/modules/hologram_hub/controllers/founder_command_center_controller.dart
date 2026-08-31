@@ -32,6 +32,12 @@ class FounderCommandCenterController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool hasProjects = true.obs;
   final RxList<dynamic> projectsList = <dynamic>[].obs;
+
+  /// Lỗi tải danh sách dự án (401/403/409/5xx, mất mạng...) — trước đây bị
+  /// nuốt thành `[]`, khiến `hasProjects` hiểu nhầm "chưa có dự án nào" và
+  /// đẩy Founder vào lại flow onboarding dù họ đã có dự án. Field này expose
+  /// lỗi thật để UI hiển thị banner/thử lại thay vì trạng thái rỗng giả.
+  final RxnString projectsError = RxnString();
   final Rx<CompanyPulseModel?> pulse = Rx<CompanyPulseModel?>(null);
   final RxList<NextBestActionModel> top3Actions = <NextBestActionModel>[].obs;
   final RxList<FounderDecisionModel> pendingDecisions = <FounderDecisionModel>[].obs;
@@ -66,13 +72,24 @@ class FounderCommandCenterController extends GetxController {
 
       List<dynamic> projects = [];
       try {
-        projects = await strategyService.getProjects();
+        final result = await strategyService.getProjects();
+        if (result.errorMessage != null) {
+          // Lỗi thật — không âm thầm coi là "chưa có dự án" (điều đó sẽ đẩy
+          // Founder vào lại luồng onboarding tạo dự án đầu tiên dù họ đã có
+          // sẵn dự án, chỉ là lần tải này thất bại). Giữ nguyên projectsList
+          // hiện tại, chỉ báo lỗi để UI hiển thị banner/thử lại.
+          projectsError.value = result.errorMessage;
+        } else {
+          projects = result.items;
+          projectsError.value = null;
+        }
       } catch (e) {
         debugPrint('[FounderCommandCenter] getProjects error: $e');
+        projectsError.value = 'Không thể tải danh sách dự án: $e';
       }
 
       projectsList.assignAll(projects);
-      hasProjects.value = projects.isNotEmpty;
+      hasProjects.value = projects.isNotEmpty || projectsError.value != null;
 
       final activeProjectId = projects.isNotEmpty ? projects.first['id'] : null;
 

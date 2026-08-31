@@ -74,9 +74,10 @@ class FoundationController extends GetxController {
     isLoading.value = true;
     await _runGuarded(() async {
       final result = await _service.getCanvases();
-      canvases.value = result;
-      if (result.isNotEmpty) {
-        final firstId = result.first['id'] ?? result.first['_id'];
+      canvases.value = result.items;
+      if (result.errorMessage != null) errorMessage.value = result.errorMessage;
+      if (result.items.isNotEmpty) {
+        final firstId = result.items.first['id'] ?? result.items.first['_id'];
         if (firstId != null) {
           await selectCanvas(firstId);
         }

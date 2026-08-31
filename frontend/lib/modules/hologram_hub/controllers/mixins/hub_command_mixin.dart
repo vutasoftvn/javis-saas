@@ -25,6 +25,12 @@ mixin HubCommandMixin on GetxController {
   // CEO Next Best Actions
   final ceoNextActions = <dynamic>[].obs;
 
+  /// Lỗi tải dữ liệu list (CEO next actions, danh sách dự án...) — trước đây
+  /// mọi thất bại (401/403/409/5xx, mất mạng) bị nuốt thành `[]` khiến UI
+  /// hiển thị y hệt "chưa có dữ liệu". Field này expose lỗi thật để hiển thị
+  /// banner/thử lại thay vì trạng thái rỗng đánh lừa người dùng.
+  final RxnString dataLoadError = RxnString();
+
   // Founder Exception Queue
   final needsYouItems = <dynamic>[].obs;
   final resolvedProposalIds = <String>{}.obs;
@@ -90,15 +96,20 @@ mixin HubCommandMixin on GetxController {
 
   Future<void> loadCeoNextActions() async {
     try {
-      ceoNextActions.value = await strategyService.getCeoNextActions(limit: 3);
+      final result = await strategyService.getCeoNextActions(limit: 3);
+      ceoNextActions.value = result.items;
+      if (result.errorMessage != null) dataLoadError.value = result.errorMessage;
     } catch (e) {
       debugPrint('[HologramHub] Error loading CEO next actions: $e');
+      dataLoadError.value = 'Không thể tải Next Best Actions: $e';
     }
   }
 
   Future<void> loadActiveCycleTimeline() async {
     try {
-      final cycles = await strategyService.getTwelveWeekCycles();
+      final result = await strategyService.getTwelveWeekCycles();
+      if (result.errorMessage != null) dataLoadError.value = result.errorMessage;
+      final cycles = result.items;
       if (cycles.isNotEmpty) {
         final activeCycle = cycles.firstWhere(
           (c) => c['status'] == 'active',

@@ -5,6 +5,7 @@ import '../../services/strategy_service.dart';
 mixin GovernanceStateMixin on GetxController {
   StrategyService get strategyService;
   RxBool get isSaving;
+  RxnString get errorMessage;
 
   Future<void> runGuarded(Future<void> Function() action, {bool showSnackbar = false});
   Future<void> loadProjects();
@@ -18,24 +19,38 @@ mixin GovernanceStateMixin on GetxController {
 
   Future<void> loadCycleGovernance(String cycleId) async {
     await runGuarded(() async {
-      cycleStages.value = await strategyService.getCycleStages(cycleId);
-      milestones.value = await strategyService.getMilestones(cycleId: cycleId);
+      final stagesResult = await strategyService.getCycleStages(cycleId);
+      cycleStages.value = stagesResult.items;
+      if (stagesResult.errorMessage != null) errorMessage.value = stagesResult.errorMessage;
+
+      final milestonesResult = await strategyService.getMilestones(cycleId: cycleId);
+      milestones.value = milestonesResult.items;
+      if (milestonesResult.errorMessage != null) errorMessage.value = milestonesResult.errorMessage;
+
       cycleContract.value = await strategyService.getCycleContract(cycleId);
-      gateDecisions.value = await strategyService.getGateDecisions();
+
+      final gateDecisionsResult = await strategyService.getGateDecisions();
+      gateDecisions.value = gateDecisionsResult.items;
+      if (gateDecisionsResult.errorMessage != null) errorMessage.value = gateDecisionsResult.errorMessage;
     });
   }
 
   Future<void> generateStandardStages(String cycleId) async {
     isSaving.value = true;
     await runGuarded(() async {
-      cycleStages.value = await strategyService.generateStandardCycleStages(cycleId);
-      Get.snackbar(
-        'Thành công',
-        'Đã tạo 5 giai đoạn chuẩn (13-Week Stages) cho chu kỳ',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
-      );
+      final result = await strategyService.generateStandardCycleStages(cycleId);
+      cycleStages.value = result.items;
+      if (result.errorMessage != null) {
+        errorMessage.value = result.errorMessage;
+      } else {
+        Get.snackbar(
+          'Thành công',
+          'Đã tạo 5 giai đoạn chuẩn (13-Week Stages) cho chu kỳ',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFF10B981),
+          colorText: Colors.white,
+        );
+      }
     }, showSnackbar: true);
     isSaving.value = false;
   }

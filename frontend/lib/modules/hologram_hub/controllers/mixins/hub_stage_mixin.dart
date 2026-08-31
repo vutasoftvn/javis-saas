@@ -8,6 +8,7 @@ mixin HubStageMixin on GetxController {
   // ── Abstract service getters ─────────────────────────────────────────────
   StageService get stageService;
   StrategyService get strategyService;
+  RxnString get dataLoadError;
 
   // ── Observables ──────────────────────────────────────────────────────────
   final stageContext = Rxn<StageContextModel>();
@@ -43,11 +44,19 @@ mixin HubStageMixin on GetxController {
 
   Future<void> loadProjectsList() async {
     try {
-      final list = await strategyService.getProjects();
-      projectsList.value =
-          list.map((item) => item as Map<String, dynamic>).toList();
+      final result = await strategyService.getProjects();
+      if (result.errorMessage != null) {
+        // Lỗi thật (401/403/409/5xx, mất mạng...) — KHÔNG ghi đè
+        // projectsList bằng [] để tránh isGenesisMode hiểu nhầm "chưa có dự
+        // án nào" và đẩy người dùng vào lại luồng onboarding dù họ đã có dự
+        // án, chỉ là lần tải này thất bại.
+        dataLoadError.value = result.errorMessage;
+        return;
+      }
+      projectsList.value = result.items;
     } catch (e) {
       debugPrint('Error loading projects list: $e');
+      dataLoadError.value = 'Không thể tải danh sách dự án: $e';
     }
   }
 

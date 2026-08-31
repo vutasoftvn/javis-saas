@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/network/api_client.dart';
+import '../models/strategy_list_result.dart';
 
 /// Lỗi từ Strategy API (422 validate, 403 thiếu quyền, 409 sai trạng thái revision...)
 class StrategyApiException implements Exception {
@@ -43,32 +44,63 @@ class StrategyService {
     throw StrategyApiException(response.statusCode, detail);
   }
 
-  List<dynamic> _decodeList(dynamic response, String key) {
-    if (response.statusCode == 404) return [];
+  /// Giải mã response "list" thành `StrategyListResult` thay vì âm thầm gộp
+  /// mọi thất bại thành `[]`. Không có endpoint list nào trong service này
+  /// được xác nhận (qua code/comment backend) là "404 có chủ đích" — nên mặc
+  /// định 404 là lỗi thật (`failure`), không phải `unavailable`. Truyền
+  /// `optionalOn404: true` cho endpoint nào về sau được xác nhận rõ ràng là
+  /// optional theo thiết kế backend.
+  StrategyListResult<Map<String, dynamic>> _decodeList(
+    dynamic response,
+    String key, {
+    bool optionalOn404 = false,
+  }) {
+    if (response.statusCode == 404) {
+      if (optionalOn404) return const StrategyListResult.unavailable();
+      return StrategyListResult.failure('Không tìm thấy dữ liệu (404)');
+    }
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return [];
+      if (response.body.isEmpty) return const StrategyListResult.success([]);
       try {
         final data = jsonDecode(response.body);
-        return data is Map && data[key] is List ? (data[key] as List<dynamic>) : [];
+        if (data is Map && data[key] is List) {
+          final items = (data[key] as List)
+              .map((e) => e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map))
+              .toList();
+          return StrategyListResult.success(items);
+        }
+        return const StrategyListResult.failure('Phản hồi không đúng định dạng mong đợi');
       } catch (_) {
-        return [];
+        return const StrategyListResult.failure('Không thể đọc dữ liệu phản hồi từ máy chủ');
       }
     }
-    return [];
+    String detail = 'Yêu cầu thất bại (${response.statusCode})';
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map && body['detail'] != null) {
+        final d = body['detail'];
+        detail = d is String ? d : jsonEncode(d);
+      }
+    } catch (_) {
+      // giữ nguyên detail mặc định nếu body không phải JSON hợp lệ
+    }
+    return StrategyListResult.failure(detail);
   }
 
   // ====================================================================
   // Strategic Canvas & Foundation (Phase 1)
   // ====================================================================
 
-  Future<List<dynamic>> getCanvases() async {
+  Future<StrategyListResult<Map<String, dynamic>>> getCanvases() async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     try {
       final response = await ApiClient.get('/strategy/canvases?workspace_id=$workspaceId');
       return _decodeList(response, 'canvases');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -175,14 +207,16 @@ class StrategyService {
   // OKRs & Key Results
   // ====================================================================
 
-  Future<List<dynamic>> getOkrCycles() async {
+  Future<StrategyListResult<Map<String, dynamic>>> getOkrCycles() async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     try {
       final response = await ApiClient.get('/okrs/cycles?workspace_id=$workspaceId');
       return _decodeList(response, 'cycles');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -205,15 +239,17 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getObjectives({String? cycleId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getObjectives({String? cycleId}) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     final query = cycleId != null ? 'workspace_id=$workspaceId&cycle_id=$cycleId' : 'workspace_id=$workspaceId';
     try {
       final response = await ApiClient.get('/okrs/objectives?$query');
       return _decodeList(response, 'objectives');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -256,15 +292,17 @@ class StrategyService {
     _decode(response);
   }
 
-  Future<List<dynamic>> getKeyResults({String? objectiveId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getKeyResults({String? objectiveId}) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     final query = objectiveId != null ? 'workspace_id=$workspaceId&objective_id=$objectiveId' : 'workspace_id=$workspaceId';
     try {
       final response = await ApiClient.get('/okrs/key-results?$query');
       return _decodeList(response, 'key_results');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -325,14 +363,16 @@ class StrategyService {
   // 12-Week Execution Plans & Commitments
   // ====================================================================
 
-  Future<List<dynamic>> getTwelveWeekCycles() async {
+  Future<StrategyListResult<Map<String, dynamic>>> getTwelveWeekCycles() async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     try {
       final response = await ApiClient.get('/execution/twelve-week-cycles?workspace_id=$workspaceId');
       return _decodeList(response, 'cycles');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -369,15 +409,17 @@ class StrategyService {
     }
   }
 
-  Future<List<dynamic>> getWeeklyPlans({String? cycleId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getWeeklyPlans({String? cycleId}) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     final query = cycleId != null ? 'workspace_id=$workspaceId&cycle_id=$cycleId' : 'workspace_id=$workspaceId';
     try {
       final response = await ApiClient.get('/execution/weekly-plans?$query');
       return _decodeList(response, 'plans');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -424,15 +466,17 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getWeeklyCommitments({String? weeklyPlanId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getWeeklyCommitments({String? weeklyPlanId}) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     final query = weeklyPlanId != null ? 'workspace_id=$workspaceId&weekly_plan_id=$weeklyPlanId' : 'workspace_id=$workspaceId';
     try {
       final response = await ApiClient.get('/execution/weekly-commitments?$query');
       return _decodeList(response, 'commitments');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -508,14 +552,16 @@ class StrategyService {
   // Strategic Projects & Initiatives
   // ====================================================================
 
-  Future<List<dynamic>> getProjects() async {
+  Future<StrategyListResult<Map<String, dynamic>>> getProjects() async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     try {
       final response = await ApiClient.get('/operations/projects?workspace_id=$workspaceId');
       return _decodeList(response, 'projects');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -584,15 +630,17 @@ class StrategyService {
     _decode(response);
   }
 
-  Future<List<dynamic>> getInitiatives({String? projectId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getInitiatives({String? projectId}) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     final query = projectId != null ? 'workspace_id=$workspaceId&project_id=$projectId' : 'workspace_id=$workspaceId';
     try {
       final response = await ApiClient.get('/strategy/initiatives?$query');
       return _decodeList(response, 'initiatives');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -715,23 +763,29 @@ class StrategyService {
   // mCOSA V12 13-Week Execution Engine & Stage-Gate Governance (Sprint 3)
   // ====================================================================
 
-  Future<List<dynamic>> getCycleStages(String cycleId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getCycleStages(String cycleId) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     try {
       final response = await ApiClient.get('/execution/twelve-week-cycles/$cycleId/stages?workspace_id=$workspaceId');
       return _decodeList(response, 'stages');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
-  Future<List<dynamic>> generateStandardCycleStages(String cycleId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> generateStandardCycleStages(String cycleId) async {
     final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/execution/twelve-week-cycles/$cycleId/stages/generate-standard?workspace_id=$workspaceId',
-    );
-    return _decodeList(response, 'stages');
+    try {
+      final response = await ApiClient.post(
+        '/execution/twelve-week-cycles/$cycleId/stages/generate-standard?workspace_id=$workspaceId',
+      );
+      return _decodeList(response, 'stages');
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
+    }
   }
 
   Future<Map<String, dynamic>> createCycleStage(
@@ -788,9 +842,11 @@ class StrategyService {
     _decode(response);
   }
 
-  Future<List<dynamic>> getMilestones({String? cycleId, String? stageId, String? projectId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getMilestones({String? cycleId, String? stageId, String? projectId}) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     final params = <String>['workspace_id=$workspaceId'];
     if (cycleId != null) params.add('cycle_id=$cycleId');
     if (stageId != null) params.add('stage_id=$stageId');
@@ -798,8 +854,8 @@ class StrategyService {
     try {
       final response = await ApiClient.get('/execution/milestones?${params.join('&')}');
       return _decodeList(response, 'milestones');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -884,9 +940,11 @@ class StrategyService {
     _decode(response);
   }
 
-  Future<List<dynamic>> getGateDecisions({String? projectId, String? stageId, String? milestoneId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getGateDecisions({String? projectId, String? stageId, String? milestoneId}) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     final params = <String>['workspace_id=$workspaceId'];
     if (projectId != null) params.add('project_id=$projectId');
     if (stageId != null) params.add('stage_id=$stageId');
@@ -894,8 +952,8 @@ class StrategyService {
     try {
       final response = await ApiClient.get('/execution/gate-decisions?${params.join('&')}');
       return _decodeList(response, 'gate_decisions');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1044,16 +1102,18 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getWeeklyReviews(String cycleId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getWeeklyReviews(String cycleId) async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     try {
       final response = await ApiClient.get(
         '/execution/twelve-week-cycles/$cycleId/weekly-reviews?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'weekly_reviews');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1149,16 +1209,18 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getPortfolios() async {
+  Future<StrategyListResult<Map<String, dynamic>>> getPortfolios() async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     try {
       final response = await ApiClient.get(
         '/strategy/portfolios?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'portfolios');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1179,15 +1241,15 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getPortfolioProjects(String portfolioId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getPortfolioProjects(String portfolioId) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/portfolios/$portfolioId/projects?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'projects');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1231,15 +1293,15 @@ class StrategyService {
   // mCOSA V12 Portfolio SWOT, Options & Synergies (Sprint 7)
   // ====================================================================
 
-  Future<List<dynamic>> getPortfolioSwot(String portfolioId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getPortfolioSwot(String portfolioId) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/portfolios/$portfolioId/swot?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'swot_items');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1267,15 +1329,15 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getPortfolioTows(String portfolioId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getPortfolioTows(String portfolioId) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/portfolios/$portfolioId/tows?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'tows_options');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1303,15 +1365,15 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getPortfolioSynergies(String portfolioId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getPortfolioSynergies(String portfolioId) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/portfolios/$portfolioId/synergies?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'synergies');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1347,15 +1409,15 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getPortfolioDependencies(String portfolioId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getPortfolioDependencies(String portfolioId) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/portfolios/$portfolioId/dependencies?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'dependencies');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1387,15 +1449,15 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getPortfolioOptions(String portfolioId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getPortfolioOptions(String portfolioId) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/portfolios/$portfolioId/options?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'options');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1469,13 +1531,13 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getPortfolioCycles(String portfolioId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getPortfolioCycles(String portfolioId) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get('/strategy/portfolios/$portfolioId/cycles?workspace_id=$workspaceId');
       return _decodeList(response, 'cycles');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1549,31 +1611,35 @@ class StrategyService {
   // mCOSA V12 Next Best Action Engine (Sprint 9 Spec §37 & V12.6)
   // ====================================================================
 
-  Future<List<dynamic>> getCeoNextActions({int limit = 5}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getCeoNextActions({int limit = 5}) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/ceo/next-actions?workspace_id=$workspaceId&limit=$limit',
       );
       return _decodeList(response, 'next_actions');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
-  Future<List<dynamic>> evaluateCeoNextActions({
+  Future<StrategyListResult<Map<String, dynamic>>> evaluateCeoNextActions({
     String? projectId,
     String? portfolioId,
   }) async {
     final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/ceo/next-actions/evaluate?workspace_id=$workspaceId',
-      body: {
-        'project_id': ?projectId,
-        'portfolio_id': ?portfolioId,
-      },
-    );
-    return _decodeList(response, 'rankings');
+    try {
+      final response = await ApiClient.post(
+        '/strategy/ceo/next-actions/evaluate?workspace_id=$workspaceId',
+        body: {
+          'project_id': ?projectId,
+          'portfolio_id': ?portfolioId,
+        },
+      );
+      return _decodeList(response, 'rankings');
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
+    }
   }
 
   Future<Map<String, dynamic>> updateNextActionStatus(
@@ -1589,27 +1655,27 @@ class StrategyService {
   }
 
 
-  Future<List<dynamic>> getModelRunsAudit({int limit = 20}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getModelRunsAudit({int limit = 20}) async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/model-runs/audit?workspace_id=$workspaceId&limit=$limit',
       );
       return _decodeList(response, 'audits');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
-  Future<List<dynamic>> getModelProfiles() async {
+  Future<StrategyListResult<Map<String, dynamic>>> getModelProfiles() async {
     final workspaceId = await _requireWorkspaceId();
     try {
       final response = await ApiClient.get(
         '/strategy/model-profiles?workspace_id=$workspaceId',
       );
       return _decodeList(response, 'profiles');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
@@ -1635,21 +1701,27 @@ class StrategyService {
   // SaaS Project Stage & Agent Orchestration
   // ====================================================================
 
-  Future<List<dynamic>> getWorkspaceTemplates() async {
+  Future<StrategyListResult<Map<String, dynamic>>> getWorkspaceTemplates() async {
     final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+    if (workspaceId == null) {
+      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+    }
     try {
       final response = await ApiClient.get('/strategy/workspace-templates?workspace_id=$workspaceId');
       return _decodeList(response, 'templates');
-    } catch (_) {
-      return [];
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
     }
   }
 
-  Future<List<dynamic>> provisionWorkspaceTemplates() async {
+  Future<StrategyListResult<Map<String, dynamic>>> provisionWorkspaceTemplates() async {
     final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/workspace-templates:provision?workspace_id=$workspaceId');
-    return _decodeList(response, 'templates');
+    try {
+      final response = await ApiClient.post('/strategy/workspace-templates:provision?workspace_id=$workspaceId');
+      return _decodeList(response, 'templates');
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
+    }
   }
 
   Future<Map<String, dynamic>> resetWorkspaceTemplate(String templateId) async {
@@ -1667,10 +1739,14 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getProjectStages(String projectId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getProjectStages(String projectId) async {
     final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.get('/strategy/projects/$projectId/stages?workspace_id=$workspaceId');
-    return _decodeList(response, 'stages');
+    try {
+      final response = await ApiClient.get('/strategy/projects/$projectId/stages?workspace_id=$workspaceId');
+      return _decodeList(response, 'stages');
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
+    }
   }
 
   Future<Map<String, dynamic>> generateMvpRoadmap(String projectId, {String? instruction}) async {
@@ -1719,25 +1795,33 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> generateStageServiceAssessment(String projectId, String stageId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> generateStageServiceAssessment(String projectId, String stageId) async {
     final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/projects/$projectId/stages/$stageId/service-assessment:generate?workspace_id=$workspaceId',
-    );
-    return _decodeList(response, 'assessments');
+    try {
+      final response = await ApiClient.post(
+        '/strategy/projects/$projectId/stages/$stageId/service-assessment:generate?workspace_id=$workspaceId',
+      );
+      return _decodeList(response, 'assessments');
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
+    }
   }
 
-  Future<List<dynamic>> confirmStageServiceAssessment(
+  Future<StrategyListResult<Map<String, dynamic>>> confirmStageServiceAssessment(
     String projectId,
     String stageId,
     List<Map<String, dynamic>> decisions,
   ) async {
     final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/projects/$projectId/stages/$stageId/service-assessment:confirm?workspace_id=$workspaceId',
-      body: {'decisions': decisions},
-    );
-    return _decodeList(response, 'assessments');
+    try {
+      final response = await ApiClient.post(
+        '/strategy/projects/$projectId/stages/$stageId/service-assessment:confirm?workspace_id=$workspaceId',
+        body: {'decisions': decisions},
+      );
+      return _decodeList(response, 'assessments');
+    } catch (e) {
+      return StrategyListResult.failure(e.toString());
+    }
   }
 
   Future<Map<String, dynamic>> previewStageRevision(

@@ -17,6 +17,7 @@ class StrategyController extends GetxController
   @override
   final isSaving = false.obs;
   final isGeneratingAi = false.obs;
+  @override
   final errorMessage = RxnString();
 
   final projects = <dynamic>[].obs;
@@ -61,8 +62,14 @@ class StrategyController extends GetxController
   @override
   Future<void> loadProjects() async {
     await runGuarded(() async {
-      projects.value = await _strategyService.getProjects();
-      initiatives.value = await _strategyService.getInitiatives();
+      final projectsResult = await _strategyService.getProjects();
+      projects.value = projectsResult.items;
+      if (projectsResult.errorMessage != null) errorMessage.value = projectsResult.errorMessage;
+
+      final initiativesResult = await _strategyService.getInitiatives();
+      initiatives.value = initiativesResult.items;
+      if (initiativesResult.errorMessage != null) errorMessage.value = initiativesResult.errorMessage;
+
       await loadPortfolios();
       await detectPortfolioNecessity();
     });

@@ -21,6 +21,7 @@ class _DecisionLogTabState extends State<DecisionLogTab> {
   List<StrategicDecisionModel> _decisions = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  String? _projectsError;
 
   @override
   void initState() {
@@ -31,8 +32,9 @@ class _DecisionLogTabState extends State<DecisionLogTab> {
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     try {
-      final projects = await _strategyService.getProjects();
-      _projects = projects.cast<Map<String, dynamic>>();
+      final result = await _strategyService.getProjects();
+      _projects = result.items;
+      _projectsError = result.errorMessage;
       if (_projects.isNotEmpty) {
         final firstId = int.tryParse(_projects.first['id']?.toString() ?? '') ?? 1;
         _selectedProjectId = firstId;
@@ -40,6 +42,7 @@ class _DecisionLogTabState extends State<DecisionLogTab> {
       }
     } catch (e) {
       debugPrint('[DecisionLogTab] _loadInitialData error: $e');
+      _projectsError = 'Không thể tải danh sách dự án: $e';
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -156,6 +159,37 @@ class _DecisionLogTabState extends State<DecisionLogTab> {
     );
   }
 
+  // Danh sách dự án tải thất bại (401/403/409/5xx, JSON hỏng, mất mạng...)
+  // trước đây bị nuốt thành `[]` và tab hiển thị y hệt "chưa có dự án nào" —
+  // giờ hiện banner lỗi kèm nút thử lại để không đánh lừa người dùng.
+  Widget _buildProjectsErrorBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Không tải được danh sách dự án: $_projectsError',
+              style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadInitialData,
+            child: const Text('Thử lại'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -174,6 +208,7 @@ class _DecisionLogTabState extends State<DecisionLogTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_projectsError != null) _buildProjectsErrorBanner(),
         // Top Toolbar
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
