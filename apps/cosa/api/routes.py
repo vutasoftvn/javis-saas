@@ -1102,7 +1102,12 @@ async def create_knowledge_upload(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Control plane error: {e}") from e
+        # Broader sweep (final review) — raw exception (có thể mang chi tiết
+        # host/port control-plane nội bộ) không được interpolate vào response
+        # body client-facing. Log đầy đủ server-side, client chỉ nhận thông
+        # báo ổn định — cùng pattern Finding 1/2/4 của final-review wave.
+        logger.exception("control plane error issuing knowledge upload ticket")
+        raise HTTPException(status_code=502, detail="control plane error") from e
 
     # Issue upload ticket
     try:
@@ -1116,7 +1121,8 @@ async def create_knowledge_upload(
             max_bytes=max_bytes,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Object store error: {e}") from e
+        logger.exception("object store error issuing knowledge upload ticket")
+        raise HTTPException(status_code=500, detail="object store error") from e
 
     # Return response (no object_key, only signed_url)
     return KnowledgeUploadResponse(
@@ -1165,7 +1171,8 @@ async def complete_knowledge_upload(
             status_code=404, detail="Ingestion not found or ticket expired"
         ) from None
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Object store error: {e}") from e
+        logger.exception("object store error finalizing knowledge upload")
+        raise HTTPException(status_code=500, detail="object store error") from e
 
     # Call services/cosa to complete upload and transition UPLOADING→QUARANTINED→QUEUED
     # Use worker service token (broker is a trusted internal caller)
@@ -1204,7 +1211,8 @@ async def complete_knowledge_upload(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Control plane error: {e}") from e
+        logger.exception("control plane error completing knowledge upload")
+        raise HTTPException(status_code=502, detail="control plane error") from e
 
     # Return response (no object_key leaked)
     return CompleteKnowledgeUploadResponse(
@@ -1283,7 +1291,8 @@ async def review_knowledge_ingestion(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Control plane error: {e}") from e
+        logger.exception("control plane error reviewing knowledge document")
+        raise HTTPException(status_code=502, detail="control plane error") from e
 
     # Step 2: đồng bộ trạng thái sang agent candidate (review_pending → published/rejected).
     # Control plane đã ghi quyết định + audit ở Step 1; bước này chỉ lật `ingest_status`
