@@ -45,24 +45,42 @@ describe("Control Plane Service", () => {
     ).rejects.toThrow();
   });
 
-  it("retrieves current platform user profile", async () => {
+  it("retrieves current platform user profile with default member role", async () => {
     const profile = await getMe({ userID: verifyPlatformToken(platformToken).sub });
 
     expect(profile.email).toBe(testEmail);
     expect(profile.full_name).toBe("John Doe");
+    expect(profile.role_id).toBe("member");
+    expect(profile.is_platform_admin).toBe(false);
   });
 
-  it("updates platform user profile", async () => {
+  it("updates platform user profile with social persona fields", async () => {
     const updated = await updateMe(
       { userID: verifyPlatformToken(platformToken).sub },
       {
         full_name: "John Doe Updated",
         phone: `+84912${Math.floor(100000 + Math.random() * 900000)}`,
+        headline: "Founder @ Cosa AI",
+        bio: "Building next-gen AI workspace",
+        role_id: "founder",
       }
     );
 
     expect(updated.full_name).toBe("John Doe Updated");
     expect(updated.phone).toBeDefined();
+    expect(updated.headline).toBe("Founder @ Cosa AI");
+    expect(updated.bio).toBe("Building next-gen AI workspace");
+    expect(updated.role_id).toBe("founder");
+  });
+
+  it("rejects registration with duplicate email", async () => {
+    await expect(
+      registerPlatform({
+        email: testEmail,
+        password: "password123",
+        full_name: "Duplicate User",
+      })
+    ).rejects.toThrow();
   });
 
   it("lists companies of the platform user", async () => {
