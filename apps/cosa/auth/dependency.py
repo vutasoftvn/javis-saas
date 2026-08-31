@@ -26,6 +26,8 @@ __all__ = [
     "AuthenticatedIdentity",
     "clear_workspace_resolve_cache",
     "get_authenticated_identity",
+    "require_workspace_operator",
+    "resolve_identity_workspace",
     "set_workspace_tenant_context_client",
 ]
 
@@ -85,6 +87,27 @@ class AuthenticatedIdentity(BaseModel):
             capability_ids=capability_ids,
             ttl_seconds=ttl_seconds,
         )
+
+
+_WORKSPACE_OPERATOR_ROLES = frozenset({"founder", "co-founder", "admin"})
+
+
+def resolve_identity_workspace(
+    identity: AuthenticatedIdentity, requested_workspace_id: str | None = None
+) -> str:
+    """Return the authenticated workspace, rejecting a different request scope."""
+    if requested_workspace_id is not None and requested_workspace_id != identity.workspace_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="resource not found")
+    return identity.workspace_id
+
+
+def require_workspace_operator(identity: AuthenticatedIdentity) -> AuthenticatedIdentity:
+    """Require a workspace-level operator role for the authenticated identity."""
+    if (identity.role_id or "").lower() not in _WORKSPACE_OPERATOR_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="workspace operator role required"
+        )
+    return identity
 
 
 _workspace_tenant_context_client: WorkspaceTenantContextClient | None = None
