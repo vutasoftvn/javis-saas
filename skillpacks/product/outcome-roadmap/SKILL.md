@@ -31,6 +31,10 @@ Giúp Founder và đội ngũ sản phẩm chuyển đổi từ danh sách tính
 - `strategy.project.get`: Đọc bối cảnh dự án.
 - `analytics.pmf_scoreboard.get`: Đọc kết quả bảng điểm PMF.
 
+## Referenced Capabilities (not callable)
+- `operations.task.create_draft`: hand off giao việc chi tiết từng task hằng
+  ngày cho quy trình operations đã phê duyệt — không gọi trực tiếp từ skillpack này.
+
 ## 6. Điểm Phê Duyệt (Approval Points)
 - Thao tác chỉ đọc (`READ_LOCAL`), không làm thay đổi trạng thái dự án.
 

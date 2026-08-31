@@ -24,6 +24,36 @@ def find_repo_root() -> Path:
     raise RuntimeError("Could not find repo root")
 
 
+def build_live_capability_ids() -> set[str]:
+    """Xây một CosaAgentPlane xác định (in-memory repos + FakeSDKModel) và trả
+    về tập capability ID thật mà plane đã đăng ký — thay cho danh sách tĩnh cũ
+    `REGISTERED_STATIC_CAPABILITY_IDS`. Việc validate tool call phải đối chiếu
+    với inventory thật của runtime, không phải 1 whitelist chép tay dễ trôi."""
+    from unittest.mock import AsyncMock
+
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
+    from agent_testkit.fake_sdk_model import FakeSDKModel
+
+    from apps.cosa.capabilities.client import CompanyServiceClient
+    from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
+    company_client = AsyncMock(spec=CompanyServiceClient)
+    plane = build_cosa_agent_plane(
+        company_client=company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+    return {spec.id for spec in plane.capability_registry.list_specs()}
+
+
 def main() -> int:
     """Validate skillpacks and print violations."""
     try:
@@ -64,7 +94,11 @@ def main() -> int:
 
         validate_skillpack_tree = skillpack_contract.validate_skillpack_tree
 
-        violations = validate_skillpack_tree(skillpacks_dir)
+        # Đối chiếu runtime.tools với capability inventory thật của COSA plane.
+        capability_ids = build_live_capability_ids()
+        violations = validate_skillpack_tree(
+            skillpacks_dir, registered_capabilities=capability_ids
+        )
 
         for violation in violations:
             print(f"{violation.path}:{violation.rule}:{violation.message}")

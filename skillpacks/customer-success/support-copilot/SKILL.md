@@ -35,6 +35,10 @@ Hỗ trợ phân loại ticket và yêu cầu trợ giúp từ các khách hàng
 ## Allowed Tool Calls
 Không có tool call trực tiếp (Artifact & Proposal only).
 
+## Referenced Capabilities (not callable)
+- `engagement.message.send`: hand off gửi tin nhắn/email ra ngoài cho quy trình
+  engagement đã phê duyệt — không được cấp phép cho pilot copilot.
+
 ## Output Format
 - **support-escalation-runbook**: Quy trình tiếp nhận, phân loại và chuyển tiếp sự cố pilot.
 - **support-response-draft**: Bản dự thảo câu trả lời gửi nhân viên hỗ trợ duyệt trước khi gửi khách hàng.

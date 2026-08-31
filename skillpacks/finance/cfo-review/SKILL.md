@@ -45,6 +45,12 @@ Cung cấp khung đánh giá sức khỏe tài chính định kỳ (CFO Review),
 Không có tool call runtime nào được khai báo cho skillpack này.
 Mọi phân tích được thực hiện dựa trên dữ liệu báo cáo tài chính tổng hợp được cung cấp.
 
+## Referenced Capabilities (not callable)
+- `finance.transaction.record`: hand off ghi nhận giao dịch sổ cái chi tiết cho
+  quy trình finance đã phê duyệt — không gọi trực tiếp từ skillpack này.
+- `finance.payout.execute`: hand off lệnh chi trả cho cổng approval — không gọi
+  trực tiếp từ skillpack này.
+
 ## 6. Yêu Cầu Bằng Chứng (Evidence Requirements)
 - Mọi con số trong báo cáo CFO Review phải dựa trên số liệu thực tế của các báo cáo ngân hàng và hệ thống kế toán đã chốt sổ.
 - Phải nêu rõ giả định về tốc độ tăng trưởng và chi phí trong các kịch bản dự phóng Runway.

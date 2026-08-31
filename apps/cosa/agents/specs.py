@@ -119,8 +119,8 @@ COSA_FINANCE_AGENT_SPEC = AgentSpec(
         # records a transaction itself, only labels CAC/LTV inputs as assumptions.
         PinnedSkillRef(
             skill_id="finance.unit-economics",
-            version="1.0.0",
-            definition_hash="f9fcc77c264b1ad08a532d856e6cb9ccc65aaf00dfe7ff1e2dcbc9cd8b053341",
+            version="1.1.0",
+            definition_hash="055a7dfc94e9bf37ad06f36bafe8fc16d8d3187a5c250fd2b7acd231a97d6706",
         ),
     ],
     prompt_ref=COSA_FINANCE_PROMPT.to_pinned_identity(),

@@ -40,6 +40,10 @@ Thiết kế thử nghiệm A/B theo phương pháp thống kê chặt chẽ (gi
 ## Allowed Tool Calls
 Không có tool call trực tiếp (Artifact & Proposal only).
 
+## Referenced Capabilities (not callable)
+- `analytics.metric_contract.get`: tham chiếu metric-contract đã đăng ký — được
+  cung cấp như ngữ cảnh đầu vào, không phải tool call runtime của skillpack này.
+
 ## Output Format
 - **ab-test-design**: Thiết kế thử nghiệm A/B đầy đủ (giả thuyết, biến thể, cỡ mẫu, thời gian chạy, ngưỡng ý nghĩa), tham chiếu metric-contract.
 - **ab-test-result-interpretation**: Diễn giải kết quả thử nghiệm đối chiếu với metric-contract, kèm khuyến nghị (tiếp tục/dừng/mở rộng) — không tự động triển khai.

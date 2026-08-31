@@ -3,7 +3,7 @@ kind: Skill
 metadata:
   id: finance.unit-economics
   name: Unit Economics — CAC, LTV, Payback & Gross Margin Analysis
-  version: 1.0.0
+  version: 1.1.0
   description: Phân tích CAC, LTV, thời gian hoàn vốn (payback period) và biên lợi nhuận gộp (gross margin) trong giai đoạn Operate & Growth, gắn nhãn giả định cho mọi input chưa xác minh.
 publisher:
   name: cosa

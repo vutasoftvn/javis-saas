@@ -31,6 +31,10 @@ Cung cấp phương pháp hệ thống để gom cụm các trích dẫn, phản
 - `strategy.evidence.list`: Đọc danh sách bằng chứng hiện tại của dự án.
 - `strategy.evidence.create`: Tạo bản ghi bằng chứng mới ở trạng thái candidate.
 
+## Referenced Capabilities (not callable)
+- `engagement.message.send`: hand off gửi tin nhắn trực tiếp cho khách hàng cho
+  quy trình engagement đã phê duyệt — không gọi trực tiếp từ skillpack này.
+
 ## 6. Điểm Phê Duyệt (Approval Points)
 - Bằng chứng tạo ra luôn ở trạng thái `candidate` (chờ Founder/DRI duyệt, không tự động duyệt).
 

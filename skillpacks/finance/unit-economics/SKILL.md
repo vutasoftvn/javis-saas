@@ -39,6 +39,10 @@ Phân tích các chỉ số unit economics cốt lõi: chi phí thu hút khách 
 ## Allowed Tool Calls
 Không có tool call trực tiếp (Artifact & Proposal only).
 
+## Referenced Capabilities (not callable)
+- `finance.transaction.record`: hand off ghi nhận giao dịch tài chính cho quy
+  trình finance đã phê duyệt — không gọi trực tiếp từ skillpack này.
+
 ## Output Format
 - **unit-economics-report**: Chỉ số CAC/LTV/payback period/gross margin, phương pháp tính, nguồn dữ liệu cho từng input, và danh sách giả định (`assumption`) rõ ràng kèm mức ảnh hưởng đến kết quả nếu giả định sai lệch.
 

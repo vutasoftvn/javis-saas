@@ -42,6 +42,10 @@ Xây dựng khung ra quyết định chiến lược giá và kiến trúc phân
 Không có tool call runtime nào được khai báo cho skillpack này.
 Đầu ra là tài liệu tư vấn chiến lược và khung khuyến nghị mức giá.
 
+## Referenced Capabilities (not callable)
+- `finance.transaction.record`: hand off ghi nhận giao dịch tài chính cho quy
+  trình finance đã phê duyệt — không gọi trực tiếp từ skillpack này.
+
 ## 6. Yêu Cầu Bằng Chứng (Evidence Requirements)
 - Khuyến nghị mức giá phải dựa trên đối chiếu với cấu trúc giá của các giải pháp thay thế trên thị trường hoặc dữ liệu khảo sát độ nhạy cảm về giá (Van Westendorp Price Sensitivity Meter).
 - Phải tính toán kỹ biên lợi nhuận gộp tối thiểu (Gross Margin >= 75% đối với SaaS) dựa trên chi phí đơn vị thực tế.

@@ -36,6 +36,10 @@ Thiết kế khung chiến lược giá, xác định primary value metric, cấ
 ## Allowed Tool Calls
 Không có tool call trực tiếp (Artifact & Proposal only).
 
+## Referenced Capabilities (not callable)
+- `finance.transaction.record`: hand off ghi nhận giao dịch tài chính cho quy
+  trình finance đã phê duyệt — không gọi trực tiếp từ skillpack này.
+
 ## Output Format
 - **pricing-hypothesis**: Mô hình giá đề xuất, value metric, các tầng gói dịch vụ và giả định unit economics.
 - **willingness-to-pay-evidence**: Bằng chứng tổng hợp từ khảo sát/phỏng vấn khách hàng đối chiếu với mức giá đề xuất.
