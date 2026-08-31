@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
     "CreateCandidateRequest",
@@ -62,7 +62,9 @@ class CreateCandidateRequest(BaseModel):
     domain: str
     instructions: str
     description: str = ""
-    scope: list[str] = Field(default_factory=list)
+    # workspace_custom là đường dẫn công khai duy nhất qua Founder endpoint.
+    # platform_builtin phải đi qua repo manifest + code review + image build.
+    scope: str = "workspace_custom"
     tool_permissions: list[str] = Field(default_factory=list)
     required_capabilities: list[str] = Field(default_factory=list)
     required_context: list[str] = Field(default_factory=list)
@@ -71,15 +73,19 @@ class CreateCandidateRequest(BaseModel):
 
 
 class EvaluateSkillRequest(BaseModel):
-    eval_score: float = 0.0
-    eval_details: dict[str, Any] = Field(default_factory=dict)
+    """Server-attested evaluation: caller chỉ chọn case, KHÔNG được tự ghi
+    eval_score hoặc provenance — server chạy policy-contract và trả report."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    selected_case_ids: list[str] = Field(default_factory=list)
 
 
 class EvaluateSkillResponse(BaseModel):
     skill_id: str
     eval_score: float
     status: str
-    details: dict[str, Any] = Field(default_factory=dict)
+    report: dict[str, Any] = Field(default_factory=dict)
 
 
 class PromoteSkillRequest(BaseModel):

@@ -75,6 +75,22 @@ parse lỗi, hay pin/hash không khớp), service phải được giữ ở tr�
 Ví dụ bằng chứng gần nhất (verified 2026-08-31): 114 bundle, validator PASS,
 114 skill publish idempotent, 18 pinned-skill resolve đủ, 4 runtime-slice PASS.
 
+## Custom skill: hai đường dẫn sản phẩm
+
+- **`workspace_custom`** — Founder tạo qua endpoint `/agent/skills`, lưu và
+  publish chỉ trong catalogue workspace của chính mình. Ranh giới mặc định
+  L0/L1, artifact/proposal only, không connector / money movement / external
+  send / lifecycle transition. Evaluation là server-attested (server chạy
+  policy-contract, client không tự ghi `eval_score`). Promote yêu cầu founder,
+  report server-attested vượt ngưỡng, approval reason, capability hợp lệ.
+  Không bao giờ tự pin vào AgentSpec toàn cục.
+- **`platform_builtin`** — qua repository manifest + SKILL.md + eval suite +
+  code review + image build + built-in bootstrap. Endpoint công khai **từ
+  chối** tạo scope `platform_builtin`.
+
+Skill custom đã promote KHÔNG được publish vào `agent_registry.published_specs`
+chung — nếu không mọi workspace khác sẽ thấy nó qua catalogue built-in.
+
 ## Rate limiting
  
 `caddy:2-alpine` stock **không** có rate-limit module (chỉ `request_body

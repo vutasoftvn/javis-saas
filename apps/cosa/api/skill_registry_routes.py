@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
-from agent.registry.publisher import publish_skill_spec
 from agent.registry.repository import SpecVersionHashConflictError
 from agent.skills.candidate_store import (
     InMemorySkillCandidateStore,
@@ -46,6 +47,72 @@ logger = logging.getLogger("cosa.api.skill_registry")
 __all__ = ["create_skill_registry_router", "router"]
 
 router = APIRouter(prefix="/agent/skills", tags=["skill-registry"])
+
+# Ranh giới mặc định cho skill workspace_custom (Task 9 Step 2): L0/L1,
+# artifact/proposal only — không connector, không money movement, không
+# external send, không lifecycle transition.
+_WORKSPACE_CUSTOM_ALLOWED_CEILINGS = frozenset({"L0_OBSERVE", "L1_PROPOSE"})
+_WORKSPACE_CUSTOM_ALLOWED_SIDE_EFFECTS = frozenset({"R", "A"})
+_WORKSPACE_CUSTOM_PROHIBITED_CAPABILITY_TOKENS = (
+    "connector",
+    "payout",
+    "transaction.record",
+    "message.send",
+    "lifecycle",
+    "venture_stage",
+)
+_WORKSPACE_EVAL_VERSION = "cosa.skill-eval.workspace-custom/v1"
+_PROMOTION_EVAL_THRESHOLD = 0.8
+
+
+def _run_workspace_custom_evaluation(
+    candidate: SkillCandidate,
+    capability_ids: set[str],
+) -> tuple[float, dict[str, Any]]:
+    """Chạy policy-contract xác định cho skill workspace_custom.
+
+    Đây KHÔNG phải đánh giá hành vi LLM — chỉ kiểm tra ranh giới governance
+    (ceiling, side-effect) và capability (đã đăng ký + nằm trong boundary).
+    Trả về (computed_score, report) với timestamp + evaluator version. Mọi
+    negative case phải "reject" đúng (skill không vượt ranh giới) thì mới đạt
+    điểm vượt ngưỡng EVALUATED."""
+    spec = candidate.proposed_skill
+    case_results: list[dict[str, Any]] = []
+    failures: list[str] = []
+
+    ceiling = spec.autonomy.ceiling
+    if ceiling in _WORKSPACE_CUSTOM_ALLOWED_CEILINGS:
+        case_results.append({"id": "ceiling-within-boundary", "outcome": "reject", "detail": ceiling})
+    else:
+        failures.append(f"autonomy.ceiling {ceiling} nằm ngoài ranh giới workspace_custom")
+        case_results.append({"id": "ceiling-within-boundary", "outcome": "accept", "detail": ceiling})
+
+    side_effect = spec.autonomy.side_effect_class
+    if side_effect in _WORKSPACE_CUSTOM_ALLOWED_SIDE_EFFECTS:
+        case_results.append({"id": "side-effect-within-boundary", "outcome": "reject", "detail": side_effect})
+    else:
+        failures.append(f"autonomy.side_effect_class {side_effect} nằm ngoài ranh giới artifact/proposal")
+        case_results.append({"id": "side-effect-within-boundary", "outcome": "accept", "detail": side_effect})
+
+    for capability in spec.required_capabilities:
+        if capability not in capability_ids:
+            failures.append(f"capability {capability} chưa đăng ký trong COSA plane")
+            case_results.append({"id": "capability-registered", "outcome": "accept", "detail": capability})
+        elif any(token in capability for token in _WORKSPACE_CUSTOM_PROHIBITED_CAPABILITY_TOKENS):
+            failures.append(f"capability {capability} vượt ranh giới workspace_custom")
+            case_results.append({"id": "capability-within-boundary", "outcome": "accept", "detail": capability})
+        else:
+            case_results.append({"id": "capability-registered", "outcome": "reject", "detail": capability})
+
+    computed_score = 1.0 if not failures else 0.0
+    report = {
+        "evaluator_version": _WORKSPACE_EVAL_VERSION,
+        "timestamp": datetime.now(UTC).isoformat(),
+        "case_results": case_results,
+        "computed_score": computed_score,
+        "failures": failures,
+    }
+    return computed_score, report
 
 
 def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
@@ -298,6 +365,20 @@ async def create_candidate(
     if not skill_id:
         skill_id = f"custom-skill-{uuid.uuid4().hex[:6]}"
 
+    # Đường dẫn công khai chỉ tạo workspace_custom; platform_builtin là thay
+    # đổi repo (manifest + code review + image build), không qua endpoint này.
+    scope = req.scope or "workspace_custom"
+    if scope == "platform_builtin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="platform_builtin phải đi qua repository manifest, code review và image build — không thể tạo qua Founder endpoint",
+        )
+    if scope != "workspace_custom":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"scope không hợp lệ: '{scope}' (chỉ hỗ trợ workspace_custom)",
+        )
+
     spec = SkillSpec(
         id=skill_id,
         version="0.1.0",
@@ -309,7 +390,11 @@ async def create_candidate(
             required_context=req.required_context,
         ),
         required_capabilities=req.required_capabilities or req.tool_permissions,
-        references={"created_by_agent": req.created_by_agent, "category": req.domain},
+        references={
+            "created_by_agent": req.created_by_agent,
+            "category": req.domain,
+            "scope": scope,
+        },
         status=SkillStatus.CANDIDATE,
         publisher=req.created_by_agent or (identity.platform_user_id if identity else "user"),
     )
@@ -338,9 +423,14 @@ async def evaluate_skill(
     req: EvaluateSkillRequest,
     request: Request,
     identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
+    plane: CosaAgentPlane = Depends(get_cosa_plane),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> EvaluateSkillResponse:
-    """Chạy đánh giá hoặc ghi nhận eval_score cho candidate skill."""
+    """Chạy policy-contract xác định và ghi report server-attested cho candidate.
+
+    Caller KHÔNG được truyền eval_score hoặc provenance — server tự chạy các
+    negative case (boundary + capability), tính score, và chỉ set EVALUATED khi
+    mọi negative case reject đúng."""
     ws_id = identity.workspace_id if identity else None
     if not ws_id:
         raise HTTPException(
@@ -355,18 +445,21 @@ async def evaluate_skill(
             detail=f"Candidate skill '{skill_id}' không tồn tại trong workspace",
         )
 
-    await candidate_store.update_candidate_status(
-        ws_id,
-        cand.candidate_id,
-        status=SkillStatus.EVALUATED,
-        eval_score=req.eval_score,
-    )
+    capability_ids = {spec.id for spec in plane.capability_registry.list_specs()}
+    computed_score, report = _run_workspace_custom_evaluation(cand, capability_ids)
+
+    # Lưu report vào evidence_refs (durable) và cập nhật score + status.
+    cand.eval_score = computed_score
+    cand.evidence_refs.append(f"eval_report:{json.dumps(report, sort_keys=True)}")
+    if computed_score >= _PROMOTION_EVAL_THRESHOLD:
+        cand.status = SkillStatus.EVALUATED
+    await candidate_store.save_candidate(ws_id, cand)
 
     return EvaluateSkillResponse(
         skill_id=skill_id,
-        eval_score=req.eval_score,
-        status=SkillStatus.EVALUATED.value,
-        details=req.eval_details,
+        eval_score=computed_score,
+        status=cand.status.value,
+        report=report,
     )
 
 
@@ -408,61 +501,56 @@ async def promote_skill(
         )
     cand = await candidate_store.get_candidate(ws_id, skill_id)
 
-    if cand is not None:
-        min_eval_threshold = 0.8
-        if cand.eval_score < min_eval_threshold:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Candidate skill '{skill_id}' has eval score {cand.eval_score:.2f} < threshold {min_eval_threshold:.2f}. Must pass evaluation before promotion.",
-            )
+    if cand is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy candidate '{skill_id}' trong workspace để promote",
+        )
 
-        spec = cand.proposed_skill.model_copy(deep=True)
-        spec.status = SkillStatus.PUBLISHED
-        spec.publisher = approved_by
-        if req.version:
-            spec.version = req.version
+    # Chỉ chấp nhận report server-attested: candidate phải ở trạng thái
+    # EVALUATED với score vượt ngưỡng — founder không thể promote bản chưa
+    # được server đánh giá (không tự ghi eval_score).
+    if cand.status != SkillStatus.EVALUATED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Candidate skill '{skill_id}' chưa được server đánh giá (status={cand.status.value}). Chạy /evaluate trước.",
+        )
+    if cand.eval_score < _PROMOTION_EVAL_THRESHOLD:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Candidate skill '{skill_id}' has eval score {cand.eval_score:.2f} < threshold {_PROMOTION_EVAL_THRESHOLD:.2f}. Must pass evaluation before promotion.",
+        )
 
-        try:
-            record = await publish_skill_spec(
-                spec,
-                repository=plane.spec_registry,
-                publisher=approved_by,
-            )
-            await candidate_store.update_candidate_status(
-                ws_id,
-                cand.candidate_id,
-                status=SkillStatus.PUBLISHED,
-            )
-            return {
-                "skill_id": spec.id,
-                "version": spec.version,
-                "status": "PUBLISHED",
-                "definition_hash": record.definition_hash,
-                "approved_by": req.approved_by,
-                "approval_reason": req.approval_reason,
-            }
-        except SpecVersionHashConflictError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=str(exc),
-            ) from exc
+    # Capability phải nằm trong inventory thật — founder không được promote
+    # candidate tham chiếu capability chưa tồn tại.
+    capability_ids = {spec.id for spec in plane.capability_registry.list_specs()}
+    unknown = [cap for cap in cand.proposed_skill.required_capabilities if cap not in capability_ids]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown required capabilities: {', '.join(sorted(unknown))}",
+        )
 
-    # Check if existing spec in spec_registry needs reactivation
-    existing = await plane.spec_registry.get("skill", skill_id, req.version or "1.0.0")
-    if existing is not None:
-        await plane.spec_registry.update_status("skill", skill_id, existing.version, "published")
-        return {
-            "skill_id": skill_id,
-            "version": existing.version,
-            "status": "PUBLISHED",
-            "approved_by": req.approved_by,
-            "approval_reason": req.approval_reason,
-        }
+    # Workspace-scoped publication: KHÔNG publish vào shared
+    # agent_registry.published_specs — skill chỉ tồn tại trong catalogue của
+    # workspace này (Step 4). version do caller chọn (mặc định giữ nguyên).
+    spec = cand.proposed_skill.model_copy(deep=True)
+    spec.status = SkillStatus.PUBLISHED
+    spec.publisher = approved_by
+    if req.version:
+        spec.version = req.version
+    cand.proposed_skill = spec
+    await candidate_store.save_candidate(ws_id, cand)
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Không tìm thấy skill hoặc candidate '{skill_id}' để promote",
-    )
+    return {
+        "skill_id": spec.id,
+        "version": spec.version,
+        "status": "PUBLISHED",
+        "definition_hash": spec.definition_hash or spec.compute_hash(),
+        "approved_by": req.approved_by,
+        "approval_reason": req.approval_reason,
+        "scope": "workspace_custom",
+    }
 
 
 @router.post("/{skill_id}/deprecate")
@@ -471,7 +559,6 @@ async def deprecate_skill(
     req: DeprecateSkillRequest,
     request: Request,
     identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
-    plane: CosaAgentPlane = Depends(get_cosa_plane),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Chuyển trạng thái Skill sang RETIRED (không xoá bản ghi)."""
@@ -482,25 +569,17 @@ async def deprecate_skill(
             detail="Missing required workspace context",
         )
 
-    # 1. Update in spec_registry if published
-    versions = await plane.spec_registry.list_versions("skill", skill_id)
-    deprecated = False
-    for v in versions:
-        await plane.spec_registry.update_status("skill", skill_id, v.version, "retired")
-        deprecated = True
-
-    # 2. Update in candidate_store if candidate
+    # Deprecation chỉ retire bản custom của workspace caller — KHÔNG đụng
+    # shared registry (built-in platform-wide chỉ retire qua thay đổi repo).
     cand = await candidate_store.get_candidate(ws_id, skill_id)
     if cand is not None:
         await candidate_store.update_candidate_status(
             ws_id, cand.candidate_id, status=SkillStatus.RETIRED
         )
-        deprecated = True
-
-    if not deprecated:
+    else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Skill '{skill_id}' không tồn tại",
+            detail=f"Skill '{skill_id}' không tồn tại trong workspace",
         )
 
     return {

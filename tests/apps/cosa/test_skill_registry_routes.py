@@ -117,14 +117,21 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     assert cand_data["skill_id"] == "custom-email-drafter"
     assert cand_data["status"] == "CANDIDATE"
 
-    # 6. Evaluate Candidate
-    res_eval = client.post(
-        "/agent/skills/custom-email-drafter/evaluate",
-        json={"eval_score": 0.92, "eval_details": {"tests_passed": 12, "total": 12}},
-    )
+    # 6. Evaluate Candidate (server-attested — caller không truyền eval_score)
+    res_eval = client.post("/agent/skills/custom-email-drafter/evaluate", json={})
     assert res_eval.status_code == 200
-    assert res_eval.json()["eval_score"] == 0.92
-    assert res_eval.json()["status"] == "EVALUATED"
+    eval_data = res_eval.json()
+    assert eval_data["eval_score"] == 1.0
+    assert eval_data["status"] == "EVALUATED"
+    assert eval_data["report"]["evaluator_version"].startswith("cosa.skill-eval.")
+    assert eval_data["report"]["case_results"]
+
+    # 6b. Caller không thể tự ghi eval_score (extra field bị reject)
+    res_eval_forbidden = client.post(
+        "/agent/skills/custom-email-drafter/evaluate",
+        json={"eval_score": 1.0, "eval_details": {"claimed": "pass"}},
+    )
+    assert res_eval_forbidden.status_code == 422
 
     # 7. Promote without approved_by or approval_reason fails with 422
     res_promote_fail = client.post(
@@ -133,40 +140,18 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     )
     assert res_promote_fail.status_code == 422
 
-    # 7b. Promote with eval_score < 0.8 fails with 400
-    res_low_eval = client.post(
-        "/agent/skills/custom-email-drafter/evaluate",
-        json={"eval_score": 0.5, "eval_details": {"failed": True}},
-    )
-    assert res_low_eval.status_code == 200
-    res_low_promote = client.post(
-        "/agent/skills/custom-email-drafter/promote",
-        json={
-            "approved_by": "founder_admin",
-            "approval_reason": "Low score try",
-        },
-    )
-    assert res_low_promote.status_code == 400
-    assert "eval score" in res_low_promote.json()["detail"].lower()
-
-    # Re-evaluate with passing score 0.92
-    res_eval2 = client.post(
-        "/agent/skills/custom-email-drafter/evaluate",
-        json={"eval_score": 0.92, "eval_details": {"tests_passed": 12, "total": 12}},
-    )
-    assert res_eval2.status_code == 200
-
-    # 8. Promote with approval succeeds
+    # 8. Promote with approval succeeds — workspace-scoped, không vào shared registry
     res_promote = client.post(
         "/agent/skills/custom-email-drafter/promote",
         json={
             "approved_by": "founder_admin",
-            "approval_reason": "Evaluated at 92% benchmark, passed cold outbound quality test",
+            "approval_reason": "Server-attested policy-contract pass",
         },
     )
     assert res_promote.status_code == 200
     assert res_promote.json()["status"] == "PUBLISHED"
     assert res_promote.json()["approved_by"] == "founder_admin"
+    assert res_promote.json()["scope"] == "workspace_custom"
 
     # 9. Deprecate Skill
     res_dep = client.post(
