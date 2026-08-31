@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from agent.capabilities.enablements import InMemoryEnablementStore
 from agent.capabilities.gateway import GatewayExecutionRequest
 from agent.capabilities.gateway_internals import (
+    EnablementValidator,
     IdempotencyCoordinator,
     InputValidator,
     TenancyVerifier,
@@ -262,3 +264,72 @@ async def test_idempotency_coordinator_in_progress(idempotency_coordinator):
     assert outcome2 == IdempotencyOutcome.IN_PROGRESS
     assert idempotency_coordinator.should_return_in_progress(outcome2)
     assert claim2.claim_id == claim1.claim_id
+
+
+@pytest.fixture
+def enablement_validator():
+    return EnablementValidator(InMemoryEnablementStore())
+
+
+def test_enablement_validator_extracts_action_class_from_dict(enablement_validator):
+    """Extract action_class from context dict (dict wins over spec metadata)."""
+    spec = CapabilitySpec(
+        id="test.spec",
+        version="1.0.0",
+        metadata={"action_class": "R"},
+    )
+
+    action_class = enablement_validator.extract_action_class(spec, {"action_class": "W"})
+    assert action_class == "W"
+
+
+def test_enablement_validator_extracts_action_class_falls_back_to_spec(enablement_validator):
+    """No action_class in context -> falls back to spec metadata."""
+    spec = CapabilitySpec(
+        id="test.spec",
+        version="1.0.0",
+        metadata={"action_class": "W"},
+    )
+
+    action_class = enablement_validator.extract_action_class(spec, {})
+    assert action_class == "W"
+
+
+def test_enablement_validator_extracts_skill_hash(enablement_validator):
+    """Extract skill_hash from context dict."""
+    skill_hash = enablement_validator.extract_skill_hash({"skill_hash": "hash_123"})
+    assert skill_hash == "hash_123"
+
+
+def test_enablement_validator_extracts_skill_hash_from_pinned_skill(enablement_validator):
+    """Falls back to pinned_skill.definition_hash when skill_hash absent."""
+    skill_hash = enablement_validator.extract_skill_hash(
+        {"pinned_skill": {"definition_hash": "hash_pinned"}}
+    )
+    assert skill_hash == "hash_pinned"
+
+
+def test_enablement_validator_extracts_skill_hash_none(enablement_validator):
+    """No skill_hash anywhere in context -> None."""
+    skill_hash = enablement_validator.extract_skill_hash({})
+    assert skill_hash is None
+
+
+@pytest.mark.asyncio
+async def test_enablement_validator_enabled(enablement_validator):
+    """No enablement records configured -> default-allow, validation passes."""
+    spec = CapabilitySpec(
+        id="test.spec",
+        version="1.0.0",
+        metadata={"action_class": "R"},
+    )
+
+    is_enabled, error = await enablement_validator.validate(
+        spec=spec,
+        capability_id="test.spec",
+        workspace_id="ws_1",
+        context={},
+    )
+
+    assert is_enabled is True
+    assert error is None

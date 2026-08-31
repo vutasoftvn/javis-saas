@@ -20,12 +20,9 @@ from agent.contracts.target import ExecutionTargetSnapshot
 logger = logging.getLogger(__name__)
 
 from agent.capabilities.canonicalization import compute_payload_hash
-from agent.capabilities.enablements import (
-    EnablementStore,
-    InMemoryEnablementStore,
-    assert_enabled_for_invocation,
-)
+from agent.capabilities.enablements import EnablementStore, InMemoryEnablementStore
 from agent.capabilities.gateway_internals import (
+    EnablementValidator,
     IdempotencyCoordinator,
     InputValidator,
     TenancyVerifier,
@@ -263,39 +260,15 @@ class CapabilityGateway:
                 )
 
         # Bước 4.8: Scoped Capability Enablement Verification (Tranche C / Task 1)
-        action_class = "R"
-        if isinstance(req.context, dict):
-            action_class = (
-                req.context.get("action_class") or spec.metadata.get("action_class") or "R"
-            )
-        elif hasattr(req.context, "action_class") and req.context.action_class:
-            action_class = req.context.action_class
-        else:
-            action_class = str(
-                spec.metadata.get("action_class") or getattr(spec, "action_class", "R")
-            )
-
-        skill_hash = None
-        if isinstance(req.context, dict):
-            skill_hash = req.context.get("skill_hash") or req.context.get("definition_hash")
-            if not skill_hash:
-                pinned = req.context.get("pinned_skill") or req.context.get("skill_ref")
-                if isinstance(pinned, dict):
-                    skill_hash = pinned.get("definition_hash") or pinned.get("skill_hash")
-                elif pinned is not None and hasattr(pinned, "definition_hash"):
-                    skill_hash = pinned.definition_hash
-        elif hasattr(req.context, "skill_hash"):
-            skill_hash = getattr(req.context, "skill_hash", None)
-
-        is_enabled, enb_error = await assert_enabled_for_invocation(
-            enablement_store=self._enablement_store,
-            workspace_id=str(resolved_workspace or ""),
+        enablement_validator = EnablementValidator(self._enablement_store)
+        is_enabled, enb_error = await enablement_validator.validate(
+            spec=spec,
             capability_id=req.capability_id,
-            skill_hash=skill_hash,
-            action_class=action_class,
-            target_fingerprint="*",
+            workspace_id=str(resolved_workspace or ""),
+            context=req.context,
         )
         if not is_enabled:
+            skill_hash = enablement_validator.extract_skill_hash(req.context)
             def_hash_val = spec.metadata.get("definition_hash") or getattr(
                 spec, "definition_hash", None
             )
@@ -322,7 +295,9 @@ class CapabilityGateway:
                         "tool_call_id": req.tool_call_id,
                         "capability": req.capability_id,
                         "reason": enb_error,
-                        "action_class": action_class,
+                        "action_class": enablement_validator.extract_action_class(
+                            spec, req.context
+                        ),
                     },
                 )
             )

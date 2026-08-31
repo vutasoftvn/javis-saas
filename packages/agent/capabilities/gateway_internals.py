@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from agent.capabilities.enablements import EnablementStore, assert_enabled_for_invocation
 from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
@@ -10,7 +11,7 @@ from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["IdempotencyCoordinator", "InputValidator", "TenancyVerifier"]
+__all__ = ["EnablementValidator", "IdempotencyCoordinator", "InputValidator", "TenancyVerifier"]
 
 
 class TenancyVerifier:
@@ -123,3 +124,60 @@ class IdempotencyCoordinator:
     def should_return_in_progress(self, outcome: IdempotencyOutcome) -> bool:
         """Check if should return in_progress."""
         return outcome == IdempotencyOutcome.IN_PROGRESS
+
+
+class EnablementValidator:
+    """Xác thực scoped capability enablement cho workspace/action_class/skill."""
+
+    def __init__(self, enablement_store: EnablementStore) -> None:
+        self._enablement_store = enablement_store
+
+    def extract_action_class(self, spec: CapabilitySpec, context: Any) -> str:
+        """Extract action_class from context or spec, default to 'R'."""
+        if isinstance(context, dict):
+            return context.get("action_class") or spec.metadata.get("action_class") or "R"
+        elif hasattr(context, "action_class") and context.action_class:
+            return context.action_class
+        else:
+            return str(spec.metadata.get("action_class") or getattr(spec, "action_class", "R"))
+
+    def extract_skill_hash(self, context: Any) -> str | None:
+        """Extract skill_hash from context."""
+        if isinstance(context, dict):
+            skill_hash = context.get("skill_hash") or context.get("definition_hash")
+            if not skill_hash:
+                pinned = context.get("pinned_skill") or context.get("skill_ref")
+                if isinstance(pinned, dict):
+                    skill_hash = pinned.get("definition_hash") or pinned.get("skill_hash")
+                elif pinned is not None and hasattr(pinned, "definition_hash"):
+                    skill_hash = pinned.definition_hash
+            return skill_hash
+        elif hasattr(context, "skill_hash"):
+            return getattr(context, "skill_hash", None)
+        return None
+
+    async def validate(
+        self,
+        spec: CapabilitySpec,
+        capability_id: str,
+        workspace_id: str,
+        context: Any,
+    ) -> tuple[bool, str | None]:
+        """Validate scoped enablement.
+
+        Returns:
+            (is_enabled, error_message) — if is_enabled=False, error_message is not None.
+        """
+        action_class = self.extract_action_class(spec, context)
+        skill_hash = self.extract_skill_hash(context)
+
+        is_enabled, enb_error = await assert_enabled_for_invocation(
+            enablement_store=self._enablement_store,
+            workspace_id=workspace_id,
+            capability_id=capability_id,
+            skill_hash=skill_hash,
+            action_class=action_class,
+            target_fingerprint="*",
+        )
+
+        return is_enabled, enb_error if not is_enabled else None
