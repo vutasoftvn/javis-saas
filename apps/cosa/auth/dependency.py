@@ -142,6 +142,12 @@ def set_workspace_tenant_context_client(client: WorkspaceTenantContextClient | N
 # ---------------------------------------------------------------------------
 
 _RESOLVE_CACHE_TTL_SEC = float(os.environ.get("COSA_WORKSPACE_RESOLVE_CACHE_TTL_SEC", "60"))
+# Task 6 — cache trên KHÔNG có giới hạn kích thước trước đây: 1 process chạy
+# lâu dài phục vụ nhiều principal/workspace/token phân biệt sẽ làm dict này
+# phình vô hạn (mỗi entry không tự dọn cho tới khi bị truy cập lại và thấy
+# hết TTL). Giới hạn cứng số entry, dọn theo thứ tự: (1) entry đã hết TTL,
+# rồi (2) entry cũ nhất — trước khi insert entry mới.
+_RESOLVE_CACHE_MAX_ENTRIES = int(os.environ.get("COSA_WORKSPACE_RESOLVE_CACHE_MAX_ENTRIES", "10000"))
 _resolve_cache: dict[tuple[str, str, str], tuple[float, ResolvedWorkspaceTenantContext]] = {}
 
 
@@ -154,6 +160,29 @@ def clear_workspace_resolve_cache() -> None:
     """Xoá toàn bộ cache resolve — dùng cho test teardown và (nếu cần) ops
     invalidation thủ công sau khi thu hồi membership hàng loạt."""
     _resolve_cache.clear()
+
+
+def _prune_resolve_cache_before_insert(now: float) -> None:
+    """Dọn cache TRƯỚC khi insert 1 entry mới — không dọn theo lịch nền
+    (không có background task nào chạy trong process này để làm việc đó).
+
+    Bước 1: bỏ mọi entry đã hết TTL — dọn rác tự nhiên, không giữ membership
+    cũ vô thời hạn chỉ vì entry đó không bị truy cập lại.
+    Bước 2: nếu vẫn còn đầy (>= max_entries) sau bước 1, bỏ entry CŨ NHẤT
+    (theo `cached_at`) cho tới khi còn chỗ — chặn unbounded growth khi traffic
+    có nhiều principal/workspace/token phân biệt trong cùng 1 TTL window.
+    """
+    expired_keys = [
+        key
+        for key, (cached_at, _) in _resolve_cache.items()
+        if (now - cached_at) >= _RESOLVE_CACHE_TTL_SEC
+    ]
+    for key in expired_keys:
+        _resolve_cache.pop(key, None)
+
+    while len(_resolve_cache) >= _RESOLVE_CACHE_MAX_ENTRIES and _resolve_cache:
+        oldest_key = min(_resolve_cache, key=lambda k: _resolve_cache[k][0])
+        _resolve_cache.pop(oldest_key, None)
 
 
 async def _resolve_workspace_context(
@@ -173,6 +202,7 @@ async def _resolve_workspace_context(
     tenant_client = get_workspace_tenant_context_client()
     resolved = await tenant_client.resolve(token, workspace_id)
     if _RESOLVE_CACHE_TTL_SEC > 0:
+        _prune_resolve_cache_before_insert(now)
         _resolve_cache[key] = (now, resolved)
     return resolved
 

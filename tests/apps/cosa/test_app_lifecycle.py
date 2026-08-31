@@ -13,6 +13,7 @@ lifespan có chạy hay không)."""
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -114,6 +115,42 @@ def test_app_fails_fast_at_startup_when_config_missing():
         for k, v in env_backup.items():
             if v is not None:
                 os.environ[k] = v
+
+
+def test_liveness_is_always_ok_when_process_running():
+    """`/live` chỉ phản ánh process còn sống — không phụ thuộc dependency,
+    dùng cho probe "process crashed, restart container" (khác readiness)."""
+    plane = _in_memory_plane()
+    app = create_cosa_app(plane=plane)
+
+    with TestClient(app) as client:
+        res = client.get("/live")
+        assert res.status_code == 200
+
+
+def test_readiness_ok_with_fully_wired_plane():
+    """`/ready` phải trả 200 khi plane đã wire đủ dependency cốt lõi (đúng
+    hành vi cũ của `/healthz`, giờ `/healthz` delegate sang route này)."""
+    plane = _in_memory_plane()
+    app = create_cosa_app(plane=plane)
+
+    with TestClient(app) as client:
+        res = client.get("/ready")
+        assert res.status_code == 200
+        healthz_res = client.get("/healthz")
+        assert healthz_res.status_code == 200
+
+
+def test_readiness_reports_missing_dependencies():
+    """`/ready` phải trả 503 khi plane thiếu dependency cốt lõi — khác hẳn
+    `/healthz` cũ (luôn trả 200 "ok"/"not_ready" bất kể dependency thật có
+    sẵn sàng hay không). Plane rỗng (`SimpleNamespace()`) mô phỏng 1 plane
+    chưa wire đủ (thiếu spec_registry/kernel/...)."""
+    app = create_cosa_app(plane=SimpleNamespace())
+    with TestClient(app) as client:
+        assert client.get("/ready").status_code == 503
+        # /healthz phải delegate cùng logic — không còn trả 200 "not_ready".
+        assert client.get("/healthz").status_code == 503
 
 
 def test_no_lazy_plane_creation_on_first_request():

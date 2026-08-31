@@ -99,6 +99,37 @@ class _SpyComplianceResolver:
         return await self._inner.resolve_for_run(request, spec)
 
 
+async def _all_client_visible_text(plane, *, run_id: str, conversation_id: str) -> str:
+    """Gom mọi text mà client CÓ THỂ nhìn thấy — conversation message content
+    + payload của mọi stream event đã emit cho run này. Dùng để chứng minh
+    lỗi runtime không bị leak ra ngoài (không chỉ kiểm tra 1 chỗ)."""
+    messages = await plane.conversation_repository.list_messages(conversation_id)
+    events = await plane.stream_event_repository.list_since(run_id)
+    parts = [m.content or "" for m in messages]
+    parts.extend(str(event.payload) for event in events)
+    return " ".join(parts)
+
+
+@pytest.mark.asyncio
+async def test_unexpected_worker_error_is_not_sent_to_client():
+    """Task 6 — lỗi runtime bất ngờ (vd. exception nội bộ có thể chứa pin/
+    secret) KHÔNG được forward nguyên văn cho client qua message hay stream
+    event; chỉ log server-side kèm run_id."""
+    plane = _plane()
+    await seed_cosa_agent_specs(plane.spec_registry)
+    stream_mgr = CosaEventStreamManager()
+    plane.kernel.run = AsyncMock(side_effect=RuntimeError("internal-pin-and-secret"))
+
+    payload = _payload()
+    await execute_run_task(plane, stream_mgr, payload)
+
+    visible_text = await _all_client_visible_text(
+        plane, run_id=payload["run_id"], conversation_id=payload["conversation_id"]
+    )
+    assert "internal-pin-and-secret" not in visible_text
+    assert "internal_error" in visible_text
+
+
 @pytest.mark.asyncio
 async def test_worker_forwards_server_provenance():
     plane = _plane()

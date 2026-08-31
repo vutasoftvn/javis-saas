@@ -4,7 +4,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.cosa.agents.seed import seed_cosa_runtime_specs
@@ -22,6 +22,36 @@ from apps.cosa.composition.agent_plane import (
 )
 
 __all__ = ["create_cosa_app"]
+
+# Task 6 — dependency cốt lõi mà `CosaAgentPlane` PHẢI có để phục vụ traffic
+# thật. Kiểm tra ATTRIBUTE PRESENCE (object đã construct/wire đúng qua
+# lifespan hay chưa) — KHÔNG gọi network/DB mỗi lần probe (readiness bị
+# orchestrator gọi định kỳ mỗi vài giây; tự tạo tải lên downstream mỗi lần
+# probe là phản tác dụng, và có thể khiến readiness tự sập theo downstream
+# tạm thời flap thay vì phản ánh đúng "process này đã wire xong chưa").
+_PLANE_CORE_DEPENDENCIES = (
+    "spec_registry",
+    "capability_registry",
+    "repository",
+    "conversation_repository",
+    "governance_store",
+    "stream_event_repository",
+    "kernel",
+)
+
+
+def _plane_is_ready(plane: object | None) -> bool:
+    """`plane` absent (chưa qua lifespan/inject) hoặc thiếu dependency cốt
+    lõi ⇒ chưa sẵn sàng. `event_intake_deps` chỉ bắt buộc khi deployment
+    này thật sự bật event intake (`AGENT_DATABASE_URL` đã cấu hình) — không
+    phải mọi deployment đều dùng event intake."""
+    if plane is None:
+        return False
+    if any(getattr(plane, dep, None) is None for dep in _PLANE_CORE_DEPENDENCIES):
+        return False
+    return not (
+        os.environ.get("AGENT_DATABASE_URL") and getattr(plane, "event_intake_deps", None) is None
+    )
 
 
 def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
@@ -161,17 +191,32 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     app.include_router(create_copilot_router())
     app.include_router(create_autopilot_metrics_router())
 
+    @app.get("/live")
+    async def liveness():
+        # Chỉ phản ánh process còn sống (ASGI event loop đang xử lý request
+        # được) — KHÔNG kiểm tra dependency. Orchestrator dùng route này để
+        # quyết định "process treo, cần restart container", khác hẳn readiness
+        # (quyết định "còn nhận traffic mới hay không").
+        return {"status": "ok", "app": "cosa-agent-platform"}
+
+    @app.get("/ready")
+    async def readiness():
+        current_plane = getattr(app.state, "plane", None)
+        if not _plane_is_ready(current_plane):
+            # Fail-closed: plane vắng mặt hoặc thiếu dependency cốt lõi KHÔNG
+            # được coi là "tạm ổn" — 503 để load balancer ngừng route traffic
+            # mới vào instance này (§10.5 freshness invariant áp dụng tương tự
+            # cho readiness: không xác nhận được sẵn sàng KHÔNG phải ALLOW).
+            raise HTTPException(status_code=503, detail="not_ready")
+        return {"status": "ok", "app": "cosa-agent-platform", "version": "1.0.0"}
+
     @app.get("/healthz")
     async def health_check():
-        # app.state.plane luôn tồn tại khi endpoint này reachable (lifespan
-        # startup fail-fast ở trên nếu build thất bại) — readiness thật, không
-        # còn trả "ok" cố định bất kể provider có sẵn sàng hay không.
-        current_plane = getattr(app.state, "plane", None)
-        return {
-            "status": "ok" if current_plane is not None else "not_ready",
-            "app": "cosa-agent-platform",
-            "version": "1.0.0",
-        }
+        # Tương thích ngược cho orchestrator/deploy config cũ còn trỏ
+        # `/healthz` (K8s liveness/readiness probe, load balancer health
+        # check) — delegate thẳng logic readiness, không duy trì 2 nguồn sự
+        # thật khác nhau cho "server có sẵn sàng hay không".
+        return await readiness()
 
     @app.get("/metrics")
     async def metrics():

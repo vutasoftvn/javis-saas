@@ -397,14 +397,20 @@ async def _execute_run_task_inner(
                 payload={"error": err_msg},
             )
 
-    except Exception as exc:
+    except Exception:
+        # Task 6 — exception thô (message, traceback) có thể chứa nội dung
+        # nhạy cảm (pinned skill detail, secret trong context, đường dẫn nội
+        # bộ...) — TUYỆT ĐỐI không forward nguyên văn cho client qua message
+        # hay stream event. Log đầy đủ server-side kèm run_id để debug được,
+        # client chỉ nhận thông báo ổn định + mã lỗi chung.
         _run_duration = time.monotonic() - _run_start
         record_run_outcome("failed", duration_sec=_run_duration)
+        logger.exception("agent run failed", extra={"run_id": run_id})
         await _append_message(
             plane,
             conversation_id=conversation_id,
             role="assistant",
-            content=f"Unexpected error: {exc!s}",
+            content="Đã xảy ra lỗi không mong muốn khi thực thi run. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
             run_id=run_id,
             status_="failed",
         )
@@ -413,7 +419,7 @@ async def _execute_run_task_inner(
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="run.failed",
-            payload={"error": str(exc)},
+            payload={"error": "internal_error"},
         )
 
 
