@@ -3,7 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from apps.cosa.auth import AuthenticatedIdentity, get_authenticated_identity, resolve_identity_workspace
+from apps.cosa.auth import (
+    AuthenticatedIdentity,
+    get_authenticated_identity,
+    resolve_identity_workspace,
+)
 
 
 class AutopilotMetricsResponse(BaseModel):
