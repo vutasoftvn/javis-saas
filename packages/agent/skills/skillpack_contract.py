@@ -37,46 +37,19 @@ class SkillpackViolation:
     message: str
 
 
-# Whitelist of capabilities referenced in skillpacks but pending implementation/registration.
-# Each entry has a documented target removal date / phase.
-KNOWN_PENDING_CAPABILITIES: dict[str, str] = {
-    "analytics.read": "Target removal: Part C Commercial integration (2026-08-28)",
-}
-
-
-REGISTERED_STATIC_CAPABILITY_IDS = frozenset(
+VALID_LIFECYCLE_STAGES = frozenset(
     {
-        "operations.task.list",
-        "operations.task.read",
-        "operations.task.create_draft",
-        "finance.payout.execute",
-        "finance.transaction.record",
-        "web.search",
-        "commercial.marketing_context.read",
-        "commercial.marketing_context.write",
-        "commercial.campaign_asset.write",
-        "commercial.experiment.write",
-        "list_sandbox_items",
-        "strategy.project.get",
-        "strategy.evidence.list",
-        "strategy.evidence.create",
-        "strategy.gate_evaluation.create",
-        "strategy.next_best_action.get",
-        "strategy.pilot.get",
-        "strategy.pilot.create_draft",
-        "analytics.metric_contract.get",
-        "analytics.pmf_scoreboard.get",
-        "analytics.pmf_scoreboard.propose",
+        "P0_DISCOVERY",
+        "P1_PROBLEM_VALIDATION",
+        "P2_SOLUTION_VALIDATION",
+        "P3_BUILD_VALIDATE",
+        "P4_GO_TO_MARKET",
+        "P5_OPERATE_GROWTH",
+        "P6_SCALE_GOVERN",
     }
 )
-
-
-def get_registered_capability_ids() -> set[str]:
-    """
-    Get set of capability IDs registered in COSA agent plane.
-    Returns the static set of standard capability IDs, preserving package boundary independence.
-    """
-    return set(REGISTERED_STATIC_CAPABILITY_IDS)
+VALID_AUTONOMY_CEILINGS = frozenset({"L0_OBSERVE", "L1_PROPOSE", "L2_BOUNDED"})
+VALID_SIDE_EFFECT_CLASSES = frozenset({"R", "A", "B", "X", "M", "D"})
 
 
 def normalize_discovery_name(value: str) -> str:
@@ -177,6 +150,24 @@ def _extract_allowed_tools(skillmd_body: str) -> set[str]:
                 allowed_tools.add(match)
 
     return allowed_tools
+
+
+def _extract_referenced_capabilities(skillmd_body: str) -> set[str]:
+    """Extract capabilities named under a non-callable reference-only section."""
+    heading_pattern = r"^#+\s+.*referenced\s+capabilities\s*\(not\s+callable\).*?$"
+    references: set[str] = set()
+    in_section = False
+
+    for line in skillmd_body.split("\n"):
+        if re.search(heading_pattern, line, re.IGNORECASE):
+            in_section = True
+            continue
+        if in_section:
+            if line.startswith("#") and not line.startswith("####"):
+                break
+            references.update(re.findall(r"`([a-zA-Z0-9._-]+)`", line))
+
+    return references
 
 
 def _is_tool_marked_optional(skillmd_body: str, tool_id: str) -> bool:
@@ -304,9 +295,6 @@ def validate_skillpack_tree(
     violations: list[SkillpackViolation] = []
     seen_normalized_names: dict[str, Path] = {}
 
-    if registered_capabilities is None:
-        registered_capabilities = get_registered_capability_ids()
-
     # Recursively find all directories containing both manifest.yaml and SKILL.md
     def find_pack_dirs(search_root: Path) -> list[Path]:
         packs = []
@@ -380,9 +368,6 @@ def _validate_single_pack(
     violations: list[SkillpackViolation] = []
     rel_path = pack_dir.relative_to(root)
 
-    if registered_capabilities is None:
-        registered_capabilities = get_registered_capability_ids()
-
     manifest_path = pack_dir / "manifest.yaml"
     skillmd_path = pack_dir / "SKILL.md"
 
@@ -423,6 +408,10 @@ def _validate_single_pack(
         "permissions": (dict, "mapping"),
         "risk": (dict, "mapping"),
         "trust": (dict, "mapping"),
+        "applicability": (dict, "mapping"),
+        "autonomy": (dict, "mapping"),
+        "evidence": (dict, "mapping"),
+        "quality": (dict, "mapping"),
     }
 
     for section, (expected_type, type_name) in required_sections.items():
@@ -443,6 +432,150 @@ def _validate_single_pack(
                         f"Section '{section}' must be a {type_name}, "
                         f"got {type(manifest[section]).__name__}"
                     ),
+                )
+            )
+
+    # Built-in governance must be explicit. Do not let a missing field become
+    # an implicit P0/L0/read-only default at parse or runtime time.
+    applicability = manifest.get("applicability")
+    if isinstance(applicability, dict):
+        stages = applicability.get("project_stages")
+        if not isinstance(stages, list) or not stages:
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="applicability-project-stages-invalid",
+                    message="applicability.project_stages must be a non-empty string list",
+                )
+            )
+        else:
+            for index, stage in enumerate(stages):
+                if not isinstance(stage, str) or stage not in VALID_LIFECYCLE_STAGES:
+                    violations.append(
+                        SkillpackViolation(
+                            path=rel_path / "manifest.yaml",
+                            rule="applicability-stage-invalid",
+                            message=(
+                                f"applicability.project_stages[{index}] must be one of "
+                                f"{sorted(VALID_LIFECYCLE_STAGES)}, got {stage!r}"
+                            ),
+                        )
+                    )
+
+    autonomy = manifest.get("autonomy")
+    if isinstance(autonomy, dict):
+        ceiling = autonomy.get("ceiling")
+        if ceiling not in VALID_AUTONOMY_CEILINGS:
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="autonomy-ceiling-invalid",
+                    message=(
+                        "autonomy.ceiling must be one of "
+                        f"{sorted(VALID_AUTONOMY_CEILINGS)}, got {ceiling!r}"
+                    ),
+                )
+            )
+        side_effect_class = autonomy.get("side_effect_class")
+        if side_effect_class not in VALID_SIDE_EFFECT_CLASSES:
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="autonomy-side-effect-class-invalid",
+                    message=(
+                        "autonomy.side_effect_class must be one of "
+                        f"{sorted(VALID_SIDE_EFFECT_CLASSES)}, got {side_effect_class!r}"
+                    ),
+                )
+            )
+
+    evidence = manifest.get("evidence")
+    if isinstance(evidence, dict):
+        min_source_refs = evidence.get("min_source_refs")
+        if (
+            not isinstance(min_source_refs, int)
+            or isinstance(min_source_refs, bool)
+            or min_source_refs < 0
+        ):
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="evidence-min-source-refs-invalid",
+                    message="evidence.min_source_refs must be a non-negative integer",
+                )
+            )
+        freshness_days = evidence.get("freshness_days")
+        if freshness_days is not None and (
+            not isinstance(freshness_days, int)
+            or isinstance(freshness_days, bool)
+            or freshness_days < 1
+        ):
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="evidence-freshness-days-invalid",
+                    message="evidence.freshness_days must be a positive integer when provided",
+                )
+            )
+        if not isinstance(evidence.get("self_validation_forbidden"), bool):
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="evidence-self-validation-forbidden-invalid",
+                    message="evidence.self_validation_forbidden must be a boolean",
+                )
+            )
+
+    quality = manifest.get("quality")
+    if isinstance(quality, dict):
+        eval_suite = quality.get("eval_suite")
+        eval_relative_path: Path | None = None
+        if not isinstance(eval_suite, str) or not eval_suite.strip():
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="quality-eval-suite-invalid",
+                    message="quality.eval_suite must be a non-empty path under evals/",
+                )
+            )
+        else:
+            eval_relative_path = Path(eval_suite)
+            if (
+                eval_relative_path.is_absolute()
+                or ".." in eval_relative_path.parts
+                or not eval_relative_path.parts
+                or eval_relative_path.parts[0] != "evals"
+            ):
+                violations.append(
+                    SkillpackViolation(
+                        path=rel_path / "manifest.yaml",
+                        rule="quality-eval-suite-invalid",
+                        message="quality.eval_suite must be a safe relative path under evals/",
+                    )
+                )
+            elif not (root.parent / eval_relative_path).is_file():
+                violations.append(
+                    SkillpackViolation(
+                        path=rel_path / "manifest.yaml",
+                        rule="quality-eval-suite-missing",
+                        message=(
+                            f"quality.eval_suite '{eval_suite}' is missing beside the "
+                            "skillpacks bundle"
+                        ),
+                    )
+                )
+
+        negative_cases = quality.get("required_negative_cases")
+        if (
+            not isinstance(negative_cases, list)
+            or not negative_cases
+            or any(not isinstance(case, str) or not case.strip() for case in negative_cases)
+        ):
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="quality-required-negative-cases-invalid",
+                    message="quality.required_negative_cases must be a non-empty string list",
                 )
             )
 
@@ -639,23 +772,38 @@ def _validate_single_pack(
             if isinstance(tool, str):
                 declared_tools.add(tool)
 
-    # Check: every declared tool must be registered in plane or in KNOWN_PENDING_CAPABILITIES
-    valid_capabilities = registered_capabilities | set(KNOWN_PENDING_CAPABILITIES.keys())
-    for tool in declared_tools:
-        if tool not in valid_capabilities:
-            violations.append(
-                SkillpackViolation(
-                    path=rel_path / "manifest.yaml",
-                    rule="tool-not-registered",
-                    message=(
-                        f"Tool '{tool}' is declared in manifest.runtime.tools but is not a "
-                        f"registered capability in build_cosa_agent_plane() nor in KNOWN_PENDING_CAPABILITIES"
-                    ),
+    # Startup, sync and the CLI pass the actual plane inventory. Structural
+    # unit fixtures may omit it when they are intentionally testing unrelated
+    # manifest fields, but must inject a set to test tool registration.
+    if registered_capabilities is not None:
+        for tool in declared_tools:
+            if tool not in registered_capabilities:
+                violations.append(
+                    SkillpackViolation(
+                        path=rel_path / "manifest.yaml",
+                        rule="tool-not-registered",
+                        message=(
+                            f"Tool '{tool}' is declared in manifest.runtime.tools but is not "
+                            "registered in the injected capability inventory"
+                        ),
+                    )
                 )
-            )
 
     # Extract tools mentioned in SKILL.md
     allowed_tools = _extract_allowed_tools(skillmd_body=skillmd_text)
+    referenced_capabilities = _extract_referenced_capabilities(skillmd_body=skillmd_text)
+
+    for tool in declared_tools & referenced_capabilities:
+        violations.append(
+            SkillpackViolation(
+                path=rel_path / "SKILL.md",
+                rule="capability-callable-reference-overlap",
+                message=(
+                    f"Capability '{tool}' cannot be both an Allowed Tool Call and "
+                    "a Referenced Capability (not callable)"
+                ),
+            )
+        )
 
     # Check: every allowed tool must be declared
     for tool in allowed_tools:

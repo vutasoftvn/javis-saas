@@ -14,7 +14,6 @@ Tests cover:
 - CLI invocation via subprocess (task-3 wire integration)
 """
 
-import re
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -23,10 +22,9 @@ import pytest
 import yaml
 
 from packages.agent.skills.skillpack_contract import (
-    SkillpackViolation,
+    _parse_skillmd_frontmatter,
     normalize_discovery_name,
     validate_skillpack_tree,
-    _parse_skillmd_frontmatter,
 )
 
 
@@ -41,6 +39,49 @@ def find_repo_root() -> Path:
 
 
 REPO_ROOT = find_repo_root()
+
+
+def _complete_manifest() -> dict[str, object]:
+    """Một manifest governed tối thiểu dùng cho các contract tests."""
+    return {
+        "apiVersion": "agentos.ai/v1",
+        "kind": "Skill",
+        "metadata": {"id": "test.pack", "version": "1.0.0"},
+        "publisher": {"name": "test"},
+        "source": {"path": "skillpacks/test-pack"},
+        "capability": {"domain": "test", "category": "test"},
+        "runtime": {"entrypoint": "SKILL.md", "tools": []},
+        "permissions": {"required": []},
+        "risk": {"level": "low"},
+        "trust": {"tier": "T0"},
+        "applicability": {
+            "project_stages": ["P0_DISCOVERY"],
+            "gates": ["G0"],
+            "required_context": ["workspace"],
+            "outputs": ["artifact"],
+        },
+        "autonomy": {"ceiling": "L0_OBSERVE", "side_effect_class": "R"},
+        "evidence": {"min_source_refs": 0, "self_validation_forbidden": True},
+        "quality": {
+            "eval_suite": "evals/test-pack.yaml",
+            "required_negative_cases": ["missing-workspace"],
+        },
+    }
+
+
+def _write_governed_pack(root: Path, manifest: dict[str, object]) -> Path:
+    pack_dir = root / "test-pack"
+    pack_dir.mkdir(parents=True)
+    (pack_dir / "manifest.yaml").write_text(
+        yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8"
+    )
+    (pack_dir / "SKILL.md").write_text(
+        "---\nname: test-pack\ndescription: Test\n---\n", encoding="utf-8"
+    )
+    eval_path = root.parent / "evals" / "test-pack.yaml"
+    eval_path.parent.mkdir(parents=True)
+    eval_path.write_text("apiVersion: cosa.ai/skill-eval/v1\n", encoding="utf-8")
+    return pack_dir
 
 
 class TestNormalizeDiscoveryName:
@@ -78,6 +119,85 @@ class TestNormalizeDiscoveryName:
 
 class TestSkillpackContractViolations:
     """Unit tests for individual violation scenarios."""
+
+    @pytest.mark.parametrize("removed", ["applicability", "autonomy", "evidence", "quality"])
+    def test_builtin_manifest_requires_governance_sections(self, tmp_path: Path, removed: str):
+        manifest = _complete_manifest()
+        manifest.pop(removed)
+        root = tmp_path / "skillpacks"
+        _write_governed_pack(root, manifest)
+
+        violations = validate_skillpack_tree(root, registered_capabilities=set())
+
+        assert any(v.rule == f"manifest-missing-{removed}" for v in violations)
+
+    @pytest.mark.parametrize(
+        ("section", "field", "value", "expected_rule"),
+        [
+            ("applicability", "project_stages", ["P9_UNKNOWN"], "applicability-stage-invalid"),
+            ("autonomy", "ceiling", "L9_UNSAFE", "autonomy-ceiling-invalid"),
+            ("autonomy", "side_effect_class", "Z", "autonomy-side-effect-class-invalid"),
+            ("evidence", "min_source_refs", -1, "evidence-min-source-refs-invalid"),
+            ("quality", "eval_suite", "evals/not-present.yaml", "quality-eval-suite-missing"),
+            ("quality", "required_negative_cases", [], "quality-required-negative-cases-invalid"),
+        ],
+    )
+    def test_builtin_manifest_rejects_invalid_governance_values(
+        self,
+        tmp_path: Path,
+        section: str,
+        field: str,
+        value: object,
+        expected_rule: str,
+    ):
+        manifest = _complete_manifest()
+        manifest[section][field] = value  # type: ignore[index]
+        root = tmp_path / "skillpacks"
+        _write_governed_pack(root, manifest)
+
+        violations = validate_skillpack_tree(root, registered_capabilities=set())
+
+        assert any(v.rule == expected_rule for v in violations)
+
+    def test_reference_only_capability_does_not_require_callable_permission(
+        self, tmp_path: Path
+    ) -> None:
+        manifest = _complete_manifest()
+        root = tmp_path / "skillpacks"
+        pack_dir = _write_governed_pack(root, manifest)
+        (pack_dir / "SKILL.md").write_text(
+            "---\nname: test-pack\ndescription: Test\n---\n\n"
+            "## Referenced Capabilities (not callable)\n"
+            "- `finance.transaction.record`: hand off to the approved finance flow.\n",
+            encoding="utf-8",
+        )
+
+        violations = validate_skillpack_tree(root, registered_capabilities=set())
+
+        assert not any(v.rule.startswith("tool-") for v in violations)
+
+    def test_capability_cannot_be_callable_and_reference_only(self, tmp_path: Path) -> None:
+        manifest = _complete_manifest()
+        manifest["runtime"] = {
+            "entrypoint": "SKILL.md",
+            "tools": ["finance.transaction.record"],
+        }
+        root = tmp_path / "skillpacks"
+        pack_dir = _write_governed_pack(root, manifest)
+        (pack_dir / "SKILL.md").write_text(
+            "---\nname: test-pack\ndescription: Test\n---\n\n"
+            "## Allowed Tool Calls\n"
+            "- `finance.transaction.record`: Record a governed transaction.\n\n"
+            "## Referenced Capabilities (not callable)\n"
+            "- `finance.transaction.record`: hand off to the approved finance flow.\n",
+            encoding="utf-8",
+        )
+
+        violations = validate_skillpack_tree(
+            root, registered_capabilities={"finance.transaction.record"}
+        )
+
+        assert any(v.rule == "capability-callable-reference-overlap" for v in violations)
 
     def test_manifest_yaml_sequence_root(self):
         """Detect when manifest.yaml has a sequence (array) root instead of mapping."""
@@ -566,7 +686,7 @@ Some other content.
             assert any(v.rule == "tool-not-declared" for v in violations)
 
     def test_tool_not_registered_violation(self):
-        """Detect when a declared tool is neither registered in agent plane nor in KNOWN_PENDING_CAPABILITIES."""
+        """Detect when a declared tool is absent from the injected capability inventory."""
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             pack_dir = root / "test_pack"
@@ -608,11 +728,13 @@ description: Test
 """
             )
 
-            violations = validate_skillpack_tree(root)
+            violations = validate_skillpack_tree(
+                root, registered_capabilities={"registered.some_other_tool"}
+            )
             assert any(v.rule == "tool-not-registered" for v in violations)
 
     def test_tool_in_known_pending_capabilities_allowed(self):
-        """Allow tools listed in KNOWN_PENDING_CAPABILITIES whitelist (e.g. web.search)."""
+        """Allow a tool that is present in the injected capability inventory."""
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             pack_dir = root / "test_pack"
@@ -654,52 +776,37 @@ description: Test
 """
             )
 
-            violations = validate_skillpack_tree(root)
+            violations = validate_skillpack_tree(root, registered_capabilities={"web.search"})
             assert not any(v.rule == "tool-not-registered" for v in violations)
 
-    def test_nested_pack_structure(self):
+    def test_nested_pack_structure(self, tmp_path: Path):
         """Test nested pack discovery (e.g., marketing/campaign-review)."""
-        with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            pack_dir = root / "marketing" / "campaign-review"
-            pack_dir.mkdir(parents=True)
-
-            (pack_dir / "manifest.yaml").write_text(
-                """apiVersion: agentos.ai/v1
-kind: Skill
-metadata:
-  id: marketing.campaign-review
-publisher:
-  name: test
-source:
-  path: skillpacks/marketing/campaign-review
-capability:
-  domain: marketing
-  category: pack
-runtime:
-  entrypoint: SKILL.md
-  tools: []
-permissions:
-  required: []
-risk:
-  level: low
-trust:
-  tier: T0
-"""
-            )
-            (pack_dir / "SKILL.md").write_text(
-                """---
+        root = tmp_path / "skillpacks"
+        pack_dir = root / "marketing" / "campaign-review"
+        pack_dir.mkdir(parents=True)
+        manifest = _complete_manifest()
+        manifest["metadata"] = {"id": "marketing.campaign-review", "version": "1.0.0"}
+        manifest["source"] = {"path": "skillpacks/marketing/campaign-review"}
+        manifest["capability"] = {"domain": "marketing", "category": "pack"}
+        manifest["quality"] = {
+            "eval_suite": "evals/marketing/campaign-review.yaml",
+            "required_negative_cases": ["missing-workspace"],
+        }
+        (pack_dir / "manifest.yaml").write_text(yaml.safe_dump(manifest), encoding="utf-8")
+        (pack_dir / "SKILL.md").write_text(
+            """---
 name: marketing-campaign-review
 description: Test
 ---
 """
-            )
+        )
+        eval_path = root.parent / "evals" / "marketing" / "campaign-review.yaml"
+        eval_path.parent.mkdir(parents=True)
+        eval_path.write_text("apiVersion: cosa.ai/skill-eval/v1\n", encoding="utf-8")
 
-            violations = validate_skillpack_tree(root)
-            # Should find this nested pack and validate it
-            assert len(violations) == 0 or not any(
-                v.path.relative_to(root).parts[0] == "marketing" for v in violations
-            )
+        violations = validate_skillpack_tree(root, registered_capabilities=set())
+        # Should find this nested pack and validate it
+        assert violations == []
 
     def test_attribution_invalid_commit(self):
         """Detect when upstream attribution commit is not a 40-character hex SHA."""
@@ -820,7 +927,7 @@ class TestRepositoryContract:
         # For now, document what violations exist
         if violations:
             # Print for debugging/documentation
-            for v in violations:
+            for _violation in violations:
                 pass  # Just iterate; the assertion below will capture failures
 
         assert violations == [], (
@@ -968,6 +1075,7 @@ description: Broken
                 cwd=REPO_ROOT,
                 capture_output=True,
                 text=True,
+                check=False,
                 env={"PYTHONPATH": str(REPO_ROOT)},
             )
 
@@ -1002,6 +1110,7 @@ description: Broken
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
+            check=False,
             env={"PYTHONPATH": str(REPO_ROOT)},
         )
 

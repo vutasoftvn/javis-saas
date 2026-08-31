@@ -17,6 +17,24 @@ from agent.skills.skillpack_contract import _extract_source_attribution_record
 __all__ = ["parse_skillpack_spec"]
 
 
+def _require_mapping(manifest: dict, section: str) -> dict:
+    value = manifest.get(section)
+    if not isinstance(value, dict):
+        raise ValueError(f"Skillpack manifest requires {section} mapping")
+    return value
+
+
+def _require_non_empty_string_list(mapping: dict, field: str, *, section: str) -> list[str]:
+    value = mapping.get(field)
+    if (
+        not isinstance(value, list)
+        or not value
+        or any(not isinstance(item, str) or not item.strip() for item in value)
+    ):
+        raise ValueError(f"Skillpack manifest requires {section}.{field} non-empty string list")
+    return value
+
+
 def _extract_instructions_body(skillmd_text: str) -> str:
     """Tách phần thân markdown sau YAML frontmatter."""
     if not skillmd_text.startswith("---"):
@@ -44,47 +62,60 @@ def parse_skillpack_spec(pack_dir: Path) -> SkillSpec:
     category = metadata.get("category") or pack_dir.parent.name or "general"
 
     # Applicability
-    raw_app = manifest_data.get("applicability") or {}
-    raw_stages = raw_app.get("project_stages") or ["P0_DISCOVERY"]
+    raw_app = _require_mapping(manifest_data, "applicability")
+    raw_stages = _require_non_empty_string_list(
+        raw_app, "project_stages", section="applicability"
+    )
     project_stages = []
     for s in raw_stages:
         try:
             project_stages.append(ProjectLifecycleStage(s))
-        except ValueError:
-            project_stages.append(ProjectLifecycleStage.P0_DISCOVERY)
+        except ValueError as exc:
+            raise ValueError(f"Invalid applicability.project_stages value: {s!r}") from exc
 
     applicability = LifecycleApplicability(
-        project_stages=project_stages or [ProjectLifecycleStage.P0_DISCOVERY],
+        project_stages=project_stages,
         gates=raw_app.get("gates", []),
         required_context=raw_app.get("required_context", []),
         outputs=raw_app.get("outputs", []),
     )
 
     # Autonomy
-    raw_autonomy = manifest_data.get("autonomy") or {}
+    raw_autonomy = _require_mapping(manifest_data, "autonomy")
+    if not isinstance(raw_autonomy.get("ceiling"), str):
+        raise ValueError("Skillpack manifest requires autonomy.ceiling")
+    if not isinstance(raw_autonomy.get("side_effect_class"), str):
+        raise ValueError("Skillpack manifest requires autonomy.side_effect_class")
     autonomy = AutonomyPolicy(
-        ceiling=raw_autonomy.get("ceiling", "L0_OBSERVE"),
-        side_effect_class=raw_autonomy.get("side_effect_class", "R"),
+        ceiling=raw_autonomy["ceiling"],
+        side_effect_class=raw_autonomy["side_effect_class"],
     )
 
     # Evidence requirement
-    raw_evidence = manifest_data.get("evidence") or {}
+    raw_evidence = _require_mapping(manifest_data, "evidence")
+    min_source_refs = raw_evidence.get("min_source_refs")
+    if not isinstance(min_source_refs, int) or isinstance(min_source_refs, bool):
+        raise ValueError("Skillpack manifest requires evidence.min_source_refs integer")
+    self_validation_forbidden = raw_evidence.get("self_validation_forbidden")
+    if not isinstance(self_validation_forbidden, bool):
+        raise ValueError("Skillpack manifest requires evidence.self_validation_forbidden boolean")
     evidence_req = EvidenceRequirement(
-        min_source_refs=raw_evidence.get("min_source_refs", 0),
+        min_source_refs=min_source_refs,
         freshness_days=raw_evidence.get("freshness_days"),
-        self_validation_forbidden=raw_evidence.get("self_validation_forbidden", True),
+        self_validation_forbidden=self_validation_forbidden,
     )
 
     # Quality spec
-    raw_quality = manifest_data.get("quality")
-    quality = None
-    if raw_quality and isinstance(raw_quality, dict) and raw_quality.get("eval_suite"):
-        quality = SkillQualitySpec(
-            eval_suite=raw_quality["eval_suite"],
-            required_negative_cases=raw_quality.get(
-                "required_negative_cases", ["default-negative"]
-            ),
-        )
+    raw_quality = _require_mapping(manifest_data, "quality")
+    eval_suite = raw_quality.get("eval_suite")
+    if not isinstance(eval_suite, str) or not eval_suite.strip():
+        raise ValueError("Skillpack manifest requires quality.eval_suite")
+    quality = SkillQualitySpec(
+        eval_suite=eval_suite,
+        required_negative_cases=_require_non_empty_string_list(
+            raw_quality, "required_negative_cases", section="quality"
+        ),
+    )
 
     # Capabilities từ manifest.runtime.tools đã lọc
     runtime_config = manifest_data.get("runtime", {})
