@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { APIError } from "encore.dev/api";
 import { isStagingOrProd } from "../../shared/env";
 
 const DEV_JWT_SECRET = "cosa-dev-jwt-secret-do-not-use-in-prod";
@@ -62,7 +63,7 @@ export function renewAccessToken(token: string): string {
       }) as jwt.JwtPayload & JwtPayload;
       const expMs = (decoded.exp ?? 0) * 1000;
       if (Date.now() - expMs > getRenewGraceSeconds() * 1000) {
-        throw new Error("local session expired beyond renewal grace window");
+        throw APIError.unauthenticated("local session expired beyond renewal grace window");
       }
       sub = decoded.sub;
       authTime = decoded.auth_time;
@@ -70,12 +71,12 @@ export function renewAccessToken(token: string): string {
       throw err;
     }
   }
-  if (!sub) throw new Error("local session token has no subject");
+  if (!sub) throw APIError.unauthenticated("local session token has no subject");
   // Chặn renewal chain vượt quá tuổi tối đa kể từ lần đăng nhập gốc — token
   // cũ trước khi có claim auth_time (authTime === undefined) được coi như vừa
   // đăng nhập lại để không phá vỡ session đang hoạt động của người dùng cũ.
   if (authTime !== undefined && Date.now() / 1000 - authTime > getMaximumSessionAgeSeconds()) {
-    throw new Error("local session exceeds maximum age");
+    throw APIError.unauthenticated("local session exceeds maximum age");
   }
   return signAccessToken(sub, authTime);
 }

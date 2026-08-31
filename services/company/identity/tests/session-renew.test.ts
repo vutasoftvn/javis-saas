@@ -8,9 +8,12 @@ const JWT_SECRET = process.env.JWT_SECRET || "cosa-dev-jwt-secret-do-not-use-in-
 
 describe("renewAccessToken", () => {
   const prevGrace = process.env.COMPANY_LOCAL_SESSION_RENEW_GRACE_SECONDS;
+  const prevMaxAge = process.env.COMPANY_LOCAL_SESSION_MAX_AGE_SECONDS;
   afterEach(() => {
     if (prevGrace === undefined) delete process.env.COMPANY_LOCAL_SESSION_RENEW_GRACE_SECONDS;
     else process.env.COMPANY_LOCAL_SESSION_RENEW_GRACE_SECONDS = prevGrace;
+    if (prevMaxAge === undefined) delete process.env.COMPANY_LOCAL_SESSION_MAX_AGE_SECONDS;
+    else process.env.COMPANY_LOCAL_SESSION_MAX_AGE_SECONDS = prevMaxAge;
   });
 
   it("re-issues a valid token for a still-valid local session, same subject", () => {
@@ -38,6 +41,25 @@ describe("renewAccessToken", () => {
   it("refuses a token signed with the wrong secret", () => {
     const forged = jwt.sign({ sub: "1" }, "not-the-real-secret", { expiresIn: "1h" });
     expect(() => renewAccessToken(forged)).toThrow();
+  });
+
+  it("renewAccessToken throws APIError.unauthenticated for token with no subject", () => {
+    const tokenNoSub = jwt.sign({}, JWT_SECRET, { expiresIn: "1h" });
+    expect(() => renewAccessToken(tokenNoSub)).toThrow(
+      expect.objectContaining({ code: "unauthenticated" })
+    );
+  });
+
+  it("renewAccessToken throws APIError.unauthenticated when exceeds max age", () => {
+    process.env.COMPANY_LOCAL_SESSION_MAX_AGE_SECONDS = "60"; // 1 minute
+    const oldToken = jwt.sign(
+      { sub: "user_1", auth_time: Math.floor(Date.now() / 1000) - 120 },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+    expect(() => renewAccessToken(oldToken)).toThrow(
+      expect.objectContaining({ code: "unauthenticated" })
+    );
   });
 
   it("endpoint returns a bearer local_session_token", async () => {
