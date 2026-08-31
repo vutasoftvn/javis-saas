@@ -1,13 +1,15 @@
 import 'dart:convert';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../data/models/commercial_models.dart';
 
+export '../../../core/network/api_exception.dart';
+export '../../../core/network/api_response_decoder.dart';
+
 /// Lỗi từ Marketing API
-class MarketingApiException implements Exception {
-  final int statusCode;
-  final String message;
-  MarketingApiException(this.statusCode, this.message);
+class MarketingApiException extends ApiException {
+  MarketingApiException(int statusCode, String message) : super(message, statusCode);
 
   @override
   String toString() => message;
