@@ -448,10 +448,11 @@ def test_compliance_auditor_extract_snapshot_missing(compliance_auditor):
 
 @pytest.mark.asyncio
 async def test_compliance_auditor_no_snapshot_continues(compliance_auditor, compliance_repo):
-    """No compliance snapshot in context -> should_continue=True, no result, no event logged."""
+    """No compliance snapshot in context -> should_continue=True, no result,
+    no pending event, no event logged."""
     decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
 
-    should_continue, result = await compliance_auditor.audit(
+    should_continue, result, pending_event = await compliance_auditor.audit(
         context={},
         run_id="run_1",
         workspace_id="ws_1",
@@ -464,6 +465,7 @@ async def test_compliance_auditor_no_snapshot_continues(compliance_auditor, comp
 
     assert should_continue is True
     assert result is None
+    assert pending_event is None
     events = await compliance_repo.list_events("run_1")
     assert [e for e in events if e.event_type == "compliance.decision"] == []
 
@@ -473,7 +475,8 @@ async def test_compliance_auditor_approved_records_allow_event(
     compliance_auditor, compliance_repo
 ):
     """Happy path: APPROVED_FOR_USE snapshot -> continue, and a compliance.decision
-    event is recorded with decision matching current_decision.outcome."""
+    event is recorded (directly by audit(), no pending event to defer) with
+    decision matching current_decision.outcome."""
     decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
     context = {
         "compliance_snapshot": {
@@ -488,7 +491,7 @@ async def test_compliance_auditor_approved_records_allow_event(
         "delegation_jti": "jwt_123",
     }
 
-    should_continue, result = await compliance_auditor.audit(
+    should_continue, result, pending_event = await compliance_auditor.audit(
         context=context,
         run_id="run_allow",
         workspace_id="ws_1",
@@ -501,6 +504,7 @@ async def test_compliance_auditor_approved_records_allow_event(
 
     assert should_continue is True
     assert result is None
+    assert pending_event is None
 
     events = await compliance_repo.list_events("run_allow")
     compliance_events = [e for e in events if e.event_type == "compliance.decision"]
@@ -517,9 +521,12 @@ async def test_compliance_auditor_suspended_deployment_denies(
     compliance_auditor, compliance_repo
 ):
     """Deny path: a non-APPROVED_FOR_USE status returns should_continue=False with
-    a denied GatewayExecutionResult, and still records a compliance.decision event
-    with decision=DENY / reason_code=DEPLOYMENT_SUSPENDED (mirrors
-    test_char_compliance_deployment_suspended)."""
+    a denied GatewayExecutionResult and a PENDING `compliance.decision` event
+    (decision=DENY / reason_code=DEPLOYMENT_SUSPENDED) that audit() itself does
+    NOT append to the repo -- ordering is the caller's (gateway.py's)
+    responsibility, appending only AFTER tc_record/idempotency bookkeeping, per
+    the fix for the crash/duplicate-event ordering finding. Payload content
+    mirrors test_char_compliance_deployment_suspended."""
     decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
     context = {
         "compliance_snapshot": {
@@ -530,7 +537,7 @@ async def test_compliance_auditor_suspended_deployment_denies(
         }
     }
 
-    should_continue, result = await compliance_auditor.audit(
+    should_continue, result, pending_event = await compliance_auditor.audit(
         context=context,
         run_id="run_deny",
         workspace_id="ws_1",
@@ -546,12 +553,16 @@ async def test_compliance_auditor_suspended_deployment_denies(
     assert result.status == "denied"
     assert "suspended" in result.error_message.lower() or "approved" in result.error_message.lower()
 
+    # audit() itself must NOT have appended the event yet.
     events = await compliance_repo.list_events("run_deny")
-    compliance_events = [e for e in events if e.event_type == "compliance.decision"]
-    assert len(compliance_events) == 1
-    assert compliance_events[0].payload["decision"] == "DENY"
-    assert compliance_events[0].payload["reason_code"] == "DEPLOYMENT_SUSPENDED"
-    assert compliance_events[0].payload["deployment_id"] == "deploy_sus"
+    assert [e for e in events if e.event_type == "compliance.decision"] == []
+
+    # But it must hand back a fully-formed pending event for the caller to append.
+    assert pending_event is not None
+    assert pending_event.event_type == "compliance.decision"
+    assert pending_event.payload["decision"] == "DENY"
+    assert pending_event.payload["reason_code"] == "DEPLOYMENT_SUSPENDED"
+    assert pending_event.payload["deployment_id"] == "deploy_sus"
 
 
 @pytest.mark.asyncio
@@ -568,7 +579,7 @@ async def test_compliance_auditor_not_approved_status_denies(
         }
     }
 
-    should_continue, result = await compliance_auditor.audit(
+    should_continue, result, pending_event = await compliance_auditor.audit(
         context=context,
         run_id="run_deny_2",
         workspace_id="ws_1",
@@ -582,3 +593,76 @@ async def test_compliance_auditor_not_approved_status_denies(
     assert should_continue is False
     assert result.status == "denied"
     assert result.tool_call_id == "call_1"
+    assert pending_event is not None
+    assert pending_event.payload["decision"] == "DENY"
+
+
+class _OrderSpyRepo(InMemoryRunRepository):
+    """Wraps InMemoryRunRepository, recording the call order of the three
+    durable side effects on the compliance-deny path, to guard against the
+    ordering regression found in code review: tc_record save + idempotency
+    fail MUST happen before the compliance.decision DENY event is appended
+    (so a crash between them, followed by a retry, cannot re-enter the audit
+    and append a duplicate DENY event before the claim is actually failed)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.call_order: list[str] = []
+
+    async def save_tool_call(self, tool_call):  # type: ignore[override]
+        if tool_call.status == "denied":
+            self.call_order.append("save_tool_call(denied)")
+        return await super().save_tool_call(tool_call)
+
+    async def fail_idempotency_claim(self, claim_id, *, error_message):  # type: ignore[override]
+        self.call_order.append("fail_idempotency_claim")
+        return await super().fail_idempotency_claim(claim_id, error_message=error_message)
+
+    async def append_event(self, event):  # type: ignore[override]
+        if event.event_type == "compliance.decision" and event.payload.get("decision") == "DENY":
+            self.call_order.append("append_event(compliance.decision DENY)")
+        return await super().append_event(event)
+
+
+@pytest.mark.asyncio
+async def test_gateway_compliance_deny_preserves_original_side_effect_order():
+    """Regression test for the ordering finding: on the compliance-deny path,
+    CapabilityGateway must call save_tool_call (status=denied) and
+    fail_idempotency_claim BEFORE appending the compliance.decision DENY
+    event -- matching the pre-Task-6 inline ordering byte-for-byte, not the
+    reversed order Task 6's first pass introduced."""
+    from agent.capabilities.gateway import CapabilityGateway, GatewayExecutionRequest
+    from agent.capabilities.registry import CapabilityRegistry
+    from agent.contracts.capability import CapabilitySpec
+
+    registry = CapabilityRegistry()
+    repo = _OrderSpyRepo()
+
+    def handler(payload, ctx):
+        return {"ok": True}
+
+    spec = CapabilitySpec(id="test.capability.read", version="1.0.0")
+    registry.register(spec, handler)
+    gateway = CapabilityGateway(registry=registry, repository=repo)
+
+    req = GatewayExecutionRequest(
+        run_id="run_order_check",
+        capability_id="test.capability.read",
+        input_payload={},
+        tool_call_id="call_order_check",
+        context={
+            "compliance_snapshot": {
+                "status": "SUSPENDED",
+                "deployment_id": "deploy_order_check",
+            }
+        },
+    )
+
+    res = await gateway.execute(req)
+
+    assert res.status == "denied"
+    assert repo.call_order == [
+        "save_tool_call(denied)",
+        "fail_idempotency_claim",
+        "append_event(compliance.decision DENY)",
+    ]

@@ -168,12 +168,24 @@ class ComplianceAuditor:
         capability_id: str,
         current_decision: Any,  # PolicyDecision
         payload_hash: str,
-    ) -> tuple[bool, Any | None]:  # (should_continue, early_return_result_if_denied)
-        """Audit compliance. Returns (should_continue, early_return_result).
+    ) -> tuple[bool, Any | None, RunEventRecord | None]:
+        # (should_continue, early_return_result_if_denied, pending_deny_event)
+        """Audit compliance. Returns (should_continue, early_return_result, pending_deny_event).
 
         Nếu should_continue=False, early_return_result là GatewayExecutionResult
-        cần trả về ngay (deployment suspended). Trong cả hai nhánh (deny/allow),
-        một event `compliance.decision` được ghi lại nếu có compliance_snapshot.
+        cần trả về ngay (deployment suspended) VÀ pending_deny_event là
+        RunEventRecord (`compliance.decision`, decision=DENY) mà CALLER phải tự
+        append SAU KHI đã cập nhật tc_record.status/save_tool_call/idempotency.fail
+        — KHÔNG được append ngay trong hàm này. Lý do: phải giữ đúng thứ tự
+        side-effect gốc của gateway.py (tc_record save + idempotency.fail TRƯỚC
+        event append) để một crash giữa hai bước không khiến lần retry sau
+        (idempotency claim chưa bị fail) chạy lại audit() và ghi trùng event DENY
+        thứ hai trước khi claim mới thực sự bị fail — vi phạm invariant
+        durable/monotonic (không trùng lặp event) khi resume sau restart.
+
+        Nhánh allow (should_continue=True, snapshot APPROVED_FOR_USE hoặc không
+        có snapshot) không có bước tc_record/idempotency nào xen giữa, nên event
+        được append trực tiếp trong hàm này như cũ (pending_deny_event=None).
         """
         # Import cục bộ để tránh circular import: gateway.py import module này ở
         # top-level, nên gateway_internals.py không được import gateway.py ở top-level.
@@ -187,7 +199,7 @@ class ComplianceAuditor:
         snap = self.extract_compliance_snapshot(context)
 
         if not snap:
-            return True, None
+            return True, None, None
 
         snap_status = (
             snap.get("status") if isinstance(snap, dict) else getattr(snap, "status", None)
@@ -237,40 +249,45 @@ class ComplianceAuditor:
         # nguyên trạng (str(None) == "None", một chuỗi truthy nên KHÔNG bị "or None"
         # rút gọn về None). Giữ nguyên byte-for-byte, không phải bug được sửa ở đây.
         if snap_status and snap_status != "APPROVED_FOR_USE":
-            await self._repo.append_event(
-                RunEventRecord(
+            # KHÔNG append_event() ở đây — trả event về cho caller để caller tự
+            # append SAU tc_record.save/idempotency.fail (giữ đúng thứ tự side
+            # effect gốc, xem docstring của audit()).
+            deny_event = RunEventRecord(
+                run_id=run_id,
+                event_type="compliance.decision",
+                payload=ComplianceDecisionPayload(
                     run_id=run_id,
-                    event_type="compliance.decision",
-                    payload=ComplianceDecisionPayload(
-                        run_id=run_id,
-                        workspace_id=workspace_id,
-                        deployment_id=deployment_id,
-                        snapshot_hash=snapshot_hash,
-                        policy_snapshot_hash=policy_snapshot_hash,
-                        capability_id=capability_id,
-                        tool_call_id=tool_call_id,
-                        checkpoint_ref=checkpoint_ref or "",
-                        decision="DENY",
-                        reason_code="DEPLOYMENT_SUSPENDED",
-                        rule_version_ids=rule_version_ids,
-                        evidence_hashes=evidence_hashes,
-                        provider_model_ref=str(
-                            snap.get("provider_profile_version")
-                            if isinstance(snap, dict)
-                            else getattr(snap, "provider_profile_version", "")
-                        )
-                        or None,
-                        delegation_jti=str(
-                            ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti") or ""
-                        )
-                        or None,
-                    ).model_dump(),
-                )
+                    workspace_id=workspace_id,
+                    deployment_id=deployment_id,
+                    snapshot_hash=snapshot_hash,
+                    policy_snapshot_hash=policy_snapshot_hash,
+                    capability_id=capability_id,
+                    tool_call_id=tool_call_id,
+                    checkpoint_ref=checkpoint_ref or "",
+                    decision="DENY",
+                    reason_code="DEPLOYMENT_SUSPENDED",
+                    rule_version_ids=rule_version_ids,
+                    evidence_hashes=evidence_hashes,
+                    provider_model_ref=str(
+                        snap.get("provider_profile_version")
+                        if isinstance(snap, dict)
+                        else getattr(snap, "provider_profile_version", "")
+                    )
+                    or None,
+                    delegation_jti=str(
+                        ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti") or ""
+                    )
+                    or None,
+                ).model_dump(),
             )
-            return False, GatewayExecutionResult(
-                tool_call_id=tool_call_id,
-                status="denied",
-                error_message="Execution denied: AI deployment is suspended or not approved",
+            return (
+                False,
+                GatewayExecutionResult(
+                    tool_call_id=tool_call_id,
+                    status="denied",
+                    error_message="Execution denied: AI deployment is suspended or not approved",
+                ),
+                deny_event,
             )
 
         # Record compliance decision event (normal path)
@@ -297,7 +314,7 @@ class ComplianceAuditor:
             )
         )
 
-        return True, None
+        return True, None, None
 
 
 class EnablementValidator:

@@ -411,7 +411,7 @@ class CapabilityGateway:
         # (Task 6 modular-boundary-hardening): kiểm tra deployment status, ghi
         # `compliance.decision` event, deny sớm nếu deployment bị suspend/chưa duyệt.
         compliance_auditor = ComplianceAuditor(self._repo)
-        should_continue, early_deny_result = await compliance_auditor.audit(
+        should_continue, early_deny_result, pending_deny_event = await compliance_auditor.audit(
             context=req.context,
             run_id=req.run_id,
             workspace_id=str(resolved_workspace or ""),
@@ -422,11 +422,18 @@ class CapabilityGateway:
             payload_hash=payload_hash,
         )
         if not should_continue:
+            # Thứ tự PHẢI khớp nguyên bản: tc_record save + idempotency.fail
+            # TRƯỚC compliance.decision DENY event append — nếu crash giữa
+            # save/fail và event append, retry sau đó thấy claim đã fail nên
+            # KHÔNG re-enter audit() nữa, tránh ghi trùng event DENY (xem
+            # docstring ComplianceAuditor.audit()).
             tc_record.status = "denied"
             await self._repo.save_tool_call(tc_record)
             await self._idempotency.fail(
                 idem_claim.claim_id, error_message="Deployment suspended or not approved"
             )
+            if pending_deny_event is not None:
+                await self._repo.append_event(pending_deny_event)
             return early_deny_result
 
         # Bước 7: Accumulate Governance (Monotonic Governance Accumulator) — durable,
