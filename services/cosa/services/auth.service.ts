@@ -23,9 +23,27 @@ export interface SessionParams {
   password?: string;
 }
 
+export interface UserPayload {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  full_name: string | null;
+  role_id: string | null;
+}
+
+export interface WorkspaceSummaryPayload {
+  workspace_id: string;
+  workspace_name: string;
+  role_id: string;
+  membership_id?: string;
+  status: string;
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
+  user?: UserPayload;
+  workspaces?: WorkspaceSummaryPayload[];
   platform_workspace_id?: string;
   workspace_provision_status?: "pending" | "synced";
 }
@@ -73,6 +91,8 @@ export async function loginPlatformUser(params: SessionParams): Promise<TokenRes
   const [user] = await db
     .select({
       id: users.id,
+      email: users.email,
+      phone: users.phone,
       hashedPassword: users.hashedPassword,
     })
     .from(users)
@@ -93,9 +113,44 @@ export async function loginPlatformUser(params: SessionParams): Promise<TokenRes
     .set({ lastLoginAt: new Date() })
     .where(eq(users.id, user.id));
 
+  const [profile] = await db
+    .select({
+      fullName: profiles.fullName,
+      roleId: profiles.roleId,
+    })
+    .from(profiles)
+    .where(eq(profiles.id, user.id))
+    .limit(1);
+
+  const memberships = await db
+    .select({
+      membershipId: schema.workspaceMemberships.id,
+      workspaceId: schema.workspaceMemberships.workspaceId,
+      roleId: schema.workspaceMemberships.roleId,
+      workspaceName: schema.workspaces.workspaceName,
+      status: schema.workspaces.status,
+    })
+    .from(schema.workspaceMemberships)
+    .innerJoin(schema.workspaces, eq(schema.workspaces.id, schema.workspaceMemberships.workspaceId))
+    .where(and(eq(schema.workspaceMemberships.userId, user.id), eq(schema.workspaces.status, "active")));
+
   return {
     access_token: signPlatformToken(user.id.toString()),
     token_type: "bearer",
+    user: {
+      id: user.id.toString(),
+      email: user.email,
+      phone: user.phone,
+      full_name: profile?.fullName || null,
+      role_id: profile?.roleId || "member",
+    },
+    workspaces: memberships.map((m) => ({
+      workspace_id: m.workspaceId.toString(),
+      workspace_name: m.workspaceName,
+      role_id: m.roleId,
+      membership_id: m.membershipId.toString(),
+      status: m.status,
+    })),
   };
 }
 
@@ -143,6 +198,7 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
   });
 
   let platformWorkspaceId: string | undefined;
+  let provWorkspaces: WorkspaceSummaryPayload[] | undefined;
   if (explicitWsName) {
     const cid = params.client_workspace_creation_id || `auto-${newUserId.toString()}`;
     const prov = await provisionVentureWorkspace({
@@ -151,11 +207,27 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
       clientCreationId: cid,
     });
     platformWorkspaceId = prov.platformWorkspaceId;
+    provWorkspaces = [
+      {
+        workspace_id: prov.platformWorkspaceId,
+        workspace_name: explicitWsName,
+        role_id: "founder",
+        status: "active",
+      },
+    ];
   }
 
   return {
     access_token: signPlatformToken(newUserId.toString()),
     token_type: "bearer",
+    user: {
+      id: newUserId.toString(),
+      email,
+      phone: params.phone || null,
+      full_name: params.full_name || null,
+      role_id: initialRole,
+    },
+    workspaces: provWorkspaces,
     platform_workspace_id: platformWorkspaceId,
     workspace_provision_status: platformWorkspaceId ? "pending" : undefined,
   };

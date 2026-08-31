@@ -47,6 +47,8 @@ class AuthResult {
   final String? token;
   final String? companyId;
   final List<WorkspaceSummary>? workspaces;
+  final Map<String, dynamic>? user;
+  final List<Map<String, dynamic>>? rawWorkspaces;
 
   const AuthResult({
     required this.success,
@@ -54,6 +56,8 @@ class AuthResult {
     this.token,
     this.companyId,
     this.workspaces,
+    this.user,
+    this.rawWorkspaces,
   });
 }
 
@@ -115,7 +119,16 @@ class AuthService {
         if (token == null) {
           return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
         }
-        return AuthResult(success: true, token: token);
+        final userData = data['user'] as Map<String, dynamic>?;
+        final rawWs = (data['workspaces'] as List<dynamic>?)
+            ?.map((e) => e as Map<String, dynamic>)
+            .toList();
+        return AuthResult(
+          success: true,
+          token: token,
+          user: userData,
+          rawWorkspaces: rawWs,
+        );
       } else if (response.statusCode == 401) {
         return const AuthResult(success: false, errorMessage: 'Email/Số điện thoại hoặc mật khẩu không chính xác');
       }
@@ -160,7 +173,17 @@ class AuthService {
         if (token == null) {
           return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
         }
-        return AuthResult(success: true, token: token, companyId: wsId);
+        final userData = data['user'] as Map<String, dynamic>?;
+        final rawWs = (data['workspaces'] as List<dynamic>?)
+            ?.map((e) => e as Map<String, dynamic>)
+            .toList();
+        return AuthResult(
+          success: true,
+          token: token,
+          companyId: wsId,
+          user: userData,
+          rawWorkspaces: rawWs,
+        );
       } else if (response.statusCode == 409) {
         return const AuthResult(success: false, errorMessage: 'Email này đã được đăng ký');
       } else if (response.statusCode == 404) {
@@ -205,7 +228,13 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final companyId = data['company_id']?.toString();
-        return AuthResult(success: true, token: platformToken, companyId: companyId);
+        final wsObj = data['workspace'] as Map<String, dynamic>?;
+        return AuthResult(
+          success: true,
+          token: platformToken,
+          companyId: companyId,
+          rawWorkspaces: wsObj != null ? [wsObj] : null,
+        );
       } else if (response.statusCode == 422) {
         return const AuthResult(success: false, errorMessage: 'Tên công ty không hợp lệ');
       }
@@ -242,7 +271,13 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final resCompanyId = data['company_id']?.toString();
-        return AuthResult(success: true, token: platformToken, companyId: resCompanyId);
+        final wsObj = data['workspace'] as Map<String, dynamic>?;
+        return AuthResult(
+          success: true,
+          token: platformToken,
+          companyId: resCompanyId,
+          rawWorkspaces: wsObj != null ? [wsObj] : null,
+        );
       } else if (response.statusCode == 404) {
         return const AuthResult(success: false, errorMessage: 'Công ty muốn tham gia không tồn tại');
       }
@@ -261,7 +296,11 @@ class AuthService {
   /// Goi sau khi da co platformToken (tu loginPlatform/registerPlatform).
   /// Backend local se tao/dong bo core.users + tất cả workspaces tuong ung
   /// roi phat local JWT. Tra ve access_token va danh sach workspace thuc te.
-  Future<AuthResult> syncFromPlatform({required String platformToken}) async {
+  Future<AuthResult> syncFromPlatform({
+    required String platformToken,
+    Map<String, dynamic>? user,
+    List<Map<String, dynamic>>? workspaces,
+  }) async {
     try {
       // M1 §1 — lưu platform token dưới key riêng: dùng cho control-plane /
       // AgentOS platform path. Không trộn với local session token.
@@ -270,7 +309,11 @@ class AuthService {
       final response = await ApiClient.post(
         '/identity/sync-from-platform',
         requiresAuth: false,
-        body: {'platform_access_token': platformToken},
+        body: {
+          'platform_access_token': platformToken,
+          if (user != null) 'user': user,
+          if (workspaces != null && workspaces.isNotEmpty) 'workspaces': workspaces,
+        },
       );
 
       if (response.statusCode == 200) {
@@ -282,10 +325,10 @@ class AuthService {
         }
 
         // Parse workspaces from backend response
-        List<WorkspaceSummary> workspaces = [];
+        List<WorkspaceSummary> workspacesList = [];
         final workspacesData = data['workspaces'] as List<dynamic>?;
         if (workspacesData != null) {
-          workspaces = workspacesData
+          workspacesList = workspacesData
               .map((w) => WorkspaceSummary.fromJson(w as Map<String, dynamic>))
               .toList();
         }
@@ -295,7 +338,7 @@ class AuthService {
         await SecureStorageService.write('local_session_token', token);
         await SecureStorageService.write('auth_token', token);
         _cachedToken = token;
-        return AuthResult(success: true, token: token, workspaces: workspaces);
+        return AuthResult(success: true, token: token, workspaces: workspacesList);
       } else if (response.statusCode == 403) {
         return const AuthResult(success: false, errorMessage: 'Bạn không phải thành viên của workspace nào');
       }
@@ -312,8 +355,16 @@ class AuthService {
   /// Buoc cuoi cua ca login lan register: dong bo platform token xuong local
   /// (tao/dong bo core.users va tất cả workspace tuong ung), roi cache
   /// workspace/role qua getMe(). Tra ve true neu thanh cong.
-  Future<bool> finishAuthentication({required String platformToken}) async {
-    final syncResult = await syncFromPlatform(platformToken: platformToken);
+  Future<bool> finishAuthentication({
+    required String platformToken,
+    Map<String, dynamic>? user,
+    List<Map<String, dynamic>>? workspaces,
+  }) async {
+    final syncResult = await syncFromPlatform(
+      platformToken: platformToken,
+      user: user,
+      workspaces: workspaces,
+    );
     if (!syncResult.success) return false;
     await getMe();
     return true;

@@ -5,7 +5,7 @@ import '../../../data/models/evidence_model.dart';
 class EvidenceBackboneTab extends StatelessWidget {
   final List<MetricContract> contracts;
   final List<MetricSnapshot> snapshots;
-  final List<EvidenceItem> evidences;
+  final List<EvidenceModel> evidences;
   final bool isLoading;
 
   const EvidenceBackboneTab({
@@ -94,14 +94,15 @@ class EvidenceBackboneTab extends StatelessWidget {
                         itemCount: evidences.length,
                         itemBuilder: (context, index) {
                           final e = evidences[index];
+                          final isSupport = e.direction == 'SUPPORTS' || e.direction == 'supports';
                           return Card(
                             child: ListTile(
                               leading: Icon(
-                                e.supportsOrRefutes == 'supports' ? Icons.thumb_up : Icons.thumb_down,
-                                color: e.supportsOrRefutes == 'supports' ? Colors.green : Colors.red,
+                                isSupport ? Icons.thumb_up : Icons.thumb_down,
+                                color: isSupport ? Colors.green : Colors.red,
                               ),
-                              title: Text(e.claim, maxLines: 2, overflow: TextOverflow.ellipsis),
-                              subtitle: Text('Source: ${e.sourceType} • Status: ${e.status}'),
+                              title: Text(e.claimSupported, maxLines: 2, overflow: TextOverflow.ellipsis),
+                              subtitle: Text('Source: ${e.source} • Type: ${e.type} • Strength: ${e.strength}'),
                             ),
                           );
                         },

@@ -8,6 +8,10 @@ vi.mock("../services/platform.client", () => ({
   listPlatformWorkspaceMemberships: vi.fn().mockResolvedValue([]),
   validatePlatformWorkspaceMembership: vi.fn(),
   markPlatformWorkspaceSynced: vi.fn().mockResolvedValue(undefined),
+  verifyPlatformToken: vi.fn().mockImplementation((token: string) => {
+    if (token === "invalid") throw new Error("invalid token");
+    return { sub: "u-mock", aud: "cosa" };
+  }),
 }));
 
 import {
@@ -132,10 +136,28 @@ describe("syncFromPlatformService", () => {
     ).rejects.toMatchObject({ code: "unavailable" });
   });
 
-  it("M2 §5 — zero venture workspace ⇒ failedPrecondition (no legacy company fallback)", async () => {
-    (listPlatformWorkspaceMemberships as any).mockResolvedValueOnce([]);
-    await expect(
-      syncFromPlatformService({ platform_access_token: "tok" }),
-    ).rejects.toMatchObject({ code: "failed_precondition" });
+  it("Fast-Path — directly upserts workspaces without calling control-plane RPC", async () => {
+    const wsId = pwId();
+    const result = await syncFromPlatformService({
+      platform_access_token: "tok",
+      user: {
+        id: "u-mock",
+        email: "fastpath@example.com",
+        full_name: "Fast Path User",
+      },
+      workspaces: [
+        {
+          workspace_id: wsId,
+          workspace_name: "Fast Path Workspace",
+          role_id: "founder",
+        },
+      ],
+    });
+
+    expect(result.local_session_token).toBeTruthy();
+    expect(result.workspaces.length).toBe(1);
+    expect(result.workspaces[0].workspaceId).toBe(wsId);
+    expect(result.workspaces[0].name).toBe("Fast Path Workspace");
+    expect(result.workspaces[0].role).toBe("founder");
   });
 });

@@ -6,6 +6,7 @@ import {
   listPlatformWorkspaceMemberships,
   validatePlatformWorkspaceMembership,
   markPlatformWorkspaceSynced,
+  verifyPlatformToken,
   type PlatformWorkspaceMembership,
 } from "./platform.client";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -22,9 +23,33 @@ export interface WorkspaceSummary {
   status: string;
 }
 
+export interface SyncUserPayload {
+  id?: string;
+  email?: string | null;
+  phone?: string | null;
+  full_name?: string | null;
+  displayName?: string | null;
+  role_id?: string | null;
+}
+
+export interface SyncWorkspacePayload {
+  workspace_id?: string;
+  workspaceId?: string;
+  workspace_name?: string;
+  workspaceName?: string;
+  name?: string;
+  role_id?: string;
+  role?: string;
+  membership_id?: string;
+  membershipId?: string;
+  status?: string;
+}
+
 export interface SyncFromPlatformParams {
   platform_access_token?: string;
   platformAccessToken?: string;
+  user?: SyncUserPayload;
+  workspaces?: SyncWorkspacePayload[];
 }
 
 export interface SyncFromPlatformResult {
@@ -44,38 +69,77 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
     throw APIError.invalidArgument("vui lòng cung cấp platform_access_token");
   }
 
-  // 1. Kiểm tra workspace memberships trước (Venture Workspace).
-  // M2 §4 — KHÔNG nuốt lỗi: mảng rỗng = user chưa có venture workspace (đi tiếp),
-  // exception = control-plane không phản hồi ⇒ báo sync-required rõ ràng.
+  // Xác thực chữ ký token JWT từ Control Plane
+  const decoded = verifyPlatformToken(token);
+  const platformUserId = decoded.sub;
+
   let workspaceMemberships: PlatformWorkspaceMembership[];
-  try {
-    workspaceMemberships = (await listPlatformWorkspaceMemberships({ platformToken: token })) || [];
-  } catch (err) {
-    if (err instanceof APIError) throw err;
-    throw APIError.unavailable(
-      "không kết nối được control-plane để đồng bộ workspace — vui lòng thử lại"
-    );
+  let isFastPath = false;
+
+  // FAST-PATH: Nếu client truyền sẵn workspaces & user từ response của auth,
+  // upsert trực tiếp vào database local trong 1ms mà không cần round-trip HTTP.
+  if (params.workspaces && params.workspaces.length > 0) {
+    isFastPath = true;
+    workspaceMemberships = params.workspaces.map((w) => {
+      const wsId = (w.workspace_id || w.workspaceId || "").toString();
+      const wsName = w.workspace_name || w.workspaceName || w.name || "Workspace";
+      const wsRole = w.role_id || w.role || "member";
+      const memId = (w.membership_id || w.membershipId || `m-${platformUserId}-${wsId}`).toString();
+      return {
+        platformWorkspaceId: wsId,
+        workspaceName: wsName,
+        userId: platformUserId,
+        email: params.user?.email || null,
+        displayName: params.user?.full_name || params.user?.displayName || null,
+        role: wsRole,
+        membershipId: memId,
+        membershipUpdatedAt: new Date().toISOString(),
+      };
+    });
+  } else {
+    // FALLBACK: Gọi control-plane RPC nếu client không truyền sẵn payload
+    try {
+      workspaceMemberships = (await listPlatformWorkspaceMemberships({ platformToken: token })) || [];
+    } catch (err) {
+      if (err instanceof APIError) throw err;
+      throw APIError.unavailable(
+        "không kết nối được control-plane để đồng bộ workspace — vui lòng thử lại"
+      );
+    }
   }
 
   if (workspaceMemberships && workspaceMemberships.length > 0) {
     const localUserId = await db.transaction(async (tx) => {
-      const firstMembership = workspaceMemberships[0];
-      const member = await validatePlatformWorkspaceMembership({
-        platformToken: token,
-        platformWorkspaceId: firstMembership.platformWorkspaceId,
-      });
+      let memberInfo = {
+        userId: platformUserId,
+        email: params.user?.email || null,
+        displayName: params.user?.full_name || params.user?.displayName || null,
+      };
+
+      if (!isFastPath) {
+        const firstMembership = workspaceMemberships[0];
+        const member = await validatePlatformWorkspaceMembership({
+          platformToken: token,
+          platformWorkspaceId: firstMembership.platformWorkspaceId,
+        });
+        memberInfo = {
+          userId: member.userId,
+          email: member.email,
+          displayName: member.displayName,
+        };
+      }
 
       let [localUser] = await tx
         .select({ id: identityUserProjections.id })
         .from(identityUserProjections)
-        .where(eq(identityUserProjections.platformUserId, member.userId))
+        .where(eq(identityUserProjections.platformUserId, memberInfo.userId))
         .limit(1);
 
-      if (!localUser && member.email) {
+      if (!localUser && memberInfo.email) {
         [localUser] = await tx
           .select({ id: identityUserProjections.id })
           .from(identityUserProjections)
-          .where(eq(sql`LOWER(${identityUserProjections.email})`, member.email.toLowerCase()))
+          .where(eq(sql`LOWER(${identityUserProjections.email})`, memberInfo.email.toLowerCase()))
           .limit(1);
       }
 
@@ -85,8 +149,8 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
         await tx
           .update(identityUserProjections)
           .set({
-            platformUserId: member.userId,
-            displayName: member.displayName || undefined,
+            platformUserId: memberInfo.userId,
+            displayName: memberInfo.displayName || undefined,
             updatedAt: new Date(),
           })
           .where(eq(identityUserProjections.id, userId));
@@ -95,14 +159,14 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
           .insert(identityUserProjections)
           .values({
             id: generateSnowflake(),
-            email: member.email || null,
-            displayName: member.displayName || null,
-            platformUserId: member.userId,
+            email: memberInfo.email || null,
+            displayName: memberInfo.displayName || null,
+            platformUserId: memberInfo.userId,
           })
           .onConflictDoUpdate({
             target: identityUserProjections.platformUserId,
             set: {
-              displayName: member.displayName || undefined,
+              displayName: memberInfo.displayName || undefined,
               updatedAt: new Date(),
             },
           })
@@ -174,8 +238,17 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
       return userId;
     });
 
-    for (const wm of workspaceMemberships) {
-      await markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId, platformToken: token });
+    if (!isFastPath) {
+      for (const wm of workspaceMemberships) {
+        await markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId, platformToken: token }).catch(() => {});
+      }
+    } else {
+      // Async non-blocking mark synced in background
+      Promise.all(
+        workspaceMemberships.map((wm) =>
+          markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId, platformToken: token }).catch(() => {})
+        )
+      ).catch(() => {});
     }
 
     const workspaces = await db

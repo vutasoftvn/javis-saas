@@ -109,8 +109,12 @@ class AuthController extends GetxController {
     }
     final platformToken = loginResult.token!;
 
-    // Đồng bộ toàn bộ workspaces từ backend — lấy danh sách workspace thực từ sync result
-    final syncResult = await _authService.syncFromPlatform(platformToken: platformToken);
+    // Đồng bộ toàn bộ workspaces từ backend — sử dụng Fast-Path direct upsert
+    final syncResult = await _authService.syncFromPlatform(
+      platformToken: platformToken,
+      user: loginResult.user,
+      workspaces: loginResult.rawWorkspaces,
+    );
     if (!syncResult.success) {
       errorMessage.value = syncResult.errorMessage ?? 'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.';
       isLoading.value = false;
@@ -257,8 +261,11 @@ class AuthController extends GetxController {
         return;
       }
 
-      // Bước 3: Đã có Account + Workspace -> Đồng bộ về Local Database
-      final ok = await _authService.finishAuthentication(platformToken: token);
+      // Bước 3: Đã có Account + Workspace -> Đồng bộ về Local Database (Fast-Path)
+      final ok = await _authService.finishAuthentication(
+        platformToken: token,
+        workspaces: companyResult.rawWorkspaces,
+      );
 
       if (ok) {
         Get.offAllNamed(AppRoutes.hub);

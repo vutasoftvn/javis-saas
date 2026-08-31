@@ -34,6 +34,12 @@ export interface CompanyActionResponse {
   company_id: string;
   name: string;
   role_id: string;
+  workspace?: {
+    workspace_id: string;
+    workspace_name: string;
+    role_id: string;
+    status: string;
+  };
 }
 
 export interface ValidateMembershipParams {
@@ -103,6 +109,12 @@ export async function createNewCompany(
     company_id: result.platformWorkspaceId,
     name: name,
     role_id: "founder",
+    workspace: {
+      workspace_id: result.platformWorkspaceId,
+      workspace_name: name,
+      role_id: "founder",
+      status: "active",
+    },
   };
 }
 
@@ -120,33 +132,47 @@ export async function joinExistingCompany(
     .limit(1);
 
   if (!ws) {
-    throw APIError.notFound("workspace muốn tham gia không tồn tại");
+    throw APIError.notFound("công ty không tồn tại hoặc đã bị vô hiệu hóa");
   }
 
   const [existing] = await db
-    .select({ roleId: workspaceMemberships.roleId })
+    .select({ id: workspaceMemberships.id })
     .from(workspaceMemberships)
-    .where(and(eq(workspaceMemberships.workspaceId, ws.id), eq(workspaceMemberships.userId, userId)))
+    .where(and(eq(workspaceMemberships.workspaceId, workspaceId), eq(workspaceMemberships.userId, userId)))
     .limit(1);
 
-  let roleId = "member";
   if (existing) {
-    roleId = existing.roleId;
-  } else {
-    const newRoleId = BigInt(generateSnowflakeStr());
-    await db.insert(workspaceMemberships).values({
-      id: newRoleId,
-      workspaceId: ws.id,
-      userId: userId,
-      roleId: "member",
-    });
-    roleId = "member";
+    return {
+      company_id: workspaceId.toString(),
+      name: ws.name,
+      role_id: "member",
+      workspace: {
+        workspace_id: workspaceId.toString(),
+        workspace_name: ws.name,
+        role_id: "member",
+        status: "active",
+      },
+    };
   }
 
+  const newMembershipId = BigInt(generateSnowflakeStr());
+  await db.insert(workspaceMemberships).values({
+    id: newMembershipId,
+    workspaceId: workspaceId,
+    userId: userId,
+    roleId: "member",
+  });
+
   return {
-    company_id: ws.id.toString(),
+    company_id: workspaceId.toString(),
     name: ws.name,
-    role_id: roleId,
+    role_id: "member",
+    workspace: {
+      workspace_id: workspaceId.toString(),
+      workspace_name: ws.name,
+      role_id: "member",
+      status: "active",
+    },
   };
 }
 
