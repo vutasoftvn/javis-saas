@@ -8,6 +8,7 @@ ISOLATION RULE:
 - Scenario store NEVER receives live workspace sources, connector grants, or production evidence.
 - Scenario text is treated as data (never executed as code or agent instruction).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,6 +21,7 @@ import yaml
 @dataclass(frozen=True)
 class ScenarioCheckpoint:
     """A decision point within a simulation scenario."""
+
     id: str
     prompt: str
     expected_reasoning_keywords: list[str] = field(default_factory=list)
@@ -38,6 +40,7 @@ class SimulationScenario:
     - checkpoints: decision points requiring learner reasoning
     - disclaimer: permanent provenance notice
     """
+
     ref: str
     version: str
     title: str
@@ -74,13 +77,15 @@ class FileScenarioStore:
     is rejected at load time.
     """
 
-    FORBIDDEN_FIELDS = frozenset([
-        "live_workspace_id",
-        "live_project_id",
-        "connector_grant",
-        "live_evidence",
-        "live_customer_data",
-    ])
+    FORBIDDEN_FIELDS = frozenset(
+        [
+            "live_workspace_id",
+            "live_project_id",
+            "connector_grant",
+            "live_evidence",
+            "live_customer_data",
+        ]
+    )
 
     def __init__(self, scenarios_dir: Path) -> None:
         self._scenarios_dir = scenarios_dir

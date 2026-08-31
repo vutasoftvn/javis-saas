@@ -56,7 +56,11 @@ class PmfScoreboardPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.analytics_outlined, size: 48, color: Colors.grey),
+              const Icon(
+                Icons.analytics_outlined,
+                size: 48,
+                color: Colors.grey,
+              ),
               const SizedBox(height: 16),
               const Text(
                 'Chưa có dữ liệu tính toán PMF Scoreboard',
@@ -99,9 +103,12 @@ class PmfScoreboardPanel extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: resultColor.withOpacity(0.15),
+                        color: resultColor.withValues(alpha: 0.15),
                         border: Border.all(color: resultColor),
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -140,13 +147,23 @@ class PmfScoreboardPanel extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.fingerprint, size: 16, color: Colors.blueGrey),
+                  const Icon(
+                    Icons.fingerprint,
+                    size: 16,
+                    color: Colors.blueGrey,
+                  ),
                   const SizedBox(width: 6),
-                  const Text('Hash: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const Text(
+                    'Hash: ',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
                   Expanded(
                     child: Text(
                       run!.calculationHash,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -156,7 +173,8 @@ class PmfScoreboardPanel extends StatelessWidget {
             const SizedBox(height: 16),
 
             // Missing Data Flags & Reliability Flags
-            if (run!.missingDataFlags.isNotEmpty || run!.reliabilityFlags.isNotEmpty) ...[
+            if (run!.missingDataFlags.isNotEmpty ||
+                run!.reliabilityFlags.isNotEmpty) ...[
               const Text(
                 'Cảnh báo chất lượng dữ liệu:',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
@@ -168,16 +186,33 @@ class PmfScoreboardPanel extends StatelessWidget {
                 children: [
                   ...run!.missingDataFlags.map(
                     (flag) => Chip(
-                      avatar: const Icon(Icons.error_outline, size: 16, color: Colors.red),
-                      label: Text('Missing: $flag', style: const TextStyle(fontSize: 12, color: Colors.red)),
+                      avatar: const Icon(
+                        Icons.error_outline,
+                        size: 16,
+                        color: Colors.red,
+                      ),
+                      label: Text(
+                        'Missing: $flag',
+                        style: const TextStyle(fontSize: 12, color: Colors.red),
+                      ),
                       backgroundColor: Colors.red.shade50,
                       side: BorderSide(color: Colors.red.shade200),
                     ),
                   ),
                   ...run!.reliabilityFlags.map(
                     (flag) => Chip(
-                      avatar: const Icon(Icons.warning_amber_outlined, size: 16, color: Colors.orange),
-                      label: Text('Flag: $flag', style: const TextStyle(fontSize: 12, color: Colors.orange)),
+                      avatar: const Icon(
+                        Icons.warning_amber_outlined,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                      label: Text(
+                        'Flag: $flag',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange,
+                        ),
+                      ),
                       backgroundColor: Colors.orange.shade50,
                       side: BorderSide(color: Colors.orange.shade200),
                     ),
@@ -196,14 +231,17 @@ class PmfScoreboardPanel extends StatelessWidget {
             if (run!.scoreComponents.isEmpty)
               const Text(
                 'Không có thành phần điểm số nào được ghi nhận.',
-                style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
               )
             else
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: run!.scoreComponents.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final comp = run!.scoreComponents[index];
                   final isStale = comp.qualityStatus == 'STALE';
@@ -212,7 +250,9 @@ class PmfScoreboardPanel extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     leading: Icon(
-                      comp.sourceType == 'metric_snapshot' ? Icons.show_chart : Icons.rate_review,
+                      comp.sourceType == 'metric_snapshot'
+                          ? Icons.show_chart
+                          : Icons.rate_review,
                       color: isStale ? Colors.orange : Colors.blue,
                     ),
                     title: Text(
@@ -223,7 +263,9 @@ class PmfScoreboardPanel extends StatelessWidget {
                       'Source: ${comp.sourceType} (#${comp.sourceId}) • Quality: ${comp.qualityStatus}',
                       style: TextStyle(
                         fontSize: 11,
-                        color: isStale ? Colors.orange.shade800 : Colors.grey.shade600,
+                        color: isStale
+                            ? Colors.orange.shade800
+                            : Colors.grey.shade600,
                       ),
                     ),
                     trailing: Column(
@@ -232,11 +274,17 @@ class PmfScoreboardPanel extends StatelessWidget {
                       children: [
                         Text(
                           '${(comp.rawScore * 100).toStringAsFixed(1)}%',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                         Text(
                           'Weight: ${comp.weight.toStringAsFixed(1)}',
-                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                          ),
                         ),
                       ],
                     ),

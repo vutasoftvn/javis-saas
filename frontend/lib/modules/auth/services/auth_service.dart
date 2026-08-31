@@ -27,7 +27,8 @@ class WorkspaceSummary {
   });
 
   factory WorkspaceSummary.fromJson(Map<String, dynamic> json) {
-    final hb = (json['lastHeartbeatAt'] ?? json['last_heartbeat_at']) as String?;
+    final hb =
+        (json['lastHeartbeatAt'] ?? json['last_heartbeat_at']) as String?;
     return WorkspaceSummary(
       workspaceId: json['workspaceId'].toString(),
       name: json['name'] as String?,
@@ -35,8 +36,13 @@ class WorkspaceSummary {
       status: json['status'] as String? ?? 'active',
       runtimeMode: (json['runtimeMode'] ?? json['runtime_mode']) as String?,
       presenceStatus:
-          (json['presenceStatus'] ?? json['presence_status'] ?? json['presence']) as String?,
-      lastHeartbeatAt: (hb != null && hb.isNotEmpty) ? DateTime.tryParse(hb)?.toUtc() : null,
+          (json['presenceStatus'] ??
+                  json['presence_status'] ??
+                  json['presence'])
+              as String?,
+      lastHeartbeatAt: (hb != null && hb.isNotEmpty)
+          ? DateTime.tryParse(hb)?.toUtc()
+          : null,
     );
   }
 }
@@ -68,12 +74,14 @@ class AuthResult {
 class AuthService {
   static String? _cachedToken;
 
-  static bool get isAuthenticated => _cachedToken != null && _cachedToken!.isNotEmpty;
+  static bool get isAuthenticated =>
+      _cachedToken != null && _cachedToken!.isNotEmpty;
 
   static Future<void> init() async {
     await SecureStorageService.migrateFromSharedPreferences();
     // M1 §1 — ưu tiên local session token; fallback token chung cũ.
-    _cachedToken = await SecureStorageService.read('local_session_token') ??
+    _cachedToken =
+        await SecureStorageService.read('local_session_token') ??
         await SecureStorageService.read('auth_token');
   }
 
@@ -117,7 +125,10 @@ class AuthService {
         final data = jsonDecode(response.body);
         final token = data['access_token'] as String?;
         if (token == null) {
-          return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
+          return const AuthResult(
+            success: false,
+            errorMessage: 'Phản hồi không hợp lệ từ máy chủ',
+          );
         }
         final userData = data['user'] as Map<String, dynamic>?;
         final rawWs = (data['workspaces'] as List<dynamic>?)
@@ -130,15 +141,22 @@ class AuthService {
           rawWorkspaces: rawWs,
         );
       } else if (response.statusCode == 401) {
-        return const AuthResult(success: false, errorMessage: 'Email/Số điện thoại hoặc mật khẩu không chính xác');
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Email/Số điện thoại hoặc mật khẩu không chính xác',
+        );
       }
       return AuthResult(
         success: false,
-        errorMessage: 'Đăng nhập không thành công (mã lỗi ${response.statusCode})',
+        errorMessage:
+            'Đăng nhập không thành công (mã lỗi ${response.statusCode})',
       );
     } catch (e) {
       debugPrint('loginPlatform error: $e');
-      return const AuthResult(success: false, errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.');
+      return const AuthResult(
+        success: false,
+        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+      );
     }
   }
 
@@ -160,18 +178,23 @@ class AuthService {
           'email': email,
           'password': password,
           'full_name': displayName,
-          if (wsName != null) 'workspace_name': wsName,
-          if (companyName != null) 'company_name': companyName,
-          if (joinCompanyId != null) 'join_company_id': int.tryParse(joinCompanyId) ?? joinCompanyId,
+          'workspace_name': ?wsName,
+          'company_name': ?companyName,
+          if (joinCompanyId != null)
+            'join_company_id': int.tryParse(joinCompanyId) ?? joinCompanyId,
         },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data['access_token'] as String?;
-        final wsId = (data['platform_workspace_id'] ?? data['company_id']) as String?;
+        final wsId =
+            (data['platform_workspace_id'] ?? data['company_id']) as String?;
         if (token == null) {
-          return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
+          return const AuthResult(
+            success: false,
+            errorMessage: 'Phản hồi không hợp lệ từ máy chủ',
+          );
         }
         final userData = data['user'] as Map<String, dynamic>?;
         final rawWs = (data['workspaces'] as List<dynamic>?)
@@ -185,9 +208,15 @@ class AuthService {
           rawWorkspaces: rawWs,
         );
       } else if (response.statusCode == 409) {
-        return const AuthResult(success: false, errorMessage: 'Email này đã được đăng ký');
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Email này đã được đăng ký',
+        );
       } else if (response.statusCode == 404) {
-        return const AuthResult(success: false, errorMessage: 'Workspace không tồn tại');
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Workspace không tồn tại',
+        );
       } else if (response.statusCode == 422) {
         try {
           final data = jsonDecode(response.body);
@@ -197,15 +226,22 @@ class AuthService {
             return AuthResult(success: false, errorMessage: msg.toString());
           }
         } catch (_) {}
-        return const AuthResult(success: false, errorMessage: 'Dữ liệu đăng ký không hợp lệ');
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Dữ liệu đăng ký không hợp lệ',
+        );
       }
       return AuthResult(
         success: false,
-        errorMessage: 'Đăng ký không thành công (mã lỗi ${response.statusCode})',
+        errorMessage:
+            'Đăng ký không thành công (mã lỗi ${response.statusCode})',
       );
     } catch (e) {
       debugPrint('registerPlatform error: $e');
-      return const AuthResult(success: false, errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.');
+      return const AuthResult(
+        success: false,
+        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+      );
     }
   }
 
@@ -236,15 +272,22 @@ class AuthService {
           rawWorkspaces: wsObj != null ? [wsObj] : null,
         );
       } else if (response.statusCode == 422) {
-        return const AuthResult(success: false, errorMessage: 'Tên công ty không hợp lệ');
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Tên công ty không hợp lệ',
+        );
       }
       return AuthResult(
         success: false,
-        errorMessage: 'Tạo công ty không thành công (mã lỗi ${response.statusCode})',
+        errorMessage:
+            'Tạo công ty không thành công (mã lỗi ${response.statusCode})',
       );
     } catch (e) {
       debugPrint('createCompany error: $e');
-      return const AuthResult(success: false, errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.');
+      return const AuthResult(
+        success: false,
+        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+      );
     }
   }
 
@@ -256,7 +299,10 @@ class AuthService {
     try {
       final parsedId = int.tryParse(companyId);
       if (parsedId == null) {
-        return const AuthResult(success: false, errorMessage: 'Mã công ty không hợp lệ (phải là số)');
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Mã công ty không hợp lệ (phải là số)',
+        );
       }
       final url = ApiClient.resolveUri('/platform/auth/companies/join');
       final response = await ApiClient.client.post(
@@ -279,15 +325,22 @@ class AuthService {
           rawWorkspaces: wsObj != null ? [wsObj] : null,
         );
       } else if (response.statusCode == 404) {
-        return const AuthResult(success: false, errorMessage: 'Công ty muốn tham gia không tồn tại');
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Công ty muốn tham gia không tồn tại',
+        );
       }
       return AuthResult(
         success: false,
-        errorMessage: 'Tham gia công ty không thành công (mã lỗi ${response.statusCode})',
+        errorMessage:
+            'Tham gia công ty không thành công (mã lỗi ${response.statusCode})',
       );
     } catch (e) {
       debugPrint('joinCompany error: $e');
-      return const AuthResult(success: false, errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.');
+      return const AuthResult(
+        success: false,
+        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+      );
     }
   }
 
@@ -296,9 +349,7 @@ class AuthService {
   /// Goi sau khi da co platformToken (tu loginPlatform/registerPlatform).
   /// Backend local se tao/dong bo core.users + tất cả workspaces tuong ung
   /// roi phat local JWT. Tra ve access_token va danh sach workspace thuc te.
-  Future<AuthResult> syncFromPlatform({
-    required String platformToken,
-  }) async {
+  Future<AuthResult> syncFromPlatform({required String platformToken}) async {
     try {
       // M1 §1 — lưu platform token dưới key riêng: dùng cho control-plane /
       // AgentOS platform path. Không trộn với local session token.
@@ -310,17 +361,19 @@ class AuthService {
       final response = await ApiClient.post(
         '/identity/sync-from-platform',
         requiresAuth: false,
-        body: {
-          'platform_access_token': platformToken,
-        },
+        body: {'platform_access_token': platformToken},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         // Backend trả cả `local_session_token` (M1 §1) lẫn alias `access_token`.
-        final token = (data['local_session_token'] ?? data['access_token']) as String?;
+        final token =
+            (data['local_session_token'] ?? data['access_token']) as String?;
         if (token == null) {
-          return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
+          return const AuthResult(
+            success: false,
+            errorMessage: 'Phản hồi không hợp lệ từ máy chủ',
+          );
         }
 
         // Parse workspaces from backend response
@@ -337,29 +390,36 @@ class AuthService {
         await SecureStorageService.write('local_session_token', token);
         await SecureStorageService.write('auth_token', token);
         _cachedToken = token;
-        return AuthResult(success: true, token: token, workspaces: workspacesList);
+        return AuthResult(
+          success: true,
+          token: token,
+          workspaces: workspacesList,
+        );
       } else if (response.statusCode == 403) {
-        return const AuthResult(success: false, errorMessage: 'Bạn không phải thành viên của workspace nào');
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Bạn không phải thành viên của workspace nào',
+        );
       }
       return AuthResult(
         success: false,
-        errorMessage: 'Đồng bộ dữ liệu không thành công (mã lỗi ${response.statusCode})',
+        errorMessage:
+            'Đồng bộ dữ liệu không thành công (mã lỗi ${response.statusCode})',
       );
     } catch (e) {
       debugPrint('syncFromPlatform error: $e');
-      return const AuthResult(success: false, errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.');
+      return const AuthResult(
+        success: false,
+        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+      );
     }
   }
 
   /// Buoc cuoi cua ca login lan register: dong bo platform token xuong local
   /// (tao/dong bo core.users va tất cả workspace tuong ung), roi cache
   /// workspace/role qua getMe(). Tra ve true neu thanh cong.
-  Future<bool> finishAuthentication({
-    required String platformToken,
-  }) async {
-    final syncResult = await syncFromPlatform(
-      platformToken: platformToken,
-    );
+  Future<bool> finishAuthentication({required String platformToken}) async {
+    final syncResult = await syncFromPlatform(platformToken: platformToken);
     if (!syncResult.success) return false;
     await getMe();
     return true;
@@ -381,7 +441,10 @@ class AuthService {
   /// Cap nhat ho so sau khi da dang nhap - dung de bo sung so dien thoai
   /// (khong con bat buoc luc dang ky bang email+password nua) va/hoac ten
   /// hien thi. Tra ve payload /identity/me moi nhat neu thanh cong, null neu loi.
-  Future<Map<String, dynamic>?> updateProfile({String? phone, String? displayName}) async {
+  Future<Map<String, dynamic>?> updateProfile({
+    String? phone,
+    String? displayName,
+  }) async {
     try {
       final body = <String, dynamic>{};
       if (phone != null) body['phone'] = phone;
@@ -406,7 +469,10 @@ class AuthService {
 
         // Cache workspace id — scope tenant duy nhất (M3 §7).
         if (data['workspace_id'] != null) {
-          await SecureStorageService.write('workspace_id', data['workspace_id'].toString());
+          await SecureStorageService.write(
+            'workspace_id',
+            data['workspace_id'].toString(),
+          );
         }
         if (data['role'] != null) {
           // Strategy Canvas 1-1-3: Foundation tab cần biết role để ẩn/hiện nút

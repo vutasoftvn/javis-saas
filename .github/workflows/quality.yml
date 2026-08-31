@@ -21,7 +21,9 @@ jobs:
         working-directory: frontend
       - run: mkdir -p ../test-results
         working-directory: frontend
-      - run: flutter test --machine > ../test-results/frontend.json
+      - run: flutter test --coverage --machine > ../test-results/frontend.json
+        working-directory: frontend
+      - run: mv coverage/lcov.info ../test-results/frontend-lcov.info
         working-directory: frontend
       - run: flutter analyze
         working-directory: frontend
@@ -29,7 +31,9 @@ jobs:
         if: always()
         with:
           name: frontend-test-results
-          path: test-results/frontend.json
+          path: |
+            test-results/frontend.json
+            test-results/frontend-lcov.info
           if-no-files-found: error
 
   landing:
@@ -40,6 +44,8 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
+        working-directory: landing
+      - run: npm test -- --run
         working-directory: landing
       - run: npm run lint
         working-directory: landing

@@ -12,9 +12,9 @@ ISOLATION INVARIANTS (enforced by design):
    are rejected in learner input — treated as hostile text, not routing keys.
 5. Scenario text is parsed as structured YAML data; never executed as agent instructions.
 """
+
 from __future__ import annotations
 
-import inspect
 import re
 import uuid
 from typing import Any
@@ -28,16 +28,15 @@ from apps.cosa.academy.simulation.contracts import (
 )
 from apps.cosa.academy.simulation.scenario_store import InMemoryScenarioStore
 
-
 # Patterns that indicate a learner is trying to pass live routing IDs
 _LIVE_ID_PATTERNS = re.compile(
     r"(?:"
-    r"ws-[a-zA-Z0-9\-]+"            # workspace IDs
-    r"|proj-[a-zA-Z0-9\-]+"         # project IDs
-    r"|ev-[a-zA-Z0-9\-]+"           # evidence IDs
-    r"|gate-[a-zA-Z0-9\-]+"         # gate evaluation IDs
-    r"|pilot-[a-zA-Z0-9\-]+"        # pilot IDs
-    r"|mc-[a-zA-Z0-9\-]+"           # metric contract IDs
+    r"ws-[a-zA-Z0-9\-]+"  # workspace IDs
+    r"|proj-[a-zA-Z0-9\-]+"  # project IDs
+    r"|ev-[a-zA-Z0-9\-]+"  # evidence IDs
+    r"|gate-[a-zA-Z0-9\-]+"  # gate evaluation IDs
+    r"|pilot-[a-zA-Z0-9\-]+"  # pilot IDs
+    r"|mc-[a-zA-Z0-9\-]+"  # metric contract IDs
     r")"
 )
 
@@ -77,8 +76,7 @@ class SimulationEngine:
         """
         if not learner_id.startswith("academy_"):
             raise ValueError(
-                f"learner_id must start with 'academy_' to ensure isolation; "
-                f"got: {learner_id!r}"
+                f"learner_id must start with 'academy_' to ensure isolation; got: {learner_id!r}"
             )
 
         scenario = self._store.get(scenario_ref)
@@ -126,14 +124,17 @@ class SimulationEngine:
 
         if scenario and scenario.checkpoints:
             matched = sum(
-                1 for cp in scenario.checkpoints
+                1
+                for cp in scenario.checkpoints
                 if any(
                     kw.lower() in str(attempt.artifact.body.get("choices", {})).lower()
                     for kw in cp.expected_reasoning_keywords
                 )
             )
             score = min(1.0, matched / max(len(scenario.checkpoints), 1))
-            rubric_notes.append(f"Matched {matched}/{len(scenario.checkpoints)} reasoning checkpoints")
+            rubric_notes.append(
+                f"Matched {matched}/{len(scenario.checkpoints)} reasoning checkpoints"
+            )
 
         rubric_notes.append(SYNTHETIC_DISCLAIMER)
 

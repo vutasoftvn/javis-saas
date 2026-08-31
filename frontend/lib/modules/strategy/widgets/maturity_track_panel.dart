@@ -56,13 +56,17 @@ class MaturityTrackPanel extends StatelessWidget {
       trailing: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Text(
           _getLevelLabel(dimension.level),
-          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+          ),
         ),
       ),
       childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -80,7 +84,11 @@ class MaturityTrackPanel extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               'Bằng chứng còn thiếu:',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red.shade800),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.red.shade800,
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -94,7 +102,10 @@ class MaturityTrackPanel extends StatelessWidget {
                   Expanded(
                     child: Text(
                       missing,
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade800,
+                      ),
                     ),
                   ),
                 ],

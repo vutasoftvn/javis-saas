@@ -61,7 +61,7 @@ class ActionPreviewCard extends StatelessWidget {
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: actionColor.withOpacity(0.4), width: 1.5),
+        side: BorderSide(color: actionColor.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -73,9 +73,12 @@ class ActionPreviewCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: actionColor.withOpacity(0.12),
+                    color: actionColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: actionColor),
                   ),
@@ -115,7 +118,8 @@ class ActionPreviewCard extends StatelessWidget {
             const Divider(height: 24),
 
             // Target Preview
-            if (item.targetPreview != null && item.targetPreview!.isNotEmpty) ...[
+            if (item.targetPreview != null &&
+                item.targetPreview!.isNotEmpty) ...[
               const Text(
                 'Target Preview (Xem trước đối tượng tác động):',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
@@ -136,7 +140,10 @@ class ActionPreviewCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Text(
                         '• ${entry.key}: ${entry.value}',
-                        style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     );
                   }).toList(),
@@ -152,7 +159,10 @@ class ActionPreviewCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   'Skill: ${item.skillId ?? "N/A"}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -179,7 +189,10 @@ class ActionPreviewCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Idempotency: ${item.idempotencyKey}',
-                      style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -196,7 +209,10 @@ class ActionPreviewCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Rollback Plan: ${item.rollbackPlan}',
-                      style: const TextStyle(fontSize: 11, color: Colors.indigo),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.indigo,
+                      ),
                     ),
                   ),
                 ],
@@ -214,7 +230,11 @@ class ActionPreviewCard extends StatelessWidget {
                   return Chip(
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
-                    avatar: const Icon(Icons.verified, size: 14, color: Colors.green),
+                    avatar: const Icon(
+                      Icons.verified,
+                      size: 14,
+                      color: Colors.green,
+                    ),
                     label: Text(ref, style: const TextStyle(fontSize: 11)),
                     backgroundColor: Colors.green.shade50,
                   );
@@ -240,7 +260,11 @@ class ActionPreviewCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Hành động tài chính (M): Yêu cầu con người thực hiện thủ công ngoài đời thực, hệ thống không tự động kích hoạt.',
-                        style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -263,7 +287,11 @@ class ActionPreviewCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Yêu cầu đã hết hạn phê duyệt. Không thể thực thi.',
-                        style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -286,7 +314,11 @@ class ActionPreviewCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Skill hash không xác định - Chặn thực thi để bảo vệ an toàn hệ thống.',
-                        style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -302,13 +334,22 @@ class ActionPreviewCard extends StatelessWidget {
                   if (onReject != null)
                     OutlinedButton.icon(
                       onPressed: onReject,
-                      icon: const Icon(Icons.close, color: Colors.red, size: 18),
-                      label: const Text('Từ chối', style: TextStyle(color: Colors.red)),
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.red,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Từ chối',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                   const SizedBox(width: 12),
                   if (onApprove != null)
                     ElevatedButton.icon(
-                      onPressed: (isHumanOwned || isExpired || hasInvalidHash) ? null : onApprove,
+                      onPressed: (isHumanOwned || isExpired || hasInvalidHash)
+                          ? null
+                          : onApprove,
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Phê duyệt thực thi'),
                     ),

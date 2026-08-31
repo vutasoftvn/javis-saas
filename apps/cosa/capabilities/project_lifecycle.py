@@ -445,7 +445,9 @@ def create_strategy_pilot_create_draft_handler(client: CompanyServiceClient):
         if payload.get("experiment_id"):
             post_body["experimentId"] = str(payload["experiment_id"])
         if payload.get("support_escalation_artifact_ref"):
-            post_body["supportEscalationArtifactRef"] = str(payload["support_escalation_artifact_ref"])
+            post_body["supportEscalationArtifactRef"] = str(
+                payload["support_escalation_artifact_ref"]
+            )
 
         res = await client.post("/operations/strategy/pilots", json=post_body, headers=headers)
 
@@ -458,7 +460,9 @@ def create_strategy_pilot_create_draft_handler(client: CompanyServiceClient):
             ),
             sources=[{"source": f"pilot_run:{res.get('id', '')}"}],
             confidence=1.0,
-            next_actions=["Founder duyệt Pilot Run qua endpoint /operations/strategy/pilots/:id/approve"],
+            next_actions=[
+                "Founder duyệt Pilot Run qua endpoint /operations/strategy/pilots/:id/approve"
+            ],
         )
 
         return {"pilot": res, "advisory": advisory}
@@ -540,7 +544,9 @@ def create_analytics_metric_contract_get_handler(client: CompanyServiceClient):
 
         if payload.get("contract_id"):
             contract_id = str(payload["contract_id"])
-            res = await client.get(f"/operations/strategy/metric-contracts/{contract_id}", headers=headers)
+            res = await client.get(
+                f"/operations/strategy/metric-contracts/{contract_id}", headers=headers
+            )
             advisory = wrap_advisory(
                 layer="CURRENT_LAW",
                 label="insight",
@@ -555,7 +561,9 @@ def create_analytics_metric_contract_get_handler(client: CompanyServiceClient):
         if payload.get("project_id"):
             params["projectId"] = str(payload["project_id"])
 
-        res = await client.get("/operations/strategy/metric-contracts", params=params, headers=headers)
+        res = await client.get(
+            "/operations/strategy/metric-contracts", params=params, headers=headers
+        )
         items = res.get("items", []) if isinstance(res, dict) else []
 
         advisory = wrap_advisory(
@@ -579,7 +587,9 @@ def create_analytics_pmf_scoreboard_get_handler(client: CompanyServiceClient):
 
         if payload.get("run_id"):
             run_id = str(payload["run_id"])
-            res = await client.get(f"/operations/strategy/pmf-scoreboards/{run_id}", headers=headers)
+            res = await client.get(
+                f"/operations/strategy/pmf-scoreboards/{run_id}", headers=headers
+            )
             advisory = wrap_advisory(
                 layer="CURRENT_LAW",
                 label="insight",
@@ -594,7 +604,9 @@ def create_analytics_pmf_scoreboard_get_handler(client: CompanyServiceClient):
         if payload.get("project_id"):
             params["projectId"] = str(payload["project_id"])
 
-        res = await client.get("/operations/strategy/pmf-scoreboards", params=params, headers=headers)
+        res = await client.get(
+            "/operations/strategy/pmf-scoreboards", params=params, headers=headers
+        )
         items = res.get("items", []) if isinstance(res, dict) else []
 
         advisory = wrap_advisory(
@@ -624,6 +636,7 @@ def create_analytics_pmf_scoreboard_propose_handler(client: CompanyServiceClient
         )
         items = res.get("items", []) if isinstance(res, dict) else []
 
+        memo: dict[str, Any]
         if not items:
             classification = "INSUFFICIENT_DATA"
             memo = {
@@ -641,10 +654,14 @@ def create_analytics_pmf_scoreboard_propose_handler(client: CompanyServiceClient
 
             if classification == "PROMISING":
                 action = "Chuẩn bị tài liệu G4 Gate Review và tổng hợp feedback định tính"
-                decision = "Tín hiệu PMF khả quan (PROMISING) — đề xuất tiếp tục mở rộng cohort thử nghiệm"
+                decision = (
+                    "Tín hiệu PMF khả quan (PROMISING) — đề xuất tiếp tục mở rộng cohort thử nghiệm"
+                )
             elif classification == "CONCERNING":
                 action = "Tổ chức phiên họp Pivot/Persevere để rà soát lại ICP và bài toán cốt lõi"
-                decision = "Tín hiệu PMF có rủi ro (CONCERNING) — không khuyến nghị mở rộng chi tiêu GTM"
+                decision = (
+                    "Tín hiệu PMF có rủi ro (CONCERNING) — không khuyến nghị mở rộng chi tiêu GTM"
+                )
             elif classification == "INSUFFICIENT_DATA":
                 action = "Bổ sung các snapshot telemetry còn thiếu để hoàn thiện bảng điểm"
                 decision = "Dữ liệu chưa hoàn thiện"

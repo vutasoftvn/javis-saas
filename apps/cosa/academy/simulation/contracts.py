@@ -11,11 +11,11 @@ These types MUST NOT be used as inputs to:
 - Capability enablements
 - Task creation in live workspaces
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
-
 
 ACADEMY_ARTIFACT_SCHEME = "academy-artifact://"
 SYNTHETIC_DISCLAIMER = (
@@ -35,7 +35,8 @@ class SyntheticArtifact:
     - disclaimer is always a non-empty string
     - scenario_version identifies which synthetic dataset was used
     """
-    artifact_ref: str          # must start with 'academy-artifact://'
+
+    artifact_ref: str  # must start with 'academy-artifact://'
     scenario_version: str
     synthetic: bool = True
     disclaimer: str = SYNTHETIC_DISCLAIMER
@@ -63,6 +64,7 @@ class SimulationAttempt:
     - No live workspace_id, project_id, evidence_id, or connector_grant allowed
     - artifact_ref starts with 'academy-artifact://'
     """
+
     id: str
     learner_id: str
     scenario_ref: str
@@ -89,14 +91,17 @@ class SimulationFeedback:
     - score is a learning rubric score — NOT a PMF, maturity, or gate score
     - No capability_enablement or stage_transition is triggered
     """
+
     attempt_id: str
-    score: float           # 0.0–1.0 learning rubric
+    score: float  # 0.0-1.0 learning rubric
     rubric_notes: list[str]
     synthetic: bool = True
     disclaimer: str = SYNTHETIC_DISCLAIMER
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.score <= 1.0):
-            raise ValueError(f"SimulationFeedback.score must be between 0.0 and 1.0, got: {self.score}")
+            raise ValueError(
+                f"SimulationFeedback.score must be between 0.0 and 1.0, got: {self.score}"
+            )
         if not self.synthetic:
             raise ValueError("SimulationFeedback.synthetic must always be True")

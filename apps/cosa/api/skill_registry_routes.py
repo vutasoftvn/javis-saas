@@ -82,27 +82,43 @@ def _run_workspace_custom_evaluation(
 
     ceiling = spec.autonomy.ceiling
     if ceiling in _WORKSPACE_CUSTOM_ALLOWED_CEILINGS:
-        case_results.append({"id": "ceiling-within-boundary", "outcome": "reject", "detail": ceiling})
+        case_results.append(
+            {"id": "ceiling-within-boundary", "outcome": "reject", "detail": ceiling}
+        )
     else:
         failures.append(f"autonomy.ceiling {ceiling} nằm ngoài ranh giới workspace_custom")
-        case_results.append({"id": "ceiling-within-boundary", "outcome": "accept", "detail": ceiling})
+        case_results.append(
+            {"id": "ceiling-within-boundary", "outcome": "accept", "detail": ceiling}
+        )
 
     side_effect = spec.autonomy.side_effect_class
     if side_effect in _WORKSPACE_CUSTOM_ALLOWED_SIDE_EFFECTS:
-        case_results.append({"id": "side-effect-within-boundary", "outcome": "reject", "detail": side_effect})
+        case_results.append(
+            {"id": "side-effect-within-boundary", "outcome": "reject", "detail": side_effect}
+        )
     else:
-        failures.append(f"autonomy.side_effect_class {side_effect} nằm ngoài ranh giới artifact/proposal")
-        case_results.append({"id": "side-effect-within-boundary", "outcome": "accept", "detail": side_effect})
+        failures.append(
+            f"autonomy.side_effect_class {side_effect} nằm ngoài ranh giới artifact/proposal"
+        )
+        case_results.append(
+            {"id": "side-effect-within-boundary", "outcome": "accept", "detail": side_effect}
+        )
 
     for capability in spec.required_capabilities:
         if capability not in capability_ids:
             failures.append(f"capability {capability} chưa đăng ký trong COSA plane")
-            case_results.append({"id": "capability-registered", "outcome": "accept", "detail": capability})
+            case_results.append(
+                {"id": "capability-registered", "outcome": "accept", "detail": capability}
+            )
         elif any(token in capability for token in _WORKSPACE_CUSTOM_PROHIBITED_CAPABILITY_TOKENS):
             failures.append(f"capability {capability} vượt ranh giới workspace_custom")
-            case_results.append({"id": "capability-within-boundary", "outcome": "accept", "detail": capability})
+            case_results.append(
+                {"id": "capability-within-boundary", "outcome": "accept", "detail": capability}
+            )
         else:
-            case_results.append({"id": "capability-registered", "outcome": "reject", "detail": capability})
+            case_results.append(
+                {"id": "capability-registered", "outcome": "reject", "detail": capability}
+            )
 
     computed_score = 1.0 if not failures else 0.0
     report = {
@@ -524,7 +540,9 @@ async def promote_skill(
     # Capability phải nằm trong inventory thật — founder không được promote
     # candidate tham chiếu capability chưa tồn tại.
     capability_ids = {spec.id for spec in plane.capability_registry.list_specs()}
-    unknown = [cap for cap in cand.proposed_skill.required_capabilities if cap not in capability_ids]
+    unknown = [
+        cap for cap in cand.proposed_skill.required_capabilities if cap not in capability_ids
+    ]
     if unknown:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

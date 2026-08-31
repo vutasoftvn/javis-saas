@@ -76,9 +76,7 @@ def load_skill_eval_suite(path: Path) -> SkillEvalSuite:
             f"Unsupported apiVersion {root.get('apiVersion')!r}; expected {EVAL_API_VERSION}"
         )
     if root.get("kind") != EVAL_KIND:
-        raise SkillEvalContractError(
-            f"Unsupported kind {root.get('kind')!r}; expected {EVAL_KIND}"
-        )
+        raise SkillEvalContractError(f"Unsupported kind {root.get('kind')!r}; expected {EVAL_KIND}")
 
     skill = _require_mapping(root.get("skill"), "skill")
     skill_id = _require_non_empty_string(skill.get("id"), "skill.id")

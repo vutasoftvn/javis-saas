@@ -62,107 +62,129 @@ void main() {
   });
 
   group('COSA Lifecycle Tranche B1 Pilot Flow Test', () {
-    test('list/createDraft/approve/activate/close send exactly the expected method+path+body', () async {
-      final capturedRequests = <http.Request>[];
+    test(
+      'list/createDraft/approve/activate/close send exactly the expected method+path+body',
+      () async {
+        final capturedRequests = <http.Request>[];
 
-      final mockClient = MockClient((request) async {
-        capturedRequests.add(request as http.Request);
-        if (request.method == 'GET') {
+        final mockClient = MockClient((request) async {
+          capturedRequests.add(request);
+          if (request.method == 'GET') {
+            return http.Response(
+              jsonEncode({
+                'items': [_pilotJson()],
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
           return http.Response(
-            jsonEncode({
-              'items': [_pilotJson()],
-            }),
+            jsonEncode(_pilotJson(status: 'DRAFT')),
             200,
             headers: {'content-type': 'application/json'},
           );
+        });
+
+        ApiClient.client = mockClient;
+        final service = PilotRunService();
+
+        // list
+        await service.listPilots(projectId: '2001');
+        expect(capturedRequests.last.method, 'GET');
+        expect(capturedRequests.last.url.path, '/operations/strategy/pilots');
+        expect(capturedRequests.last.url.query, contains('projectId=2001'));
+
+        // createDraft
+        await service.createDraft(
+          projectId: '2001',
+          designPartnerEvidenceRefs: ['3001'],
+          metricContractArtifactRef: 'artifact://ws/metrics/v1',
+          instrumentationArtifactRef: 'artifact://ws/inst/v1',
+          onboardingArtifactRef: 'artifact://ws/onb/v1',
+          rollbackArtifactRef: 'artifact://ws/rb/v1',
+          releaseOwnerMemberId: '9001',
+        );
+        expect(capturedRequests.last.method, 'POST');
+        expect(capturedRequests.last.url.path, '/operations/strategy/pilots');
+        final createBody =
+            jsonDecode(capturedRequests.last.body) as Map<String, dynamic>;
+        expect(createBody['projectId'], '2001');
+        expect(createBody['designPartnerEvidenceRefs'], ['3001']);
+        expect(createBody['rollbackArtifactRef'], 'artifact://ws/rb/v1');
+        expect(createBody.containsKey('lifecycleStage'), false);
+        expect(createBody.containsKey('humanOverride'), false);
+
+        // approve
+        await service.approve(pilotId: '704900111', approvalRef: 'APR-1');
+        expect(capturedRequests.last.method, 'POST');
+        expect(
+          capturedRequests.last.url.path,
+          '/operations/strategy/pilots/704900111/approve',
+        );
+        final approveBody =
+            jsonDecode(capturedRequests.last.body) as Map<String, dynamic>;
+        expect(approveBody, {'approvalRef': 'APR-1'});
+
+        // activate
+        await service.activate(pilotId: '704900111', approvalRef: 'APR-2');
+        expect(capturedRequests.last.method, 'POST');
+        expect(
+          capturedRequests.last.url.path,
+          '/operations/strategy/pilots/704900111/activate',
+        );
+        final activateBody =
+            jsonDecode(capturedRequests.last.body) as Map<String, dynamic>;
+        expect(activateBody, {'approvalRef': 'APR-2'});
+
+        // close
+        await service.close(pilotId: '704900111', status: 'COMPLETED');
+        expect(capturedRequests.last.method, 'POST');
+        expect(
+          capturedRequests.last.url.path,
+          '/operations/strategy/pilots/704900111/close',
+        );
+        final closeBody =
+            jsonDecode(capturedRequests.last.body) as Map<String, dynamic>;
+        expect(closeBody, {'status': 'COMPLETED'});
+
+        // Không có request nào từng nhắm tới stage-transition endpoint.
+        for (final req in capturedRequests) {
+          expect(req.url.path, isNot(contains('/stage')));
         }
-        return http.Response(
-          jsonEncode(_pilotJson(status: 'DRAFT')),
-          200,
-          headers: {'content-type': 'application/json'},
+      },
+    );
+
+    test(
+      'activate() sends only { approvalRef } — never a stage value',
+      () async {
+        String? capturedBody;
+
+        final mockClient = MockClient((request) async {
+          capturedBody = request.body;
+          return http.Response(
+            jsonEncode(_pilotJson(status: 'ACTIVE', approvalRef: 'APR-ONLY-1')),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        });
+
+        ApiClient.client = mockClient;
+        final service = PilotRunService();
+
+        final result = await service.activate(
+          pilotId: '704900111',
+          approvalRef: 'APR-ONLY-1',
         );
-      });
+        expect(result, isNotNull);
+        expect(result!.status, PilotRunStatus.active);
 
-      ApiClient.client = mockClient;
-      final service = PilotRunService();
-
-      // list
-      await service.listPilots(projectId: '2001');
-      expect(capturedRequests.last.method, 'GET');
-      expect(capturedRequests.last.url.path, '/operations/strategy/pilots');
-      expect(capturedRequests.last.url.query, contains('projectId=2001'));
-
-      // createDraft
-      await service.createDraft(
-        projectId: '2001',
-        designPartnerEvidenceRefs: ['3001'],
-        metricContractArtifactRef: 'artifact://ws/metrics/v1',
-        instrumentationArtifactRef: 'artifact://ws/inst/v1',
-        onboardingArtifactRef: 'artifact://ws/onb/v1',
-        rollbackArtifactRef: 'artifact://ws/rb/v1',
-        releaseOwnerMemberId: '9001',
-      );
-      expect(capturedRequests.last.method, 'POST');
-      expect(capturedRequests.last.url.path, '/operations/strategy/pilots');
-      final createBody = jsonDecode(capturedRequests.last.body) as Map<String, dynamic>;
-      expect(createBody['projectId'], '2001');
-      expect(createBody['designPartnerEvidenceRefs'], ['3001']);
-      expect(createBody['rollbackArtifactRef'], 'artifact://ws/rb/v1');
-      expect(createBody.containsKey('lifecycleStage'), false);
-      expect(createBody.containsKey('humanOverride'), false);
-
-      // approve
-      await service.approve(pilotId: '704900111', approvalRef: 'APR-1');
-      expect(capturedRequests.last.method, 'POST');
-      expect(capturedRequests.last.url.path, '/operations/strategy/pilots/704900111/approve');
-      final approveBody = jsonDecode(capturedRequests.last.body) as Map<String, dynamic>;
-      expect(approveBody, {'approvalRef': 'APR-1'});
-
-      // activate
-      await service.activate(pilotId: '704900111', approvalRef: 'APR-2');
-      expect(capturedRequests.last.method, 'POST');
-      expect(capturedRequests.last.url.path, '/operations/strategy/pilots/704900111/activate');
-      final activateBody = jsonDecode(capturedRequests.last.body) as Map<String, dynamic>;
-      expect(activateBody, {'approvalRef': 'APR-2'});
-
-      // close
-      await service.close(pilotId: '704900111', status: 'COMPLETED');
-      expect(capturedRequests.last.method, 'POST');
-      expect(capturedRequests.last.url.path, '/operations/strategy/pilots/704900111/close');
-      final closeBody = jsonDecode(capturedRequests.last.body) as Map<String, dynamic>;
-      expect(closeBody, {'status': 'COMPLETED'});
-
-      // Không có request nào từng nhắm tới stage-transition endpoint.
-      for (final req in capturedRequests) {
-        expect(req.url.path, isNot(contains('/stage')));
-      }
-    });
-
-    test('activate() sends only { approvalRef } — never a stage value', () async {
-      String? capturedBody;
-
-      final mockClient = MockClient((request) async {
-        capturedBody = request.body;
-        return http.Response(
-          jsonEncode(_pilotJson(status: 'ACTIVE', approvalRef: 'APR-ONLY-1')),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      });
-
-      ApiClient.client = mockClient;
-      final service = PilotRunService();
-
-      final result = await service.activate(pilotId: '704900111', approvalRef: 'APR-ONLY-1');
-      expect(result, isNotNull);
-      expect(result!.status, PilotRunStatus.active);
-
-      final parsedBody = jsonDecode(capturedBody!) as Map<String, dynamic>;
-      expect(parsedBody.keys.toSet(), {'approvalRef'});
-      expect(parsedBody.containsKey('lifecycleStage'), false);
-      expect(parsedBody.containsKey('stage'), false);
-      expect(parsedBody.containsKey('humanOverride'), false);
-    });
+        final parsedBody = jsonDecode(capturedBody!) as Map<String, dynamic>;
+        expect(parsedBody.keys.toSet(), {'approvalRef'});
+        expect(parsedBody.containsKey('lifecycleStage'), false);
+        expect(parsedBody.containsKey('stage'), false);
+        expect(parsedBody.containsKey('humanOverride'), false);
+      },
+    );
 
     testWidgets(
       'PilotReadinessPanel with a missing reference shows missing-item message and no activate action',
@@ -262,14 +284,21 @@ void main() {
           if (request.method == 'GET') {
             return http.Response(
               jsonEncode({
-                'items': [_pilotJson(status: 'APPROVED', approvalRef: 'APR-STAGE-CHECK')],
+                'items': [
+                  _pilotJson(
+                    status: 'APPROVED',
+                    approvalRef: 'APR-STAGE-CHECK',
+                  ),
+                ],
               }),
               200,
               headers: {'content-type': 'application/json'},
             );
           }
           return http.Response(
-            jsonEncode(_pilotJson(status: 'ACTIVE', approvalRef: 'APR-STAGE-CHECK')),
+            jsonEncode(
+              _pilotJson(status: 'ACTIVE', approvalRef: 'APR-STAGE-CHECK'),
+            ),
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -280,8 +309,14 @@ void main() {
 
         await service.listPilots(projectId: '2001');
         await service.getPilot('704900111');
-        await service.approve(pilotId: '704900111', approvalRef: 'APR-STAGE-CHECK');
-        await service.activate(pilotId: '704900111', approvalRef: 'APR-STAGE-CHECK');
+        await service.approve(
+          pilotId: '704900111',
+          approvalRef: 'APR-STAGE-CHECK',
+        );
+        await service.activate(
+          pilotId: '704900111',
+          approvalRef: 'APR-STAGE-CHECK',
+        );
         await service.close(pilotId: '704900111', status: 'COMPLETED');
 
         expect(capturedPaths, isNotEmpty);

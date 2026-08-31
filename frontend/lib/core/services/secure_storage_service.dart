@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show FlutterError;
-import 'package:flutter/services.dart' show MissingPluginException, PlatformException;
+import 'package:flutter/services.dart'
+    show MissingPluginException, PlatformException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -36,9 +37,11 @@ class SecureStorageService {
   static bool _isTestEnvironmentGap(Object e) =>
       e is MissingPluginException ||
       (e is PlatformException && e.code == 'MissingPluginException') ||
-      (e is FlutterError && e.toString().contains('Binding has not yet been initialized'));
+      (e is FlutterError &&
+          e.toString().contains('Binding has not yet been initialized'));
 
-  static Future<void> write(String key, String value) => _writeSecureOrFallback(key, value);
+  static Future<void> write(String key, String value) =>
+      _writeSecureOrFallback(key, value);
 
   /// Trả về true nếu ghi được vào secure storage THẬT (Keychain/Keystore),
   /// false nếu phải fallback sang SharedPreferences (chỉ xảy ra trong

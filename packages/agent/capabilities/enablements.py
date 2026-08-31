@@ -7,11 +7,11 @@ CapabilityEnablement hợp lệ, đúng workspace, đúng skill_hash, đúng tar
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import logging
-from typing import Any, Protocol, runtime_checkable
 import uuid
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +39,13 @@ class CapabilityEnablement:
     evaluation_ref: str | None = None
     rollback_ref: str | None = None
     expires_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def is_active(self) -> bool:
-        if self.status != "ENABLED":
-            return False
-        if self.expires_at is not None and datetime.now(timezone.utc) >= self.expires_at:
-            return False
-        return True
+        return self.status == "ENABLED" and (
+            self.expires_at is None or datetime.now(UTC) < self.expires_at
+        )
 
 
 @runtime_checkable
@@ -84,9 +82,9 @@ class InMemoryEnablementStore:
                 and enb.capability_id == capability_id
                 and enb.skill_hash == skill_hash
                 and enb.action_class == action_class
+                and enb.target_fingerprint in {"*", target_fingerprint}
             ):
-                if enb.target_fingerprint == "*" or enb.target_fingerprint == target_fingerprint:
-                    return enb
+                return enb
         return None
 
     async def save_enablement(self, enablement: CapabilityEnablement) -> None:
@@ -159,6 +157,7 @@ class PostgresEnablementStore:
 
     async def save_enablement(self, enablement: CapabilityEnablement) -> None:
         import json
+
         from sqlalchemy import text
 
         async with self._session_factory() as session:
@@ -224,7 +223,7 @@ async def assert_enabled_for_invocation(
     target_fingerprint: str = "*",
 ) -> tuple[bool, str | None]:
     """Kiểm tra điều kiện enablement cho một lần gọi capability.
-    
+
     Quy tắc:
     - 'R' và 'A' được phép chạy qua tenancy/readiness cơ bản.
     - 'B', 'X', 'M', 'D' bắt buộc phải có bản ghi enablement hợp lệ và active.
@@ -233,10 +232,16 @@ async def assert_enabled_for_invocation(
         return True, None
 
     if not skill_hash:
-        return False, f"Capability '{capability_id}' requires exact skill definition_hash for action class '{action_class}'"
+        return (
+            False,
+            f"Capability '{capability_id}' requires exact skill definition_hash for action class '{action_class}'",
+        )
 
     if not workspace_id:
-        return False, f"Capability '{capability_id}' requires workspace_id for action class '{action_class}'"
+        return (
+            False,
+            f"Capability '{capability_id}' requires workspace_id for action class '{action_class}'",
+        )
 
     enb = await enablement_store.get_enablement(
         workspace_id=workspace_id,
@@ -247,9 +252,15 @@ async def assert_enabled_for_invocation(
     )
 
     if not enb:
-        return False, f"No enablement record found for capability '{capability_id}' in workspace '{workspace_id}' (action_class={action_class}, skill_hash={skill_hash[:12]}...)"
+        return (
+            False,
+            f"No enablement record found for capability '{capability_id}' in workspace '{workspace_id}' (action_class={action_class}, skill_hash={skill_hash[:12]}...)",
+        )
 
     if not enb.is_active:
-        return False, f"Enablement record '{enb.id}' for capability '{capability_id}' is not active (status={enb.status}, expires_at={enb.expires_at})"
+        return (
+            False,
+            f"Enablement record '{enb.id}' for capability '{capability_id}' is not active (status={enb.status}, expires_at={enb.expires_at})",
+        )
 
     return True, None

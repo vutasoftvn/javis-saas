@@ -63,9 +63,7 @@ def parse_skillpack_spec(pack_dir: Path) -> SkillSpec:
 
     # Applicability
     raw_app = _require_mapping(manifest_data, "applicability")
-    raw_stages = _require_non_empty_string_list(
-        raw_app, "project_stages", section="applicability"
-    )
+    raw_stages = _require_non_empty_string_list(raw_app, "project_stages", section="applicability")
     project_stages = []
     for s in raw_stages:
         try:

@@ -6,6 +6,7 @@ Python equivalent of services/company/academy/contracts.ts
 Used to reject Academy artifact refs from entering production
 evidence ingestion, gate evaluation, or capability enablement.
 """
+
 from __future__ import annotations
 
 ACADEMY_ARTIFACT_SCHEME = "academy-artifact://"

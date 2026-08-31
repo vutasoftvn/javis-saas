@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Trạng thái hợp đồng chỉ số
 enum MetricContractStatus { draft, active, retired, unknown }
 
@@ -7,7 +5,13 @@ enum MetricContractStatus { draft, active, retired, unknown }
 enum MetricSnapshotQuality { valid, stale, incomplete, rejected, unknown }
 
 /// Kết quả phân loại PMF Scoreboard
-enum PmfScoreboardResult { insufficientData, mixed, promising, concerning, unknown }
+enum PmfScoreboardResult {
+  insufficientData,
+  mixed,
+  promising,
+  concerning,
+  unknown,
+}
 
 /// Mức độ trưởng thành của từng chiều kích
 enum MaturityLevel { notAssessed, early, repeatable, governed, unknown }
@@ -82,7 +86,9 @@ class MetricContract {
           ? json['sourceMapping'] as Map<String, dynamic>
           : {},
       cadence: json['cadence']?.toString() ?? 'weekly',
-      freshUntil: json['freshUntil'] != null ? DateTime.tryParse(json['freshUntil'].toString()) : null,
+      freshUntil: json['freshUntil'] != null
+          ? DateTime.tryParse(json['freshUntil'].toString())
+          : null,
       decisionUse: json['decisionUse']?.toString(),
       approvalRef: json['approvalRef']?.toString(),
       createdAt: json['createdAt'] != null
@@ -268,13 +274,23 @@ class PmfScoreboardRun {
       id: json['id']?.toString() ?? '',
       workspaceId: json['workspaceId']?.toString() ?? '',
       projectId: json['projectId']?.toString() ?? '',
-      contractVersionIds: (json['contractVersionIds'] as List? ?? []).map((e) => e.toString()).toList(),
-      inputSnapshotIds: (json['inputSnapshotIds'] as List? ?? []).map((e) => e.toString()).toList(),
-      reviewedEvidenceIds: (json['reviewedEvidenceIds'] as List? ?? []).map((e) => e.toString()).toList(),
+      contractVersionIds: (json['contractVersionIds'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      inputSnapshotIds: (json['inputSnapshotIds'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      reviewedEvidenceIds: (json['reviewedEvidenceIds'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
       policyVersion: json['policyVersion']?.toString() ?? 'v1',
       scoreComponents: components,
-      missingDataFlags: (json['missingDataFlags'] as List? ?? []).map((e) => e.toString()).toList(),
-      reliabilityFlags: (json['reliabilityFlags'] as List? ?? []).map((e) => e.toString()).toList(),
+      missingDataFlags: (json['missingDataFlags'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      reliabilityFlags: (json['reliabilityFlags'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
       calculationHash: json['calculationHash']?.toString() ?? '',
       result: parseResult(json['result']?.toString()),
       humanReviewState: json['humanReviewState'] is Map<String, dynamic>
@@ -318,7 +334,9 @@ class MaturityDimension {
     return MaturityDimension(
       level: parseLevel(json['level']?.toString()),
       rationale: json['rationale']?.toString() ?? '',
-      missingEvidence: (json['missingEvidence'] as List? ?? []).map((e) => e.toString()).toList(),
+      missingEvidence: (json['missingEvidence'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
 }
@@ -357,11 +375,21 @@ class MaturityAssessment {
       workspaceId: json['workspaceId']?.toString() ?? '',
       projectId: json['projectId']?.toString() ?? '',
       scoreboardRunId: json['scoreboardRunId']?.toString(),
-      measurement: MaturityDimension.fromJson(dims['measurement'] as Map<String, dynamic>? ?? {}),
-      value: MaturityDimension.fromJson(dims['value'] as Map<String, dynamic>? ?? {}),
-      retention: MaturityDimension.fromJson(dims['retention'] as Map<String, dynamic>? ?? {}),
-      commercial: MaturityDimension.fromJson(dims['commercial'] as Map<String, dynamic>? ?? {}),
-      operational: MaturityDimension.fromJson(dims['operational'] as Map<String, dynamic>? ?? {}),
+      measurement: MaturityDimension.fromJson(
+        dims['measurement'] as Map<String, dynamic>? ?? {},
+      ),
+      value: MaturityDimension.fromJson(
+        dims['value'] as Map<String, dynamic>? ?? {},
+      ),
+      retention: MaturityDimension.fromJson(
+        dims['retention'] as Map<String, dynamic>? ?? {},
+      ),
+      commercial: MaturityDimension.fromJson(
+        dims['commercial'] as Map<String, dynamic>? ?? {},
+      ),
+      operational: MaturityDimension.fromJson(
+        dims['operational'] as Map<String, dynamic>? ?? {},
+      ),
       assessedAt: json['assessedAt'] != null
           ? DateTime.tryParse(json['assessedAt'].toString()) ?? DateTime.now()
           : DateTime.now(),

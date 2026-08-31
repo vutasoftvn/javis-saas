@@ -52,7 +52,7 @@ def create_operations_task_create_draft_handler(client: CompanyServiceClient):
             if isinstance(context, dict)
             else getattr(context, "workspace_id", None)
         ) or payload.get("workspace_id")
-        
+
         if not ws_id:
             raise ValueError("operations.task.create_draft: workspace_id is required")
 
@@ -76,7 +76,11 @@ def create_operations_task_create_draft_handler(client: CompanyServiceClient):
             ref_str = str(ref)
             if ref_str.startswith("artifact://") and f"artifact://{ws_id}/" not in ref_str:
                 raise ValueError(f"Cross-workspace evidence reference rejected: {ref_str}")
-            if ref_str.startswith("ws-") and not ref_str.startswith(f"{ws_id}:") and not ref_str.startswith(f"{ws_id}/"):
+            if (
+                ref_str.startswith("ws-")
+                and not ref_str.startswith(f"{ws_id}:")
+                and not ref_str.startswith(f"{ws_id}/")
+            ):
                 # if prefix is another ws
                 parts = ref_str.split(":", 1)
                 if len(parts) == 2 and parts[0] != str(ws_id):

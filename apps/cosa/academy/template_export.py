@@ -12,12 +12,13 @@ INVARIANTS:
    EXCEPT for a permanent provenance/disclaimer block.
 5. The exported artifact includes academy_source_ref starting with 'academy-artifact://'
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from apps.cosa.academy.simulation.contracts import ACADEMY_ARTIFACT_SCHEME, SYNTHETIC_DISCLAIMER
+from apps.cosa.academy.simulation.contracts import ACADEMY_ARTIFACT_SCHEME
 
 ACADEMY_TEMPLATE_DRAFT_KIND = "academy_template_draft"
 
@@ -28,10 +29,17 @@ TEMPLATE_EXPORT_DISCLAIMER = (
 )
 
 # Fields to strip from simulation body before exporting (scores, feedback, synthetic claims)
-_STRIP_FIELDS = frozenset([
-    "score", "rubric_score", "feedback", "simulation_score",
-    "synthetic_claim", "model_feedback", "advisory_score",
-])
+_STRIP_FIELDS = frozenset(
+    [
+        "score",
+        "rubric_score",
+        "feedback",
+        "simulation_score",
+        "synthetic_claim",
+        "model_feedback",
+        "advisory_score",
+    ]
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +50,7 @@ class AcademyTemplateExport:
     kind is always 'academy_template_draft'.
     academy_source_ref always starts with 'academy-artifact://'.
     """
+
     id: str
     workspace_id: str
     confirmed_by_account_id: str
@@ -65,7 +74,9 @@ class AcademyTemplateExport:
                 f"got: {self.kind!r}"
             )
         if not self.confirmed_by_account_id:
-            raise ValueError("AcademyTemplateExport requires confirmed_by_account_id (human confirmation)")
+            raise ValueError(
+                "AcademyTemplateExport requires confirmed_by_account_id (human confirmation)"
+            )
 
 
 def _strip_synthetic_fields(body: dict[str, Any]) -> dict[str, Any]:
@@ -112,6 +123,7 @@ def export_template(
     }
 
     import uuid
+
     export_id = f"tmpl_{uuid.uuid4().hex[:12]}"
 
     return AcademyTemplateExport(

@@ -185,7 +185,9 @@ def create_campaign_asset_write_handler(
 ) -> Callable[[dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]]:
     """Tạo capability handler lưu trữ asset chiến dịch marketing."""
 
-    async def handle_campaign_asset_write(args: dict[str, Any], context: Any = None) -> dict[str, Any]:
+    async def handle_campaign_asset_write(
+        args: dict[str, Any], context: Any = None
+    ) -> dict[str, Any]:
         workspace_id = _resolve_workspace_id(args, context)
 
         # Anti-bypass check: cannot publish to public_url or direct external ad/page

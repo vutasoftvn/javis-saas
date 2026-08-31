@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 from agent.capabilities.canonicalization import compute_payload_hash
 from agent.capabilities.enablements import (
-    CapabilityEnablement,
     EnablementStore,
     InMemoryEnablementStore,
     assert_enabled_for_invocation,
@@ -285,11 +284,15 @@ class CapabilityGateway:
         # Bước 4.8: Scoped Capability Enablement Verification (Tranche C / Task 1)
         action_class = "R"
         if isinstance(req.context, dict):
-            action_class = req.context.get("action_class") or spec.metadata.get("action_class") or "R"
-        elif hasattr(req.context, "action_class") and getattr(req.context, "action_class"):
-            action_class = getattr(req.context, "action_class")
+            action_class = (
+                req.context.get("action_class") or spec.metadata.get("action_class") or "R"
+            )
+        elif hasattr(req.context, "action_class") and req.context.action_class:
+            action_class = req.context.action_class
         else:
-            action_class = spec.metadata.get("action_class") or getattr(spec, "action_class", "R")
+            action_class = str(
+                spec.metadata.get("action_class") or getattr(spec, "action_class", "R")
+            )
 
         skill_hash = None
         if isinstance(req.context, dict):
@@ -298,7 +301,7 @@ class CapabilityGateway:
                 pinned = req.context.get("pinned_skill") or req.context.get("skill_ref")
                 if isinstance(pinned, dict):
                     skill_hash = pinned.get("definition_hash") or pinned.get("skill_hash")
-                elif hasattr(pinned, "definition_hash"):
+                elif pinned is not None and hasattr(pinned, "definition_hash"):
                     skill_hash = pinned.definition_hash
         elif hasattr(req.context, "skill_hash"):
             skill_hash = getattr(req.context, "skill_hash", None)
@@ -312,7 +315,9 @@ class CapabilityGateway:
             target_fingerprint="*",
         )
         if not is_enabled:
-            def_hash_val = spec.metadata.get("definition_hash") or getattr(spec, "definition_hash", None)
+            def_hash_val = spec.metadata.get("definition_hash") or getattr(
+                spec, "definition_hash", None
+            )
             tc_record = RunToolCallRecord(
                 tool_call_id=req.tool_call_id,
                 run_id=req.run_id,
