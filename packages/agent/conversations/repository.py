@@ -11,6 +11,7 @@ from agent.conversations.models import (
     MessageAttachmentRecord,
     MessageRecord,
 )
+from agent.persistence import BasePostgresRepository
 
 __all__ = [
     "ConversationRepository",
@@ -135,17 +136,16 @@ class InMemoryConversationRepository:
         return [m.model_copy(deep=True) for m in msgs]
 
 
-class PostgresConversationRepository:
+class PostgresConversationRepository(BasePostgresRepository):
     """PostgreSQL implementation persisting to agent_conversation.* schema (migration 006)."""
 
     def __init__(self, db_session_factory: Any) -> None:
-        if db_session_factory is None:
-            raise ValueError("PostgresConversationRepository requires a valid db_session_factory.")
-        self._session_factory = db_session_factory
+        super().__init__(db_session_factory)
 
     async def create_conversation(self, conversation: ConversationRecord) -> ConversationRecord:
         async with self._session_factory() as session:
-            await session.execute(
+            await self._execute(
+                session,
                 text(
                     """
                     INSERT INTO agent_conversation.conversations (
@@ -169,12 +169,13 @@ class PostgresConversationRepository:
                     "archived_at": conversation.archived_at,
                 },
             )
-            await session.commit()
+            await self._commit(session)
         return conversation
 
     async def get_conversation(self, conversation_id: str) -> ConversationRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT conversation_id, workspace_id, created_by_principal,
@@ -192,7 +193,8 @@ class PostgresConversationRepository:
         self, workspace_id: str, conversation_id: str
     ) -> ConversationRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT conversation_id, workspace_id, created_by_principal,
@@ -225,15 +227,18 @@ class PostgresConversationRepository:
         where_clause = f"WHERE {' AND '.join(clauses)}"
 
         async with self._session_factory() as session:
-            count_res = await session.execute(
+            count_res = await self._execute(
+                session,
                 text(
                     f"SELECT COUNT(*) AS total FROM agent_conversation.conversations {where_clause}"
                 ),
                 {k: v for k, v in params.items() if k not in ("limit", "offset")},
             )
-            total = int(count_res.mappings().first()["total"])
+            count_row = count_res.mappings().first()
+            total = int(count_row["total"]) if count_row is not None else 0
 
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     f"""
                     SELECT conversation_id, workspace_id, created_by_principal,
@@ -261,7 +266,8 @@ class PostgresConversationRepository:
         archived_at: datetime | None = (now if archived else None) if archived is not None else None
 
         async with self._session_factory() as session:
-            await session.execute(
+            await self._execute(
+                session,
                 text(
                     """
                     UPDATE agent_conversation.conversations
@@ -281,7 +287,7 @@ class PostgresConversationRepository:
                     "updated_at": now,
                 },
             )
-            await session.commit()
+            await self._commit(session)
         return await self.get_conversation(conversation_id)
 
     async def add_message(
@@ -290,7 +296,8 @@ class PostgresConversationRepository:
         attachments: list[MessageAttachmentRecord] | None = None,
     ) -> MessageRecord:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     INSERT INTO agent_conversation.messages (
@@ -314,10 +321,12 @@ class PostgresConversationRepository:
                     "created_at": message.created_at,
                 },
             )
-            sequence_no = res.mappings().first()["sequence_no"]
+            first_row = res.mappings().first()
+            sequence_no = first_row["sequence_no"] if first_row is not None else 0
 
             for att in attachments or []:
-                await session.execute(
+                await self._execute(
+                    session,
                     text(
                         """
                         INSERT INTO agent_conversation.message_attachments (
@@ -341,7 +350,7 @@ class PostgresConversationRepository:
                         "created_at": att.created_at,
                     },
                 )
-            await session.commit()
+            await self._commit(session)
 
         stored = message.model_copy(deep=True)
         stored.sequence_no = int(sequence_no)
@@ -350,7 +359,8 @@ class PostgresConversationRepository:
 
     async def list_messages(self, conversation_id: str) -> list[MessageRecord]:
         async with self._session_factory() as session:
-            msg_res = await session.execute(
+            msg_res = await self._execute(
+                session,
                 text(
                     """
                     SELECT message_id, conversation_id, sequence_no, role, content, run_id,
@@ -366,7 +376,8 @@ class PostgresConversationRepository:
             if not msg_rows:
                 return []
 
-            att_res = await session.execute(
+            att_res = await self._execute(
+                session,
                 text(
                     """
                     SELECT attachment_id, message_id, object_ref, media_type, file_name,
