@@ -1,37 +1,40 @@
 -- services/cosa/migrations/27_refactor_clean_roles_profiles_and_workspaces.up.sql
 
--- 1. Chuẩn hóa bảng cosa.roles: bỏ level/scope, thêm name/category
+-- 1. Chuẩn hóa bảng cosa.roles: thêm name, category, sort_order, bỏ level, scope
 ALTER TABLE cosa.roles ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE cosa.roles ADD COLUMN IF NOT EXISTS category TEXT;
-
--- Seed dữ liệu cho cột mới nếu có dữ liệu cũ
-UPDATE cosa.roles SET name = 'Quản trị viên', category = 'system' WHERE id = 'superadmin';
-UPDATE cosa.roles SET name = 'Quản trị viên nền tảng', category = 'system' WHERE id = 'admin';
-UPDATE cosa.roles SET name = 'Hỗ trợ viên', category = 'system' WHERE id = 'support';
-UPDATE cosa.roles SET name = 'Sáng lập', category = 'leadership' WHERE id = 'founder';
-UPDATE cosa.roles SET name = 'Đồng sáng lập', category = 'leadership' WHERE id = 'co-founder';
-UPDATE cosa.roles SET name = 'Thành viên', category = 'community' WHERE id = 'user';
+ALTER TABLE cosa.roles ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
 
 ALTER TABLE cosa.roles DROP COLUMN IF EXISTS scope;
 ALTER TABLE cosa.roles DROP COLUMN IF EXISTS level;
 
--- Insert/Upsert 13 roles chuẩn của Cosa
-INSERT INTO cosa.roles (id, name, category, description) VALUES
-  ('superadmin', 'Quản trị viên', 'system',     'Quản trị tối cao toàn bộ nền tảng'),
-  ('support',    'Hỗ trợ viên',   'system',     'Hỗ trợ khách hàng và vận hành hệ thống'),
-  ('founder',    'Sáng lập',      'leadership', 'Nhà sáng lập doanh nghiệp / workspace'),
-  ('co-founder', 'Đồng sáng lập', 'leadership', 'Đồng sáng lập doanh nghiệp / workspace'),
-  ('mentor',     'Cố vấn',        'community',  'Cố vấn chuyên môn và phát triển doanh nghiệp'),
-  ('investor',   'Nhà đầu tư',    'community',  'Nhà đầu tư / Quỹ đầu tư mạo hiểm'),
-  ('tech',       'Công nghệ',     'department', 'Khối Kỹ thuật & Công nghệ'),
-  ('marketing',  'Marketing',     'department', 'Khối Tiếp thị & Truyền thông'),
-  ('sales',      'Kinh doanh',    'department', 'Khối Bán hàng & Phát triển thị trường'),
-  ('finance',    'Tài chính',     'department', 'Khối Kế toán & Tài chính'),
-  ('hr',         'Nhân sự',       'department', 'Khối Quản trị nhân sự'),
-  ('operations', 'Vận hành',      'department', 'Khối Vận hành doanh nghiệp'),
-  ('member',     'Thành viên',    'community',  'Thành viên chung')
+-- Xóa bỏ các role rác cũ (user, auditor, admin...)
+DELETE FROM cosa.roles 
+WHERE id NOT IN (
+  'superadmin', 'support', 'founder', 'co-founder', 'mentor', 'investor',
+  'tech', 'marketing', 'sales', 'finance', 'hr', 'operations', 'member'
+);
+
+-- Insert/Upsert đúng chuẩn 13 roles của Cosa theo thứ tự hiển thị khoa học
+INSERT INTO cosa.roles (id, name, category, sort_order, description) VALUES
+  ('founder',    'Sáng lập',      'leadership', 1,  'Nhà sáng lập doanh nghiệp / workspace'),
+  ('co-founder', 'Đồng sáng lập', 'leadership', 2,  'Đồng sáng lập doanh nghiệp / workspace'),
+  ('mentor',     'Cố vấn',        'community',  3,  'Cố vấn chuyên môn và phát triển doanh nghiệp'),
+  ('investor',   'Nhà đầu tư',    'community',  4,  'Nhà đầu tư / Quỹ đầu tư mạo hiểm'),
+  ('tech',       'Công nghệ',     'department', 5,  'Khối Kỹ thuật & Công nghệ'),
+  ('marketing',  'Marketing',     'department', 6,  'Khối Tiếp thị & Truyền thông'),
+  ('sales',      'Kinh doanh',    'department', 7,  'Khối Bán hàng & Phát triển thị trường'),
+  ('finance',    'Tài chính',     'department', 8,  'Khối Kế toán & Tài chính'),
+  ('hr',         'Nhân sự',       'department', 9,  'Khối Quản trị nhân sự'),
+  ('operations', 'Vận hành',      'department', 10, 'Khối Vận hành doanh nghiệp'),
+  ('member',     'Thành viên',    'community',  11, 'Thành viên chung'),
+  ('superadmin', 'Quản trị viên', 'system',     12, 'Quản trị tối cao toàn bộ nền tảng'),
+  ('support',    'Hỗ trợ viên',   'system',     13, 'Hỗ trợ khách hàng và vận hành hệ thống')
 ON CONFLICT (id) DO UPDATE 
-SET name = EXCLUDED.name, category = EXCLUDED.category, description = EXCLUDED.description;
+SET name = EXCLUDED.name, 
+    category = EXCLUDED.category, 
+    sort_order = EXCLUDED.sort_order, 
+    description = EXCLUDED.description;
 
 -- 2. Chuẩn hóa cosa.users: Bỏ cờ thừa is_platform_admin và platform_role_id
 ALTER TABLE cosa.users DROP COLUMN IF EXISTS is_platform_admin CASCADE;

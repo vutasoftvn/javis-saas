@@ -8,6 +8,7 @@ export const roles = cosaSchema.table("roles", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   category: text("category").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
   description: text("description"),
 });
 
