@@ -1,43 +1,71 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: strategy.next-best-action
   name: Next Best Action Recommendation
-  version: 1.0.0
-  description: Truy vấn và giải thích danh sách các hành động tiếp theo tối ưu nhất (Next Best Actions) được xếp hạng tất định theo thuật toán Strategy Domain.
-
+  version: 1.0.1
+  description: Truy vấn và giải thích danh sách các hành động tiếp theo tối ưu nhất
+    (Next Best Actions) được xếp hạng tất định theo thuật toán Strategy Domain.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/strategy/next-best-action
-
 capability:
   domain: strategy
   category: next_best_action
   intents:
-    - việc gì nên làm tiếp theo
-    - ưu tiên tuần này
-    - next best action
-    - weekly priority
-    - next actions
-    - việc quan trọng nhất hiện tại
-
+  - việc gì nên làm tiếp theo
+  - ưu tiên tuần này
+  - next best action
+  - weekly priority
+  - next actions
+  - việc quan trọng nhất hiện tại
 runtime:
   environment: python
   entrypoint: SKILL.md
   tools:
-    - strategy.next_best_action.get
-
+  - strategy.next_best_action.get
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/next-best-action.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-project-context

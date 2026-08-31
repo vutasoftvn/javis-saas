@@ -1,44 +1,66 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: core.weekly-review
   name: Weekly Review
-  version: 1.0.0
+  version: 1.0.1
   description: Guide a structured weekly review of goals, tasks, and blockers
-
 publisher:
   name: internal
   type: official
-
 source:
   type: local
   path: skillpacks/core/weekly-review
-
 capability:
   domain: core
   category: review
   intents:
-    - weekly review
-    - reflect on the week
-    - review progress
-
+  - weekly review
+  - reflect on the week
+  - review progress
 runtime:
   entrypoint: SKILL.md
   tools: []
-
 permissions:
   filesystem: workspace
   network: none
   business_write: false
-
 risk:
   level: low
-
 trust:
   tier: T0
   security_scan: passed
-
 quality:
-  eval_score: 0.9
-  success_rate: 0.85
+  eval_suite: evals/core/weekly-review.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true

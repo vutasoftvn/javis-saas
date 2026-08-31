@@ -1,43 +1,65 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: product.outcome-roadmap
   name: Outcome Based Roadmap Design
-  version: 1.0.0
-  description: Thiết kế lộ trình sản phẩm định hướng kết quả (Now / Next / Later) gắn liền với mục tiêu PMF và bằng chứng thực tế.
-
+  version: 1.0.1
+  description: Thiết kế lộ trình sản phẩm định hướng kết quả (Now / Next / Later)
+    gắn liền với mục tiêu PMF và bằng chứng thực tế.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/product/outcome-roadmap
-
 capability:
   domain: product
   category: roadmap
   intents:
-    - outcome roadmap
-    - lo trinh san pham
-    - now next later
-    - product roadmap
-    - dinh huong tinh nang
-
+  - outcome roadmap
+  - lo trinh san pham
+  - now next later
+  - product roadmap
+  - dinh huong tinh nang
 runtime:
   environment: python
   entrypoint: SKILL.md
   tools:
-    - strategy.project.get
-    - analytics.pmf_scoreboard.get
-
+  - strategy.project.get
+  - analytics.pmf_scoreboard.get
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G2
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/product/outcome-roadmap.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-metric-contract

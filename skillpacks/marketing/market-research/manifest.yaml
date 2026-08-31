@@ -1,42 +1,66 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: marketing.market-research
   name: Market & Customer Research
-  version: 1.1.0
-  description: Nghiên cứu thị trường mục tiêu, phân khúc khách hàng, đối thủ cạnh tranh và nhu cầu người dùng qua 3 chế độ nghiên cứu dựa trên bằng chứng thực tế.
-
+  version: 1.1.1
+  description: Nghiên cứu thị trường mục tiêu, phân khúc khách hàng, đối thủ cạnh
+    tranh và nhu cầu người dùng qua 3 chế độ nghiên cứu dựa trên bằng chứng thực tế.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/marketing/market-research
-
 capability:
   domain: marketing
   category: research
   intents:
-    - market research
-    - customer research
-    - competitive analysis
-    - market sizing
-    - audience segmentation
-    - industry trends
-
+  - market research
+  - customer research
+  - competitive analysis
+  - market sizing
+  - audience segmentation
+  - industry trends
 runtime:
   entrypoint: SKILL.md
   tools:
-    - web.search
-
+  - web.search
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 2
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/market-research.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - unsourced-market-claim

@@ -1,43 +1,65 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: product.backlog-prioritization
   name: Backlog Prioritization Framework
-  version: 1.0.0
-  description: Xếp hạng và ưu tiên backlog sản phẩm dựa trên RICE framework hoặc Opportunity Scoring gắn liền với mục tiêu chiến lược.
-
+  version: 1.0.1
+  description: Xếp hạng và ưu tiên backlog sản phẩm dựa trên RICE framework hoặc Opportunity
+    Scoring gắn liền với mục tiêu chiến lược.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/product/backlog-prioritization
-
 capability:
   domain: product
   category: backlog
   intents:
-    - uu tien backlog
-    - backlog prioritization
-    - rice framework
-    - opportunity scoring
-    - xep hang tinh nang
-
+  - uu tien backlog
+  - backlog prioritization
+  - rice framework
+  - opportunity scoring
+  - xep hang tinh nang
 runtime:
   environment: python
   entrypoint: SKILL.md
   tools:
-    - strategy.project.get
-    - operations.task.list
-
+  - strategy.project.get
+  - operations.task.list
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G2
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/product/backlog-prioritization.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-evidence-refs

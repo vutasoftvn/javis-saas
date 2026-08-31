@@ -1,42 +1,63 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: commercial.churn-prevention
   name: Churn Prevention, Customer Health & Retention Playbook
-  version: 1.0.0
-  description: Phân tích tỷ lệ giữ chân khách hàng (Retention / NRR), nhận diện tín hiệu cảnh báo sớm nguy cơ rời bỏ (At-Risk Signals) và xây dựng cẩm nang can thiệp chủ động.
-
+  version: 1.0.1
+  description: Phân tích tỷ lệ giữ chân khách hàng (Retention / NRR), nhận diện tín
+    hiệu cảnh báo sớm nguy cơ rời bỏ (At-Risk Signals) và xây dựng cẩm nang can thiệp
+    chủ động.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/commercial/churn-prevention
-
 capability:
   domain: commercial
   category: retention
   intents:
-    - churn prevention
-    - retention analysis
-    - net revenue retention
-    - at risk customer signals
-    - customer health score
-    - customer success playbook
-    - churn post mortem
-
+  - churn prevention
+  - retention analysis
+  - net revenue retention
+  - at risk customer signals
+  - customer health score
+  - customer success playbook
+  - churn post mortem
 runtime:
   entrypoint: SKILL.md
   tools: []
-
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/commercial/churn-prevention.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - unsourced-churn-claim

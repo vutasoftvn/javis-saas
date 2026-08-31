@@ -1,42 +1,64 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: marketing.copywriting
   name: High-Conversion Copywriting & Copy Editing
-  version: 1.1.0
-  description: Biên soạn nội dung tiếp thị chuyển đổi cao cho landing page, email, biểu mẫu và quảng cáo dựa trên bằng chứng và nguyên tắc Rule of One.
-
+  version: 1.1.1
+  description: Biên soạn nội dung tiếp thị chuyển đổi cao cho landing page, email,
+    biểu mẫu và quảng cáo dựa trên bằng chứng và nguyên tắc Rule of One.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/marketing/copywriting
-
 capability:
   domain: marketing
   category: copywriting
   intents:
-    - copywriting
-    - copy editing
-    - conversion rate optimization
-    - landing page copy
-    - headline generation
-    - cta optimization
-    - form audit
-
+  - copywriting
+  - copy editing
+  - conversion rate optimization
+  - landing page copy
+  - headline generation
+  - cta optimization
+  - form audit
 runtime:
   entrypoint: SKILL.md
   tools: []
-
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G2
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/copywriting.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - unapproved-brand-voice-use

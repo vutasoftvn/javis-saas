@@ -1,10 +1,42 @@
 # Evals & Benchmarks Suite
 
-Thư mục chứa golden datasets, test suites và benchmarks theo 5 lớp đánh giá:
-1. Model Eval
-2. Agent Eval
-3. Skill Eval
-4. Workflow Eval
-5. Business Outcome Eval
+Thư mục này lưu dataset, test suite và benchmark cho model, agent, skill,
+workflow và business outcome. Mỗi built-in skillpack phải sở hữu đúng một
+policy-evaluation suite được khai báo bằng `quality.eval_suite` trong manifest.
 
-> Tham chiếu gốc "AI Agent OS Master Architecture §3.8, §33" đã lỗi thời (tài liệu không còn trong repo). Xem `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` Phần G (Wave 5-6) và `COSA_AGENT_PLATFORM_IMPLEMENTATION_BLUEPRINT_V2_2026-08-24.md` §71.2 cho schema `agent_evals.*` (metadata/kết quả, lưu ở `packages/agent/migrations/`) — thư mục này lưu dataset/test case file thật, bổ sung cho schema đó, không trùng.
+## Skill evaluation contract
+
+Mỗi `evals/<domain>/<skill>.yaml` sử dụng schema tối thiểu:
+
+```yaml
+apiVersion: cosa.ai/skill-eval/v1
+kind: SkillEvalSuite
+skill:
+  id: operations.tasks
+  version: 2.0.0
+cases:
+  - id: accepts-governed-context
+    input:
+      workspace_id: ws-eval
+      project_id: project-eval
+    expected:
+      outcome: accept
+  - id: cross-workspace
+    input:
+      workspace_id: ws-other
+      project_id: project-eval
+    expected:
+      outcome: reject
+      reason: cross-workspace
+```
+
+Validation command:
+
+```bash
+make skillpacks-validate
+PYTHONPATH=packages:. python -m pytest tests/agent/skills/test_skillpack_eval_contract.py -q
+```
+
+Suite YAML chứng minh ownership, phiên bản, và policy case coverage. Nó **không**
+phải bằng chứng rằng LLM behavioural evaluation đã được chạy hoặc đạt điểm; kết
+quả thực thi phải được ghi qua runtime evaluation có audit riêng.

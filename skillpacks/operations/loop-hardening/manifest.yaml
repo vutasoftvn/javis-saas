@@ -1,42 +1,65 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: operations.loop-hardening
   name: Autonomous Loop Hardening, Idempotency & Lease Coordination
-  version: 1.0.0
-  description: Quy chuẩn gia cố vòng lặp tự hành (Loop Hardening), kiểm soát tính lũy đẳng (Idempotency), khóa phân tán chống split-brain (RunLease) và hàng đợi gộp tác vụ (Coalescing Queue).
-
+  version: 1.0.1
+  description: Quy chuẩn gia cố vòng lặp tự hành (Loop Hardening), kiểm soát tính
+    lũy đẳng (Idempotency), khóa phân tán chống split-brain (RunLease) và hàng đợi
+    gộp tác vụ (Coalescing Queue).
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/operations/loop-hardening
-
 capability:
   domain: operations
   category: hardening
   intents:
-    - loop hardening
-    - idempotency control
-    - distributed lease
-    - scheduler coalescing
-    - circuit breaker
-    - emergency bail out
-    - background execution safety
-
+  - loop hardening
+  - idempotency control
+  - distributed lease
+  - scheduler coalescing
+  - circuit breaker
+  - emergency bail out
+  - background execution safety
 runtime:
   entrypoint: SKILL.md
   tools: []
-
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/operations/loop-hardening.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-automation-execution

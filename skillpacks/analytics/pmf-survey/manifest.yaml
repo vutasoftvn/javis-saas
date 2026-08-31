@@ -1,44 +1,66 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: analytics.pmf-survey
   name: Product Market Fit Survey Protocol
-  version: 1.0.0
-  description: Quy trình thiết kế khảo sát đo lường PMF (Sean Ellis / Rahul Vohra framework) và phân tích tỷ lệ thất vọng khi sản phẩm biến mất.
-
+  version: 1.0.1
+  description: Quy trình thiết kế khảo sát đo lường PMF (Sean Ellis / Rahul Vohra
+    framework) và phân tích tỷ lệ thất vọng khi sản phẩm biến mất.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/analytics/pmf-survey
-
 capability:
   domain: analytics
   category: pmf_survey
   intents:
-    - khao sat pmf
-    - pmf survey
-    - sean ellis test
-    - how disappointed would you be
-    - do luong do yeu thich san pham
-
+  - khao sat pmf
+  - pmf survey
+  - sean ellis test
+  - how disappointed would you be
+  - do luong do yeu thich san pham
 runtime:
   environment: python
   entrypoint: SKILL.md
   tools:
-    - strategy.evidence.create
-    - strategy.evidence.list
-
+  - strategy.evidence.create
+  - strategy.evidence.list
 permissions:
   required:
-    - READ_LOCAL
-    - WRITE_LOCAL
-
+  - READ_LOCAL
+  - WRITE_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G2
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/analytics/pmf-survey.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-survey-evidence

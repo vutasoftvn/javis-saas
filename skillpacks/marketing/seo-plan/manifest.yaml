@@ -1,43 +1,66 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: marketing.seo-plan
   name: SEO Strategy, Content Architecture & AI Visibility
-  version: 1.1.0
-  description: Xây dựng chiến lược SEO toàn diện, phân nhóm cụm từ khóa theo ý định tìm kiếm, tối ưu khả năng hiển thị AI-Search, checklist kiểm toán kỹ thuật và cấu trúc dữ liệu schema.
-
+  version: 1.1.1
+  description: Xây dựng chiến lược SEO toàn diện, phân nhóm cụm từ khóa theo ý định
+    tìm kiếm, tối ưu khả năng hiển thị AI-Search, checklist kiểm toán kỹ thuật và
+    cấu trúc dữ liệu schema.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/marketing/seo-plan
-
 capability:
   domain: marketing
   category: seo
   intents:
-    - seo plan
-    - keyword strategy
-    - search intent clustering
-    - content prioritization
-    - ai search optimization
-    - technical seo audit
-    - schema structured data
-
+  - seo plan
+  - keyword strategy
+  - search intent clustering
+  - content prioritization
+  - ai search optimization
+  - technical seo audit
+  - schema structured data
 runtime:
   entrypoint: SKILL.md
   tools:
-    - web.search
-
+  - web.search
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/seo-plan.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - unsourced-keyword-claim

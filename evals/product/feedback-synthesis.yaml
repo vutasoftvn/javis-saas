@@ -1,0 +1,25 @@
+apiVersion: cosa.ai/skill-eval/v1
+kind: SkillEvalSuite
+skill:
+  id: product.feedback-synthesis
+  version: 1.0.0
+cases:
+- id: accepts-governed-context
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+  expected:
+    outcome: accept
+- id: missing-workspace
+  input:
+    project_id: project-eval
+  expected:
+    outcome: reject
+    reason: missing-workspace
+- id: cross-workspace
+  input:
+    workspace_id: ws-other
+    project_id: project-eval
+  expected:
+    outcome: reject
+    reason: cross-workspace

@@ -1,42 +1,63 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: marketing.campaign-review
   name: Marketing Campaign Review, Analytics & Tracking
-  version: 1.1.0
-  description: Đánh giá hiệu quả chiến dịch tiếp thị, chuẩn hóa kế hoạch theo dõi (Tracking Plan), phân loại taxonomy sự kiện, xác định nguồn dữ liệu chân lý và phân tích khoảng trống chuyển đổi.
-
+  version: 1.1.1
+  description: Đánh giá hiệu quả chiến dịch tiếp thị, chuẩn hóa kế hoạch theo dõi
+    (Tracking Plan), phân loại taxonomy sự kiện, xác định nguồn dữ liệu chân lý và
+    phân tích khoảng trống chuyển đổi.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/marketing/campaign-review
-
 capability:
   domain: marketing
   category: analytics
   intents:
-    - campaign review
-    - marketing analytics
-    - tracking plan
-    - event taxonomy
-    - utm convention
-    - attribution analysis
-    - conversion gap analysis
-
+  - campaign review
+  - marketing analytics
+  - tracking plan
+  - event taxonomy
+  - utm convention
+  - attribution analysis
+  - conversion gap analysis
 runtime:
   entrypoint: SKILL.md
   tools: []
-
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/campaign-review.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - unsourced-campaign-claim

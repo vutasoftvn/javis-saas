@@ -1,44 +1,64 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: discovery.affinity-synthesis
   name: Affinity Diagram Synthesis
-  version: 1.0.0
-  description: Tổng hợp dữ liệu phỏng vấn định tính, phản hồi người dùng thành các cụm chủ đề (thematic clusters) và ghi nhận evidence candidate.
-
+  version: 1.0.1
+  description: Tổng hợp dữ liệu phỏng vấn định tính, phản hồi người dùng thành các
+    cụm chủ đề (thematic clusters) và ghi nhận evidence candidate.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/discovery/affinity-synthesis
-
 capability:
   domain: discovery
   category: synthesis
   intents:
-    - affinity diagram
-    - tổng hợp phỏng vấn
-    - gom cụm insight
-    - thematic synthesis
-    - interview clustering
-
+  - affinity diagram
+  - tổng hợp phỏng vấn
+  - gom cụm insight
+  - thematic synthesis
+  - interview clustering
 runtime:
   environment: python
   entrypoint: SKILL.md
   tools:
-    - strategy.evidence.create
-    - strategy.evidence.list
-
+  - strategy.evidence.create
+  - strategy.evidence.list
 permissions:
   required:
-    - READ_LOCAL
-    - WRITE_LOCAL
-
+  - READ_LOCAL
+  - WRITE_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  gates:
+  - G0
+  - G1
+  - G2
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/discovery/affinity-synthesis.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-interview-evidence

@@ -1,44 +1,64 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: growth.experimentation-system
   name: Growth Experimentation System
-  version: 1.0.0
-  description: Thiết kế, theo dõi và ghi nhận các thử nghiệm tăng trưởng khoa học có gắn liền với hợp đồng đo lường chỉ số.
-
+  version: 1.0.1
+  description: Thiết kế, theo dõi và ghi nhận các thử nghiệm tăng trưởng khoa học
+    có gắn liền với hợp đồng đo lường chỉ số.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/growth/experimentation-system
-
 capability:
   domain: growth
   category: experimentation
   intents:
-    - he thong thu nghiem
-    - growth experimentation
-    - chay ab test
-    - thu nghiem tang truong
-    - scientific hypothesis
-
+  - he thong thu nghiem
+  - growth experimentation
+  - chay ab test
+  - thu nghiem tang truong
+  - scientific hypothesis
 runtime:
   environment: python
   entrypoint: SKILL.md
   tools:
-    - commercial.experiment.write
-    - analytics.metric_contract.get
-
+  - commercial.experiment.write
+  - analytics.metric_contract.get
 permissions:
   required:
-    - READ_LOCAL
-    - WRITE_LOCAL
-
+  - READ_LOCAL
+  - WRITE_LOCAL
 risk:
   level: medium
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/growth/experimentation-system.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-experiment-evidence

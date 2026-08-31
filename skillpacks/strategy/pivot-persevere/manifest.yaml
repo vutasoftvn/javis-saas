@@ -1,44 +1,66 @@
 apiVersion: agentos.ai/v1
 kind: Skill
-
 metadata:
   id: strategy.pivot-persevere
   name: Pivot vs Persevere Decision Framing
-  version: 1.0.0
-  description: Khung phân tích và cố vấn quyết định Pivot, Persevere hoặc Kill dựa trên dữ liệu PMF scoreboard và bằng chứng thực tế.
-
+  version: 1.0.1
+  description: Khung phân tích và cố vấn quyết định Pivot, Persevere hoặc Kill dựa
+    trên dữ liệu PMF scoreboard và bằng chứng thực tế.
 publisher:
   name: cosa
   type: official
-
 source:
   type: local
   path: skillpacks/strategy/pivot-persevere
-
 capability:
   domain: strategy
   category: decision_framing
   intents:
-    - pivot hay tiep tuc
-    - pivot persevere
-    - quyet dinh huong di
-    - danh gia kha thi
-    - stop or go
-
+  - pivot hay tiep tuc
+  - pivot persevere
+  - quyet dinh huong di
+  - danh gia kha thi
+  - stop or go
 runtime:
   environment: python
   entrypoint: SKILL.md
   tools:
-    - strategy.project.get
-    - analytics.pmf_scoreboard.get
-    - strategy.evidence.list
-
+  - strategy.project.get
+  - analytics.pmf_scoreboard.get
+  - strategy.evidence.list
 permissions:
   required:
-    - READ_LOCAL
-
+  - READ_LOCAL
 risk:
   level: low
-
 trust:
   tier: T0
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 2
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/strategy/pivot-persevere.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - missing-pmf-evidence
