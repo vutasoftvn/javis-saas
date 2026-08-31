@@ -1,4 +1,6 @@
-# Workspace Vision / Mission / Core Values Implementation Plan
+# Workspace Vision / Mission / Core Values Implementation Plan (Superseded)
+
+> Superseded by `docs/superpowers/plans/2026-08-31-workspace-orientation-optional.md`. Do not execute this plan: its required-onboarding and blocking-Hub behavior conflicts with the current product decision.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

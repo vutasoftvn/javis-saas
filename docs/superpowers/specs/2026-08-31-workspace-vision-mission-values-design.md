@@ -1,7 +1,10 @@
-# Workspace Vision / Mission / Core Values — bắt buộc thiết lập
+# Workspace Vision / Mission / Core Values — thiết kế bắt buộc (đã thay thế)
 
 Ngày: 2026-08-31
-Trạng thái: Approved (chờ implementation plan)
+Trạng thái: Superseded — xem `docs/superpowers/specs/2026-08-31-workspace-orientation-optional-design.md`.
+
+> Quyết định bắt buộc nhập và chặn Hub không còn hiệu lực. Tài liệu được giữ
+> như lịch sử quyết định; không dùng để triển khai mới.
 
 ## Bối cảnh
 

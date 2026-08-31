@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 129 | 34 |
 | VALID_KEEP (giữ nguyên) | 97 | 30 |
-| REVIEW (chưa phân loại) | 861 | 246 |
+| REVIEW (chưa phân loại) | 828 | 242 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -68,8 +68,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/project_lifecycle.py | 12 |
 | apps/cosa/compliance/resolver.py | 12 |
 | frontend/lib/data/models/stage_model.dart | 12 |
-| frontend/lib/modules/onboarding/services/company_identity_service.dart | 12 |
-| frontend/lib/modules/onboarding/widgets/company_identity_modal.dart | 12 |
 | services/company/operations/migrations/11_dedupe_strategy_company_workspace_id.down.sql | 12 |
 | apps/cosa/capabilities/client.py | 11 |
 | apps/cosa/composition/agent_plane.py | 10 |
@@ -98,7 +96,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/marketing_write.py | 5 |
 | apps/cosa/events/runtime_signal.py | 5 |
 | frontend/lib/data/models/company_pulse_model.dart | 5 |
-| frontend/lib/data/models/workspace_company_identity_model.dart | 5 |
 | frontend/lib/modules/hologram_hub/widgets/company_activation_card.dart | 5 |
 | frontend/lib/modules/organization/services/business_pack_service.dart | 5 |
 | frontend/lib/modules/workspace_runtime/views/company_workspace_view.dart | 5 |
@@ -112,7 +109,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/worker/main.py | 4 |
 | frontend/lib/modules/hologram_hub/controllers/mixins/hub_evidence_mixin.dart | 4 |
 | frontend/lib/modules/hologram_hub/views/hologram_hub_view.dart | 4 |
-| frontend/lib/modules/onboarding/services/company_identity_draft_parser.dart | 4 |
 | packages/agent/migrations/009_memory_v2.sql | 4 |
 | packages/agent/migrations/017_workspace_only_tenancy.down.sql | 4 |
 | services/company/identity/migrations/1_baseline_workspace_user_workforce.up.sql | 4 |
