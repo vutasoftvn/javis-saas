@@ -137,7 +137,11 @@ def test_tranche_a_full_sync_and_resolution_acceptance(acceptance_env):
 
 
 def test_tranche_a_cross_workspace_isolation_and_no_side_effects(acceptance_env):
-    """Tranche A Acceptance: Workspace isolation and advisory-only boundaries."""
+    """Tranche A Acceptance: Workspace isolation and advisory-only boundaries.
+
+    Cross-workspace listing is enforced as a hard 404 (Task 5, commit
+    59a4bc41), not a silently filtered empty result.
+    """
     client: TestClient = acceptance_env["client"]
 
     # Candidate in Workspace A
@@ -152,9 +156,19 @@ def test_tranche_a_cross_workspace_isolation_and_no_side_effects(acceptance_env)
     )
     assert res_a.status_code == 201
 
-    # Workspace B query cannot see Workspace A candidate
+    # Workspace B query is rejected outright: `resolve_identity_workspace`
+    # (apps/cosa/auth/dependency.py) treats a `workspace_id` query that
+    # doesn't match the authenticated identity's workspace as a hard 404,
+    # not a valid alternate scope to filter against (Task 5, commit 59a4bc41).
     res_b = client.get("/agent/skills?workspace_id=ws-accept-b")
-    assert not any(s["id"] == "acceptance-custom-skill" for s in res_b.json())
+    assert res_b.status_code == 404
+
+    # Positive check: querying the authenticated identity's own workspace
+    # (ws-accept-a) still returns the candidate just created there — proving
+    # the 404 above is a scope-boundary rejection, not a broken listing.
+    res_own = client.get("/agent/skills?workspace_id=ws-accept-a")
+    assert res_own.status_code == 200
+    assert any(s["id"] == "acceptance-custom-skill" for s in res_own.json())
 
 
 @pytest.mark.asyncio
