@@ -405,7 +405,7 @@ jobs:
             requirements-dev.txt
             packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
       - name: AgentOS application unit tests
         run: make apps-cosa-test
 
