@@ -19,6 +19,11 @@ export const identityWorkspaces = coreSchema.table("workspaces", {
   platformCompanyId: text("platform_company_id").unique(),
   platformWorkspaceId: text("platform_workspace_id").unique(),
   stageEnteredAt: timestamp("stage_entered_at", { withTimezone: true }),
+  // Task 1 (Vision/Mission/Core Values) — 1 bộ per workspace, nullable tới
+  // khi founder điền qua CompanyIdentityModal.
+  vision: text("vision"),
+  mission: text("mission"),
+  coreValues: text("core_values"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
