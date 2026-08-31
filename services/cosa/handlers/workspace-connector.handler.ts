@@ -1,6 +1,7 @@
 import { api, Header, APIError } from "encore.dev/api";
 import * as connectorSvc from "../services/workspace-connector.service";
-import { verifyPlatformToken, requireWorkerServiceAuth } from "../services/token.service";
+import { requireWorkerServiceAuth } from "../services/token.service";
+import { extractAuthContext } from "../middleware";
 
 export interface InstallConnectorParams {
   authorization?: Header<"Authorization">;
@@ -86,9 +87,7 @@ export interface ConnectorAssertResponse {
 export const installConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/install", expose: true },
   async (params: InstallConnectorParams): Promise<ConnectorInstallationResponse> => {
-    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = verifyPlatformToken(token);
+    const authCtx = extractAuthContext(params.authorization, params.workspaceId);
 
     // Verify caller is a member of the workspace
     await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
@@ -96,7 +95,7 @@ export const installConnectorEndpoint = api(
     const res = await connectorSvc.installWorkspaceConnector({
       workspaceId: params.workspaceId,
       connectorKey: params.connectorKey,
-      installedBy: claims.sub,
+      installedBy: authCtx.userID,
     });
     return res;
   }
@@ -105,9 +104,7 @@ export const installConnectorEndpoint = api(
 export const registerAuthorizationEndpoint = api(
   { method: "POST", path: "/cosa/connectors/authorize", expose: true },
   async (params: AuthorizeConnectorParams): Promise<ConnectorAuthorizationResponse> => {
-    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = verifyPlatformToken(token);
+    const authCtx = extractAuthContext(params.authorization, params.workspaceId);
 
     // Verify caller is a member of the workspace
     await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
@@ -115,7 +112,7 @@ export const registerAuthorizationEndpoint = api(
     const res = await connectorSvc.registerConnectorAuthorization({
       installationId: params.installationId,
       workspaceId: params.workspaceId,
-      principalId: claims.sub,
+      principalId: authCtx.userID,
       secretRef: params.secretRef,
       grantedScopes: params.grantedScopes,
       expiresAt: new Date(params.expiresAt),
@@ -135,9 +132,7 @@ const CONNECTOR_MANAGE_OTHERS_ROLES = new Set(["founder", "co-founder"]);
 export const grantConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/grant", expose: true },
   async (params: GrantConnectorParams): Promise<SessionConnectorGrantResponse> => {
-    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = verifyPlatformToken(token);
+    const authCtx = extractAuthContext(params.authorization, params.workspaceId);
 
     // Verify caller is a member of the workspace, and lấy membershipRole đã được
     // services/company xác thực để xác định override founder/co-founder (không dùng role
@@ -149,10 +144,10 @@ export const grantConnectorEndpoint = api(
       workspaceId: params.workspaceId,
       conversationId: params.conversationId,
       authorizationId: params.authorizationId,
-      grantedBy: claims.sub,
+      grantedBy: authCtx.userID,
       allowedActions: params.allowedActions || [],
       expiresAt: params.expiresAt ? new Date(params.expiresAt) : null,
-      callerPrincipalId: claims.sub,
+      callerPrincipalId: authCtx.userID,
       allowManageOthers,
     });
     return res;
@@ -162,9 +157,7 @@ export const grantConnectorEndpoint = api(
 export const revokeGrantEndpoint = api(
   { method: "POST", path: "/cosa/connectors/revoke", expose: true },
   async (params: RevokeGrantParams) => {
-    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = verifyPlatformToken(token);
+    const authCtx = extractAuthContext(params.authorization, params.workspaceId);
 
     // Verify caller is a member of the workspace, và lấy membershipRole đã xác thực để
     // xác định override founder/co-founder.
@@ -175,7 +168,7 @@ export const revokeGrantEndpoint = api(
       workspaceId: params.workspaceId,
       conversationId: params.conversationId,
       grantId: params.grantId,
-      callerPrincipalId: claims.sub,
+      callerPrincipalId: authCtx.userID,
       allowManageOthers,
     });
     return { ok: !!res };

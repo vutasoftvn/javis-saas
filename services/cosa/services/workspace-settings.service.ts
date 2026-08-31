@@ -11,7 +11,7 @@ import {
   workspaceConnectorInstallations,
   workspaceRuntimeNodes,
 } from "../storage/control-plane-schema";
-import { verifyPlatformToken } from "./token.service";
+import { extractAuthContext } from "../middleware";
 
 export interface MvpSourceRef {
   readonly kind: "company_db" | "agent_db" | "object_store" | "control_plane" | "external_connector";
@@ -53,14 +53,10 @@ function mvpItem<T>(item: T, sources: readonly MvpSourceRef[]): MvpSuccess<T> {
 const SOURCE_CONTROL_PLANE: MvpSourceRef = { kind: "control_plane", ref: "control_plane.settings" };
 
 async function verifyWorkspaceMembership(authorization: string | undefined, workspaceId: string): Promise<string> {
-  if (!authorization) {
-    throw APIError.unauthenticated("missing authorization token");
-  }
-  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : authorization;
-  const payload = verifyPlatformToken(token);
+  const authCtx = extractAuthContext(authorization, workspaceId);
 
   const wsIdBigInt = BigInt(workspaceId);
-  const userIdBigInt = BigInt(payload.sub);
+  const userIdBigInt = BigInt(authCtx.userID);
 
   const mem = await db
     .select()
@@ -73,7 +69,7 @@ async function verifyWorkspaceMembership(authorization: string | undefined, work
     throw APIError.permissionDenied("user does not belong to this workspace");
   }
 
-  return payload.sub;
+  return authCtx.userID;
 }
 
 // ─── Members ───
