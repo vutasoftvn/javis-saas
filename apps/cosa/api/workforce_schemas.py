@@ -168,7 +168,8 @@ class ApprovalOut(BaseModel):
 
 
 class ApprovalDecisionRequest(BaseModel):
-    decision: Literal["APPROVED", "REJECTED"]
+    decision: Literal["APPROVED", "REJECTED"] | None = None
+    approved: bool | None = None
     reason: str | None = None
 
 

@@ -54,7 +54,7 @@ async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
         (publish_agent_spec, COSA_CUSTOMER_SUPPORT_AGENT_SPEC),
         (publish_agent_spec, COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC),
     ):
-        await fn(spec, repository=spec_registry, publisher="cosa-seed")  # type: ignore[arg-type]
+        await fn(spec, repository=spec_registry, publisher="cosa-seed")
 
 
 async def seed_cosa_runtime_specs(

@@ -156,7 +156,7 @@ async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
 
         override_authenticated_identity(test_app, **TENANT_B)
         res_decide = await ac.post(
-            f"/agent/approvals/{approval.approval_id}/decision",
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
             json={"approved": True},
         )
         assert res_decide.status_code == 404
@@ -284,7 +284,7 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
     tenant_a_identity = dict(principal_id="user:alice", workspace_id="ws_a")
     override_authenticated_identity(test_app, **tenant_a_identity)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
-        res_a = await ac.get("/agent/approvals")
+        res_a = await ac.get("/agent/workforce/approvals")
         assert res_a.status_code == 200
         items_a = res_a.json()["items"]
         approval_ids_a = [item["approval_id"] for item in items_a]
@@ -294,7 +294,7 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
         # Tenant B should only see approval B
         tenant_b_identity = dict(principal_id="user:bob", workspace_id="ws_b")
         override_authenticated_identity(test_app, **tenant_b_identity)
-        res_b = await ac.get("/agent/approvals")
+        res_b = await ac.get("/agent/workforce/approvals")
         assert res_b.status_code == 200
         items_b = res_b.json()["items"]
         approval_ids_b = [item["approval_id"] for item in items_b]

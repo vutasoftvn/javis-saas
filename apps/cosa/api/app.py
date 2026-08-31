@@ -9,11 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.api.autopilot_metrics_routes import create_autopilot_metrics_router
+from apps.cosa.api.connector_routes import create_connector_router
+from apps.cosa.api.conversation_routes import create_conversation_router
 from apps.cosa.api.copilot_routes import create_copilot_router
 from apps.cosa.api.event_intake_routes import create_event_intake_router
 from apps.cosa.api.event_operations_routes import create_event_operations_router
 from apps.cosa.api.event_rule_routes import create_event_rule_router
+from apps.cosa.api.knowledge_routes import create_knowledge_router
 from apps.cosa.api.routes import router
+from apps.cosa.api.schedule_routes import create_schedule_router
 from apps.cosa.api.settings_routes import router as settings_router
 from apps.cosa.api.skill_registry_routes import create_skill_registry_router
 from apps.cosa.api.vault_routes import router as vault_router
@@ -189,6 +193,10 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     app.add_middleware(MaxBodySizeMiddleware)
 
     app.include_router(router)
+    app.include_router(create_conversation_router())
+    app.include_router(create_knowledge_router())
+    app.include_router(create_connector_router())
+    app.include_router(create_schedule_router())
     app.include_router(workforce_router)
     app.include_router(vault_router)
     app.include_router(settings_router)

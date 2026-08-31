@@ -126,7 +126,7 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
 
         # 5. Reviewer gửi quyết định phê duyệt qua API
         res_decide = await ac.post(
-            f"/agent/approvals/{approval_id}/decision",
+            f"/agent/workforce/approvals/{approval_id}/decision",
             json={"approved": True, "reason": "Verified purchase order PO-12345"},
         )
         assert res_decide.status_code == 200

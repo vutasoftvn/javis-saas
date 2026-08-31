@@ -39,7 +39,7 @@ def test_all_expected_routes_are_registered():
 
     routes = set(app.openapi()["paths"].keys())
     assert "/agent/conversations" in routes
-    assert "/agent/approvals" in routes
+    assert "/agent/workforce/approvals" in routes
     assert "/agent/sessions/{conversation_id}" in routes
     assert "/agent/schedules" in routes
     assert "/agent/vault/documents" in routes

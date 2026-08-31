@@ -11,9 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from apps.cosa.api.mvp_response import MvpSourceRef, mvp_item, mvp_list
 from apps.cosa.api.workforce_schemas import (
-    ApprovalDecisionOut,
     ApprovalDecisionRequest,
-    ApprovalOut,
     CreateAssignmentRequest,
     CreateScheduleRequest,
     RunScheduleNowOut,
@@ -542,7 +540,7 @@ async def run_schedule_now(
     return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.schedules")])
 
 
-# ─── Approvals ───
+# ─── Approvals (Consolidated Canonical Endpoints) ───
 
 
 @router.get("/approvals")
@@ -551,29 +549,40 @@ async def list_approvals(
     status_filter: str | None = Query(None, alias="status"),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
+    """List pending approvals — consolidated canonical endpoint at /agent/workforce/approvals."""
     plane = _get_plane(request)
     pending = await plane.approval_service.list_pending_approvals(
         workspace_id=identity.workspace_id,
     )
-    items = [
-        ApprovalOut(
-            approval_id=app.approval_id,
-            workspace_id=identity.workspace_id,
-            run_id=app.run_id,
-            capability_ref=app.action or "",
-            action_class="B",
-            status=app.status,
-            requested_at=app.created_at.isoformat()
-            if hasattr(app, "created_at") and app.created_at
-            else datetime.now(UTC).isoformat(),
-            decided_at=app.decided_at.isoformat() if app.decided_at is not None else None,
-            decision=getattr(app, "decision", None),
-            reason=getattr(app, "reason", None),
+    items = []
+    for app in pending:
+        if status_filter and app.status != status_filter:
+            continue
+        items.append(
+            {
+                "id": app.approval_id,
+                "approval_id": app.approval_id,
+                "run_id": app.run_id,
+                "tool_call_id": app.tool_call_id,
+                "checkpoint_ref": app.checkpoint_ref,
+                "action": app.action,
+                "subject": app.subject,
+                "status": app.status,
+                "risk_level": app.requirement.get("risk_level", "medium")
+                if isinstance(app.requirement, dict)
+                else "medium",
+                "required_role": app.requirement.get("role", "admin")
+                if isinstance(app.requirement, dict)
+                else "admin",
+                "policy_id": app.requirement.get("policy_id", "default")
+                if isinstance(app.requirement, dict)
+                else "default",
+                "created_at": app.created_at.isoformat()
+                if hasattr(app.created_at, "isoformat")
+                else str(app.created_at),
+            }
         )
-        for app in pending
-        if status_filter is None or app.status == status_filter
-    ]
-    return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent.approvals")])
+    return {"items": items, "total": len(items)}
 
 
 @router.post("/approvals/{approval_id}/decision")
@@ -583,48 +592,109 @@ async def decide_approval(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    require_workspace_operator(identity)
+    """Decide on approval — consolidated canonical endpoint at /agent/workforce/approvals/{approval_id}/decision."""
     plane = _get_plane(request)
-    repo = _get_workforce_repo(request)
+    from agent.capabilities.approval_service import ApprovalAlreadyDecidedError
 
+    from apps.cosa.api.event_stream import get_cosa_event_stream_manager
+
+    stream_mgr = get_cosa_event_stream_manager()
+
+    # Tenant check TRƯỚC khi cho phép quyết định
     existing_approval = await plane.approval_service.get_scoped_approval(
         approval_id=approval_id,
         workspace_id=identity.workspace_id,
     )
     if existing_approval is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Approval '{approval_id}' not found in workspace",
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}"
         )
 
-    approved = req.decision == "APPROVED"
-    decided = await plane.approval_service.submit_decision(
-        approval_id=approval_id,
-        reviewer=identity.principal_id,
-        approved=approved,
-        reason=req.reason or "",
-    )
+    # Support both boolean approved and decision string "APPROVED"/"REJECTED"
+    approved_flag = getattr(req, "approved", None)
+    if approved_flag is None:
+        decision_str = getattr(req, "decision", "")
+        approved_flag = (decision_str == "APPROVED")
+
+    try:
+        decided = await plane.approval_service.submit_decision(
+            approval_id=approval_id,
+            reviewer=identity.principal_id,
+            approved=approved_flag,
+            reason=req.reason or "",
+        )
+    except ApprovalAlreadyDecidedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
     if not decided:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Approval '{approval_id}' could not be updated",
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}"
         )
 
-    # Durable Outbox Signal: enqueue runtime signal after durable approval decision
-    now = datetime.now(UTC)
-    await repo.enqueue_runtime_signal(
+    if plane.workforce_repository is not None:
+        await plane.workforce_repository.enqueue_runtime_signal(
+            workspace_id=identity.workspace_id,
+            source_kind="approval",
+            source_id=approval_id,
+            sequence=1,
+            state=decided.status,
+            observed_at=decided.decided_at or datetime.now(UTC),
+        )
+
+    # Bơm Prometheus approval metric
+    try:
+        from apps.cosa.observability.metrics import record_approval as _record_approval
+
+        _decision = decided.status or ("approved" if approved_flag else "rejected")
+        _wait_sec: float | None = None
+        if existing_approval.created_at is not None and decided.decided_at is not None:
+            _wait_sec = (decided.decided_at - existing_approval.created_at).total_seconds()
+        _record_approval(_decision, wait_duration_sec=_wait_sec)
+    except Exception:
+        pass
+
+    run_id = decided.run_id
+    run_record = await plane.repository.get_scoped_run(
+        run_id=run_id,
         workspace_id=identity.workspace_id,
-        source_kind="approval",
-        source_id=approval_id,
-        sequence=1,
-        state=decided.status,
-        observed_at=now,
+    )
+    resume_conversation_id = (
+        run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
     )
 
-    out = ApprovalDecisionOut(
-        approval_id=decided.approval_id,
-        status=decided.status,
-        decided_at=decided.decided_at.isoformat() if decided.decided_at else now.isoformat(),
-        reason=decided.reason,
+    await stream_mgr.emit(
+        plane.stream_event_repository,
+        run_id=run_id,
+        conversation_id=resume_conversation_id,
+        event_type="approval.resolved",
+        payload={
+            "approval_id": approval_id,
+            "status": decided.status,
+            "reviewer": decided.reviewer,
+            "reason": decided.reason,
+        },
     )
-    return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.approvals")])
+
+    # Resume kernel if approved
+    if approved_flag and decided.checkpoint_ref:
+        await plane.scheduler.schedule(
+            target_spec_id="cosa.resume",
+            input_payload={
+                "task_type": "resume",
+                "run_id": run_id,
+                "checkpoint_ref": decided.checkpoint_ref,
+                "conversation_id": resume_conversation_id,
+                "workspace_id": run_record.workspace_id if run_record else None,
+                "delegation_token": identity.mint_delegation(),
+            },
+        )
+
+    return {
+        "approval_id": decided.approval_id,
+        "run_id": decided.run_id,
+        "status": decided.status,
+        "reviewer": decided.reviewer or identity.principal_id,
+        "reason": decided.reason,
+        "decided_at": (decided.decided_at or datetime.now(UTC)).isoformat(),
+    }
+
