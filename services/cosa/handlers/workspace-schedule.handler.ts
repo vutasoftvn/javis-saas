@@ -1,11 +1,7 @@
 import { api, Header, APIError } from "encore.dev/api";
-import { eq, and, desc } from "drizzle-orm";
 import * as scheduleSvc from "../services/workspace-schedule.service";
 import * as connectorSvc from "../services/workspace-connector.service";
 import { verifyPlatformToken, requireWorkerServiceAuth } from "../services/token.service";
-import { db, schema } from "../models/db";
-
-const { workspaceScheduleDefinitions, workspaceScheduleExecutions } = schema;
 
 export interface CreateScheduleParams {
   authorization?: Header<"Authorization">;
@@ -78,15 +74,7 @@ export const listSchedulesEndpoint = api(
     // Verify caller is a member of the workspace
     await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
 
-    const items = await db
-      .select()
-      .from(workspaceScheduleDefinitions)
-      .where(
-        eq(workspaceScheduleDefinitions.workspaceId, params.workspaceId)
-      )
-      .orderBy(desc(workspaceScheduleDefinitions.createdAt));
-
-    return { items, total: items.length };
+    return scheduleSvc.listWorkspaceSchedules(params.workspaceId);
   }
 );
 
@@ -115,15 +103,7 @@ export const getScheduleExecutionEndpoint = api(
     // Internal worker authentication
     requireWorkerServiceAuth(params.authorization);
 
-    const [execution] = await db
-      .select()
-      .from(workspaceScheduleExecutions)
-      .where(eq(workspaceScheduleExecutions.id, params.executionId));
-
-    if (!execution) {
-      throw APIError.notFound("schedule execution not found");
-    }
-    return execution;
+    return scheduleSvc.getScheduleExecution(params.executionId);
   }
 );
 

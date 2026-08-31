@@ -294,3 +294,53 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     ).rejects.toMatchObject({ code: "not_found" });
   });
 });
+
+describe("Workspace Schedule Service", () => {
+  beforeEach(async () => {
+    // Clean up test data
+    await db.delete(workspaceScheduleExecutions);
+    await db.delete(workspaceScheduleDefinitions);
+  });
+
+  it("listWorkspaceSchedules returns schedules for workspace", async () => {
+    const created = await scheduleSvc.createWorkspaceSchedule({
+      workspaceId: "ws_a",
+      createdBy: "user_a",
+      scheduleKind: "daily",
+      hour: 9,
+      minute: 0,
+      promptTemplate: "Daily report",
+    });
+
+    const result = await scheduleSvc.listWorkspaceSchedules("ws_a");
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: created.id })
+    );
+  });
+
+  it("getScheduleExecution returns execution by ID", async () => {
+    const schedule = await scheduleSvc.createWorkspaceSchedule({
+      workspaceId: "ws_a",
+      createdBy: "user_a",
+      scheduleKind: "daily",
+      hour: 9,
+      minute: 0,
+      promptTemplate: "Scan",
+    });
+
+    const execution = await scheduleSvc.runScheduleNow({
+      scheduleId: schedule.id,
+      workspaceId: "ws_a",
+      principalId: "user_a",
+    });
+
+    const result = await scheduleSvc.getScheduleExecution(execution.id);
+    expect(result.id).toBe(execution.id);
+  });
+
+  it("getScheduleExecution throws notFound when execution missing", async () => {
+    await expect(
+      scheduleSvc.getScheduleExecution("nonexistent_exec_999")
+    ).rejects.toMatchObject({ code: "not_found" });
+  });
+});

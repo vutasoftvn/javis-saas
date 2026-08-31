@@ -1,4 +1,4 @@
-import { eq, and, lte, gte, sql, count, inArray } from "drizzle-orm";
+import { eq, and, lte, gte, sql, count, inArray, desc } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
 import { db, schema } from "../models/db";
 import { scheduleTask } from "./control-plane-scheduler.service";
@@ -666,4 +666,28 @@ export async function completeScheduleExecution(input: {
     .returning();
 
   return updated || null;
+}
+
+export async function listWorkspaceSchedules(
+  workspaceId: string
+): Promise<{ items: any[]; total: number }> {
+  const items = await db
+    .select()
+    .from(workspaceScheduleDefinitions)
+    .where(eq(workspaceScheduleDefinitions.workspaceId, workspaceId))
+    .orderBy(desc(workspaceScheduleDefinitions.createdAt));
+
+  return { items, total: items.length };
+}
+
+export async function getScheduleExecution(executionId: string): Promise<any> {
+  const [execution] = await db
+    .select()
+    .from(workspaceScheduleExecutions)
+    .where(eq(workspaceScheduleExecutions.id, executionId));
+
+  if (!execution) {
+    throw APIError.notFound("schedule execution not found");
+  }
+  return execution;
 }
