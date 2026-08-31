@@ -235,7 +235,7 @@ class RegisterView extends GetView<AuthController> {
               obscureText: !controller.isRegPasswordVisible.value,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
-                labelText: 'Mật khẩu (tối thiểu 6 ký tự)',
+                labelText: 'Mật khẩu (12–128 ký tự)',
                 labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                 prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primary, size: 20),
                 suffixIcon: IconButton(

@@ -346,7 +346,7 @@ void main() {
       controller.regConfirmPasswordController.text = '123';
 
       await controller.register();
-      expect(controller.registerErrorMessage.value, contains('ít nhất 6 ký tự'));
+      expect(controller.registerErrorMessage.value, contains('12 đến 128'));
     });
 
     test('submitCompanyStep validates missing company name when creating a new company', () async {
@@ -372,8 +372,8 @@ void main() {
     test('submitAccountStep validates mismatched password confirmation', () async {
       controller.regDisplayNameController.text = 'Nguyen Van A';
       controller.regEmailController.text = 'a@b.com';
-      controller.regPasswordController.text = 'password123';
-      controller.regConfirmPasswordController.text = 'password999'; // Mismatched
+      controller.regPasswordController.text = 'password1234';
+      controller.regConfirmPasswordController.text = 'password9999'; // Mismatched
 
       await controller.submitAccountStep();
       expect(controller.registerErrorMessage.value, contains('không trùng khớp'));

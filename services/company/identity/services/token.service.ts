@@ -16,14 +16,23 @@ function getJwtSecret(): string {
 
 export interface JwtPayload {
   sub: string;
+  auth_time: number;
 }
 
 function getSessionTtl(): string {
   return process.env.COMPANY_LOCAL_SESSION_TTL?.trim() || "8h";
 }
 
-export function signAccessToken(userId: string): string {
-  return jwt.sign({ sub: userId }, getJwtSecret(), { expiresIn: getSessionTtl() as any });
+// Giới hạn tuổi tối đa của một chuỗi renewal (tính từ lần đăng nhập gốc, không
+// phải từ lần renew gần nhất) — chặn kịch bản renewal chain bị rò rỉ/đánh cắp
+// thì không bao giờ hết hạn thật sự. Mặc định 7 ngày, cấu hình qua env.
+function getMaximumSessionAgeSeconds(): number {
+  const raw = Number(process.env.COMPANY_LOCAL_SESSION_MAX_AGE_SECONDS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 7 * 24 * 60 * 60;
+}
+
+export function signAccessToken(userId: string, authTime: number = Math.floor(Date.now() / 1000)): string {
+  return jwt.sign({ sub: userId, auth_time: authTime }, getJwtSecret(), { expiresIn: getSessionTtl() as any });
 }
 
 export function verifyAccessToken(token: string): JwtPayload {
@@ -41,8 +50,11 @@ function getRenewGraceSeconds(): number {
 
 export function renewAccessToken(token: string): string {
   let sub: string;
+  let authTime: number | undefined;
   try {
-    sub = (jwt.verify(token, getJwtSecret()) as JwtPayload).sub;
+    const decoded = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload & JwtPayload;
+    sub = decoded.sub;
+    authTime = decoded.auth_time;
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {
       const decoded = jwt.verify(token, getJwtSecret(), {
@@ -53,10 +65,17 @@ export function renewAccessToken(token: string): string {
         throw new Error("local session expired beyond renewal grace window");
       }
       sub = decoded.sub;
+      authTime = decoded.auth_time;
     } else {
       throw err;
     }
   }
   if (!sub) throw new Error("local session token has no subject");
-  return signAccessToken(sub);
+  // Chặn renewal chain vượt quá tuổi tối đa kể từ lần đăng nhập gốc — token
+  // cũ trước khi có claim auth_time (authTime === undefined) được coi như vừa
+  // đăng nhập lại để không phá vỡ session đang hoạt động của người dùng cũ.
+  if (authTime !== undefined && Date.now() / 1000 - authTime > getMaximumSessionAgeSeconds()) {
+    throw new Error("local session exceeds maximum age");
+  }
+  return signAccessToken(sub, authTime);
 }

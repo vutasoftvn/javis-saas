@@ -11,7 +11,7 @@ describe("Control Plane Service", () => {
   it("registers a platform user with a new company", async () => {
     const res = await registerPlatform({
       email: testEmail,
-      password: "password123",
+      password: "password1234",
       full_name: "John Doe",
       company_name: "Acme AI Corp",
     });
@@ -29,7 +29,7 @@ describe("Control Plane Service", () => {
   it("logs in the registered platform user", async () => {
     const loginRes = await loginPlatform({
       username: testEmail,
-      password: "password123",
+      password: "password1234",
     });
 
     expect(loginRes.access_token).toBeDefined();
@@ -43,6 +43,35 @@ describe("Control Plane Service", () => {
         password: "wrong_password",
       })
     ).rejects.toThrow();
+  });
+
+  it("rejects registration with a password shorter than 12 characters", async () => {
+    await expect(
+      registerPlatform({
+        email: `short_${Date.now()}@example.com`,
+        password: "12345678901",
+        full_name: "Short Password",
+      })
+    ).rejects.toThrow(/12/i);
+  });
+
+  it("rejects registration with a password longer than 128 characters", async () => {
+    await expect(
+      registerPlatform({
+        email: `long_${Date.now()}@example.com`,
+        password: "1".repeat(129),
+        full_name: "Long Password",
+      })
+    ).rejects.toThrow(/128/i);
+  });
+
+  it("accepts registration with a 12-character password", async () => {
+    const res = await registerPlatform({
+      email: `valid_${Date.now()}@example.com`,
+      password: "123456789012",
+      full_name: "Valid Password",
+    });
+    expect(res.access_token).toEqual(expect.any(String));
   });
 
   it("retrieves current platform user profile with founder role for company creator", async () => {
@@ -83,7 +112,7 @@ describe("Control Plane Service", () => {
     await expect(
       registerPlatform({
         email: testEmail,
-        password: "password123",
+        password: "password1234",
         full_name: "Duplicate User",
       })
     ).rejects.toThrow();
@@ -111,7 +140,7 @@ describe("Control Plane Service", () => {
   it("joins an existing company for a new user", async () => {
     const newUserRes = await registerPlatform({
       email: `member_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Jane Member",
     });
 

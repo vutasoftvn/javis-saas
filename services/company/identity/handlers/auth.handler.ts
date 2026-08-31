@@ -53,6 +53,9 @@ export const meEndpoint = api(
 
 // M1 §1 — renew local session độc lập với platform token: máy offline quá TTL 8h
 // vẫn dùng được dữ liệu local đã cấp quyền; platform token hết hạn KHÔNG khoá local.
+// Tuy nhiên chuỗi renewal bị giới hạn tuổi tối đa kể từ lần đăng nhập gốc
+// (COMPANY_LOCAL_SESSION_MAX_AGE_SECONDS, mặc định 7 ngày) — token/renewal
+// chain bị rò rỉ không thể được gia hạn vô thời hạn.
 export interface RenewLocalSessionParams {
   authorization?: Header<"Authorization">;
 }

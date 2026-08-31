@@ -8,7 +8,7 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
   it("returns no decision when a workspace has not configured any policy", async () => {
     const res = await registerPlatform({
       email: `policy_none_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "No Policy Founder",
       workspace_name: "No Policy WS",
     });
@@ -20,7 +20,7 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
   it("returns exact tool match decision over wildcard", async () => {
     const res = await registerPlatform({
       email: `policy_exact_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Exact Policy Founder",
       workspace_name: "Exact Policy WS",
     });
@@ -47,7 +47,7 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
   it("matches prefix wildcard patterns like 'finance.*'", async () => {
     const res = await registerPlatform({
       email: `policy_prefix_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Prefix Policy Founder",
       workspace_name: "Prefix Policy WS",
     });
@@ -63,7 +63,7 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
   it("upsert overwrites an existing rule for the same workspace + tool_pattern", async () => {
     const res = await registerPlatform({
       email: `policy_upsert_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Upsert Policy Founder",
       workspace_name: "Upsert Policy WS",
     });
@@ -80,13 +80,13 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
   it("isolates policy rules per workspace (no cross-tenant leakage)", async () => {
     const resA = await registerPlatform({
       email: `policy_iso_a_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Workspace A Founder",
       workspace_name: "Workspace A",
     });
     const resB = await registerPlatform({
       email: `policy_iso_b_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Workspace B Founder",
       workspace_name: "Workspace B",
     });
@@ -146,7 +146,7 @@ describe("getTenantPolicySnapshotForCaller", () => {
   it("trả workspaceStatus/principalStatus active + rules rỗng khi workspace chưa cấu hình policy", async () => {
     const res = await registerPlatform({
       email: `policy_snapshot_none_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Snapshot Founder",
       workspace_name: "Snapshot WS",
     });
@@ -164,7 +164,7 @@ describe("getTenantPolicySnapshotForCaller", () => {
   it("trả đủ rules đã cấu hình trong snapshot", async () => {
     const res = await registerPlatform({
       email: `policy_snapshot_rules_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Snapshot Rules Founder",
       workspace_name: "Snapshot Rules WS",
     });
@@ -183,13 +183,13 @@ describe("getTenantPolicySnapshotForCaller", () => {
   it("từ chối nếu caller không phải thành viên của workspaceId được yêu cầu", async () => {
     const resA = await registerPlatform({
       email: `policy_snapshot_iso_a_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Snapshot A Founder",
       workspace_name: "Snapshot A WS",
     });
     const resB = await registerPlatform({
       email: `policy_snapshot_iso_b_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Snapshot B Founder",
       workspace_name: "Snapshot B WS",
     });
@@ -202,7 +202,7 @@ describe("getTenantPolicySnapshotForCaller", () => {
   it("hai snapshot của cùng 1 workspace nhưng khác rule set phải có snapshotHash khác nhau", async () => {
     const res = await registerPlatform({
       email: `policy_snapshot_hash_${Date.now()}@example.com`,
-      password: "password123",
+      password: "password1234",
       full_name: "Hash Founder",
       workspace_name: "Hash WS",
     });

@@ -184,8 +184,8 @@ class AuthController extends GetxController {
       return;
     }
 
-    if (password.length < 6) {
-      registerErrorMessage.value = 'Mật khẩu phải có ít nhất 6 ký tự';
+    if (password.length < 12 || password.length > 128) {
+      registerErrorMessage.value = 'Mật khẩu phải có từ 12 đến 128 ký tự';
       return;
     }
 
