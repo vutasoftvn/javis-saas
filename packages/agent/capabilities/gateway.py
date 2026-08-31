@@ -25,8 +25,12 @@ from agent.capabilities.enablements import (
     InMemoryEnablementStore,
     assert_enabled_for_invocation,
 )
-from agent.capabilities.gateway_internals import InputValidator, TenancyVerifier
-from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
+from agent.capabilities.gateway_internals import (
+    IdempotencyCoordinator,
+    InputValidator,
+    TenancyVerifier,
+)
+from agent.capabilities.idempotency import IdempotencyClaimService
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.errors import TenancyUnresolvedError
 from agent.contracts.invocation import InvocationContext
@@ -332,7 +336,8 @@ class CapabilityGateway:
         # check-then-act cũ vốn có race window giữa 2 worker cùng đọc "chưa completed"
         # rồi cùng chạy handler). INSERT ... ON CONFLICT DO NOTHING ở tầng repository
         # đảm bảo đúng 1 worker thắng claim cho mỗi (run_id, capability_id, idempotency_key).
-        idem_outcome, idem_claim = await self._idempotency.try_claim(
+        idem_coordinator = IdempotencyCoordinator(self._idempotency)
+        idem_outcome, idem_claim = await idem_coordinator.coordinate(
             run_id=req.run_id,
             tool_call_id=req.tool_call_id,
             capability_id=req.capability_id,
@@ -340,7 +345,7 @@ class CapabilityGateway:
             payload_hash=payload_hash,
         )
 
-        if idem_outcome == IdempotencyOutcome.CACHED_COMPLETED:
+        if idem_coordinator.should_return_cached(idem_outcome):
             # Đã thực thi thành công trước đó -> Trả về kết quả cached, KHÔNG chạy lại side effect
             return GatewayExecutionResult(
                 tool_call_id=req.tool_call_id,
@@ -349,7 +354,7 @@ class CapabilityGateway:
                 cached_idempotency=True,
             )
 
-        if idem_outcome == IdempotencyOutcome.IN_PROGRESS:
+        if idem_coordinator.should_return_in_progress(idem_outcome):
             # Worker/request khác đang giữ claim này — KHÔNG chạy handler để tránh
             # duplicate side effect. Caller (kernel/workflow engine) tự quyết định
             # retry/backoff; gateway không tự ý chờ (tránh block hot path vô thời hạn).
