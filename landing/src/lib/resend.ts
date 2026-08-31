@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { escapeHtml } from "./early-access";
 
 export interface EarlyAccessRegistration {
   fullName: string;
@@ -23,13 +24,14 @@ const resendClient = resendApiKey ? new Resend(resendApiKey) : null;
  * Gửi email xác nhận quyền truy cập sớm cho Người dùng và Thông báo Lead mới cho Ban Quản trị
  */
 export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Promise<{
-  success: boolean;
   userEmailSent: boolean;
   adminEmailSent: boolean;
   simulated?: boolean;
   error?: string;
 }> {
-  // Nếu chưa cấu hình API Key, ghi nhận log và phản hồi mô phỏng thành công
+  // Nếu chưa cấu hình API Key, ghi nhận log và phản hồi mô phỏng (KHÔNG email
+  // nào thực sự được gửi) — route handler dựa vào cờ `simulated` để biết đây
+  // là môi trường dev/chưa cấu hình, không phải một lần gửi thật thất bại.
   if (!resendClient || !resendApiKey || resendApiKey.startsWith("re_your_api_key")) {
     console.log(
       `[Resend Simulation] No RESEND_API_KEY configured. Early access registration logged:`,
@@ -41,7 +43,6 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
       }
     );
     return {
-      success: true,
       userEmailSent: false,
       adminEmailSent: false,
       simulated: true,
@@ -85,7 +86,6 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
     }
 
     return {
-      success: true,
       userEmailSent,
       adminEmailSent,
     };
@@ -93,7 +93,6 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
     console.error("[Resend Delivery Exception]:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown email delivery error";
     return {
-      success: false,
       userEmailSent,
       adminEmailSent,
       error: errorMessage,
@@ -102,6 +101,16 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
 }
 
 function generateUserConfirmationEmail(data: EarlyAccessRegistration): string {
+  // Escape mọi giá trị người dùng nhập trước khi nội suy vào HTML — chặn
+  // stored/reflected XSS trong email client của người nhận (chính user đăng
+  // ký, vì email này gửi tới địa chỉ họ vừa nhập).
+  const fullName = escapeHtml(data.fullName);
+  const company = escapeHtml(data.company);
+  const email = escapeHtml(data.email);
+  const phone = escapeHtml(data.phone);
+  const priorityInterest = escapeHtml(data.priorityInterest);
+  const accessCode = escapeHtml(data.accessCode);
+  const registeredAt = escapeHtml(data.registeredAt);
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -143,12 +152,12 @@ function generateUserConfirmationEmail(data: EarlyAccessRegistration): string {
           <tr>
             <td style="padding: 36px 40px;">
               <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #ffffff; line-height: 1.4;">
-                Chúc mừng <span style="color: #00f0ff;">${data.fullName}</span>,<br>
+                Chúc mừng <span style="color: #00f0ff;">${fullName}</span>,<br>
                 Bạn đã được ghi nhận trong danh sách Early Access!
               </h1>
               
               <p style="margin: 0 0 24px; font-size: 15px; color: #cbd5e1; line-height: 1.6;">
-                Cảm ơn bạn và đội ngũ <strong>${data.company}</strong> đã quan tâm đến hệ điều hành doanh nghiệp AI <strong>COSA OS</strong>. Chúng tôi rất hào hứng được đồng hành cùng bạn trên hành trình tự trị hóa vận hành.
+                Cảm ơn bạn và đội ngũ <strong>${company}</strong> đã quan tâm đến hệ điều hành doanh nghiệp AI <strong>COSA OS</strong>. Chúng tôi rất hào hứng được đồng hành cùng bạn trên hành trình tự trị hóa vận hành.
               </p>
 
               <!-- VIP Pass Box -->
@@ -159,10 +168,10 @@ function generateUserConfirmationEmail(data: EarlyAccessRegistration): string {
                       MÃ THẺ TRUY CẬP SỚM (VIP ACCESS CODE)
                     </p>
                     <p style="margin: 0; font-size: 26px; font-weight: 800; color: #00f0ff; letter-spacing: 2px; font-family: monospace;">
-                      ${data.accessCode}
+                      ${accessCode}
                     </p>
                     <p style="margin: 8px 0 0; font-size: 12px; color: #64748b;">
-                      Đăng ký lúc: ${data.registeredAt}
+                      Đăng ký lúc: ${registeredAt}
                     </p>
                   </td>
                 </tr>
@@ -175,19 +184,19 @@ function generateUserConfirmationEmail(data: EarlyAccessRegistration): string {
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #070c18; border-radius: 8px; margin-bottom: 28px; font-size: 13px;">
                 <tr>
                   <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #94a3b8; width: 40%;">Doanh nghiệp / Dự án:</td>
-                  <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #ffffff; font-weight: 600;">${data.company}</td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #ffffff; font-weight: 600;">${company}</td>
                 </tr>
                 <tr>
                   <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #94a3b8;">Email:</td>
-                  <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #ffffff;">${data.email}</td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #ffffff;">${email}</td>
                 </tr>
                 <tr>
                   <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #94a3b8;">Số điện thoại / Zalo:</td>
-                  <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #ffffff;">${data.phone}</td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #ffffff;">${phone}</td>
                 </tr>
                 <tr>
                   <td style="padding: 12px 16px; color: #94a3b8;">Nhu cầu trọng tâm:</td>
-                  <td style="padding: 12px 16px; color: #38bdf8; font-weight: 600;">${data.priorityInterest}</td>
+                  <td style="padding: 12px 16px; color: #38bdf8; font-weight: 600;">${priorityInterest}</td>
                 </tr>
               </table>
 
@@ -226,6 +235,24 @@ function generateUserConfirmationEmail(data: EarlyAccessRegistration): string {
 }
 
 function generateAdminNotificationEmail(data: EarlyAccessRegistration): string {
+  // Escape mọi giá trị người dùng nhập trước khi nội suy vào HTML gửi cho
+  // Ban Quản Trị — đây chính là điểm stored/reflected XSS bị khai thác nếu
+  // không escape, vì nội dung này được người đọc email mở trực tiếp.
+  const fullName = escapeHtml(data.fullName);
+  const company = escapeHtml(data.company);
+  const email = escapeHtml(data.email);
+  const phone = escapeHtml(data.phone);
+  const role = escapeHtml(data.role || "Chưa cung cấp");
+  const teamSize = escapeHtml(data.teamSize || "Chưa cung cấp");
+  const priorityInterest = escapeHtml(data.priorityInterest);
+  const note = escapeHtml(data.note || "Không có");
+  const accessCode = escapeHtml(data.accessCode);
+  const registeredAt = escapeHtml(data.registeredAt);
+  // encodeURIComponent cho giá trị attribute của mailto:/tel: (chặn phá vỡ
+  // attribute qua ký tự đặc biệt trong URL scheme), giữ nguyên text hiển thị
+  // đã escape ở trên.
+  const mailtoHref = encodeURIComponent(data.email);
+  const telHref = encodeURIComponent(data.phone);
   return `
 <!DOCTYPE html>
 <html>
@@ -234,17 +261,17 @@ function generateAdminNotificationEmail(data: EarlyAccessRegistration): string {
     <h2 style="color: #0f172a; border-bottom: 2px solid #00f0ff; padding-bottom: 10px;">
       🚀 Có Đăng Ký Early Access Mới!
     </h2>
-    <p><strong>Mã vé:</strong> ${data.accessCode}</p>
-    <p><strong>Thời gian:</strong> ${data.registeredAt}</p>
+    <p><strong>Mã vé:</strong> ${accessCode}</p>
+    <p><strong>Thời gian:</strong> ${registeredAt}</p>
     <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-      <tr><td style="padding: 8px; border-bottom: 1px solid #eee; width: 35%;"><strong>Họ và tên:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.fullName}</td></tr>
-      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:${data.email}">${data.email}</a></td></tr>
-      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Số điện thoại:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="tel:${data.phone}">${data.phone}</a></td></tr>
-      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Công ty:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.company}</td></tr>
-      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Chức vụ:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.role || "Chưa cung cấp"}</td></tr>
-      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Quy mô đội ngũ:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.teamSize || "Chưa cung cấp"}</td></tr>
-      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Nhu cầu trọng tâm:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee; color: #0284c7;"><strong>${data.priorityInterest}</strong></td></tr>
-      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Ghi chú / Câu hỏi:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${data.note || "Không có"}</td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #eee; width: 35%;"><strong>Họ và tên:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${fullName}</td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:${mailtoHref}">${email}</a></td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Số điện thoại:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="tel:${telHref}">${phone}</a></td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Công ty:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${company}</td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Chức vụ:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${role}</td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Quy mô đội ngũ:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${teamSize}</td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Nhu cầu trọng tâm:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee; color: #0284c7;"><strong>${priorityInterest}</strong></td></tr>
+      <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Ghi chú / Câu hỏi:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${note}</td></tr>
     </table>
     <p style="margin-top: 20px; font-size: 12px; color: #64748b;">Hệ thống thông báo tự động từ COSA OS Landing via Resend API.</p>
   </div>

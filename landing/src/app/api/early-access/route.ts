@@ -1,49 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
+import { parseEarlyAccessRegistration } from "@/lib/early-access";
 import { sendEarlyAccessEmails } from "@/lib/resend";
 
+// Giới hạn dung lượng body: chặn payload quá khổ trước khi JSON.parse (tránh
+// tốn CPU parse chuỗi lớn) — 16 KiB đủ rộng cho toàn bộ form đăng ký hợp lệ.
+const MAX_BODY_BYTES = 16 * 1024;
+
 export async function POST(req: NextRequest) {
+  // Đọc body dưới dạng text trước để có thể kiểm tra kích thước byte thực tế
+  // (đúng theo UTF-8) trước khi parse JSON — chặn HTTP 413 sớm, không tốn
+  // công JSON.parse trên payload quá khổ.
+  const rawBody = await req.text();
+  if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { success: false, error: "Yêu cầu vượt quá giới hạn kích thước cho phép." },
+      { status: 413 }
+    );
+  }
+
+  let parsedBody: unknown;
   try {
-    const body = await req.json();
-    const {
-      fullName,
-      email,
-      phone,
-      company,
-      role,
-      teamSize,
-      priorityInterest,
-      note,
-    } = body;
+    parsedBody = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Dữ liệu gửi lên không đúng định dạng JSON." },
+      { status: 400 }
+    );
+  }
 
-    // Validate các trường bắt buộc
-    if (!fullName || typeof fullName !== "string" || !fullName.trim()) {
+  let input;
+  try {
+    input = parseEarlyAccessRegistration(parsedBody);
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { success: false, error: "Vui lòng nhập họ và tên của bạn." },
+        { success: false, error: "Thông tin đăng ký không hợp lệ. Vui lòng kiểm tra lại các trường." },
         { status: 400 }
       );
     }
+    throw error;
+  }
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      return NextResponse.json(
-        { success: false, error: "Vui lòng nhập địa chỉ email hợp lệ." },
-        { status: 400 }
-      );
-    }
-
-    if (!phone || typeof phone !== "string" || phone.trim().length < 8) {
-      return NextResponse.json(
-        { success: false, error: "Vui lòng nhập số điện thoại hoặc Zalo hợp lệ." },
-        { status: 400 }
-      );
-    }
-
-    if (!company || typeof company !== "string" || !company.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Vui lòng nhập tên công ty hoặc dự án." },
-        { status: 400 }
-      );
-    }
-
+  try {
     // Sinh mã VIP ngẫu nhiên cho Early Access Pass
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const accessCode = `COSA-VIP-${randomSuffix}`;
@@ -54,14 +53,14 @@ export async function POST(req: NextRequest) {
     });
 
     const registrationData = {
-      fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      company: company.trim(),
-      role: role ? String(role).trim() : undefined,
-      teamSize: teamSize ? String(teamSize).trim() : undefined,
-      priorityInterest: priorityInterest || "Trọn bộ Hệ điều hành COSA OS",
-      note: note ? String(note).trim() : undefined,
+      fullName: input.fullName,
+      email: input.email,
+      phone: input.phone,
+      company: input.company,
+      role: input.role,
+      teamSize: input.teamSize,
+      priorityInterest: input.priorityInterest || "Trọn bộ Hệ điều hành COSA OS",
+      note: input.note,
       accessCode,
       registeredAt,
     };
@@ -69,12 +68,43 @@ export async function POST(req: NextRequest) {
     // Gửi email qua Resend
     const emailResult = await sendEarlyAccessEmails(registrationData);
 
+    // Chỉ trả success: true khi email xác nhận thực sự gửi tới người dùng
+    // thành công. Ở môi trường dev/chưa cấu hình RESEND_API_KEY (simulated),
+    // trả rõ simulated: true và thông báo không có email nào được gửi —
+    // tuyệt đối không tuyên bố "đã gửi email" khi không có email nào được
+    // gửi thật.
+    if (emailResult.simulated) {
+      return NextResponse.json({
+        success: true,
+        simulated: true,
+        accessCode,
+        message:
+          "Đăng ký quyền sử dụng sớm đã được ghi nhận (môi trường thử nghiệm — chưa cấu hình gửi email thật).",
+        emailDelivery: {
+          simulated: true,
+          userEmailSent: false,
+          adminEmailSent: false,
+        },
+      });
+    }
+
+    if (!emailResult.userEmailSent) {
+      console.error("[Early Access API] User email delivery failed:", emailResult.error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Không thể gửi email xác nhận. Vui lòng thử lại sau hoặc liên hệ trực tiếp.",
+        },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       accessCode,
       message: "Đăng ký quyền sử dụng sớm thành công! Email xác nhận đã được gửi.",
       emailDelivery: {
-        simulated: Boolean(emailResult.simulated),
+        simulated: false,
         userEmailSent: emailResult.userEmailSent,
         adminEmailSent: emailResult.adminEmailSent,
       },
