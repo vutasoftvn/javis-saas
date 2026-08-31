@@ -65,7 +65,7 @@ class AgentRuntimeSignalPublisher:
                 }
 
                 try:
-                    url = f"{self._company_url}/events/agent-runtime-signals"
+                    url = f"{self._company_url}/events/internal/agent-runtime-signal"
                     res = await client.post(url, json=payload, headers=headers)
                     if 200 <= res.status_code < 300:
                         await self._repository.mark_signal_delivered(sig.outbox_id)

@@ -99,6 +99,30 @@ class CompanyServiceHandle:
     base_url: str
 
 
+def count_runtime_source_signals(
+    workspace_id: str, source_kind: str, source_id: str, sequence: int
+) -> int:
+    """Đếm số hàng projection `operating.runtime_source_signals` cho một identity
+    (workspace_id, source_kind, source_id, sequence) — dùng để chứng minh
+    idempotency của POST /events/internal/agent-runtime-signal trên service thật:
+    gửi 2 lần cùng identity phải chỉ tạo đúng 1 hàng (unique constraint trong
+    migration 33)."""
+    import psycopg2
+
+    conn = psycopg2.connect(_workspace_database_url(), connect_timeout=5)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM operating.runtime_source_signals "
+                "WHERE workspace_id = %s AND source_kind = %s AND source_id = %s AND sequence = %s",
+                (int(workspace_id), source_kind, source_id, sequence),
+            )
+            row = cur.fetchone()
+            return int(row[0]) if row else 0
+    finally:
+        conn.close()
+
+
 def _wait_until_ready(base_url: str, proc: subprocess.Popen) -> None:
     deadline = time.monotonic() + _READY_TIMEOUT_SECONDS
     last_error: Exception | None = None
