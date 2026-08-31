@@ -147,7 +147,9 @@ _RESOLVE_CACHE_TTL_SEC = float(os.environ.get("COSA_WORKSPACE_RESOLVE_CACHE_TTL_
 # phình vô hạn (mỗi entry không tự dọn cho tới khi bị truy cập lại và thấy
 # hết TTL). Giới hạn cứng số entry, dọn theo thứ tự: (1) entry đã hết TTL,
 # rồi (2) entry cũ nhất — trước khi insert entry mới.
-_RESOLVE_CACHE_MAX_ENTRIES = int(os.environ.get("COSA_WORKSPACE_RESOLVE_CACHE_MAX_ENTRIES", "10000"))
+_RESOLVE_CACHE_MAX_ENTRIES = int(
+    os.environ.get("COSA_WORKSPACE_RESOLVE_CACHE_MAX_ENTRIES", "10000")
+)
 _resolve_cache: dict[tuple[str, str, str], tuple[float, ResolvedWorkspaceTenantContext]] = {}
 
 
