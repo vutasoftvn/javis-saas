@@ -24,6 +24,9 @@ export interface Workspace {
   lifecycleStage: string;
   stageEnteredAt: string | null;
   platformWorkspaceId: string | null;
+  vision: string | null;
+  mission: string | null;
+  coreValues: string | null;
   archivedAt: string | null;
   createdAt: string;
 }
@@ -46,6 +49,9 @@ const WORKSPACE_VIEW_COLUMNS = {
   lifecycleStage: identityWorkspaces.lifecycleStage,
   stageEnteredAt: identityWorkspaces.stageEnteredAt,
   platformWorkspaceId: identityWorkspaces.platformWorkspaceId,
+  vision: identityWorkspaces.vision,
+  mission: identityWorkspaces.mission,
+  coreValues: identityWorkspaces.coreValues,
   archivedAt: identityWorkspaces.archivedAt,
   createdAt: identityWorkspaces.createdAt,
 } as const;
@@ -69,6 +75,9 @@ function mapWorkspaceRow(row: WorkspaceRow): Workspace {
     lifecycleStage: row.lifecycleStage,
     stageEnteredAt: row.stageEnteredAt ? row.stageEnteredAt.toISOString() : null,
     platformWorkspaceId: row.platformWorkspaceId ?? null,
+    vision: row.vision ?? null,
+    mission: row.mission ?? null,
+    coreValues: row.coreValues ?? null,
     archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
   };
@@ -134,4 +143,40 @@ export async function getWorkspacePlatformCompany(
     platformCompanyId: wsRow.platformCompanyId?.toString() || null,
     membershipRole: tenantContext.membershipRole,
   };
+}
+
+export interface UpdateWorkspaceCompanyIdentityParams {
+  workspaceId: string | number;
+  authorization?: string;
+  vision: string;
+  mission: string;
+  coreValues: string;
+}
+
+export async function updateWorkspaceCompanyIdentityRecord(
+  params: UpdateWorkspaceCompanyIdentityParams
+): Promise<Workspace> {
+  // Xác minh caller là member của đúng workspace này trước khi ghi.
+  await resolveTenantContext({
+    authorization: params.authorization,
+    workspaceId: params.workspaceId,
+  });
+
+  const vision = params.vision.trim();
+  const mission = params.mission.trim();
+  const coreValues = params.coreValues.trim();
+  if (!vision || !mission || !coreValues) {
+    throw APIError.invalidArgument(
+      "vision, mission, and coreValues must all be non-empty"
+    );
+  }
+
+  const [row] = await db
+    .update(identityWorkspaces)
+    .set({ vision, mission, coreValues, updatedAt: new Date() })
+    .where(eq(identityWorkspaces.id, BigInt(params.workspaceId)))
+    .returning(WORKSPACE_VIEW_COLUMNS);
+
+  if (!row) throw APIError.notFound(`workspace ${params.workspaceId} not found`);
+  return mapWorkspaceRow(row);
 }
