@@ -4,6 +4,7 @@ import {
   CreateWorkspaceParams,
   createWorkspaceRecord,
   getWorkspaceRecord,
+  updateWorkspaceCompanyIdentityRecord,
   WorkspacePlatformCompanyResponse,
   getWorkspacePlatformCompany,
 } from "../services/workspace.service";
@@ -36,6 +37,31 @@ export const getWorkspacePlatformCompanyEndpoint = api(
     return getWorkspacePlatformCompany({
       workspaceId,
       authorization,
+    });
+  }
+);
+
+export const updateWorkspaceCompanyIdentity = api(
+  { method: "PATCH", path: "/identity/workspaces/:id/company-identity", expose: true },
+  async ({
+    id,
+    authorization,
+    vision,
+    mission,
+    coreValues,
+  }: {
+    id: string;
+    authorization?: Header<"Authorization">;
+    vision: string;
+    mission: string;
+    coreValues: string;
+  }): Promise<Workspace> => {
+    return updateWorkspaceCompanyIdentityRecord({
+      workspaceId: id,
+      authorization,
+      vision,
+      mission,
+      coreValues,
     });
   }
 );

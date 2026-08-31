@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createWorkspace, getWorkspace } from "../handlers/workspace.handler";
+import { createWorkspace, getWorkspace, updateWorkspaceCompanyIdentity } from "../handlers/workspace.handler";
 import { createTestSession } from "./helpers/test-session";
 import {
   createWorkspaceRecord,
@@ -76,5 +76,22 @@ describe("updateWorkspaceCompanyIdentityRecord", () => {
         coreValues: "Values",
       })
     ).rejects.toThrow();
+  });
+});
+
+describe("updateWorkspaceCompanyIdentity handler", () => {
+  it("exposes PATCH .../company-identity and returns the updated workspace", async () => {
+    const session = await createTestSession({ displayName: "Identity Handler Test" });
+
+    const updated = await updateWorkspaceCompanyIdentity({
+      id: session.workspaceId,
+      authorization: `Bearer ${session.accessToken}`,
+      vision: "Vision qua handler",
+      mission: "Mission qua handler",
+      coreValues: "Values qua handler",
+    });
+
+    expect(updated.id).toBe(session.workspaceId);
+    expect(updated.vision).toBe("Vision qua handler");
   });
 });
