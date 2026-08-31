@@ -98,7 +98,13 @@ mixin HubCommandMixin on GetxController {
     try {
       final result = await strategyService.getCeoNextActions(limit: 3);
       ceoNextActions.value = result.items;
-      if (result.errorMessage != null) dataLoadError.value = result.errorMessage;
+      if (result.errorMessage != null) {
+        dataLoadError.value = result.errorMessage;
+      } else {
+        // Tải thành công — xoá lỗi cũ (nếu có) để không kẹt trạng thái lỗi
+        // vĩnh viễn sau một lần retry thành công.
+        dataLoadError.value = null;
+      }
     } catch (e) {
       debugPrint('[HologramHub] Error loading CEO next actions: $e');
       dataLoadError.value = 'Không thể tải Next Best Actions: $e';
@@ -108,7 +114,13 @@ mixin HubCommandMixin on GetxController {
   Future<void> loadActiveCycleTimeline() async {
     try {
       final result = await strategyService.getTwelveWeekCycles();
-      if (result.errorMessage != null) dataLoadError.value = result.errorMessage;
+      if (result.errorMessage != null) {
+        dataLoadError.value = result.errorMessage;
+      } else {
+        // Tải thành công — xoá lỗi cũ (nếu có) để không kẹt trạng thái lỗi
+        // vĩnh viễn sau một lần retry thành công.
+        dataLoadError.value = null;
+      }
       final cycles = result.items;
       if (cycles.isNotEmpty) {
         final activeCycle = cycles.firstWhere(

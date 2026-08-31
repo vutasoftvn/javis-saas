@@ -53,6 +53,9 @@ mixin HubStageMixin on GetxController {
         dataLoadError.value = result.errorMessage;
         return;
       }
+      // Tải thành công — xoá lỗi cũ (nếu có) để không kẹt trạng thái lỗi
+      // vĩnh viễn sau một lần retry thành công.
+      dataLoadError.value = null;
       projectsList.value = result.items;
     } catch (e) {
       debugPrint('Error loading projects list: $e');
