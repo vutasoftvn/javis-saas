@@ -95,7 +95,13 @@ export async function createTaskDependencyService(req: CreateTaskDependencyReque
   return toTaskDependency(row);
 }
 
-export async function listTaskDependenciesService(taskId: string | number): Promise<TaskDependency[]> {
+export async function listTaskDependenciesService(
+  taskId: string | number,
+  workspaceId: string,
+  authorization?: string,
+): Promise<TaskDependency[]> {
+  const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+  await assertTasksInWorkspace([BigInt(taskId)], BigInt(ctx.workspaceId));
   const targetId = BigInt(taskId);
   const rows = await db
     .select()

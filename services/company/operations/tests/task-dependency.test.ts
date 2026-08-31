@@ -40,7 +40,7 @@ describe("Task Dependencies & Schedules Service", () => {
     expect(dep.dependsOnTaskId).toBe(taskA.id);
     expect(dep.status).toBe("PENDING");
 
-    const list = await listTaskDependencies({ taskId: taskB.id });
+    const list = await listTaskDependencies({ taskId: taskB.id, workspaceId, authorization });
     expect(list.dependencies.some((d) => d.id === dep.id)).toBe(true);
   });
 
@@ -93,6 +93,20 @@ describe("Task Dependencies & Schedules Service", () => {
         authorization: b.authorization,
       })
     ).rejects.toThrow(/not in this workspace/i);
+  });
+
+  // M1 §4 — GET dependency listing từng không có auth/tenant scoping.
+  it("rejects dependency listing without an access token", async () => {
+    await expect(listTaskDependencies({ taskId: "123" } as any)).rejects.toThrow(/authorization/i);
+  });
+
+  it("does not list dependencies for a task in another workspace", async () => {
+    const a = await makeAuthedWorkspace("Dependency Read A");
+    const b = await makeAuthedWorkspace("Dependency Read B");
+    const task = await createTask({ workspaceId: a.workspaceId, title: "private", authorization: a.authorization });
+
+    await expect(listTaskDependencies({ taskId: task.id, workspaceId: b.workspaceId, authorization: b.authorization } as any))
+      .rejects.toThrow(/not in this workspace|not found/i);
   });
 
   it("rejects an unauthenticated schedule creation", async () => {

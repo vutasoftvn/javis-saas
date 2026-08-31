@@ -27,8 +27,8 @@ export const createTaskDependency = api(
 
 export const listTaskDependencies = api(
   { expose: true, method: "GET", path: "/operations/tasks/:taskId/dependencies" },
-  async (params: { taskId: string }): Promise<{ dependencies: TaskDependency[] }> => {
-    const dependencies = await listTaskDependenciesService(params.taskId);
+  async (params: WithAuthHeaders<{ taskId: string }>): Promise<{ dependencies: TaskDependency[] }> => {
+    const dependencies = await listTaskDependenciesService(params.taskId, params.workspaceId, params.authorization);
     return { dependencies };
   }
 );
