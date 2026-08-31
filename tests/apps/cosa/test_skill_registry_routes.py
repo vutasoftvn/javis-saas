@@ -59,6 +59,48 @@ def setup_env(mock_company_client):
     }
 
 
+@pytest.fixture
+def member_env(setup_env):
+    """A member identity with a workspace-local candidate created by a founder."""
+    client: TestClient = setup_env["client"]
+    response = client.post(
+        "/agent/skills/candidates",
+        json={
+            "name": "Private Skill",
+            "domain": "sales",
+            "instructions": "Original workspace instructions.",
+            "workspace_id": "ws-1",
+        },
+    )
+    assert response.status_code == 201, response.text
+    override_authenticated_identity(
+        setup_env["app"],
+        principal_id="user:member",
+        platform_user_id="member",
+        workspace_id="ws-1",
+        role_id="member",
+    )
+    return setup_env
+
+
+def test_list_and_get_reject_workspace_query_override(setup_env):
+    client: TestClient = setup_env["client"]
+
+    assert client.get("/agent/skills?workspace_id=ws-other").status_code == 404
+    assert client.get("/agent/skills/private-skill?workspace_id=ws-other").status_code == 404
+
+
+def test_member_cannot_update_or_deprecate_workspace_skill(member_env):
+    client: TestClient = member_env["client"]
+
+    assert client.put(
+        "/agent/skills/private-skill", json={"instructions": "altered"}
+    ).status_code == 403
+    assert client.post(
+        "/agent/skills/private-skill/deprecate", json={"reason": "x"}
+    ).status_code == 403
+
+
 def test_skill_registry_lifecycle_and_sync(setup_env):
     """Verify complete Skill Registry lifecycle: list -> sync-built-in -> candidate -> evaluate -> promote -> deprecate."""
     client: TestClient = setup_env["client"]
@@ -231,9 +273,9 @@ def test_skill_candidate_workspace_isolation(setup_env):
     res_a = client.get("/agent/skills?workspace_id=ws-1")
     assert any(s["id"] == "secret-strategy-pack" for s in res_a.json())
 
-    # Workspace ws-2 does not see it
+    # Cross-workspace query overrides are rejected before selection.
     res_b = client.get("/agent/skills?workspace_id=ws-2")
-    assert not any(s["id"] == "secret-strategy-pack" for s in res_b.json())
+    assert res_b.status_code == 404
 
 
 @pytest.mark.asyncio

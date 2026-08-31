@@ -39,7 +39,12 @@ from apps.cosa.api.skill_schemas import (
     SyncBuiltInResponse,
     SyncSkillItem,
 )
-from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
+from apps.cosa.auth import (
+    AuthenticatedIdentity,
+    get_authenticated_identity,
+    require_workspace_operator,
+    resolve_identity_workspace,
+)
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 
 logger = logging.getLogger("cosa.api.skill_registry")
@@ -169,7 +174,12 @@ async def list_skills(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> list[SkillListItem]:
     """Danh sách kỹ năng trong hệ thống (từ published specs và candidates)."""
-    ws_id = workspace_id or (identity.workspace_id if identity else None)
+    if identity is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
+    ws_id = resolve_identity_workspace(identity, workspace_id)
     if not ws_id:
         raise HTTPException(
             status_code=400,
@@ -493,12 +503,7 @@ async def promote_skill(
     BẮT BUỘC có approved_by và approval_reason (human approval gate).
     """
     if identity:
-        role = (identity.role_id or "").lower()
-        if role and role not in {"founder", "co-founder", "admin"}:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Promotion requires founder or admin privilege (current role: {identity.role_id})",
-            )
+        require_workspace_operator(identity)
         approved_by = identity.platform_user_id or identity.principal_id or req.approved_by
     else:
         approved_by = req.approved_by
@@ -580,6 +585,12 @@ async def deprecate_skill(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Chuyển trạng thái Skill sang RETIRED (không xoá bản ghi)."""
+    if identity is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
+    require_workspace_operator(identity)
     ws_id = identity.workspace_id if identity else None
     if not ws_id:
         raise HTTPException(
@@ -658,7 +669,12 @@ async def get_skill(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Lấy chi tiết một skill theo ID."""
-    ws_id = workspace_id or (identity.workspace_id if identity else None)
+    if identity is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
+    ws_id = resolve_identity_workspace(identity, workspace_id)
     if not ws_id:
         raise HTTPException(
             status_code=400,
@@ -715,6 +731,12 @@ async def update_skill(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Cập nhật metadata hoặc SOP của một candidate skill."""
+    if identity is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
+    require_workspace_operator(identity)
     ws_id = identity.workspace_id if identity else None
     if not ws_id:
         raise HTTPException(
