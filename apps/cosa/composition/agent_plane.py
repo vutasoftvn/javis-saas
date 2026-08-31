@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from agent.artifacts import ArtifactRepository
@@ -242,9 +241,7 @@ def build_cosa_agent_plane(
     )
 
     # 4. Capability Gateway
-    connector_grant_client = ConnectorGrantHttpClient(
-        base_url=resolve_platform_control_plane_url()
-    )
+    connector_grant_client = ConnectorGrantHttpClient(base_url=resolve_platform_control_plane_url())
 
     async def _connector_grant_resolver(connector_id: str, req):
         return await connector_grant_client.assert_usable(

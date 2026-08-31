@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent.capabilities.enablements import EnablementStore, assert_enabled_for_invocation
 from agent.capabilities.grants import ConnectorGrant, verify_connector_grant
@@ -15,6 +15,9 @@ from agent.contracts.wait import WaitDescriptor, WaitKind
 from agent.governance.ambient import verify_ambient_governance
 from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 from agent.runs.models import ComplianceDecisionPayload, RunApprovalRecord, RunEventRecord
+
+if TYPE_CHECKING:
+    from agent.capabilities.gateway import GatewayExecutionResult
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +180,7 @@ class ComplianceAuditor:
         capability_id: str,
         current_decision: Any,  # PolicyDecision
         payload_hash: str,
-    ) -> tuple[bool, Any | None, RunEventRecord | None]:
+    ) -> tuple[bool, GatewayExecutionResult | None, RunEventRecord | None]:
         # (should_continue, early_return_result_if_denied, pending_deny_event)
         """Audit compliance. Returns (should_continue, early_return_result, pending_deny_event).
 
@@ -415,7 +418,7 @@ class ApprovalGateDecider:
         payload_hash: str,
         effective_outcome: Any,  # PolicyOutcome
         current_decision: Any,  # PolicyDecision
-    ) -> tuple[bool, Any | None, Any | None]:
+    ) -> tuple[bool, GatewayExecutionResult | None, GatewayExecutionResult | None]:
         # (should_execute, wait_result_if_waiting, deny_result_if_denied)
         """Quyết định approval gate.
 
@@ -517,7 +520,7 @@ class ConnectorGrantResolution:
     target_snapshot: Any
     deny_kind: str | None = None
     deny_detail: str | None = None
-    deny_result: Any = None
+    deny_result: GatewayExecutionResult | None = None
 
 
 class ConnectorGrantResolver:

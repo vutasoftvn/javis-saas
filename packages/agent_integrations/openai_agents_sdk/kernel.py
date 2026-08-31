@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from agent.capabilities.canonicalization import compute_payload_hash
@@ -608,6 +608,29 @@ class RealOpenAIAgentsSDKKernel:
                 run_record.correlation_id or run_id,
             )
         return True
+
+    async def stream(
+        self,
+        request: RunRequest,
+        spec: AgentSpec,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Stream các sự kiện owned run repository — async generator thỏa
+        `ExecutionKernel.stream` (callable trả về AsyncIterator, không await).
+
+        Cùng hành vi normalized owned-event như `ManualToolLoopKernel`/`LangChainKernel`:
+        await run, đọc `self._repo.list_events(result.run_id)`, yield envelope chuẩn
+        `event_id`/`event_type`/`payload`/`sequence_no`. Không tạo định dạng SSE
+        riêng hay giả vờ token-by-token streaming khi SDK không cung cấp.
+        """
+        result = await self.run(request, spec)
+        events = await self._repo.list_events(result.run_id)
+        for ev in events:
+            yield {
+                "event_id": ev.event_id,
+                "event_type": ev.event_type,
+                "payload": ev.payload,
+                "sequence_no": ev.sequence_no,
+            }
 
     async def _invoke_and_translate(
         self,

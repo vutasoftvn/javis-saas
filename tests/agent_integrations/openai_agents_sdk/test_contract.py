@@ -216,6 +216,33 @@ async def test_openai_agents_sdk_kernel_propagates_invocation_context():
 
 
 @pytest.mark.asyncio
+async def test_openai_agents_sdk_kernel_streams_owned_events():
+    """`ExecutionKernel.stream` — async-for trên kernel.stream() trả về đúng
+    envelope chuẩn của các event owned run repository (event_id/event_type/
+    payload/sequence_no), không phải định dạng SSE riêng."""
+    repo = InMemoryRunRepository()
+    model = FakeSDKModel(responses=[text_response("Streamed output")])
+    kernel = RealOpenAIAgentsSDKKernel(repository=repo, model=model)
+    spec = _build_spec()
+    request = _build_request("stream test", spec=spec)
+
+    collected: list[dict] = []
+    async for ev in kernel.stream(request, spec):
+        collected.append(ev)
+
+    assert collected, "stream() phải yield ít nhất 1 event"
+
+    # envelope chuẩn: đủ 4 khóa, event_type là string không rỗng.
+    for ev in collected:
+        assert set(ev.keys()) == {"event_id", "event_type", "payload", "sequence_no"}
+        assert isinstance(ev["event_type"], str) and ev["event_type"]
+
+    event_types = [ev["event_type"] for ev in collected]
+    assert "run.started" in event_types
+    assert "run.completed" in event_types
+
+
+@pytest.mark.asyncio
 async def test_openai_agents_sdk_kernel_output_schema_validation_success():
     """Valid JSON output conforming to output_schema completes with parsed output."""
     repo = InMemoryRunRepository()

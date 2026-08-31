@@ -57,21 +57,15 @@ class _MockComplianceResolverWithDefaultClaim:
     def __init__(self, inner: Any) -> None:
         self._inner = inner
 
-    async def resolve_for_run(
-        self, request: RunRequest, spec: AgentSpec
-    ) -> dict[str, Any]:
+    async def resolve_for_run(self, request: RunRequest, spec: AgentSpec) -> dict[str, Any]:
         result = dict(await self._inner.resolve_for_run(request, spec))
         if "data_access_claim" not in result and "claim" not in result:
             from apps.cosa.compliance.data_access_claim import DataAccessClaim
 
             snap = result.get("compliance_snapshot") or {}
             result["data_access_claim"] = DataAccessClaim(
-                workspace_id=str(
-                    request.workspace_id or snap.get("workspace_id") or ""
-                ),
-                deployment_id=str(
-                    snap.get("deployment_id") or f"dep_{request.workspace_id}"
-                ),
+                workspace_id=str(request.workspace_id or snap.get("workspace_id") or ""),
+                deployment_id=str(snap.get("deployment_id") or f"dep_{request.workspace_id}"),
                 capability_id="model.input",
                 source_ref="mock://compliance/default-claim",
                 source_hash="sha256:" + "0" * 64,

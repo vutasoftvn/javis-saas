@@ -36,10 +36,16 @@ class ExecutionKernel(Protocol):
         """Hủy bỏ Run đang thực thi."""
         ...
 
-    async def stream(
+    def stream(
         self,
         request: RunRequest,
         spec: AgentSpec,
     ) -> AsyncIterator[dict[str, Any]]:
-        """Stream các sự kiện thực thi trong thời gian thực (events stream)."""
+        """Stream các sự kiện thực thi trong thời gian thực (events stream).
+
+        Là callable TRẢ VỀ AsyncIterator (không phải coroutine) — caller dùng
+        `async for ev in kernel.stream(...)`; implementation là async generator
+        (`async def` chứa `yield`) nên mypy mô hình đúng là
+        `def stream(...) -> AsyncIterator[...]`.
+        """
         ...

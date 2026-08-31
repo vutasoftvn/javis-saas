@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from agent.artifacts import ArtifactRepository
 from agent.capabilities.registry import CapabilityRegistry
 from agent.capabilities.web_search import (

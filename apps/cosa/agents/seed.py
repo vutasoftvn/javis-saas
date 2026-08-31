@@ -41,20 +41,27 @@ async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
     định giữa các lần gọi. `publish_agent_spec()` validate prompt_ref/
     model_policy_ref đã publish trước (Wave M2 §5) — vì vậy Prompt/ModelPolicy
     PHẢI publish trước AgentSpec, đúng thứ tự dưới đây."""
-    for fn, spec in (
-        (publish_prompt_spec, COSA_OPERATIONS_PROMPT),
-        (publish_prompt_spec, COSA_FINANCE_PROMPT),
-        (publish_prompt_spec, COSA_MARKETING_PROMPT),
-        (publish_prompt_spec, COSA_CUSTOMER_SUPPORT_PROMPT),
-        (publish_prompt_spec, COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT),
-        (publish_model_policy_spec, COSA_DEFAULT_MODEL_POLICY),
-        (publish_agent_spec, COSA_OPERATIONS_AGENT_SPEC),
-        (publish_agent_spec, COSA_FINANCE_AGENT_SPEC),
-        (publish_agent_spec, COSA_MARKETING_AGENT_SPEC),
-        (publish_agent_spec, COSA_CUSTOMER_SUPPORT_AGENT_SPEC),
-        (publish_agent_spec, COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC),
+    for prompt_spec in (
+        COSA_OPERATIONS_PROMPT,
+        COSA_FINANCE_PROMPT,
+        COSA_MARKETING_PROMPT,
+        COSA_CUSTOMER_SUPPORT_PROMPT,
+        COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT,
     ):
-        await fn(spec, repository=spec_registry, publisher="cosa-seed")
+        await publish_prompt_spec(prompt_spec, repository=spec_registry, publisher="cosa-seed")
+
+    await publish_model_policy_spec(
+        COSA_DEFAULT_MODEL_POLICY, repository=spec_registry, publisher="cosa-seed"
+    )
+
+    for agent_spec in (
+        COSA_OPERATIONS_AGENT_SPEC,
+        COSA_FINANCE_AGENT_SPEC,
+        COSA_MARKETING_AGENT_SPEC,
+        COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
+        COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
+    ):
+        await publish_agent_spec(agent_spec, repository=spec_registry, publisher="cosa-seed")
 
 
 async def seed_cosa_runtime_specs(

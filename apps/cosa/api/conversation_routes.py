@@ -44,9 +44,7 @@ def get_cosa_plane(request: Request) -> CosaAgentPlane:
     """Dependency injection từ `app.state.plane`."""
     plane = getattr(request.app.state, "plane", None)
     if plane is None:
-        raise RuntimeError(
-            "CosaAgentPlane chưa sẵn sàng — app.state.plane rỗng."
-        )
+        raise RuntimeError("CosaAgentPlane chưa sẵn sàng — app.state.plane rỗng.")
     return plane
 
 

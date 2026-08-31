@@ -614,7 +614,7 @@ async def decide_approval(
     approved_flag = getattr(req, "approved", None)
     if approved_flag is None:
         decision_str = getattr(req, "decision", "")
-        approved_flag = (decision_str == "APPROVED")
+        approved_flag = decision_str == "APPROVED"
 
     try:
         decided = await plane.approval_service.submit_decision(
@@ -697,4 +697,3 @@ async def decide_approval(
         "reason": decided.reason,
         "decided_at": (decided.decided_at or datetime.now(UTC)).isoformat(),
     }
-

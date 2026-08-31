@@ -154,3 +154,55 @@ async def test_execute_denied_when_connector_grant_resolver_raises_exception():
     # Error message should reflect the resolver failure
     assert res.error_message is not None
     assert "denied" in res.error_message.lower()
+
+
+class _RecordingRunRepository(InMemoryRunRepository):
+    """Ghi lại error_message mỗi lần fail_idempotency_claim — chứng minh deny
+    detail được normalize thành str không rỗng trước khi tới
+    IdempotencyClaimService.fail (không bao giờ nhận None)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed_claim_details: list[str] = []
+
+    async def fail_idempotency_claim(self, claim_id: str, *, error_message: str):
+        self.failed_claim_details.append(error_message)
+        return await super().fail_idempotency_claim(claim_id, error_message=error_message)
+
+
+@pytest.mark.asyncio
+async def test_connector_grant_deny_fails_claim_with_nonempty_deterministic_detail():
+    """Grant bị revoke -> idempotency claim phải được fail với detail deterministic
+    không rỗng (giá trị collaborator thực sự nhận, không chỉ kết quả HTTP ngoài)."""
+    registry = CapabilityRegistry()
+    repo = _RecordingRunRepository()
+
+    def handler(payload, ctx):
+        return {"ok": True}
+
+    registry.register(_mcp_read_spec(), handler)
+
+    async def resolver(connector_id, req):
+        return ConnectorGrant(
+            grant_id="grant_revoked_1",
+            tenant_id="ws_a",
+            principal="user_a",
+            connector_id="sandbox-read",
+            allowed_actions=("mcp.sandbox_read.*",),
+            is_revoked=True,
+        )
+
+    gateway = CapabilityGateway(registry=registry, repository=repo, connector_grant_resolver=resolver)
+    req = GatewayExecutionRequest(
+        run_id="run_deny_detail",
+        capability_id="mcp.sandbox_read.list_items",
+        input_payload={},
+        workspace_id="ws_a",
+        principal="user_a",
+    )
+    res = await gateway.execute(req)
+
+    assert res.status == "denied"
+    assert repo.failed_claim_details, "idempotency claim phải được fail khi grant bị từ chối"
+    assert all(isinstance(detail, str) and detail for detail in repo.failed_claim_details)
+    assert "revoked" in repo.failed_claim_details[0]

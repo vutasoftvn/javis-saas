@@ -432,6 +432,15 @@ class CapabilityGateway:
             )
             if pending_deny_event is not None:
                 await self._repo.append_event(pending_deny_event)
+            if early_deny_result is None:
+                # ComplianceAuditor luôn dựng kết quả DENY khi should_continue=False;
+                # nhánh này chỉ là defensive narrowing để mypy thấy giá trị trả về
+                # luôn là GatewayExecutionResult cụ thể (không None).
+                early_deny_result = GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message="Execution denied: AI deployment is suspended or not approved",
+                )
             return early_deny_result
 
         # Bước 7: Accumulate Governance (Monotonic Governance Accumulator) — durable,
@@ -484,6 +493,15 @@ class CapabilityGateway:
             # DENY là terminal — giải phóng claim để lần gọi sau (payload khác, sau khi
             # policy đổi) không bị chặn vĩnh viễn bởi claim "running" không bao giờ hoàn tất.
             await self._idempotency.fail(idem_claim.claim_id, error_message="Denied by policy")
+            if deny_result is None:
+                # ApprovalGateDecider luôn dựng kết quả DENY khi should_exec=False và
+                # wait_result=None; nhánh này chỉ là defensive narrowing để mypy thấy
+                # giá trị trả về luôn là GatewayExecutionResult cụ thể (không None).
+                deny_result = GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message=f"Execution of '{req.capability_id}' denied by policy",
+                )
             return deny_result
 
         # Bước 8.5: Re-verify Connector Grant — chạy lại ở MỌI lần execute(),
@@ -501,17 +519,29 @@ class CapabilityGateway:
             target_snapshot=target_snapshot,
         )
         if not grant_resolution.allowed:
+            # Chuẩn hóa deny detail đúng 1 lần tại biên — IdempotencyClaimService.fail
+            # yêu cầu str không None, chỉ dùng fallback user-safe khi resolver không
+            # cung cấp detail cụ thể.
+            deny_detail = grant_resolution.deny_detail or "Connector grant verification failed"
+            deny_result = grant_resolution.deny_result
+            if deny_result is None:
+                # Defensive narrowing — ConnectorGrantResolver luôn dựng DENY result khi
+                # allowed=False; nhánh này đảm bảo giá trị trả về luôn concrete.
+                deny_result = GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message=(
+                        f"Execution of '{req.capability_id}' denied: connector grant verification failed"
+                    ),
+                )
+
             if grant_resolution.deny_kind == "resolver_error":
                 # Resolver gọi HTTP tới control-plane có thể timeout/connection error.
                 # Fail-closed: không được execute handler nếu grant status không xác nhận được.
                 tc_record.status = "denied"
-                tc_record.error_message = (
-                    f"Connector grant resolver error: {grant_resolution.deny_detail}"
-                )
+                tc_record.error_message = f"Connector grant resolver error: {deny_detail}"
                 await self._repo.save_tool_call(tc_record)
-                await self._idempotency.fail(
-                    idem_claim.claim_id, error_message=grant_resolution.deny_detail
-                )
+                await self._idempotency.fail(idem_claim.claim_id, error_message=deny_detail)
                 await self._repo.append_event(
                     RunEventRecord(
                         run_id=req.run_id,
@@ -519,22 +549,18 @@ class CapabilityGateway:
                         payload={
                             "tool_call_id": req.tool_call_id,
                             "connector_id": connector_id,
-                            "error": grant_resolution.deny_detail,
+                            "error": deny_detail,
                         },
                     )
                 )
-                return grant_resolution.deny_result
+                return deny_result
 
             # deny_kind == "denied": grant resolve được nhưng verify_connector_grant
             # trả is_allowed=False.
             tc_record.status = "denied"
-            tc_record.error_message = (
-                f"Connector grant check failed: {grant_resolution.deny_detail}"
-            )
+            tc_record.error_message = f"Connector grant check failed: {deny_detail}"
             await self._repo.save_tool_call(tc_record)
-            await self._idempotency.fail(
-                idem_claim.claim_id, error_message=grant_resolution.deny_detail
-            )
+            await self._idempotency.fail(idem_claim.claim_id, error_message=deny_detail)
             await self._repo.append_event(
                 RunEventRecord(
                     run_id=req.run_id,
@@ -542,11 +568,11 @@ class CapabilityGateway:
                     payload={
                         "tool_call_id": req.tool_call_id,
                         "connector_id": connector_id,
-                        "reason": grant_resolution.deny_detail,
+                        "reason": deny_detail,
                     },
                 )
             )
-            return grant_resolution.deny_result
+            return deny_result
         # Grant hợp lệ — helper đã cập nhật target_snapshot với thông tin grant
         # (connection_account_id, credential_grant_version) ngay trong resolve_and_verify().
 
