@@ -162,6 +162,9 @@ from apps.cosa.capabilities.web_search import (
     WEB_SEARCH_SPEC,
     create_web_search_handler,
 )
+from apps.cosa.composition.compliance_coordination import ComplianceCoordination
+from apps.cosa.composition.run_execution_service import RunExecutionService
+from apps.cosa.composition.workflow_orchestration import WorkflowOrchestration
 from apps.cosa.config.planes import (
     resolve_execution_plane_url,
     resolve_platform_control_plane_url,
@@ -245,6 +248,36 @@ class CosaAgentPlane:
         # ở FastAPI lifespan shutdown (Phase 5). Rỗng nếu toàn bộ repository
         # được truyền tường minh (test/in-memory), không có engine nào để đóng.
         self.engines = engines or []
+
+    @property
+    def run_execution(self) -> RunExecutionService:
+        """Narrower interface for run execution (kernel, repository, lease, scheduler)."""
+        return RunExecutionService(
+            kernel=self.kernel,
+            repository=self.repository,
+            lease_client=self.lease_client,
+            scheduler=self.scheduler,
+        )
+
+    @property
+    def workflow_orchestration(self) -> WorkflowOrchestration:
+        """Narrower interface for workflow orchestration (gateway, engine, registry, approval)."""
+        return WorkflowOrchestration(
+            gateway=self.gateway,
+            workflow_engine=self.workflow_engine,
+            workflow_registry=self.workflow_registry,
+            approval_service=self.approval_service,
+        )
+
+    @property
+    def compliance_coordination(self) -> ComplianceCoordination:
+        """Narrower interface for compliance orchestration (policy, governance, compliance resolver)."""
+        return ComplianceCoordination(
+            policy_engine=self.policy_engine,
+            capability_registry=self.capability_registry,
+            governance_store=self.governance_store,
+            compliance_resolver=self.compliance_resolver,
+        )
 
 
 def _build_postgres_session_factory(database_url: str) -> tuple[Any, Any]:
