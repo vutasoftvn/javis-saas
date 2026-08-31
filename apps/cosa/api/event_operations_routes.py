@@ -1,7 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
+
+from apps.cosa.auth import (
+    AuthenticatedIdentity,
+    get_authenticated_identity,
+    require_workspace_operator,
+    resolve_identity_workspace,
+)
 
 
 class CorrelationStep(BaseModel):
@@ -24,19 +31,15 @@ def create_event_operations_router() -> APIRouter:
     async def get_correlation_chain(
         correlation_id: str,
         request: Request,
-        workspaceId: str = Query(..., alias="workspaceId"),
+        identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+        workspaceId: str | None = Query(None, alias="workspaceId"),
     ) -> CorrelationChainResponse:
+        workspace_id = resolve_identity_workspace(identity, workspaceId)
         plane = getattr(request.app.state, "plane", None)
-        caller_ws = getattr(plane, "caller_workspace_id", None)
-        if caller_ws and caller_ws != workspaceId:
-            raise HTTPException(
-                status_code=403, detail="Forbidden: cross-workspace correlation query"
-            )
-
         corr_db = getattr(plane, "correlation_db", None)
         if corr_db is not None:
             inbox_rec = corr_db.inbox_records.get(correlation_id)
-            if not inbox_rec or inbox_rec.get("workspace_id") != workspaceId:
+            if not inbox_rec or inbox_rec.get("workspace_id") != workspace_id:
                 raise HTTPException(status_code=404, detail="Correlation ID not found in workspace")
 
             steps: list[CorrelationStep] = []
@@ -92,7 +95,7 @@ def create_event_operations_router() -> APIRouter:
 
             return CorrelationChainResponse(
                 correlation_id=correlation_id,
-                workspace_id=workspaceId,
+                workspace_id=workspace_id,
                 chain=steps,
             )
 
@@ -102,14 +105,16 @@ def create_event_operations_router() -> APIRouter:
     @router.get("/dead-letter")
     async def list_dead_letters(
         request: Request,
-        workspaceId: str = Query(..., alias="workspaceId"),
+        identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+        workspaceId: str | None = Query(None, alias="workspaceId"),
     ):
+        workspace_id = resolve_identity_workspace(identity, workspaceId)
         plane = getattr(request.app.state, "plane", None)
         corr_db = getattr(plane, "correlation_db", None)
         dead_letters = []
         if corr_db is not None:
             for rec in corr_db.inbox_records.values():
-                if rec.get("workspace_id") == workspaceId and rec.get("outcome") in (
+                if rec.get("workspace_id") == workspace_id and rec.get("outcome") in (
                     "dead_letter",
                     "failed",
                     "pending_dispatch",
@@ -129,16 +134,19 @@ def create_event_operations_router() -> APIRouter:
     async def retry_event(
         event_id: str,
         request: Request,
-        workspaceId: str = Query(..., alias="workspaceId"),
+        identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+        workspaceId: str | None = Query(None, alias="workspaceId"),
     ):
+        require_workspace_operator(identity)
+        workspace_id = resolve_identity_workspace(identity, workspaceId)
         plane = getattr(request.app.state, "plane", None)
         corr_db = getattr(plane, "correlation_db", None)
         if corr_db is not None:
             for rec in corr_db.inbox_records.values():
-                if rec.get("event_id") == event_id and rec.get("workspace_id") == workspaceId:
+                if rec.get("event_id") == event_id and rec.get("workspace_id") == workspace_id:
                     rec["outcome"] = "pending"
                     return {"status": "retried", "eventId": event_id}
 
-        return {"status": "retried", "eventId": event_id}
+        raise HTTPException(status_code=404, detail="event not found")
 
     return router

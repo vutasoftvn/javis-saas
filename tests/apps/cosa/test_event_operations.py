@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.api.event_stream import CosaEventStreamManager
+from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 
 
 class StubCorrelationDb:
@@ -66,23 +67,41 @@ def correlation_db():
     return StubCorrelationDb()
 
 
-@pytest.fixture
-def ops_client(correlation_db):
+def _client_for_identity(correlation_db, *, workspace_id: str, role_id: str = "founder"):
     app = create_cosa_app()
     app.state.plane = type("DummyPlane", (), {
         "correlation_db": correlation_db,
-        "caller_workspace_id": "ws_ops_a",
     })()
+    override_authenticated_identity(app, workspace_id=workspace_id, role_id=role_id)
     transport = ASGITransport(app=app)
     return AsyncClient(transport=transport, base_url="http://test")
 
 
 @pytest.fixture
-def ops_client_b(correlation_db):
+def client_a(correlation_db):
+    return _client_for_identity(correlation_db, workspace_id="ws_ops_a")
+
+
+@pytest.fixture
+def client_b(correlation_db):
+    return _client_for_identity(correlation_db, workspace_id="ws_ops_b")
+
+
+@pytest.fixture
+def operator_client(correlation_db):
+    return _client_for_identity(correlation_db, workspace_id="ws_ops_a")
+
+
+@pytest.fixture
+def member_client(correlation_db):
+    return _client_for_identity(correlation_db, workspace_id="ws_ops_a", role_id="member")
+
+
+@pytest.fixture
+def unsecured_client(correlation_db):
     app = create_cosa_app()
     app.state.plane = type("DummyPlane", (), {
         "correlation_db": correlation_db,
-        "caller_workspace_id": "ws_ops_b",
     })()
     transport = ASGITransport(app=app)
     return AsyncClient(transport=transport, base_url="http://test")
@@ -99,11 +118,8 @@ def seeded_chain_a(correlation_db):
 
 
 @pytest.mark.asyncio
-async def test_correlation_chain_links_event_to_run_without_tool_result(ops_client, seeded_chain):
-    r = await ops_client.get(
-        f"/agent/events/correlation/{seeded_chain.correlation_id}",
-        params={"workspaceId": seeded_chain.workspace_id},
-    )
+async def test_correlation_chain_links_event_to_run_without_tool_result(client_a, seeded_chain):
+    r = await client_a.get(f"/agent/events/correlation/{seeded_chain.correlation_id}")
     assert r.status_code == 200
     data = r.json()
     kinds = [step["kind"] for step in data["chain"]]
@@ -113,12 +129,22 @@ async def test_correlation_chain_links_event_to_run_without_tool_result(ops_clie
 
 
 @pytest.mark.asyncio
-async def test_workspace_b_cannot_read_workspace_a_correlation(ops_client_b, seeded_chain_a):
-    r = await ops_client_b.get(
-        f"/agent/events/correlation/{seeded_chain_a.correlation_id}",
-        params={"workspaceId": seeded_chain_a.workspace_id},
-    )
-    assert r.status_code in (403, 404)
+async def test_missing_identity_cannot_read_correlation(unsecured_client, seeded_chain):
+    assert (
+        await unsecured_client.get(f"/agent/events/correlation/{seeded_chain.correlation_id}")
+    ).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_workspace_b_gets_not_found_for_workspace_a_chain(client_b, seeded_chain_a):
+    response = await client_b.get(f"/agent/events/correlation/{seeded_chain_a.correlation_id}")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_member_cannot_retry_and_missing_event_is_not_success(member_client, operator_client):
+    assert (await member_client.post("/agent/events/missing/retry")).status_code == 403
+    assert (await operator_client.post("/agent/events/missing/retry")).status_code == 404
 
 
 @pytest.mark.asyncio
