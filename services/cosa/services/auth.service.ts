@@ -134,7 +134,7 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
 
     await tx.insert(profiles).values({
       id: newUser.id,
-      roleId: "founder",
+      roleId: "member",
       fullName: params.full_name || null,
     });
   });

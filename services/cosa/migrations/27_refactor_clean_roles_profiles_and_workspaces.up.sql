@@ -40,7 +40,7 @@ SET name = EXCLUDED.name,
 ALTER TABLE cosa.users DROP COLUMN IF EXISTS is_platform_admin CASCADE;
 ALTER TABLE cosa.users DROP COLUMN IF EXISTS platform_role_id CASCADE;
 
--- 3. Chuẩn hóa cosa.profiles: id = users.id (PK & FK), thêm role_id
+-- 3. Chuẩn hóa cosa.profiles: id = users.id (PK & FK), thêm role_id (default 'member')
 DO $$
 BEGIN
   IF EXISTS (
@@ -51,7 +51,8 @@ BEGIN
   END IF;
 END $$;
 
-ALTER TABLE cosa.profiles ADD COLUMN IF NOT EXISTS role_id TEXT REFERENCES cosa.roles(id);
+ALTER TABLE cosa.profiles ADD COLUMN IF NOT EXISTS role_id TEXT NOT NULL DEFAULT 'member' REFERENCES cosa.roles(id);
+ALTER TABLE cosa.profiles ALTER COLUMN role_id SET DEFAULT 'member';
 ALTER TABLE cosa.profiles ADD COLUMN IF NOT EXISTS bio TEXT;
 ALTER TABLE cosa.profiles ADD COLUMN IF NOT EXISTS headline TEXT;
 
@@ -83,7 +84,7 @@ BEGIN
   END IF;
 END $$;
 
--- Đổi cột role thành role_id trỏ sang cosa.roles(id) trong workspace_memberships
+-- Đổi cột role thành role_id trỏ sang cosa.roles(id) trong workspace_memberships với default 'member'
 DO $$
 BEGIN
   IF EXISTS (
@@ -92,6 +93,7 @@ BEGIN
   ) THEN
     ALTER TABLE cosa.workspace_memberships RENAME COLUMN role TO role_id;
   END IF;
+  ALTER TABLE cosa.workspace_memberships ALTER COLUMN role_id SET DEFAULT 'member';
 END $$;
 
 -- 4.4 Đổi tên cột trong cosa.workspace_sync_logs

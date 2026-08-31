@@ -26,7 +26,7 @@ export const users = cosaSchema.table("users", {
 
 export const profiles = cosaSchema.table("profiles", {
   id: bigint("id", { mode: "bigint" }).primaryKey().references(() => users.id, { onDelete: "cascade" }),
-  roleId: varchar("role_id", { length: 50 }).references(() => roles.id),
+  roleId: varchar("role_id", { length: 50 }).default("member").notNull().references(() => roles.id),
   fullName: text("full_name"),
   avatarUrl: text("avatar_url"),
   headline: text("headline"),
