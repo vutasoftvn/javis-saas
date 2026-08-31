@@ -91,7 +91,8 @@ export const getPlatformUserMe = api(
 
 export const updatePlatformUserMe = api(
   { method: "PATCH", path: "/platform/auth/me", expose: true, auth: true },
-  async (params: UpdateMeParams): Promise<PlatformUserProfile> => {
+  async (params: UpdateMeParams & { role_id?: unknown }): Promise<PlatformUserProfile> => {
+    if (params.role_id !== undefined) throw APIError.invalidArgument("role_id cannot be changed by profile update");
     return updateMe(await resolveAuthData(), params);
   }
 );

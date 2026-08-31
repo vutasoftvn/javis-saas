@@ -77,7 +77,6 @@ export interface UpdateMeParams {
   avatar_url?: string;
   headline?: string;
   bio?: string;
-  role_id?: string;
 }
 
 export async function loginPlatformUser(params: SessionParams): Promise<TokenResponse> {
@@ -299,8 +298,7 @@ export async function updatePlatformUserProfile(
     params.full_name !== undefined ||
     params.avatar_url !== undefined ||
     params.headline !== undefined ||
-    params.bio !== undefined ||
-    params.role_id !== undefined
+    params.bio !== undefined
   ) {
     await db
       .insert(profiles)
@@ -310,7 +308,6 @@ export async function updatePlatformUserProfile(
         avatarUrl: params.avatar_url || null,
         headline: params.headline || null,
         bio: params.bio || null,
-        roleId: params.role_id || undefined,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -320,7 +317,6 @@ export async function updatePlatformUserProfile(
           ...(params.avatar_url !== undefined ? { avatarUrl: params.avatar_url } : {}),
           ...(params.headline !== undefined ? { headline: params.headline } : {}),
           ...(params.bio !== undefined ? { bio: params.bio } : {}),
-          ...(params.role_id !== undefined ? { roleId: params.role_id } : {}),
           updatedAt: new Date(),
         },
       });

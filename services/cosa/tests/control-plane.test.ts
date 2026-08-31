@@ -62,7 +62,6 @@ describe("Control Plane Service", () => {
         phone: `+84912${Math.floor(100000 + Math.random() * 900000)}`,
         headline: "Founder @ Cosa AI",
         bio: "Building next-gen AI workspace",
-        role_id: "founder",
       }
     );
 
@@ -71,6 +70,13 @@ describe("Control Plane Service", () => {
     expect(updated.headline).toBe("Founder @ Cosa AI");
     expect(updated.bio).toBe("Building next-gen AI workspace");
     expect(updated.role_id).toBe("founder");
+  });
+
+  it("does not mutate the global role from self-profile input", async () => {
+    const userID = verifyPlatformToken(platformToken).sub;
+    const before = await getMe({ userID });
+    const updated = await updateMe({ userID }, { role_id: "superadmin" } as any);
+    expect(updated.role_id).toBe(before.role_id);
   });
 
   it("rejects registration with duplicate email", async () => {
