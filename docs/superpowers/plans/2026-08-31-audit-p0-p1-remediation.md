@@ -327,7 +327,7 @@ Replace AUDIT_P0P1_BASE_SHA with the recorded immutable baseline SHA; do not com
 - Inspect: commit 34507dd9
 - Modify only after explicit decision: CLAUDE.md and the selected documentation target
 
-- [ ] **Step 1: Obtain an architecture-owner decision**
+- [x] **Step 1: Obtain an architecture-owner decision**
 
 Present the evidence that four named source-of-truth documents were removed in 34507dd9. Request exactly one approved action:
 
@@ -337,7 +337,7 @@ Present the evidence that four named source-of-truth documents were removed in 3
 
 No restoration occurs merely to make a warning disappear.
 
-- [ ] **Step 2: Execute the selected documentation path as a separate documentation-only commit**
+- [x] **Step 2: Execute the selected documentation path as a separate documentation-only commit**
 
 For option 1, update all references atomically and add a current document index. For option 2, preserve originals under an explicit archive path and add a non-canonical banner plus provenance. For option 3, create docs/architecture/ARCHITECTURE_SOURCE_OF_TRUTH.md containing active owners, ADRs, and plan links, then repoint CLAUDE.md to it. In all cases, validate links with rg and review the diff; do not edit application code.
 

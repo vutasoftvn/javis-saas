@@ -9,28 +9,39 @@ COSA là **Founder / Company Operating System với Agent Platform composable**.
 
 ## Nguồn sự thật kiến trúc
 
-Đọc theo thứ tự khi cần chi tiết — không chép lại nội dung các file này vào đây:
+**Quyết định 2026-08-31 — Option 1 "keep deleted":** 5 tài liệu source-of-truth cũ
+(`COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md`,
+`COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md`,
+`COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md`,
+`COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md`,
+`DB_FINAL_CUTOVER.md`) cùng nhiều ADR cũ đã bị xóa trong commit `34507dd9`
+(2026-08-27). Giữ nguyên trạng thái đã xóa, không khôi phục. Các file tên tương
+tự trong `docs/archive/` chỉ là lưu trữ lịch sử, KHÔNG phải nguồn sự thật.
 
-0. `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` — nguồn sự thật **cao nhất** cho phạm vi: DB baseline, identity/tenant auth, durable run/dispatch/lease, durable event log/SSE, policy wiring, legacy exit, deployment convergence, CI/E2E gate. Mục 29 "Reconciliation Addendum" (thêm 2026-08-25) đã đối chiếu tài liệu này với code thật và khoá các quyết định còn bỏ ngỏ (5 quyết định DB baseline P0.1, Decision RUNTIME-001) — đọc mục 29 trước khi đọc phần thân tài liệu để biết chỗ nào đã điều chỉnh. Tài liệu này supersede `DB_FINAL_CUTOVER.md` (nay `SUPERSEDED`, giữ lại làm evidence lịch sử).
-1. `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` — kế hoạch triển khai đã đối chiếu (đã duyệt 2026-08-24), điều chỉnh Blueprint V2 theo code thật. Vẫn là nguồn sự thật cho phần chưa bị Mục 0 đè lên (Wave 3/5-6/8-9/11: prompt/spec registry, skills/evals, memory/knowledge v2, protocols, recipes). Đọc Wave tương ứng trước khi thêm code lớn vào `packages/agent/`, `apps/cosa/`, hoặc `services/cosa/`.
-2. `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md` — kiến trúc target đã audit (Master M1).
-3. `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md` — plan triển khai theo phase, có Definition of Done cụ thể.
+**Document index hiện tại** (chỉ đọc các file TỒN TẠI trong cây):
 
-**CẢNH BÁO (2026-08-31, phát hiện trong Task 11 của agentos-auth-contract-frontend-parity):** Cả 5 file được liệt kê ở mục 0-3 phía trên và `DB_FINAL_CUTOVER.md` đã bị xóa khỏi repo trong commit `34507dd9` (2026-08-27) và chưa được khôi phục hoặc thay thế. `docs/archive/2026-08/` có các file tên tương tự nhưng KHÔNG phải bản thay thế tương đương. Cần quyết định của người có đủ ngữ cảnh: khôi phục từ git history, viết tài liệu kế thừa mới, hay viết lại toàn bộ mục này — xem chi tiết trong report của task 11 (thư mục `.superpowers/sdd/2026-08-31-agentos-auth-contract-frontend-parity/`, file `task-11-report.md`).
+- `docs/architecture/adr/` — ADR đang hoạt động: `ADR-AGENT-REG-001`,
+  `ADR-AI-COMPLIANCE-RUNTIME-001`, `ADR-CONV-001`, `ADR-CUTOVER-001`,
+  `ADR-DEPLOY-001`, `ADR-ID-MODEL-001`, `ADR-LOCAL-EVENT-BACKBONE-001`,
+  `ADR-LOCAL-FIRST-001`, `ADR-SLUG-001`. Trước khi hành động, kiểm tra ADR
+  liên quan tại đây.
+- `docs/superpowers/specs/` — design đã duyệt (vd.
+  `2026-08-31-maintainable-modular-truthful-mvp-design.md`).
+- `docs/superpowers/plans/` — plan triển khai đã duyệt.
+- `docs/architecture/generated/` — snapshot sinh tự động (contracts, route
+  inventory, company usage inventory) — generator-owned, không hand-edit.
 
-Khi các file trên xung đột với comment cũ trong code hoặc trí nhớ của bạn: **file có số thứ tự nhỏ hơn thắng** (Mục 0 thắng tất cả trong phạm vi của nó). File #0/#1 có thể sửa đổi quyết định trong #2/#3 (vd. runtime strategy, vị trí control-plane) — khi có mâu thuẫn, ưu tiên số nhỏ hơn nhưng kiểm tra ADR liên quan trong `docs/architecture/adr/` trước khi hành động.
+**Runtime:** OpenAI Agents SDK là primary execution runtime, DeepSeek là primary
+model provider (qua LiteLLM), LangChain là optional adapter.
 
-**Runtime:** OpenAI Agents SDK là primary execution runtime, DeepSeek là primary model provider (qua LiteLLM), LangChain là optional adapter — theo `ADR-RUNTIME-002` (2026-08-25, supersede `ADR-RUNTIME-001` LangChain-primary — quyết định đó chưa từng implement và bị đảo ngược sau khi phát hiện mâu thuẫn giữa header ACCEPTED và code default thật).
-
-**Control Plane:** vị trí tại `services/cosa` (Encore/TS) đã được chấp nhận qua `ADR-CONTROLPLANE-001` (2026-08-24) — vẫn đúng, không đổi. Header ADR này tự ghi "triển khai chưa bắt đầu"; schema + service code TypeScript đã tồn tại nhưng **zero production consumer** tính đến 2026-08-25 (xem Mục 0, §29.2).
+**Control Plane:** vị trí tại `services/cosa` (Encore/TS). Schema + service code
+TypeScript đã tồn tại nhưng **zero production consumer** tính đến 2026-08-25.
 
 Trạng thái ACCEPTED chỉ xác nhận quyết định kiến trúc; không mặc định có
 nghĩa implementation, migration cutover, runtime wiring hoặc production
 verification đã hoàn tất. Luôn kiểm tra trạng thái triển khai thực tế
 (ACCEPTED / IMPLEMENTED / WIRED / VERIFIED / PRODUCTION là 5 trục khác nhau)
-trước khi sửa code hoặc báo cáo tiến độ — repo này đã có ít nhất 2 trường hợp
-một phiên tự báo "Wave/Phase hoàn thành" bị phiên audit sau đó phát hiện
-chưa thật sự wire/verify (xem Mục 0, §29.1-29.2).
+trước khi sửa code hoặc báo cáo tiến độ.
 
 ## Bốn vùng kiến trúc
 
@@ -42,7 +53,7 @@ Agent Platform        packages/agent (Python, reusable) + apps/cosa (Python, com
 ```
 
 - `packages/agent/` **không được import** bất cứ gì từ `services/company/*`. Chỉ `apps/cosa/` được compose cả hai phía.
-- `legacy/` đã xoá hẳn 2026-08-25 (bao gồm `agentos/` archive cũ, `legacy/backend`, `legacy/agent_runtime`, và các thư mục split-out khác) — xem `docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md`. Mọi tính năng runtime hiện hoạt đều nằm tại `packages/agent/` và `apps/cosa/`.
+- `legacy/` đã xoá hẳn 2026-08-25 (bao gồm `agentos/` archive cũ, `legacy/backend`, `legacy/agent_runtime`, và các thư mục split-out khác). Mọi tính năng runtime hiện hoạt đều nằm tại `packages/agent/` và `apps/cosa/`.
 
 
 ## Quy tắc bắt buộc
