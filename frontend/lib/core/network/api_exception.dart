@@ -41,49 +41,49 @@ abstract class ApiException implements Exception {
 /// 400 Bad Request
 class BadRequestException extends ApiException {
   const BadRequestException([
-    String message = 'Bad request',
-    int? statusCode = 400,
-  ]) : super(message, statusCode);
+    super.message = 'Bad request',
+    super.statusCode = 400,
+  ]);
 }
 
 /// 401 Unauthorized
 class UnauthorizedException extends ApiException {
   const UnauthorizedException([
-    String message = 'Unauthorized',
-    int? statusCode = 401,
-  ]) : super(message, statusCode);
+    super.message = 'Unauthorized',
+    super.statusCode = 401,
+  ]);
 }
 
 /// 403 Forbidden
 class ForbiddenException extends ApiException {
   const ForbiddenException([
-    String message = 'Forbidden',
-    int? statusCode = 403,
-  ]) : super(message, statusCode);
+    super.message = 'Forbidden',
+    super.statusCode = 403,
+  ]);
 }
 
 /// 404 Not Found
 class NotFoundException extends ApiException {
   const NotFoundException([
-    String message = 'Resource not found',
-    int? statusCode = 404,
-  ]) : super(message, statusCode);
+    super.message = 'Resource not found',
+    super.statusCode = 404,
+  ]);
 }
 
 /// 409 Conflict
 class ConflictException extends ApiException {
   const ConflictException([
-    String message = 'Conflict state',
-    int? statusCode = 409,
-  ]) : super(message, statusCode);
+    super.message = 'Conflict state',
+    super.statusCode = 409,
+  ]);
 }
 
 /// 5xx Server Error
 class ServerException extends ApiException {
   const ServerException([
-    String message = 'Internal server error',
-    int? statusCode = 500,
-  ]) : super(message, statusCode);
+    super.message = 'Internal server error',
+    super.statusCode = 500,
+  ]);
 }
 
 /// Network connectivity failure (no connection, timeout, etc.)
@@ -103,7 +103,7 @@ class MalformedResponseException extends ApiException {
 /// Generic / unclassified exception
 class UnknownApiException extends ApiException {
   const UnknownApiException([
-    String message = 'An unknown API error occurred.',
-    int? statusCode,
-  ]) : super(message, statusCode);
+    super.message = 'An unknown API error occurred.',
+    super.statusCode,
+  ]);
 }

@@ -1,15 +1,14 @@
 import 'dart:convert';
+import '../../../core/network/api_exception.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../models/strategy_list_result.dart';
 
-/// Lỗi từ Strategy API
-class StrategyApiException implements Exception {
-  final int statusCode;
-  final String message;
-  StrategyApiException(this.statusCode, this.message);
+export '../../../core/network/api_exception.dart';
+export '../../../core/network/api_response_decoder.dart';
 
-  @override
-  String toString() => message;
+/// Lỗi từ Strategy API
+class StrategyApiException extends ApiException {
+  StrategyApiException(int statusCode, String message) : super(message, statusCode);
 }
 
 /// Base class for strategy domain services — shared helpers
