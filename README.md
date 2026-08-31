@@ -6,7 +6,10 @@ The AI operating system for startups.
 Slogan
 Build startups. Run companies. Power a nation.
 
-Hệ điều hành doanh nghiệp AI tích hợp kiến trúc Hybrid: **PostgreSQL Local (Data Plane)** + **Supabase Central (Control Plane)**.
+Hệ điều hành doanh nghiệp AI tích hợp kiến trúc 3 Data Planes trên nền tảng **PostgreSQL (pgvector)**:
+- **`agent`**: Agent Core Runtime (runs, memory, knowledge, evals, capabilities)
+- **`cosa`**: COSA Control Plane (identity, licenses, policy, scheduler, leases)
+- **`workspace`**: Company Business (identity, operations/strategy, commercial/CRM, finance-legal)
 
 ---
 
@@ -26,24 +29,8 @@ Hệ điều hành doanh nghiệp AI tích hợp kiến trúc Hybrid: **PostgreS
 
 ## 📖 Kiến Trúc & Tài Liệu Vận Hành (Canonical Documentation)
 
-> ⚠️ **Cần xác nhận với người dùng trước khi sửa tiếp mục này.** Các link cũ
-> ở đây (`COSA_IMPLEMENTATION_COMPLETE.md`, `COSA_CANONICAL_OWNERSHIP_MAP.md`,
-> `COSA_FEATURE_IMPLEMENTATION_TREE.md`, `ADDING_BUSINESS_FEATURE.md`) đã bị
-> xóa trong commit `02d710ca` (2026-08-23, "consolidate docs into Master M1").
-> Nhưng các file được cho là thay thế chúng — 4 tài liệu liệt kê ở mục "Nguồn
-> sự thật kiến trúc" của `CLAUDE.md`
-> (`COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md`,
-> `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md`,
-> `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md`,
-> `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md`) — **cũng
-> không còn tồn tại trong working tree**: bị xóa bởi commit `34507dd9`
-> (2026-08-27, "refactor: enhance harness ownership analysis...", nội dung
-> commit không liên quan tới các file này) cùng với gần như toàn bộ
-> `docs/architecture/adr/*.md` và `docs/superpowers/plans|specs/*.md` cũ.
-> Chưa rõ đây là xóa chủ ý (archive không đúng chỗ) hay tai nạn — không tự ý
-> khôi phục hay xóa thêm gì ở đây cho tới khi người dùng xác nhận.
-
 - **Sổ tay vận hành (Runbook)**: [`docs/COSA_RUNBOOK.md`](docs/COSA_RUNBOOK.md)
+- **Kiến trúc & Vận hành Database**: [`db.md`](db.md)
 
 ---
 
@@ -67,127 +54,120 @@ Hệ điều hành doanh nghiệp AI tích hợp kiến trúc Hybrid: **PostgreS
 ```
 Host (macOS/Linux)                   Docker Containers
 ═════════════════════════════════════════════════════════
-Company Service (port 4000)    ←→    PostgreSQL (port 5433)
-COSA Control Plane (port 4001) ←→    PostgreSQL (port 5432)
-FastAPI (port 8000)            ←→    MinIO (port 9000/9001)
-Worker (background)            ←→    LiveKit (port 7880)
+Company Service (port 4000)    ←→    PostgreSQL (port 5432 - db: workspace)
+COSA Control Plane (port 4001) ←→    PostgreSQL (port 5432 - db: cosa)
+FastAPI Server (port 8000)     ←→    PostgreSQL (port 5432 - db: agent)
+Worker Daemon (background)     ←→    MinIO (port 9000/9001) & LiveKit (port 7880/7885)
 ```
 
 **Khởi động development stack:**
 
 ```bash
-# Step 1: Copy environment file and customize as needed
+# Step 1: Chuẩn bị file cấu hình môi trường
 cp .env.example .env
-export $(grep -v '^#' .env | xargs)  # Load variables
+source scripts/load-dev-env.sh  # Nạp biến môi trường
 
-# Step 2: Validate configuration before starting
+# Step 2: Khởi động container hạ tầng (PostgreSQL, MinIO, LiveKit)
+make dev-infra
+
+# Step 3: Chạy migrations cho 3 CSDL theo thứ tự canonical (Agent -> COSA -> Company)
+make dev-migrate
+
+# Step 4: Kiểm tra tiền điều kiện cấu hình và sức khỏe service
 make dev-preflight
 
-# Step 3: Start entire dev stack (infra + migrations + services)
-make dev-stack
+# Step 5: Khởi động toàn bộ stack hoặc từng service
+make dev-stack   # hoặc chạy riêng: encore run, uvicorn, worker
 
-# Step 4: Check status of all components
+# Step 6: Kiểm tra trạng thái toàn bộ dịch vụ
 make dev-status
 ```
 
-**Individual commands:**
+**Lệnh riêng lẻ thường dùng:**
 
 ```bash
-make dev-infra       # Start PostgreSQL, MinIO, LiveKit (Docker only)
-make dev-migrate     # Run migrations: Agent Core → COSA → Company
-make dev-preflight   # Validate config, check service health
-make dev-stack       # Full: infra + migrate + preflight + launch services
-make dev-status      # Show status of all components
+make dev-infra       # Khởi động PostgreSQL, MinIO, LiveKit (Docker)
+make dev-migrate     # Chạy migrations: Agent Core → COSA → Company
+make dev-preflight   # Kiểm tra tính hợp lệ cấu hình và sức khỏe kết nối
+make dev-status      # Hiển thị trạng thái các cổng và tiến trình
 ```
 
-**Configuration contract (required environment variables):**
+**Quy ước kết nối Database (Required Environment Variables):**
 
-All variables in `.env.example` marked "Task 3" are required:
-- Database URLs: `AGENT_DATABASE_URL`, `COSA_DATABASE_URL`, `WORKSPACE_DATABASE_URL`
-- Service URLs: `COSA_CONTROL_PLANE_URL`, `COMPANY_SERVICE_URL`
-- JWT Secrets: `PLATFORM_JWT_SECRET`, `WORKER_SERVICE_JWT_SECRET`
-- Worker Token: `COSA_WORKER_SERVICE_TOKEN`
-- Model API Key: `DEEPSEEK_API_KEY` (required for real runs; optional in test mode)
+- `AGENT_DATABASE_URL` / `AGENT_MIGRATOR_DATABASE_URL`
+- `COSA_DATABASE_URL` / `COSA_MIGRATOR_DATABASE_URL`
+- `WORKSPACE_DATABASE_URL` / `WORKSPACE_MIGRATOR_DATABASE_URL`
+- `COMPANY_SERVICE_URL` (`http://127.0.0.1:4000`)
+- `COSA_CONTROL_PLANE_URL` (`http://127.0.0.1:4001`)
+- `PLATFORM_JWT_SECRET` / `WORKER_SERVICE_JWT_SECRET`
+- `COSA_WORKER_SERVICE_TOKEN`
+- `DEEPSEEK_API_KEY`
 
-Missing or unreachable variables cause **immediate failure** (fail-fast) — no silent defaults.
-
-**Health endpoints (no auth required):**
-
-Both services provide unauthenticated health check endpoints for load balancers:
+**Health endpoints:**
 
 ```bash
-# Company Service health (database connectivity check)
+# Company Service health (kiểm tra kết nối CSDL workspace)
 curl http://localhost:4000/healthz
 # Response: {"app":"company","status":"ok","version":"unknown"}
 
-# COSA Control Plane health (database connectivity check)
+# COSA Control Plane health (kiểm tra kết nối CSDL cosa)
 curl http://localhost:4001/healthz
 # Response: {"app":"cosa","status":"ok","version":"unknown"}
-```
 
-Status returns `"ok"` only after successful `SELECT 1` database check; `"error"` if database unreachable. Response never leaks DSN, hostname, or credentials.
+# COSA FastAPI health
+curl http://localhost:8000/healthz
+# Response: {"status":"ok","app":"cosa-agent-platform","version":"1.0.0"}
+```
 
 ---
 
-## 🚀 Khởi Động Cụm Microservices (`services/`)
+## 🗄️ Hướng Dẫn Truy Cập & Quản Trị Database
 
-Cụm Microservices kiến trúc mới (Encore.ts + LiveKit Voice Agent) gồm 4 cluster: `identity`, `operations`, `commercial`, `finance-legal`, cùng worker `realtime_agent`.
+Toàn bộ hệ thống chạy trên **1 cụm PostgreSQL (pgvector)** tại `127.0.0.1:5432`, được phân tách thành **3 CSDL độc lập** theo ranh giới sở hữu:
 
-### 1. Khởi động nhanh bằng Docker Compose:
+### 1. Thông tin kết nối 3 Database
+
+| Database | Mục đích lưu trữ | App Role (`_app`) | Migrator Role (`_migrator`) | Connection URI (App) |
+| :--- | :--- | :--- | :--- | :--- |
+| **`agent`** | Runs, checkpoints, memory, knowledge, evals, capabilities | `agent_app` | `agent_migrator` | `postgresql+asyncpg://agent_app:change-me-agent-app@127.0.0.1:5432/agent` |
+| **`cosa`** | Identity nền tảng, licenses, policies, scheduler, worker leases | `cosa_app` | `cosa_migrator` | `postgresql://cosa_app:change-me-cosa-app@127.0.0.1:5432/cosa?sslmode=disable` |
+| **`workspace`** | Doanh nghiệp (identity, operations/strategy, CRM, finance-legal) | `workspace_app` | `workspace_migrator` | `postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable` |
+
+- **Host**: `127.0.0.1` (hoặc `localhost`)
+- **Port**: `5432`
+- **Superuser**: `postgres` (Password: `dev-postgres-password` hoặc trong `.env`)
+
+### 2. Kết nối bằng công cụ trực quan (TablePlus, DBeaver, DataGrip)
+Tạo connection PostgreSQL tới `localhost:5432` với database name tương ứng (`workspace`, `cosa`, hoặc `agent`), sử dụng user `workspace_app`, `cosa_app`, hoặc `agent_app`.
+
+### 3. Kết nối nhanh qua Terminal CLI
 ```bash
-# Khởi động toàn bộ cụm services, livekit, realtime-agent, postgres
-make services-docker-up
+# Truy cập CSDL Workspace (Company Business)
+docker compose exec -it postgres psql -U workspace_app -d workspace
 
-# Xem logs thời gian thực
-make services-docker-logs
+# Truy cập CSDL COSA Control Plane
+docker compose exec -it postgres psql -U cosa_app -d cosa
 
-# Dừng cụm services
-make services-docker-down
-```
-*(Hoặc chạy trực tiếp từ thư mục `services/`: `cd services && docker compose up -d`)*
+# Truy cập CSDL Agent Runtime
+docker compose exec -it postgres psql -U agent_app -d agent
 
-### 2. Các Cổng Dịch Vụ & Giao Diện:
-- **API Gateway (Encore)**: [http://localhost:4000](http://localhost:4000)
-- **Encore Dashboard & Tracing UI**: [http://localhost:9400](http://localhost:9400) *(Xem Service Topology, Flow graph, API Docs & Traces)*
-- **LiveKit Server (WebRTC/Audio)**: [http://localhost:7880](http://localhost:7880) (hoặc port `7885` khi chạy qua Compose)
-- **Postgres Database (Cụm Services)**: `localhost:5433`
-
----
-
-## 🗄️ Hướng Dẫn Truy Cập Database
-
-### Cách 1: Kết Nối CSDL Postgres qua Client bên ngoài (TablePlus, DBeaver, psql)
-Container PostgreSQL độc lập của cụm services được expose ra port `5433` trên localhost:
-
-- **Host**: `localhost` (hoặc `127.0.0.1`)
-- **Port**: `5433`
-- **User**: `workspace_app`
-- **Password**: `change-me-workspace-app`
-- **Database**: `workspace`
-- **Connection URI**:
-  ```text
-  postgresql://workspace_app:change-me-workspace-app@localhost:5433/workspace
-  ```
-
-Lệnh truy cập nhanh qua terminal CLI:
-```bash
-docker compose -f services/docker-compose.yml exec postgres psql -U workspace_app -d workspace
+# Truy cập quyền Superuser (quản trị cấp cao)
+docker compose exec -it postgres psql -U postgres -d postgres
 ```
 
-### Cách 2: Truy Cập Trực Tiếp CSDL Từng Service (Encore CLI)
-Khi chạy chế độ Native Dev (`cd services && encore run`), Encore tự động quản lý CSDL riêng cho từng cluster service:
+### 4. Quy trình Reset CSDL về trạng thái sạch (Clean Reset)
+Khi cần làm mới toàn bộ dữ liệu môi trường phát triển:
 
 ```bash
-cd services
+# Bước 1: Dừng và xóa volume PostgreSQL hiện tại
+docker compose stop postgres && docker compose rm -f postgres && docker volume rm javis-saas_postgres_data
 
-# Mở shell SQL trực tiếp vào Database của từng cluster:
-encore db shell identity        # CSDL Identity (users, workspaces, orgs)
-encore db shell operations      # CSDL Operations (tasks, OKR, initiatives)
-encore db shell commercial      # CSDL Commercial (CRM, leads, opportunities)
-encore db shell finance-legal   # CSDL Finance & Legal (hồ sơ kế toán, pháp lý)
+# Bước 2: Khởi tạo lại container với volume sạch
+docker compose up -d postgres
 
-# Lấy connection string của một database cụ thể:
-encore db conn-uri identity
+# Bước 3: Nạp biến môi trường và chạy toàn bộ migrations
+source scripts/load-dev-env.sh
+make dev-migrate
 ```
 
 ---

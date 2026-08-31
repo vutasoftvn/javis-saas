@@ -67,7 +67,7 @@ class LoginView extends GetView<AuthController> {
                     ),
                     const SizedBox(height: 18),
                     const Text(
-                      'COSA Brain OS',
+                      'COSA',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 26,
@@ -78,7 +78,7 @@ class LoginView extends GetView<AuthController> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Hệ điều hành Doanh nghiệp AI Tự vận hành',
+                      'Hệ điều hành doanh nghiệp AI',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
