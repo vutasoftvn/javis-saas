@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
+
+from apps.cosa.auth import AuthenticatedIdentity, get_authenticated_identity, resolve_identity_workspace
 
 
 class AutopilotMetricsResponse(BaseModel):
@@ -10,11 +12,11 @@ class AutopilotMetricsResponse(BaseModel):
     runsCompleted: int
     runsHandedOff: int
     containmentRate: float
-    approvalLatencyP95Sec: float
-    takeoverAfterAutopilotRate: float
-    unsafeProposalRate: float
-    policyViolationCount: int
-    runDeadLetterCount: int
+    approvalLatencyP95Sec: float | None = None
+    takeoverAfterAutopilotRate: float | None = None
+    unsafeProposalRate: float | None = None
+    policyViolationCount: int | None = None
+    runDeadLetterCount: int | None = None
 
 
 def create_autopilot_metrics_router() -> APIRouter:
@@ -23,8 +25,10 @@ def create_autopilot_metrics_router() -> APIRouter:
     @router.get("/metrics", response_model=AutopilotMetricsResponse)
     async def get_autopilot_metrics(
         request: Request,
-        workspaceId: str = Query(..., alias="workspaceId"),
+        identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+        workspaceId: str | None = Query(None, alias="workspaceId"),
     ) -> AutopilotMetricsResponse:
+        workspace_id = resolve_identity_workspace(identity, workspaceId)
         plane = getattr(request.app.state, "plane", None)
         corr_db = getattr(plane, "correlation_db", None)
 
@@ -34,7 +38,7 @@ def create_autopilot_metrics_router() -> APIRouter:
 
         if corr_db is not None and hasattr(corr_db, "runs"):
             for r in corr_db.runs.values():
-                if r.get("workspace_id") == workspaceId:
+                if r.get("workspace_id") == workspace_id:
                     runs_dispatched += 1
                     if r.get("status") == "completed":
                         runs_completed += 1
@@ -47,16 +51,11 @@ def create_autopilot_metrics_router() -> APIRouter:
         )
 
         return AutopilotMetricsResponse(
-            workspaceId=workspaceId,
+            workspaceId=workspace_id,
             runsDispatched=runs_dispatched,
             runsCompleted=runs_completed,
             runsHandedOff=runs_handed_off,
             containmentRate=containment_rate,
-            approvalLatencyP95Sec=0.0,
-            takeoverAfterAutopilotRate=0.0,
-            unsafeProposalRate=0.0,
-            policyViolationCount=0,
-            runDeadLetterCount=0,
         )
 
     return router

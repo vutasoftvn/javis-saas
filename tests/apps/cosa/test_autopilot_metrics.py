@@ -4,6 +4,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from apps.cosa.api.app import create_cosa_app
+from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 
 
 class MockCorrelationDb:
@@ -19,8 +20,7 @@ class MockCorrelationDb:
         self.artifacts = {}
 
 
-@pytest.fixture
-def metrics_client():
+def _metrics_client(*, workspace_id: str | None = None) -> AsyncClient:
     app = create_cosa_app()
     app.state.plane = type(
         "DummyPlane",
@@ -29,13 +29,47 @@ def metrics_client():
             "correlation_db": MockCorrelationDb(),
         },
     )()
+    if workspace_id is not None:
+        override_authenticated_identity(app, workspace_id=workspace_id, role_id="member")
     transport = ASGITransport(app=app)
     return AsyncClient(transport=transport, base_url="http://test")
 
 
+@pytest.fixture
+def metrics_client():
+    return _metrics_client(workspace_id="ws_metric_1")
+
+
+@pytest.fixture
+def unsecured_client():
+    return _metrics_client()
+
+
+@pytest.fixture
+def member_a_client():
+    return _metrics_client(workspace_id="ws_metric_1")
+
+
+@pytest.mark.asyncio
+async def test_metrics_require_identity(unsecured_client: AsyncClient):
+    assert (await unsecured_client.get("/agent/autopilot/metrics")).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_metrics_ignore_cross_workspace_query(member_a_client: AsyncClient):
+    response = await member_a_client.get("/agent/autopilot/metrics?workspaceId=ws_metric_b")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_unknown_aggregates_are_null(metrics_client: AsyncClient):
+    data = (await metrics_client.get("/agent/autopilot/metrics")).json()
+    assert data["approvalLatencyP95Sec"] is None
+
+
 @pytest.mark.asyncio
 async def test_autopilot_metrics_calculation(metrics_client: AsyncClient):
-    res = await metrics_client.get("/agent/autopilot/metrics?workspaceId=ws_metric_1")
+    res = await metrics_client.get("/agent/autopilot/metrics")
     assert res.status_code == 200
     data = res.json()
 
