@@ -3,8 +3,14 @@ import { eq, and, asc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { verifyPlatformToken } from "./token.service";
 import { generateSnowflakeStr } from "./snowflake.service";
+import { provisionVentureWorkspace } from "./venture-workspace.service";
 
-const { users, profiles, companies, companyMemberships } = schema;
+const {
+  users,
+  profiles,
+  workspaces,
+  workspaceMemberships,
+} = schema;
 
 export interface CompanyMembershipInfo {
   company_id: string;
@@ -48,24 +54,19 @@ export interface ValidateMembershipResult {
   membershipUpdatedAt: string;
 }
 
-function slugify(name: string, userId: string): string {
-  const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "company";
-  return `${base}-${userId}`;
-}
-
 export async function listUserCompanies(userIdStr: string): Promise<ListMyCompaniesResponse> {
   const userId = BigInt(userIdStr);
 
   const rows = await db
     .select({
-      companyId: companyMemberships.companyId,
-      name: companies.name,
-      roleId: companyMemberships.roleId,
+      companyId: workspaceMemberships.workspaceId,
+      name: workspaces.workspaceName,
+      roleId: workspaceMemberships.roleId,
     })
-    .from(companyMemberships)
-    .innerJoin(companies, eq(companies.id, companyMemberships.companyId))
-    .where(and(eq(companyMemberships.userId, userId), eq(companies.status, "active")))
-    .orderBy(asc(companyMemberships.createdAt));
+    .from(workspaceMemberships)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.workspaceId))
+    .where(and(eq(workspaceMemberships.userId, userId), eq(workspaces.status, "active")))
+    .orderBy(asc(workspaceMemberships.createdAt));
 
   return {
     companies: rows.map((r) => ({
@@ -86,36 +87,15 @@ export async function createNewCompany(
     throw APIError.invalidArgument("tên công ty không được để trống");
   }
 
-  const slug = slugify(name, userId.toString());
-  const newCompId = BigInt(generateSnowflakeStr());
-  const roleId = BigInt(generateSnowflakeStr());
-
-  const result = await db.transaction(async (tx) => {
-    const [companyRow] = await tx
-      .insert(companies)
-      .values({
-        id: newCompId,
-        name,
-        slug,
-        createdBy: userId,
-      })
-      .returning({ id: companies.id, name: companies.name });
-
-    if (!companyRow) throw APIError.internal("failed to create company");
-
-    await tx.insert(companyMemberships).values({
-      id: roleId,
-      companyId: companyRow.id,
-      userId: userId,
-      roleId: "founder",
-    });
-
-    return companyRow;
+  const result = await provisionVentureWorkspace({
+    ownerUserId: userId,
+    workspaceName: name,
+    clientCreationId: `legacy-comp-create-${Date.now()}-${userIdStr}`,
   });
 
   return {
-    company_id: result.id.toString(),
-    name: result.name,
+    company_id: result.platformWorkspaceId,
+    name: name,
     role_id: "founder",
   };
 }
@@ -125,40 +105,41 @@ export async function joinExistingCompany(
   params: JoinCompanyServiceParams
 ): Promise<CompanyActionResponse> {
   const userId = BigInt(userIdStr);
-  const companyId = BigInt(params.company_id.toString());
+  const workspaceId = BigInt(params.company_id.toString());
 
-  const [company] = await db
-    .select({ id: companies.id, name: companies.name })
-    .from(companies)
-    .where(and(eq(companies.id, companyId), eq(companies.status, "active")))
+  const [ws] = await db
+    .select({ id: workspaces.id, name: workspaces.workspaceName })
+    .from(workspaces)
+    .where(and(eq(workspaces.id, workspaceId), eq(workspaces.status, "active")))
     .limit(1);
 
-  if (!company) {
-    throw APIError.notFound("công ty muốn tham gia không tồn tại");
+  if (!ws) {
+    throw APIError.notFound("workspace muốn tham gia không tồn tại");
   }
 
   const [existing] = await db
-    .select({ roleId: companyMemberships.roleId })
-    .from(companyMemberships)
-    .where(and(eq(companyMemberships.companyId, company.id), eq(companyMemberships.userId, userId)))
+    .select({ roleId: workspaceMemberships.roleId })
+    .from(workspaceMemberships)
+    .where(and(eq(workspaceMemberships.workspaceId, ws.id), eq(workspaceMemberships.userId, userId)))
     .limit(1);
 
-  let roleId = "user";
+  let roleId = "member";
   if (existing) {
     roleId = existing.roleId;
   } else {
     const newRoleId = BigInt(generateSnowflakeStr());
-    await db.insert(companyMemberships).values({
+    await db.insert(workspaceMemberships).values({
       id: newRoleId,
-      companyId: company.id,
+      workspaceId: ws.id,
       userId: userId,
-      roleId: "user",
+      roleId: "member",
     });
+    roleId = "member";
   }
 
   return {
-    company_id: company.id.toString(),
-    name: company.name,
+    company_id: ws.id.toString(),
+    name: ws.name,
     role_id: roleId,
   };
 }
@@ -174,7 +155,7 @@ export async function validateUserMembership(
   }
 
   const userId = BigInt(payload.sub);
-  const companyId = BigInt(params.companyId);
+  const workspaceId = BigInt(params.companyId);
 
   const [userRow] = await db
     .select({
@@ -184,7 +165,7 @@ export async function validateUserMembership(
       fullName: profiles.fullName,
     })
     .from(users)
-    .leftJoin(profiles, eq(profiles.userId, users.id))
+    .leftJoin(profiles, eq(profiles.id, users.id))
     .where(eq(users.id, userId))
     .limit(1);
 
@@ -194,24 +175,24 @@ export async function validateUserMembership(
 
   const [membershipRow] = await db
     .select({
-      id: companyMemberships.id,
-      roleId: companyMemberships.roleId,
-      companyName: companies.name,
-      updatedAt: companyMemberships.updatedAt,
+      id: workspaceMemberships.id,
+      roleId: workspaceMemberships.roleId,
+      workspaceName: workspaces.workspaceName,
+      updatedAt: workspaceMemberships.updatedAt,
     })
-    .from(companyMemberships)
-    .innerJoin(companies, eq(companies.id, companyMemberships.companyId))
+    .from(workspaceMemberships)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.workspaceId))
     .where(
       and(
-        eq(companyMemberships.userId, userId),
-        eq(companyMemberships.companyId, companyId),
-        eq(companies.status, "active")
+        eq(workspaceMemberships.userId, userId),
+        eq(workspaceMemberships.workspaceId, workspaceId),
+        eq(workspaces.status, "active")
       )
     )
     .limit(1);
 
   if (!membershipRow) {
-    throw APIError.permissionDenied("bạn không phải thành viên của company này");
+    throw APIError.permissionDenied("bạn không phải thành viên của workspace này");
   }
 
   return {
@@ -220,10 +201,12 @@ export async function validateUserMembership(
     email: userRow.email,
     phone: userRow.phone,
     displayName: userRow.fullName,
-    companyId: companyId.toString(),
-    companyName: membershipRow.companyName,
+    companyId: workspaceId.toString(),
+    companyName: membershipRow.workspaceName,
     roleId: membershipRow.roleId,
     membershipId: membershipRow.id.toString(),
     membershipUpdatedAt: membershipRow.updatedAt.toISOString(),
   };
 }
+
+

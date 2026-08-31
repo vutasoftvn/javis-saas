@@ -5,11 +5,11 @@ import { generateSnowflakeStr } from "./snowflake.service";
 
 const {
   plans,
-  platformWorkspaces,
-  platformWorkspaceMemberships,
+  workspaces,
+  workspaceMemberships,
   workspaceLicenses,
   workspaceEntitlements,
-  platformWorkspaceSyncLog,
+  workspaceSyncLogs,
   users,
   profiles,
 } = schema;
@@ -54,19 +54,19 @@ export async function provisionVentureWorkspace(params: ProvisionParams): Promis
   // Idempotency: nếu clientCreationId đã dùng, trả lại kết quả cũ.
   const [prev] = await db
     .select()
-    .from(platformWorkspaceSyncLog)
-    .where(eq(platformWorkspaceSyncLog.clientCreationId, params.clientCreationId))
+    .from(workspaceSyncLogs)
+    .where(eq(workspaceSyncLogs.clientCreationId, params.clientCreationId))
     .limit(1);
 
   if (prev) {
     const [ent] = await db
       .select()
       .from(workspaceEntitlements)
-      .where(eq(workspaceEntitlements.platformWorkspaceId, prev.platformWorkspaceId))
+      .where(eq(workspaceEntitlements.workspaceId, prev.workspaceId))
       .limit(1);
 
     return {
-      platformWorkspaceId: prev.platformWorkspaceId.toString(),
+      platformWorkspaceId: prev.workspaceId.toString(),
       planId: ent?.planId ?? planId,
       effectiveFeatures: (ent?.effectiveFeatures ?? {}) as Record<string, unknown>,
       effectiveLimits: (ent?.effectiveLimits ?? {}) as Record<string, unknown>,
@@ -80,34 +80,34 @@ export async function provisionVentureWorkspace(params: ProvisionParams): Promis
 
   const wsId = BigInt(generateSnowflakeStr());
   await db.transaction(async (tx) => {
-    await tx.insert(platformWorkspaces).values({
+    await tx.insert(workspaces).values({
       id: wsId,
       workspaceName: name,
-      ownerUserId: params.ownerUserId,
+      ownerId: params.ownerUserId,
     });
-    await tx.insert(platformWorkspaceMemberships).values({
+    await tx.insert(workspaceMemberships).values({
       id: BigInt(generateSnowflakeStr()),
-      platformWorkspaceId: wsId,
+      workspaceId: wsId,
       userId: params.ownerUserId,
-      role: "founder",
+      roleId: "founder",
     });
     await tx.insert(workspaceLicenses).values({
       id: BigInt(generateSnowflakeStr()),
-      platformWorkspaceId: wsId,
+      workspaceId: wsId,
       planId,
       licenseKey: `wl_${wsId.toString()}`,
       status: "active",
     });
     await tx.insert(workspaceEntitlements).values({
-      platformWorkspaceId: wsId,
+      workspaceId: wsId,
       planId,
       effectiveLimits: plan.defaultLimits as object,
       effectiveFeatures: plan.defaultFeatures as object,
       snapshotSignature: `sig_${wsId.toString()}_${Date.now()}`,
     });
-    await tx.insert(platformWorkspaceSyncLog).values({
+    await tx.insert(workspaceSyncLogs).values({
       id: BigInt(generateSnowflakeStr()),
-      platformWorkspaceId: wsId,
+      workspaceId: wsId,
       clientCreationId: params.clientCreationId,
       syncStatus: "pending",
     });
@@ -124,28 +124,28 @@ export async function provisionVentureWorkspace(params: ProvisionParams): Promis
 export async function listWorkspaceMembershipsForUser(userId: bigint): Promise<WorkspaceMembershipInfo[]> {
   const rows = await db
     .select({
-      membershipId: platformWorkspaceMemberships.id,
-      platformWorkspaceId: platformWorkspaceMemberships.platformWorkspaceId,
-      role: platformWorkspaceMemberships.role,
-      membershipUpdatedAt: platformWorkspaceMemberships.updatedAt,
-      workspaceName: platformWorkspaces.workspaceName,
+      membershipId: workspaceMemberships.id,
+      workspaceId: workspaceMemberships.workspaceId,
+      roleId: workspaceMemberships.roleId,
+      membershipUpdatedAt: workspaceMemberships.updatedAt,
+      workspaceName: workspaces.workspaceName,
       userId: users.id,
       email: users.email,
       fullName: profiles.fullName,
     })
-    .from(platformWorkspaceMemberships)
-    .innerJoin(platformWorkspaces, eq(platformWorkspaceMemberships.platformWorkspaceId, platformWorkspaces.id))
-    .innerJoin(users, eq(platformWorkspaceMemberships.userId, users.id))
-    .leftJoin(profiles, eq(users.id, profiles.userId))
-    .where(eq(platformWorkspaceMemberships.userId, userId));
+    .from(workspaceMemberships)
+    .innerJoin(workspaces, eq(workspaceMemberships.workspaceId, workspaces.id))
+    .innerJoin(users, eq(workspaceMemberships.userId, users.id))
+    .leftJoin(profiles, eq(users.id, profiles.id))
+    .where(eq(workspaceMemberships.userId, userId));
 
   return rows.map((r) => ({
-    platformWorkspaceId: r.platformWorkspaceId.toString(),
+    platformWorkspaceId: r.workspaceId.toString(),
     workspaceName: r.workspaceName,
     userId: r.userId.toString(),
     email: r.email,
     displayName: r.fullName,
-    role: r.role,
+    role: r.roleId,
     membershipId: r.membershipId.toString(),
     membershipUpdatedAt: r.membershipUpdatedAt.toISOString(),
   }));
@@ -157,23 +157,23 @@ export async function validateWorkspaceMembership(
 ): Promise<WorkspaceMembershipInfo | null> {
   const [row] = await db
     .select({
-      membershipId: platformWorkspaceMemberships.id,
-      platformWorkspaceId: platformWorkspaceMemberships.platformWorkspaceId,
-      role: platformWorkspaceMemberships.role,
-      membershipUpdatedAt: platformWorkspaceMemberships.updatedAt,
-      workspaceName: platformWorkspaces.workspaceName,
+      membershipId: workspaceMemberships.id,
+      workspaceId: workspaceMemberships.workspaceId,
+      roleId: workspaceMemberships.roleId,
+      membershipUpdatedAt: workspaceMemberships.updatedAt,
+      workspaceName: workspaces.workspaceName,
       userId: users.id,
       email: users.email,
       fullName: profiles.fullName,
     })
-    .from(platformWorkspaceMemberships)
-    .innerJoin(platformWorkspaces, eq(platformWorkspaceMemberships.platformWorkspaceId, platformWorkspaces.id))
-    .innerJoin(users, eq(platformWorkspaceMemberships.userId, users.id))
-    .leftJoin(profiles, eq(users.id, profiles.userId))
+    .from(workspaceMemberships)
+    .innerJoin(workspaces, eq(workspaceMemberships.workspaceId, workspaces.id))
+    .innerJoin(users, eq(workspaceMemberships.userId, users.id))
+    .leftJoin(profiles, eq(users.id, profiles.id))
     .where(
       and(
-        eq(platformWorkspaceMemberships.userId, userId),
-        eq(platformWorkspaceMemberships.platformWorkspaceId, platformWorkspaceId)
+        eq(workspaceMemberships.userId, userId),
+        eq(workspaceMemberships.workspaceId, platformWorkspaceId)
       )
     )
     .limit(1);
@@ -181,12 +181,12 @@ export async function validateWorkspaceMembership(
   if (!row) return null;
 
   return {
-    platformWorkspaceId: row.platformWorkspaceId.toString(),
+    platformWorkspaceId: row.workspaceId.toString(),
     workspaceName: row.workspaceName,
     userId: row.userId.toString(),
     email: row.email,
     displayName: row.fullName,
-    role: row.role,
+    role: row.roleId,
     membershipId: row.membershipId.toString(),
     membershipUpdatedAt: row.membershipUpdatedAt.toISOString(),
   };
@@ -196,7 +196,7 @@ export async function getWorkspaceEntitlement(platformWorkspaceId: bigint): Prom
   const [row] = await db
     .select()
     .from(workspaceEntitlements)
-    .where(eq(workspaceEntitlements.platformWorkspaceId, platformWorkspaceId))
+    .where(eq(workspaceEntitlements.workspaceId, platformWorkspaceId))
     .limit(1);
 
   if (!row) {
@@ -204,7 +204,7 @@ export async function getWorkspaceEntitlement(platformWorkspaceId: bigint): Prom
   }
 
   return {
-    platformWorkspaceId: row.platformWorkspaceId.toString(),
+    platformWorkspaceId: row.workspaceId.toString(),
     planId: row.planId,
     effectiveLimits: (row.effectiveLimits ?? {}) as Record<string, unknown>,
     effectiveFeatures: (row.effectiveFeatures ?? {}) as Record<string, unknown>,
@@ -214,10 +214,11 @@ export async function getWorkspaceEntitlement(platformWorkspaceId: bigint): Prom
 
 export async function markWorkspaceSynced(platformWorkspaceId: bigint): Promise<void> {
   await db
-    .update(platformWorkspaceSyncLog)
+    .update(workspaceSyncLogs)
     .set({
       syncStatus: "success",
       syncedAt: new Date(),
     })
-    .where(eq(platformWorkspaceSyncLog.platformWorkspaceId, platformWorkspaceId));
+    .where(eq(workspaceSyncLogs.workspaceId, platformWorkspaceId));
 }
+

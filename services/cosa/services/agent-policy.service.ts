@@ -5,12 +5,13 @@ import { db, schema } from "../models/db";
 import { generateSnowflake } from "./snowflake.service";
 import { verifyWorkspaceMembership } from "./workspace-connector.service";
 
-const { companyAgentPolicy, companies, companyMemberships, users } = schema;
+const { workspaceAgentPolicy, users } = schema;
 
 export type TenantPolicyDecision = "ALLOW" | "REQUIRE_APPROVAL" | "DENY";
 
 export interface GetTenantPolicyParams {
-  companyId: string;
+  workspaceId?: string;
+  companyId?: string;
   toolName: string;
 }
 
@@ -21,7 +22,8 @@ export interface GetTenantPolicyResult {
 }
 
 export interface UpsertTenantPolicyParams {
-  companyId: string;
+  workspaceId?: string;
+  companyId?: string;
   toolPattern: string;
   decision: TenantPolicyDecision;
   reason?: string;
@@ -30,15 +32,19 @@ export interface UpsertTenantPolicyParams {
 /**
  * Khớp `tool_pattern` theo thứ tự ưu tiên: exact match tên tool trước, sau đó
  * wildcard prefix (ví dụ `commercial.*` khớp `commercial.lead.create`), cuối
- * cùng `*` (áp dụng cho mọi tool). Company chưa cấu hình policy nào -> trả
+ * cùng `*` (áp dụng cho mọi tool). Workspace chưa cấu hình policy nào -> trả
  * `decision: null` (agentos coi là "không có tenant policy", không phải DENY).
  */
 export async function getTenantPolicyForTool(params: GetTenantPolicyParams): Promise<GetTenantPolicyResult> {
-  const companyIdBig = BigInt(params.companyId);
+  const rawId = params.workspaceId || params.companyId;
+  if (!rawId) {
+    return { decision: null, matchedPattern: null, reason: null };
+  }
+  const workspaceIdBig = BigInt(rawId);
   const rows = await db
     .select()
-    .from(companyAgentPolicy)
-    .where(eq(companyAgentPolicy.companyId, companyIdBig));
+    .from(workspaceAgentPolicy)
+    .where(eq(workspaceAgentPolicy.workspaceId, workspaceIdBig));
 
   if (rows.length === 0) {
     return { decision: null, matchedPattern: null, reason: null };
@@ -80,12 +86,9 @@ export interface TenantPolicySnapshotResult {
 }
 
 /**
- * Trả toàn bộ `cosa.company_agent_policy` rows của 1 company + trạng thái
+ * Trả toàn bộ `cosa.workspace_agent_policy` rows của 1 workspace + trạng thái
  * workspace/user hiện tại — 1 lần resolve tại boundary (run-start/trước
- * resume) thay vì gọi lại `getTenantPolicyForTool` mỗi tool call. Bắt buộc
- * verify caller thực sự là thành viên của workspace (qua services/company
- * endpoint) trước khi trả policy của underlying company (nếu tồn tại).
- * Workspace không có platform company => trả rules: [] (local-only workspace).
+ * resume) thay vì gọi lại `getTenantPolicyForTool` mỗi tool call.
  */
 export async function getTenantPolicySnapshotForCaller(
   userIdStr: string,
@@ -99,36 +102,18 @@ export async function getTenantPolicySnapshotForCaller(
     throw APIError.notFound("platform user không tồn tại");
   }
 
-  // Resolve workspace → platform_company_id via services/company endpoint
-  // This also verifies workspace membership (throws if not a member)
-  const membershipInfo = await verifyWorkspaceMembership(workspaceId, authorizationHeader);
-  const platformCompanyId = membershipInfo.platformCompanyId;
+  // Verify workspace membership (throws if not a member)
+  await verifyWorkspaceMembership(workspaceId, authorizationHeader);
 
-  // Local-only workspace (no platform company): return empty rules
-  if (!platformCompanyId) {
-    const snapshotHash = createHash("sha256")
-      .update(JSON.stringify({ workspaceStatus: "active", principalStatus: userRow.status, rules: [] }))
-      .digest("hex");
-
-    return {
-      workspaceId,
-      workspaceStatus: "active",
-      principalStatus: userRow.status,
-      rules: [],
-      snapshotHash,
-    };
-  }
-
-  // Workspace linked to platform company: lookup policy rules
-  const companyIdBig = BigInt(platformCompanyId);
+  const workspaceIdBig = BigInt(workspaceId);
   const policyRows = await db
     .select({
-      toolPattern: companyAgentPolicy.toolPattern,
-      decision: companyAgentPolicy.decision,
-      reason: companyAgentPolicy.reason,
+      toolPattern: workspaceAgentPolicy.toolPattern,
+      decision: workspaceAgentPolicy.decision,
+      reason: workspaceAgentPolicy.reason,
     })
-    .from(companyAgentPolicy)
-    .where(eq(companyAgentPolicy.companyId, companyIdBig));
+    .from(workspaceAgentPolicy)
+    .where(eq(workspaceAgentPolicy.workspaceId, workspaceIdBig));
 
   const rules: TenantPolicyRule[] = policyRows.map((r) => ({
     toolPattern: r.toolPattern,
@@ -150,25 +135,31 @@ export async function getTenantPolicySnapshotForCaller(
 }
 
 export async function upsertTenantPolicy(params: UpsertTenantPolicyParams): Promise<void> {
-  const companyIdBig = BigInt(params.companyId);
+  const rawId = params.workspaceId || params.companyId;
+  if (!rawId) {
+    throw APIError.invalidArgument("workspaceId hoặc companyId là bắt buộc");
+  }
+  const workspaceIdBig = BigInt(rawId);
   const existing = await db
     .select()
-    .from(companyAgentPolicy)
-    .where(and(eq(companyAgentPolicy.companyId, companyIdBig), eq(companyAgentPolicy.toolPattern, params.toolPattern)));
+    .from(workspaceAgentPolicy)
+    .where(and(eq(workspaceAgentPolicy.workspaceId, workspaceIdBig), eq(workspaceAgentPolicy.toolPattern, params.toolPattern)));
 
   if (existing.length > 0) {
     await db
-      .update(companyAgentPolicy)
+      .update(workspaceAgentPolicy)
       .set({ decision: params.decision, reason: params.reason ?? null, updatedAt: new Date() })
-      .where(eq(companyAgentPolicy.id, existing[0].id));
+      .where(eq(workspaceAgentPolicy.id, existing[0].id));
     return;
   }
 
-  await db.insert(companyAgentPolicy).values({
+  await db.insert(workspaceAgentPolicy).values({
     id: generateSnowflake(),
-    companyId: companyIdBig,
+    workspaceId: workspaceIdBig,
     toolPattern: params.toolPattern,
     decision: params.decision,
     reason: params.reason ?? null,
   });
 }
+
+

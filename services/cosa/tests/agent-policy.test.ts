@@ -5,15 +5,15 @@ import { getTenantPolicySnapshotForCaller } from "../services/agent-policy.servi
 import { verifyPlatformToken } from "../services/token.service";
 
 describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
-  it("returns no decision when a company has not configured any policy", async () => {
+  it("returns no decision when a workspace has not configured any policy", async () => {
     const res = await registerPlatform({
       email: `policy_none_${Date.now()}@example.com`,
       password: "password123",
       full_name: "No Policy Founder",
-      company_name: "No Policy Co",
+      workspace_name: "No Policy WS",
     });
 
-    const result = await getTenantPolicy({ companyId: res.company_id!, toolName: "commercial.lead.create" });
+    const result = await getTenantPolicy({ workspaceId: res.platform_workspace_id!, toolName: "commercial.lead.create" });
     expect(result.decision).toBeNull();
   });
 
@@ -22,24 +22,24 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
       email: `policy_exact_${Date.now()}@example.com`,
       password: "password123",
       full_name: "Exact Policy Founder",
-      company_name: "Exact Policy Co",
+      workspace_name: "Exact Policy WS",
     });
-    const companyId = res.company_id!;
+    const workspaceId = res.platform_workspace_id!;
 
-    await setTenantPolicy({ companyId, toolPattern: "*", decision: "ALLOW" });
+    await setTenantPolicy({ workspaceId, toolPattern: "*", decision: "ALLOW" });
     await setTenantPolicy({
-      companyId,
+      workspaceId,
       toolPattern: "commercial.notification.slack_send",
       decision: "DENY",
-      reason: "Company policy blocks all outbound Slack messages",
+      reason: "Workspace policy blocks all outbound Slack messages",
     });
 
-    const exactResult = await getTenantPolicy({ companyId, toolName: "commercial.notification.slack_send" });
+    const exactResult = await getTenantPolicy({ workspaceId, toolName: "commercial.notification.slack_send" });
     expect(exactResult.decision).toBe("DENY");
     expect(exactResult.matchedPattern).toBe("commercial.notification.slack_send");
     expect(exactResult.reason).toContain("Slack");
 
-    const wildcardResult = await getTenantPolicy({ companyId, toolName: "commercial.lead.create" });
+    const wildcardResult = await getTenantPolicy({ workspaceId, toolName: "commercial.lead.create" });
     expect(wildcardResult.decision).toBe("ALLOW");
     expect(wildcardResult.matchedPattern).toBe("*");
   });
@@ -49,73 +49,67 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
       email: `policy_prefix_${Date.now()}@example.com`,
       password: "password123",
       full_name: "Prefix Policy Founder",
-      company_name: "Prefix Policy Co",
+      workspace_name: "Prefix Policy WS",
     });
-    const companyId = res.company_id!;
+    const workspaceId = res.platform_workspace_id!;
 
-    await setTenantPolicy({ companyId, toolPattern: "finance.*", decision: "REQUIRE_APPROVAL" });
+    await setTenantPolicy({ workspaceId, toolPattern: "finance.*", decision: "REQUIRE_APPROVAL" });
 
-    const result = await getTenantPolicy({ companyId, toolName: "finance.transfer.funds" });
+    const result = await getTenantPolicy({ workspaceId, toolName: "finance.transfer.funds" });
     expect(result.decision).toBe("REQUIRE_APPROVAL");
     expect(result.matchedPattern).toBe("finance.*");
   });
 
-  it("upsert overwrites an existing rule for the same company + tool_pattern", async () => {
+  it("upsert overwrites an existing rule for the same workspace + tool_pattern", async () => {
     const res = await registerPlatform({
       email: `policy_upsert_${Date.now()}@example.com`,
       password: "password123",
       full_name: "Upsert Policy Founder",
-      company_name: "Upsert Policy Co",
+      workspace_name: "Upsert Policy WS",
     });
-    const companyId = res.company_id!;
+    const workspaceId = res.platform_workspace_id!;
 
-    await setTenantPolicy({ companyId, toolPattern: "ops.deploy.prod", decision: "ALLOW" });
-    await setTenantPolicy({ companyId, toolPattern: "ops.deploy.prod", decision: "DENY", reason: "frozen" });
+    await setTenantPolicy({ workspaceId, toolPattern: "ops.deploy.prod", decision: "ALLOW" });
+    await setTenantPolicy({ workspaceId, toolPattern: "ops.deploy.prod", decision: "DENY", reason: "frozen" });
 
-    const result = await getTenantPolicy({ companyId, toolName: "ops.deploy.prod" });
+    const result = await getTenantPolicy({ workspaceId, toolName: "ops.deploy.prod" });
     expect(result.decision).toBe("DENY");
     expect(result.reason).toBe("frozen");
   });
 
-  it("isolates policy rules per company (no cross-tenant leakage)", async () => {
+  it("isolates policy rules per workspace (no cross-tenant leakage)", async () => {
     const resA = await registerPlatform({
       email: `policy_iso_a_${Date.now()}@example.com`,
       password: "password123",
-      full_name: "Company A Founder",
-      company_name: "Company A",
+      full_name: "Workspace A Founder",
+      workspace_name: "Workspace A",
     });
     const resB = await registerPlatform({
       email: `policy_iso_b_${Date.now()}@example.com`,
       password: "password123",
-      full_name: "Company B Founder",
-      company_name: "Company B",
+      full_name: "Workspace B Founder",
+      workspace_name: "Workspace B",
     });
 
-    await setTenantPolicy({ companyId: resA.company_id!, toolPattern: "*", decision: "DENY" });
+    await setTenantPolicy({ workspaceId: resA.platform_workspace_id!, toolPattern: "*", decision: "DENY" });
 
-    const resultA = await getTenantPolicy({ companyId: resA.company_id!, toolName: "commercial.lead.create" });
-    const resultB = await getTenantPolicy({ companyId: resB.company_id!, toolName: "commercial.lead.create" });
+    const resultA = await getTenantPolicy({ workspaceId: resA.platform_workspace_id!, toolName: "commercial.lead.create" });
+    const resultB = await getTenantPolicy({ workspaceId: resB.platform_workspace_id!, toolName: "commercial.lead.create" });
 
     expect(resultA.decision).toBe("DENY");
     expect(resultB.decision).toBeNull();
   });
 });
 
-describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.3 mục 1)", () => {
-  const workspaceToCompanyMap = new Map<string, string>();
+describe("getTenantPolicySnapshotForCaller", () => {
+  const allowedWorkspaces = new Set<string>();
 
   beforeEach(() => {
-    // Mock fetch to simulate services/company endpoint
-    // Map workspace IDs to their corresponding company IDs
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      // Extract workspace ID from URL like /identity/workspaces/{workspaceId}/platform-company
       const match = url.match(/\/identity\/workspaces\/([^/]+)\/platform-company/);
       if (match) {
         const workspaceId = match[1];
-        const companyId = workspaceToCompanyMap.get(workspaceId);
-
-        if (!companyId) {
-          // Unknown workspace - return 403
+        if (!allowedWorkspaces.has(workspaceId)) {
           return {
             status: 403,
             ok: false,
@@ -127,13 +121,12 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
           status: 200,
           ok: true,
           json: async () => ({
-            platformCompanyId: companyId,
+            platformCompanyId: workspaceId,
             membershipRole: "founder",
           }),
         } as any;
       }
 
-      // Default fallback
       return {
         status: 200,
         ok: true,
@@ -147,20 +140,19 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    workspaceToCompanyMap.clear();
+    allowedWorkspaces.clear();
   });
 
-  it("trả workspaceStatus/principalStatus active + rules rỗng khi company chưa cấu hình policy", async () => {
+  it("trả workspaceStatus/principalStatus active + rules rỗng khi workspace chưa cấu hình policy", async () => {
     const res = await registerPlatform({
       email: `policy_snapshot_none_${Date.now()}@example.com`,
       password: "password123",
       full_name: "Snapshot Founder",
-      company_name: "Snapshot Co",
+      workspace_name: "Snapshot WS",
     });
     const userId = verifyPlatformToken(res.access_token).sub;
-    const companyId = res.company_id!;
-    const workspaceId = `ws_snapshot_none_${Date.now()}`;
-    workspaceToCompanyMap.set(workspaceId, companyId);
+    const workspaceId = res.platform_workspace_id!;
+    allowedWorkspaces.add(workspaceId);
 
     const snapshot = await getTenantPolicySnapshotForCaller(userId, workspaceId);
     expect(snapshot.workspaceStatus).toBe("active");
@@ -174,15 +166,14 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
       email: `policy_snapshot_rules_${Date.now()}@example.com`,
       password: "password123",
       full_name: "Snapshot Rules Founder",
-      company_name: "Snapshot Rules Co",
+      workspace_name: "Snapshot Rules WS",
     });
     const userId = verifyPlatformToken(res.access_token).sub;
-    const companyId = res.company_id!;
-    const workspaceId = `ws_snapshot_rules_${Date.now()}`;
-    workspaceToCompanyMap.set(workspaceId, companyId);
+    const workspaceId = res.platform_workspace_id!;
+    allowedWorkspaces.add(workspaceId);
 
-    await setTenantPolicy({ companyId, toolPattern: "finance.*", decision: "REQUIRE_APPROVAL" });
-    await setTenantPolicy({ companyId, toolPattern: "commercial.lead.create", decision: "ALLOW" });
+    await setTenantPolicy({ workspaceId, toolPattern: "finance.*", decision: "REQUIRE_APPROVAL" });
+    await setTenantPolicy({ workspaceId, toolPattern: "commercial.lead.create", decision: "ALLOW" });
 
     const snapshot = await getTenantPolicySnapshotForCaller(userId, workspaceId);
     expect(snapshot.rules).toHaveLength(2);
@@ -194,19 +185,16 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
       email: `policy_snapshot_iso_a_${Date.now()}@example.com`,
       password: "password123",
       full_name: "Snapshot A Founder",
-      company_name: "Snapshot A Co",
+      workspace_name: "Snapshot A WS",
     });
     const resB = await registerPlatform({
       email: `policy_snapshot_iso_b_${Date.now()}@example.com`,
       password: "password123",
       full_name: "Snapshot B Founder",
-      company_name: "Snapshot B Co",
+      workspace_name: "Snapshot B WS",
     });
     const userIdA = verifyPlatformToken(resA.access_token).sub;
-    const workspaceIdB = `ws_snapshot_iso_b_${Date.now()}`;
-
-    // Don't register workspaceIdB in the map - this simulates the user not being a member
-    // The mock will return 403 for unknown workspaces
+    const workspaceIdB = resB.platform_workspace_id!;
 
     await expect(getTenantPolicySnapshotForCaller(userIdA, workspaceIdB)).rejects.toThrow();
   });
@@ -216,17 +204,17 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
       email: `policy_snapshot_hash_${Date.now()}@example.com`,
       password: "password123",
       full_name: "Hash Founder",
-      company_name: "Hash Co",
+      workspace_name: "Hash WS",
     });
     const userId = verifyPlatformToken(res.access_token).sub;
-    const companyId = res.company_id!;
-    const workspaceId = `ws_snapshot_hash_${Date.now()}`;
-    workspaceToCompanyMap.set(workspaceId, companyId);
+    const workspaceId = res.platform_workspace_id!;
+    allowedWorkspaces.add(workspaceId);
 
     const before = await getTenantPolicySnapshotForCaller(userId, workspaceId);
-    await setTenantPolicy({ companyId, toolPattern: "*", decision: "DENY" });
+    await setTenantPolicy({ workspaceId, toolPattern: "*", decision: "DENY" });
     const after = await getTenantPolicySnapshotForCaller(userId, workspaceId);
 
     expect(before.snapshotHash).not.toBe(after.snapshotHash);
   });
 });
+

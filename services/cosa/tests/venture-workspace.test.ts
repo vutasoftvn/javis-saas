@@ -37,15 +37,15 @@ describe("venture-workspace service", () => {
 
     const [ws] = await db
       .select()
-      .from(schema.platformWorkspaces)
-      .where(eq(schema.platformWorkspaces.id, BigInt(res.platformWorkspaceId)));
+      .from(schema.workspaces)
+      .where(eq(schema.workspaces.id, BigInt(res.platformWorkspaceId)));
     expect(ws.workspaceName).toBe("AI Coffee Shop");
 
     const [mem] = await db
       .select()
-      .from(schema.platformWorkspaceMemberships)
-      .where(eq(schema.platformWorkspaceMemberships.platformWorkspaceId, BigInt(res.platformWorkspaceId)));
-    expect(mem.role).toBe("founder");
+      .from(schema.workspaceMemberships)
+      .where(eq(schema.workspaceMemberships.workspaceId, BigInt(res.platformWorkspaceId)));
+    expect(mem.roleId).toBe("founder");
   });
 
   it("is idempotent by clientCreationId (retry returns same workspace, no dup license)", async () => {
@@ -65,7 +65,7 @@ describe("venture-workspace service", () => {
     const licenses = await db
       .select()
       .from(schema.workspaceLicenses)
-      .where(eq(schema.workspaceLicenses.platformWorkspaceId, BigInt(a.platformWorkspaceId)));
+      .where(eq(schema.workspaceLicenses.workspaceId, BigInt(a.platformWorkspaceId)));
     expect(licenses.length).toBe(1);
   });
 
@@ -119,46 +119,32 @@ describe("venture-workspace service", () => {
     const [ent] = await db
       .select()
       .from(schema.workspaceEntitlements)
-      .where(eq(schema.workspaceEntitlements.platformWorkspaceId, BigInt(res.platform_workspace_id!)));
+      .where(eq(schema.workspaceEntitlements.workspaceId, BigInt(res.platform_workspace_id!)));
     expect(ent.planId).toBe("free");
   });
 
-  it("backfills legacy companies without duplicates", async () => {
-    // Seed a legacy company
+  it("provisions workspace without duplicates on idempotent calls", async () => {
     const compId = BigInt(Date.now());
-    await db.insert(schema.companies).values({
-      id: compId,
-      name: "Legacy Corp",
-      slug: `legacy-${compId.toString()}`,
-      createdBy: userId,
-      status: "active",
-    });
-
-    const [pw] = await db
-      .select()
-      .from(schema.platformWorkspaces)
-      .where(eq(schema.platformWorkspaces.id, compId));
-    // Since backfill migration ran before this company was inserted, we verify
-    // manual backfill logic does not create duplicates
     const logId = `backfill:company:${compId.toString()}`;
-    await db.insert(schema.platformWorkspaces).values({
+    await db.insert(schema.workspaces).values({
       id: compId,
       workspaceName: "Legacy Corp",
-      ownerUserId: userId,
+      ownerId: userId,
       status: "active",
     }).onConflictDoNothing();
 
-    await db.insert(schema.platformWorkspaceSyncLog).values({
+    await db.insert(schema.workspaceSyncLogs).values({
       id: compId,
-      platformWorkspaceId: compId,
+      workspaceId: compId,
       clientCreationId: logId,
       syncStatus: "pending",
     }).onConflictDoNothing();
 
     const [wsAfter] = await db
       .select()
-      .from(schema.platformWorkspaces)
-      .where(eq(schema.platformWorkspaces.id, compId));
+      .from(schema.workspaces)
+      .where(eq(schema.workspaces.id, compId));
     expect(wsAfter.workspaceName).toBe("Legacy Corp");
   });
 });
+

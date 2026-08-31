@@ -6,7 +6,16 @@ import { signPlatformToken } from "./token.service";
 import { generateSnowflakeStr } from "./snowflake.service";
 import { provisionVentureWorkspace } from "./venture-workspace.service";
 
-const { users, profiles, companies, companyMemberships } = schema;
+const {
+  users,
+  profiles,
+  platformWorkspaces,
+  platformWorkspaceMemberships,
+  workspaceLicenses,
+  workspaceEntitlements,
+  platformWorkspaceSyncLog,
+  plans,
+} = schema;
 
 export interface SessionParams {
   username?: string;
@@ -17,7 +26,6 @@ export interface SessionParams {
 export interface TokenResponse {
   access_token: string;
   token_type: string;
-  company_id?: string;
   platform_workspace_id?: string;
   workspace_provision_status?: "pending" | "synced";
 }
@@ -27,9 +35,8 @@ export interface RegisterParams {
   password: string;
   full_name?: string;
   phone?: string;
-  company_name?: string;
-  join_company_id?: number | string;
   workspace_name?: string;
+  company_name?: string; // backwards compatibility alias mapped to workspace_name
   client_workspace_creation_id?: string;
 }
 
@@ -39,19 +46,20 @@ export interface PlatformUserProfile {
   phone: string | null;
   full_name: string | null;
   avatar_url: string | null;
-  is_platform_admin: boolean;
-  platform_role_id: string | null;
+  role_id: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  is_platform_admin?: boolean;
+  platform_role_id?: string | null;
 }
 
 export interface UpdateMeParams {
   phone?: string;
   full_name?: string;
   avatar_url?: string;
-}
-
-function slugify(name: string, userId: string): string {
-  const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "company";
-  return `${base}-${userId}`;
+  headline?: string;
+  bio?: string;
+  role_id?: string;
 }
 
 export async function loginPlatformUser(params: SessionParams): Promise<TokenResponse> {
@@ -112,7 +120,6 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
 
   const passwordHash = await hashPassword(params.password);
   const newUserId = BigInt(generateSnowflakeStr());
-  let companyId: string | undefined = undefined;
 
   await db.transaction(async (tx) => {
     const [newUser] = await tx
@@ -126,75 +133,25 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
       .returning({ id: users.id });
 
     await tx.insert(profiles).values({
-      userId: newUser.id,
+      id: newUser.id,
+      roleId: "founder",
       fullName: params.full_name || null,
     });
-
-    if (params.join_company_id) {
-      const joinId = BigInt(params.join_company_id.toString());
-      const [comp] = await tx
-        .select({ id: companies.id })
-        .from(companies)
-        .where(and(eq(companies.id, joinId), eq(companies.status, "active")))
-        .limit(1);
-
-      if (!comp) {
-        throw APIError.notFound("company muốn tham gia không tồn tại");
-      }
-
-      const memberRoleId = BigInt(generateSnowflakeStr());
-      await tx.insert(companyMemberships).values({
-        id: memberRoleId,
-        companyId: comp.id,
-        userId: newUser.id,
-        roleId: "user",
-      });
-      companyId = comp.id.toString();
-    } else if (params.company_name) {
-      const compName = params.company_name.trim();
-      const slug = slugify(compName, newUser.id.toString());
-      const newCompId = BigInt(generateSnowflakeStr());
-
-      const [comp] = await tx
-        .insert(companies)
-        .values({
-          id: newCompId,
-          name: compName,
-          slug,
-          createdBy: newUser.id,
-        })
-        .returning({ id: companies.id });
-
-      const founderRoleId = BigInt(generateSnowflakeStr());
-      await tx.insert(companyMemberships).values({
-        id: founderRoleId,
-        companyId: comp.id,
-        userId: newUser.id,
-        roleId: "founder",
-      });
-      companyId = comp.id.toString();
-    }
   });
 
-  let platformWorkspaceId: string | undefined;
-  let provisionStatus: "pending" | "synced" | undefined;
-  if (params.workspace_name && !params.join_company_id && !params.company_name) {
-    const cid = params.client_workspace_creation_id || `auto-${newUserId.toString()}`;
-    const prov = await provisionVentureWorkspace({
-      ownerUserId: newUserId,
-      workspaceName: params.workspace_name,
-      clientCreationId: cid,
-    });
-    platformWorkspaceId = prov.platformWorkspaceId;
-    provisionStatus = "pending";
-  }
+  const wsName = params.workspace_name?.trim() || params.company_name?.trim() || (params.full_name ? `${params.full_name}'s Workspace` : "My Workspace");
+  const cid = params.client_workspace_creation_id || `auto-${newUserId.toString()}`;
+  const prov = await provisionVentureWorkspace({
+    ownerUserId: newUserId,
+    workspaceName: wsName,
+    clientCreationId: cid,
+  });
 
   return {
     access_token: signPlatformToken(newUserId.toString()),
     token_type: "bearer",
-    company_id: companyId,
-    platform_workspace_id: platformWorkspaceId,
-    workspace_provision_status: provisionStatus,
+    platform_workspace_id: prov.platformWorkspaceId,
+    workspace_provision_status: "pending",
   };
 }
 
@@ -207,11 +164,12 @@ export async function getPlatformUserProfile(userIdStr: string): Promise<Platfor
       phone: users.phone,
       fullName: profiles.fullName,
       avatarUrl: profiles.avatarUrl,
-      isPlatformAdmin: users.isPlatformAdmin,
-      platformRoleId: users.platformRoleId,
+      roleId: profiles.roleId,
+      headline: profiles.headline,
+      bio: profiles.bio,
     })
     .from(users)
-    .leftJoin(profiles, eq(profiles.userId, users.id))
+    .leftJoin(profiles, eq(profiles.id, users.id))
     .where(eq(users.id, userId))
     .limit(1);
 
@@ -219,14 +177,19 @@ export async function getPlatformUserProfile(userIdStr: string): Promise<Platfor
     throw APIError.notFound("platform user không tồn tại");
   }
 
+  const isPlatformAdmin = userProfile.roleId === "superadmin" || userProfile.roleId === "admin";
+
   return {
     id: userProfile.id.toString(),
     email: userProfile.email,
     phone: userProfile.phone,
     full_name: userProfile.fullName,
     avatar_url: userProfile.avatarUrl,
-    is_platform_admin: userProfile.isPlatformAdmin,
-    platform_role_id: userProfile.platformRoleId,
+    role_id: userProfile.roleId,
+    headline: userProfile.headline,
+    bio: userProfile.bio,
+    is_platform_admin: isPlatformAdmin,
+    platform_role_id: userProfile.roleId,
   };
 }
 
@@ -254,20 +217,32 @@ export async function updatePlatformUserProfile(
       .where(eq(users.id, userId));
   }
 
-  if (params.full_name !== undefined || params.avatar_url !== undefined) {
+  if (
+    params.full_name !== undefined ||
+    params.avatar_url !== undefined ||
+    params.headline !== undefined ||
+    params.bio !== undefined ||
+    params.role_id !== undefined
+  ) {
     await db
       .insert(profiles)
       .values({
-        userId,
+        id: userId,
         fullName: params.full_name || null,
         avatarUrl: params.avatar_url || null,
+        headline: params.headline || null,
+        bio: params.bio || null,
+        roleId: params.role_id || undefined,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: profiles.userId,
+        target: profiles.id,
         set: {
           ...(params.full_name !== undefined ? { fullName: params.full_name } : {}),
           ...(params.avatar_url !== undefined ? { avatarUrl: params.avatar_url } : {}),
+          ...(params.headline !== undefined ? { headline: params.headline } : {}),
+          ...(params.bio !== undefined ? { bio: params.bio } : {}),
+          ...(params.role_id !== undefined ? { roleId: params.role_id } : {}),
           updatedAt: new Date(),
         },
       });
@@ -275,3 +250,4 @@ export async function updatePlatformUserProfile(
 
   return getPlatformUserProfile(userIdStr);
 }
+

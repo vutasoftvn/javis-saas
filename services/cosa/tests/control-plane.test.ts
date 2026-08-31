@@ -17,9 +17,9 @@ describe("Control Plane Service", () => {
     });
 
     expect(res.access_token).toBeDefined();
-    expect(res.company_id).toBeDefined();
+    expect(res.platform_workspace_id).toBeDefined();
     platformToken = res.access_token;
-    companyId = res.company_id!;
+    companyId = res.platform_workspace_id!;
 
     const payload = verifyPlatformToken(res.access_token);
     expect(["cosa", "control_plane"]).toContain(payload.aud);
@@ -97,7 +97,7 @@ describe("Control Plane Service", () => {
     );
 
     expect(joined.company_id).toBe(companyId);
-    expect(joined.role_id).toBe("user");
+    expect(joined.role_id).toBe("member");
   });
 
   it("validates membership via internal RPC", async () => {

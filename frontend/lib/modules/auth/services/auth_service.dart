@@ -129,19 +129,17 @@ class AuthService {
     }
   }
 
-  /// Dang ky tren control_plane bang email+password, kem theo dung 1 trong 2:
-  /// [companyName] (tao company moi, role founder) hoac [joinCompanyId]
-  /// (tham gia company co san, role user). Tra ve ca platform token va
-  /// company_id vua duoc gan (server quyet dinh, vd company moi tao chua
-  /// biet id truoc), de goi syncFromPlatform() ngay khong can hoi lai.
+  /// Đăng ký trên control_plane bằng email + password + workspaceName (hoặc companyName).
   Future<AuthResult> registerPlatform({
     required String email,
     required String password,
     required String displayName,
+    String? workspaceName,
     String? companyName,
     String? joinCompanyId,
   }) async {
     try {
+      final wsName = workspaceName ?? companyName;
       final response = await ApiClient.post(
         '/platform/auth/register',
         requiresAuth: false,
@@ -149,7 +147,8 @@ class AuthService {
           'email': email,
           'password': password,
           'full_name': displayName,
-          'company_name': ?companyName,
+          if (wsName != null) 'workspace_name': wsName,
+          if (companyName != null) 'company_name': companyName,
           if (joinCompanyId != null) 'join_company_id': int.tryParse(joinCompanyId) ?? joinCompanyId,
         },
       );
@@ -157,15 +156,15 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data['access_token'] as String?;
-        final companyId = data['company_id'] as String?;
+        final wsId = (data['platform_workspace_id'] ?? data['company_id']) as String?;
         if (token == null) {
           return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
         }
-        return AuthResult(success: true, token: token, companyId: companyId);
+        return AuthResult(success: true, token: token, companyId: wsId);
       } else if (response.statusCode == 409) {
         return const AuthResult(success: false, errorMessage: 'Email này đã được đăng ký');
       } else if (response.statusCode == 404) {
-        return const AuthResult(success: false, errorMessage: 'Company muốn tham gia không tồn tại');
+        return const AuthResult(success: false, errorMessage: 'Workspace không tồn tại');
       } else if (response.statusCode == 422) {
         try {
           final data = jsonDecode(response.body);

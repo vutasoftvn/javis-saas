@@ -9,18 +9,18 @@ const {
   connectorAuthorizations,
   sessionConnectorGrants,
   users,
-  companies,
-  companyMemberships,
+  workspaces,
+  workspaceMemberships,
 } = schema;
 
 const TEST_USER_ID = 1001n;
-const TEST_COMPANY_ID = 2001n;
+const TEST_WORKSPACE_ID = 2001n;
 const TEST_NON_MEMBER_USER_ID = 1002n;
 
 beforeAll(async () => {
   // Clean up test data first
-  await db.delete(companyMemberships);
-  await db.delete(companies);
+  await db.delete(workspaceMemberships);
+  await db.delete(workspaces);
   await db.delete(users);
 
   // Create test user with membership
@@ -32,21 +32,20 @@ beforeAll(async () => {
     status: "active",
   });
 
-  // Create test company
-  await db.insert(companies).values({
-    id: TEST_COMPANY_ID,
-    slug: "test-company",
-    name: "Test Company",
+  // Create test workspace
+  await db.insert(workspaces).values({
+    id: TEST_WORKSPACE_ID,
+    workspaceName: "Test Workspace",
     status: "active",
-    createdBy: TEST_USER_ID,
+    ownerId: TEST_USER_ID,
   });
 
-  // Create membership for test user in test company
-  await db.insert(companyMemberships).values({
+  // Create membership for test user in test workspace
+  await db.insert(workspaceMemberships).values({
     id: 3001n,
-    companyId: TEST_COMPANY_ID,
+    workspaceId: TEST_WORKSPACE_ID,
     userId: TEST_USER_ID,
-    roleId: "user",
+    roleId: "member",
   });
 
   // Create non-member user
@@ -58,6 +57,7 @@ beforeAll(async () => {
     status: "active",
   });
 });
+
 
 beforeEach(async () => {
   await db.delete(sessionConnectorGrants);
