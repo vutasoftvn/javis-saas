@@ -10,7 +10,7 @@ from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 
-from apps.cosa.agents.seed import seed_cosa_agent_specs
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -73,7 +73,10 @@ async def test_execute_run_task_fails_gracefully_when_registry_not_seeded():
 @pytest.mark.asyncio
 async def test_execute_run_task_resolves_exact_spec_after_seeding():
     plane = _plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     stream_mgr = CosaEventStreamManager()
 
     await execute_run_task(plane, stream_mgr, _payload())
@@ -117,7 +120,10 @@ async def test_unexpected_worker_error_is_not_sent_to_client():
     secret) KHÔNG được forward nguyên văn cho client qua message hay stream
     event; chỉ log server-side kèm run_id."""
     plane = _plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     stream_mgr = CosaEventStreamManager()
     plane.kernel.run = AsyncMock(side_effect=RuntimeError("internal-pin-and-secret"))
 
@@ -139,7 +145,10 @@ async def test_tenant_policy_error_is_not_sent_to_client():
     `policy_snapshot_unavailable` được forward, exception thật chỉ log
     server-side."""
     plane = _plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     stream_mgr = CosaEventStreamManager()
     secret_detail = "internal-policy-store-dsn-leak-detail"
     plane.tenant_policy_client.get_snapshot = AsyncMock(
@@ -186,7 +195,10 @@ async def test_spec_resolution_error_is_not_sent_to_client():
 @pytest.mark.asyncio
 async def test_worker_forwards_server_provenance():
     plane = _plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     stream_mgr = CosaEventStreamManager()
 
     resolver = _SpyComplianceResolver(plane.compliance_resolver)

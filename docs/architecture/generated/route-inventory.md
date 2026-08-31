@@ -133,6 +133,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance-legal/accounting-periods/:id/close` | company | ✓ |  | services/company/finance-legal/handlers/accounting-period.handler.ts |
 | POST | `/finance-legal/accounting-profiles` | company | ✓ |  | services/company/finance-legal/handlers/accounting-profile.handler.ts |
 | GET | `/finance-legal/accounting-profiles/by-workspace/:workspaceId` | company | ✓ |  | services/company/finance-legal/handlers/accounting-profile.handler.ts |
+| POST | `/finance-legal/ai-compliance/_e2e/seed` | company |  |  | services/company/finance-legal/handlers/ai-compliance-e2e-seed.handler.ts |
 | POST | `/finance-legal/ai-compliance/authorizations` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
 | POST | `/finance-legal/ai-compliance/authorizations/:id/withdraw` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
 | GET | `/finance-legal/ai-compliance/center` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-governance.handler.ts |
@@ -147,6 +148,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance-legal/ai-compliance/incidents/:id/resolve` | company | ✓ |  | services/company/finance-legal/handlers/ai-incident-response.handler.ts |
 | POST | `/finance-legal/ai-compliance/provider-profiles` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
 | POST | `/finance-legal/ai-compliance/resolve-data-use` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/runtime/snapshots/resolve` | company |  |  | services/company/finance-legal/handlers/ai-compliance-runtime.handler.ts |
 | GET | `/finance-legal/ai-compliance/snapshots` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts |
 | POST | `/finance-legal/ai-compliance/snapshots` | company |  |  | services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts |
 | POST | `/finance-legal/ai-compliance/snapshots/:id/verify` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts |
@@ -194,6 +196,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/identity/workforce-members/:id` | company | ✓ |  | services/company/identity/handlers/workforce.handler.ts |
 | POST | `/identity/workspaces` | company |  |  | services/company/identity/handlers/workspace.handler.ts |
 | GET | `/identity/workspaces/:id` | company | ✓ |  | services/company/identity/handlers/workspace.handler.ts |
+| PATCH | `/identity/workspaces/:id/company-identity` | company | ✓ |  | services/company/identity/handlers/workspace.handler.ts |
 | GET | `/identity/workspaces/:workspaceId/platform-company` | company | ✓ |  | services/company/identity/handlers/workspace.handler.ts |
 | GET | `/legal/applicable-obligations` | company | ✓ |  | services/company/finance-legal/handlers/legal-applicability.handler.ts |
 | GET | `/legal/legal-entity-profiles` | company | ✓ |  | services/company/finance-legal/handlers/legal-entity-profile.handler.ts |
@@ -240,9 +243,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | PATCH | `/operations/strategy/discovery-signals/:id` | company | ✓ |  | services/company/operations/strategy/handlers/discovery-signal.handler.ts |
 | GET | `/operations/strategy/evidence` | company | ✓ |  | services/company/operations/strategy/handlers/evidence.handler.ts |
 | POST | `/operations/strategy/evidence` | company | ✓ |  | services/company/operations/strategy/handlers/evidence.handler.ts |
+| GET | `/operations/strategy/evidence-ingestions` | company | ✓ |  | services/company/operations/strategy/handlers/evidence-ingestion.handler.ts |
+| POST | `/operations/strategy/evidence-ingestions` | company | ✓ |  | services/company/operations/strategy/handlers/evidence-ingestion.handler.ts |
 | DELETE | `/operations/strategy/evidence/:id` | company | ✓ |  | services/company/operations/strategy/handlers/evidence.handler.ts |
 | GET | `/operations/strategy/evidence/:id` | company | ✓ |  | services/company/operations/strategy/handlers/evidence.handler.ts |
 | PATCH | `/operations/strategy/evidence/:id` | company | ✓ |  | services/company/operations/strategy/handlers/evidence.handler.ts |
+| POST | `/operations/strategy/evidence/:id/review` | company | ✓ |  | services/company/operations/strategy/handlers/evidence-review.handler.ts |
 | GET | `/operations/strategy/experiments` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
 | POST | `/operations/strategy/experiments` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
 | DELETE | `/operations/strategy/experiments/:id` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
@@ -258,6 +264,27 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | DELETE | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | GET | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | PATCH | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
+| GET | `/operations/strategy/maturity-assessments` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
+| POST | `/operations/strategy/maturity-assessments` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
+| GET | `/operations/strategy/maturity-assessments/:id` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
+| GET | `/operations/strategy/metric-contracts` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
+| POST | `/operations/strategy/metric-contracts` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
+| GET | `/operations/strategy/metric-contracts/:id` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
+| PATCH | `/operations/strategy/metric-contracts/:id` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
+| POST | `/operations/strategy/metric-contracts/:id/publish` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
+| POST | `/operations/strategy/metric-contracts/:id/revise` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
+| GET | `/operations/strategy/metric-snapshots` | company | ✓ |  | services/company/operations/strategy/handlers/metric-snapshot.handler.ts |
+| POST | `/operations/strategy/metric-snapshots` | company | ✓ |  | services/company/operations/strategy/handlers/metric-snapshot.handler.ts |
+| GET | `/operations/strategy/metric-snapshots/:id` | company | ✓ |  | services/company/operations/strategy/handlers/metric-snapshot.handler.ts |
+| GET | `/operations/strategy/pilots` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
+| POST | `/operations/strategy/pilots` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
+| GET | `/operations/strategy/pilots/:id` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
+| POST | `/operations/strategy/pilots/:id/activate` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
+| POST | `/operations/strategy/pilots/:id/approve` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
+| POST | `/operations/strategy/pilots/:id/close` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
+| GET | `/operations/strategy/pmf-scoreboards` | company | ✓ |  | services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts |
+| GET | `/operations/strategy/pmf-scoreboards/:id` | company | ✓ |  | services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts |
+| POST | `/operations/strategy/pmf-scoreboards/calculate` | company | ✓ |  | services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts |
 | GET | `/operations/strategy/projects/:id/next-best-actions` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | POST | `/operations/strategy/projects/:id/stage` | company | ✓ |  | services/company/operations/strategy/handlers/project-stage.handler.ts |
 | GET | `/operations/strategy/projects/:id/stage/transitions` | company | ✓ |  | services/company/operations/strategy/handlers/project-stage.handler.ts |
@@ -490,6 +517,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - POST `/identity/workforce-members` — services/company/identity/handlers/workforce.handler.ts
 - GET `/identity/workforce-members/:id` — services/company/identity/handlers/workforce.handler.ts
 - GET `/identity/workspaces/:id` — services/company/identity/handlers/workspace.handler.ts
+- PATCH `/identity/workspaces/:id/company-identity` — services/company/identity/handlers/workspace.handler.ts
 - GET `/identity/workspaces/:workspaceId/platform-company` — services/company/identity/handlers/workspace.handler.ts
 - GET `/legal/applicable-obligations` — services/company/finance-legal/handlers/legal-applicability.handler.ts
 - GET `/legal/legal-entity-profiles` — services/company/finance-legal/handlers/legal-entity-profile.handler.ts
@@ -536,9 +564,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - PATCH `/operations/strategy/discovery-signals/:id` — services/company/operations/strategy/handlers/discovery-signal.handler.ts
 - GET `/operations/strategy/evidence` — services/company/operations/strategy/handlers/evidence.handler.ts
 - POST `/operations/strategy/evidence` — services/company/operations/strategy/handlers/evidence.handler.ts
+- GET `/operations/strategy/evidence-ingestions` — services/company/operations/strategy/handlers/evidence-ingestion.handler.ts
+- POST `/operations/strategy/evidence-ingestions` — services/company/operations/strategy/handlers/evidence-ingestion.handler.ts
 - DELETE `/operations/strategy/evidence/:id` — services/company/operations/strategy/handlers/evidence.handler.ts
 - GET `/operations/strategy/evidence/:id` — services/company/operations/strategy/handlers/evidence.handler.ts
 - PATCH `/operations/strategy/evidence/:id` — services/company/operations/strategy/handlers/evidence.handler.ts
+- POST `/operations/strategy/evidence/:id/review` — services/company/operations/strategy/handlers/evidence-review.handler.ts
 - GET `/operations/strategy/experiments` — services/company/operations/strategy/handlers/experiment.handler.ts
 - POST `/operations/strategy/experiments` — services/company/operations/strategy/handlers/experiment.handler.ts
 - DELETE `/operations/strategy/experiments/:id` — services/company/operations/strategy/handlers/experiment.handler.ts
@@ -554,6 +585,27 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - DELETE `/operations/strategy/interviews/:id` — services/company/operations/strategy/handlers/interview.handler.ts
 - GET `/operations/strategy/interviews/:id` — services/company/operations/strategy/handlers/interview.handler.ts
 - PATCH `/operations/strategy/interviews/:id` — services/company/operations/strategy/handlers/interview.handler.ts
+- GET `/operations/strategy/maturity-assessments` — services/company/operations/strategy/handlers/maturity-assessment.handler.ts
+- POST `/operations/strategy/maturity-assessments` — services/company/operations/strategy/handlers/maturity-assessment.handler.ts
+- GET `/operations/strategy/maturity-assessments/:id` — services/company/operations/strategy/handlers/maturity-assessment.handler.ts
+- GET `/operations/strategy/metric-contracts` — services/company/operations/strategy/handlers/metric-contract.handler.ts
+- POST `/operations/strategy/metric-contracts` — services/company/operations/strategy/handlers/metric-contract.handler.ts
+- GET `/operations/strategy/metric-contracts/:id` — services/company/operations/strategy/handlers/metric-contract.handler.ts
+- PATCH `/operations/strategy/metric-contracts/:id` — services/company/operations/strategy/handlers/metric-contract.handler.ts
+- POST `/operations/strategy/metric-contracts/:id/publish` — services/company/operations/strategy/handlers/metric-contract.handler.ts
+- POST `/operations/strategy/metric-contracts/:id/revise` — services/company/operations/strategy/handlers/metric-contract.handler.ts
+- GET `/operations/strategy/metric-snapshots` — services/company/operations/strategy/handlers/metric-snapshot.handler.ts
+- POST `/operations/strategy/metric-snapshots` — services/company/operations/strategy/handlers/metric-snapshot.handler.ts
+- GET `/operations/strategy/metric-snapshots/:id` — services/company/operations/strategy/handlers/metric-snapshot.handler.ts
+- GET `/operations/strategy/pilots` — services/company/operations/strategy/handlers/pilot-run.handler.ts
+- POST `/operations/strategy/pilots` — services/company/operations/strategy/handlers/pilot-run.handler.ts
+- GET `/operations/strategy/pilots/:id` — services/company/operations/strategy/handlers/pilot-run.handler.ts
+- POST `/operations/strategy/pilots/:id/activate` — services/company/operations/strategy/handlers/pilot-run.handler.ts
+- POST `/operations/strategy/pilots/:id/approve` — services/company/operations/strategy/handlers/pilot-run.handler.ts
+- POST `/operations/strategy/pilots/:id/close` — services/company/operations/strategy/handlers/pilot-run.handler.ts
+- GET `/operations/strategy/pmf-scoreboards` — services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts
+- GET `/operations/strategy/pmf-scoreboards/:id` — services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts
+- POST `/operations/strategy/pmf-scoreboards/calculate` — services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts
 - GET `/operations/strategy/projects/:id/next-best-actions` — services/company/operations/strategy/handlers/next-best-action.handler.ts
 - POST `/operations/strategy/projects/:id/stage` — services/company/operations/strategy/handlers/project-stage.handler.ts
 - GET `/operations/strategy/projects/:id/stage/transitions` — services/company/operations/strategy/handlers/project-stage.handler.ts
@@ -600,8 +652,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 
 | Key (METHOD prefix) | Resolved | Owner (allowlist) | Call sites |
 |---|---|---|---|
-| `DELETE /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:853 |
-| `DELETE /execution/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:781 |
+| `DELETE /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:859 |
+| `DELETE /execution/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:787 |
 | `DELETE /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:478 |
 | `DELETE /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:626 |
 | `DELETE /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:276 |
@@ -611,9 +663,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `DELETE /okrs/key-results` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:320 |
 | `DELETE /okrs/objectives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:255 |
 | `DELETE /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:99 |
+| `DELETE /operations/projects` | ✓ |  | frontend/lib/modules/strategy/services/strategy_service.dart:583 |
 | `DELETE /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:96, frontend/lib/modules/strategy/services/strategy_service.dart:107 |
-| `DELETE /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:628 |
-| `DELETE /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:577 |
+| `DELETE /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:634 |
 | `DELETE /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:484 |
 | `GET /admin` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:39, frontend/lib/modules/settings/services/admin_service.dart:14 |
 | `GET /business/packs` | ✗ GHOST |  | frontend/lib/modules/organization/services/business_pack_service.dart:17, frontend/lib/modules/organization/services/business_pack_service.dart:35, frontend/lib/modules/organization/services/business_pack_service.dart:52 … |
@@ -625,16 +677,17 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:141 |
 | `GET /devices` | ✗ GHOST |  | frontend/lib/modules/settings/services/developer_service.dart:14 |
 | `GET /devices/jobs` | ✗ GHOST |  | frontend/lib/modules/settings/services/developer_service.dart:41 |
-| `GET /execution/gate-decisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:889 |
-| `GET /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:793 |
-| `GET /execution/twelve-week-cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:332, frontend/lib/modules/strategy/services/strategy_service.dart:716 |
+| `GET /execution/gate-decisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:895 |
+| `GET /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:799 |
+| `GET /execution/twelve-week-cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:332, frontend/lib/modules/strategy/services/strategy_service.dart:722 |
 | `GET /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:432 |
 | `GET /execution/weekly-plans` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:377 |
 | `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:80 |
 | `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:31 |
 | `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:46 |
 | `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:144 |
-| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:87, frontend/lib/modules/auth/services/auth_service.dart:357 |
+| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:100, frontend/lib/modules/auth/services/auth_service.dart:466 |
+| `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/onboarding/services/company_identity_service.dart:18 |
 | `GET /marketing/analytics/overview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:132 |
 | `GET /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:600 |
 | `GET /marketing/assumptions/summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:608 |
@@ -660,15 +713,21 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /okrs/objectives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:213 |
 | `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:54, frontend/lib/modules/strategy/services/outcomes_service.dart:11, frontend/lib/modules/strategy/services/outcomes_service.dart:85 |
 | `GET /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:12 |
+| `GET /operations/projects` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:107, frontend/lib/modules/strategy/services/strategy_service.dart:515 |
 | `GET /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:21, frontend/lib/modules/vault/services/evidence_service.dart:88 |
-| `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:89, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
+| `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:99, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
 | `GET /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:60 |
-| `GET /operations/strategy/gate-evaluations` | ✓ |  | frontend/lib/modules/strategy/services/stage_gate_service.dart:41, frontend/lib/modules/strategy/services/stage_gate_service.dart:59 |
-| `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:73 |
+| `GET /operations/strategy/gate-evaluations` | ✓ |  | frontend/lib/modules/strategy/services/stage_gate_service.dart:40, frontend/lib/modules/strategy/services/stage_gate_service.dart:58 |
+| `GET /operations/strategy/maturity-assessments` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:153 |
+| `GET /operations/strategy/metric-contracts` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:17 |
+| `GET /operations/strategy/metric-snapshots` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:42 |
+| `GET /operations/strategy/pilots` | ✓ |  | frontend/lib/modules/strategy/services/pilot_run_service.dart:15, frontend/lib/modules/strategy/services/pilot_run_service.dart:31 |
+| `GET /operations/strategy/pmf-scoreboards` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:89, frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:110 |
+| `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:79 |
 | `GET /operations/strategy/stage-context` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:85 |
 | `GET /operations/strategy/stage-policies` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:14, frontend/lib/modules/strategy/services/stage_service.dart:98 |
 | `GET /operations/strategy/stage-transitions` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:68 |
-| `GET /operations/tasks` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:30, frontend/lib/modules/tasks/services/task_service.dart:18, frontend/lib/modules/tasks/services/task_service.dart:42 … |
+| `GET /operations/tasks` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:29, frontend/lib/modules/tasks/services/task_service.dart:18, frontend/lib/modules/tasks/services/task_service.dart:42 … |
 | `GET /operations/workspaces` | ✓ |  | frontend/lib/modules/strategy/services/twelve_wy_service.dart:12, frontend/lib/modules/strategy/services/twelve_wy_service.dart:28 |
 | `GET /org` | ✗ GHOST |  | frontend/lib/modules/organization/services/organization_service.dart:14, frontend/lib/modules/organization/services/organization_service.dart:25, frontend/lib/modules/organization/services/organization_service.dart:36 … |
 | `GET /plugins` | ✗ GHOST |  | frontend/lib/modules/skills/services/plugins_service.dart:14 |
@@ -677,20 +736,20 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /projects` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:45, frontend/lib/modules/strategy/services/validation_service.dart:25, frontend/lib/modules/strategy/services/validation_service.dart:61 … |
 | `GET /runtime/doctor` | ✗ GHOST |  | frontend/lib/core/services/diagnostics_service.dart:8 |
 | `GET /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:57, frontend/lib/modules/strategy/services/canvas_service.dart:66, frontend/lib/modules/strategy/services/strategy_service.dart:68 … |
-| `GET /strategy/founder-profile` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1447 |
-| `GET /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:586 |
+| `GET /strategy/founder-profile` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1453 |
+| `GET /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:592 |
 | `GET /strategy/lenses/bsc` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:210 |
 | `GET /strategy/lenses/pestel` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:25 |
 | `GET /strategy/lenses/summary` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:11 |
 | `GET /strategy/lenses/swot` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:87 |
 | `GET /strategy/lenses/tows` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:133 |
-| `GET /strategy/portfolios` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1469 |
-| `GET /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:107, frontend/lib/modules/strategy/services/strategy_service.dart:515, frontend/lib/modules/strategy/services/strategy_service.dart:1666 |
+| `GET /strategy/portfolios` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1475 |
+| `GET /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1672 |
 | `GET /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:119, frontend/lib/modules/strategy/services/strategy_service.dart:130 |
-| `GET /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1636 |
-| `GET /vault/documents` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:17, frontend/lib/modules/vault/services/vault_service.dart:34 |
-| `GET /vault/graph` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:125 |
-| `GET /vault/knowledge` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:109 |
+| `GET /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1642 |
+| `GET /vault/documents` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:16, frontend/lib/modules/vault/services/vault_service.dart:33 |
+| `GET /vault/graph` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:116 |
+| `GET /vault/knowledge` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:100 |
 | `GET /workforce/agents` | ✗ GHOST | M7 | frontend/lib/modules/agents/services/agent_platform_service.dart:24, frontend/lib/modules/agents/services/agent_platform_service.dart:605, frontend/lib/modules/agents/services/agents_service.dart:34 |
 | `GET /workforce/approvals` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:239 |
 | `GET /workforce/budgets` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:360 |
@@ -700,7 +759,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workforce/exceptions` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:635 |
 | `GET /workforce/heartbeats` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:414 |
 | `GET /workforce/org-chart` | ✗ GHOST | M7 | frontend/lib/modules/agents/services/agent_platform_service.dart:226, frontend/lib/modules/agents/services/agents_service.dart:54 |
-| `GET /workforce/packs` | ✗ GHOST | M7 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:162 |
+| `GET /workforce/packs` | ✗ GHOST | M7 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:136 |
 | `GET /workforce/prompts` | ✗ GHOST |  | frontend/lib/modules/skills/services/prompt_registry_service.dart:76, frontend/lib/modules/skills/services/prompt_registry_service.dart:85, frontend/lib/modules/skills/services/prompt_registry_service.dart:93 |
 | `GET /workforce/routines` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:441 |
 | `GET /workforce/runs` | ✗ GHOST |  | frontend/lib/modules/agents/services/agents_service.dart:113, frontend/lib/modules/agents/services/agents_service.dart:122 |
@@ -713,7 +772,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
 | `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136, frontend/lib/modules/sales/services/revenue_engine_service.dart:16, frontend/lib/modules/sales/services/revenue_engine_service.dart:70 … |
 | `PATCH /commercial/marketing-context/product-marketing` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:199 |
-| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:344 |
+| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:453 |
 | `PATCH /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:620 |
 | `PATCH /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:260 |
 | `PATCH /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:552 |
@@ -748,11 +807,11 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:77 |
 | `POST /projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/validation_service.dart:219 |
 | `POST /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:102, frontend/lib/modules/strategy/services/strategy_service.dart:113 |
-| `POST /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1690 |
+| `POST /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1696 |
 | `POST /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:125, frontend/lib/modules/strategy/services/strategy_service.dart:136 |
-| `POST /strategy/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1768 |
-| `POST /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1651 |
-| `POST /strategy/workspace-templates:provision` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1645 |
+| `POST /strategy/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1774 |
+| `POST /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1657 |
+| `POST /strategy/workspace-templates:provision` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1651 |
 | `POST /tech-radar/seed` | ✗ GHOST |  | frontend/lib/modules/skills/services/tech_radar_service.dart:116 |
 | `POST /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:470 |
 | `POST /workforce/decisions` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:347 |
@@ -760,7 +819,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /workforce/routines` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:455 |
 | `POST /workforce/routing/test` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:213 |
 | `POST /workforce/tools/webhook` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:539 |
-| `PUT /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1660 |
+| `PUT /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1666 |
 
 ## 3. Known-broken allowlist (route ma đã biết — owned by M4/M7)
 
@@ -796,10 +855,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/knowledge/ingestions/{ingestion_id}/review` | apps/cosa/api/routes.py |
 | POST | `/knowledge/uploads` | apps/cosa/api/routes.py |
 | POST | `/knowledge/uploads/{ingestion_id}/complete` | apps/cosa/api/routes.py |
+| GET | `/live` | apps/cosa/api/app.py |
 | GET | `/live` | apps/cosa/worker/health.py |
 | GET | `/metrics` | apps/cosa/api/app.py |
 | GET | `/metrics` | apps/cosa/api/autopilot_metrics_routes.py |
 | GET | `/metrics` | apps/cosa/worker/health.py |
+| GET | `/ready` | apps/cosa/api/app.py |
 | GET | `/ready` | apps/cosa/worker/health.py |
 | POST | `/runs/{run_id}/cancel` | apps/cosa/api/routes.py |
 | GET | `/runs/{run_id}/events` | apps/cosa/api/routes.py |

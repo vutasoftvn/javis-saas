@@ -34,7 +34,7 @@ from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 from agent_testkit.fake_sdk_model import FakeSDKModel
 
-from apps.cosa.agents.seed import seed_cosa_agent_specs
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.compliance.contracts import ComplianceDenied
@@ -116,7 +116,10 @@ async def _all_event_payload_text(plane, run_id: str) -> str:
 @pytest.mark.asyncio
 async def test_worker_resolves_compliance_before_kernel_run_with_bound_run_id():
     plane = _plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     fake_resolver = FakeComplianceResolver()
     plane.compliance_resolver = fake_resolver
 
@@ -157,7 +160,10 @@ async def test_worker_resolves_compliance_before_kernel_run_with_bound_run_id():
 @pytest.mark.asyncio
 async def test_run_rejected_when_compliance_denied_kernel_never_called():
     plane = _plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     fake_resolver = FakeComplianceResolver(
         raise_denied=ComplianceDenied("APPROVAL_INCOMPLETE_OR_EXPIRED", "leaked-secret-detail-xyz")
     )
@@ -194,7 +200,10 @@ async def test_run_rejected_when_compliance_denied_kernel_never_called():
 @pytest.mark.asyncio
 async def test_run_rejected_when_compliance_resolver_not_configured():
     plane = _plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     plane.compliance_resolver = None
 
     kernel_run_calls: list[Any] = []
@@ -304,7 +313,10 @@ async def test_worker_passes_bound_delegation_to_snapshot_and_capability_clients
     # chỉ nhằm đếm đúng 1 lệnh gọi list_tasks của tool call thật.
     gate_client = configure_mock_client_allows_data_use(AsyncMock(spec=CompanyServiceClient))
     plane = _plane(company_client=gate_client)
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     fake_resolver = FakeComplianceResolver(
         extra_metadata={"data_access_claim": fake_data_access_claim(capability_id="operations.task.list")}
     )
@@ -368,7 +380,10 @@ async def test_worker_passes_bound_delegation_to_snapshot_and_capability_clients
 async def test_worker_rejects_task_missing_delegation_token():
     """Worker rejects a task that lacks delegation token, without calling kernel or tenant policy."""
     plane = _plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     fake_resolver = FakeComplianceResolver()
     plane.compliance_resolver = fake_resolver
 

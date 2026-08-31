@@ -122,6 +122,7 @@ async def test_experiment_write_capability(plane):
             "hypothesis": "Short subject lines increase open rate by 20%",
             "metric": "open_rate",
             "target_value": 0.35,
+            "metric_contract_id": "contract-open-rate-001",
         },
         {"workspace_id": "ws-write-1"},
     )

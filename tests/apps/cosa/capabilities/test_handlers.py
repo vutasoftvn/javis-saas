@@ -152,7 +152,12 @@ async def test_campaign_asset_and_experiment_write_handlers():
 
     exp_handler = create_experiment_write_handler(client)
     exp_res = await exp_handler(
-        {"hypothesis": "Shorter CTA increases conversions", "metric": "CTR", "target_value": 0.05},
+        {
+            "hypothesis": "Shorter CTA increases conversions",
+            "metric": "CTR",
+            "target_value": 0.05,
+            "metric_contract_id": "contract-ctr-001",
+        },
         {"workspace_id": "ws_alpha"},
     )
     assert exp_res["status"] == "pending_approval"

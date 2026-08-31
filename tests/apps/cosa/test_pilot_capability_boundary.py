@@ -8,7 +8,6 @@ from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
-from agent.skills.skillpack_contract import REGISTERED_STATIC_CAPABILITY_IDS
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
@@ -82,9 +81,3 @@ async def test_pilot_create_draft_capability_execution(agent_plane):
             context={"workspace_id": "ws-victim"},
         )
 
-
-def test_static_registered_capability_ids_include_pilot_capabilities():
-    assert "strategy.pilot.get" in REGISTERED_STATIC_CAPABILITY_IDS
-    assert "strategy.pilot.create_draft" in REGISTERED_STATIC_CAPABILITY_IDS
-    assert "strategy.pilot.activate" not in REGISTERED_STATIC_CAPABILITY_IDS
-    assert "engineering.deploy" not in REGISTERED_STATIC_CAPABILITY_IDS

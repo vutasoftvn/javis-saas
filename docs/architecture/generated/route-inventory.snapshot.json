@@ -45,15 +45,15 @@
       "resolved": true,
       "owner": null
     },
+    "DELETE /operations/projects": {
+      "resolved": true,
+      "owner": null
+    },
     "DELETE /strategy/canvases": {
       "resolved": false,
       "owner": null
     },
     "DELETE /strategy/initiatives": {
-      "resolved": false,
-      "owner": null
-    },
-    "DELETE /strategy/projects": {
       "resolved": false,
       "owner": null
     },
@@ -138,6 +138,10 @@
       "owner": null
     },
     "GET /identity/me": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /identity/workspaces": {
       "resolved": true,
       "owner": null
     },
@@ -241,6 +245,10 @@
       "resolved": true,
       "owner": null
     },
+    "GET /operations/projects": {
+      "resolved": true,
+      "owner": null
+    },
     "GET /operations/strategy/assumptions": {
       "resolved": true,
       "owner": null
@@ -254,6 +262,26 @@
       "owner": null
     },
     "GET /operations/strategy/gate-evaluations": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/maturity-assessments": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/metric-contracts": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/metric-snapshots": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/pilots": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/pmf-scoreboards": {
       "resolved": true,
       "owner": null
     },

@@ -1,28 +1,45 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock
 import pytest
 
 from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent.contracts.identity import PinnedSkillRef
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.registry.publisher import publish_skill_spec
 from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent.skills.contracts import SkillSpec, SkillStatus
 from agent.skills.resolver import SkillResolver
+from agent_testkit.fake_sdk_model import FakeSDKModel
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.agents.specs import COSA_MARKETING_AGENT_SPEC
-from apps.cosa.api.skill_registry_routes import sync_built_in_skills
+from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
 
 @pytest.mark.asyncio
 async def test_resolve_marketing_agent_pinned_skills():
     """Verify that all pinned skills in COSA_MARKETING_AGENT_SPEC resolve cleanly against synced spec registry."""
     repo = InMemorySpecRegistryRepository()
-    plane = MagicMock()
-    plane.spec_registry = repo
+    plane = build_cosa_agent_plane(
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=repo,
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        company_client=AsyncMock(),
+        model=FakeSDKModel(),
+    )
 
-    # Sync all built-in skills
-    await sync_built_in_skills(MagicMock(), None, None, plane)
+    # Seed toàn bộ runtime specs (skillpacks + prompt/model-policy/agent-spec)
+    # qua đúng entrypoint production dùng — không mock capability_registry.
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
 
     resolver = SkillResolver(repo)
 
@@ -43,6 +60,8 @@ async def test_resolve_marketing_agent_pinned_skills():
         "lifecycle.context-resolver",
         "lifecycle.next-best-action",
         "operations.weekly-review",
+        "operations.sop-builder",
+        "operations.automation-design",
     }
 
     # 3. Resolve Finance agent pinned skills
@@ -51,6 +70,7 @@ async def test_resolve_marketing_agent_pinned_skills():
     assert {s.id for s in fin_skills} == {
         "finance.runway-forecast",
         "finance.budget-guardrails",
+        "finance.unit-economics",
     }
 
 
