@@ -4,7 +4,7 @@ import { createTestSession } from "./helpers/test-session";
 import {
   createWorkspaceRecord,
   getWorkspaceRecord,
-  updateWorkspaceCompanyIdentityRecord,
+  updateWorkspaceOrientationRecord,
 } from "../services/workspace.service";
 
 describe("createWorkspace", () => {
@@ -29,69 +29,84 @@ describe("getWorkspace", () => {
   });
 });
 
-describe("updateWorkspaceCompanyIdentityRecord", () => {
-  it("persists vision/mission/coreValues when all three are non-empty", async () => {
-    const session = await createTestSession({ displayName: "Identity Save Test" });
-
-    const updated = await updateWorkspaceCompanyIdentityRecord({
+describe("updateWorkspaceOrientationRecord", () => {
+  it("updates one supplied orientation field without overwriting the others", async () => {
+    const session = await createTestSession({ displayName: "Orientation partial update" });
+    await updateWorkspaceOrientationRecord({
       workspaceId: session.workspaceId,
-      authorization: `Bearer ${session.accessToken}`,
-      vision: "Trở thành nền tảng số 1 cho founder Việt Nam",
-      mission: "Trao quyền cho founder ra quyết định bằng dữ liệu thật",
-      coreValues: "Minh bạch, Tốc độ, Lấy khách hàng làm trung tâm",
+      authorization: "Bearer " + session.accessToken,
+      vision: "Original vision",
+      mission: "Original mission",
+      coreValues: "Original values",
     });
 
-    expect(updated.vision).toBe("Trở thành nền tảng số 1 cho founder Việt Nam");
-    expect(updated.mission).toBe("Trao quyền cho founder ra quyết định bằng dữ liệu thật");
-    expect(updated.coreValues).toBe("Minh bạch, Tốc độ, Lấy khách hàng làm trung tâm");
+    const updated = await updateWorkspaceOrientationRecord({
+      workspaceId: session.workspaceId,
+      authorization: "Bearer " + session.accessToken,
+      mission: "Updated mission",
+    });
 
-    const refetched = await getWorkspaceRecord(session.workspaceId);
-    expect(refetched.vision).toBe(updated.vision);
+    expect(updated.vision).toBe("Original vision");
+    expect(updated.mission).toBe("Updated mission");
+    expect(updated.coreValues).toBe("Original values");
   });
 
-  it("rejects when any of the three fields is empty after trim", async () => {
-    const session = await createTestSession({ displayName: "Identity Reject Test" });
+  it("clears an explicitly supplied blank field", async () => {
+    const session = await createTestSession({ displayName: "Orientation clear" });
+    await updateWorkspaceOrientationRecord({
+      workspaceId: session.workspaceId,
+      authorization: "Bearer " + session.accessToken,
+      vision: "A direction",
+    });
+
+    const updated = await updateWorkspaceOrientationRecord({
+      workspaceId: session.workspaceId,
+      authorization: "Bearer " + session.accessToken,
+      vision: "   ",
+    });
+
+    expect(updated.vision).toBeNull();
+  });
+
+  it("rejects a patch with no orientation keys", async () => {
+    const session = await createTestSession({ displayName: "Orientation empty patch" });
 
     await expect(
-      updateWorkspaceCompanyIdentityRecord({
+      updateWorkspaceOrientationRecord({
         workspaceId: session.workspaceId,
-        authorization: `Bearer ${session.accessToken}`,
-        vision: "  ",
-        mission: "Mission hợp lệ",
-        coreValues: "Values hợp lệ",
+        authorization: "Bearer " + session.accessToken,
       })
-    ).rejects.toThrow();
+    ).rejects.toThrow(/at least one orientation field/i);
   });
 
   it("rejects when caller is not a member of the target workspace", async () => {
-    const session = await createTestSession({ displayName: "Identity Non Member Test" });
+    const session = await createTestSession({ displayName: "Orientation Non Member Test" });
     const otherWorkspace = await createWorkspaceRecord({ name: "Other Workspace" });
 
     await expect(
-      updateWorkspaceCompanyIdentityRecord({
+      updateWorkspaceOrientationRecord({
         workspaceId: otherWorkspace.id,
         authorization: `Bearer ${session.accessToken}`,
         vision: "Vision",
-        mission: "Mission",
-        coreValues: "Values",
       })
     ).rejects.toThrow();
   });
 });
 
 describe("updateWorkspaceCompanyIdentity handler", () => {
-  it("exposes PATCH .../company-identity and returns the updated workspace", async () => {
-    const session = await createTestSession({ displayName: "Identity Handler Test" });
+  it("exposes PATCH .../company-identity and returns the updated workspace with nullable fields", async () => {
+    const session = await createTestSession({ displayName: "Orientation Handler Test" });
 
     const updated = await updateWorkspaceCompanyIdentity({
       id: session.workspaceId,
       authorization: `Bearer ${session.accessToken}`,
-      vision: "Vision qua handler",
       mission: "Mission qua handler",
-      coreValues: "Values qua handler",
     });
 
     expect(updated.id).toBe(session.workspaceId);
-    expect(updated.vision).toBe("Vision qua handler");
+    expect(updated.mission).toBe("Mission qua handler");
+    expect(updated.vision).toBeNull();
+    expect(updated.coreValues).toBeNull();
   });
 });
+

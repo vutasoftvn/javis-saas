@@ -4,7 +4,7 @@ import {
   CreateWorkspaceParams,
   createWorkspaceRecord,
   getWorkspaceRecord,
-  updateWorkspaceCompanyIdentityRecord,
+  updateWorkspaceOrientationRecord,
   WorkspacePlatformCompanyResponse,
   getWorkspacePlatformCompany,
 } from "../services/workspace.service";
@@ -52,11 +52,11 @@ export const updateWorkspaceCompanyIdentity = api(
   }: {
     id: string;
     authorization?: Header<"Authorization">;
-    vision: string;
-    mission: string;
-    coreValues: string;
+    vision?: string | null;
+    mission?: string | null;
+    coreValues?: string | null;
   }): Promise<Workspace> => {
-    return updateWorkspaceCompanyIdentityRecord({
+    return updateWorkspaceOrientationRecord({
       workspaceId: id,
       authorization,
       vision,
@@ -65,3 +65,4 @@ export const updateWorkspaceCompanyIdentity = api(
     });
   }
 );
+

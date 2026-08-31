@@ -145,16 +145,20 @@ export async function getWorkspacePlatformCompany(
   };
 }
 
-export interface UpdateWorkspaceCompanyIdentityParams {
+export interface UpdateWorkspaceOrientationParams {
   workspaceId: string | number;
   authorization?: string;
-  vision: string;
-  mission: string;
-  coreValues: string;
+  vision?: string | null;
+  mission?: string | null;
+  coreValues?: string | null;
 }
 
-export async function updateWorkspaceCompanyIdentityRecord(
-  params: UpdateWorkspaceCompanyIdentityParams
+function normalizeOrientationText(value: string | null | undefined): string | null {
+  return value?.trim() || null;
+}
+
+export async function updateWorkspaceOrientationRecord(
+  params: UpdateWorkspaceOrientationParams
 ): Promise<Workspace> {
   // Xác minh caller là member của đúng workspace này trước khi ghi.
   await resolveTenantContext({
@@ -162,21 +166,30 @@ export async function updateWorkspaceCompanyIdentityRecord(
     workspaceId: params.workspaceId,
   });
 
-  const vision = params.vision.trim();
-  const mission = params.mission.trim();
-  const coreValues = params.coreValues.trim();
-  if (!vision || !mission || !coreValues) {
-    throw APIError.invalidArgument(
-      "vision, mission, and coreValues must all be non-empty"
-    );
+  const patchFields = ["vision", "mission", "coreValues"] as const;
+  const updates: {
+    vision?: string | null;
+    mission?: string | null;
+    coreValues?: string | null;
+  } = {};
+
+  for (const field of patchFields) {
+    if (Object.prototype.hasOwnProperty.call(params, field)) {
+      updates[field] = normalizeOrientationText(params[field]);
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw APIError.invalidArgument("at least one orientation field must be provided");
   }
 
   const [row] = await db
     .update(identityWorkspaces)
-    .set({ vision, mission, coreValues, updatedAt: new Date() })
+    .set({ ...updates, updatedAt: new Date() })
     .where(eq(identityWorkspaces.id, BigInt(params.workspaceId)))
     .returning(WORKSPACE_VIEW_COLUMNS);
 
   if (!row) throw APIError.notFound(`workspace ${params.workspaceId} not found`);
   return mapWorkspaceRow(row);
 }
+
