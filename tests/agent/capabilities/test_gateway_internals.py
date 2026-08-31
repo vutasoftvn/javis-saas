@@ -4,6 +4,7 @@ import pytest
 from agent.capabilities.enablements import CapabilityEnablement, InMemoryEnablementStore
 from agent.capabilities.gateway import GatewayExecutionRequest
 from agent.capabilities.gateway_internals import (
+    ComplianceAuditor,
     EnablementValidator,
     IdempotencyCoordinator,
     InputValidator,
@@ -13,7 +14,7 @@ from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyO
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
-from agent.governance.contracts import CapabilityRisk
+from agent.governance.contracts import CapabilityRisk, PolicyDecision, PolicyOutcome
 from agent.runs.repository import InMemoryRunRepository
 
 
@@ -414,3 +415,170 @@ async def test_enablement_validator_allowed_with_active_record():
 
     assert is_enabled is True
     assert error is None
+
+
+# ---------------------------------------------------------------------------
+# ComplianceAuditor
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def compliance_repo():
+    return InMemoryRunRepository()
+
+
+@pytest.fixture
+def compliance_auditor(compliance_repo):
+    return ComplianceAuditor(compliance_repo)
+
+
+def test_compliance_auditor_extract_snapshot_from_dict(compliance_auditor):
+    """extract_compliance_snapshot reads compliance_snapshot straight off a dict context."""
+    snap = compliance_auditor.extract_compliance_snapshot(
+        {"compliance_snapshot": {"status": "APPROVED_FOR_USE"}}
+    )
+    assert snap == {"status": "APPROVED_FOR_USE"}
+
+
+def test_compliance_auditor_extract_snapshot_missing(compliance_auditor):
+    """No compliance_snapshot key anywhere -> None."""
+    assert compliance_auditor.extract_compliance_snapshot({}) is None
+    assert compliance_auditor.extract_compliance_snapshot(None) is None
+
+
+@pytest.mark.asyncio
+async def test_compliance_auditor_no_snapshot_continues(compliance_auditor, compliance_repo):
+    """No compliance snapshot in context -> should_continue=True, no result, no event logged."""
+    decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
+
+    should_continue, result = await compliance_auditor.audit(
+        context={},
+        run_id="run_1",
+        workspace_id="ws_1",
+        tool_call_id="call_1",
+        checkpoint_ref="ckpt_1",
+        capability_id="test.cap",
+        current_decision=decision,
+        payload_hash="hash_1",
+    )
+
+    assert should_continue is True
+    assert result is None
+    events = await compliance_repo.list_events("run_1")
+    assert [e for e in events if e.event_type == "compliance.decision"] == []
+
+
+@pytest.mark.asyncio
+async def test_compliance_auditor_approved_records_allow_event(
+    compliance_auditor, compliance_repo
+):
+    """Happy path: APPROVED_FOR_USE snapshot -> continue, and a compliance.decision
+    event is recorded with decision matching current_decision.outcome."""
+    decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
+    context = {
+        "compliance_snapshot": {
+            "status": "APPROVED_FOR_USE",
+            "deployment_id": "deploy_ok",
+            "snapshot_hash": "snap_hash",
+            "policy_snapshot_hash": "pol_hash",
+            "rule_version_ids": ["rule_v1"],
+            "evidence_hashes": ["ev_1"],
+            "provider_profile_version": "v1.0",
+        },
+        "delegation_jti": "jwt_123",
+    }
+
+    should_continue, result = await compliance_auditor.audit(
+        context=context,
+        run_id="run_allow",
+        workspace_id="ws_1",
+        tool_call_id="call_1",
+        checkpoint_ref="ckpt_1",
+        capability_id="test.cap",
+        current_decision=decision,
+        payload_hash="hash_1",
+    )
+
+    assert should_continue is True
+    assert result is None
+
+    events = await compliance_repo.list_events("run_allow")
+    compliance_events = [e for e in events if e.event_type == "compliance.decision"]
+    assert len(compliance_events) == 1
+    payload = compliance_events[0].payload
+    assert payload["decision"] == "ALLOW"
+    assert payload["deployment_id"] == "deploy_ok"
+    assert payload["delegation_jti"] == "jwt_123"
+    assert payload["provider_model_ref"] == "v1.0"
+
+
+@pytest.mark.asyncio
+async def test_compliance_auditor_suspended_deployment_denies(
+    compliance_auditor, compliance_repo
+):
+    """Deny path: a non-APPROVED_FOR_USE status returns should_continue=False with
+    a denied GatewayExecutionResult, and still records a compliance.decision event
+    with decision=DENY / reason_code=DEPLOYMENT_SUSPENDED (mirrors
+    test_char_compliance_deployment_suspended)."""
+    decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
+    context = {
+        "compliance_snapshot": {
+            "status": "SUSPENDED",
+            "deployment_id": "deploy_sus",
+            "snapshot_hash": "snap_hash_xyz",
+            "policy_snapshot_hash": "pol_hash_abc",
+        }
+    }
+
+    should_continue, result = await compliance_auditor.audit(
+        context=context,
+        run_id="run_deny",
+        workspace_id="ws_1",
+        tool_call_id="call_1",
+        checkpoint_ref="ckpt_1",
+        capability_id="test.cap",
+        current_decision=decision,
+        payload_hash="hash_1",
+    )
+
+    assert should_continue is False
+    assert result is not None
+    assert result.status == "denied"
+    assert "suspended" in result.error_message.lower() or "approved" in result.error_message.lower()
+
+    events = await compliance_repo.list_events("run_deny")
+    compliance_events = [e for e in events if e.event_type == "compliance.decision"]
+    assert len(compliance_events) == 1
+    assert compliance_events[0].payload["decision"] == "DENY"
+    assert compliance_events[0].payload["reason_code"] == "DEPLOYMENT_SUSPENDED"
+    assert compliance_events[0].payload["deployment_id"] == "deploy_sus"
+
+
+@pytest.mark.asyncio
+async def test_compliance_auditor_not_approved_status_denies(
+    compliance_auditor, compliance_repo
+):
+    """Deny path variant: any status other than APPROVED_FOR_USE denies (not just
+    SUSPENDED specifically) -- e.g. a PENDING_REVIEW deployment status."""
+    decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
+    context = {
+        "compliance_snapshot": {
+            "status": "PENDING_REVIEW",
+            "deployment_id": "deploy_pending",
+        }
+    }
+
+    should_continue, result = await compliance_auditor.audit(
+        context=context,
+        run_id="run_deny_2",
+        workspace_id="ws_1",
+        tool_call_id="call_1",
+        checkpoint_ref="ckpt_1",
+        capability_id="test.cap",
+        current_decision=decision,
+        payload_hash="hash_1",
+    )
+
+    assert should_continue is False
+    assert result.status == "denied"
+    assert result.tool_call_id == "call_1"

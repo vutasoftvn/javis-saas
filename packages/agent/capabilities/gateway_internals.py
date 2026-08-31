@@ -7,11 +7,19 @@ from agent.capabilities.enablements import EnablementStore, assert_enabled_for_i
 from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
+from agent.contracts.invocation import InvocationContext
 from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
+from agent.runs.models import ComplianceDecisionPayload, RunEventRecord
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["EnablementValidator", "IdempotencyCoordinator", "InputValidator", "TenancyVerifier"]
+__all__ = [
+    "ComplianceAuditor",
+    "EnablementValidator",
+    "IdempotencyCoordinator",
+    "InputValidator",
+    "TenancyVerifier",
+]
 
 
 class TenancyVerifier:
@@ -124,6 +132,172 @@ class IdempotencyCoordinator:
     def should_return_in_progress(self, outcome: IdempotencyOutcome) -> bool:
         """Check if should return in_progress."""
         return outcome == IdempotencyOutcome.IN_PROGRESS
+
+
+class ComplianceAuditor:
+    """Ghi nhận compliance audit decision và kiểm tra deployment status.
+
+    Nếu `compliance_snapshot` trong context có status khác `APPROVED_FOR_USE`
+    (deployment bị suspend/chưa duyệt), execution bị deny ngay — bất kể policy
+    decision bên dưới thế nào — và một event `compliance.decision` với
+    decision=DENY/reason_code=DEPLOYMENT_SUSPENDED vẫn được ghi lại (để phục vụ
+    audit trail, không được bỏ qua dù early-return).
+    """
+
+    def __init__(self, repo: Any) -> None:  # RunRepository
+        self._repo = repo
+
+    def extract_compliance_snapshot(self, context: Any) -> dict[str, Any] | None:
+        """Extract compliance_snapshot từ context (InvocationContext.metadata hoặc dict)."""
+        if isinstance(context, InvocationContext):
+            meta = context.metadata
+        elif isinstance(context, dict):
+            meta = context
+        else:
+            meta = {}
+
+        return meta.get("compliance_snapshot") if isinstance(meta, dict) else None
+
+    async def audit(
+        self,
+        context: Any,
+        run_id: str,
+        workspace_id: str,
+        tool_call_id: str,
+        checkpoint_ref: str,
+        capability_id: str,
+        current_decision: Any,  # PolicyDecision
+        payload_hash: str,
+    ) -> tuple[bool, Any | None]:  # (should_continue, early_return_result_if_denied)
+        """Audit compliance. Returns (should_continue, early_return_result).
+
+        Nếu should_continue=False, early_return_result là GatewayExecutionResult
+        cần trả về ngay (deployment suspended). Trong cả hai nhánh (deny/allow),
+        một event `compliance.decision` được ghi lại nếu có compliance_snapshot.
+        """
+        # Import cục bộ để tránh circular import: gateway.py import module này ở
+        # top-level, nên gateway_internals.py không được import gateway.py ở top-level.
+        from agent.capabilities.gateway import GatewayExecutionResult
+
+        ctx_meta = (
+            context.metadata
+            if isinstance(context, InvocationContext)
+            else (context if isinstance(context, dict) else {})
+        )
+        snap = self.extract_compliance_snapshot(context)
+
+        if not snap:
+            return True, None
+
+        snap_status = (
+            snap.get("status") if isinstance(snap, dict) else getattr(snap, "status", None)
+        )
+
+        snapshot_hash = str(
+            snap.get("snapshot_hash")
+            if isinstance(snap, dict)
+            else getattr(snap, "snapshot_hash", "")
+        )
+        policy_snapshot_hash = str(
+            snap.get("policy_snapshot_hash")
+            if isinstance(snap, dict)
+            else getattr(snap, "policy_snapshot_hash", "")
+        )
+        deployment_id = str(
+            snap.get("deployment_id")
+            if isinstance(snap, dict)
+            else getattr(snap, "deployment_id", "")
+        )
+        evidence_hashes = list(
+            (
+                snap.get("evidence_hashes")
+                if isinstance(snap, dict)
+                else getattr(snap, "evidence_hashes", [])
+            )
+            or []
+        )
+        rule_version_ids = list(
+            (
+                snap.get("rule_version_ids")
+                if isinstance(snap, dict)
+                else getattr(snap, "rule_version_ids", [])
+            )
+            or []
+        )
+        provider_model_ref = (
+            snap.get("provider_profile_version")
+            if isinstance(snap, dict)
+            else getattr(snap, "provider_profile_version", None)
+        )
+        delegation_jti = ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti")
+
+        # Deployment bị suspend/chưa duyệt: deny execution, vẫn ghi audit event.
+        # LƯU Ý: nhánh DENY dùng công thức `str(provider_model_ref) or None` — KHÁC
+        # nhánh ALLOW bên dưới (`str(x) if x else None`) — đây là hành vi gốc
+        # nguyên trạng (str(None) == "None", một chuỗi truthy nên KHÔNG bị "or None"
+        # rút gọn về None). Giữ nguyên byte-for-byte, không phải bug được sửa ở đây.
+        if snap_status and snap_status != "APPROVED_FOR_USE":
+            await self._repo.append_event(
+                RunEventRecord(
+                    run_id=run_id,
+                    event_type="compliance.decision",
+                    payload=ComplianceDecisionPayload(
+                        run_id=run_id,
+                        workspace_id=workspace_id,
+                        deployment_id=deployment_id,
+                        snapshot_hash=snapshot_hash,
+                        policy_snapshot_hash=policy_snapshot_hash,
+                        capability_id=capability_id,
+                        tool_call_id=tool_call_id,
+                        checkpoint_ref=checkpoint_ref or "",
+                        decision="DENY",
+                        reason_code="DEPLOYMENT_SUSPENDED",
+                        rule_version_ids=rule_version_ids,
+                        evidence_hashes=evidence_hashes,
+                        provider_model_ref=str(
+                            snap.get("provider_profile_version")
+                            if isinstance(snap, dict)
+                            else getattr(snap, "provider_profile_version", "")
+                        )
+                        or None,
+                        delegation_jti=str(
+                            ctx_meta.get("delegation_jti") or ctx_meta.get("_delegation_jti") or ""
+                        )
+                        or None,
+                    ).model_dump(),
+                )
+            )
+            return False, GatewayExecutionResult(
+                tool_call_id=tool_call_id,
+                status="denied",
+                error_message="Execution denied: AI deployment is suspended or not approved",
+            )
+
+        # Record compliance decision event (normal path)
+        await self._repo.append_event(
+            RunEventRecord(
+                run_id=run_id,
+                event_type="compliance.decision",
+                payload=ComplianceDecisionPayload(
+                    run_id=run_id,
+                    workspace_id=workspace_id,
+                    deployment_id=deployment_id,
+                    snapshot_hash=snapshot_hash,
+                    policy_snapshot_hash=policy_snapshot_hash,
+                    capability_id=capability_id,
+                    tool_call_id=tool_call_id,
+                    checkpoint_ref=checkpoint_ref or "",
+                    decision=current_decision.outcome.value,
+                    reason_code=getattr(current_decision, "reason_code", None),
+                    rule_version_ids=rule_version_ids,
+                    evidence_hashes=evidence_hashes,
+                    provider_model_ref=str(provider_model_ref) if provider_model_ref else None,
+                    delegation_jti=str(delegation_jti) if delegation_jti else None,
+                ).model_dump(),
+            )
+        )
+
+        return True, None
 
 
 class EnablementValidator:
