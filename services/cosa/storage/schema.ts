@@ -1,4 +1,5 @@
 import { pgSchema, text, integer, boolean, timestamp, jsonb, bigint, varchar } from "drizzle-orm/pg-core";
+import { controlPlaneSchema } from "./control-plane-schema";
 
 export * from "./control-plane-schema";
 
@@ -113,4 +114,15 @@ export const workspaceSyncLogs = cosaSchema.table("workspace_sync_logs", {
 export const platformWorkspaces = workspaces;
 export const platformWorkspaceMemberships = workspaceMemberships;
 export const platformWorkspaceSyncLog = workspaceSyncLogs;
+
+export const workspaceSettingsAuditEvents = controlPlaneSchema.table("workspace_settings_audit_events", {
+  eventId: bigint("event_id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  actorId: text("actor_id").notNull(),
+  eventType: text("event_type").notNull(),
+  targetKind: text("target_kind").notNull(),
+  targetId: text("target_id").notNull(),
+  details: jsonb("details").default({}).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/network/api_result.dart';
 import '../controllers/workspace_runtime_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -32,11 +33,44 @@ class BlockedWorkView extends StatelessWidget {
         const SizedBox(height: 12),
         Expanded(
           child: Obx(() {
-            if (controller.loading.value && controller.blockers.isEmpty) {
+            final result = controller.blockersResult.value;
+
+            if (controller.loading.value && result == null) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (controller.blockers.isEmpty) {
+            if (result is ApiFailure) {
+              final failure = (result as ApiFailure).failure;
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, size: 64, color: AppTheme.warning),
+                    const SizedBox(height: 16),
+                    Text(
+                      failure.code == ApiFailureCode.forbidden
+                          ? 'Bạn không có quyền truy cập thông tin tắc nghẽn.'
+                          : 'Dịch vụ tạm thời không khả dụng.',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      failure.message,
+                      style: const TextStyle(color: Colors.white38, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => controller.loadBlockers(),
+                      child: const Text('Thử lại'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final blockers = controller.blockers;
+
+            if (blockers.isEmpty) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -61,13 +95,10 @@ class BlockedWorkView extends StatelessWidget {
               onRefresh: () => controller.loadBlockers(),
               child: ListView.separated(
                 padding: EdgeInsets.zero,
-                itemCount: controller.blockers.length,
+                itemCount: blockers.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final blocker = controller.blockers[index] as Map<String, dynamic>;
-                  final function = (blocker['assigned_function'] ?? 'FOUNDER').toString();
-                  final blockerType = (blocker['blocker_type'] ?? 'BLOCKER').toString();
-                  final status = (blocker['status'] ?? 'OPEN').toString();
+                  final blocker = blockers[index];
 
                   return Card(
                     color: const Color(0xFF1E293B),
@@ -84,29 +115,27 @@ class BlockedWorkView extends StatelessWidget {
                             children: [
                               Chip(
                                 label: Text(
-                                  function,
+                                  blocker.sourceRef.kind.toUpperCase(),
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
                                 backgroundColor: Colors.indigo.withValues(alpha: 0.3),
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                blockerType,
+                                blocker.state,
                                 style: const TextStyle(color: Colors.amberAccent, fontSize: 12),
                               ),
                               const Spacer(),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: status == 'RESOLVED'
-                                      ? Colors.green.withValues(alpha: 0.2)
-                                      : Colors.orange.withValues(alpha: 0.2),
+                                  color: Colors.red.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  status,
-                                  style: TextStyle(
-                                    color: status == 'RESOLVED' ? Colors.greenAccent : Colors.orangeAccent,
+                                  blocker.severity,
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -116,29 +145,33 @@ class BlockedWorkView extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            blocker['description'] ?? 'Chi tiết blocker',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            blocker.title,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          const SizedBox(height: 14),
-                          if (status != 'RESOLVED')
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: ElevatedButton.icon(
+                          if (blocker.description != null && blocker.description!.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              blocker.description!,
+                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.primary,
                                   foregroundColor: Colors.white,
                                 ),
-                                icon: const Icon(Icons.check, size: 16),
-                                label: const Text('Giải tỏa Blocker'),
+                                icon: const Icon(Icons.search, size: 16),
+                                label: const Text('Kiểm tra tác vụ'),
                                 onPressed: () {
-                                  controller.resolveBlocker(blocker['id'].toString());
+                                  controller.loadInspector(blocker.sourceKind, blocker.sourceId);
                                 },
                               ),
-                            ),
+                            ],
+                          ),
                         ],
                       ),
                     ),

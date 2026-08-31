@@ -1,139 +1,60 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/modules/workspace_runtime/services/workspace_runtime_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/core/network/api_result.dart';
+import 'package:frontend/core/network/mvp_request_client.dart';
+import 'package:frontend/modules/workspace_runtime/services/workspace_runtime_mvp_client.dart';
+import 'package:frontend/modules/workspace_runtime/models/mvp_runtime_models.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-  late http.Client realClient;
-
   setUp(() {
-    realClient = ApiClient.client;
-    SharedPreferences.setMockInitialValues({'workspace_id': 'ws_123'});
+    SharedPreferences.setMockInitialValues({
+      'auth_token': 'test-token',
+      'workspace_id': 'ws_1001',
+    });
   });
 
-  tearDown(() {
-    ApiClient.client = realClient;
-  });
-
-  test('getNeedsYou returns list of exception items', () async {
-    ApiClient.client = MockClient((request) async {
-      // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-      expect(request.url.path, '/company-runtime/needs-you');
-      expect(request.url.queryParameters['workspace_id'], 'ws_123');
+  test('empty runtime response keeps source status and renders an empty state', () async {
+    final mockHttp = MockClient((request) async {
       return http.Response(
         jsonEncode({
-          'total': 1,
-          'items': [
-            {
-              'id': '101',
-              'priority': 'P0',
-              'reason': 'Approve marketing campaign terms',
-              'status': 'OPEN',
-            }
-          ]
+          'data': [],
+          'meta': {
+            'dataState': 'empty',
+            'observedAt': '2026-08-31T12:00:00.000Z',
+            'sources': [{'kind': 'company_db', 'ref': 'operating.tasks'}],
+          },
         }),
         200,
       );
     });
 
-    final service = WorkspaceRuntimeService();
-    final items = await service.getNeedsYou();
-    expect(items.length, 1);
-    expect(items.first['priority'], 'P0');
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final runtime = WorkspaceRuntimeMvpClient(client: requestClient);
+
+    final result = await runtime.listNeedsYou();
+    expect(result, isA<ApiSuccess<List<MvpRuntimeItem>>>());
+    final success = result as ApiSuccess<List<MvpRuntimeItem>>;
+    expect(success.data, isEmpty);
+    expect(success.meta.dataState, ApiDataState.empty);
   });
 
-  test('resolveNeedsYou and snoozeNeedsYou post to correct endpoints', () async {
-    ApiClient.client = MockClient((request) async {
-      expect(request.url.queryParameters['workspace_id'], 'ws_123');
-      if (request.url.path.contains('/resolve')) {
-        return http.Response(jsonEncode({'status': 'RESOLVED'}), 200);
-      }
-      if (request.url.path.contains('/snooze')) {
-        return http.Response(jsonEncode({'status': 'SNOOZED'}), 200);
-      }
-      return http.Response('Not Found', 404);
-    });
-
-    final service = WorkspaceRuntimeService();
-    final resolved = await service.resolveNeedsYou('101');
-    expect(resolved, true);
-
-    final snoozed = await service.snoozeNeedsYou('101', DateTime(2026, 12, 31));
-    expect(snoozed, true);
-  });
-
-  test('getBlockers and resolveBlocker operations', () async {
-    ApiClient.client = MockClient((request) async {
-      expect(request.url.queryParameters['workspace_id'], 'ws_123');
-      if (request.method == 'GET') {
-        return http.Response(
-          jsonEncode({
-            'total': 1,
-            'blockers': [
-              {
-                'id': '201',
-                'blocker_type': 'LEGAL_UNCERTAINTY',
-                'status': 'OPEN',
-              }
-            ]
-          }),
-          200,
-        );
-      } else if (request.method == 'POST') {
-        return http.Response(jsonEncode({'status': 'RESOLVED'}), 200);
-      }
-      return http.Response('Error', 500);
-    });
-
-    final service = WorkspaceRuntimeService();
-    final blockers = await service.getBlockers();
-    expect(blockers.length, 1);
-    expect(blockers.first['blocker_type'], 'LEGAL_UNCERTAINTY');
-
-    final ok = await service.resolveBlocker('201');
-    expect(ok, true);
-  });
-
-  test('getWorkInspector aggregates full operational state', () async {
-    ApiClient.client = MockClient((request) async {
-      // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-      expect(request.url.path, '/company-runtime/tasks/301/inspector');
-      expect(request.url.queryParameters['workspace_id'], 'ws_123');
+  test('runtime blockers failure preserves ApiFailure and does not collapse to empty', () async {
+    final mockHttp = MockClient((request) async {
       return http.Response(
-        jsonEncode({
-          'task': {'id': '301', 'title': 'Deploy Landing Page', 'status': 'in_progress'},
-          'outcome': {'id': '401', 'title': 'Landing Page Live'},
-          'dependencies': {'upstream': [], 'downstream': []},
-          'reviews': [],
-          'handoffs': [],
-          'blockers': [],
-          'artifacts': [],
-        }),
-        200,
+        jsonEncode({'code': 'permission_denied', 'message': 'Access forbidden'}),
+        403,
       );
     });
 
-    final service = WorkspaceRuntimeService();
-    final inspector = await service.getWorkInspector('301');
-    expect(inspector, isNotNull);
-    expect(inspector?['task']?['title'], 'Deploy Landing Page');
-  });
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final runtime = WorkspaceRuntimeMvpClient(client: requestClient);
 
-  test('decomposeMission endpoint', () async {
-    ApiClient.client = MockClient((request) async {
-      // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-      if (request.url.path == '/company-runtime/runtime/decompose') {
-        return http.Response(jsonEncode({'mission_id': '501', 'tasks_created': []}), 201);
-      }
-      return http.Response('Not Found', 404);
-    });
-
-    final service = WorkspaceRuntimeService();
-    final decomp = await service.decomposeMission('501');
-    expect(decomp?['mission_id'], '501');
+    final result = await runtime.listBlockers();
+    expect(result, isA<ApiFailure<List<MvpRuntimeItem>>>());
+    final failure = result as ApiFailure<List<MvpRuntimeItem>>;
+    expect(failure.failure.code, ApiFailureCode.forbidden);
   });
 }

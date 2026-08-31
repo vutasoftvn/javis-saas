@@ -52,3 +52,47 @@ export const createWeeklyCommitment = api(
     return createWeeklyCommitmentService(req);
   }
 );
+
+// ─── Canonical MVP Endpoints ───
+
+export const listTwelveWeekCycles = api(
+  { expose: true, method: "GET", path: "/operations/twelve-week-cycles" },
+  async ({
+    authorization,
+    workspaceId,
+  }: {
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+  }) => {
+    const { listTwelveWeekCyclesService } = await import("../services/twelve-week-year.service");
+    return listTwelveWeekCyclesService(workspaceId, authorization);
+  }
+);
+
+export const listTwelveWeekPlans = api(
+  { expose: true, method: "GET", path: "/operations/twelve-week-plans" },
+  async ({
+    authorization,
+    workspaceId,
+  }: {
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+  }) => {
+    const { listWeeklyPlansService } = await import("../services/twelve-week-year.service");
+    return listWeeklyPlansService(workspaceId, authorization);
+  }
+);
+
+export const listTwelveWeekCommitments = api(
+  { expose: true, method: "GET", path: "/operations/twelve-week-commitments" },
+  async ({
+    authorization,
+    workspaceId,
+  }: {
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+  }) => {
+    const { listWeeklyCommitmentsService } = await import("../services/twelve-week-year.service");
+    return listWeeklyCommitmentsService(workspaceId, authorization);
+  }
+);

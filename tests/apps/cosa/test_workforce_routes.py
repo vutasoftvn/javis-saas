@@ -1,0 +1,163 @@
+from __future__ import annotations
+
+import asyncio
+from unittest.mock import AsyncMock
+
+import httpx
+import pytest
+
+from agent.artifacts import InMemoryArtifactRepository
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.coordination.scheduler import RunScheduler
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.leases import RunLeaseManager
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.workforce.repository import InMemoryWorkforceRepository
+from agent_testkit.fake_sdk_model import FakeSDKModel
+
+from apps.cosa.agents.seed import seed_cosa_agent_specs
+from apps.cosa.api.app import create_cosa_app
+from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+from tests.apps.cosa.policy_test_helpers import (
+    configure_mock_client_allows_data_use,
+    fake_active_tenant_policy_client,
+)
+
+
+@pytest.fixture
+def test_app():
+    mock_client = AsyncMock(spec=CompanyServiceClient)
+    configure_mock_client_allows_data_use(mock_client)
+    plane = build_cosa_agent_plane(
+        company_client=mock_client,
+        tenant_policy_client=fake_active_tenant_policy_client(),
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        scheduler=RunScheduler(),
+        lease_client=RunLeaseManager(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        artifact_repository=InMemoryArtifactRepository(),
+        workforce_repository=InMemoryWorkforceRepository(),
+        model=FakeSDKModel(),
+    )
+    asyncio.run(seed_cosa_agent_specs(plane.spec_registry))
+    return create_cosa_app(plane)
+
+
+@pytest.mark.asyncio
+async def test_empty_assignment_roster_is_honest(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/assignments")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["meta"]["data_state"] == "empty"
+        assert data["data"] == []
+
+
+@pytest.mark.asyncio
+async def test_create_assignment_and_list(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        create_res = await client.post(
+            "/agent/workforce/assignments",
+            json={"functional_key": "campaign_planner"},
+        )
+        assert create_res.status_code == 200
+        created = create_res.json()["data"]
+        assert created["functional_key"] == "campaign_planner"
+        assert created["status"] == "ACTIVE"
+        assert created["workspace_id"] == "ws_1001"
+
+        list_res = await client.get("/agent/workforce/assignments")
+        assert list_res.status_code == 200
+        items = list_res.json()["data"]
+        assert len(items) == 1
+        assert items[0]["assignment_id"] == created["assignment_id"]
+
+
+@pytest.mark.asyncio
+async def test_tenant_isolation_cannot_see_or_retire_other_workspace_assignment(test_app) -> None:
+    # 1. Workspace A creates an assignment
+    override_authenticated_identity(test_app, workspace_id="ws_A", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client_a:
+        res_a = await client_a.post(
+            "/agent/workforce/assignments",
+            json={"functional_key": "compliance_analyst"},
+        )
+        assert res_a.status_code == 200
+        assignment_id_a = res_a.json()["data"]["assignment_id"]
+
+    # 2. Workspace B lists assignments (must not see Workspace A's assignment)
+    override_authenticated_identity(test_app, workspace_id="ws_B", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client_b:
+        res_b = await client_b.get("/agent/workforce/assignments")
+        assert res_b.status_code == 200
+        assert res_b.json()["data"] == []
+
+        # 3. Workspace B attempts to retire Workspace A's assignment (must fail with 404)
+        retire_b = await client_b.post(f"/agent/workforce/assignments/{assignment_id_a}/retire")
+        assert retire_b.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_composition_shows_assigned_status_honestly(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        # Initially, all are unassigned
+        comp_res = await client.get("/agent/workforce/composition")
+        assert comp_res.status_code == 200
+        entries = comp_res.json()["data"]
+        assert len(entries) > 0
+        assert all(not e["assigned"] for e in entries)
+
+        # Assign campaign_planner
+        await client.post(
+            "/agent/workforce/assignments",
+            json={"functional_key": "campaign_planner"},
+        )
+
+        comp_after = await client.get("/agent/workforce/composition")
+        entries_after = comp_after.json()["data"]
+        cp_entry = next(e for e in entries_after if e["functional_key"] == "campaign_planner")
+        assert cp_entry["assigned"] is True
+
+
+@pytest.mark.asyncio
+async def test_health_reports_not_observed_when_no_runs(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        await client.post(
+            "/agent/workforce/assignments",
+            json={"functional_key": "campaign_planner"},
+        )
+        health_res = await client.get("/agent/workforce/health")
+        assert health_res.status_code == 200
+        items = health_res.json()["data"]
+        assert len(items) == 1
+        assert items[0]["status"] == "not_observed"
+        assert items[0]["observed_at"] is None

@@ -41,10 +41,6 @@
       "resolved": false,
       "owner": null
     },
-    "DELETE /operations/objectives": {
-      "resolved": true,
-      "owner": null
-    },
     "DELETE /operations/projects": {
       "resolved": true,
       "owner": null
@@ -241,10 +237,6 @@
       "resolved": true,
       "owner": null
     },
-    "GET /operations/okr-cycles": {
-      "resolved": true,
-      "owner": null
-    },
     "GET /operations/projects": {
       "resolved": true,
       "owner": null
@@ -302,10 +294,6 @@
       "owner": null
     },
     "GET /operations/tasks": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/workspaces": {
       "resolved": true,
       "owner": null
     },

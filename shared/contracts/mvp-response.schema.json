@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "javis.mvp.response.v1",
+  "title": "MvpResponseEnvelope",
+  "type": "object",
+  "success": {
+    "type": "object",
+    "required": ["data", "meta"],
+    "properties": {
+      "data": {},
+      "meta": {
+        "type": "object",
+        "required": ["data_state", "observed_at", "sources"],
+        "properties": {
+          "data_state": {
+            "type": "string",
+            "enum": ["populated", "empty"]
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "ref"],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "company_db",
+                    "agent_db",
+                    "object_store",
+                    "control_plane",
+                    "external_connector"
+                  ]
+                },
+                "ref": { "type": "string" },
+                "observed_at": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "failure_codes": [
+    "unauthenticated",
+    "forbidden",
+    "not_found",
+    "invalid_request",
+    "conflict",
+    "unavailable",
+    "not_connected",
+    "rate_limited",
+    "malformed_response",
+    "unknown"
+  ]
+}

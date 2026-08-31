@@ -413,3 +413,33 @@ export const maturityAssessments = strategySchema.table("maturity_assessments", 
   assessedAt: timestamp("assessed_at", { withTimezone: true }).defaultNow().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// 21. Strategy Canvases (Full MVP)
+export const canvases = strategySchema.table("canvases", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  currentRevisionId: bigint("current_revision_id", { mode: "bigint" }),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+// 22. Strategy Canvas Revisions (Full MVP)
+export const canvasRevisions = strategySchema.table("canvas_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  canvasId: bigint("canvas_id", { mode: "bigint" }).notNull().references(() => canvases.id, { onDelete: "cascade" }),
+  parentRevisionId: bigint("parent_revision_id", { mode: "bigint" }),
+  content: jsonb("content").notNull(),
+  status: text("status").notNull(), // 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED'
+  origin: text("origin").notNull(), // 'USER' | 'MODEL_DRAFT'
+  sourceRefs: jsonb("source_refs").default([]).notNull(),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  reviewedByMemberId: bigint("reviewed_by_member_id", { mode: "bigint" }),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+});

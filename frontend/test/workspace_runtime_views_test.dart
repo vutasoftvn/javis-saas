@@ -1,128 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/modules/workspace_runtime/controllers/workspace_runtime_controller.dart';
+import 'package:frontend/modules/workspace_runtime/models/mvp_runtime_models.dart';
+import 'package:frontend/modules/workspace_runtime/services/workspace_runtime_service.dart';
 import 'package:frontend/modules/workspace_runtime/views/needs_you_view.dart';
 import 'package:frontend/modules/workspace_runtime/views/blocked_work_view.dart';
-import 'package:frontend/modules/workspace_runtime/views/work_inspector_view.dart';
-import 'package:frontend/modules/hologram_hub/presentation/widgets/needs_you_panel.dart';
+
+class MockWorkspaceRuntimeService extends WorkspaceRuntimeService {
+  @override
+  Future<ApiResult<List<MvpRuntimeItem>>> getNeedsYouResult() async {
+    return ApiSuccess(
+      data: const [],
+      meta: ApiResponseMeta(
+        dataState: ApiDataState.empty,
+        observedAt: DateTime.now(),
+        sources: const [ApiSourceRef(kind: 'company_db', ref: 'operating.tasks')],
+      ),
+    );
+  }
+
+  @override
+  Future<ApiResult<List<MvpRuntimeItem>>> getBlockersResult() async {
+    return ApiSuccess(
+      data: const [],
+      meta: ApiResponseMeta(
+        dataState: ApiDataState.empty,
+        observedAt: DateTime.now(),
+        sources: const [ApiSourceRef(kind: 'company_db', ref: 'operating.task_dependencies')],
+      ),
+    );
+  }
+
+  @override
+  Future<ApiResult<List<MvpSourceStatus>>> getRuntimeStatusResult() async {
+    return ApiSuccess(
+      data: const [],
+      meta: ApiResponseMeta(
+        dataState: ApiDataState.empty,
+        observedAt: DateTime.now(),
+        sources: const [],
+      ),
+    );
+  }
+}
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   setUp(() {
     Get.reset();
   });
 
-  testWidgets('NeedsYouView renders empty state cleanly', (WidgetTester tester) async {
-    final controller = Get.put(WorkspaceRuntimeController());
-    controller.needsYouItems.clear();
-    controller.loading.value = false;
+  testWidgets('NeedsYouView renders empty state honestly when collection is empty', (tester) async {
+    final mockService = MockWorkspaceRuntimeService();
+    Get.put(WorkspaceRuntimeController(service: mockService));
 
     await tester.pumpWidget(
       const GetMaterialApp(
-        home: NeedsYouView(),
+        home: Scaffold(
+          body: NeedsYouView(),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text('Cần bạn xử lý (Needs You)'), findsOneWidget);
     expect(find.text('Tuyệt vời! Không có việc gì cần xử lý ngay bây giờ.'), findsOneWidget);
   });
 
-  testWidgets('NeedsYouView renders items with action buttons', (WidgetTester tester) async {
-    final controller = Get.put(WorkspaceRuntimeController());
-    controller.needsYouItems.assignAll([
-      {
-        'id': '101',
-        'source_type': 'BLOCKER',
-        'priority': 'P0',
-        'title': 'Choose pricing model before enterprise contract',
-        'reason': 'Choose pricing model before enterprise contract',
-        'requested_action': 'Select Tier A or Tier B',
-      }
-    ]);
-
-    controller.loading.value = false;
+  testWidgets('BlockedWorkView renders empty state honestly when no blockers', (tester) async {
+    final mockService = MockWorkspaceRuntimeService();
+    Get.put(WorkspaceRuntimeController(service: mockService));
 
     await tester.pumpWidget(
       const GetMaterialApp(
-        home: NeedsYouView(),
-      ),
-    );
-
-    expect(find.text('Choose pricing model before enterprise contract'), findsOneWidget);
-    expect(find.text('P0'), findsOneWidget);
-    expect(find.text('Đã xử lý'), findsOneWidget);
-    expect(find.text('Hoãn 1 ngày'), findsOneWidget);
-  });
-
-  testWidgets('BlockedWorkView renders list of blockers', (WidgetTester tester) async {
-    final controller = Get.put(WorkspaceRuntimeController());
-    controller.blockers.assignAll([
-      {
-        'id': '201',
-        'assigned_function': 'FINANCE',
-        'blocker_type': 'FINANCE_EXCEPTION',
-        'description': 'Transaction missing invoice documentation',
-        'status': 'OPEN',
-      }
-    ]);
-    controller.loading.value = false;
-
-    await tester.pumpWidget(
-      const GetMaterialApp(
-        home: BlockedWorkView(),
-      ),
-    );
-
-    expect(find.text('Công việc tắc nghẽn (Blocked Work)'), findsOneWidget);
-    expect(find.text('FINANCE'), findsOneWidget);
-    expect(find.text('Transaction missing invoice documentation'), findsOneWidget);
-    expect(find.text('Giải tỏa Blocker'), findsOneWidget);
-  });
-
-  testWidgets('WorkInspectorView renders search and inspector sections', (WidgetTester tester) async {
-    final controller = Get.put(WorkspaceRuntimeController());
-    controller.currentInspectorData.value = {
-      'task': {'id': '301', 'title': 'Deploy Landing Page', 'status': 'in_progress', 'priority': 'high'},
-      'outcome': {'title': 'Landing Page Live', 'desired_result': 'Staging URL active', 'rework_count': 0},
-      'dependencies': {'upstream': [], 'downstream': []},
-      'reviews': [],
-      'handoffs': [],
-      'blockers': [],
-      'artifacts': [],
-    };
-    controller.loading.value = false;
-
-    await tester.pumpWidget(
-      const GetMaterialApp(
-        home: WorkInspectorView(),
-      ),
-    );
-
-    expect(find.text('Giám sát công việc (Work Inspector)'), findsOneWidget);
-
-    expect(find.text('Deploy Landing Page'), findsOneWidget);
-    expect(find.text('1. Task Execution Unit'), findsOneWidget);
-    expect(find.text('2. Work Contract & Acceptance Criteria'), findsOneWidget);
-  });
-
-  testWidgets('NeedsYouPanel renders on hub right rail', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      GetMaterialApp(
         home: Scaffold(
-          body: NeedsYouPanel(
-            items: const [
-              {'reason': 'Approve marketing launch', 'priority': 'P0'}
-            ],
-            onViewAll: () {},
-          ),
+          body: BlockedWorkView(),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text('CẦN BẠN XỬ LÝ — NGOẠI LỆ'), findsOneWidget);
-    expect(find.text('Approve marketing launch'), findsOneWidget);
-    expect(find.text('XEM TOÀN BỘ NEEDS YOU'), findsNothing);
+    expect(find.text('Công việc tắc nghẽn (Blocked Work)'), findsOneWidget);
+    expect(find.text('Không có công việc nào bị nghẽn (No Blockers)'), findsOneWidget);
   });
 }

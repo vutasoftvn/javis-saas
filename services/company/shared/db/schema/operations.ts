@@ -256,3 +256,29 @@ export const taskExecutionRecords = operatingSchema.table("task_execution_record
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 18. Runtime Source Signals (Full MVP - Immutable upstream agent signals projection)
+export const runtimeSourceSignals = operatingSchema.table("runtime_source_signals", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  sourceKind: text("source_kind").notNull(),
+  sourceId: text("source_id").notNull(),
+  sequence: bigint("sequence", { mode: "bigint" }).notNull(),
+  state: text("state").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  correlationId: text("correlation_id").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 19. Runtime Snoozes (Full MVP - Actor-specific snooze overlay)
+export const runtimeSnoozes = operatingSchema.table("runtime_snoozes", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }).notNull(),
+  sourceKind: text("source_kind").notNull(),
+  sourceId: text("source_id").notNull(),
+  snoozedUntil: timestamp("snoozed_until", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+

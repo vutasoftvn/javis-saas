@@ -424,6 +424,16 @@ async def decide_approval(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}"
         )
 
+    if getattr(plane, "workforce_repository", None) is not None:
+        await plane.workforce_repository.enqueue_runtime_signal(
+            workspace_id=identity.workspace_id,
+            source_kind="approval",
+            source_id=approval_id,
+            sequence=1,
+            state=decided.status,
+            observed_at=decided.decided_at or datetime.now(UTC),
+        )
+
     # Bơm Prometheus approval metric — tính wait time từ khi tạo approval đến khi quyết định
     try:
         from apps.cosa.observability.metrics import record_approval as _record_approval

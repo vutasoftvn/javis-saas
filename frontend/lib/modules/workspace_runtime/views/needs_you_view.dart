@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/network/api_result.dart';
 import '../controllers/workspace_runtime_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -32,11 +33,44 @@ class NeedsYouView extends StatelessWidget {
         const SizedBox(height: 12),
         Expanded(
           child: Obx(() {
-            if (controller.loading.value && controller.needsYouItems.isEmpty) {
+            final result = controller.needsYouResult.value;
+
+            if (controller.loading.value && result == null) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (controller.needsYouItems.isEmpty) {
+            if (result is ApiFailure) {
+              final failure = (result as ApiFailure).failure;
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, size: 64, color: AppTheme.warning),
+                    const SizedBox(height: 16),
+                    Text(
+                      failure.code == ApiFailureCode.forbidden
+                          ? 'Bạn không có quyền truy cập hàng đợi này.'
+                          : 'Dịch vụ tạm thời không khả dụng.',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      failure.message,
+                      style: const TextStyle(color: Colors.white38, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: controller.loadNeedsYou,
+                      child: const Text('Thử lại'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final items = controller.needsYouItems;
+
+            if (items.isEmpty) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -61,10 +95,10 @@ class NeedsYouView extends StatelessWidget {
               onRefresh: controller.loadNeedsYou,
               child: ListView.builder(
                 padding: EdgeInsets.zero,
-                itemCount: controller.needsYouItems.length,
+                itemCount: items.length,
                 itemBuilder: (context, index) {
-                  final item = controller.needsYouItems[index];
-                  final isHighPrio = item['priority'] == 'P0';
+                  final item = items[index];
+                  final isHighPrio = item.severity == 'HIGH' || item.severity == 'CRITICAL';
 
                   return Card(
                     color: const Color(0xFF1E293B),
@@ -89,7 +123,7 @@ class NeedsYouView extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  item['priority'] ?? 'NORMAL',
+                                  item.severity,
                                   style: TextStyle(
                                     color: isHighPrio ? AppTheme.warning : Colors.white70,
                                     fontWeight: FontWeight.bold,
@@ -99,25 +133,25 @@ class NeedsYouView extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                _sourceTypeLabel(item['source_type'] as String?),
+                                item.sourceRef.kind.toUpperCase(),
                                 style: const TextStyle(color: Colors.white54, fontSize: 12),
                               ),
                               const Spacer(),
                               Text(
-                                item['created_at']?.toString().substring(0, 10) ?? '',
+                                item.createdAt.length >= 10 ? item.createdAt.substring(0, 10) : item.createdAt,
                                 style: const TextStyle(color: Colors.white38, fontSize: 12),
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            (item['requested_action'] as String?) ?? 'Cần xử lý ngoại lệ',
+                            item.title,
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          if (item['reason'] != null && (item['reason'] as String).isNotEmpty) ...[
+                          if (item.description != null && item.description!.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(
-                              item['reason'],
+                              item.description!,
                               style: const TextStyle(color: Colors.white70, fontSize: 14),
                             ),
                           ],
@@ -130,7 +164,7 @@ class NeedsYouView extends StatelessWidget {
                                 label: const Text('Hoãn 1 ngày', style: TextStyle(color: Colors.white60)),
                                 onPressed: () {
                                   final until = DateTime.now().add(const Duration(days: 1));
-                                  controller.snoozeNeedsYou(item['id'].toString(), until);
+                                  controller.snoozeNeedsYou(item.sourceKind, item.sourceId, until);
                                 },
                               ),
                               const SizedBox(width: 8),
@@ -139,10 +173,10 @@ class NeedsYouView extends StatelessWidget {
                                   backgroundColor: AppTheme.primary,
                                   foregroundColor: Colors.white,
                                 ),
-                                icon: const Icon(Icons.check, size: 16),
-                                label: const Text('Đã xử lý'),
+                                icon: const Icon(Icons.open_in_new, size: 16),
+                                label: const Text('Xem chi tiết'),
                                 onPressed: () {
-                                  controller.resolveNeedsYou(item['id'].toString());
+                                  controller.loadInspector(item.sourceKind, item.sourceId);
                                 },
                               ),
                             ],
@@ -158,31 +192,5 @@ class NeedsYouView extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  /// Nhãn hiển thị cho `source_type` - khớp giá trị thật ghi trong
-  /// NeedsYouItem.source_type (backend/app/modules/workspace_runtime/models.py).
-  String _sourceTypeLabel(String? sourceType) {
-    switch (sourceType) {
-      case 'ai_proposal':
-        return 'ĐỀ XUẤT AI';
-      case 'blocker':
-        return 'BLOCKER';
-      case 'approval':
-      case 'pending_approval':
-      case 'email_approval':
-      case 'workflow_approval':
-        return 'CẦN DUYỆT';
-      case 'review':
-        return 'REVIEW';
-      case 'finance_exception':
-        return 'TÀI CHÍNH';
-      case 'legal_exception':
-        return 'PHÁP LÝ';
-      case 'recovery':
-        return 'RECOVERY';
-      default:
-        return sourceType?.toUpperCase() ?? 'EXCEPTION';
-    }
   }
 }

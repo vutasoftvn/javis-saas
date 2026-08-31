@@ -1,10 +1,11 @@
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { computeKeyResultScore, computeObjectiveScore } from "./okr-scoring.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { mvpList, mvpItem, MvpSuccess } from "../../shared/contracts/mvp-response";
 
 const { okrCycles, okrObjectives, keyResults } = schema;
 
@@ -66,6 +67,16 @@ export interface ObjectiveProgress {
   objectiveId: string;
   score: number;
   keyResults: { id: string; title: string | null; score: number }[];
+}
+
+function toOkrCycle(row: typeof okrCycles.$inferSelect): OkrCycle {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    name: row.name,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 function toKeyResult(row: typeof keyResults.$inferSelect): KeyResult {
@@ -213,11 +224,24 @@ export async function getObjectiveService(id: string, authorization: string | un
   return toObjective(row, projectIds);
 }
 
-export async function getObjectiveProgressService(objectiveId: string): Promise<ObjectiveProgress> {
+export async function getObjectiveProgressService(
+  objectiveId: string,
+  ctx?: TenantContext
+): Promise<ObjectiveProgress> {
+  const objId = BigInt(objectiveId);
+  if (ctx) {
+    const wsId = BigInt(ctx.workspaceId);
+    const [obj] = await db
+      .select()
+      .from(okrObjectives)
+      .where(and(eq(okrObjectives.id, objId), eq(okrObjectives.workspaceId, wsId)));
+    if (!obj) throw APIError.notFound(`Objective ${objectiveId} not found`);
+  }
+
   const rows = await db
     .select()
     .from(keyResults)
-    .where(eq(keyResults.objectiveId, BigInt(objectiveId)));
+    .where(eq(keyResults.objectiveId, objId));
 
   const resultKeyResults: { id: string; title: string | null; score: number }[] = rows.map((row) => ({
     id: row.id.toString(),
@@ -227,4 +251,58 @@ export async function getObjectiveProgressService(objectiveId: string): Promise<
 
   const score = computeObjectiveScore(resultKeyResults.map((kr) => kr.score));
   return { objectiveId: String(objectiveId), score, keyResults: resultKeyResults };
+}
+
+export async function listOkrCyclesService(ctx: TenantContext): Promise<MvpSuccess<readonly OkrCycle[]>> {
+  const wsId = BigInt(ctx.workspaceId);
+  const rows = await db
+    .select()
+    .from(okrCycles)
+    .where(eq(okrCycles.workspaceId, wsId))
+    .orderBy(desc(okrCycles.createdAt));
+
+  return mvpList(
+    rows.map(toOkrCycle),
+    [{ kind: "company_db", ref: "operating.okr_cycles" }]
+  );
+}
+
+export async function listObjectivesService(ctx: TenantContext): Promise<MvpSuccess<readonly Objective[]>> {
+  const wsId = BigInt(ctx.workspaceId);
+  const rows = await db
+    .select()
+    .from(okrObjectives)
+    .where(eq(okrObjectives.workspaceId, wsId))
+    .orderBy(desc(okrObjectives.createdAt));
+
+  const objectivesList: Objective[] = [];
+  const { listObjectiveProjects } = await import("./project-link.service");
+
+  for (const row of rows) {
+    const pIds = await listObjectiveProjects(ctx, row.id.toString());
+    objectivesList.push(toObjective(row, pIds));
+  }
+
+  return mvpList(
+    objectivesList,
+    [{ kind: "company_db", ref: "operating.okr_objectives" }]
+  );
+}
+
+export async function deleteObjectiveService(ctx: TenantContext, idStr: string): Promise<void> {
+  const wsId = BigInt(ctx.workspaceId);
+  const id = BigInt(idStr);
+
+  const [existing] = await db
+    .select()
+    .from(okrObjectives)
+    .where(and(eq(okrObjectives.id, id), eq(okrObjectives.workspaceId, wsId)));
+
+  if (!existing) {
+    throw APIError.notFound(`Objective ${idStr} not found`);
+  }
+
+  await db
+    .delete(okrObjectives)
+    .where(and(eq(okrObjectives.id, id), eq(okrObjectives.workspaceId, wsId)));
 }

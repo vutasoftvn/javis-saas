@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/network/api_result.dart';
 import '../controllers/workspace_runtime_controller.dart';
+import '../models/mvp_runtime_models.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
@@ -45,13 +47,13 @@ class WorkInspectorView extends StatelessWidget {
                             controller: searchCtrl,
                             style: const TextStyle(color: Colors.white),
                             decoration: const InputDecoration(
-                              hintText: 'Nhập Task ID để kiểm tra toàn diện...',
+                              hintText: 'Nhập ID tác vụ để kiểm tra...',
                               hintStyle: TextStyle(color: Colors.white38),
                               border: InputBorder.none,
                             ),
                             onSubmitted: (val) {
                               if (val.trim().isNotEmpty) {
-                                controller.loadInspector(val.trim());
+                                controller.loadInspector('task', val.trim());
                               }
                             },
                           ),
@@ -64,7 +66,7 @@ class WorkInspectorView extends StatelessWidget {
                           onPressed: () {
                             final val = searchCtrl.text.trim();
                             if (val.isNotEmpty) {
-                              controller.loadInspector(val);
+                              controller.loadInspector('task', val);
                             }
                           },
                           child: const Text('Tra cứu'),
@@ -86,8 +88,8 @@ class WorkInspectorView extends StatelessWidget {
                     );
                   }
 
-                  final data = controller.currentInspectorData.value;
-                  if (data == null) {
+                  final result = controller.currentInspectorResult.value;
+                  if (result == null) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(40),
@@ -98,7 +100,7 @@ class WorkInspectorView extends StatelessWidget {
                             Text(
                               controller.selectedTaskId.value.isEmpty
                                   ? 'Chọn hoặc nhập Task ID để xem Inspector'
-                                  : 'Không tìm thấy dữ liệu Inspector cho Task ${controller.selectedTaskId.value}',
+                                  : 'Không tìm thấy thông tin tác vụ',
                               style: const TextStyle(color: Colors.white54),
                             ),
                           ],
@@ -107,166 +109,92 @@ class WorkInspectorView extends StatelessWidget {
                     );
                   }
 
-                  final task = data['task'] as Map<String, dynamic>? ?? {};
-                  final outcome = data['outcome'] as Map<String, dynamic>?;
-                  final reviews = (data['reviews'] as List<dynamic>?) ?? [];
-                  final handoffs = (data['handoffs'] as List<dynamic>?) ?? [];
-                  final blockers = (data['blockers'] as List<dynamic>?) ?? [];
-                  final artifacts = (data['artifacts'] as List<dynamic>?) ?? [];
-                  final runSteps = (data['run_steps'] as List<dynamic>?) ?? [];
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 1. Task Header
-                      _buildSectionCard(
-                        context,
-                        title: '1. Task Execution Unit',
-                        icon: Icons.task_alt,
+                  if (result is ApiFailure) {
+                    final failure = (result as ApiFailure).failure;
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            const Icon(Icons.error_outline, size: 48, color: AppTheme.warning),
+                            const SizedBox(height: 12),
                             Text(
-                              task['title'] ?? 'Untitled Task',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                Chip(label: Text('Status: ${task['status']}')),
-                                Chip(label: Text('Function: ${task['function'] ?? 'N/A'}')),
-                                Chip(label: Text('Mode: ${task['execution_mode'] ?? 'N/A'}')),
-                                Chip(label: Text('Priority: ${task['priority']}')),
-                              ],
+                              'Không thể tải chi tiết tác vụ: ${failure.message}',
+                              style: const TextStyle(color: Colors.white70),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                    );
+                  }
 
-                      // 2. Work Contract & Outcome
-                      if (outcome != null)
-                        _buildSectionCard(
-                          context,
-                          title: '2. Work Contract & Acceptance Criteria',
-                          icon: Icons.description_outlined,
+                  final data = (result as ApiSuccess<MvpRuntimeItemDetail>).data;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Card
+                      Card(
+                        color: const Color(0xFF1E293B),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Outcome: ${outcome['title']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 6),
-                              Text('Kết quả mong đợi: ${outcome['desired_result']}', style: const TextStyle(color: Colors.white70)),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
+                              Row(
                                 children: [
-                                  Chip(label: Text('Review: ${outcome['review_type'] ?? 'N/A'}')),
-                                  Chip(label: Text('Rework Count: ${outcome['rework_count'] ?? 0}')),
+                                  Chip(
+                                    label: Text(
+                                      data.sourceRef.kind.toUpperCase(),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                    backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    data.state,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    'Nguồn: ${data.sourceRef.ref}',
+                                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                data.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                              ),
+                              if (data.description != null && data.description!.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  data.description!,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                ),
+                              ],
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  _InfoBadge(label: 'Mức độ', value: data.severity),
+                                  const SizedBox(width: 16),
+                                  _InfoBadge(
+                                    label: 'Quan sát lúc',
+                                    value: data.observedAt.length >= 19
+                                        ? data.observedAt.substring(0, 19).replaceAll('T', ' ')
+                                        : data.observedAt,
+                                  ),
                                 ],
                               ),
                             ],
                           ),
                         ),
-                      const SizedBox(height: 16),
-
-                      // 3. Handoffs & Blockers
-                      _buildSectionCard(
-                        context,
-                        title: '3. Handoffs & Blockers (${handoffs.length} Handoffs · ${blockers.length} Blockers)',
-                        icon: Icons.alt_route_rounded,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (handoffs.isNotEmpty) ...[
-                              const Text('Handoffs:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              ...handoffs.map((h) => ListTile(
-                                    dense: true,
-                                    title: Text('To: ${h['to_function']}', style: const TextStyle(color: Colors.white70)),
-                                    subtitle: Text('Status: ${h['status']}', style: const TextStyle(color: Colors.white38)),
-                                  )),
-                            ],
-                            if (blockers.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              const Text('Blockers:', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold)),
-                              ...blockers.map((b) => ListTile(
-                                    dense: true,
-                                    title: Text(b['description'] ?? 'Blocker', style: const TextStyle(color: Colors.white70)),
-                                    subtitle: Text('Status: ${b['status']}', style: const TextStyle(color: Colors.white38)),
-                                  )),
-                            ],
-                            if (handoffs.isEmpty && blockers.isEmpty)
-                              const Text('Không có Handoffs hoặc Blockers nào.', style: TextStyle(color: Colors.white38)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 4. Artifacts & Reviews
-                      _buildSectionCard(
-                        context,
-                        title: '4. Artifacts & Reviews (${artifacts.length} Artifacts · ${reviews.length} Reviews)',
-                        icon: Icons.folder_zip_outlined,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (artifacts.isNotEmpty) ...[
-                              const Text('Artifacts:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              ...artifacts.map((a) => ListTile(
-                                    dense: true,
-                                    title: Text(a['file_path'] ?? 'Artifact', style: const TextStyle(color: Colors.white70)),
-                                    subtitle: Text('Type: ${a['artifact_type']}', style: const TextStyle(color: Colors.white38)),
-                                  )),
-                            ],
-                            if (reviews.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              const Text('Reviews:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              ...reviews.map((r) => ListTile(
-                                    dense: true,
-                                    title: Text('Verdict: ${r['verdict']}', style: const TextStyle(color: Colors.white70)),
-                                    subtitle: Text('Notes: ${r['notes'] ?? 'None'}', style: const TextStyle(color: Colors.white38)),
-                                  )),
-                            ],
-                            if (artifacts.isEmpty && reviews.isEmpty)
-                              const Text('Chưa có Artifacts hoặc Reviews nào.', style: TextStyle(color: Colors.white38)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 5. Execution Dispatch Trace (RunSteps)
-                      _buildSectionCard(
-                        context,
-                        title: '5. Execution Dispatch (${runSteps.length} RunSteps)',
-                        icon: Icons.route_outlined,
-                        child: runSteps.isEmpty
-                            ? const Text(
-                                'Chưa có RunStep nào được dispatch cho Task này.',
-                                style: TextStyle(color: Colors.white38),
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: runSteps.map((rs) {
-                                  final step = rs as Map<String, dynamic>;
-                                  return ListTile(
-                                    dense: true,
-                                    leading: const Icon(Icons.smart_toy_outlined, size: 18, color: Colors.white54),
-                                    title: Text(
-                                      'Profile: ${step['assigned_agent_profile_id'] ?? 'N/A'}',
-                                      style: const TextStyle(color: Colors.white70),
-                                    ),
-                                    subtitle: Text(
-                                      'Status: ${step['status']} · Risk: ${step['risk_level'] ?? 'N/A'} · Runtime: ${step['assigned_runtime'] ?? 'N/A'}',
-                                      style: const TextStyle(color: Colors.white38),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
                       ),
                     ],
                   );
@@ -278,28 +206,23 @@ class WorkInspectorView extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildSectionCard(BuildContext context, {required String title, required IconData icon, required Widget child}) {
-    return Card(
-      color: const Color(0xFF1E293B),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20, color: AppTheme.primary),
-                const SizedBox(width: 8),
-                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-              ],
-            ),
-            const Divider(color: Colors.white10, height: 24),
-            child,
-          ],
-        ),
-      ),
+class _InfoBadge extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoBadge({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
     );
   }
 }

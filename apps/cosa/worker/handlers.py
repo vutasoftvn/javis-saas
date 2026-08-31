@@ -3,6 +3,7 @@ import logging
 import os
 import time
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -360,6 +361,16 @@ async def _execute_run_task_inner(
                 except Exception as e:
                     logger.warning("Failed to persist workspace artifact for run %s: %s", run_id, e)
 
+            if getattr(plane, "workforce_repository", None) is not None:
+                await plane.workforce_repository.enqueue_runtime_signal(
+                    workspace_id=workspace_id,
+                    source_kind="run",
+                    source_id=run_id,
+                    sequence=1,
+                    state="COMPLETED",
+                    observed_at=datetime.now(UTC),
+                )
+
             await stream_mgr.emit(
                 stream_repo,
                 run_id=run_id,
@@ -375,6 +386,16 @@ async def _execute_run_task_inner(
             )
             appr_id = wait_desc.related_ref if wait_desc else None
             ckpt_ref = wait_desc.checkpoint_ref if wait_desc else None
+
+            if getattr(plane, "workforce_repository", None) is not None:
+                await plane.workforce_repository.enqueue_runtime_signal(
+                    workspace_id=workspace_id,
+                    source_kind="run",
+                    source_id=run_id,
+                    sequence=1,
+                    state="WAITING_APPROVAL",
+                    observed_at=datetime.now(UTC),
+                )
 
             await stream_mgr.emit(
                 stream_repo,
@@ -399,6 +420,16 @@ async def _execute_run_task_inner(
                 run_id=run_id,
                 status_="failed",
             )
+            if getattr(plane, "workforce_repository", None) is not None:
+                await plane.workforce_repository.enqueue_runtime_signal(
+                    workspace_id=workspace_id,
+                    source_kind="run",
+                    source_id=run_id,
+                    sequence=1,
+                    state="FAILED",
+                    observed_at=datetime.now(UTC),
+                )
+
             await stream_mgr.emit(
                 stream_repo,
                 run_id=run_id,

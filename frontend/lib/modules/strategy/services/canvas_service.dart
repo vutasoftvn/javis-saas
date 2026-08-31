@@ -1,146 +1,61 @@
-import 'dart:convert';
-import '../../../core/network/api_client.dart';
-import '../../../core/network/workspace_scoped_service.dart';
+import '../../../core/network/api_result.dart';
+import 'strategy_mvp_client.dart';
+import '../models/mvp_strategy_models.dart';
 
-class CanvasApiException implements Exception {
-  final int statusCode;
-  final String message;
-  CanvasApiException(this.statusCode, this.message);
+class CanvasService {
+  final StrategyMvpClient _client;
 
-  @override
-  String toString() => message;
-}
+  CanvasService({StrategyMvpClient? client}) : _client = client ?? StrategyMvpClient();
 
-class CanvasService extends WorkspaceService {
-  dynamic _decode(dynamic response) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return null;
-      return jsonDecode(response.body);
-    }
-    String detail = 'Yêu cầu thất bại (${response.statusCode})';
-    try {
-      final body = jsonDecode(response.body);
-      if (body is Map && body['detail'] != null) {
-        final d = body['detail'];
-        detail = d is String ? d : jsonEncode(d);
-      }
-    } catch (_) {}
-    throw CanvasApiException(response.statusCode, detail);
+  Future<ApiResult<List<MvpCanvas>>> getCanvases() async {
+    return _client.listCanvases();
   }
 
-  List<dynamic> _decodeList(dynamic response, String key) {
-    if (response.statusCode == 404) return [];
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return [];
-      try {
-        final data = jsonDecode(response.body);
-        return data is Map && data[key] is List ? (data[key] as List<dynamic>) : [];
-      } catch (_) {
-        return [];
-      }
-    }
-    return [];
+  Future<ApiResult<MvpCanvas>> getCanvasDetail(String canvasId) async {
+    return _client.getCanvas(canvasId);
   }
 
-  Future<String> _requireWorkspaceId() async {
-    final wId = await stringWorkspaceId();
-    if (wId == null || wId.isEmpty) {
-      throw CanvasApiException(0, 'Chưa xác định workspace hiện tại');
-    }
-    return wId;
+  Future<ApiResult<MvpCanvas>> createCanvas(String name, {String? description}) async {
+    return _client.createCanvas(name: name, description: description);
   }
 
-  Future<List<dynamic>> getCanvases() async {
-    final wId = await stringWorkspaceId();
-    if (wId == null) return [];
-    try {
-      final response = await ApiClient.get('/strategy/canvases?workspace_id=$wId');
-      return _decodeList(response, 'canvases');
-    } catch (_) {
-      return [];
-    }
+  Future<ApiResult<MvpCanvas>> updateCanvas(String canvasId, {String? name, String? description}) async {
+    return _client.updateCanvas(id: canvasId, name: name, description: description);
   }
 
-  Future<Map<String, dynamic>> getCanvasDetail(String canvasId) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.get('/strategy/canvases/$canvasId?workspace_id=$wId');
-    return _decode(response);
+  Future<ApiResult<void>> deleteCanvas(String canvasId) async {
+    return _client.deleteCanvas(canvasId);
   }
 
-  Future<Map<String, dynamic>> createCanvas(String name, {String? description}) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/canvases?workspace_id=$wId',
-      body: {
-        'name': name,
-        'description': ?description,
-      },
+  Future<ApiResult<MvpCanvasRevision>> createRevision({
+    required String canvasId,
+    required Map<String, dynamic> content,
+    required String origin,
+    List<Map<String, dynamic>>? sourceRefs,
+    String? parentRevisionId,
+  }) async {
+    return _client.createRevision(
+      canvasId: canvasId,
+      content: content,
+      origin: origin,
+      sourceRefs: sourceRefs,
+      parentRevisionId: parentRevisionId,
     );
-    return _decode(response);
   }
 
-  Future<Map<String, dynamic>> updateCanvas(String canvasId, {String? name, String? description}) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.put(
-      '/strategy/canvases/$canvasId?workspace_id=$wId',
-      body: {
-        'name': ?name,
-        'description': ?description,
-      },
-    );
-    return _decode(response);
+  Future<ApiResult<MvpCanvasRevision>> getRevision(String revisionId) async {
+    return _client.getRevision(revisionId);
   }
 
-  Future<void> deleteCanvas(String canvasId) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.delete('/strategy/canvases/$canvasId?workspace_id=$wId');
-    _decode(response);
+  Future<ApiResult<MvpCanvasRevision>> submitRevisionForReview(String revisionId) async {
+    return _client.submitRevisionForReview(revisionId);
   }
 
-  Future<Map<String, dynamic>> generateAiFoundation(String canvasId) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/canvases/$canvasId/generate-ai-foundation?workspace_id=$wId');
-    return _decode(response);
+  Future<ApiResult<MvpCanvasRevision>> approveRevision(String revisionId, {String? reviewNote}) async {
+    return _client.approveRevision(revisionId, reviewNote: reviewNote);
   }
 
-  Future<Map<String, dynamic>> createRevision(String canvasId, {String? baseRevisionId}) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/canvases/$canvasId/revisions?workspace_id=$wId',
-      body: {
-        'base_revision_id': ?baseRevisionId,
-      },
-    );
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> getRevisionDetail(String revisionId) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.get('/strategy/revisions/$revisionId?workspace_id=$wId');
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> submitReview(String revisionId) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/revisions/$revisionId/submit-review?workspace_id=$wId');
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> approveRevision(String revisionId, {String? note}) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/revisions/$revisionId/approve?workspace_id=$wId',
-      body: {'note': ?note},
-    );
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> rejectRevision(String revisionId, {String? reason}) async {
-    final wId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/revisions/$revisionId/reject?workspace_id=$wId',
-      body: {'reason': ?reason},
-    );
-    return _decode(response);
+  Future<ApiResult<MvpCanvasRevision>> rejectRevision(String revisionId, {String? reviewNote}) async {
+    return _client.rejectRevision(revisionId, reviewNote: reviewNote);
   }
 }

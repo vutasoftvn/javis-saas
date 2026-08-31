@@ -13,6 +13,9 @@ import {
   checkinService,
   getObjectiveService,
   getObjectiveProgressService,
+  listOkrCyclesService,
+  listObjectivesService,
+  deleteObjectiveService,
 } from "../services/okr.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { linkObjectiveProjects, listObjectiveProjects, unlinkObjectiveProject } from "../services/project-link.service";
@@ -65,12 +68,67 @@ export const getObjective = api(
   }
 );
 
-export const getObjectiveProgress = api(
-  { method: "GET", path: "/operations/objectives/:objectiveId/progress", expose: true },
-  async ({ objectiveId }: { objectiveId: string }): Promise<ObjectiveProgress> => {
-    return getObjectiveProgressService(objectiveId);
+export const listOkrCycles = api(
+  { method: "GET", path: "/operations/okr-cycles", expose: true },
+  async ({
+    authorization,
+    workspaceId,
+  }: {
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+  }) => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return listOkrCyclesService(ctx);
   }
 );
+
+export const listObjectives = api(
+  { method: "GET", path: "/operations/objectives", expose: true },
+  async ({
+    authorization,
+    workspaceId,
+  }: {
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+  }) => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return listObjectivesService(ctx);
+  }
+);
+
+export const deleteObjective = api(
+  { method: "DELETE", path: "/operations/objectives/:id", expose: true },
+  async ({
+    id,
+    authorization,
+    workspaceId,
+  }: {
+    id: string;
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+  }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    await deleteObjectiveService(ctx, id);
+    return { success: true };
+  }
+);
+
+export const getObjectiveProgress = api(
+  { method: "GET", path: "/operations/objectives/:id/progress", expose: true },
+  async ({
+    id,
+    authorization,
+    workspaceId,
+  }: {
+    id: string;
+    authorization?: Header<"Authorization">;
+    workspaceId?: Header<"X-Workspace-Id">;
+  }): Promise<ObjectiveProgress> => {
+    const ctx = workspaceId ? await requireWorkspaceAccess(authorization, workspaceId) : undefined;
+    return getObjectiveProgressService(id, ctx);
+  }
+);
+
 
 export interface ObjectiveProjectsResponse {
   projectIds: string[];

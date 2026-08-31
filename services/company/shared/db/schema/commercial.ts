@@ -214,7 +214,7 @@ export const marketingCampaigns = commercialSchema.table("marketing_campaigns", 
   name: varchar("name", { length: 255 }).notNull(),
   funnelStage: varchar("funnel_stage", { length: 50 }).default("discover").notNull(),
   channels: jsonb("channels"),
-  budget: doublePrecision("budget").default(0.0).notNull(),
+  budget: doublePrecision("budget"),
   status: varchar("status", { length: 50 }).default("draft").notNull(),
   startDate: timestamp("start_date", { withTimezone: true }),
   endDate: timestamp("end_date", { withTimezone: true }),
@@ -289,4 +289,113 @@ export const subscriptions = commercialSchema.table("subscriptions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const marketingObjectives = commercialSchema.table("marketing_objectives", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 50 }).default("active").notNull(),
+  targetMetric: varchar("target_metric", { length: 100 }),
+  targetValue: doublePrecision("target_value"),
+  currentValue: doublePrecision("current_value"),
+  startDate: timestamp("start_date", { withTimezone: true }),
+  endDate: timestamp("end_date", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const marketingExperiments = commercialSchema.table("marketing_experiments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  campaignId: bigint("campaign_id", { mode: "bigint" }).references(() => marketingCampaigns.id, { onDelete: "set null" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  hypothesis: text("hypothesis").notNull(),
+  status: varchar("status", { length: 50 }).default("draft").notNull(),
+  baselineMetric: varchar("baseline_metric", { length: 100 }),
+  baselineValue: doublePrecision("baseline_value"),
+  targetMetric: varchar("target_metric", { length: 100 }),
+  targetValue: doublePrecision("target_value"),
+  actualValue: doublePrecision("actual_value"),
+  conclusion: text("conclusion"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const marketingLearnings = commercialSchema.table("marketing_learnings", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  experimentId: bigint("experiment_id", { mode: "bigint" }).references(() => marketingExperiments.id, { onDelete: "set null" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  insight: text("insight").notNull(),
+  impact: varchar("impact", { length: 50 }).default("medium").notNull(),
+  actionItems: jsonb("action_items").default([]).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingMetricDefinitions = commercialSchema.table("marketing_metric_definitions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  unit: varchar("unit", { length: 50 }).default("count").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingMetricObservations = commercialSchema.table("marketing_metric_observations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  metricId: bigint("metric_id", { mode: "bigint" }).notNull().references(() => marketingMetricDefinitions.id, { onDelete: "cascade" }),
+  providerKey: text("provider_key").notNull(),
+  sourceRecordId: text("source_record_id").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  ingestedAt: timestamp("ingested_at", { withTimezone: true }).defaultNow().notNull(),
+  value: doublePrecision("value").notNull(),
+  metadata: jsonb("metadata").default({}).notNull(),
+});
+
+export const marketingAttributions = commercialSchema.table("marketing_attributions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  campaignId: bigint("campaign_id", { mode: "bigint" }).references(() => marketingCampaigns.id, { onDelete: "set null" }),
+  channel: varchar("channel", { length: 100 }).notNull(),
+  touchpointType: varchar("touchpoint_type", { length: 50 }).notNull(),
+  conversions: doublePrecision("conversions").default(0).notNull(),
+  revenue: doublePrecision("revenue").default(0).notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingDecisions = commercialSchema.table("marketing_decisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  campaignId: bigint("campaign_id", { mode: "bigint" }).references(() => marketingCampaigns.id, { onDelete: "set null" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  rationale: text("rationale").notNull(),
+  decisionType: varchar("decision_type", { length: 50 }).notNull(),
+  status: varchar("status", { length: 50 }).default("active").notNull(),
+  createdBy: varchar("created_by", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingProposals = commercialSchema.table("marketing_proposals", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  proposalType: varchar("proposal_type", { length: 50 }).notNull(),
+  origin: varchar("origin", { length: 50 }).notNull(),
+  status: varchar("status", { length: 50 }).notNull(),
+  sourceRefs: jsonb("source_refs").default([]).notNull(),
+  body: jsonb("body").default({}).notNull(),
+  createdBy: varchar("created_by", { length: 255 }).notNull(),
+  reviewedBy: varchar("reviewed_by", { length: 255 }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -39,8 +39,18 @@ from agent.runs.stream_events import (
     PostgresRunStreamEventRepository,
     RunStreamEventRepository,
 )
+from agent.vault import (
+    InMemoryVaultRepository,
+    PostgresVaultRepository,
+    VaultRepository,
+)
 from agent.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent.workflows.engine import WorkflowEngine
+from agent.workforce.repository import (
+    InMemoryWorkforceRepository,
+    PostgresWorkforceRepository,
+    WorkforceRepository,
+)
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 
 from apps.cosa.capabilities.client import CompanyServiceClient
@@ -195,6 +205,8 @@ class CosaAgentPlane:
         memory_service: Any | None = None,
         knowledge_ingestion_service: Any | None = None,
         compliance_resolver: Any | None = None,
+        workforce_repository: WorkforceRepository | None = None,
+        vault_repository: VaultRepository | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -214,6 +226,8 @@ class CosaAgentPlane:
         self.lease_client = lease_client
         self.stream_event_repository = stream_event_repository
         self.artifact_repository = artifact_repository
+        self.workforce_repository = workforce_repository
+        self.vault_repository = vault_repository
         self.event_intake_deps = event_intake_deps
         self.memory_service = memory_service
         self.knowledge_ingestion_service = knowledge_ingestion_service
@@ -280,6 +294,8 @@ def build_cosa_agent_plane(
     event_intake_deps: Any | None = None,
     memory_service: Any | None = None,
     knowledge_ingestion_service: Any | None = None,
+    workforce_repository: WorkforceRepository | None = None,
+    vault_repository: VaultRepository | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -385,6 +401,24 @@ def build_cosa_agent_plane(
         art_repo = PostgresArtifactRepository(art_session_factory)
     else:
         art_repo = InMemoryArtifactRepository()
+
+    if workforce_repository is not None:
+        wf_repo: WorkforceRepository = workforce_repository
+    elif resolved_url:
+        _wf_engine, wf_session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_wf_engine)
+        wf_repo = PostgresWorkforceRepository(wf_session_factory)
+    else:
+        wf_repo = InMemoryWorkforceRepository()
+
+    if vault_repository is not None:
+        vault_repo: VaultRepository = vault_repository
+    elif resolved_url:
+        _vault_engine, vault_session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_vault_engine)
+        vault_repo = PostgresVaultRepository(vault_session_factory)
+    else:
+        vault_repo = InMemoryVaultRepository()
 
     # Memory & Knowledge stores (closeout Task 2 / P1 Task 6). Mirror art_repo:
     # inject > Postgres (khi có AGENT_DATABASE_URL) > in-memory. Production
@@ -776,6 +810,8 @@ def build_cosa_agent_plane(
         lease_client=run_lease_client,
         stream_event_repository=stream_repo,
         artifact_repository=art_repo,
+        workforce_repository=wf_repo,
+        vault_repository=vault_repo,
         engines=_created_engines,
         event_intake_deps=event_intake_deps,
         memory_service=memory_service,

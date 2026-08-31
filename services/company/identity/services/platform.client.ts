@@ -38,7 +38,10 @@ export interface PlatformJwtPayload {
 export function verifyPlatformToken(token: string): PlatformJwtPayload {
   const secret = getPlatformJwtSecret();
   try {
-    return jwt.verify(token, secret) as PlatformJwtPayload;
+    return jwt.verify(token, secret, {
+      audience: "cosa",
+      issuer: "cosa_platform",
+    }) as PlatformJwtPayload;
   } catch {
     throw APIError.unauthenticated("invalid or expired platform token");
   }

@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
-import '../../../modules/workspace_runtime/services/workspace_runtime_service.dart';
+import '../../../core/network/api_result.dart';
+import '../services/workspace_runtime_service.dart';
+import '../models/mvp_runtime_models.dart';
 
 class WorkspaceRuntimeController extends GetxController {
   WorkspaceRuntimeController({WorkspaceRuntimeService? service})
@@ -7,14 +9,28 @@ class WorkspaceRuntimeController extends GetxController {
 
   final WorkspaceRuntimeService _service;
 
-  final needsYouItems = <dynamic>[].obs;
-  final blockers = <dynamic>[].obs;
-  final runtimeStatus = Rxn<Map<String, dynamic>>();
-  final runtimeDag = Rxn<Map<String, dynamic>>();
-  final currentInspectorData = Rxn<Map<String, dynamic>>();
+  final needsYouResult = Rxn<ApiResult<List<MvpRuntimeItem>>>();
+  final blockersResult = Rxn<ApiResult<List<MvpRuntimeItem>>>();
+  final sourceStatusResult = Rxn<ApiResult<List<MvpSourceStatus>>>();
+  final currentInspectorResult = Rxn<ApiResult<MvpRuntimeItemDetail>>();
 
   final loading = false.obs;
   final selectedTaskId = ''.obs;
+
+  List<MvpRuntimeItem> get needsYouItems =>
+      needsYouResult.value is ApiSuccess<List<MvpRuntimeItem>>
+          ? (needsYouResult.value as ApiSuccess<List<MvpRuntimeItem>>).data
+          : [];
+
+  List<MvpRuntimeItem> get blockers =>
+      blockersResult.value is ApiSuccess<List<MvpRuntimeItem>>
+          ? (blockersResult.value as ApiSuccess<List<MvpRuntimeItem>>).data
+          : [];
+
+  List<MvpSourceStatus> get sourceStatuses =>
+      sourceStatusResult.value is ApiSuccess<List<MvpSourceStatus>>
+          ? (sourceStatusResult.value as ApiSuccess<List<MvpSourceStatus>>).data
+          : [];
 
   @override
   void onInit() {
@@ -26,60 +42,59 @@ class WorkspaceRuntimeController extends GetxController {
     loading.value = true;
     try {
       final results = await Future.wait([
-        _service.getNeedsYou(),
-        _service.getBlockers(),
-        _service.getRuntimeStatus(),
+        _service.getNeedsYouResult(),
+        _service.getBlockersResult(),
+        _service.getRuntimeStatusResult(),
       ]);
-      needsYouItems.assignAll(results[0] as List<dynamic>);
-      blockers.assignAll(results[1] as List<dynamic>);
-      runtimeStatus.value = results[2] as Map<String, dynamic>?;
+      needsYouResult.value = results[0] as ApiResult<List<MvpRuntimeItem>>;
+      blockersResult.value = results[1] as ApiResult<List<MvpRuntimeItem>>;
+      sourceStatusResult.value = results[2] as ApiResult<List<MvpSourceStatus>>;
     } finally {
       loading.value = false;
     }
   }
 
   Future<void> loadNeedsYou() async {
-    final items = await _service.getNeedsYou();
-    needsYouItems.assignAll(items);
-  }
-
-  Future<void> resolveNeedsYou(String itemId) async {
-    final ok = await _service.resolveNeedsYou(itemId);
-    if (ok) {
-      needsYouItems.removeWhere((item) => (item['id'] ?? '').toString() == itemId);
+    loading.value = true;
+    try {
+      needsYouResult.value = await _service.getNeedsYouResult();
+    } finally {
+      loading.value = false;
     }
   }
 
-  Future<void> snoozeNeedsYou(String itemId, DateTime until) async {
-    final ok = await _service.snoozeNeedsYou(itemId, until);
-    if (ok) {
-      needsYouItems.removeWhere((item) => (item['id'] ?? '').toString() == itemId);
-    }
-  }
-
-  Future<void> loadBlockers({String? status}) async {
-    final list = await _service.getBlockers(status: status);
-    blockers.assignAll(list);
-  }
-
-  Future<void> resolveBlocker(String blockerId) async {
-    final ok = await _service.resolveBlocker(blockerId);
-    if (ok) {
-      await loadBlockers();
+  Future<void> snoozeNeedsYou(String sourceKind, String sourceId, DateTime until) async {
+    final res = await _service.snoozeNeedsYouResult(
+      sourceKind: sourceKind,
+      sourceId: sourceId,
+      until: until,
+    );
+    if (res is ApiSuccess) {
       await loadNeedsYou();
     }
   }
 
-  Future<void> loadInspector(String taskId) async {
-    selectedTaskId.value = taskId;
-    if (taskId.isEmpty) {
-      currentInspectorData.value = null;
+  Future<void> loadBlockers() async {
+    loading.value = true;
+    try {
+      blockersResult.value = await _service.getBlockersResult();
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  Future<void> loadInspector(String sourceKind, String sourceId) async {
+    selectedTaskId.value = sourceId;
+    if (sourceId.isEmpty) {
+      currentInspectorResult.value = null;
       return;
     }
     loading.value = true;
     try {
-      final data = await _service.getWorkInspector(taskId);
-      currentInspectorData.value = data;
+      currentInspectorResult.value = await _service.getWorkInspectorResult(
+        sourceKind: sourceKind,
+        sourceId: sourceId,
+      );
     } finally {
       loading.value = false;
     }

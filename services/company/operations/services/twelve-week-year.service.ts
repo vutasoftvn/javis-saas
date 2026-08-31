@@ -210,3 +210,94 @@ export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentR
     createdAt: row.createdAt.toISOString(),
   };
 }
+
+export async function listTwelveWeekCyclesService(
+  workspaceId: string | number,
+  authorization?: string
+): Promise<import("../../shared/contracts/mvp-response").MvpSuccess<readonly TwelveWeekCycle[]>> {
+  const { requireWorkspaceAccess } = await import("../../shared/auth/workspace-access");
+  const { mvpList } = await import("../../shared/contracts/mvp-response");
+  const ctx = await requireWorkspaceAccess(authorization, String(workspaceId));
+  const wsId = BigInt(ctx.workspaceId);
+
+  const rows = await db
+    .select()
+    .from(twelveWeekCycles)
+    .where(eq(twelveWeekCycles.workspaceId, wsId))
+    .orderBy(desc(twelveWeekCycles.createdAt));
+
+  return mvpList(
+    rows.map(toCycle),
+    [{ kind: "company_db", ref: "operating.twelve_week_cycles" }]
+  );
+}
+
+export async function listWeeklyPlansService(
+  workspaceId: string | number,
+  authorization?: string
+): Promise<import("../../shared/contracts/mvp-response").MvpSuccess<readonly WeeklyPlan[]>> {
+  const { requireWorkspaceAccess } = await import("../../shared/auth/workspace-access");
+  const { mvpList } = await import("../../shared/contracts/mvp-response");
+  const ctx = await requireWorkspaceAccess(authorization, String(workspaceId));
+  const wsId = BigInt(ctx.workspaceId);
+
+  const rows = await db
+    .select()
+    .from(weeklyPlans)
+    .where(eq(weeklyPlans.workspaceId, wsId))
+    .orderBy(desc(weeklyPlans.createdAt));
+
+  const plans: WeeklyPlan[] = rows.map((row) => ({
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    cycleId: row.cycleId.toString(),
+    weekNo: row.weekNo,
+    startDate: row.startDate ? row.startDate.toISOString() : null,
+    endDate: row.endDate ? row.endDate.toISOString() : null,
+    focus: row.focus,
+    mission: row.mission,
+    executionScore: row.executionScore,
+    outcomeScore: row.outcomeScore,
+    reflection: row.reflection,
+    createdAt: row.createdAt.toISOString(),
+  }));
+
+  return mvpList(
+    plans,
+    [{ kind: "company_db", ref: "operating.weekly_plans" }]
+  );
+}
+
+export async function listWeeklyCommitmentsService(
+  workspaceId: string | number,
+  authorization?: string
+): Promise<import("../../shared/contracts/mvp-response").MvpSuccess<readonly WeeklyCommitment[]>> {
+  const { requireWorkspaceAccess } = await import("../../shared/auth/workspace-access");
+  const { mvpList } = await import("../../shared/contracts/mvp-response");
+  const ctx = await requireWorkspaceAccess(authorization, String(workspaceId));
+  const wsId = BigInt(ctx.workspaceId);
+
+  const rows = await db
+    .select()
+    .from(weeklyCommitments)
+    .where(eq(weeklyCommitments.workspaceId, wsId))
+    .orderBy(desc(weeklyCommitments.createdAt));
+
+  const commitments: WeeklyCommitment[] = rows.map((row) => ({
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    weeklyPlanId: row.weeklyPlanId.toString(),
+    initiativeId: row.initiativeId ? row.initiativeId.toString() : null,
+    title: row.title,
+    status: row.status,
+    plannedEffort: row.plannedEffort,
+    commitmentOwnerType: row.commitmentOwnerType,
+    executionMode: row.executionMode,
+    createdAt: row.createdAt.toISOString(),
+  }));
+
+  return mvpList(
+    commitments,
+    [{ kind: "company_db", ref: "operating.weekly_commitments" }]
+  );
+}

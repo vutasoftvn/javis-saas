@@ -32,6 +32,7 @@ class RunRepository(Protocol):
     async def create_run(self, run: RunRecord) -> RunRecord: ...
     async def get_run(self, run_id: str) -> RunRecord | None: ...
     async def get_scoped_run(self, run_id: str, workspace_id: str) -> RunRecord | None: ...
+    async def list_runs(self, workspace_id: str, limit: int = 50) -> list[RunRecord]: ...
     async def update_run_status(
         self,
         run_id: str,
@@ -122,6 +123,13 @@ class InMemoryRunRepository:
         if r and r.workspace_id == workspace_id:
             return r.model_copy(deep=True)
         return None
+
+    async def list_runs(self, workspace_id: str, limit: int = 50) -> list[RunRecord]:
+        return [
+            r.model_copy(deep=True)
+            for r in sorted(self._runs.values(), key=lambda x: x.created_at, reverse=True)
+            if r.workspace_id == workspace_id
+        ][:limit]
 
     async def update_run_status(
         self,
@@ -466,6 +474,25 @@ class PostgresRunRepository:
             )
             await session.commit()
         return await self.get_run(run_id)
+
+    async def list_runs(self, workspace_id: str, limit: int = 50) -> list[RunRecord]:
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT run_id, conversation_id, agent_spec_id, agent_spec_version,
+                           definition_hash, input_payload, current_checkpoint_ref, status,
+                           attempt_count, error_details, final_output, metadata, workspace_id,
+                           created_at, updated_at, completed_at
+                    FROM agent.runs
+                    WHERE workspace_id = :workspace_id
+                    ORDER BY created_at DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"workspace_id": workspace_id, "limit": limit},
+            )
+            return [self._row_to_run(r) for r in res.mappings().all()]
 
     # 2. Checkpoints
     async def save_checkpoint(self, checkpoint: RunCheckpointRecord) -> RunCheckpointRecord:

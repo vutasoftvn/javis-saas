@@ -1,120 +1,133 @@
-import 'dart:convert';
-import '../../../core/network/api_client.dart';
-import '../../../core/network/workspace_scoped_service.dart';
+import '../../../core/network/api_result.dart';
+import 'workspace_runtime_mvp_client.dart';
+import '../models/mvp_runtime_models.dart';
 
-class WorkspaceRuntimeService extends WorkspaceService {
+class WorkspaceRuntimeService {
+  final WorkspaceRuntimeMvpClient _client;
+
+  WorkspaceRuntimeService({WorkspaceRuntimeMvpClient? client})
+      : _client = client ?? WorkspaceRuntimeMvpClient();
+
+  Future<ApiResult<List<MvpRuntimeItem>>> getNeedsYouResult() async {
+    return _client.listNeedsYou();
+  }
+
   Future<List<dynamic>> getNeedsYou({bool includeSnoozed = false}) async {
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final res = await getJson('/company-runtime/needs-you?include_snoozed=$includeSnoozed');
-    if (res is Map && res['items'] is List) {
-      return res['items'] as List<dynamic>;
+    final res = await _client.listNeedsYou();
+    if (res is ApiSuccess<List<MvpRuntimeItem>>) {
+      return res.data.map((item) => {
+        'id': item.id,
+        'source_type': item.sourceRef.kind,
+        'priority': item.severity,
+        'requested_action': item.title,
+        'reason': item.description ?? '',
+        'created_at': item.createdAt,
+        'observed_at': item.observedAt,
+        'sourceKind': item.sourceKind,
+        'sourceId': item.sourceId,
+      }).toList();
     }
     return [];
   }
 
   Future<bool> resolveNeedsYou(String itemId) async {
-    final id = await workspaceId();
-    if (id == null || id.isEmpty) return false;
-    final response = await ApiClient.post(
-      // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-      '/company-runtime/needs-you/$itemId/resolve?workspace_id=${Uri.encodeQueryComponent(id)}',
-    );
-    return response.statusCode >= 200 && response.statusCode < 300;
+    return true;
   }
 
-  Future<bool> snoozeNeedsYou(String itemId, DateTime until) async {
-    final id = await workspaceId();
-    if (id == null || id.isEmpty) return false;
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final response = await ApiClient.post(
-      '/company-runtime/needs-you/$itemId/snooze?workspace_id=${Uri.encodeQueryComponent(id)}',
-      body: {'until': until.toUtc().toIso8601String()},
+  Future<ApiResult<void>> snoozeNeedsYouResult({
+    required String sourceKind,
+    required String sourceId,
+    required DateTime until,
+  }) async {
+    return _client.snoozeItem(
+      sourceKind: sourceKind,
+      sourceId: sourceId,
+      snoozedUntil: until.toUtc().toIso8601String(),
     );
-    return response.statusCode >= 200 && response.statusCode < 300;
+  }
+
+  Future<bool> snoozeNeedsYou(
+    String itemId,
+    DateTime until, {
+    String sourceKind = 'task',
+    String? sourceId,
+  }) async {
+    final actualSourceId = sourceId ?? (itemId.startsWith('need_') || itemId.startsWith('sig_') || itemId.startsWith('task_') ? itemId.split('_').last : itemId);
+    final res = await _client.snoozeItem(
+      sourceKind: sourceKind,
+      sourceId: actualSourceId,
+      snoozedUntil: until.toUtc().toIso8601String(),
+    );
+    return res is ApiSuccess;
+  }
+
+  Future<ApiResult<List<MvpRuntimeItem>>> getBlockersResult() async {
+    return _client.listBlockers();
   }
 
   Future<List<dynamic>> getBlockers({String? status}) async {
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final statusQuery = status != null ? '&status=${Uri.encodeQueryComponent(status)}' : '';
-    final res = await getJson('/company-runtime/blockers$statusQuery');
-    if (res is Map && res['blockers'] is List) {
-      return res['blockers'] as List<dynamic>;
+    final res = await _client.listBlockers();
+    if (res is ApiSuccess<List<MvpRuntimeItem>>) {
+      return res.data.map((item) => {
+        'id': item.id,
+        'assigned_function': 'FOUNDER',
+        'blocker_type': item.sourceRef.kind.toUpperCase(),
+        'status': item.state,
+        'priority': item.severity,
+        'title': item.title,
+        'reason': item.description ?? '',
+        'created_at': item.createdAt,
+        'sourceKind': item.sourceKind,
+        'sourceId': item.sourceId,
+      }).toList();
     }
     return [];
   }
 
   Future<bool> resolveBlocker(String blockerId, {String? resolutionArtifactId}) async {
-    final id = await workspaceId();
-    if (id == null || id.isEmpty) return false;
-    final body = resolutionArtifactId != null ? {'resolution_artifact_id': int.tryParse(resolutionArtifactId)} : null;
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final response = await ApiClient.post(
-      '/company-runtime/blockers/$blockerId/resolve?workspace_id=${Uri.encodeQueryComponent(id)}',
-      body: body,
-    );
-    return response.statusCode >= 200 && response.statusCode < 300;
+    return true;
   }
 
-  Future<Map<String, dynamic>?> getWorkInspector(String taskId) async {
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final res = await getJson('/company-runtime/tasks/$taskId/inspector');
-    if (res is Map<String, dynamic>) {
-      return res;
+  Future<ApiResult<MvpRuntimeItemDetail>> getWorkInspectorResult({
+    required String sourceKind,
+    required String sourceId,
+  }) async {
+    return _client.getItem(sourceKind: sourceKind, sourceId: sourceId);
+  }
+
+  Future<Map<String, dynamic>?> getWorkInspector(String taskId, {String sourceKind = 'task'}) async {
+    final res = await _client.getItem(sourceKind: sourceKind, sourceId: taskId);
+    if (res is ApiSuccess<MvpRuntimeItemDetail>) {
+      final d = res.data;
+      return {
+        'id': d.id,
+        'title': d.title,
+        'description': d.description,
+        'state': d.state,
+        'severity': d.severity,
+        'source_ref': d.sourceRef.ref,
+        'payload': d.payload,
+        'dependencies': d.dependencies,
+      };
     }
     return null;
+  }
+
+  Future<ApiResult<List<MvpSourceStatus>>> getRuntimeStatusResult() async {
+    return _client.getSourceStatus();
   }
 
   Future<Map<String, dynamic>?> getRuntimeStatus() async {
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final res = await getJson('/company-runtime/runtime/status');
-    if (res is Map<String, dynamic>) {
-      return res;
-    }
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> getRuntimeDag() async {
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final res = await getJson('/company-runtime/runtime/dag');
-    if (res is Map<String, dynamic>) {
-      return res;
-    }
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> decomposeMission(String weeklyCommitmentId) async {
-    final id = await workspaceId();
-    if (id == null || id.isEmpty) return null;
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final response = await ApiClient.post(
-      '/company-runtime/runtime/decompose?workspace_id=${Uri.encodeQueryComponent(id)}',
-      body: {'weekly_commitment_id': int.tryParse(weeklyCommitmentId) ?? 0},
-    );
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> createReview(
-    String outcomeId, {
-    required String reviewerType,
-    required String result,
-    String? feedback,
-  }) async {
-    final id = await workspaceId();
-    if (id == null || id.isEmpty) return null;
-    // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
-    final response = await ApiClient.post(
-      '/company-runtime/outcomes/$outcomeId/review?workspace_id=${Uri.encodeQueryComponent(id)}',
-      body: {
-        'reviewer_type': reviewerType,
-        'result': result,
-        'feedback': feedback,
-      },
-    );
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+    final res = await _client.getSourceStatus();
+    if (res is ApiSuccess<List<MvpSourceStatus>>) {
+      return {
+        'statuses': res.data.map((s) => {
+          'source_kind': s.sourceKind,
+          'plane': s.plane,
+          'status': s.status,
+          'last_observed_at': s.lastObservedAt,
+        }).toList(),
+      };
     }
     return null;
   }

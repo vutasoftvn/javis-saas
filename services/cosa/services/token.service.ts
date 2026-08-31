@@ -68,7 +68,14 @@ export function signWorkerServiceToken(workerId: string, workspaceId?: string, e
 }
 
 export function verifyPlatformToken(token: string): PlatformJwtPayload {
-  return jwt.verify(token, getPlatformJwtSecret()) as PlatformJwtPayload;
+  try {
+    return jwt.verify(token, getPlatformJwtSecret(), {
+      audience: "cosa",
+      issuer: "cosa_platform",
+    }) as PlatformJwtPayload;
+  } catch {
+    throw APIError.unauthenticated("invalid or expired platform token");
+  }
 }
 
 export function verifyWorkerServiceToken(token: string): PlatformJwtPayload {
