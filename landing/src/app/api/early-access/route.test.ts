@@ -21,4 +21,11 @@ describe("POST /api/early-access", () => {
     vi.mocked(sendEarlyAccessEmails).mockResolvedValueOnce({ userEmailSent: true, adminEmailSent: true });
     expect((await post(JSON.stringify(validBody))).status).toBe(200);
   });
+  it("does not report success: true on the simulated (no real email sent) path", async () => {
+    vi.mocked(sendEarlyAccessEmails).mockResolvedValueOnce({ userEmailSent: false, adminEmailSent: false, simulated: true });
+    const res = await post(JSON.stringify(validBody));
+    const json = await res.json();
+    expect(json.simulated).toBe(true);
+    expect(json.success).not.toBe(true);
+  });
 });

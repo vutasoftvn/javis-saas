@@ -74,8 +74,12 @@ export async function POST(req: NextRequest) {
     // tuyệt đối không tuyên bố "đã gửi email" khi không có email nào được
     // gửi thật.
     if (emailResult.simulated) {
+      // KHÔNG trả success: true ở nhánh này — chưa có email thật nào được
+      // gửi, nên success phải là false để caller không thể hiểu nhầm là đã
+      // gửi email thành công. `simulated: true` + `message` mang thông tin
+      // trung thực về trạng thái môi trường dev/chưa cấu hình.
       return NextResponse.json({
-        success: true,
+        success: false,
         simulated: true,
         accessCode,
         message:
