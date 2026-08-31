@@ -1,6 +1,5 @@
-// frontend/lib/data/models/workspace_company_identity_model.dart
-class WorkspaceCompanyIdentity {
-  const WorkspaceCompanyIdentity({
+class WorkspaceOrientation {
+  const WorkspaceOrientation({
     required this.workspaceId,
     this.vision,
     this.mission,
@@ -12,13 +11,13 @@ class WorkspaceCompanyIdentity {
   final String? mission;
   final String? coreValues;
 
-  bool get isComplete =>
-      (vision?.trim().isNotEmpty ?? false) &&
-      (mission?.trim().isNotEmpty ?? false) &&
+  bool get hasContent =>
+      (vision?.trim().isNotEmpty ?? false) ||
+      (mission?.trim().isNotEmpty ?? false) ||
       (coreValues?.trim().isNotEmpty ?? false);
 
-  factory WorkspaceCompanyIdentity.fromJson(Map<String, dynamic> json) {
-    return WorkspaceCompanyIdentity(
+  factory WorkspaceOrientation.fromJson(Map<String, dynamic> json) {
+    return WorkspaceOrientation(
       workspaceId: json['id']?.toString() ?? '',
       vision: json['vision'] as String?,
       mission: json['mission'] as String?,
