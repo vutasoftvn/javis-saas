@@ -430,10 +430,12 @@ export async function getObservedMetricsMvpService(
 ): Promise<MvpSuccess<readonly MarketingObservedMetricDTO[]>> {
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
 
-  let whereClause = eq(marketingMetricObservations.workspaceId, workspaceIdBigInt);
-  if (providerKey) {
-    whereClause = and(whereClause, eq(marketingMetricObservations.providerKey, providerKey));
-  }
+  const whereClause = providerKey
+    ? and(
+        eq(marketingMetricObservations.workspaceId, workspaceIdBigInt),
+        eq(marketingMetricObservations.providerKey, providerKey)
+      )!
+    : eq(marketingMetricObservations.workspaceId, workspaceIdBigInt);
 
   const rows = await db
     .select({

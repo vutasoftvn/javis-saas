@@ -3,13 +3,17 @@ GENERATED FILE — DO NOT MODIFY DIRECTLY
 Source: shared/contracts/mvp-surface.json · Generator: scripts/gen-mvp-contracts.mjs
 To update: edit shared/contracts/mvp-surface.json and run `node scripts/gen-mvp-contracts.mjs`
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Final
+from typing import Final, Literal
 
 MvpPlane = Literal["company", "platform", "agent", "localWorker"]
-MvpSourceKind = Literal["company_db", "agent_db", "object_store", "control_plane", "external_connector"]
+MvpSourceKind = Literal[
+    "company_db", "agent_db", "object_store", "control_plane", "external_connector"
+]
+
 
 @dataclass(frozen=True)
 class MvpCapabilityMetadata:
@@ -26,6 +30,7 @@ class MvpCapabilityMetadata:
     backend_test: str
     flutter_test: str
     integration_test: str
+
 
 MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     MvpCapabilityMetadata(
@@ -989,6 +994,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
         integration_test="tests/e2e/test_mvp_strategy_runtime_http.py",
     ),
 )
+
 
 MVP_CAPABILITY_BY_ID: Final[dict[str, MvpCapabilityMetadata]] = {
     cap.id: cap for cap in MVP_CAPABILITIES

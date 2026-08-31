@@ -77,7 +77,7 @@ describe("addKeyResult + checkin + getObjectiveProgress", () => {
     await checkin({ id: kr1.id, value: 5, authorization });
     await checkin({ id: kr2.id, value: 10000, authorization });
 
-    const progress = await getObjectiveProgress({ objectiveId: objective.id });
+    const progress = await getObjectiveProgress({ id: objective.id, authorization, workspaceId: workspace.id });
     expect(progress.score).toBeCloseTo(0.75);
     expect(progress.keyResults).toHaveLength(2);
   });
@@ -89,7 +89,7 @@ describe("addKeyResult + checkin + getObjectiveProgress", () => {
     await addKeyResult({ objectiveId: objective.id, title: "KR 1", targetValue: 10, authorization });
 
     const before = await countOutbox(workspaceId);
-    await getObjectiveProgress({ objectiveId: objective.id });
+    await getObjectiveProgress({ id: objective.id, authorization, workspaceId });
     const after = await countOutbox(workspaceId);
     expect(after).toBe(before);
   });

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -22,22 +21,19 @@ from agent_testkit.fake_sdk_model import FakeSDKModel
 
 from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.api.app import create_cosa_app
-from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.policy_test_helpers import (
-    configure_mock_client_allows_data_use,
-    fake_active_tenant_policy_client,
+    StubCompanyServiceClient,
+    stub_active_tenant_policy_client,
 )
 
 
 @pytest.fixture
 def e2e_app():
-    mock_client = AsyncMock(spec=CompanyServiceClient)
-    configure_mock_client_allows_data_use(mock_client)
     plane = build_cosa_agent_plane(
-        company_client=mock_client,
-        tenant_policy_client=fake_active_tenant_policy_client(),
+        company_client=StubCompanyServiceClient(),
+        tenant_policy_client=stub_active_tenant_policy_client(),
         repository=InMemoryRunRepository(),
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),

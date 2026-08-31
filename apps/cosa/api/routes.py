@@ -424,7 +424,7 @@ async def decide_approval(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}"
         )
 
-    if getattr(plane, "workforce_repository", None) is not None:
+    if plane.workforce_repository is not None:
         await plane.workforce_repository.enqueue_runtime_signal(
             workspace_id=identity.workspace_id,
             source_kind="approval",

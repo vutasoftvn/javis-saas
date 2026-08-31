@@ -361,7 +361,7 @@ async def _execute_run_task_inner(
                 except Exception as e:
                     logger.warning("Failed to persist workspace artifact for run %s: %s", run_id, e)
 
-            if getattr(plane, "workforce_repository", None) is not None:
+            if plane.workforce_repository is not None:
                 await plane.workforce_repository.enqueue_runtime_signal(
                     workspace_id=workspace_id,
                     source_kind="run",
@@ -387,7 +387,7 @@ async def _execute_run_task_inner(
             appr_id = wait_desc.related_ref if wait_desc else None
             ckpt_ref = wait_desc.checkpoint_ref if wait_desc else None
 
-            if getattr(plane, "workforce_repository", None) is not None:
+            if plane.workforce_repository is not None:
                 await plane.workforce_repository.enqueue_runtime_signal(
                     workspace_id=workspace_id,
                     source_kind="run",
@@ -420,7 +420,7 @@ async def _execute_run_task_inner(
                 run_id=run_id,
                 status_="failed",
             )
-            if getattr(plane, "workforce_repository", None) is not None:
+            if plane.workforce_repository is not None:
                 await plane.workforce_repository.enqueue_runtime_signal(
                     workspace_id=workspace_id,
                     source_kind="run",

@@ -119,13 +119,17 @@ function genTs() {
 function genPy() {
   const out = [];
   out.push(`"""\n${HEADER_LINES.join("\n")}\n"""`);
+  out.push("");
   out.push("from __future__ import annotations");
   out.push("");
   out.push("from dataclasses import dataclass");
-  out.push("from typing import Literal, Final");
+  out.push("from typing import Final, Literal");
   out.push("");
   out.push(`MvpPlane = Literal["company", "platform", "agent", "localWorker"]`);
-  out.push(`MvpSourceKind = Literal["company_db", "agent_db", "object_store", "control_plane", "external_connector"]`);
+  out.push("MvpSourceKind = Literal[");
+  out.push('    "company_db", "agent_db", "object_store", "control_plane", "external_connector"');
+  out.push("]");
+  out.push("");
   out.push("");
   out.push("@dataclass(frozen=True)");
   out.push("class MvpCapabilityMetadata:");
@@ -142,6 +146,7 @@ function genPy() {
   out.push("    backend_test: str");
   out.push("    flutter_test: str");
   out.push("    integration_test: str");
+  out.push("");
   out.push("");
   out.push("MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (");
 
@@ -165,6 +170,7 @@ function genPy() {
   }
 
   out.push(")");
+  out.push("");
   out.push("");
   out.push("MVP_CAPABILITY_BY_ID: Final[dict[str, MvpCapabilityMetadata]] = {");
   out.push("    cap.id: cap for cap in MVP_CAPABILITIES");

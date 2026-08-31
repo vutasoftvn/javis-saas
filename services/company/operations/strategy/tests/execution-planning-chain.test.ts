@@ -114,7 +114,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     const fetchedInitiative = await getInitiative({ id: initiative.id, authorization });
     expect(fetchedInitiative.id).toBe(initiative.id);
 
-    const progress = await getObjectiveProgress({ objectiveId: objective.id });
+    const progress = await getObjectiveProgress({ id: objective.id, authorization, workspaceId });
     expect(progress.objectiveId).toBe(objective.id);
     expect(progress.keyResults).toHaveLength(1);
 

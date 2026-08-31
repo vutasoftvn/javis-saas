@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
@@ -365,7 +365,10 @@ class PostgresWorkforceRepository:
     ) -> RuntimeSignalOutboxRecord:
         oid = UUID(str(outbox_id)) if outbox_id else uuid4()
         cid = correlation_id or f"{source_kind}:{source_id}:{sequence}"
-        phash = payload_hash or hashlib.sha256(f"{source_kind}:{source_id}:{sequence}:{state}".encode("utf-8")).hexdigest()
+        phash = (
+            payload_hash
+            or hashlib.sha256(f"{source_kind}:{source_id}:{sequence}:{state}".encode()).hexdigest()
+        )
         now = datetime.now(UTC)
 
         async with self._session_factory() as session:
@@ -465,9 +468,7 @@ class PostgresWorkforceRepository:
             )
             await session.commit()
 
-    async def mark_signal_failed(
-        self, outbox_id: UUID | str, next_attempt_at: datetime
-    ) -> None:
+    async def mark_signal_failed(self, outbox_id: UUID | str, next_attempt_at: datetime) -> None:
         oid = UUID(str(outbox_id))
         async with self._session_factory() as session:
             await session.execute(
@@ -516,7 +517,9 @@ class PostgresWorkforceRepository:
             spec_id=row["spec_id"],
             spec_version=row["spec_version"],
             definition_hash=row["definition_hash"],
-            reports_to_assignment_id=UUID(str(row["reports_to_assignment_id"])) if row["reports_to_assignment_id"] else None,
+            reports_to_assignment_id=UUID(str(row["reports_to_assignment_id"]))
+            if row["reports_to_assignment_id"]
+            else None,
             configured_by=row["configured_by"],
             status=row["status"],
             created_at=row["created_at"],
@@ -720,7 +723,10 @@ class InMemoryWorkforceRepository:
 
         oid = UUID(str(outbox_id)) if outbox_id else uuid4()
         cid = correlation_id or f"{source_kind}:{source_id}:{sequence}"
-        phash = payload_hash or hashlib.sha256(f"{source_kind}:{source_id}:{sequence}:{state}".encode("utf-8")).hexdigest()
+        phash = (
+            payload_hash
+            or hashlib.sha256(f"{source_kind}:{source_id}:{sequence}:{state}".encode()).hexdigest()
+        )
         now = datetime.now(UTC)
 
         rec = RuntimeSignalOutboxRecord(
@@ -775,9 +781,7 @@ class InMemoryWorkforceRepository:
                 delivered_at=delivered_at or datetime.now(UTC),
             )
 
-    async def mark_signal_failed(
-        self, outbox_id: UUID | str, next_attempt_at: datetime
-    ) -> None:
+    async def mark_signal_failed(self, outbox_id: UUID | str, next_attempt_at: datetime) -> None:
         oid = UUID(str(outbox_id))
         rec = self.outbox.get(oid)
         if rec:

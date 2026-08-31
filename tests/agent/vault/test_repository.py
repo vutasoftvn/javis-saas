@@ -6,8 +6,8 @@ from uuid import UUID
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from packages.agent.vault.models import VaultDocumentRecord
-from packages.agent.vault.repository import (
+from agent.vault.models import VaultDocumentRecord
+from agent.vault.repository import (
     InMemoryVaultRepository,
     PostgresVaultRepository,
     VaultRepository,

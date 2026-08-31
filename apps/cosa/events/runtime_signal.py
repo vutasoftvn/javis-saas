@@ -5,10 +5,8 @@ from __future__ import annotations
 import logging
 import os
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 import httpx
-
 from agent.workforce.repository import WorkforceRepository
 
 logger = logging.getLogger(__name__)
@@ -25,12 +23,18 @@ class AgentRuntimeSignalPublisher:
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._repository = repository
-        self._company_url = (company_url or os.getenv("COMPANY_SERVICE_URL", "http://127.0.0.1:4000")).rstrip("/")
-        self._service_token = service_token or os.getenv("COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token")
+        self._company_url = (
+            company_url or os.getenv("COMPANY_SERVICE_URL") or "http://127.0.0.1:4000"
+        ).rstrip("/")
+        self._service_token = service_token or os.getenv(
+            "COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token"
+        )
         self._http_client = http_client
 
     async def deliver_due(self, limit: int = 50, max_attempts: int = 10) -> int:
-        signals = await self._repository.claim_pending_signals(limit=limit, max_attempts=max_attempts)
+        signals = await self._repository.claim_pending_signals(
+            limit=limit, max_attempts=max_attempts
+        )
         if not signals:
             return 0
 

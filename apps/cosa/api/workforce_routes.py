@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
-from uuid import UUID, uuid4
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from uuid import uuid4
 
 from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_spec
+from agent.workforce.repository import WorkforceRepository
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
 from apps.cosa.api.mvp_response import MvpSourceRef, mvp_item, mvp_list
 from apps.cosa.api.workforce_schemas import (
-    ApprovalDecisionRequest,
     ApprovalDecisionOut,
+    ApprovalDecisionRequest,
     ApprovalOut,
     CreateAssignmentRequest,
     CreateScheduleRequest,
@@ -41,7 +41,9 @@ router = APIRouter(prefix="/agent/workforce", tags=["workforce"])
 
 
 def _get_plane(request: Request) -> CosaAgentPlane:
-    plane = getattr(request.app.state, "plane", None) or getattr(request.app.state, "cosa_agent_plane", None)
+    plane = getattr(request.app.state, "plane", None) or getattr(
+        request.app.state, "cosa_agent_plane", None
+    )
     if plane is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -50,7 +52,18 @@ def _get_plane(request: Request) -> CosaAgentPlane:
     return plane
 
 
+def _get_workforce_repo(request: Request) -> WorkforceRepository:
+    plane = _get_plane(request)
+    if plane.workforce_repository is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="WorkforceRepository is not configured",
+        )
+    return plane.workforce_repository
+
+
 # ─── Assignments ───
+
 
 @router.get("/assignments")
 async def list_assignments(
@@ -58,10 +71,8 @@ async def list_assignments(
     status_filter: str | None = Query(None, alias="status"),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
-    records = await plane.workforce_repository.list_assignments(
-        identity.workspace_id, status=status_filter
-    )
+    repo = _get_workforce_repo(request)
+    records = await repo.list_assignments(identity.workspace_id, status=status_filter)
     items = [
         WorkforceAssignmentOut(
             assignment_id=str(r.assignment_id),
@@ -70,7 +81,9 @@ async def list_assignments(
             spec_id=r.spec_id,
             spec_version=r.spec_version,
             definition_hash=r.definition_hash,
-            reports_to_assignment_id=str(r.reports_to_assignment_id) if r.reports_to_assignment_id else None,
+            reports_to_assignment_id=str(r.reports_to_assignment_id)
+            if r.reports_to_assignment_id
+            else None,
             configured_by=r.configured_by,
             status=r.status,
             created_at=r.created_at.isoformat(),
@@ -88,7 +101,7 @@ async def create_assignment(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     require_workspace_operator(identity)
-    plane = _get_plane(request)
+    repo = _get_workforce_repo(request)
 
     cat_entry = FUNCTIONAL_AGENT_CATALOG.get(req.functional_key)
     if cat_entry is None:
@@ -101,12 +114,12 @@ async def create_assignment(
     spec = build_functional_spec(req.functional_key)
     spec_with_hash = spec.with_hash()
 
-    rec = await plane.workforce_repository.create_assignment(
+    rec = await repo.create_assignment(
         workspace_id=identity.workspace_id,
         functional_key=req.functional_key,
         spec_id=spec_with_hash.id,
         spec_version=spec_with_hash.version,
-        definition_hash=spec_with_hash.definition_hash,
+        definition_hash=spec_with_hash.definition_hash or "",
         reports_to_assignment_id=req.reports_to_assignment_id,
         configured_by=identity.principal_id,
     )
@@ -118,7 +131,9 @@ async def create_assignment(
         spec_id=rec.spec_id,
         spec_version=rec.spec_version,
         definition_hash=rec.definition_hash,
-        reports_to_assignment_id=str(rec.reports_to_assignment_id) if rec.reports_to_assignment_id else None,
+        reports_to_assignment_id=str(rec.reports_to_assignment_id)
+        if rec.reports_to_assignment_id
+        else None,
         configured_by=rec.configured_by,
         status=rec.status,
         created_at=rec.created_at.isoformat(),
@@ -134,9 +149,9 @@ async def retire_assignment(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     require_workspace_operator(identity)
-    plane = _get_plane(request)
+    repo = _get_workforce_repo(request)
 
-    rec = await plane.workforce_repository.retire_assignment(
+    rec = await repo.retire_assignment(
         workspace_id=identity.workspace_id,
         assignment_id=assignment_id,
     )
@@ -153,7 +168,9 @@ async def retire_assignment(
         spec_id=rec.spec_id,
         spec_version=rec.spec_version,
         definition_hash=rec.definition_hash,
-        reports_to_assignment_id=str(rec.reports_to_assignment_id) if rec.reports_to_assignment_id else None,
+        reports_to_assignment_id=str(rec.reports_to_assignment_id)
+        if rec.reports_to_assignment_id
+        else None,
         configured_by=rec.configured_by,
         status=rec.status,
         created_at=rec.created_at.isoformat(),
@@ -164,15 +181,14 @@ async def retire_assignment(
 
 # ─── Composition & Catalog ───
 
+
 @router.get("/composition")
 async def get_composition(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
-    assignments = await plane.workforce_repository.list_assignments(
-        identity.workspace_id, status="ACTIVE"
-    )
+    repo = _get_workforce_repo(request)
+    assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
     assignment_map = {a.functional_key: a for a in assignments}
 
     entries = []
@@ -188,7 +204,7 @@ async def get_composition(
                 description=entry.description,
                 spec_id=spec.id,
                 spec_version=spec.version,
-                definition_hash=spec.definition_hash,
+                definition_hash=spec.definition_hash or "",
                 allowed_capability_prefixes=list(entry.allowed_capability_prefixes),
                 assigned=assigned,
                 assignment_id=str(assigned_record.assignment_id) if assigned_record else None,
@@ -201,15 +217,14 @@ async def get_composition(
 
 # ─── Org Chart ───
 
+
 @router.get("/org-chart")
 async def get_org_chart(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
-    active_assignments = await plane.workforce_repository.list_assignments(
-        identity.workspace_id, status="ACTIVE"
-    )
+    repo = _get_workforce_repo(request)
+    active_assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
 
     node_map = {
         str(a.assignment_id): WorkforceOrgChartNode(
@@ -217,7 +232,9 @@ async def get_org_chart(
             functional_key=a.functional_key,
             spec_id=a.spec_id,
             status=a.status,
-            reports_to_assignment_id=str(a.reports_to_assignment_id) if a.reports_to_assignment_id else None,
+            reports_to_assignment_id=str(a.reports_to_assignment_id)
+            if a.reports_to_assignment_id
+            else None,
             direct_reports=[],
         )
         for a in active_assignments
@@ -236,15 +253,14 @@ async def get_org_chart(
 
 # ─── Capabilities ───
 
+
 @router.get("/capabilities")
 async def list_capabilities(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
-    assignments = await plane.workforce_repository.list_assignments(
-        identity.workspace_id, status="ACTIVE"
-    )
+    repo = _get_workforce_repo(request)
+    assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
 
     caps: list[WorkforceCapabilityOut] = []
     seen = set()
@@ -269,6 +285,7 @@ async def list_capabilities(
 
 # ─── Cost Observations ───
 
+
 @router.get("/cost-observations")
 async def list_cost_observations(
     request: Request,
@@ -276,10 +293,8 @@ async def list_cost_observations(
     limit: int = Query(100, ge=1, le=500),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
-    records = await plane.workforce_repository.list_cost_observations(
-        identity.workspace_id, run_id=run_id, limit=limit
-    )
+    repo = _get_workforce_repo(request)
+    records = await repo.list_cost_observations(identity.workspace_id, run_id=run_id, limit=limit)
     items = [
         WorkforceCostObservationOut(
             observation_id=str(r.observation_id),
@@ -300,21 +315,21 @@ async def list_cost_observations(
 
 # ─── Health ───
 
+
 @router.get("/health")
 async def get_health(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = _get_plane(request)
-    assignments = await plane.workforce_repository.list_assignments(
-        identity.workspace_id, status="ACTIVE"
-    )
+    repo = _get_workforce_repo(request)
+    assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
 
     items: list[WorkforceHealthOut] = []
     for a in assignments:
         # Check last run for this spec/assignment if available
         runs = await plane.repository.list_runs(workspace_id=identity.workspace_id, limit=10)
-        matching_runs = [r for r in runs if r.agent_spec_id == a.spec_id]
+        matching_runs = [r for r in runs if r.root_executable_id == a.spec_id]
         if not matching_runs:
             items.append(
                 WorkforceHealthOut(
@@ -352,6 +367,7 @@ async def get_health(
 
 # ─── Runs ───
 
+
 @router.get("/runs")
 async def list_runs(
     request: Request,
@@ -364,10 +380,10 @@ async def list_runs(
         WorkforceRunSummaryOut(
             run_id=r.run_id,
             workspace_id=r.workspace_id or identity.workspace_id,
-            agent_spec_id=r.agent_spec_id,
-            agent_spec_version=r.agent_spec_version,
-            definition_hash=r.definition_hash,
-            status=r.status,
+            agent_spec_id=r.root_executable_id,
+            agent_spec_version=r.root_executable_version,
+            definition_hash=r.root_definition_hash or "",
+            status=r.status.value if hasattr(r.status, "value") else str(r.status),
             created_at=r.created_at.isoformat() if r.created_at else datetime.now(UTC).isoformat(),
             completed_at=r.completed_at.isoformat() if r.completed_at else None,
             total_tokens=getattr(r, "total_tokens", None),
@@ -395,14 +411,16 @@ async def get_run(
     out = WorkforceRunDetailOut(
         run_id=r.run_id,
         workspace_id=r.workspace_id or identity.workspace_id,
-        agent_spec_id=r.agent_spec_id,
-        agent_spec_version=r.agent_spec_version,
-        definition_hash=r.definition_hash,
-        status=r.status,
+        agent_spec_id=r.root_executable_id,
+        agent_spec_version=r.root_executable_version,
+        definition_hash=r.root_definition_hash or "",
+        status=r.status.value if hasattr(r.status, "value") else str(r.status),
         created_at=r.created_at.isoformat() if r.created_at else datetime.now(UTC).isoformat(),
         completed_at=r.completed_at.isoformat() if r.completed_at else None,
         input_payload=r.input_payload if isinstance(r.input_payload, dict) else {},
-        output_payload=r.output_payload if isinstance(r.output_payload, dict) else None,
+        output_payload=r.final_output
+        if isinstance(r.final_output, dict)
+        else ({"result": r.final_output} if r.final_output is not None else None),
         error_message=getattr(r, "error_message", None),
     )
     return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.runs")])
@@ -422,15 +440,17 @@ async def get_run_events(
             detail=f"Run '{run_id}' not found in workspace",
         )
 
-    events = await plane.stream_event_repository.list_events(run_id)
+    events = await plane.stream_event_repository.list_since(run_id)
     items = [
         WorkforceRunEventOut(
             event_id=str(e.event_id) if hasattr(e, "event_id") else f"evt_{idx}",
             run_id=run_id,
-            sequence=e.sequence if hasattr(e, "sequence") else idx,
+            sequence=int(e.sequence) if hasattr(e, "sequence") and e.sequence is not None else idx,
             event_type=e.event_type if hasattr(e, "event_type") else "message",
             payload=e.payload if hasattr(e, "payload") and isinstance(e.payload, dict) else {},
-            created_at=e.created_at.isoformat() if hasattr(e, "created_at") and e.created_at else datetime.now(UTC).isoformat(),
+            created_at=e.created_at.isoformat()
+            if hasattr(e, "created_at") and e.created_at
+            else datetime.now(UTC).isoformat(),
         )
         for idx, e in enumerate(events)
     ]
@@ -452,8 +472,10 @@ async def get_run_artifacts(
         )
 
     artifacts = []
-    if plane.artifact_repository is not None:
-        artifacts = await plane.artifact_repository.list_artifacts(run_id=run_id)
+    if plane.artifact_repository is not None and r.conversation_id:
+        artifacts = await plane.artifact_repository.list_for_conversation(
+            identity.workspace_id, r.conversation_id
+        )
 
     items = [
         WorkforceRunArtifactOut(
@@ -461,7 +483,9 @@ async def get_run_artifacts(
             run_id=run_id,
             artifact_type=getattr(a, "artifact_type", "document"),
             uri=getattr(a, "uri", f"artifact://{a.artifact_id}"),
-            created_at=a.created_at.isoformat() if hasattr(a, "created_at") and a.created_at else datetime.now(UTC).isoformat(),
+            created_at=a.created_at.isoformat()
+            if hasattr(a, "created_at") and a.created_at
+            else datetime.now(UTC).isoformat(),
         )
         for a in artifacts
     ]
@@ -469,6 +493,7 @@ async def get_run_artifacts(
 
 
 # ─── Schedules ───
+
 
 @router.get("/schedules")
 async def list_schedules(
@@ -519,6 +544,7 @@ async def run_schedule_now(
 
 # ─── Approvals ───
 
+
 @router.get("/approvals")
 async def list_approvals(
     request: Request,
@@ -534,11 +560,13 @@ async def list_approvals(
             approval_id=app.approval_id,
             workspace_id=identity.workspace_id,
             run_id=app.run_id,
-            capability_ref=app.action,
+            capability_ref=app.action or "",
             action_class="B",
             status=app.status,
-            requested_at=app.created_at.isoformat() if app.created_at else datetime.now(UTC).isoformat(),
-            decided_at=app.decided_at.isoformat() if getattr(app, "decided_at", None) else None,
+            requested_at=app.created_at.isoformat()
+            if hasattr(app, "created_at") and app.created_at
+            else datetime.now(UTC).isoformat(),
+            decided_at=app.decided_at.isoformat() if app.decided_at is not None else None,
             decision=getattr(app, "decision", None),
             reason=getattr(app, "reason", None),
         )
@@ -557,6 +585,7 @@ async def decide_approval(
 ):
     require_workspace_operator(identity)
     plane = _get_plane(request)
+    repo = _get_workforce_repo(request)
 
     existing_approval = await plane.approval_service.get_scoped_approval(
         approval_id=approval_id,
@@ -583,7 +612,7 @@ async def decide_approval(
 
     # Durable Outbox Signal: enqueue runtime signal after durable approval decision
     now = datetime.now(UTC)
-    await plane.workforce_repository.enqueue_runtime_signal(
+    await repo.enqueue_runtime_signal(
         workspace_id=identity.workspace_id,
         source_kind="approval",
         source_id=approval_id,

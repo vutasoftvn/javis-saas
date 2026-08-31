@@ -23,7 +23,7 @@ describe("Workspace Settings Endpoints", () => {
       password: "SecurePassword123",
       workspace_name: "Settings Test Venture",
     });
-    userId = reg.user.id;
+    userId = reg.user!.id;
     workspaceId = reg.platform_workspace_id!;
     validToken = reg.access_token;
   });

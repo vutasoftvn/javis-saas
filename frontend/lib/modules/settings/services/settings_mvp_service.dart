@@ -114,8 +114,8 @@ class SettingsMvpService {
       MvpEndpoint.settingsSkillUpdate,
       pathParams: {'skillKey': skillKey},
       body: {
-        if (enabled != null) 'enabled': enabled,
-        if (config != null) 'config': config,
+        'enabled': ?enabled,
+        'config': ?config,
       },
       decode: (json) => SkillSettingModel.fromJson(json as Map<String, dynamic>),
     );

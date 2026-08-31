@@ -108,6 +108,42 @@ def configure_mock_client_allows_data_use(mock_client: AsyncMock) -> AsyncMock:
     return mock_client
 
 
+class StubCompanyServiceClient:
+    async def resolve_data_use(self, *args, **kwargs):
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            allowed=True,
+            denial_code=None,
+            provider_profile_version="v1",
+            data_profile_version="v1",
+            retention_policy_id=None,
+            minimization_required=True,
+        )
+
+
+class StubTenantPolicyClient:
+    def __init__(self, workspace_id: str = "test_ws_1", rules: list[dict] | None = None):
+        self.workspace_id = workspace_id
+        self.rules = rules or []
+
+    async def get_snapshot(self, *args, **kwargs) -> PolicySnapshot:
+        return PolicySnapshot(
+            workspace_id=self.workspace_id,
+            workspace_status="active",
+            principal_status="active",
+            rules=self.rules,
+            snapshot_hash="test-snapshot-hash",
+        )
+
+
+def stub_active_tenant_policy_client(
+    *,
+    workspace_id: str = "test_ws_1",
+    rules: list[dict] | None = None,
+) -> StubTenantPolicyClient:
+    return StubTenantPolicyClient(workspace_id=workspace_id, rules=rules)
+
+
 def fake_active_tenant_policy_client(
     *,
     workspace_id: str = "test_ws_1",

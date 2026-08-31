@@ -3,15 +3,20 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 
-import '../services/secure_storage_service.dart';
+import 'api_auth_resolver.dart';
 import 'api_client.dart';
 import 'api_result.dart';
 import 'mvp_endpoints.g.dart';
 
 class MvpRequestClient {
-  MvpRequestClient({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
+  MvpRequestClient({
+    http.Client? httpClient,
+    ApiAuthResolver? authResolver,
+  })  : _httpClient = httpClient ?? http.Client(),
+        _authResolver = authResolver ?? const DefaultApiAuthResolver();
 
   final http.Client _httpClient;
+  final ApiAuthResolver _authResolver;
 
   String _resolveBaseUrl(ApiPlane plane) {
     switch (plane) {
@@ -45,8 +50,8 @@ class MvpRequestClient {
     required T Function(Object?) decode,
   }) async {
     try {
-      final token = await SecureStorageService.read('auth_token');
-      final workspaceId = await SecureStorageService.read('workspace_id');
+      final token = await _authResolver.tokenFor(endpoint.plane);
+      final workspaceId = await _authResolver.workspaceId();
 
       if (endpoint.requiresWorkspace && (token == null || token.isEmpty)) {
         return const ApiFailure(ApiFailureDetail(

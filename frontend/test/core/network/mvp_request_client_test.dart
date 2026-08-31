@@ -1,11 +1,25 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/core/network/api_auth_resolver.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_endpoints.g.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
+
+class _FakeAuthResolver implements ApiAuthResolver {
+  _FakeAuthResolver({this.token, this.wsId});
+  final String? token;
+  final String? wsId;
+
+  @override
+  Future<String?> tokenFor(ApiPlane plane) async => token;
+
+  @override
+  Future<String?> workspaceId() async => wsId;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -100,9 +114,9 @@ void main() {
     });
 
     test('missing auth token fails unauthenticated', () async {
-      SharedPreferences.setMockInitialValues({'auth_token': '', 'workspace_id': '1001'});
-
-      final client = MvpRequestClient();
+      final client = MvpRequestClient(
+        authResolver: _FakeAuthResolver(token: null, wsId: '1001'),
+      );
       final result = await client.request<List<String>>(
         MvpEndpoint.strategyCanvasList,
         decode: (json) => (json as List<dynamic>).cast<String>(),
@@ -110,6 +124,55 @@ void main() {
 
       expect(result, isA<ApiFailure<List<String>>>());
       expect((result as ApiFailure<List<String>>).failure.code, ApiFailureCode.unauthenticated);
+    });
+
+    test('missing workspace fails invalidRequest', () async {
+      final client = MvpRequestClient(
+        authResolver: _FakeAuthResolver(token: 'valid_tok', wsId: null),
+      );
+      final result = await client.request<List<String>>(
+        MvpEndpoint.strategyCanvasList,
+        decode: (json) => (json as List<dynamic>).cast<String>(),
+      );
+
+      expect(result, isA<ApiFailure<List<String>>>());
+      expect((result as ApiFailure<List<String>>).failure.code, ApiFailureCode.invalidRequest);
+    });
+
+    test('malformed envelope returns ApiFailureCode.malformedResponse', () async {
+      final mockHttp = MockClient((request) async {
+        return http.Response('not a json envelope', 200, headers: {'content-type': 'application/json'});
+      });
+
+      final client = MvpRequestClient(
+        httpClient: mockHttp,
+        authResolver: _FakeAuthResolver(token: 'valid_tok', wsId: '1001'),
+      );
+      final result = await client.request<List<String>>(
+        MvpEndpoint.strategyCanvasList,
+        decode: (json) => (json as List<dynamic>).cast<String>(),
+      );
+
+      expect(result, isA<ApiFailure<List<String>>>());
+      expect((result as ApiFailure<List<String>>).failure.code, ApiFailureCode.malformedResponse);
+    });
+
+    test('network exception returns ApiFailureCode.unavailable', () async {
+      final mockHttp = MockClient((request) async {
+        throw const SocketException('Connection refused');
+      });
+
+      final client = MvpRequestClient(
+        httpClient: mockHttp,
+        authResolver: _FakeAuthResolver(token: 'valid_tok', wsId: '1001'),
+      );
+      final result = await client.request<List<String>>(
+        MvpEndpoint.strategyCanvasList,
+        decode: (json) => (json as List<dynamic>).cast<String>(),
+      );
+
+      expect(result, isA<ApiFailure<List<String>>>());
+      expect((result as ApiFailure<List<String>>).failure.code, ApiFailureCode.unavailable);
     });
   });
 }

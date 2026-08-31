@@ -276,14 +276,16 @@ export async function listWorkspaceRuntimeNodesService(
   const items: RuntimeNodeView[] = rows.map((r) => {
     const lastHb = r.lastHeartbeatAt ? r.lastHeartbeatAt.getTime() : 0;
     const isOnline = now - lastHb < 60000; // online if heartbeat within 60s
+    const isRevoked = r.revokedAt !== null;
+    const status = isRevoked ? "revoked" : (r.presenceStatus || "active");
     return {
-      id: r.id.toString(),
+      id: r.nodeId.toString(),
       workspaceId: r.workspaceId.toString(),
-      nodeId: r.nodeId,
+      nodeId: r.nodeId.toString(),
       runtimeRole: r.runtimeRole,
       presence: isOnline ? "ONLINE" : "OFFLINE",
       lastHeartbeatAt: r.lastHeartbeatAt?.toISOString() ?? null,
-      status: r.status,
+      status,
     };
   });
 
@@ -297,11 +299,12 @@ export async function revokeWorkspaceRuntimeNodeService(
 ): Promise<MvpSuccess<{ revoked: boolean }>> {
   const actorId = await verifyWorkspaceMembership(authorization, workspaceId);
   const wsIdBigInt = BigInt(workspaceId);
+  const nodeIdBigInt = BigInt(nodeId);
 
   await db
     .update(workspaceRuntimeNodes)
-    .set({ status: "revoked" })
-    .where(and(eq(workspaceRuntimeNodes.workspaceId, wsIdBigInt), eq(workspaceRuntimeNodes.nodeId, nodeId)));
+    .set({ revokedAt: new Date(), presenceStatus: "OFFLINE", updatedAt: new Date() })
+    .where(and(eq(workspaceRuntimeNodes.workspaceId, wsIdBigInt), eq(workspaceRuntimeNodes.nodeId, nodeIdBigInt)));
 
   await db.insert(workspaceSettingsAuditEvents).values({
     eventId: BigInt(Date.now()),

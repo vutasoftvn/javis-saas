@@ -1,8 +1,10 @@
 """Agent Platform MVP Response Envelopes and Helpers."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Generic, Literal, TypeVar
+
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -39,7 +41,7 @@ def mvp_list(
     sources: list[MvpSourceRef],
     observed_at: datetime | None = None,
 ) -> MvpSuccess[list[T]]:
-    obs = observed_at or datetime.now(timezone.utc)
+    obs = observed_at or datetime.now(UTC)
     return MvpSuccess(
         data=items,
         meta=MvpResponseMeta(
@@ -55,7 +57,7 @@ def mvp_item(
     sources: list[MvpSourceRef],
     observed_at: datetime | None = None,
 ) -> MvpSuccess[T]:
-    obs = observed_at or datetime.now(timezone.utc)
+    obs = observed_at or datetime.now(UTC)
     return MvpSuccess(
         data=item,
         meta=MvpResponseMeta(

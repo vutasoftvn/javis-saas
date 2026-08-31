@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+from agent.vault import VaultRepository
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from apps.cosa.api.mvp_response import MvpSourceRef, mvp_item, mvp_list
@@ -34,7 +35,9 @@ router = APIRouter(prefix="/agent/vault", tags=["vault"])
 
 
 def _get_plane(request: Request) -> CosaAgentPlane:
-    plane = getattr(request.app.state, "plane", None) or getattr(request.app.state, "cosa_agent_plane", None)
+    plane = getattr(request.app.state, "plane", None) or getattr(
+        request.app.state, "cosa_agent_plane", None
+    )
     if plane is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -43,7 +46,18 @@ def _get_plane(request: Request) -> CosaAgentPlane:
     return plane
 
 
+def _get_vault_repo(request: Request) -> VaultRepository:
+    plane = _get_plane(request)
+    if plane.vault_repository is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="VaultRepository is not configured",
+        )
+    return plane.vault_repository
+
+
 # ─── Documents ───
+
 
 @router.get("/documents")
 async def list_documents(
@@ -52,8 +66,8 @@ async def list_documents(
     limit: int = Query(50, ge=1, le=200),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
-    records = await plane.vault_repository.list_documents(
+    repo = _get_vault_repo(request)
+    records = await repo.list_documents(
         workspace_id=identity.workspace_id,
         state=state,
         limit=limit,
@@ -83,10 +97,10 @@ async def create_upload_ticket(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     require_workspace_operator(identity)
-    plane = _get_plane(request)
+    repo = _get_vault_repo(request)
 
     # 1. Create a draft document record
-    doc = await plane.vault_repository.create_draft(
+    doc = await repo.create_draft(
         workspace_id=identity.workspace_id,
         title=req.file_name,
         kind="document",
@@ -113,23 +127,23 @@ async def get_document(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
+    repo = _get_vault_repo(request)
     try:
         doc_uuid = UUID(document_id)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Document '{document_id}' not found in workspace",
-        )
+        ) from err
 
-    doc = await plane.vault_repository.get_document(identity.workspace_id, doc_uuid)
+    doc = await repo.get_document(identity.workspace_id, doc_uuid)
     if doc is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Document '{document_id}' not found in workspace",
         )
 
-    versions = await plane.vault_repository.list_versions(identity.workspace_id, doc_uuid)
+    versions = await repo.list_versions(identity.workspace_id, doc_uuid)
     v_items = [
         VaultDocumentVersionOut(
             version_id=str(v.version_id),
@@ -169,16 +183,16 @@ async def confirm_upload(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     require_workspace_operator(identity)
-    plane = _get_plane(request)
+    repo = _get_vault_repo(request)
     try:
         doc_uuid = UUID(document_id)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Document '{document_id}' not found in workspace",
-        )
+        ) from err
 
-    doc = await plane.vault_repository.get_document(identity.workspace_id, doc_uuid)
+    doc = await repo.get_document(identity.workspace_id, doc_uuid)
     if doc is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -186,7 +200,7 @@ async def confirm_upload(
         )
 
     # Append new version
-    version_rec = await plane.vault_repository.append_version(
+    await repo.append_version(
         workspace_id=identity.workspace_id,
         document_id=doc_uuid,
         object_ref={"bucket": "vault", "key": f"{identity.workspace_id}/{document_id}"},
@@ -197,7 +211,7 @@ async def confirm_upload(
     )
 
     # Update document state to INDEXED or QUARANTINED
-    updated_doc = await plane.vault_repository.update_document_state(
+    updated_doc = await repo.update_document_state(
         workspace_id=identity.workspace_id,
         document_id=doc_uuid,
         state="INDEXED",
@@ -214,8 +228,12 @@ async def confirm_upload(
         title=updated_doc.title,
         kind=updated_doc.kind,
         state=updated_doc.state,
-        current_version_id=str(updated_doc.current_version_id) if updated_doc.current_version_id else None,
-        knowledge_source_id=str(updated_doc.knowledge_source_id) if updated_doc.knowledge_source_id else None,
+        current_version_id=str(updated_doc.current_version_id)
+        if updated_doc.current_version_id
+        else None,
+        knowledge_source_id=str(updated_doc.knowledge_source_id)
+        if updated_doc.knowledge_source_id
+        else None,
         created_by=updated_doc.created_by,
         created_at=updated_doc.created_at.isoformat(),
         updated_at=updated_doc.updated_at.isoformat(),
@@ -230,16 +248,16 @@ async def delete_document(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     require_workspace_operator(identity)
-    plane = _get_plane(request)
+    repo = _get_vault_repo(request)
     try:
         doc_uuid = UUID(document_id)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Document '{document_id}' not found in workspace",
-        )
+        ) from err
 
-    deleted = await plane.vault_repository.delete_document(identity.workspace_id, doc_uuid)
+    deleted = await repo.delete_document(identity.workspace_id, doc_uuid)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -252,13 +270,14 @@ async def delete_document(
 
 # ─── Knowledge Graph & Sources & Retrieval ───
 
+
 @router.get("/knowledge/graph")
 async def get_knowledge_graph(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
-    graph = await plane.vault_repository.get_knowledge_graph(identity.workspace_id)
+    repo = _get_vault_repo(request)
+    graph = await repo.get_knowledge_graph(identity.workspace_id)
     out = VaultKnowledgeGraphOut(
         nodes=[
             KnowledgeGraphNodeOut(
@@ -288,9 +307,9 @@ async def list_indexed_sources(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
+    repo = _get_vault_repo(request)
     # Read indexed documents as knowledge sources
-    docs = await plane.vault_repository.list_documents(
+    docs = await repo.list_documents(
         workspace_id=identity.workspace_id,
         state="INDEXED",
     )
@@ -315,9 +334,9 @@ async def retrieval_query(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = _get_plane(request)
+    repo = _get_vault_repo(request)
     # Search indexed documents matching query
-    docs = await plane.vault_repository.list_documents(
+    docs = await repo.list_documents(
         workspace_id=identity.workspace_id,
         state="INDEXED",
     )

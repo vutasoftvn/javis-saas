@@ -12,7 +12,7 @@ export interface MarketingCampaign {
   name: string;
   funnelStage: string;
   channels: string[];
-  budget: number;
+  budget?: number | null;
   status: string;
   startDate?: string | null;
   endDate?: string | null;
@@ -37,7 +37,7 @@ export interface CampaignAsset {
   assetType: string;
   title: string;
   content: string;
-  status: string;
+  status?: string;
   createdAt: string;
 }
 
@@ -74,7 +74,7 @@ function toCampaign(row: typeof marketingCampaigns.$inferSelect): MarketingCampa
     name: row.name,
     funnelStage: row.funnelStage,
     channels: (row.channels as string[]) || [],
-    budget: row.budget,
+    budget: row.budget !== null && row.budget !== undefined ? Number(row.budget) : null,
     status: row.status,
     startDate: row.startDate ? row.startDate.toISOString() : null,
     endDate: row.endDate ? row.endDate.toISOString() : null,

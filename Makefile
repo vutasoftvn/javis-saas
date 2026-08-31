@@ -4,7 +4,7 @@ TEST_DATABASE_URL ?=
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check mvp-e2e-purity-check
 
 # Task 10 (audit fix, 2026-08-30) — trước đây `tests/e2e/test_ai_compliance_company_http.py`
 # dùng `httpx.MockTransport` tự viết giả lập response Company (fake snapshot
@@ -81,6 +81,15 @@ boundary-check:
 	# legacy/agentos mới, xem tests/apps/cosa/test_services_boundary_audit.py.
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/test_services_boundary_audit.py -q
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
+
+frontend-boundary-check:
+	node scripts/check_frontend_boundaries.mjs
+
+company-boundary-check:
+	node scripts/check_company_boundaries.mjs
+
+mvp-e2e-purity-check:
+	PYTHONPATH=$(CURDIR) $(PYTHON) scripts/check_mvp_e2e_purity.py
 
 skillpacks-validate:
 	# Kiểm tra contract của tất cả skillpacks: manifest.yaml, SKILL.md frontmatter,

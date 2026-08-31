@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import text
 
-from packages.agent.vault.models import (
+from agent.vault.models import (
     VaultDocumentRecord,
     VaultDocumentVersionRecord,
     VaultKnowledgeGraph,
@@ -413,13 +413,19 @@ class PostgresVaultRepository:
     @staticmethod
     def _row_to_document(row: Any) -> VaultDocumentRecord:
         return VaultDocumentRecord(
-            document_id=row["document_id"] if isinstance(row["document_id"], UUID) else UUID(str(row["document_id"])),
+            document_id=row["document_id"]
+            if isinstance(row["document_id"], UUID)
+            else UUID(str(row["document_id"])),
             workspace_id=row["workspace_id"],
             title=row["title"],
             kind=row["kind"],
             state=row["state"],
-            current_version_id=UUID(str(row["current_version_id"])) if row["current_version_id"] else None,
-            knowledge_source_id=UUID(str(row["knowledge_source_id"])) if row["knowledge_source_id"] else None,
+            current_version_id=UUID(str(row["current_version_id"]))
+            if row["current_version_id"]
+            else None,
+            knowledge_source_id=UUID(str(row["knowledge_source_id"]))
+            if row["knowledge_source_id"]
+            else None,
             created_by=row["created_by"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
@@ -430,9 +436,13 @@ class PostgresVaultRepository:
         raw_ref = row["object_ref"]
         obj_ref = json.loads(raw_ref) if isinstance(raw_ref, str) else raw_ref
         return VaultDocumentVersionRecord(
-            version_id=row["version_id"] if isinstance(row["version_id"], UUID) else UUID(str(row["version_id"])),
+            version_id=row["version_id"]
+            if isinstance(row["version_id"], UUID)
+            else UUID(str(row["version_id"])),
             workspace_id=row["workspace_id"],
-            document_id=row["document_id"] if isinstance(row["document_id"], UUID) else UUID(str(row["document_id"])),
+            document_id=row["document_id"]
+            if isinstance(row["document_id"], UUID)
+            else UUID(str(row["document_id"])),
             object_ref=obj_ref if isinstance(obj_ref, dict) else {},
             checksum_sha256=row["checksum_sha256"],
             size_bytes=int(row["size_bytes"]),
@@ -529,7 +539,8 @@ class InMemoryVaultRepository:
         limit: int = 50,
     ) -> list[VaultDocumentRecord]:
         docs = [
-            d for d in self._documents.values()
+            d
+            for d in self._documents.values()
             if d.workspace_id == workspace_id and (state is None or d.state == state)
         ]
         docs.sort(key=lambda x: x.updated_at, reverse=True)
@@ -569,7 +580,11 @@ class InMemoryVaultRepository:
         if (workspace_id, document_id) in self._documents:
             del self._documents[(workspace_id, document_id)]
             # remove versions
-            keys_to_del = [k for k, v in self._versions.items() if v.workspace_id == workspace_id and v.document_id == document_id]
+            keys_to_del = [
+                k
+                for k, v in self._versions.items()
+                if v.workspace_id == workspace_id and v.document_id == document_id
+            ]
             for k in keys_to_del:
                 del self._versions[k]
             return True
@@ -581,7 +596,8 @@ class InMemoryVaultRepository:
         document_id: UUID,
     ) -> list[VaultDocumentVersionRecord]:
         vers = [
-            v for v in self._versions.values()
+            v
+            for v in self._versions.values()
             if v.workspace_id == workspace_id and v.document_id == document_id
         ]
         vers.sort(key=lambda x: x.created_at, reverse=True)

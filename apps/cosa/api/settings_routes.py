@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime
 from typing import Any
 
@@ -40,7 +41,9 @@ class UpdateSkillSettingRequest(BaseModel):
 
 
 def _get_plane(request: Request) -> CosaAgentPlane:
-    plane = getattr(request.app.state, "plane", None) or getattr(request.app.state, "cosa_agent_plane", None)
+    plane = getattr(request.app.state, "plane", None) or getattr(
+        request.app.state, "cosa_agent_plane", None
+    )
     if plane is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -72,9 +75,13 @@ async def list_settings_skills(
                         description=spec.description,
                         version=spec.version,
                         installed=True,
-                        status=spec.status.value if hasattr(spec.status, "value") else str(spec.status),
+                        status=spec.status.value
+                        if hasattr(spec.status, "value")
+                        else str(spec.status),
                         publisher=spec.publisher,
-                        autonomyCeiling=spec.autonomy.ceiling.value if hasattr(spec.autonomy.ceiling, "value") else str(spec.autonomy.ceiling),
+                        autonomyCeiling=spec.autonomy.ceiling.value
+                        if hasattr(spec.autonomy.ceiling, "value")
+                        else str(spec.autonomy.ceiling),
                         tags=spec.applicability.tags if hasattr(spec, "applicability") else [],
                         updatedAt=now_str,
                     )
@@ -99,10 +106,8 @@ async def update_settings_skill(
     # Look up spec in registry
     spec = None
     if hasattr(plane, "skill_registry") and plane.skill_registry:
-        try:
+        with contextlib.suppress(Exception):
             spec = await plane.skill_registry.get_spec(skill_key)
-        except Exception:
-            pass
 
     out = SkillSettingView(
         id=skill_key,
@@ -113,7 +118,9 @@ async def update_settings_skill(
         installed=body.enabled if body.enabled is not None else True,
         status="active" if (body.enabled if body.enabled is not None else True) else "disabled",
         publisher=spec.publisher if spec else "cosa_platform",
-        autonomyCeiling=spec.autonomy.ceiling.value if spec and hasattr(spec.autonomy.ceiling, "value") else "supervised",
+        autonomyCeiling=spec.autonomy.ceiling.value
+        if spec and hasattr(spec.autonomy.ceiling, "value")
+        else "supervised",
         tags=[],
         updatedAt=now_str,
     )

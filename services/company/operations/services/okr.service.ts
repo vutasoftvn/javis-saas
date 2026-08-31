@@ -6,6 +6,7 @@ import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { computeKeyResultScore, computeObjectiveScore } from "./okr-scoring.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { mvpList, mvpItem, MvpSuccess } from "../../shared/contracts/mvp-response";
+import { TenantContext } from "../../shared/types/tenant_context";
 
 const { okrCycles, okrObjectives, keyResults } = schema;
 

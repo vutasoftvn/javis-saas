@@ -35,14 +35,25 @@ class ApiSourceRef {
   final DateTime? observedAt;
 
   factory ApiSourceRef.fromJson(Map<String, dynamic> json) {
+    final kind = json['kind'];
+    final ref = json['ref'];
+    if (kind is! String || kind.isEmpty) {
+      throw FormatException('Invalid or missing source ref kind: $kind');
+    }
+    if (ref is! String || ref.isEmpty) {
+      throw FormatException('Invalid or missing source ref: $ref');
+    }
     DateTime? obs;
     final obsStr = json['observed_at'] ?? json['observedAt'];
     if (obsStr is String && obsStr.isNotEmpty) {
       obs = DateTime.tryParse(obsStr);
+      if (obs == null) {
+        throw FormatException('Invalid source ref observed_at timestamp: $obsStr');
+      }
     }
     return ApiSourceRef(
-      kind: json['kind'] as String? ?? 'unknown',
-      ref: json['ref'] as String? ?? '',
+      kind: kind,
+      ref: ref,
       observedAt: obs,
     );
   }
@@ -77,10 +88,12 @@ class ApiResponseMeta {
     }
 
     final rawObs = json['observed_at'] ?? json['observedAt'];
-    DateTime obs = DateTime.now();
-    if (rawObs is String && rawObs.isNotEmpty) {
-      final parsed = DateTime.tryParse(rawObs);
-      if (parsed != null) obs = parsed;
+    if (rawObs is! String || rawObs.isEmpty) {
+      throw FormatException('Missing observed_at timestamp in response meta');
+    }
+    final parsed = DateTime.tryParse(rawObs);
+    if (parsed == null) {
+      throw FormatException('Invalid observed_at timestamp: $rawObs');
     }
 
     final rawSources = json['sources'];
@@ -89,13 +102,15 @@ class ApiResponseMeta {
       for (final item in rawSources) {
         if (item is Map<String, dynamic>) {
           sourcesList.add(ApiSourceRef.fromJson(item));
+        } else {
+          throw FormatException('Invalid source item: $item');
         }
       }
     }
 
     return ApiResponseMeta(
       dataState: state,
-      observedAt: obs,
+      observedAt: parsed,
       sources: sourcesList,
     );
   }
@@ -161,6 +176,8 @@ final class ApiSuccess<T> extends ApiResult<T> {
 
   final T data;
   final ApiResponseMeta meta;
+
+  T get value => data;
 
   @override
   String toString() =>
