@@ -1,7 +1,4 @@
 import { api, Header } from "encore.dev/api";
-import { and, eq, desc } from "drizzle-orm";
-import { db } from "../../db";
-import { engagementAutomationApplications } from "../../../shared/db/schema/customer-engagement";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import {
   ENGAGEMENT_PERMISSIONS,
@@ -14,6 +11,7 @@ import {
   listRules,
 } from "../../services/customer-engagement/automation/rule-store.service";
 import { evaluateRules } from "../../services/customer-engagement/automation/evaluator";
+import * as applicationsSvc from "../../services/customer-engagement/automation/applications.service";
 
 export interface CreateRuleParams {
   authorization: Header<"Authorization">;
@@ -137,35 +135,9 @@ export const listThreadAutomationApplicationsApi = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     requireEngagementPermission(ctx, ENGAGEMENT_PERMISSIONS.THREAD_READ);
 
-    const wsId = BigInt(params.workspaceId);
-    const threadId = BigInt(params.id);
-
-    const rows = await db
-      .select()
-      .from(engagementAutomationApplications)
-      .where(
-        and(
-          eq(engagementAutomationApplications.workspaceId, wsId),
-          eq(engagementAutomationApplications.threadId, threadId)
-        )
-      )
-      .orderBy(desc(engagementAutomationApplications.createdAt));
-
-    return {
-      applications: rows.map((r) => ({
-        id: r.id.toString(),
-        workspaceId: r.workspaceId.toString(),
-        ruleKey: r.ruleKey,
-        ruleVersion: r.ruleVersion,
-        threadId: r.threadId.toString(),
-        trigger: r.trigger,
-        actionIndex: r.actionIndex,
-        actionType: r.actionType,
-        dedupeKey: r.dedupeKey,
-        outcome: r.outcome,
-        detail: r.detail,
-        createdAt: r.createdAt,
-      })),
-    };
+    return applicationsSvc.listThreadAutomationApplications({
+      workspaceId: params.workspaceId,
+      threadId: params.id,
+    });
   }
 );
