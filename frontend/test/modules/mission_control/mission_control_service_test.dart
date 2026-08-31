@@ -149,18 +149,15 @@ void main() {
       expect(mission!.missionId, 'mis-new');
     });
 
-    test('orchestrateMission handles 204 No Content by failing gracefully', () async {
+    test('orchestrateMission returns null on 204 No Content instead of throwing', () async {
       ApiClient.client = MockClient((request) async {
         return http.Response('', 204);
       });
 
       final service = MissionControlService();
+      final mission = await service.orchestrateMission('Test goal');
 
-      // The service will throw FormatException due to empty body
-      expect(
-        () async => await service.orchestrateMission('Test goal'),
-        throwsFormatException,
-      );
+      expect(mission, isNull);
     });
 
     test('orchestrateMission handles 299 boundary status code', () async {

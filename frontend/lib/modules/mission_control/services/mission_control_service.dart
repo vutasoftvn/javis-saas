@@ -10,7 +10,10 @@ class MissionControlService extends WorkspaceService {
       body: {'goal': goal},
     );
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+    // 204 No Content không có body — jsonDecode('') sẽ throw FormatException.
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300 &&
+        response.body.isNotEmpty) {
       final data = jsonDecode(response.body);
       if (data is Map<String, dynamic>) {
         return ChiefOfStaffMission.fromJson(data);
