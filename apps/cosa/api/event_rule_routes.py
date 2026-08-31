@@ -7,6 +7,7 @@ thêm human approval. Rule LUÔN tạo với `enabled=false`.
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -22,6 +23,8 @@ from apps.cosa.events.trigger_policy import EventTriggerRule, PinnedSpecIdentity
 from apps.cosa.events.trigger_promotion import can_enable_trigger
 
 __all__ = ["create_event_rule_router"]
+
+logger = logging.getLogger(__name__)
 
 
 class AgentSpecPin(BaseModel):
@@ -136,6 +139,24 @@ def create_event_rule_router() -> APIRouter:
         if not gate.allowed:
             raise HTTPException(status_code=422, detail={"status": "denied", "reason": gate.reason})
         approved_by = identity.platform_user_id if gate.requires_human_approval else None
+
+        if gate.requires_human_approval:
+            # Finding 5 (final review) — quyết định của người sở hữu plan:
+            # không dựng lại 2-actor approval gate (chưa từng có khái niệm
+            # "approver khác" thật, sẽ khoá luôn workspace 1-operator hợp
+            # lệ). Thay vào đó: audit record structured, application-log-
+            # level mỗi lần human-approval gate được thoả và rule write-mode
+            # được enable — không bảng DB mới, không migration. Không log
+            # secret/token — chỉ định danh.
+            logger.info(
+                "event trigger rule enabled with human approval",
+                extra={
+                    "rule_id": rule_id,
+                    "workspace_id": workspace_id,
+                    "operator_id": identity.platform_user_id,
+                    "mode": rule.mode,
+                },
+            )
 
         await deps.rule_store.set_enabled(rule_id, True)
         result = {"status": "enabled"}

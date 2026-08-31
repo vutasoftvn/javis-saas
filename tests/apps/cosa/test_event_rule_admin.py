@@ -1,4 +1,5 @@
 """Task 4.5: admin create/enable EventTriggerRule, gated by can_enable_trigger."""
+import logging
 from types import SimpleNamespace
 
 import pytest
@@ -153,6 +154,48 @@ async def test_enable_write_rule_with_valid_evidence_uses_authenticated_approver
     rid = await _create(client, mode="write", evidence_ref=ev.evidence_id)
     r = await client.post(f"/agent/events/rules/{rid}/enable", json={})
     assert r.status_code == 200 and r.json() == {"status": "enabled", "approvedBy": "operator-user"}
+
+
+async def test_enable_write_rule_with_approval_emits_audit_log(client, caplog):
+    """Finding 5 (final review, human decision) — self-approval (same
+    identity creates and enables a write-mode rule) has no genuine two-actor
+    approval gate and won't get one (would lock out solo-founder
+    workspaces). Instead, a structured application-log audit record must be
+    emitted whenever a write-mode rule's human-approval gate is satisfied."""
+    ev = await client._evidence_store.create(_evidence(boundary="write"))
+    rid = await _create(client, mode="write", evidence_ref=ev.evidence_id)
+
+    with caplog.at_level(logging.INFO, logger="apps.cosa.api.event_rule_routes"):
+        r = await client.post(f"/agent/events/rules/{rid}/enable", json={})
+
+    assert r.status_code == 200
+    audit_records = [
+        rec
+        for rec in caplog.records
+        if rec.message == "event trigger rule enabled with human approval"
+    ]
+    assert len(audit_records) == 1
+    rec = audit_records[0]
+    assert rec.rule_id == rid
+    assert rec.workspace_id == "ws_1"
+    assert rec.operator_id == "operator-user"
+    assert rec.mode == "write"
+
+
+async def test_enable_artifact_only_rule_does_not_emit_approval_audit_log(client, caplog):
+    """Audit log is scoped to the human-approval gate only — artifact_only
+    rules (no approval required) must not emit the same record."""
+    rid = await _create(client, mode="artifact_only")
+
+    with caplog.at_level(logging.INFO, logger="apps.cosa.api.event_rule_routes"):
+        r = await client.post(f"/agent/events/rules/{rid}/enable", json={})
+
+    assert r.status_code == 200
+    assert not [
+        rec
+        for rec in caplog.records
+        if rec.message == "event trigger rule enabled with human approval"
+    ]
 
 
 async def test_enable_proposal_rule_with_stale_evidence_denied(client):

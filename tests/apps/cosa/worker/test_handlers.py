@@ -15,7 +15,7 @@ from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
-from apps.cosa.worker.handlers import execute_run_task
+from apps.cosa.worker.handlers import execute_resume_task, execute_run_task
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
     fake_active_tenant_policy_client,
@@ -163,6 +163,41 @@ async def test_tenant_policy_error_is_not_sent_to_client():
     )
     assert secret_detail not in visible_text
     assert "policy_snapshot_unavailable" in visible_text
+
+
+@pytest.mark.asyncio
+async def test_resume_tenant_policy_error_is_not_sent_to_client():
+    """Final-review Finding 2 — second, structurally identical
+    `CosaTenantPolicyError` branch in `execute_resume_task` (resume-after-
+    approval flow) had the same raw-exception-interpolation bug as the
+    already-fixed branch in `_execute_run_task_inner`. Only the stable code
+    `policy_snapshot_unavailable_on_resume` may reach the client."""
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    stream_mgr = CosaEventStreamManager()
+    secret_detail = "internal-policy-store-dsn-leak-detail-resume"
+    plane.tenant_policy_client.get_snapshot = AsyncMock(
+        side_effect=CosaTenantPolicyError(secret_detail)
+    )
+
+    payload = {
+        "run_id": "run_resume_test_1",
+        "checkpoint_ref": "checkpoint_1",
+        "conversation_id": "conv_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "operations",
+        "delegation_token": "fake-token",
+    }
+    await execute_resume_task(plane, stream_mgr, payload)
+
+    visible_text = await _all_client_visible_text(
+        plane, run_id=payload["run_id"], conversation_id=payload["conversation_id"]
+    )
+    assert secret_detail not in visible_text
+    assert "policy_snapshot_unavailable_on_resume" in visible_text
 
 
 @pytest.mark.asyncio

@@ -101,6 +101,25 @@ def test_member_cannot_update_or_deprecate_workspace_skill(member_env):
     ).status_code == 403
 
 
+def test_empty_role_cannot_sync_built_in_skills(setup_env):
+    """Final-review Finding 3 — `sync_built_in_skills` had its own inline role
+    check (`if role and role not in {...}`) that fails OPEN when
+    `identity.role_id` resolves to `""`, unlike every other mutation route in
+    this file (which use `require_workspace_operator` and correctly fail
+    CLOSED on empty role). Now uses the shared helper too."""
+    override_authenticated_identity(setup_env["app"], workspace_id="ws-1", role_id="")
+    response = setup_env["client"].post("/agent/skills/sync-built-in?workspace_id=ws-1")
+    assert response.status_code == 403
+    # No role_id echoed back into the response body (info-disclosure cleanup).
+    assert response.json()["detail"] == "workspace operator role required"
+
+
+def test_member_role_cannot_sync_built_in_skills(setup_env):
+    override_authenticated_identity(setup_env["app"], workspace_id="ws-1", role_id="member")
+    response = setup_env["client"].post("/agent/skills/sync-built-in?workspace_id=ws-1")
+    assert response.status_code == 403
+
+
 def test_skill_registry_lifecycle_and_sync(setup_env):
     """Verify complete Skill Registry lifecycle: list -> sync-built-in -> candidate -> evaluate -> promote -> deprecate."""
     client: TestClient = setup_env["client"]

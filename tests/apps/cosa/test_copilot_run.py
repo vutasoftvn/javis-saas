@@ -161,6 +161,45 @@ async def test_copilot_fails_closed_when_registered_spec_content_is_invalid(
 
 
 @pytest.mark.asyncio
+async def test_copilot_unexpected_error_is_not_sent_to_client(mock_plane, mock_stream_mgr):
+    """Final-review Finding 1 — exception thô (vd. secret nội bộ) từ nhánh
+    `except Exception` bao trùm KHÔNG được interpolate vào payload SSE
+    `run.failed` client-facing; chỉ mã lỗi ổn định `internal_error` được
+    forward, exception thật chỉ log server-side (cùng pattern với
+    `execute_run_task`'s broad-failure branch trong
+    `apps/cosa/worker/handlers.py`)."""
+    secret_detail = "internal-copilot-secret-detail"
+    mock_plane.kernel.run = AsyncMock(side_effect=RuntimeError(secret_detail))
+
+    payload = {
+        "run_id": "run_crash_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_100", "contact_id": "c_200"},
+        "intent": "summarize",
+        "identity_verified": False,
+        "knowledge_scope": {},
+        "correlation_id": "corr-crash",
+    }
+
+    with patch(
+        "apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock
+    ) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+    mock_cb.assert_awaited_once_with("run_crash_1", "failed")
+    assert mock_stream_mgr.emit.await_count >= 1
+    all_emitted_text = " ".join(
+        str(call.kwargs.get("payload", "")) for call in mock_stream_mgr.emit.call_args_list
+    )
+    assert secret_detail not in all_emitted_text
+    call_kwargs = mock_stream_mgr.emit.call_args.kwargs
+    assert call_kwargs["event_type"] == "run.failed"
+    assert call_kwargs["payload"]["error"] == "internal_error"
+    assert call_kwargs["payload"]["reason_code"] == "copilot_unhandled_exception"
+
+
+@pytest.mark.asyncio
 async def test_copilot_happy_path_artifact_persisted_ux_emitted_and_callback_sent(
     mock_plane, mock_stream_mgr
 ):

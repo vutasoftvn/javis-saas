@@ -315,13 +315,17 @@ async def sync_built_in_skills(
     Chạy validate_skillpack_tree trước; nếu 0 violation, publish từng skillpack
     vào SpecRegistryRepository (idempotent theo hash). KHÔNG đụng cap_registry.
     """
-    if identity:
-        role = (identity.role_id or "").lower()
-        if role and role not in {"founder", "co-founder", "admin"}:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Sync built-in skills requires founder or admin privilege (current role: {identity.role_id})",
-            )
+    # Final-review Finding 3 — dùng chung `require_workspace_operator` với mọi
+    # mutation route khác trong file này (thay vì check role inline cũ: `if
+    # role and ...` fail OPEN khi role_id là "" — không đúng chính sách
+    # "exactly one definition" của Task 5). Cùng pattern `identity is None`
+    # guard với `update_skill`/`deprecate_skill` ở trên.
+    if identity is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
+    require_workspace_operator(identity)
     try:
         records = await seed_builtin_skillpacks(
             plane.spec_registry,

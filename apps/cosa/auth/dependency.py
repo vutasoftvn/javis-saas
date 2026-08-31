@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import time
 from typing import Literal
@@ -30,6 +31,8 @@ __all__ = [
     "resolve_identity_workspace",
     "set_workspace_tenant_context_client",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 class AuthenticatedIdentity(BaseModel):
@@ -252,9 +255,14 @@ async def get_authenticated_identity(
     except WorkspaceTenantContextError as exc:
         # Fail closed: không xác nhận được workspace membership KHÔNG được coi là
         # ALLOW (§10.5 freshness invariant) — trả lỗi rõ ràng.
+        # Final-review Finding 4 — exception thô (có thể mang host/port nội bộ
+        # của services/company) KHÔNG được interpolate vào response body
+        # client-facing. Log đầy đủ server-side, client chỉ nhận thông báo
+        # ổn định.
+        logger.exception("workspace scope verification unavailable")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"workspace scope verification unavailable: {exc}",
+            detail="workspace scope verification unavailable",
         ) from exc
 
     if resolved.workspace_id != x_workspace_id:

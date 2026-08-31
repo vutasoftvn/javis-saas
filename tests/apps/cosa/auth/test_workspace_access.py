@@ -70,6 +70,37 @@ def test_workspace_operator_requires_privileged_role():
 
 
 @pytest.mark.asyncio
+async def test_workspace_scope_unavailable_error_does_not_leak_exception_detail():
+    """Final-review Finding 4 — `WorkspaceTenantContextError` (raised when
+    services/company is unreachable) previously had its raw `str(exc)`
+    interpolated into the 502 HTTPException `detail`, which is a
+    client-visible response body. That detail can carry the internal
+    service host/port from the underlying httpx failure. Only the stable
+    message may reach the client; the real exception is logged server-side
+    instead."""
+    secret_detail = "internal-company-service-host-10.0.0.55-port-4000-leak"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError(secret_detail, request=request)
+
+    set_workspace_tenant_context_client(
+        WorkspaceTenantContextClient(base_url="http://test", transport=httpx.MockTransport(handler))
+    )
+    clear_workspace_resolve_cache()
+    try:
+        with pytest.raises(HTTPException) as error:
+            await get_authenticated_identity(
+                authorization=f"Bearer {_token('1')}", x_workspace_id="ws-a"
+            )
+        assert error.value.status_code == 502
+        assert secret_detail not in str(error.value.detail)
+        assert error.value.detail == "workspace scope verification unavailable"
+    finally:
+        set_workspace_tenant_context_client(None)
+        clear_workspace_resolve_cache()
+
+
+@pytest.mark.asyncio
 async def test_workspace_cache_is_bounded(monkeypatch):
     """Cache resolve workspace (Part 2C.1) không được phép phình vô hạn — 1
     process chạy lâu dài tiếp nhiều principal/workspace/token phân biệt phải

@@ -463,13 +463,19 @@ async def execute_resume_task(
                 bearer_token, workspace_id
             )
             resume_updates["policy_snapshot"] = fresh_snapshot.model_dump()
-        except CosaTenantPolicyError as exc:
+        except CosaTenantPolicyError:
+            # Final-review Finding 2 — cùng bug class với branch đã fix trong
+            # `_execute_run_task_inner` ở trên: không interpolate exception
+            # thô (có thể lộ host/port control-plane) vào payload client-
+            # facing. Log đầy đủ server-side kèm run_id, client chỉ nhận mã
+            # lỗi ổn định.
+            logger.exception("policy snapshot unavailable on resume", extra={"run_id": run_id})
             await stream_mgr.emit(
                 stream_repo,
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="run.failed",
-                payload={"error": f"policy_snapshot_unavailable_on_resume: {exc}"},
+                payload={"error": "policy_snapshot_unavailable_on_resume"},
             )
             return
 

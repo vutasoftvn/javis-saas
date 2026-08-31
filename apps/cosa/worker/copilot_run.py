@@ -325,7 +325,13 @@ async def run_customer_support_copilot(
             summary_ref=summary_ref,
         )
 
-    except Exception as e:
+    except Exception:
+        # Final-review Finding 1 — exception thô có thể mang chi tiết nội bộ
+        # (host/port control-plane, stack chi tiết) KHÔNG được interpolate
+        # vào payload SSE client-facing. Log đầy đủ server-side kèm run_id,
+        # client chỉ nhận mã lỗi ổn định — cùng pattern với
+        # `execute_run_task`'s broad-failure branch trong
+        # `apps/cosa/worker/handlers.py`.
         logger.exception("Copilot run %s crashed", run_id)
         if stream_repo:
             await stream_mgr.emit(
@@ -333,7 +339,7 @@ async def run_customer_support_copilot(
                 run_id=run_id,
                 conversation_id="",
                 event_type="run.failed",
-                payload={"error": str(e), "reason_code": "copilot_unhandled_exception"},
+                payload={"error": "internal_error", "reason_code": "copilot_unhandled_exception"},
                 correlation_id=correlation_id,
             )
         await callback_company_result(run_id, "failed")
