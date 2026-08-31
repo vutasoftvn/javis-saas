@@ -68,16 +68,60 @@
 
 ## 3. Các Nhóm Chưa Có Parity (Ghi nhận, Ngoài phạm vi Phần 3)
 
-Theo quy định §6 và Non-goals:
+Theo quy định §6 và Non-goals. **Cập nhật 2026-08-31 (Task 11 của
+[`2026-08-31-agentos-auth-contract-frontend-parity.md`](../superpowers/plans/2026-08-31-agentos-auth-contract-frontend-parity.md)):**
+đối chiếu với route inventory sinh tự động
+([`docs/architecture/generated/route-inventory.md`](../architecture/generated/route-inventory.md),
+mục "2. Frontend company-bound call sites — trạng thái resolve") xác nhận
+các route dưới đây vẫn `✗ GHOST` (Flutter gọi nhưng backend không có route
+đăng ký) tính đến SHA ghi trong
+[`docs/operations/release-checklists/agentos-authorization-parity.md`](../operations/release-checklists/agentos-authorization-parity.md).
+Task 9 của cùng plan đã đổi hành vi Flutter cho các route này từ "âm thầm
+trả `[]`" sang "báo lỗi rõ ràng" (`StrategyListResult.failure`), nhưng đó là
+sửa hành vi *client*, không phải tạo ra backend contract — các route này vẫn
+chưa tồn tại ở backend. Đánh dấu tường minh `UNAVAILABLE` ở đây thay vì
+`MISSING`/`DTO-MISMATCH` để tránh nhầm là "sắp có", và để chặn UI mới expose
+các route này cho tới khi có spec được duyệt (xem "Explicit follow-up plans"
+trong plan trên, mục 1–2).
+
 1. **Nhóm Strategy & Lenses (`/strategy/*`, `/strategy/lenses/*`)**:
-   - Status: `MISSING` / `DTO-MISMATCH`.
-   - Một số sub-route trong `strategy_lens_service.dart` (`/strategy/lenses/pestel`, `/strategy/lenses/swot`, `/strategy/lenses/tows`, `/strategy/lenses/bsc`) chưa có controller handler tương ứng ở backend hoặc còn dựa trên mock.
-2. **Nhóm Validation Engine (`/projects/:id/validation/*`)**:
-   - Status: `MISSING`.
-   - `validation_service.dart` gọi 15+ sub-endpoints liên quan đến session, claims, risk-matrix, hypotheses, interviews... chưa được di dời sang Company Service handler.
+   - Status: `UNAVAILABLE` (đã xác nhận GHOST trong route inventory — không có
+     handler backend nào đăng ký các path này ở `services/company`).
+   - Routes cụ thể: `/strategy/canvases` (GET/POST/DELETE), `/strategy/revisions`
+     (GET/POST), `/strategy/lenses/summary`, `/strategy/lenses/pestel`,
+     `/strategy/lenses/swot`, `/strategy/lenses/tows`, `/strategy/lenses/bsc`,
+     `/strategy/initiatives` (GET/DELETE), `/strategy/founder-profile`,
+     `/strategy/portfolios`, `/strategy/projects`, `/strategy/workspace-templates`,
+     cùng nhóm `/execution/*` và `/okrs/*` gọi từ `strategy_service.dart` (xem
+     route inventory §2 để có danh sách đầy đủ, có số dòng nguồn).
+   - Owner: unassigned — needs product decision. Không có tài liệu nào trong repo
+     (kể cả các brief/report của plan này) ghi nhận owner được chỉ định cho nhóm
+     route này; không tự suy diễn tên.
+   - Điều kiện expose lại UI: cần spec Company DTO + handler + Flutter model +
+     migration được duyệt riêng trước khi bật lại các màn hình canvas/lens (xem
+     "Explicit follow-up plans" mục 1 của plan 2026-08-31).
+   - Lưu ý phân biệt: `/operations/strategy/*` (assumptions, decision-records,
+     evidence, gate-evaluations, maturity-assessments, metric-contracts,
+     metric-snapshots, pilots, pmf-scoreboards, stage-context, stage-policies,
+     stage-transitions, projects) **đã có** handler thật và **không** thuộc
+     nhóm UNAVAILABLE này — đây là namespace khác (`/operations/strategy/*` vs
+     `/strategy/*`), đừng nhầm lẫn khi đọc route inventory.
+2. **Nhóm Validation Engine (`/projects`, `/projects/:id/validation/*`)**:
+   - Status: `UNAVAILABLE` (xác nhận GHOST — `GET /projects` và `POST /projects`
+     từ `validation_service.dart` không có route backend tương ứng).
+   - `validation_service.dart` gọi 15+ sub-endpoint liên quan session, claims,
+     risk-matrix, hypotheses, interviews — chưa di dời sang Company Service handler.
+   - Owner: unassigned — needs product decision. Chưa có tài liệu nào trong repo
+     gán owner cho Validation Engine.
+   - Điều kiện expose lại UI: cần plan riêng định nghĩa persistence, authorization,
+     lifecycle và DTO trước khi mở lại cho 15+ caller hiện tại (xem "Explicit
+     follow-up plans" mục 2 của plan 2026-08-31).
 3. **Nhóm OKRs / Objectives (`/operations/objectives/*`)**:
-   - Status: `DTO-MISMATCH`.
-   - Backend schema hiện sử dụng model OKR theo chuẩn mới, Flutter DTO ở `outcomes_service.dart` cần một slice refactor riêng sau này.
+   - Status: `DTO-MISMATCH` (không đổi — `/operations/objectives` **có** route
+     backend thật theo route inventory, khác với nhóm `/okrs/*` ở trên vốn
+     GHOST; đây thuần là lệch DTO, không phải thiếu route).
+   - Backend schema hiện sử dụng model OKR theo chuẩn mới, Flutter DTO ở
+     `outcomes_service.dart` cần một slice refactor riêng sau này.
 
 ---
 
