@@ -41,6 +41,40 @@ thay đổi definition phải tăng `metadata.version`, cập nhật pin có ch�
 build/deploy image mới. Endpoint đồng bộ thủ công chỉ là công cụ vận hành;
 không phải điều kiện để API hoặc worker có thể bắt đầu phục vụ.
 
+## Skillpack release gate
+
+Trước mỗi release, phải chạy và ghi lại bằng chứng các lệnh sau (đều exit 0;
+Compose dùng biến production-equivalent, không thay secret thật bằng
+placeholder):
+
+```bash
+make skillpacks-validate
+PYTHONPATH=packages:. python -m pytest \
+  tests/agent/skills/test_skillpack_contract.py \
+  tests/agent/skills/test_skillpack_eval_contract.py \
+  tests/agent/skills/eval/ -q
+PYTHONPATH=packages:. python -m pytest \
+  tests/apps/cosa/agents/test_skillpack_seed.py \
+  tests/apps/cosa/agents/test_seed.py \
+  tests/apps/cosa/test_scheduled_session_worker.py \
+  tests/apps/cosa/test_vertical_slice_1_read_path.py \
+  tests/apps/cosa/test_vertical_slice_2_write_approval.py \
+  tests/apps/cosa/test_workspace_execution_e2e.py -q
+PYTHONPATH=packages:. python -m pytest \
+  deploy/central_vps/smoke/test_skillpack_image_contract.py -q
+docker compose -f deploy/central_vps/docker-compose.prod.yaml config
+git diff --check
+```
+
+Bằng chứng cần ghi: build SHA, số bundle khám phá (`manifest.yaml`), kết quả
+validator, số skill đã publish, số pinned-skill resolve thành công, và kết quả
+bốn runtime-slice test. Nếu bootstrap lỗi (thiếu bundle, vi phạm contract,
+parse lỗi, hay pin/hash không khớp), service phải được giữ ở trạng thái
+**không sẵn sàng** — không phục vụ request và không poll job.
+
+Ví dụ bằng chứng gần nhất (verified 2026-08-31): 114 bundle, validator PASS,
+114 skill publish idempotent, 18 pinned-skill resolve đủ, 4 runtime-slice PASS.
+
 ## Rate limiting
  
 `caddy:2-alpine` stock **không** có rate-limit module (chỉ `request_body

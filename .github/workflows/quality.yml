@@ -359,7 +359,8 @@ jobs:
           cache-dependency-path: |
             requirements-dev.txt
             packages/agent/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt pytest pytest-asyncio
+            apps/cosa/requirements.txt
+      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
       - name: Apply agent database migrations
         run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
@@ -367,7 +368,11 @@ jobs:
       - name: Validate skillpack contracts
         run: PYTHONPATH=packages:. python scripts/validate_skillpacks.py
       - name: Run skillpack contract and evaluation tests
-        run: PYTHONPATH=packages:. python -m pytest tests/agent/skills/test_skillpack_contract.py tests/agent/skills/test_lifecycle_skill_contract.py tests/agent/skills/eval/ -q
+        run: PYTHONPATH=packages:. python -m pytest tests/agent/skills/test_skillpack_contract.py tests/agent/skills/test_skillpack_eval_contract.py tests/agent/skills/test_lifecycle_skill_contract.py tests/agent/skills/eval/ -q
+      - name: Run skillpack seed and runtime-slice tests
+        run: PYTHONPATH=packages:. python -m pytest tests/apps/cosa/agents/test_skillpack_seed.py tests/apps/cosa/agents/test_seed.py tests/apps/cosa/test_scheduled_session_worker.py tests/apps/cosa/test_vertical_slice_1_read_path.py tests/apps/cosa/test_vertical_slice_2_write_approval.py tests/apps/cosa/test_workspace_execution_e2e.py -q
+      - name: Run skillpack image contract smoke test
+        run: PYTHONPATH=packages:. python -m pytest deploy/central_vps/smoke/test_skillpack_image_contract.py -q
       - run: mkdir -p test-results
       - run: PYTHONPATH=packages:. pytest tests/agent packages/agent_testkit -m "not integration" --cov=packages/agent --cov-report=xml:test-results/coverage-unit.xml --cov-fail-under=80 -q --junitxml=test-results/unit.xml
         env:

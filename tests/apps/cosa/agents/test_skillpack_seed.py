@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
+from agent.contracts.identity import PinnedSkillRef
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.registry.repository import InMemorySpecRegistryRepository, SpecVersionHashConflictError
@@ -13,6 +16,7 @@ from agent.skills.resolver import SkillResolver
 from agent_testkit.fake_sdk_model import FakeSDKModel
 
 from apps.cosa.agents import skillpack_seed
+from apps.cosa.agents import seed as seed_module
 from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.agents.skillpack_seed import (
     BuiltinSkillpackSeedError,
@@ -156,3 +160,47 @@ async def test_seed_builtin_skillpacks_propagates_immutable_version_conflict(
             capability_ids={spec.id for spec in plane.capability_registry.list_specs()},
             skillpacks_root=SKILLPACKS_ROOT,
         )
+
+
+@pytest.mark.asyncio
+async def test_seed_cosa_runtime_specs_fails_closed_on_pin_hash_mismatch(
+    plane: CosaAgentPlane, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pin hash sai phải khiến startup verification raise trước khi phục vụ —
+    message chứa skill id, version và dấu hiệu hash mismatch (Global
+    Constraints: "pin/hash mismatch" phải fail-closed, không khởi động với
+    tham chiếu treo)."""
+    await seed_builtin_skillpacks(
+        plane.spec_registry,
+        capability_ids={spec.id for spec in plane.capability_registry.list_specs()},
+        skillpacks_root=SKILLPACKS_ROOT,
+    )
+    await seed_module.seed_cosa_agent_specs(plane.spec_registry)
+
+    source = COSA_DEPLOYED_AGENT_SPECS[0]
+    assert source.pinned_skills, "test cần một AgentSpec có ít nhất 1 pin"
+    original_pin = source.pinned_skills[0]
+
+    corrupted = deepcopy(source)
+    corrupted.pinned_skills = (
+        PinnedSkillRef(
+            skill_id=original_pin.skill_id,
+            version=original_pin.version,
+            definition_hash="0" * 64,
+        ),
+        *corrupted.pinned_skills[1:],
+    )
+    monkeypatch.setattr(seed_module, "COSA_DEPLOYED_AGENT_SPECS", (corrupted,))
+
+    with pytest.raises(AgentRuntimeError) as exc_info:
+        await seed_cosa_runtime_specs(
+            spec_registry=plane.spec_registry,
+            capability_registry=plane.capability_registry,
+            skillpacks_root=SKILLPACKS_ROOT,
+        )
+
+    assert exc_info.value.code == RuntimeErrorCode.SKILL_RESOLUTION_ERROR
+    message = str(exc_info.value)
+    assert original_pin.skill_id in message
+    assert original_pin.version in message
+    assert "hash" in message.lower()
