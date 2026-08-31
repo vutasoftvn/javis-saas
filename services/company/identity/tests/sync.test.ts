@@ -1,8 +1,8 @@
 // services/company/identity/tests/sync.test.ts
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { db, schema } from "../models/db";
 
-const { identityWorkspaceMemberships } = schema;
+const { identityWorkspaceMemberships, identityUserProjections } = schema;
 
 vi.mock("../services/platform.client", () => ({
   listPlatformWorkspaceMemberships: vi.fn().mockResolvedValue([]),
@@ -32,7 +32,10 @@ function wm(over: Partial<Record<string, unknown>> = {}) {
   return {
     platformWorkspaceId: id,
     workspaceName: `WS ${id}`,
-    userId: `u-${id}`,
+    // verifyPlatformToken mock (bên trên) luôn trả `sub: "u-mock"` bất kể
+    // token truyền vào — userId ở đây phải khớp để qua được check
+    // `verified.userId !== platformUserId` trong syncFromPlatformService.
+    userId: "u-mock",
     email: `u-${id}@example.com`,
     displayName: "Test User",
     role: "founder",
@@ -42,14 +45,46 @@ function wm(over: Partial<Record<string, unknown>> = {}) {
   };
 }
 
+// Giúp mọi test resolve được response verify cho từng membership được request,
+// không chỉ cái đầu tiên — vì syncFromPlatformService giờ verify TẤT CẢ
+// membership trả về từ listPlatformWorkspaceMemberships (Promise.all), không
+// chỉ membership đầu tiên như flow fast-path/fallback cũ.
+function mockVerifiedMemberships(memberships: Array<ReturnType<typeof wm>>) {
+  (validatePlatformWorkspaceMembership as any).mockImplementation(
+    async ({ platformWorkspaceId }: { platformWorkspaceId: string }) => {
+      const membership = memberships.find((item) => item.platformWorkspaceId === platformWorkspaceId);
+      return membership ? { valid: true, ...membership } : { valid: false };
+    },
+  );
+}
+
 describe("syncFromPlatformService", () => {
+  // Mock `verifyPlatformToken` (bên trên) luôn trả cùng một `sub: "u-mock"`
+  // cho mọi token hợp lệ ⇒ toàn bộ test trong file này giờ verify membership
+  // dưới CÙNG một platformUserId (đây chính là hành vi security fix mới —
+  // membership phải khớp platformUserId của token, không còn suy ra userId
+  // độc lập từ payload nữa). Vì vậy phải dọn sạch membership cũ của user mock
+  // này trước mỗi test để giữ tính cô lập (trước đây mỗi test tự cô lập nhờ
+  // userId ngẫu nhiên riêng — điều đó không còn khả thi với check mới).
+  beforeEach(async () => {
+    const [mockUser] = await db
+      .select({ id: identityUserProjections.id })
+      .from(identityUserProjections)
+      .where(eq(identityUserProjections.platformUserId, "u-mock"))
+      .limit(1);
+    if (mockUser) {
+      await db
+        .delete(identityWorkspaceMemberships)
+        .where(eq(identityWorkspaceMemberships.userId, mockUser.id));
+    }
+  });
+
   it("syncs multiple venture workspaces; WorkspaceSummary never exposes companyId", async () => {
-    const userId = `u-multi-${Date.now()}`;
-    const a = wm({ userId, workspaceName: "Workspace A", role: "founder" });
-    const b = wm({ userId, workspaceName: "Workspace B", role: "member" });
+    const a = wm({ workspaceName: "Workspace A", role: "founder" });
+    const b = wm({ workspaceName: "Workspace B", role: "member" });
 
     (listPlatformWorkspaceMemberships as any).mockResolvedValueOnce([a, b]);
-    (validatePlatformWorkspaceMembership as any).mockResolvedValueOnce({ valid: true, ...a });
+    mockVerifiedMemberships([a, b]);
 
     const result = await syncFromPlatformService({ platform_access_token: "tok" });
 
@@ -72,13 +107,13 @@ describe("syncFromPlatformService", () => {
     const w = wm({ workspaceName: "Role Change WS", role: "member" });
 
     (listPlatformWorkspaceMemberships as any).mockResolvedValueOnce([w]);
-    (validatePlatformWorkspaceMembership as any).mockResolvedValueOnce({ valid: true, ...w });
+    mockVerifiedMemberships([w]);
     const first = await syncFromPlatformService({ platform_access_token: "tok" });
     expect(first.workspaces[0].role).toBe("member");
 
     const w2 = { ...w, role: "founder", membershipUpdatedAt: new Date(2026, 0, 2).toISOString() };
     (listPlatformWorkspaceMemberships as any).mockResolvedValueOnce([w2]);
-    (validatePlatformWorkspaceMembership as any).mockResolvedValueOnce({ valid: true, ...w2 });
+    mockVerifiedMemberships([w2]);
     const second = await syncFromPlatformService({ platform_access_token: "tok" });
     expect(second.workspaces[0].role).toBe("founder");
 
@@ -92,7 +127,7 @@ describe("syncFromPlatformService", () => {
   it("does not create duplicate memberships on concurrent sync for the same user+workspace", async () => {
     const w = wm({ workspaceName: "Concurrent WS" });
     (listPlatformWorkspaceMemberships as any).mockResolvedValue([w]);
-    (validatePlatformWorkspaceMembership as any).mockResolvedValue({ valid: true, ...w });
+    mockVerifiedMemberships([w]);
 
     await Promise.all([
       syncFromPlatformService({ platform_access_token: "x" }),
@@ -109,7 +144,7 @@ describe("syncFromPlatformService", () => {
   it("syncs a platform workspace using the platform-minted ID + creates venture_profile", async () => {
     const w = wm({ workspaceName: "AI Bakery" });
     (listPlatformWorkspaceMemberships as any).mockResolvedValueOnce([w]);
-    (validatePlatformWorkspaceMembership as any).mockResolvedValueOnce({ valid: true, ...w });
+    mockVerifiedMemberships([w]);
 
     const result = await syncFromPlatformService({ platform_access_token: "tok" });
     expect(result.workspaces.length).toBe(1);
@@ -136,28 +171,21 @@ describe("syncFromPlatformService", () => {
     ).rejects.toMatchObject({ code: "unavailable" });
   });
 
-  it("Fast-Path — directly upserts workspaces without calling control-plane RPC", async () => {
-    const wsId = pwId();
+  it("does not trust client-sent workspaces or roles", async () => {
+    const canonical = wm({ workspaceName: "Control Plane Workspace", role: "member" });
+    (listPlatformWorkspaceMemberships as any).mockResolvedValueOnce([canonical]);
+    mockVerifiedMemberships([canonical]);
+
     const result = await syncFromPlatformService({
       platform_access_token: "tok",
-      user: {
-        id: "u-mock",
-        email: "fastpath@example.com",
-        full_name: "Fast Path User",
-      },
-      workspaces: [
-        {
-          workspace_id: wsId,
-          workspace_name: "Fast Path Workspace",
-          role_id: "founder",
-        },
-      ],
-    });
+      workspaces: [{
+        workspace_id: pwId(),
+        workspace_name: "Injected Workspace",
+        role_id: "founder",
+      }],
+    } as any);
 
-    expect(result.local_session_token).toBeTruthy();
-    expect(result.workspaces.length).toBe(1);
-    expect(result.workspaces[0].workspaceId).toBe(wsId);
-    expect(result.workspaces[0].name).toBe("Fast Path Workspace");
-    expect(result.workspaces[0].role).toBe("founder");
+    expect(listPlatformWorkspaceMemberships).toHaveBeenCalledWith({ platformToken: "tok" });
+    expect(result.workspaces).toEqual([{ workspaceId: canonical.platformWorkspaceId, name: canonical.workspaceName, role: "member", status: "active" }]);
   });
 });

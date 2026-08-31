@@ -109,11 +109,11 @@ class AuthController extends GetxController {
     }
     final platformToken = loginResult.token!;
 
-    // Đồng bộ toàn bộ workspaces từ backend — sử dụng Fast-Path direct upsert
+    // Đồng bộ toàn bộ workspaces từ backend — backend luôn tự lấy/xác thực
+    // membership từ Control Plane, không còn nhận user/workspaces từ client
+    // (M2 §29 — chặn leo thang đặc quyền qua payload tự khai).
     final syncResult = await _authService.syncFromPlatform(
       platformToken: platformToken,
-      user: loginResult.user,
-      workspaces: loginResult.rawWorkspaces,
     );
     if (!syncResult.success) {
       errorMessage.value = syncResult.errorMessage ?? 'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.';
@@ -261,10 +261,10 @@ class AuthController extends GetxController {
         return;
       }
 
-      // Bước 3: Đã có Account + Workspace -> Đồng bộ về Local Database (Fast-Path)
+      // Bước 3: Đã có Account + Workspace -> Đồng bộ về Local Database (backend
+      // tự lấy/xác thực membership từ Control Plane, không nhận từ client).
       final ok = await _authService.finishAuthentication(
         platformToken: token,
-        workspaces: companyResult.rawWorkspaces,
       );
 
       if (ok) {

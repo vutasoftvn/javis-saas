@@ -23,33 +23,9 @@ export interface WorkspaceSummary {
   status: string;
 }
 
-export interface SyncUserPayload {
-  id?: string;
-  email?: string | null;
-  phone?: string | null;
-  full_name?: string | null;
-  displayName?: string | null;
-  role_id?: string | null;
-}
-
-export interface SyncWorkspacePayload {
-  workspace_id?: string;
-  workspaceId?: string;
-  workspace_name?: string;
-  workspaceName?: string;
-  name?: string;
-  role_id?: string;
-  role?: string;
-  membership_id?: string;
-  membershipId?: string;
-  status?: string;
-}
-
 export interface SyncFromPlatformParams {
   platform_access_token?: string;
   platformAccessToken?: string;
-  user?: SyncUserPayload;
-  workspaces?: SyncWorkspacePayload[];
 }
 
 export interface SyncFromPlatformResult {
@@ -73,61 +49,41 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
   const decoded = verifyPlatformToken(token);
   const platformUserId = decoded.sub;
 
+  // M2 §29 (P0) — KHÔNG BAO GIỜ tin dữ liệu workspaces/role do client gửi lên.
+  // Toàn bộ membership phải lấy và xác thực từ Control Plane (services/cosa) —
+  // đây là nguồn sự thật duy nhất cho tenancy. Mọi membership trả về đều phải
+  // đi qua validatePlatformWorkspaceMembership() và khớp platformUserId của
+  // chính chủ token, nếu không sẽ bị coi là leo thang đặc quyền tiềm ẩn.
   let workspaceMemberships: PlatformWorkspaceMembership[];
-  let isFastPath = false;
-
-  // FAST-PATH: Nếu client truyền sẵn workspaces & user từ response của auth,
-  // upsert trực tiếp vào database local trong 1ms mà không cần round-trip HTTP.
-  if (params.workspaces && params.workspaces.length > 0) {
-    isFastPath = true;
-    workspaceMemberships = params.workspaces.map((w) => {
-      const wsId = (w.workspace_id || w.workspaceId || "").toString();
-      const wsName = w.workspace_name || w.workspaceName || w.name || "Workspace";
-      const wsRole = w.role_id || w.role || "member";
-      const memId = (w.membership_id || w.membershipId || `m-${platformUserId}-${wsId}`).toString();
-      return {
-        platformWorkspaceId: wsId,
-        workspaceName: wsName,
-        userId: platformUserId,
-        email: params.user?.email || null,
-        displayName: params.user?.full_name || params.user?.displayName || null,
-        role: wsRole,
-        membershipId: memId,
-        membershipUpdatedAt: new Date().toISOString(),
-      };
-    });
-  } else {
-    // FALLBACK: Gọi control-plane RPC nếu client không truyền sẵn payload
-    try {
-      workspaceMemberships = (await listPlatformWorkspaceMemberships({ platformToken: token })) || [];
-    } catch (err) {
-      if (err instanceof APIError) throw err;
-      throw APIError.unavailable(
-        "không kết nối được control-plane để đồng bộ workspace — vui lòng thử lại"
-      );
-    }
+  try {
+    workspaceMemberships = (await listPlatformWorkspaceMemberships({ platformToken: token })) || [];
+  } catch (err) {
+    if (err instanceof APIError) throw err;
+    throw APIError.unavailable(
+      "không kết nối được control-plane để đồng bộ workspace — vui lòng thử lại"
+    );
   }
 
-  if (workspaceMemberships && workspaceMemberships.length > 0) {
-    const localUserId = await db.transaction(async (tx) => {
-      let memberInfo = {
-        userId: platformUserId,
-        email: params.user?.email || null,
-        displayName: params.user?.full_name || params.user?.displayName || null,
-      };
-
-      if (!isFastPath) {
-        const firstMembership = workspaceMemberships[0];
-        const member = await validatePlatformWorkspaceMembership({
-          platformToken: token,
-          platformWorkspaceId: firstMembership.platformWorkspaceId,
-        });
-        memberInfo = {
-          userId: member.userId,
-          email: member.email,
-          displayName: member.displayName,
-        };
+  const verifiedMemberships: PlatformWorkspaceMembership[] = await Promise.all(
+    workspaceMemberships.map(async (membership) => {
+      const verified = await validatePlatformWorkspaceMembership({
+        platformToken: token,
+        platformWorkspaceId: membership.platformWorkspaceId,
+      });
+      if (!verified.valid || verified.userId !== platformUserId) {
+        throw APIError.permissionDenied("control-plane membership verification failed");
       }
+      return { ...membership, email: verified.email, displayName: verified.displayName, role: verified.role };
+    })
+  );
+
+  if (verifiedMemberships.length > 0) {
+    const localUserId = await db.transaction(async (tx) => {
+      const memberInfo = {
+        userId: platformUserId,
+        email: verifiedMemberships[0].email,
+        displayName: verifiedMemberships[0].displayName,
+      };
 
       let [localUser] = await tx
         .select({ id: identityUserProjections.id })
@@ -176,7 +132,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
         userId = upsertedUser.id;
       }
 
-      for (const wm of workspaceMemberships) {
+      for (const wm of verifiedMemberships) {
         // M2 §4 / C-6 — workspace ID do control-plane mint; local dùng ĐÚNG id đó,
         // KHÔNG generateSnowflake() ⇒ một workspace identity duy nhất xuyên plane.
         const workspaceSpineId = BigInt(wm.platformWorkspaceId);
@@ -238,17 +194,8 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
       return userId;
     });
 
-    if (!isFastPath) {
-      for (const wm of workspaceMemberships) {
-        await markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId, platformToken: token }).catch(() => {});
-      }
-    } else {
-      // Async non-blocking mark synced in background
-      Promise.all(
-        workspaceMemberships.map((wm) =>
-          markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId, platformToken: token }).catch(() => {})
-        )
-      ).catch(() => {});
+    for (const wm of verifiedMemberships) {
+      await markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId, platformToken: token }).catch(() => {});
     }
 
     const workspaces = await db

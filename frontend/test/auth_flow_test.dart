@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -90,6 +91,14 @@ void main() {
         final body = request.body;
         expect(body, isNotEmpty);
         expect(body, isNot(contains('company_id')));
+        // M2 §29 (P0) — client KHÔNG BAO GIỜ được gửi `user`/`workspaces` lên
+        // sync-from-platform nữa: server luôn tự lấy/xác thực membership từ
+        // Control Plane, không tin bất kỳ payload nào client tự khai (chặn
+        // leo thang đặc quyền qua role_id tự gửi).
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded.containsKey('workspaces'), isFalse);
+        expect(decoded.containsKey('user'), isFalse);
+        expect(decoded.keys.toSet(), {'platform_access_token'});
         // Verify no X-Company-Id header
         expect(request.headers.containsKey('X-Company-Id'), isFalse);
         return http.Response(

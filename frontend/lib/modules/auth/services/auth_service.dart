@@ -298,21 +298,20 @@ class AuthService {
   /// roi phat local JWT. Tra ve access_token va danh sach workspace thuc te.
   Future<AuthResult> syncFromPlatform({
     required String platformToken,
-    Map<String, dynamic>? user,
-    List<Map<String, dynamic>>? workspaces,
   }) async {
     try {
       // M1 §1 — lưu platform token dưới key riêng: dùng cho control-plane /
       // AgentOS platform path. Không trộn với local session token.
       await SecureStorageService.write('platform_access_token', platformToken);
 
+      // M2 §29 (P0) — KHÔNG gửi `user`/`workspaces` lên server: client không
+      // còn quyền tự khai báo workspace/role của chính mình, backend luôn lấy
+      // và xác thực membership từ Control Plane (xem sync.service.ts).
       final response = await ApiClient.post(
         '/identity/sync-from-platform',
         requiresAuth: false,
         body: {
           'platform_access_token': platformToken,
-          if (user != null) 'user': user,
-          if (workspaces != null && workspaces.isNotEmpty) 'workspaces': workspaces,
         },
       );
 
@@ -357,13 +356,9 @@ class AuthService {
   /// workspace/role qua getMe(). Tra ve true neu thanh cong.
   Future<bool> finishAuthentication({
     required String platformToken,
-    Map<String, dynamic>? user,
-    List<Map<String, dynamic>>? workspaces,
   }) async {
     final syncResult = await syncFromPlatform(
       platformToken: platformToken,
-      user: user,
-      workspaces: workspaces,
     );
     if (!syncResult.success) return false;
     await getMe();
