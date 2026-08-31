@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.cosa.agents.seed import seed_cosa_agent_specs
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.api.autopilot_metrics_routes import create_autopilot_metrics_router
 from apps.cosa.api.copilot_routes import create_copilot_router
 from apps.cosa.api.event_intake_routes import create_event_intake_router
@@ -72,10 +72,14 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
                 urls=[("COMPANY_SERVICE_URL", "company callback", "http://127.0.0.1:4000")],
             )
 
-            # Seed registry sau khi plane đã dựng (Wave M2b) — publish_agent_spec()
-            # sẽ reject nếu Prompt/ModelPolicy chưa publish, nên seed phải chạy
-            # trước request đầu tiên tới execute_run_task.
-            await seed_cosa_agent_specs(app.state.plane.spec_registry)
+            # Bootstrap toàn bộ runtime registry trước request đầu tiên:
+            # built-in skillpacks -> Prompt/ModelPolicy/AgentSpec -> exact pinned
+            # skill resolution. Bất kỳ lỗi bundle/pin nào phải fail startup,
+            # không serve API với AgentSpec tham chiếu skill chưa publish.
+            await seed_cosa_runtime_specs(
+                spec_registry=app.state.plane.spec_registry,
+                capability_registry=app.state.plane.capability_registry,
+            )
 
             # Dựng event_intake_deps production (async — asyncpg pool) sau khi
             # plane sẵn sàng. Không có DB ⇒ giữ None; endpoint /agent/internal/events

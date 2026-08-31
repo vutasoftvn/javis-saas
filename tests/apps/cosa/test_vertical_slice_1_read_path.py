@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock
+
 import httpx
 import pytest
-
-from apps.cosa.api.app import create_cosa_app
-from apps.cosa.agents.seed import seed_cosa_agent_specs
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.leases import RunLeaseManager
-from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
+
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
+from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
@@ -23,6 +25,8 @@ from tests.apps.cosa.policy_test_helpers import (
     fake_active_tenant_policy_client,
 )
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture
@@ -48,7 +52,13 @@ def test_app():
         stream_event_repository=InMemoryRunStreamEventRepository(),
         model=FakeSDKModel(),
     )
-    asyncio.run(seed_cosa_agent_specs(plane.spec_registry))
+    asyncio.run(
+        seed_cosa_runtime_specs(
+            spec_registry=plane.spec_registry,
+            capability_registry=plane.capability_registry,
+            skillpacks_root=REPO_ROOT / "skillpacks",
+        )
+    )
     app = create_cosa_app(plane=plane)
     override_authenticated_identity(app)
     return app, plane, mock_client
@@ -66,7 +76,7 @@ async def test_vertical_slice_1_read_path(test_app):
     5. Kiểm tra danh mục events: run.started, reasoning.status, message.started, message.delta, run.completed.
     6. Kiểm tra tin nhắn phản hồi đã lưu vào Conversation.
     """
-    app, plane, mock_client = test_app
+    app, plane, _mock_client = test_app
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Tạo Conversation

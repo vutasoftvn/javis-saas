@@ -32,9 +32,10 @@ __all__ = ["seed_cosa_agent_specs", "seed_cosa_runtime_specs"]
 
 async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
     """Publish toàn bộ Prompt/ModelPolicy/AgentSpec của COSA vào registry —
-    gọi 1 lần ở mỗi entrypoint thật (`apps/cosa/api/app.py` lifespan,
-    `apps/cosa/worker/main.py::main()`) SAU khi `build_cosa_agent_plane()`
-    đã dựng xong (hàm đó vẫn sync, seeding là bước async riêng — Wave M2b).
+    được `seed_cosa_runtime_specs()` gọi ở mỗi entrypoint thật
+    (`apps/cosa/api/app.py` lifespan, `apps/cosa/worker/main.py::main()`)
+    SAU khi `build_cosa_agent_plane()` đã dựng xong (hàm đó vẫn sync,
+    seeding là bước async riêng — Wave M2b).
     Idempotent: publish_* chỉ lỗi nếu version đã publish với hash KHÁC, mà
     `apps/cosa/agents/specs.py` là module-level constant nên hash luôn ổn
     định giữa các lần gọi. `publish_agent_spec()` validate prompt_ref/

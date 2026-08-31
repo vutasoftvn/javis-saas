@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
-import pytest
-from fastapi.testclient import TestClient
 
+import pytest
 from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent.contracts.identity import PinnedSkillRef
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.registry.repository import InMemorySpecRegistryRepository, SpecVersionHashConflictError
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent.skills.candidate_store import InMemorySkillCandidateStore
 from agent.skills.resolver import SkillResolver
 from agent_testkit.fake_sdk_model import FakeSDKModel
+from fastapi.testclient import TestClient
+
+from apps.cosa.agents.skillpack_seed import BuiltinSkillpackSeedError
+from apps.cosa.api import skill_registry_routes
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -182,6 +185,35 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     assert res_fb.json()["recorded"] is True
 
 
+def test_sync_builtin_fails_closed_when_shared_bootstrap_rejects_bundle(
+    setup_env, monkeypatch: pytest.MonkeyPatch
+):
+    """Route sync không được nuốt lỗi rồi trả thành công một catalog thiếu."""
+    async def reject_bundle(*_args, **_kwargs):
+        raise BuiltinSkillpackSeedError("broken manifest")
+
+    monkeypatch.setattr(skill_registry_routes, "seed_builtin_skillpacks", reject_bundle)
+
+    response = setup_env["client"].post("/agent/skills/sync-built-in?workspace_id=ws-1")
+
+    assert response.status_code == 400
+    assert "broken manifest" in response.json()["detail"]
+
+
+def test_sync_builtin_returns_conflict_for_immutable_version_mismatch(
+    setup_env, monkeypatch: pytest.MonkeyPatch
+):
+    async def reject_version(*_args, **_kwargs):
+        raise SpecVersionHashConflictError("skill", "core.weekly-review", "1.0.0")
+
+    monkeypatch.setattr(skill_registry_routes, "seed_builtin_skillpacks", reject_version)
+
+    response = setup_env["client"].post("/agent/skills/sync-built-in?workspace_id=ws-1")
+
+    assert response.status_code == 409
+    assert "tăng version" in response.json()["detail"]
+
+
 def test_skill_candidate_workspace_isolation(setup_env):
     """Verify that candidates created in workspace-A are isolated from workspace-B."""
     client: TestClient = setup_env["client"]
@@ -344,5 +376,3 @@ def test_skill_feedback_pipeline_updates_aggregate_score(mock_company_client):
     assert fb2.status_code == 200
     # Average of 1.0 and 0.6 is 0.8
     assert fb2.json()["aggregate_score"] == 0.8
-
-

@@ -16,8 +16,6 @@ import os
 from unittest.mock import AsyncMock
 
 import pytest
-from fastapi.testclient import TestClient
-
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
@@ -26,6 +24,9 @@ from agent.runs.leases import RunLeaseManager
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
+from fastapi.testclient import TestClient
+
+from apps.cosa.api import app as app_module
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -78,6 +79,24 @@ def test_shutdown_does_not_close_injected_plane_clients():
     plane.tenant_policy_client.aclose.assert_not_called()
 
 
+def test_non_injected_lifespan_bootstraps_complete_runtime_registry(monkeypatch):
+    """Production lifespan phải gọi full runtime bootstrap, không chỉ publish
+    AgentSpec. Nếu mất call này, worker dispatch sẽ lại fail do pinned skill
+    chưa có trong registry dù API đã healthy."""
+    plane = _in_memory_plane()
+    bootstrap = AsyncMock()
+
+    monkeypatch.setattr(app_module, "build_cosa_agent_plane", lambda: plane)
+    monkeypatch.setattr(app_module, "seed_cosa_runtime_specs", bootstrap)
+
+    app = create_cosa_app()
+    with TestClient(app):
+        bootstrap.assert_awaited_once_with(
+            spec_registry=plane.spec_registry,
+            capability_registry=plane.capability_registry,
+        )
+
+
 def test_app_fails_fast_at_startup_when_config_missing():
     """Không inject plane, không có AGENT_DATABASE_URL/repository nào —
     build_cosa_agent_plane() raise RuntimeError NGAY ở lifespan startup, TRƯỚC
@@ -89,9 +108,8 @@ def test_app_fails_fast_at_startup_when_config_missing():
     }
     try:
         app = create_cosa_app()  # không inject plane -> lifespan phải tự build
-        with pytest.raises(RuntimeError, match="AGENT_DATABASE_URL"):
-            with TestClient(app):
-                pytest.fail("Should not reach here — lifespan startup must fail first")
+        with pytest.raises(RuntimeError, match="AGENT_DATABASE_URL"), TestClient(app):
+            pytest.fail("Should not reach here — lifespan startup must fail first")
     finally:
         for k, v in env_backup.items():
             if v is not None:
@@ -112,5 +130,5 @@ def test_no_lazy_plane_creation_on_first_request():
     scope = {"type": "http", "app": bare_app, "headers": []}
     request = Request(scope)
 
-    with pytest.raises(RuntimeError, match="app.state.plane"):
+    with pytest.raises(RuntimeError, match=r"app\.state\.plane"):
         get_cosa_plane(request)

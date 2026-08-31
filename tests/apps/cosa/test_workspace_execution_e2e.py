@@ -1,9 +1,9 @@
+from pathlib import Path
 from unittest.mock import AsyncMock
-import pytest
-from fastapi.testclient import TestClient
 
-from agent.artifacts import InMemoryArtifactRepository, WorkspaceArtifact
-from agent.conversations.models import ConversationRecord, MessageRecord
+import pytest
+import pytest_asyncio
+from agent.artifacts import InMemoryArtifactRepository
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
@@ -12,7 +12,9 @@ from agent.runs.leases import RunLeaseManager
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository, RunStreamEventRecord
 from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
-from apps.cosa.agents.seed import seed_cosa_agent_specs
+from fastapi.testclient import TestClient
+
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -23,8 +25,7 @@ from tests.apps.cosa.policy_test_helpers import (
     fake_active_tenant_policy_client,
 )
 
-
-import pytest_asyncio
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 @pytest_asyncio.fixture
 async def e2e_setup():
@@ -32,7 +33,6 @@ async def e2e_setup():
     conv_repo = InMemoryConversationRepository()
     run_repo = InMemoryRunRepository()
     spec_repo = InMemorySpecRegistryRepository()
-    await seed_cosa_agent_specs(spec_repo)
     stream_repo = InMemoryRunStreamEventRepository()
     art_repo = InMemoryArtifactRepository()
     scheduler = RunScheduler()
@@ -53,6 +53,11 @@ async def e2e_setup():
         stream_event_repository=stream_repo,
         artifact_repository=art_repo,
         model=FakeSDKModel(responses=[text_response("E2E analysis verified.")]),
+    )
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+        skillpacks_root=REPO_ROOT / "skillpacks",
     )
 
     app = create_cosa_app(plane=plane)
@@ -83,12 +88,11 @@ async def test_end_to_end_workspace_execution_flow(e2e_setup):
     plane = e2e_setup["plane"]
     conv_repo = e2e_setup["conv_repo"]
     stream_repo = e2e_setup["stream_repo"]
-    art_repo = e2e_setup["art_repo"]
     scheduler = e2e_setup["scheduler"]
     app = e2e_setup["app"]
 
     # 1. Dispatch scheduled session task via worker
-    task = await scheduler.schedule(
+    await scheduler.schedule(
         target_spec_id="cosa.schedule-execution",
         target_spec_kind="agent",
         input_payload={

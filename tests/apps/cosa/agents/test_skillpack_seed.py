@@ -4,15 +4,15 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.registry.repository import InMemorySpecRegistryRepository, SpecVersionHashConflictError
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent.skills.resolver import SkillResolver
 from agent_testkit.fake_sdk_model import FakeSDKModel
 
+from apps.cosa.agents import skillpack_seed
 from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.agents.skillpack_seed import (
     BuiltinSkillpackSeedError,
@@ -75,6 +75,14 @@ async def test_seed_cosa_runtime_specs_is_idempotent(plane: CosaAgentPlane) -> N
     assert len(await plane.spec_registry.list_all(spec_kind="skill")) == expected_count
 
 
+def test_resolve_skillpacks_root_uses_repository_bundle_outside_runtime_image(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("COSA_SKILLPACKS_ROOT", raising=False)
+
+    assert resolve_skillpacks_root() == SKILLPACKS_ROOT.resolve()
+
+
 def test_resolve_skillpacks_root_raises_on_missing_directory(tmp_path: Path) -> None:
     missing = tmp_path / "does-not-exist"
     with pytest.raises(BuiltinSkillpackSeedError):
@@ -125,3 +133,26 @@ async def test_seed_builtin_skillpacks_raises_on_contract_violation(
         )
 
     assert await plane.spec_registry.list_all(spec_kind="skill") == []
+
+
+@pytest.mark.asyncio
+async def test_seed_builtin_skillpacks_propagates_immutable_version_conflict(
+    plane: CosaAgentPlane, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Version/hash conflict phải giữ nguyên để caller trả 409 chính xác."""
+    monkeypatch.setattr(
+        skillpack_seed,
+        "publish_skill_spec",
+        AsyncMock(
+            side_effect=SpecVersionHashConflictError(
+                "skill", "core.weekly-review", "1.0.0"
+            )
+        ),
+    )
+
+    with pytest.raises(SpecVersionHashConflictError):
+        await seed_builtin_skillpacks(
+            plane.spec_registry,
+            capability_ids={spec.id for spec in plane.capability_registry.list_specs()},
+            skillpacks_root=SKILLPACKS_ROOT,
+        )

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from pathlib import Path
 from typing import Any
 
 from agent.registry.publisher import publish_skill_spec
@@ -21,12 +20,12 @@ from agent.skills.contracts import (
     SkillSpec,
     SkillStatus,
 )
-from agent.skills.skillpack_contract import (
-    get_registered_capability_ids,
-    validate_skillpack_tree,
-)
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from apps.cosa.agents.skillpack_seed import (
+    BuiltinSkillpackSeedError,
+    seed_builtin_skillpacks,
+)
 from apps.cosa.api.routes import get_cosa_plane
 from apps.cosa.api.skill_schemas import (
     CreateCandidateRequest,
@@ -62,16 +61,6 @@ def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
             store = InMemorySkillCandidateStore()
         request.app.state.skill_candidate_store = store
     return store
-
-
-def _find_repo_root() -> Path:
-    """Tìm thư mục gốc của repository."""
-    # File nằm tại /Volumes/SSD/javis-saas/apps/cosa/api/skill_registry_routes.py
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "skillpacks").is_dir() and (parent / "packages").is_dir():
-            return parent
-    return current.parents[3]
 
 
 def _extract_instructions_body(skillmd_text: str) -> str:
@@ -240,77 +229,43 @@ async def sync_built_in_skills(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Sync built-in skills requires founder or admin privilege (current role: {identity.role_id})",
             )
-    repo_root = _find_repo_root()
-    skillpacks_root = repo_root / "skillpacks"
-
-    if not skillpacks_root.is_dir():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Thư mục skillpacks không tồn tại tại {skillpacks_root}",
+    try:
+        records = await seed_builtin_skillpacks(
+            plane.spec_registry,
+            capability_ids={spec.id for spec in plane.capability_registry.list_specs()},
         )
-
-    # 1. Chạy validation contract
-    violations = validate_skillpack_tree(skillpacks_root)
-    if violations:
-        violation_details = [
-            {"path": str(v.path), "rule": v.rule, "message": v.message} for v in violations
-        ]
-        logger.error("Skillpack validation failed during sync-built-in: %s", violation_details)
+    except BuiltinSkillpackSeedError as exc:
+        logger.error("Built-in skillpack sync rejected: %s", exc)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SpecVersionHashConflictError as exc:
+        logger.error("Built-in skillpack sync version conflict: %s", exc)
         raise HTTPException(
-            status_code=400,
-            detail={
-                "message": f"Phát hiện {len(violations)} vi phạm skillpack contract",
-                "violations": violation_details,
-            },
-        )
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
-    # 2. Quét và publish từng skillpack
-    get_registered_capability_ids()
     synced_items: list[SyncSkillItem] = []
-
-    from apps.cosa.api.skillpack_mapper import parse_skillpack_spec
-
-    for manifest_path in sorted(skillpacks_root.rglob("manifest.yaml")):
-        pack_dir = manifest_path.parent
-        skillmd_path = pack_dir / "SKILL.md"
-        if not skillmd_path.is_file():
-            continue
-
-        try:
-            spec = parse_skillpack_spec(pack_dir)
-        except Exception as e:
-            logger.warning("Không thể đọc skillpack tại %s: %s", pack_dir, e)
-            continue
-
-        category = spec.references.get("category", "general")
+    for record in records:
+        content = record.content or {}
+        applicability = content.get("applicability") or {}
+        autonomy = content.get("autonomy") or {}
+        references = content.get("references") or {}
         project_stages = [
-            s.value if hasattr(s, "value") else str(s) for s in spec.applicability.project_stages
+            item.value if hasattr(item, "value") else str(item)
+            for item in applicability.get("project_stages", [])
         ]
-
-        try:
-            record = await publish_skill_spec(
-                spec,
-                repository=plane.spec_registry,
-                publisher="cosa_built_in",
+        synced_items.append(
+            SyncSkillItem(
+                skill_id=record.spec_id,
+                version=record.version,
+                definition_hash=record.definition_hash,
+                published=True,
+                domain=str(references.get("category") or "general"),
+                project_stages=project_stages,
+                autonomy_ceiling=str(autonomy.get("ceiling") or "L0_OBSERVE"),
+                side_effect_class=str(autonomy.get("side_effect_class") or "R"),
             )
-            synced_items.append(
-                SyncSkillItem(
-                    skill_id=spec.id,
-                    version=spec.version,
-                    definition_hash=record.definition_hash,
-                    published=True,
-                    domain=category,
-                    project_stages=project_stages,
-                    autonomy_ceiling=spec.autonomy.ceiling,
-                    side_effect_class=spec.autonomy.side_effect_class,
-                )
-            )
-        except SpecVersionHashConflictError as exc:
-            logger.error("SpecVersionHashConflictError when syncing skill %s: %s", spec.id, exc)
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=str(exc),
-            ) from exc
+        )
 
     logger.info("Đã đồng bộ thành công %d built-in skills", len(synced_items))
     return SyncBuiltInResponse(

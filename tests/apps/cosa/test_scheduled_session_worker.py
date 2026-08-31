@@ -1,6 +1,8 @@
+from pathlib import Path
 from unittest.mock import AsyncMock
-import pytest
 
+import pytest
+import pytest_asyncio
 from agent.artifacts import InMemoryArtifactRepository
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
@@ -10,7 +12,8 @@ from agent.runs.leases import RunLeaseManager
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
-from apps.cosa.agents.seed import seed_cosa_agent_specs
+
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.worker.main import dispatch_one_task
@@ -19,7 +22,7 @@ from tests.apps.cosa.policy_test_helpers import (
     fake_active_tenant_policy_client,
 )
 
-import pytest_asyncio
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest_asyncio.fixture
@@ -27,7 +30,6 @@ async def worker_setup():
     conv_repo = InMemoryConversationRepository()
     run_repo = InMemoryRunRepository()
     spec_repo = InMemorySpecRegistryRepository()
-    await seed_cosa_agent_specs(spec_repo)
     stream_repo = InMemoryRunStreamEventRepository()
     art_repo = InMemoryArtifactRepository()
     scheduler = RunScheduler()
@@ -49,6 +51,11 @@ async def worker_setup():
         artifact_repository=art_repo,
         model=FakeSDKModel(responses=[text_response("Scheduled report analysis complete.")]),
     )
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+        skillpacks_root=REPO_ROOT / "skillpacks",
+    )
 
 
     return {
@@ -67,7 +74,7 @@ async def test_worker_dispatches_scheduled_session_task(worker_setup):
     art_repo = worker_setup["art_repo"]
 
     # 1. Enqueue scheduled session task
-    scheduled_task = await scheduler.schedule(
+    await scheduler.schedule(
         target_spec_id="cosa.schedule-execution",
         target_spec_kind="agent",
         input_payload={

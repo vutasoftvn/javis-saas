@@ -18,7 +18,7 @@ import logging
 import os
 import uuid
 
-from apps.cosa.agents.seed import seed_cosa_agent_specs
+from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.api.event_stream import get_cosa_event_stream_manager
 from apps.cosa.composition.agent_plane import (
     CosaAgentPlane,
@@ -379,7 +379,10 @@ async def main() -> None:
         plane = build_cosa_agent_plane(model=FakeSDKModel())
     else:
         plane = build_cosa_agent_plane()
-    await seed_cosa_agent_specs(plane.spec_registry)
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
     logger.info("COSA worker %s starting, polling every %.1fs", WORKER_ID, POLL_INTERVAL_SEC)
 
     health_state = WorkerHealthState(poll_interval_sec=POLL_INTERVAL_SEC)

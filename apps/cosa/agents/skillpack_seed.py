@@ -18,8 +18,8 @@ import os
 from pathlib import Path
 
 from agent.registry.models import PublishedSpecRecord
-from agent.registry.repository import SpecRegistryRepository
 from agent.registry.publisher import publish_skill_spec
+from agent.registry.repository import SpecRegistryRepository, SpecVersionHashConflictError
 from agent.skills.skillpack_contract import validate_skillpack_tree
 
 __all__ = [
@@ -38,11 +38,19 @@ class BuiltinSkillpackSeedError(RuntimeError):
 def resolve_skillpacks_root(root: Path | None = None) -> Path:
     """Xác định thư mục gốc chứa skillpack built-in.
 
-    Ưu tiên `root` truyền vào (dùng cho test), sau đó biến môi trường
-    `COSA_SKILLPACKS_ROOT`, mặc định `/app/skillpacks` (đường dẫn trong image
-    production). Raise ngay nếu thư mục không tồn tại — không âm thầm seed
-    rỗng."""
-    candidate = root or Path(os.environ.get("COSA_SKILLPACKS_ROOT", "/app/skillpacks"))
+    Ưu tiên root truyền vào (dùng cho test), sau đó biến môi trường
+    COSA_SKILLPACKS_ROOT. Không có override thì ưu tiên /app/skillpacks
+    trong image production, nhưng local checkout dùng skillpacks/ cạnh source
+    module để developer/CLI không phải đặt biến môi trường. Raise ngay nếu
+    không có bundle nào — không âm thầm seed rỗng."""
+    if root is not None:
+        candidate = root
+    elif configured_root := os.environ.get("COSA_SKILLPACKS_ROOT"):
+        candidate = Path(configured_root)
+    else:
+        image_root = Path("/app/skillpacks")
+        repository_root = Path(__file__).resolve().parents[3] / "skillpacks"
+        candidate = image_root if image_root.is_dir() else repository_root
     if not candidate.is_dir():
         raise BuiltinSkillpackSeedError(f"Built-in skillpacks are unavailable at {candidate}")
     return candidate.resolve()
@@ -80,6 +88,11 @@ async def seed_builtin_skillpacks(
                 repository=spec_registry,
                 publisher="cosa_built_in",
             )
+        except SpecVersionHashConflictError:
+            # Phiên bản published là immutable. Propagate lỗi để entrypoint
+            # startup và endpoint sync trả đúng tín hiệu 409, thay vì biến
+            # xung đột version thành lỗi bundle 400 khó chẩn đoán.
+            raise
         except Exception as exc:
             raise BuiltinSkillpackSeedError(
                 f"Cannot publish {manifest_path.parent}: {exc}"
