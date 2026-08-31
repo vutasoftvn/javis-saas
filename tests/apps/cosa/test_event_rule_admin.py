@@ -99,6 +99,13 @@ async def test_rule_routes_reject_missing_identity(unsecured_client):
 
 async def test_member_cannot_create_or_enable_rule(member_client):
     assert (await member_client.post("/agent/events/rules", json=valid_rule_payload())).status_code == 403
+    override_authenticated_identity(member_client._app, role_id="founder")  # type: ignore[attr-defined]
+    created = await member_client.post("/agent/events/rules", json=valid_rule_payload())
+    assert created.status_code == 201
+
+    override_authenticated_identity(member_client._app, role_id="member")  # type: ignore[attr-defined]
+    enabled = await member_client.post(f"/agent/events/rules/{created.json()['ruleId']}/enable", json={})
+    assert enabled.status_code == 403
 
 
 async def test_list_uses_identity_workspace_not_query(operator_client):
