@@ -27,6 +27,20 @@ Dockerfile ghi rõ compose không cấp read-only rootfs + egress-deny mà
 readiness check yêu cầu. Chạy trên K8s hoặc chỉ bật sau khi operator áp
 control tương đương ở host + set `KNOWLEDGE_INGESTION_*_ATTESTED=true`.
 
+## Built-in skillpack bundle
+
+Hai image runtime `apps/cosa` (API và worker) đều chứa cùng một bundle đã
+version hóa tại `/app/skillpacks`, kèm `/app/evals` và sổ nguồn
+`/app/docs/integrations/skill-source-attribution.md`. Khi khởi động, COSA
+validate bundle, publish idempotent vào registry, rồi kiểm tra tất cả pinned
+skills trước khi nhận request hoặc poll job. Vì vậy thiếu bundle, manifest
+sai, hoặc pin/hash không khớp sẽ giữ service ở trạng thái không sẵn sàng.
+
+Không sửa trực tiếp một skill đã published trong môi trường đang vận hành:
+thay đổi definition phải tăng `metadata.version`, cập nhật pin có chủ đích và
+build/deploy image mới. Endpoint đồng bộ thủ công chỉ là công cụ vận hành;
+không phải điều kiện để API hoặc worker có thể bắt đầu phục vụ.
+
 ## Rate limiting
  
 `caddy:2-alpine` stock **không** có rate-limit module (chỉ `request_body

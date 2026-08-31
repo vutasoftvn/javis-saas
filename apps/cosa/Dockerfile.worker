@@ -10,9 +10,11 @@ COPY packages/agent /app/agent
 COPY packages/agent_integrations /app/agent_integrations
 COPY packages/agent_testkit /app/agent_testkit
 COPY apps/cosa /app/apps/cosa
+COPY skillpacks /app/skillpacks
+COPY evals /app/evals
+COPY docs/integrations/skill-source-attribution.md /app/docs/integrations/skill-source-attribution.md
 RUN chown -R app:app /app
 
 USER app
 ENV PYTHONPATH=/app
 CMD ["python", "-m", "apps.cosa.worker.main"]
-
