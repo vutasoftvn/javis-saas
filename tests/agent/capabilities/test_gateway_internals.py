@@ -4,6 +4,7 @@ import pytest
 from agent.capabilities.enablements import CapabilityEnablement, InMemoryEnablementStore
 from agent.capabilities.gateway import GatewayExecutionRequest
 from agent.capabilities.gateway_internals import (
+    ApprovalGateDecider,
     ComplianceAuditor,
     EnablementValidator,
     IdempotencyCoordinator,
@@ -15,6 +16,7 @@ from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
 from agent.governance.contracts import CapabilityRisk, PolicyDecision, PolicyOutcome
+from agent.runs.models import RunApprovalRecord
 from agent.runs.repository import InMemoryRunRepository
 
 
@@ -666,3 +668,243 @@ async def test_gateway_compliance_deny_preserves_original_side_effect_order():
         "fail_idempotency_claim",
         "append_event(compliance.decision DENY)",
     ]
+
+
+@pytest.fixture
+def approval_repo():
+    return InMemoryRunRepository()
+
+
+@pytest.fixture
+def approval_decider(approval_repo):
+    return ApprovalGateDecider(approval_repo)
+
+
+@pytest.mark.asyncio
+async def test_approval_gate_decider_allow(approval_decider):
+    """ALLOW outcome -> should_execute=True, no side effects, no results."""
+    decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
+
+    should_exec, wait_res, deny_res = await approval_decider.decide(
+        run_id="run_1",
+        tool_call_id="call_1",
+        checkpoint_ref="ckpt_1",
+        capability_id="test.cap",
+        payload_hash="hash_1",
+        effective_outcome=PolicyOutcome.ALLOW,
+        current_decision=decision,
+    )
+
+    assert should_exec is True
+    assert wait_res is None
+    assert deny_res is None
+
+
+@pytest.mark.asyncio
+async def test_approval_gate_decider_require_approval_creates_record(
+    approval_decider, approval_repo
+):
+    """REQUIRE_APPROVAL with no existing approval -> creates a pending
+    approval record, appends `approval.required` event, and returns a
+    waiting_approval GatewayExecutionResult with a WaitDescriptor."""
+    decision = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL)
+
+    should_exec, wait_res, deny_res = await approval_decider.decide(
+        run_id="run_1",
+        tool_call_id="call_1",
+        checkpoint_ref="ckpt_1",
+        capability_id="test.cap",
+        payload_hash="hash_1234",
+        effective_outcome=PolicyOutcome.REQUIRE_APPROVAL,
+        current_decision=decision,
+    )
+
+    assert should_exec is False
+    assert deny_res is None
+    assert wait_res is not None
+    assert wait_res.status == "waiting_approval"
+    assert wait_res.tool_call_id == "call_1"
+    assert wait_res.wait_descriptor is not None
+    assert wait_res.wait_descriptor.checkpoint_ref == "ckpt_1"
+    assert wait_res.wait_descriptor.resume_trigger == "approval.decided"
+
+    approval = await approval_repo.get_approval_by_tool_call("call_1")
+    assert approval is not None
+    assert approval.status == "pending"
+    assert approval.approval_id == "appr_run_1_call_1"
+    assert approval.action == "test.cap"
+    assert "hash_1234"[:8] in approval.subject
+
+    events = await approval_repo.list_events("run_1")
+    required_events = [e for e in events if e.event_type == "approval.required"]
+    assert len(required_events) == 1
+    assert required_events[0].payload == {
+        "approval_id": "appr_run_1_call_1",
+        "tool_call_id": "call_1",
+    }
+
+
+@pytest.mark.asyncio
+async def test_approval_gate_decider_require_approval_uses_requirement_model(
+    approval_decider, approval_repo
+):
+    """When current_decision.requirement has model_dump(), it is stored
+    verbatim as the approval record's requirement dict (not the default
+    role_approval/founder fallback)."""
+    from agent.governance.contracts import RoleApproval
+
+    requirement = RoleApproval(role="cfo")
+    decision = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, requirement=requirement)
+
+    await approval_decider.decide(
+        run_id="run_2",
+        tool_call_id="call_2",
+        checkpoint_ref="ckpt_2",
+        capability_id="test.cap",
+        payload_hash="hash_2",
+        effective_outcome=PolicyOutcome.REQUIRE_APPROVAL,
+        current_decision=decision,
+    )
+
+    approval = await approval_repo.get_approval_by_tool_call("call_2")
+    assert approval.requirement == requirement.model_dump()
+    assert approval.requirement.get("role") == "cfo"
+
+
+@pytest.mark.asyncio
+async def test_approval_gate_decider_already_approved_matching_checkpoint_allows(
+    approval_decider, approval_repo
+):
+    """An existing approval already `approved` with a MATCHING checkpoint_ref
+    -> should_execute=True, no new approval record/event created."""
+    existing = RunApprovalRecord(
+        approval_id="appr_existing",
+        run_id="run_3",
+        tool_call_id="call_3",
+        checkpoint_ref="ckpt_3",
+        status="approved",
+        action="test.cap",
+    )
+    await approval_repo.create_approval(existing)
+    decision = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL)
+
+    should_exec, wait_res, deny_res = await approval_decider.decide(
+        run_id="run_3",
+        tool_call_id="call_3",
+        checkpoint_ref="ckpt_3",
+        capability_id="test.cap",
+        payload_hash="hash_3",
+        effective_outcome=PolicyOutcome.REQUIRE_APPROVAL,
+        current_decision=decision,
+    )
+
+    assert should_exec is True
+    assert wait_res is None
+    assert deny_res is None
+
+    events = await approval_repo.list_events("run_3")
+    assert [e for e in events if e.event_type == "approval.required"] == []
+
+
+@pytest.mark.asyncio
+async def test_approval_gate_decider_checkpoint_mismatch_recreates_approval(
+    approval_decider, approval_repo
+):
+    """An existing APPROVED approval whose checkpoint_ref does NOT match the
+    current checkpoint_ref is treated as stale -> a fresh pending approval
+    record is created (overwriting approval_id key) and a wait result with
+    the NEW checkpoint_ref is returned, even though a prior approval existed."""
+    existing = RunApprovalRecord(
+        approval_id="appr_run_4_call_4",
+        run_id="run_4",
+        tool_call_id="call_4",
+        checkpoint_ref="ckpt_old",
+        status="approved",
+        action="test.cap",
+    )
+    await approval_repo.create_approval(existing)
+    decision = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL)
+
+    should_exec, wait_res, deny_res = await approval_decider.decide(
+        run_id="run_4",
+        tool_call_id="call_4",
+        checkpoint_ref="ckpt_new",
+        capability_id="test.cap",
+        payload_hash="hash_4",
+        effective_outcome=PolicyOutcome.REQUIRE_APPROVAL,
+        current_decision=decision,
+    )
+
+    assert should_exec is False
+    assert deny_res is None
+    assert wait_res is not None
+    assert wait_res.wait_descriptor.checkpoint_ref == "ckpt_new"
+
+    approval = await approval_repo.get_approval_by_tool_call("call_4")
+    assert approval.status == "pending"
+    assert approval.checkpoint_ref == "ckpt_new"
+
+    events = await approval_repo.list_events("run_4")
+    assert len([e for e in events if e.event_type == "approval.required"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_approval_gate_decider_pending_not_yet_approved_waits_without_recreating(
+    approval_decider, approval_repo
+):
+    """An existing PENDING (not yet approved) approval with a matching
+    checkpoint_ref -> should_execute=False, waits again, but does NOT create
+    a duplicate approval record or a second `approval.required` event
+    (the `not approval or checkpoint_mismatch` guard skips re-creation)."""
+    existing = RunApprovalRecord(
+        approval_id="appr_run_5_call_5",
+        run_id="run_5",
+        tool_call_id="call_5",
+        checkpoint_ref="ckpt_5",
+        status="pending",
+        action="test.cap",
+    )
+    await approval_repo.create_approval(existing)
+    decision = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL)
+
+    should_exec, wait_res, deny_res = await approval_decider.decide(
+        run_id="run_5",
+        tool_call_id="call_5",
+        checkpoint_ref="ckpt_5",
+        capability_id="test.cap",
+        payload_hash="hash_5",
+        effective_outcome=PolicyOutcome.REQUIRE_APPROVAL,
+        current_decision=decision,
+    )
+
+    assert should_exec is False
+    assert deny_res is None
+    assert wait_res is not None
+    assert wait_res.wait_descriptor.related_ref == "appr_run_5_call_5"
+
+    events = await approval_repo.list_events("run_5")
+    assert [e for e in events if e.event_type == "approval.required"] == []
+
+
+@pytest.mark.asyncio
+async def test_approval_gate_decider_deny(approval_decider):
+    """DENY outcome -> should_execute=False, returns a denied
+    GatewayExecutionResult, no repo side effects."""
+    decision = PolicyDecision(outcome=PolicyOutcome.DENY)
+
+    should_exec, wait_res, deny_res = await approval_decider.decide(
+        run_id="run_6",
+        tool_call_id="call_6",
+        checkpoint_ref="ckpt_6",
+        capability_id="test.cap",
+        payload_hash="hash_6",
+        effective_outcome=PolicyOutcome.DENY,
+        current_decision=decision,
+    )
+
+    assert should_exec is False
+    assert wait_res is None
+    assert deny_res is not None
+    assert deny_res.status == "denied"
+    assert deny_res.tool_call_id == "call_6"
+    assert "denied by policy" in deny_res.error_message.lower()

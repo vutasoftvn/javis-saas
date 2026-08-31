@@ -8,12 +8,14 @@ from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyO
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
 from agent.contracts.invocation import InvocationContext
+from agent.contracts.wait import WaitDescriptor, WaitKind
 from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
-from agent.runs.models import ComplianceDecisionPayload, RunEventRecord
+from agent.runs.models import ComplianceDecisionPayload, RunApprovalRecord, RunEventRecord
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "ApprovalGateDecider",
     "ComplianceAuditor",
     "EnablementValidator",
     "IdempotencyCoordinator",
@@ -372,3 +374,120 @@ class EnablementValidator:
         )
 
         return is_enabled, enb_error if not is_enabled else None
+
+
+class ApprovalGateDecider:
+    """Quyết định approval gate (Bước 8 pipeline gateway).
+
+    REQUIRE_APPROVAL: tra cứu approval record đã có theo (tool_call_id,
+    checkpoint_ref) — nếu chưa có/chưa approved/checkpoint lệch, tạo approval
+    record mới (status=pending) + ghi event `approval.required`, rồi trả về
+    wait descriptor. DENY: trả deny result. ALLOW (hoặc approval đã approved
+    khớp checkpoint): should_execute=True, pipeline tiếp tục.
+
+    LƯU Ý về thứ tự side effect: hàm `decide()` chỉ làm phần "tạo approval
+    record + ghi event approval.required" (nếu cần) và KHÔNG tự lưu
+    `tc_record`/gọi `idempotency.fail` — đây là những side effect gắn với
+    tool_call ledger mà caller (gateway._execute_internal) vẫn tự làm SAU khi
+    nhận kết quả từ decide(), giữ nguyên đúng thứ tự gốc: (a) approval
+    record + event `approval.required` trước, (b) tc_record.status/
+    governance_state + save_tool_call sau (nhánh waiting_approval); hoặc
+    (a) tc_record.status=denied + save_tool_call rồi idempotency.fail
+    (nhánh denied) — không có event nào cần append thêm ở nhánh deny.
+    """
+
+    def __init__(self, repo: Any) -> None:  # RunRepository
+        self._repo = repo
+
+    async def decide(
+        self,
+        run_id: str,
+        tool_call_id: str,
+        checkpoint_ref: str,
+        capability_id: str,
+        payload_hash: str,
+        effective_outcome: Any,  # PolicyOutcome
+        current_decision: Any,  # PolicyDecision
+    ) -> tuple[bool, Any | None, Any | None]:
+        # (should_execute, wait_result_if_waiting, deny_result_if_denied)
+        """Quyết định approval gate.
+
+        Returns:
+            Tuple (should_execute, wait_result, deny_result). Nếu
+            should_execute=False, đúng một trong wait_result/deny_result
+            được set (GatewayExecutionResult).
+        """
+        # Import cục bộ để tránh circular import: gateway.py import module
+        # này ở top-level, nên gateway_internals.py không được import
+        # gateway.py ở top-level.
+        from agent.capabilities.gateway import GatewayExecutionResult
+        from agent.governance.contracts import PolicyOutcome
+
+        if effective_outcome == PolicyOutcome.REQUIRE_APPROVAL:
+            # Kiểm tra xem có approval record đã duyệt chưa. Exact invocation
+            # matching: khớp cả tool_call_id và checkpoint_ref.
+            approval = await self._repo.get_approval_by_tool_call(tool_call_id)
+            checkpoint_mismatch = bool(
+                approval
+                and checkpoint_ref
+                and approval.checkpoint_ref
+                and approval.checkpoint_ref != checkpoint_ref
+            )
+            if not approval or approval.status != "approved" or checkpoint_mismatch:
+                if not approval or checkpoint_mismatch:
+                    appr_id = f"appr_{run_id}_{tool_call_id}"
+                    req_model = current_decision.requirement
+                    req_dict = (
+                        req_model.model_dump()
+                        if req_model is not None and hasattr(req_model, "model_dump")
+                        else {"kind": "role_approval", "role": "founder"}
+                    )
+                    approval = RunApprovalRecord(
+                        approval_id=appr_id,
+                        run_id=run_id,
+                        tool_call_id=tool_call_id,
+                        checkpoint_ref=checkpoint_ref,
+                        status="pending",
+                        action=capability_id,
+                        subject=f"Approval needed for {capability_id} (payload_hash: {payload_hash[:8]})",
+                        requirement=req_dict,
+                    )
+                    await self._repo.create_approval(approval)
+                    await self._repo.append_event(
+                        RunEventRecord(
+                            run_id=run_id,
+                            event_type="approval.required",
+                            payload={"approval_id": appr_id, "tool_call_id": tool_call_id},
+                        )
+                    )
+
+                wait = WaitDescriptor(
+                    kind=WaitKind.APPROVAL,
+                    reason=f"Action '{capability_id}' requires human approval",
+                    checkpoint_ref=checkpoint_ref,
+                    related_ref=approval.approval_id,
+                    resume_trigger="approval.decided",
+                )
+
+                return (
+                    False,
+                    GatewayExecutionResult(
+                        tool_call_id=tool_call_id,
+                        status="waiting_approval",
+                        wait_descriptor=wait,
+                    ),
+                    None,
+                )
+
+        if effective_outcome == PolicyOutcome.DENY:
+            return (
+                False,
+                None,
+                GatewayExecutionResult(
+                    tool_call_id=tool_call_id,
+                    status="denied",
+                    error_message=f"Execution of '{capability_id}' denied by policy",
+                ),
+            )
+
+        return True, None, None
