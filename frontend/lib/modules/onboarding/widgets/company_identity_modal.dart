@@ -142,7 +142,10 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
           _applyAiDraft(buffer.toString());
         }
       },
-      onError: (_) => setState(() => _isAiLoading = false),
+      onError: (_) => setState(() {
+        _isAiLoading = false;
+        _errorMessage = 'Mất kết nối khi nhận câu trả lời từ AI — vui lòng thử lại.';
+      }),
       onDone: () => setState(() => _isAiLoading = false),
     );
   }
@@ -150,13 +153,21 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
   void _applyAiDraft(String rawText) {
     final draft = parseCompanyIdentityDraft(rawText);
     setState(() {
-      if (draft.isComplete) {
+      // Chỉ điền các mục AI thực sự trả lời đúng định dạng — không ghi đè
+      // những gì founder đã gõ bằng field null/rỗng, và không đổ text thô
+      // vào Vision (Vision sẽ được lưu thẳng làm dữ liệu công ty thật).
+      if (draft.vision != null && draft.vision!.trim().isNotEmpty) {
         _visionController.text = draft.vision!;
+      }
+      if (draft.mission != null && draft.mission!.trim().isNotEmpty) {
         _missionController.text = draft.mission!;
+      }
+      if (draft.coreValues != null && draft.coreValues!.trim().isNotEmpty) {
         _valuesController.text = draft.coreValues!;
-      } else if (rawText.trim().isNotEmpty) {
-        _visionController.text =
-            '[AI trả lời không đúng định dạng — vui lòng tách thủ công]\n\n$rawText';
+      }
+      if (!draft.isComplete && rawText.trim().isNotEmpty) {
+        _errorMessage =
+            'AI trả lời chưa đủ định dạng — đã điền phần đọc được, vui lòng tự bổ sung phần còn thiếu.';
       }
       _isAiLoading = false;
     });
@@ -166,13 +177,14 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
+      child: Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
               const Text(
                 'Thiết lập Vision / Mission / Core Values',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -234,7 +246,8 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
                       : const Text('Lưu'),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

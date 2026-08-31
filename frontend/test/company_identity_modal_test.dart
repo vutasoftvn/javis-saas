@@ -36,6 +36,15 @@ void main() {
   tearDown(() => ApiClient.client = originalClient);
 
   Future<void> pumpModal(WidgetTester tester) async {
+    // Dialog() (thêm để cấp Material ancestor — xem Finding 1) có
+    // insetPadding riêng cộng với Padding(24) hiện tại của nội dung, cần
+    // viewport cao hơn mặc định 800x600 để nút "Lưu" không bị đẩy ra ngoài
+    // vùng test surface (gây lỗi hit-test "outside the bounds").
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(body: CompanyIdentityModal(workspaceId: 'ws_1')),
@@ -135,7 +144,7 @@ void main() {
     expect(find.text('Minh bach, Toc do.'), findsOneWidget);
   });
 
-  testWidgets('"Nhờ AI soạn" falls back to dumping raw text into Vision when reply is malformed', (tester) async {
+  Future<void> mockAiSse(String delta) async {
     ApiClient.client = MockClient((request) async {
       final path = request.url.path;
       if (path == '/agent/conversations' && request.method == 'POST') {
@@ -152,7 +161,7 @@ void main() {
       if (path == '/agent/runs/run_1/events') {
         return http.Response(
           'event: message.delta\n'
-          'data: {"payload":{"delta":"Cau tra loi tu do khong dung dinh dang."}}\n\n'
+          'data: {"payload":{"delta":${jsonEncode(delta)}}}\n\n'
           'event: run.completed\n'
           'data: {"payload":{"output":null}}\n\n',
           200,
@@ -161,15 +170,58 @@ void main() {
       }
       return http.Response('not found', 404);
     });
+  }
 
-    await pumpModal(tester);
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Nhờ AI soạn'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+  testWidgets(
+    '"Nhờ AI soạn" with a fully malformed reply does not pollute Vision and shows an error instead',
+    (tester) async {
+      await mockAiSse('Cau tra loi tu do khong dung dinh dang.');
 
-    expect(
-      find.textContaining('Cau tra loi tu do khong dung dinh dang.'),
-      findsOneWidget,
-    );
-  });
+      await pumpModal(tester);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Nhờ AI soạn'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Không field nào bị ghi đè bằng text thô/marker lỗi.
+      final visionField = tester.widget<TextField>(
+        find.byKey(const Key('company_identity_vision_field')),
+      );
+      final missionField = tester.widget<TextField>(
+        find.byKey(const Key('company_identity_mission_field')),
+      );
+      final valuesField = tester.widget<TextField>(
+        find.byKey(const Key('company_identity_values_field')),
+      );
+      expect(visionField.controller!.text, isEmpty);
+      expect(missionField.controller!.text, isEmpty);
+      expect(valuesField.controller!.text, isEmpty);
+      expect(
+        find.textContaining('AI trả lời chưa đủ định dạng'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    '"Nhờ AI soạn" with a partial reply fills what parsed and leaves the rest untouched',
+    (tester) async {
+      await mockAiSse('VISION: Tro thanh so 1.\nMISSION: Trao quyen cho founder.');
+
+      await pumpModal(tester);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Nhờ AI soạn'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('Tro thanh so 1.'), findsOneWidget);
+      expect(find.text('Trao quyen cho founder.'), findsOneWidget);
+      final valuesField = tester.widget<TextField>(
+        find.byKey(const Key('company_identity_values_field')),
+      );
+      expect(valuesField.controller!.text, isEmpty);
+      expect(
+        find.textContaining('AI trả lời chưa đủ định dạng'),
+        findsOneWidget,
+      );
+    },
+  );
 }
