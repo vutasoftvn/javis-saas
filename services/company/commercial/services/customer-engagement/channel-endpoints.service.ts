@@ -148,7 +148,6 @@ export async function pauseChannelEndpoint(input: {
 
 export async function listChannelDeliveries(input: {
   workspaceId: string;
-  id?: string;
   status?: string;
 }) {
   const wsId = BigInt(input.workspaceId);

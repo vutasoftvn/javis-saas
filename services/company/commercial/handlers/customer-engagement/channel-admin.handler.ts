@@ -96,7 +96,6 @@ export const listChannelDeliveriesApi = api(
 
     return channelEndpointSvc.listChannelDeliveries({
       workspaceId: params.workspaceId,
-      id: params.id,
       status: params.status,
     });
   }

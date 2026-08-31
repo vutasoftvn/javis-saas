@@ -9,24 +9,14 @@ import {
 } from "../services/customer-engagement/channel-endpoints.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { setCustomConnectorGrantRunner } from "../services/customer-engagement/connector-grant.client";
-import type { TenantContext } from "../../shared/types/tenant_context";
 
 describe("Channel Endpoints Service", () => {
-  let mockCtx: TenantContext;
   let wsId: string;
   let inboxId: string;
 
   beforeEach(async () => {
     const wsIdBig = generateSnowflake();
     wsId = wsIdBig.toString();
-    mockCtx = {
-      workspaceId: wsId,
-      userId: "user_456",
-      workforceMemberId: "member_456",
-      membershipRole: "admin",
-      permissions: ["*"],
-      correlationId: "corr_123",
-    };
 
     inboxId = generateSnowflake().toString();
 
@@ -82,7 +72,7 @@ describe("Channel Endpoints Service", () => {
       activateChannelEndpoint({
         workspaceId: wsId,
         id: nonexistentId,
-      }, mockCtx)
+      })
     ).rejects.toMatchObject({ code: "not_found" });
   });
 

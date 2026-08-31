@@ -8,7 +8,7 @@ function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (isStagingOrProd()) {
     if (!secret || secret === DEV_JWT_SECRET || secret.length < 32) {
-      throw new Error("JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
+      throw APIError.internal("JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
     }
     return secret;
   }

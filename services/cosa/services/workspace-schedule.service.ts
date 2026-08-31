@@ -670,7 +670,7 @@ export async function completeScheduleExecution(input: {
 
 export async function listWorkspaceSchedules(
   workspaceId: string
-): Promise<{ items: any[]; total: number }> {
+): Promise<{ items: (typeof workspaceScheduleDefinitions.$inferSelect)[]; total: number }> {
   const items = await db
     .select()
     .from(workspaceScheduleDefinitions)
@@ -680,7 +680,9 @@ export async function listWorkspaceSchedules(
   return { items, total: items.length };
 }
 
-export async function getScheduleExecution(executionId: string): Promise<any> {
+export async function getScheduleExecution(
+  executionId: string
+): Promise<typeof workspaceScheduleExecutions.$inferSelect> {
   const [execution] = await db
     .select()
     .from(workspaceScheduleExecutions)
