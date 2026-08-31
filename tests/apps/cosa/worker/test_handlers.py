@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.registry.repository import InMemorySpecRegistryRepository, SpecDependencyMissingError
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
@@ -14,6 +14,7 @@ from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.worker.handlers import execute_run_task
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
@@ -128,6 +129,58 @@ async def test_unexpected_worker_error_is_not_sent_to_client():
     )
     assert "internal-pin-and-secret" not in visible_text
     assert "internal_error" in visible_text
+
+
+@pytest.mark.asyncio
+async def test_tenant_policy_error_is_not_sent_to_client():
+    """Task 6 review finding — CosaTenantPolicyError (thất bại resolve
+    PolicySnapshot từ Company) trước đây bị interpolate nguyên văn `{exc}`
+    vào message/event client-facing. Giờ chỉ mã lỗi ổn định
+    `policy_snapshot_unavailable` được forward, exception thật chỉ log
+    server-side."""
+    plane = _plane()
+    await seed_cosa_agent_specs(plane.spec_registry)
+    stream_mgr = CosaEventStreamManager()
+    secret_detail = "internal-policy-store-dsn-leak-detail"
+    plane.tenant_policy_client.get_snapshot = AsyncMock(
+        side_effect=CosaTenantPolicyError(secret_detail)
+    )
+
+    payload = _payload()
+    await execute_run_task(plane, stream_mgr, payload)
+
+    visible_text = await _all_client_visible_text(
+        plane, run_id=payload["run_id"], conversation_id=payload["conversation_id"]
+    )
+    assert secret_detail not in visible_text
+    assert "policy_snapshot_unavailable" in visible_text
+
+
+@pytest.mark.asyncio
+async def test_spec_resolution_error_is_not_sent_to_client():
+    """Task 6 review finding — SpecDependencyMissingError (registry chưa
+    seed / dependency drift) trước đây leak nguyên văn exception — đúng ví dụ
+    "internal pinned-skill detail" constraint plan nêu — ra client. Giờ chỉ
+    mã lỗi ổn định `spec_resolution_unavailable` được forward."""
+    plane = _plane()
+    stream_mgr = CosaEventStreamManager()
+    secret_detail = "pinned-skill-internal-fingerprint-detail"
+
+    async def _raise_missing(*_args, **_kwargs):
+        raise SpecDependencyMissingError("prompt", secret_detail, "v1", "not_found")
+
+    with patch(
+        "apps.cosa.worker.handlers.SpecResolver.resolve_agent_spec_dependencies",
+        _raise_missing,
+    ):
+        payload = _payload()
+        await execute_run_task(plane, stream_mgr, payload)
+
+    visible_text = await _all_client_visible_text(
+        plane, run_id=payload["run_id"], conversation_id=payload["conversation_id"]
+    )
+    assert secret_detail not in visible_text
+    assert "spec_resolution_unavailable" in visible_text
 
 
 @pytest.mark.asyncio

@@ -129,12 +129,17 @@ async def _execute_run_task_inner(
     # ALLOW ngầm.
     try:
         snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, workspace_id)
-    except CosaTenantPolicyError as exc:
+    except CosaTenantPolicyError:
+        # Task 6 — không interpolate exception thô (có thể lộ chi tiết nội bộ
+        # từ Company tenant-policy service) vào message/event client-facing.
+        # Log đầy đủ server-side kèm run_id để debug, client chỉ nhận mã lỗi
+        # ổn định — cùng pattern với broad-failure branch bên dưới.
+        logger.exception("tenant policy snapshot unavailable", extra={"run_id": run_id})
         await _append_message(
             plane,
             conversation_id=conversation_id,
             role="assistant",
-            content=f"Unable to verify tenant policy — run rejected: {exc}",
+            content="Unable to verify tenant policy — run rejected",
             run_id=run_id,
             status_="failed",
         )
@@ -143,7 +148,7 @@ async def _execute_run_task_inner(
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="run.failed",
-            payload={"error": f"policy_snapshot_unavailable: {exc}"},
+            payload={"error": "policy_snapshot_unavailable"},
         )
         return
 
@@ -155,12 +160,17 @@ async def _execute_run_task_inner(
     resolver = SpecResolver(repository=plane.spec_registry)
     try:
         resolution = await resolver.resolve_agent_spec_dependencies(local_spec)
-    except SpecDependencyMissingError as exc:
+    except SpecDependencyMissingError:
+        # Task 6 — exception thô ở đây có thể chứa chi tiết pinned-skill nội
+        # bộ (đúng ví dụ constraint nêu) — không interpolate vào client-facing
+        # message/event. Log đầy đủ server-side kèm run_id, client chỉ nhận
+        # mã lỗi ổn định.
+        logger.exception("agent spec resolution unavailable", extra={"run_id": run_id})
         await _append_message(
             plane,
             conversation_id=conversation_id,
             role="assistant",
-            content=f"Unable to resolve agent spec from registry — run rejected: {exc}",
+            content="Unable to resolve agent spec from registry — run rejected",
             run_id=run_id,
             status_="failed",
         )
@@ -169,7 +179,7 @@ async def _execute_run_task_inner(
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="run.failed",
-            payload={"error": f"spec_resolution_unavailable: {exc}"},
+            payload={"error": "spec_resolution_unavailable"},
         )
         return
 
