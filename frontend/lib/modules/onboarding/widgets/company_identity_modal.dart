@@ -61,9 +61,9 @@ class _CompanyIdentityModalState extends State<CompanyIdentityModal> {
         mission: _missionController.text.trim(),
         coreValues: _valuesController.text.trim(),
       );
-      // Thành công — disable form và hiện thành công
+      // Thành công — signal completion và thoát modal
       if (mounted) {
-        setState(() => _isSaving = false);
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
