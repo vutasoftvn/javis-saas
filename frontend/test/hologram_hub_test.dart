@@ -1,7 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/services/wake_word_service.dart';
+import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/hologram_hub/controllers/hologram_hub_controller.dart';
 
 void main() {
@@ -82,6 +86,48 @@ void main() {
 
       controller.onClose();
       expect(mockWake.isDisposed, isTrue);
+    });
+  });
+
+  group('HologramHubController Company Identity Gate', () {
+    // authService.getMe() gọi ApiClient (http.Client thật theo mặc định) —
+    // mock ở đây để test không phụ thuộc vào việc có server thật đang chạy
+    // ở localhost:4000 hay không (cùng pattern với company_identity_service_test.dart).
+    late http.Client originalClient;
+
+    setUp(() {
+      originalClient = ApiClient.client;
+      ApiClient.client = MockClient((request) async {
+        if (request.url.path == '/identity/me') {
+          return http.Response(
+            '{"display_name":"Test User","role":"member"}',
+            200,
+          );
+        }
+        return http.Response('{}', 200);
+      });
+    });
+
+    tearDown(() {
+      ApiClient.client = originalClient;
+    });
+
+    test('ensureAuthenticated calls CompanyIdentityGate.checkAndPrompt with the stored workspace_id', () async {
+      var promptedWorkspaceId = '';
+      final controller = HologramHubController();
+      // AuthService.isAuthenticated phụ thuộc trạng thái static toàn cục được
+      // set qua AuthService.init()/setCachedToken ở nơi khác trong test suite;
+      // ở đây chỉ verify gate được GỌI ĐÚNG workspace_id khi auth hợp lệ —
+      // dùng setCachedToken trực tiếp để không phụ thuộc thứ tự chạy test khác.
+      AuthService.setCachedToken('test_token');
+
+      await controller.ensureAuthenticated(
+        companyIdentityCheck: (workspaceId) async {
+          promptedWorkspaceId = workspaceId;
+        },
+      );
+
+      expect(promptedWorkspaceId, 'ws_123');
     });
   });
 }
