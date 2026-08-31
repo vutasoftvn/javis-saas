@@ -68,10 +68,10 @@ export const activateChannelEndpointApi = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     requireEngagementPermission(ctx, ENGAGEMENT_PERMISSIONS.CHANNEL_MANAGE);
 
-    return channelEndpointSvc.activateChannelEndpoint(
-      { workspaceId: params.workspaceId, id: params.id },
-      ctx
-    );
+    return channelEndpointSvc.activateChannelEndpoint({
+      workspaceId: params.workspaceId,
+      id: params.id,
+    });
   }
 );
 

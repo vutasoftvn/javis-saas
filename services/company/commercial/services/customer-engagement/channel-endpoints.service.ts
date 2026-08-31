@@ -56,7 +56,7 @@ export async function createChannelEndpoint(input: {
 export async function activateChannelEndpoint(input: {
   workspaceId: string;
   id: string;
-}, ctx: any) {
+}) {
   const wsId = BigInt(input.workspaceId);
   const epId = BigInt(input.id);
 
