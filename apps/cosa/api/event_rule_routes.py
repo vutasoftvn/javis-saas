@@ -9,9 +9,15 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from apps.cosa.auth import (
+    AuthenticatedIdentity,
+    get_authenticated_identity,
+    require_workspace_operator,
+    resolve_identity_workspace,
+)
 from apps.cosa.events.trigger_policy import EventTriggerRule, PinnedSpecIdentity
 from apps.cosa.events.trigger_promotion import can_enable_trigger
 
@@ -25,7 +31,6 @@ class AgentSpecPin(BaseModel):
 
 
 class CreateRuleRequest(BaseModel):
-    workspaceId: str
     eventType: str
     agentSpec: AgentSpecPin
     mode: str = Field(pattern="^(artifact_only|proposal|write)$")
@@ -37,8 +42,7 @@ class CreateRuleRequest(BaseModel):
 
 
 class EnableRuleRequest(BaseModel):
-    workspaceId: str
-    approvedBy: str | None = None
+    pass
 
 
 def _deps(request: Request):
@@ -53,11 +57,17 @@ def create_event_rule_router() -> APIRouter:
     router = APIRouter(prefix="/agent/events/rules", tags=["event-rules"])
 
     @router.post("", status_code=201)
-    async def create_rule(body: CreateRuleRequest, request: Request):
+    async def create_rule(
+        body: CreateRuleRequest,
+        request: Request,
+        identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+    ):
+        require_workspace_operator(identity)
+        workspace_id = identity.workspace_id
         deps = _deps(request)
         rule = EventTriggerRule(
             rule_id=f"evt-rule-{uuid.uuid4().hex[:12]}",
-            workspace_id=body.workspaceId,
+            workspace_id=workspace_id,
             event_type=body.eventType,
             agent_spec=PinnedSpecIdentity(
                 id=body.agentSpec.id,
@@ -76,9 +86,14 @@ def create_event_rule_router() -> APIRouter:
         return {"ruleId": rule.rule_id, "enabled": False}
 
     @router.get("")
-    async def list_rules(workspaceId: str, request: Request):
+    async def list_rules(
+        request: Request,
+        identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+        workspaceId: str | None = Query(None),
+    ):
+        workspace_id = resolve_identity_workspace(identity, workspaceId)
         deps = _deps(request)
-        rules = await deps.rule_store.list_by_workspace(workspaceId)
+        rules = await deps.rule_store.list_by_workspace(workspace_id)
         return {
             "items": [
                 {
@@ -93,10 +108,17 @@ def create_event_rule_router() -> APIRouter:
         }
 
     @router.post("/{rule_id}/enable")
-    async def enable_rule(rule_id: str, body: EnableRuleRequest, request: Request):
+    async def enable_rule(
+        rule_id: str,
+        body: EnableRuleRequest,
+        request: Request,
+        identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+    ):
+        require_workspace_operator(identity)
+        workspace_id = identity.workspace_id
         deps = _deps(request)
         rule = await deps.rule_store.get(rule_id)
-        if rule is None or rule.workspace_id != body.workspaceId:
+        if rule is None or rule.workspace_id != workspace_id:
             raise HTTPException(status_code=404, detail="rule not found in workspace")
 
         if rule.mode == "artifact_only":
@@ -113,13 +135,12 @@ def create_event_rule_router() -> APIRouter:
 
         if not gate.allowed:
             raise HTTPException(status_code=422, detail={"status": "denied", "reason": gate.reason})
-        if gate.requires_human_approval and not body.approvedBy:
-            return {"status": "pending_human_approval"}
+        approved_by = identity.platform_user_id if gate.requires_human_approval else None
 
         await deps.rule_store.set_enabled(rule_id, True)
         result = {"status": "enabled"}
-        if body.approvedBy:
-            result["approvedBy"] = body.approvedBy
+        if approved_by:
+            result["approvedBy"] = approved_by
         return result
 
     return router

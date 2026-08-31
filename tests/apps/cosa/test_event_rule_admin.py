@@ -10,6 +10,7 @@ from agent.evals.promotion_repository import InMemoryPromotionEvidenceRepository
 from agent.governance.contracts import PinnedSpecIdentity as GovPinned
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.events.rule_store import InMemoryTriggerRuleStore
+from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 
 pytestmark = pytest.mark.asyncio
 
@@ -21,8 +22,7 @@ class _FP:
         return dict(FP)
 
 
-@pytest_asyncio.fixture
-async def client():
+async def _make_client(*, workspace_id="ws_1", role_id="founder", platform_user_id="operator-user", authenticated=True):
     evidence_store = InMemoryPromotionEvidenceRepository()
     deps = SimpleNamespace(
         rule_store=InMemoryTriggerRuleStore(),
@@ -32,23 +32,83 @@ async def client():
     )
     plane = SimpleNamespace(event_intake_deps=deps)
     app = create_cosa_app(plane=plane)
+    if authenticated:
+        override_authenticated_identity(
+            app,
+            workspace_id=workspace_id,
+            role_id=role_id,
+            platform_user_id=platform_user_id,
+        )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
         c._evidence_store = evidence_store  # type: ignore[attr-defined]
+        c._app = app  # type: ignore[attr-defined]
         yield c
 
 
-async def _create(client, *, mode="artifact_only", evidence_ref=None, ws="ws_1"):
-    r = await client.post("/agent/events/rules", json={
-        "workspaceId": ws,
+@pytest_asyncio.fixture
+async def client():
+    async for c in _make_client():
+        yield c
+
+
+@pytest_asyncio.fixture
+async def operator_client():
+    async for c in _make_client():
+        yield c
+
+
+@pytest_asyncio.fixture
+async def member_client():
+    async for c in _make_client(role_id="member"):
+        yield c
+
+
+@pytest_asyncio.fixture
+async def unsecured_client():
+    async for c in _make_client(authenticated=False):
+        yield c
+
+
+def valid_rule_payload(*, mode="artifact_only", evidence_ref=None):
+    return {
         "eventType": "operations.task.created.v1",
         "agentSpec": {"id": "cosa.agent", "version": "1.0.0", "definitionHash": "hash_A"},
         "mode": mode,
         "maxRunsPerAggregatePerDay": 1,
         "requiredCapabilities": [],
         "evalEvidenceRef": evidence_ref,
-    })
+    }
+
+
+async def _create(client, *, mode="artifact_only", evidence_ref=None, ws="ws_1"):
+    r = await client.post("/agent/events/rules", json=valid_rule_payload(mode=mode, evidence_ref=evidence_ref))
     assert r.status_code == 201
     return r.json()["ruleId"]
+
+
+@pytest_asyncio.fixture
+async def write_rule_id(operator_client):
+    ev = await operator_client._evidence_store.create(_evidence(boundary="write"))
+    return await _create(operator_client, mode="write", evidence_ref=ev.evidence_id)
+
+
+async def test_rule_routes_reject_missing_identity(unsecured_client):
+    response = await unsecured_client.post("/agent/events/rules", json=valid_rule_payload())
+    assert response.status_code == 401
+
+
+async def test_member_cannot_create_or_enable_rule(member_client):
+    assert (await member_client.post("/agent/events/rules", json=valid_rule_payload())).status_code == 403
+
+
+async def test_list_uses_identity_workspace_not_query(operator_client):
+    response = await operator_client.get("/agent/events/rules", params={"workspaceId": "other"})
+    assert response.status_code == 404
+
+
+async def test_write_approval_actor_is_derived(operator_client, write_rule_id):
+    response = await operator_client.post(f"/agent/events/rules/{write_rule_id}/enable", json={})
+    assert response.json()["approvedBy"] == "operator-user"
 
 
 def _evidence(*, passed=True, fps=None, boundary="write"):
@@ -70,43 +130,40 @@ async def test_create_rule_is_always_disabled(client):
 
 async def test_enable_artifact_only_rule_succeeds(client):
     rid = await _create(client, mode="artifact_only")
-    r = await client.post(f"/agent/events/rules/{rid}/enable", json={"workspaceId": "ws_1"})
+    r = await client.post(f"/agent/events/rules/{rid}/enable", json={})
     assert r.status_code == 200 and r.json()["status"] == "enabled"
 
 
 async def test_enable_write_rule_without_evidence_denied(client):
     rid = await _create(client, mode="write", evidence_ref=None)
-    r = await client.post(f"/agent/events/rules/{rid}/enable", json={"workspaceId": "ws_1"})
+    r = await client.post(f"/agent/events/rules/{rid}/enable", json={})
     assert r.status_code == 422
     assert r.json()["detail"]["reason"] == "no_eval_evidence"
 
 
-async def test_enable_write_rule_with_valid_evidence_pending_then_approved(client):
+async def test_enable_write_rule_with_valid_evidence_uses_authenticated_approver(client):
     ev = await client._evidence_store.create(_evidence(boundary="write"))
     rid = await _create(client, mode="write", evidence_ref=ev.evidence_id)
-    r1 = await client.post(f"/agent/events/rules/{rid}/enable", json={"workspaceId": "ws_1"})
-    assert r1.status_code == 200 and r1.json()["status"] == "pending_human_approval"
-    r2 = await client.post(f"/agent/events/rules/{rid}/enable",
-                           json={"workspaceId": "ws_1", "approvedBy": "op_1"})
-    assert r2.status_code == 200 and r2.json()["status"] == "enabled"
+    r = await client.post(f"/agent/events/rules/{rid}/enable", json={})
+    assert r.status_code == 200 and r.json() == {"status": "enabled", "approvedBy": "operator-user"}
 
 
 async def test_enable_proposal_rule_with_stale_evidence_denied(client):
     ev = await client._evidence_store.create(_evidence(fps={"cosa.agent": "hash_OLD"}, boundary="proposal"))
     rid = await _create(client, mode="proposal", evidence_ref=ev.evidence_id)
-    r = await client.post(f"/agent/events/rules/{rid}/enable", json={"workspaceId": "ws_1"})
+    r = await client.post(f"/agent/events/rules/{rid}/enable", json={})
     assert r.status_code == 422 and r.json()["detail"]["reason"] == "stale_evidence"
 
 
 async def test_enable_rejected_cross_workspace(client):
     rid = await _create(client, ws="ws_1")
-    r = await client.post(f"/agent/events/rules/{rid}/enable", json={"workspaceId": "ws_2"})
+    override_authenticated_identity(client._app, workspace_id="ws_2")  # type: ignore[attr-defined]
+    r = await client.post(f"/agent/events/rules/{rid}/enable", json={})
     assert r.status_code == 404
 
 
 async def test_create_and_list_engagement_write_rule(client):
     r = await client.post("/agent/events/rules", json={
-        "workspaceId": "ws_eng_1",
         "eventType": "engagement.message.received.v1",
         "agentSpec": {
             "id": "cosa.agents.customer_support_autopilot",
@@ -122,7 +179,7 @@ async def test_create_and_list_engagement_write_rule(client):
     rule_id = r.json()["ruleId"]
     assert r.json()["enabled"] is False
 
-    list_res = await client.get("/agent/events/rules?workspaceId=ws_eng_1")
+    list_res = await client.get("/agent/events/rules")
     assert list_res.status_code == 200
     items = list_res.json()["items"]
     assert any(i["ruleId"] == rule_id and i["eventType"] == "engagement.message.received.v1" and i["mode"] == "write" for i in items)
