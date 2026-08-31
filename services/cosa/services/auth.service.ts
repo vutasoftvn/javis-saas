@@ -121,6 +121,9 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
   const passwordHash = await hashPassword(params.password);
   const newUserId = BigInt(generateSnowflakeStr());
 
+  const explicitWsName = params.workspace_name?.trim() || params.company_name?.trim();
+  const initialRole = explicitWsName ? "founder" : "member";
+
   await db.transaction(async (tx) => {
     const [newUser] = await tx
       .insert(users)
@@ -134,24 +137,27 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
 
     await tx.insert(profiles).values({
       id: newUser.id,
-      roleId: "member",
+      roleId: initialRole,
       fullName: params.full_name || null,
     });
   });
 
-  const wsName = params.workspace_name?.trim() || params.company_name?.trim() || (params.full_name ? `${params.full_name}'s Workspace` : "My Workspace");
-  const cid = params.client_workspace_creation_id || `auto-${newUserId.toString()}`;
-  const prov = await provisionVentureWorkspace({
-    ownerUserId: newUserId,
-    workspaceName: wsName,
-    clientCreationId: cid,
-  });
+  let platformWorkspaceId: string | undefined;
+  if (explicitWsName) {
+    const cid = params.client_workspace_creation_id || `auto-${newUserId.toString()}`;
+    const prov = await provisionVentureWorkspace({
+      ownerUserId: newUserId,
+      workspaceName: explicitWsName,
+      clientCreationId: cid,
+    });
+    platformWorkspaceId = prov.platformWorkspaceId;
+  }
 
   return {
     access_token: signPlatformToken(newUserId.toString()),
     token_type: "bearer",
-    platform_workspace_id: prov.platformWorkspaceId,
-    workspace_provision_status: "pending",
+    platform_workspace_id: platformWorkspaceId,
+    workspace_provision_status: platformWorkspaceId ? "pending" : undefined,
   };
 }
 

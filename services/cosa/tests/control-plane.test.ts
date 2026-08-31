@@ -45,12 +45,12 @@ describe("Control Plane Service", () => {
     ).rejects.toThrow();
   });
 
-  it("retrieves current platform user profile with default member role", async () => {
+  it("retrieves current platform user profile with founder role for company creator", async () => {
     const profile = await getMe({ userID: verifyPlatformToken(platformToken).sub });
 
     expect(profile.email).toBe(testEmail);
     expect(profile.full_name).toBe("John Doe");
-    expect(profile.role_id).toBe("member");
+    expect(profile.role_id).toBe("founder");
     expect(profile.is_platform_admin).toBe(false);
   });
 

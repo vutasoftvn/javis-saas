@@ -93,6 +93,12 @@ export async function createNewCompany(
     clientCreationId: `legacy-comp-create-${Date.now()}-${userIdStr}`,
   });
 
+  // Tự động nâng profile role của người tạo lên founder nếu đang là member
+  await db
+    .update(profiles)
+    .set({ roleId: "founder", updatedAt: new Date() })
+    .where(and(eq(profiles.id, userId), eq(profiles.roleId, "member")));
+
   return {
     company_id: result.platformWorkspaceId,
     name: name,
