@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from agent.contracts.run import RunStatus
 from agent.governance.contracts import ExecutionMode
+from agent.persistence import BasePostgresRepository
 from agent.runs.models import (
     IdempotencyClaimRecord,
     RunApprovalRecord,
@@ -331,18 +332,24 @@ class InMemoryRunRepository:
         return c.model_copy(deep=True)
 
 
-class PostgresRunRepository:
-    """PostgreSQL implementation of RunRepository persisting to agent.* schema."""
+class PostgresRunRepository(BasePostgresRepository):
+    """PostgreSQL implementation of RunRepository persisting to agent.* schema.
+
+    Inherits session lifecycle helpers from BasePostgresRepository:
+    - _execute() for raw SQL execution
+    - _commit() for transaction commit
+    - _setup_tenancy() for workspace_id in session config
+    - _list_paginated() for paginated queries
+    """
 
     def __init__(self, db_session_factory: Any) -> None:
-        if db_session_factory is None:
-            raise ValueError("PostgresRunRepository requires a valid db_session_factory.")
-        self._session_factory = db_session_factory
+        super().__init__(db_session_factory)
 
     # 1. Runs
     async def create_run(self, run: RunRecord) -> RunRecord:
         async with self._session_factory() as session:
-            await session.execute(
+            await self._execute(
+                session,
                 text(
                     """
                     INSERT INTO agent.runs (
@@ -390,12 +397,13 @@ class PostgresRunRepository:
                     "updated_at": run.updated_at,
                 },
             )
-            await session.commit()
+            await self._commit(session)
         return run
 
     async def get_run(self, run_id: str) -> RunRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT run_id, workspace_id, conversation_id, session_ref,
@@ -416,7 +424,8 @@ class PostgresRunRepository:
     async def get_scoped_run(self, run_id: str, workspace_id: str) -> RunRecord | None:
         """Scoped run lookup: enforce workspace_id in the SQL WHERE clause."""
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT run_id, workspace_id, conversation_id, session_ref,
@@ -449,7 +458,8 @@ class PostgresRunRepository:
         status_val = status.value if hasattr(status, "value") else str(status)
 
         async with self._session_factory() as session:
-            await session.execute(
+            await self._execute(
+                session,
                 text(
                     """
                     UPDATE agent.runs
@@ -472,12 +482,13 @@ class PostgresRunRepository:
                     "completed_at": completed_at,
                 },
             )
-            await session.commit()
+            await self._commit(session)
         return await self.get_run(run_id)
 
     async def list_runs(self, workspace_id: str, limit: int = 50) -> list[RunRecord]:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT run_id, conversation_id, agent_spec_id, agent_spec_version,
@@ -497,7 +508,8 @@ class PostgresRunRepository:
     # 2. Checkpoints
     async def save_checkpoint(self, checkpoint: RunCheckpointRecord) -> RunCheckpointRecord:
         async with self._session_factory() as session:
-            await session.execute(
+            await self._execute(
+                session,
                 text(
                     """
                     INSERT INTO agent.run_checkpoints (
@@ -522,12 +534,13 @@ class PostgresRunRepository:
                     "created_at": checkpoint.created_at,
                 },
             )
-            await session.commit()
+            await self._commit(session)
         return checkpoint
 
     async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT checkpoint_ref, run_id, sequence_no, step_name, state_kind,
@@ -547,7 +560,8 @@ class PostgresRunRepository:
 
     async def get_checkpoint(self, checkpoint_ref: str) -> RunCheckpointRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT checkpoint_ref, run_id, sequence_no, step_name, state_kind,
@@ -565,7 +579,8 @@ class PostgresRunRepository:
 
     async def list_checkpoints(self, run_id: str) -> list[RunCheckpointRecord]:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT checkpoint_ref, run_id, sequence_no, step_name, state_kind,
@@ -582,7 +597,8 @@ class PostgresRunRepository:
     # 3. Events
     async def append_event(self, event: RunEventRecord) -> RunEventRecord:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     INSERT INTO agent.run_events (
@@ -603,7 +619,7 @@ class PostgresRunRepository:
                 },
             )
             seq = res.scalar_one()
-            await session.commit()
+            await self._commit(session)
             event.sequence_no = seq
         return event
 
@@ -620,13 +636,14 @@ class PostgresRunRepository:
         query += " ORDER BY sequence_no ASC"
 
         async with self._session_factory() as session:
-            res = await session.execute(text(query), params)
+            res = await self._execute(session, text(query), params)
             return [self._row_to_event(r) for r in res.mappings().all()]
 
     # 4. Tool Calls
     async def save_tool_call(self, tool_call: RunToolCallRecord) -> RunToolCallRecord:
         async with self._session_factory() as session:
-            await session.execute(
+            await self._execute(
+                session,
                 text(
                     """
                     INSERT INTO agent.run_tool_calls (
@@ -667,12 +684,13 @@ class PostgresRunRepository:
                     "completed_at": tool_call.completed_at,
                 },
             )
-            await session.commit()
+            await self._commit(session)
         return tool_call
 
     async def get_tool_call(self, tool_call_id: str) -> RunToolCallRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT tool_call_id, run_id, checkpoint_ref, capability_id, payload_hash,
@@ -693,7 +711,8 @@ class PostgresRunRepository:
         self, run_id: str, idempotency_key: str
     ) -> RunToolCallRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT tool_call_id, run_id, checkpoint_ref, capability_id, payload_hash,
@@ -712,7 +731,8 @@ class PostgresRunRepository:
 
     async def list_tool_calls(self, run_id: str) -> list[RunToolCallRecord]:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT tool_call_id, run_id, checkpoint_ref, capability_id, payload_hash,
@@ -730,7 +750,8 @@ class PostgresRunRepository:
     # 5. Approvals
     async def create_approval(self, approval: RunApprovalRecord) -> RunApprovalRecord:
         async with self._session_factory() as session:
-            await session.execute(
+            await self._execute(
+                session,
                 text(
                     """
                     INSERT INTO agent.approvals (
@@ -765,12 +786,13 @@ class PostgresRunRepository:
                     "expires_at": approval.expires_at,
                 },
             )
-            await session.commit()
+            await self._commit(session)
         return approval
 
     async def get_approval(self, approval_id: str) -> RunApprovalRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
@@ -792,7 +814,8 @@ class PostgresRunRepository:
     ) -> RunApprovalRecord | None:
         """Scoped approval lookup: join with runs and enforce workspace_id in SQL WHERE clause."""
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT a.approval_id, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
@@ -813,7 +836,8 @@ class PostgresRunRepository:
 
     async def get_approval_by_tool_call(self, tool_call_id: str) -> RunApprovalRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
@@ -832,7 +856,8 @@ class PostgresRunRepository:
 
     async def get_approval_by_checkpoint(self, checkpoint_ref: str) -> RunApprovalRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
@@ -865,7 +890,8 @@ class PostgresRunRepository:
         now = datetime.now(UTC)
 
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     UPDATE agent.approvals
@@ -890,7 +916,7 @@ class PostgresRunRepository:
                 },
             )
             updated = res.mappings().first()
-            await session.commit()
+            await self._commit(session)
 
         if not updated:
             return None
@@ -904,8 +930,8 @@ class PostgresRunRepository:
         If workspace_id is None, return all pending approvals (system operation)."""
         query = """
             SELECT a.approval_id, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
-                   a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
-                   a.decision_version, a.created_at, a.decided_at, a.expires_at
+                    a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
+                    a.decision_version, a.created_at, a.decided_at, a.expires_at
             FROM agent.approvals a
             JOIN agent.runs r ON a.run_id = r.run_id
             WHERE a.status = 'pending'
@@ -917,7 +943,7 @@ class PostgresRunRepository:
         query += " ORDER BY a.created_at ASC"
 
         async with self._session_factory() as session:
-            res = await session.execute(text(query), params)
+            res = await self._execute(session, text(query), params)
             return [self._row_to_approval(r) for r in res.mappings().all()]
 
     # 6. Atomic idempotency claims
@@ -925,7 +951,8 @@ class PostgresRunRepository:
         self, claim: IdempotencyClaimRecord
     ) -> tuple[bool, IdempotencyClaimRecord]:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     INSERT INTO agent.idempotency_claims (
@@ -957,7 +984,7 @@ class PostgresRunRepository:
                 },
             )
             inserted = res.mappings().first()
-            await session.commit()
+            await self._commit(session)
 
         if inserted:
             return True, claim
@@ -971,7 +998,8 @@ class PostgresRunRepository:
         self, scope_kind: str, scope_key: str, capability_id: str, idempotency_key: str
     ) -> IdempotencyClaimRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT claim_id, tenant_id, capability_id, scope_kind, scope_key,
@@ -994,7 +1022,8 @@ class PostgresRunRepository:
 
     async def _get_idempotency_claim_by_id(self, claim_id: str) -> IdempotencyClaimRecord | None:
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     SELECT claim_id, tenant_id, capability_id, scope_kind, scope_key,
@@ -1014,7 +1043,8 @@ class PostgresRunRepository:
     ) -> IdempotencyClaimRecord | None:
         now = datetime.now(UTC)
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     UPDATE agent.idempotency_claims
@@ -1034,7 +1064,7 @@ class PostgresRunRepository:
                 },
             )
             updated = res.mappings().first()
-            await session.commit()
+            await self._commit(session)
         if not updated:
             return None
         return await self._get_idempotency_claim_by_id(claim_id)
@@ -1044,7 +1074,8 @@ class PostgresRunRepository:
     ) -> IdempotencyClaimRecord | None:
         now = datetime.now(UTC)
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     UPDATE agent.idempotency_claims
@@ -1056,7 +1087,7 @@ class PostgresRunRepository:
                 {"claim_id": claim_id, "error_message": error_message, "updated_at": now},
             )
             updated = res.mappings().first()
-            await session.commit()
+            await self._commit(session)
         if not updated:
             return None
         return await self._get_idempotency_claim_by_id(claim_id)
@@ -1066,7 +1097,8 @@ class PostgresRunRepository:
         retry 1 claim đã completed hoặc đang running ở nơi khác."""
         now = datetime.now(UTC)
         async with self._session_factory() as session:
-            res = await session.execute(
+            res = await self._execute(
+                session,
                 text(
                     """
                     UPDATE agent.idempotency_claims
@@ -1078,7 +1110,7 @@ class PostgresRunRepository:
                 {"claim_id": claim_id, "updated_at": now},
             )
             updated = res.mappings().first()
-            await session.commit()
+            await self._commit(session)
         if not updated:
             return None
         return await self._get_idempotency_claim_by_id(claim_id)
