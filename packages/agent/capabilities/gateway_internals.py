@@ -1,22 +1,29 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 
 from agent.capabilities.enablements import EnablementStore, assert_enabled_for_invocation
+from agent.capabilities.grants import ConnectorGrant, verify_connector_grant
 from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
 from agent.contracts.invocation import InvocationContext
 from agent.contracts.wait import WaitDescriptor, WaitKind
+from agent.governance.ambient import verify_ambient_governance
 from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 from agent.runs.models import ComplianceDecisionPayload, RunApprovalRecord, RunEventRecord
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "AmbientGovernanceVerifier",
     "ApprovalGateDecider",
     "ComplianceAuditor",
+    "ConnectorGrantResolution",
+    "ConnectorGrantResolver",
     "EnablementValidator",
     "IdempotencyCoordinator",
     "InputValidator",
@@ -491,3 +498,139 @@ class ApprovalGateDecider:
             )
 
         return True, None, None
+
+
+@dataclass
+class ConnectorGrantResolution:
+    """Kết quả resolve + verify connector grant (Bước 8.5 gateway).
+
+    Fields:
+        allowed: True nếu được phép tiếp tục execute handler.
+        target_snapshot: ExecutionTargetSnapshot — đã được cập nhật grant info
+            (connection_account_id, credential_grant_version) khi allowed.
+        deny_kind: "resolver_error" | "denied" | None — chỉ set khi allowed=False.
+        deny_detail: error_msg (resolver_error) hoặc verification.reason (denied).
+        deny_result: GatewayExecutionResult sẵn sàng để caller trả về (denied).
+    """
+
+    allowed: bool
+    target_snapshot: Any
+    deny_kind: str | None = None
+    deny_detail: str | None = None
+    deny_result: Any = None
+
+
+class ConnectorGrantResolver:
+    """Re-verify connector grant ngay trước side effect (Bước 8.5 gateway).
+
+    Gọi resolver (thường là HTTP tới control-plane) rồi verify grant qua
+    verify_connector_grant(). Chỉ làm phần "resolve + verify + cập nhật
+    target_snapshot" — các side effect gắn ledger (save_tool_call,
+    idempotency.fail, append_event) vẫn do caller (gateway._execute_internal)
+    tự làm sau khi nhận kết quả, vì hai nhánh deny có thứ tự + event payload
+    khác nhau:
+
+    - resolver_error: resolver raise exception (timeout/connection error) —
+      event `connector_grant.resolver_error`, tc_record.error_message =
+      f"Connector grant resolver error: {error}", idempotency.fail(error).
+    - denied: grant resolve được nhưng verify_connector_grant trả
+      is_allowed=False — event `connector_grant.denied`, tc_record.error_message
+      = f"Connector grant check failed: {reason}", idempotency.fail(reason).
+
+    Cả hai nhánh đều fail-closed (không execute handler) và trả
+    GatewayExecutionResult(status="denied", error_message="Execution of '...'
+    denied: ...") y hệt code inline cũ.
+    """
+
+    def __init__(
+        self,
+        resolver: Callable[[str, Any], Awaitable[ConnectorGrant | None]] | None,
+    ) -> None:
+        self._resolver = resolver
+
+    async def resolve_and_verify(
+        self,
+        connector_id: str | None,
+        req: Any,  # GatewayExecutionRequest
+        target_snapshot: Any,  # ExecutionTargetSnapshot
+    ) -> ConnectorGrantResolution:
+        """Resolve + verify connector grant.
+
+        Returns:
+            ConnectorGrantResolution với `.allowed`, `.target_snapshot` (đã cập
+            nhật grant info nếu allowed) và — nếu denied — `.deny_kind`,
+            `.deny_detail`, `.deny_result` để caller thực hiện side effect đúng
+            thứ tự gốc.
+        """
+        # Import cục bộ để tránh circular import (gateway.py import module này).
+        from agent.capabilities.gateway import GatewayExecutionResult
+
+        if not connector_id or not self._resolver:
+            return ConnectorGrantResolution(allowed=True, target_snapshot=target_snapshot)
+
+        try:
+            grant = await self._resolver(connector_id, req)
+        except Exception as e:
+            error_msg = str(e)
+            return ConnectorGrantResolution(
+                allowed=False,
+                target_snapshot=target_snapshot,
+                deny_kind="resolver_error",
+                deny_detail=error_msg,
+                deny_result=GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message=(
+                        f"Execution of '{req.capability_id}' denied: "
+                        "connector grant verification failed"
+                    ),
+                ),
+            )
+
+        # Giữ nguyên tenant/principal dùng để verify là req.workspace_id/req.principal
+        # (KHÔNG phải resolved_workspace/resolved_principal) — đúng hành vi gốc.
+        verification = verify_connector_grant(
+            grant,
+            action=req.capability_id,
+            tenant_id=req.workspace_id or "",
+            principal=req.principal,
+        )
+        if not verification.is_allowed:
+            return ConnectorGrantResolution(
+                allowed=False,
+                target_snapshot=target_snapshot,
+                deny_kind="denied",
+                deny_detail=verification.reason,
+                deny_result=GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message=(
+                        f"Execution of '{req.capability_id}' denied: {verification.reason}"
+                    ),
+                ),
+            )
+
+        # Grant hợp lệ — cập nhật target_snapshot với thông tin grant.
+        target_snapshot.connection_account_id = (
+            grant.metadata.get("connection_account_id") if grant else None
+        )
+        target_snapshot.credential_grant_version = grant.grant_id if grant else None
+
+        return ConnectorGrantResolution(allowed=True, target_snapshot=target_snapshot)
+
+
+class AmbientGovernanceVerifier:
+    """Re-check ambient governance ngay trước side effect (Bước 8.7 gateway).
+
+    Pure wrapper quanh verify_ambient_governance() — trả nguyên (is_allowed,
+    reason) của hàm nền (reason là chuỗi rỗng khi allowed). Caller tự làm phần
+    side effect deny (save_tool_call/idempotency.fail/append_event) đúng thứ tự gốc.
+    """
+
+    async def verify(self, context: Any) -> tuple[bool, str]:
+        """Verify ambient governance.
+
+        Returns:
+            (is_allowed, reason) — reason là "" khi allowed, ngược lại là lý do deny.
+        """
+        return verify_ambient_governance(context)

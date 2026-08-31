@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from agent.capabilities.grants import ConnectorGrant, verify_connector_grant
+from agent.capabilities.grants import ConnectorGrant
 from agent.capabilities.readiness import (
     CapabilityReadinessChecker,
     RegistryCapabilityReadinessChecker,
@@ -22,8 +22,10 @@ logger = logging.getLogger(__name__)
 from agent.capabilities.canonicalization import compute_payload_hash
 from agent.capabilities.enablements import EnablementStore, InMemoryEnablementStore
 from agent.capabilities.gateway_internals import (
+    AmbientGovernanceVerifier,
     ApprovalGateDecider,
     ComplianceAuditor,
+    ConnectorGrantResolver,
     EnablementValidator,
     IdempotencyCoordinator,
     InputValidator,
@@ -35,7 +37,6 @@ from agent.contracts.errors import TenancyUnresolvedError
 from agent.contracts.invocation import InvocationContext
 from agent.contracts.wait import WaitDescriptor
 from agent.governance.accumulator import InvocationGovernanceState
-from agent.governance.ambient import verify_ambient_governance
 from agent.governance.contracts import ExecutionMode
 from agent.governance.floor import capability_floor, conjoin
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
@@ -488,19 +489,29 @@ class CapabilityGateway:
         # Bước 8.5: Re-verify Connector Grant — chạy lại ở MỌI lần execute(),
         # kể cả lần resume sau approval (approval được duyệt không có nghĩa
         # grant vẫn còn hiệu lực tại thời điểm side effect thực sự xảy ra).
+        # Extracted vào ConnectorGrantResolver (Task 8 modular-boundary-hardening):
+        # helper chỉ resolve + verify + cập nhật target_snapshot; phần side effect
+        # ledger (save_tool_call/idempotency.fail/append_event) vẫn do gateway tự
+        # làm, giữ nguyên đúng thứ tự + event payload gốc cho từng nhánh deny.
         connector_id = spec.connector_requirements.get("connector_id")
-        if connector_id and self._connector_grant_resolver:
-            try:
-                grant = await self._connector_grant_resolver(connector_id, req)
-            except Exception as e:
+        grant_resolver = ConnectorGrantResolver(self._connector_grant_resolver)
+        grant_resolution = await grant_resolver.resolve_and_verify(
+            connector_id=connector_id,
+            req=req,
+            target_snapshot=target_snapshot,
+        )
+        if not grant_resolution.allowed:
+            if grant_resolution.deny_kind == "resolver_error":
                 # Resolver gọi HTTP tới control-plane có thể timeout/connection error.
                 # Fail-closed: không được execute handler nếu grant status không xác nhận được.
-                # Reuse pattern từ verification.is_allowed == False branch.
-                error_msg = str(e)
                 tc_record.status = "denied"
-                tc_record.error_message = f"Connector grant resolver error: {error_msg}"
+                tc_record.error_message = (
+                    f"Connector grant resolver error: {grant_resolution.deny_detail}"
+                )
                 await self._repo.save_tool_call(tc_record)
-                await self._idempotency.fail(idem_claim.claim_id, error_message=error_msg)
+                await self._idempotency.fail(
+                    idem_claim.claim_id, error_message=grant_resolution.deny_detail
+                )
                 await self._repo.append_event(
                     RunEventRecord(
                         run_id=req.run_id,
@@ -508,51 +519,43 @@ class CapabilityGateway:
                         payload={
                             "tool_call_id": req.tool_call_id,
                             "connector_id": connector_id,
-                            "error": error_msg,
+                            "error": grant_resolution.deny_detail,
                         },
                     )
                 )
-                return GatewayExecutionResult(
-                    tool_call_id=req.tool_call_id,
-                    status="denied",
-                    error_message=f"Execution of '{req.capability_id}' denied: connector grant verification failed",
-                )
+                return grant_resolution.deny_result
 
-            verification = verify_connector_grant(
-                grant,
-                action=req.capability_id,
-                tenant_id=req.workspace_id or "",
-                principal=req.principal,
+            # deny_kind == "denied": grant resolve được nhưng verify_connector_grant
+            # trả is_allowed=False.
+            tc_record.status = "denied"
+            tc_record.error_message = (
+                f"Connector grant check failed: {grant_resolution.deny_detail}"
             )
-            if not verification.is_allowed:
-                tc_record.status = "denied"
-                tc_record.error_message = f"Connector grant check failed: {verification.reason}"
-                await self._repo.save_tool_call(tc_record)
-                await self._idempotency.fail(idem_claim.claim_id, error_message=verification.reason)
-                await self._repo.append_event(
-                    RunEventRecord(
-                        run_id=req.run_id,
-                        event_type="connector_grant.denied",
-                        payload={
-                            "tool_call_id": req.tool_call_id,
-                            "connector_id": connector_id,
-                            "reason": verification.reason,
-                        },
-                    )
-                )
-                return GatewayExecutionResult(
-                    tool_call_id=req.tool_call_id,
-                    status="denied",
-                    error_message=f"Execution of '{req.capability_id}' denied: {verification.reason}",
-                )
-            # Grant hợp lệ — cập nhật target_snapshot với thông tin grant
-            target_snapshot.connection_account_id = (
-                grant.metadata.get("connection_account_id") if grant else None
+            await self._repo.save_tool_call(tc_record)
+            await self._idempotency.fail(
+                idem_claim.claim_id, error_message=grant_resolution.deny_detail
             )
-            target_snapshot.credential_grant_version = grant.grant_id if grant else None
+            await self._repo.append_event(
+                RunEventRecord(
+                    run_id=req.run_id,
+                    event_type="connector_grant.denied",
+                    payload={
+                        "tool_call_id": req.tool_call_id,
+                        "connector_id": connector_id,
+                        "reason": grant_resolution.deny_detail,
+                    },
+                )
+            )
+            return grant_resolution.deny_result
+        # Grant hợp lệ — helper đã cập nhật target_snapshot với thông tin grant
+        # (connection_account_id, credential_grant_version) ngay trong resolve_and_verify().
 
         # Bước 8.7: Ambient Governance Re-check ngay trước side effect (A4)
-        is_ambient_ok, ambient_reason = verify_ambient_governance(req.context)
+        # Extracted vào AmbientGovernanceVerifier (Task 9 modular-boundary-hardening):
+        # helper là pure wrapper quanh verify_ambient_governance(); phần side effect
+        # deny (save_tool_call/idempotency.fail/append_event) vẫn do gateway tự làm.
+        ambient_verifier = AmbientGovernanceVerifier()
+        is_ambient_ok, ambient_reason = await ambient_verifier.verify(req.context)
         if not is_ambient_ok:
             tc_record.status = "denied"
             tc_record.error_message = f"Ambient governance denied: {ambient_reason}"

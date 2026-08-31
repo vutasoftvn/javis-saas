@@ -1,20 +1,26 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from agent.capabilities.enablements import CapabilityEnablement, InMemoryEnablementStore
 from agent.capabilities.gateway import GatewayExecutionRequest
 from agent.capabilities.gateway_internals import (
+    AmbientGovernanceVerifier,
     ApprovalGateDecider,
     ComplianceAuditor,
+    ConnectorGrantResolver,
     EnablementValidator,
     IdempotencyCoordinator,
     InputValidator,
     TenancyVerifier,
 )
+from agent.capabilities.grants import ConnectorGrant
 from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
+from agent.contracts.target import ExecutionTargetSnapshot
 from agent.governance.contracts import CapabilityRisk, PolicyDecision, PolicyOutcome
 from agent.runs.models import RunApprovalRecord
 from agent.runs.repository import InMemoryRunRepository
@@ -908,3 +914,200 @@ async def test_approval_gate_decider_deny(approval_decider):
     assert deny_res.status == "denied"
     assert deny_res.tool_call_id == "call_6"
     assert "denied by policy" in deny_res.error_message.lower()
+
+
+# ---------------------------------------------------------------------------
+# ConnectorGrantResolver
+# ---------------------------------------------------------------------------
+
+
+def _grant_target_snapshot() -> ExecutionTargetSnapshot:
+    return ExecutionTargetSnapshot(
+        capability_id="test.capability.connector_read",
+        connector_id="sandbox-read",
+    )
+
+
+def _grant_req(**overrides: Any) -> GatewayExecutionRequest:
+    kwargs: dict[str, Any] = dict(
+        run_id="run_grant",
+        capability_id="test.capability.connector_read",
+        input_payload={},
+        tool_call_id="call_grant",
+        workspace_id="ws_a",
+        principal="user_a",
+    )
+    kwargs.update(overrides)
+    return GatewayExecutionRequest(**kwargs)
+
+
+@pytest.mark.asyncio
+async def test_connector_grant_resolver_no_connector_id_allows():
+    """No connector_id -> continue without verification, snapshot untouched."""
+    resolver = ConnectorGrantResolver(None)
+    snapshot = _grant_target_snapshot()
+
+    resolution = await resolver.resolve_and_verify(
+        connector_id=None,
+        req=_grant_req(),
+        target_snapshot=snapshot,
+    )
+
+    assert resolution.allowed is True
+    assert resolution.target_snapshot is snapshot
+    assert resolution.deny_kind is None
+    assert resolution.deny_result is None
+
+
+@pytest.mark.asyncio
+async def test_connector_grant_resolver_no_resolver_allows():
+    """connector_id present but no resolver configured -> continue (no grant to check)."""
+    resolver = ConnectorGrantResolver(None)
+    snapshot = _grant_target_snapshot()
+
+    resolution = await resolver.resolve_and_verify(
+        connector_id="sandbox-read",
+        req=_grant_req(),
+        target_snapshot=snapshot,
+    )
+
+    assert resolution.allowed is True
+    assert resolution.target_snapshot is snapshot
+
+
+@pytest.mark.asyncio
+async def test_connector_grant_resolver_resolver_error_fails_closed():
+    """Resolver raises -> deny_kind='resolver_error', deny_result denied with the
+    generic 'connector grant verification failed' message; deny_detail holds the
+    raw exception text for tc_record/event/idempotency bookkeeping."""
+
+    async def failing_resolver(connector_id, req):
+        raise TimeoutError("control-plane unreachable")
+
+    resolver = ConnectorGrantResolver(failing_resolver)
+    snapshot = _grant_target_snapshot()
+
+    resolution = await resolver.resolve_and_verify(
+        connector_id="sandbox-read",
+        req=_grant_req(),
+        target_snapshot=snapshot,
+    )
+
+    assert resolution.allowed is False
+    assert resolution.deny_kind == "resolver_error"
+    assert resolution.deny_detail == "control-plane unreachable"
+    assert resolution.deny_result is not None
+    assert resolution.deny_result.status == "denied"
+    assert resolution.deny_result.tool_call_id == "call_grant"
+    assert "connector grant verification failed" in resolution.deny_result.error_message
+    # snapshot unchanged on deny
+    assert resolution.target_snapshot is snapshot
+
+
+@pytest.mark.asyncio
+async def test_connector_grant_resolver_revoked_grant_denied():
+    """Resolved-but-revoked grant -> deny_kind='denied', deny_detail=reason from
+    verify_connector_grant, deny_result denied with that reason in the message."""
+
+    revoked = ConnectorGrant(
+        grant_id="grant_revoked",
+        tenant_id="ws_a",
+        principal="user_a",
+        connector_id="sandbox-read",
+        allowed_actions=("*",),
+        is_revoked=True,
+    )
+
+    async def resolver(connector_id, req):
+        return revoked
+
+    gr = ConnectorGrantResolver(resolver)
+    snapshot = _grant_target_snapshot()
+
+    resolution = await gr.resolve_and_verify(
+        connector_id="sandbox-read",
+        req=_grant_req(),
+        target_snapshot=snapshot,
+    )
+
+    assert resolution.allowed is False
+    assert resolution.deny_kind == "denied"
+    assert "revoked" in resolution.deny_detail
+    assert resolution.deny_result.status == "denied"
+    assert resolution.deny_detail in resolution.deny_result.error_message
+
+
+@pytest.mark.asyncio
+async def test_connector_grant_resolver_valid_grant_updates_snapshot():
+    """Valid, non-revoked grant -> allowed and target_snapshot updated with
+    connection_account_id + credential_grant_version (mutating the same object)."""
+
+    grant = ConnectorGrant(
+        grant_id="grant_ok",
+        tenant_id="ws_a",
+        principal="user_a",
+        connector_id="sandbox-read",
+        allowed_actions=("*",),
+        metadata={"connection_account_id": "acct_123"},
+    )
+
+    async def resolver(connector_id, req):
+        return grant
+
+    gr = ConnectorGrantResolver(resolver)
+    snapshot = _grant_target_snapshot()
+
+    resolution = await gr.resolve_and_verify(
+        connector_id="sandbox-read",
+        req=_grant_req(),
+        target_snapshot=snapshot,
+    )
+
+    assert resolution.allowed is True
+    assert resolution.deny_result is None
+    assert resolution.target_snapshot.connection_account_id == "acct_123"
+    assert resolution.target_snapshot.credential_grant_version == "grant_ok"
+    # helper mutates the same snapshot object passed in
+    assert snapshot.connection_account_id == "acct_123"
+
+
+# ---------------------------------------------------------------------------
+# AmbientGovernanceVerifier
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def ambient_verifier():
+    return AmbientGovernanceVerifier()
+
+
+@pytest.mark.asyncio
+async def test_ambient_governance_verifier_allow(ambient_verifier):
+    """Empty context -> is_allowed=True, reason=''."""
+    is_allowed, reason = await ambient_verifier.verify({})
+    assert is_allowed is True
+    assert reason == ""
+
+
+@pytest.mark.asyncio
+async def test_ambient_governance_verifier_none_context_allow(ambient_verifier):
+    """None context -> is_allowed=True (no ambient constraints present)."""
+    is_allowed, reason = await ambient_verifier.verify(None)
+    assert is_allowed is True
+    assert reason == ""
+
+
+@pytest.mark.asyncio
+async def test_ambient_governance_verifier_tenant_suspended_denies(ambient_verifier):
+    """tenant_status=suspended -> is_allowed=False with a tenant reason."""
+    is_allowed, reason = await ambient_verifier.verify({"tenant_status": "suspended"})
+    assert is_allowed is False
+    assert reason == "Tenant is currently suspended"
+
+
+@pytest.mark.asyncio
+async def test_ambient_governance_verifier_emergency_lock_denies(ambient_verifier):
+    """emergency_lock=True -> is_allowed=False with a kill-switch reason."""
+    is_allowed, reason = await ambient_verifier.verify({"emergency_lock": True})
+    assert is_allowed is False
+    assert "kill switch" in reason
