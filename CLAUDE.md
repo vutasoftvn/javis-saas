@@ -84,6 +84,21 @@ Mỗi service theo layout: `encore.service.ts`, `api.ts` (barrel export), `db.ts
 - Schema Drizzle tập trung ở `<app>/shared/db/schema/<service>.ts` (không rải trong `models/` của từng service) — tránh circular import khi service cần join bảng chéo.
 - Đổi schema DB phải có migration; sau khi thêm migration mới chạy `node scripts/migrate.mjs` (hoặc `make services-migrate-company` / `make services-migrate-cosa`).
 
+## Encore Guardrails (BẮT BUỘC)
+
+1. Handler chỉ khai báo endpoint, xác thực/tenant guard, validate-normalize input,
+   gọi service và map response/error. Không import `drizzle-orm`, `models/db`,
+   `db.ts` hoặc DB schema trong handler (handler không truy cập DB/Drizzle/schema trực tiếp).
+2. `expose: true` phải có auth/tenant guard hoặc webhook verification được test;
+   endpoint nội bộ dùng `expose: false`.
+3. Lỗi từ public request dùng `APIError` tại boundary; không để `Error` trần tới client.
+4. Migration release chỉ Expand (migration release chỉ Expand). Contract destructive cần release riêng, ADR, backup
+   và evidence rollback N-1.
+5. Không dùng `any`, `@ts-ignore`, `@ts-expect-error` hay cast để che typecheck.
+6. Thay đổi Encore phải chạy typecheck service, relevant test, `make company-boundary-check`,
+   `make encore-handler-boundary-check`, và migration gates nếu có SQL thay đổi.
+
+
 ## Comment code
 
 Viết bằng tiếng Việt cho phần giải thích ý nghĩa/lý do (why). Tên định danh, thông báo lỗi hệ thống/log, và trích dẫn nguyên văn tài liệu tiếng Anh vẫn giữ tiếng Anh. Không bắt buộc viết lại comment cũ ngay — áp dụng cho comment mới, chuyển dần khi sửa file.

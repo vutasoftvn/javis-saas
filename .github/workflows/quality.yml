@@ -784,6 +784,7 @@ jobs:
       - run: make boundary-check
       - run: make frontend-boundary-check
       - run: make company-boundary-check
+      - run: make encore-handler-boundary-check
       - run: make mvp-e2e-purity-check
 
   e2e-golden-path:

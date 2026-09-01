@@ -92,6 +92,9 @@ frontend-boundary-check:
 company-boundary-check:
 	node scripts/check_company_boundaries.mjs
 
+encore-handler-boundary-check:
+	node scripts/check_encore_handler_boundaries.mjs --root . --baseline scripts/encore-handler-boundary-baseline.json
+
 mvp-e2e-purity-check:
 	PYTHONPATH=$(CURDIR) $(PYTHON) scripts/check_mvp_e2e_purity.py
 
