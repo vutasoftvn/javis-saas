@@ -15,10 +15,3 @@ CREATE INDEX IF NOT EXISTS idx_workspace_agent_policy_workspace_id
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_agent_policy_workspace_tool
   ON cosa.workspace_agent_policy(platform_workspace_id, tool_pattern);
-
--- Drop legacy company tables
-DROP TABLE IF EXISTS cosa.company_agent_policy CASCADE;
-DROP TABLE IF EXISTS cosa.company_entitlements CASCADE;
-DROP TABLE IF EXISTS cosa.licenses CASCADE;
-DROP TABLE IF EXISTS cosa.company_memberships CASCADE;
-DROP TABLE IF EXISTS cosa.companies CASCADE;
