@@ -146,26 +146,23 @@ class HologramHubController extends GetxController
     });
 
     updateClock();
-    if (WidgetsBinding.instance.runtimeType.toString() !=
-        'TestWidgetsFlutterBinding') {
-      _clockTimer = Timer.periodic(
-        const Duration(seconds: 1),
-        (_) => updateClock(),
-      );
-      _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-        loadStageContext(projectId: selectedProjectId.value);
-        loadHubSummary(showLoading: false);
-        loadCommandCenterData();
-        loadCeoNextActions();
-        loadActiveCycleTimeline();
-        loadPendingApprovals();
-        loadAgentRuns();
-        loadControlPlaneSummary(showLoading: false);
-        loadControlPlaneApprovals();
-        // Phase 6: Refresh exception escalations every 60 seconds
-        loadOpenEscalations();
-      });
-    }
+    _clockTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => updateClock(),
+    );
+    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      loadStageContext(projectId: selectedProjectId.value);
+      loadHubSummary(showLoading: false);
+      loadCommandCenterData();
+      loadCeoNextActions();
+      loadActiveCycleTimeline();
+      loadPendingApprovals();
+      loadAgentRuns();
+      loadControlPlaneSummary(showLoading: false);
+      loadControlPlaneApprovals();
+      // Phase 6: Refresh exception escalations every 60 seconds
+      loadOpenEscalations();
+    });
 
     _realtimeService.connect();
     _realtimeService.addListener(_onRealtimeEvent);

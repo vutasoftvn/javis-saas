@@ -97,6 +97,25 @@ void main() {
   );
 
   test(
+    // Fix-review (2026-09-01, Task 3) — trong môi trường test, endpoint MVP
+    // (`/agent/workforce/composition`) không có mock riêng nên
+    // `MvpRequestClient` chặn request thật và trả lỗi (statusCode 400) một
+    // cách xác định — đúng kịch bản "composition fetch thất bại". Test này
+    // xác nhận thất bại đó được phản ánh thành `WorkforceLoadState.unavailable`
+    // thay vì bị âm thầm coi là "workspace chưa gán agent nào" (danh sách rỗng
+    // hợp lệ).
+    'loadDashboardData surfaces a failed workforce-composition fetch as unavailable, not a silent empty list',
+    () async {
+      final controller = FounderCommandCenterController();
+
+      await controller.loadDashboardData();
+
+      expect(controller.workforcePacks, isEmpty);
+      expect(controller.workforceState.value, WorkforceLoadState.unavailable);
+    },
+  );
+
+  test(
     'DashboardController.openProjectKickoff sets activeKickoffProjectId and switches tab',
     () {
       final dashboardCtrl = DashboardController();

@@ -3,14 +3,11 @@ import 'package:flutter/foundation.dart';
 // Task 3 — models chỉ decode đúng field mà backend contract
 // (apps/cosa/api/workforce_schemas.py + workforce_routes.py) thực sự trả về.
 // Không suy diễn thêm field không tồn tại trên response thật.
-
-/// Kết quả tổng quát cho một thao tác Workforce — giữ theo đúng interface
-/// trong task brief. `ApiResult<T>` (core/network/api_result.dart) đã đảm
-/// nhiệm việc phân biệt success/failure cho mọi service; sealed class này
-/// dự phòng cho consumer nào cần biểu diễn kết quả nghiệp vụ ở tầng cao hơn.
-sealed class WorkforceResult<T> {
-  const WorkforceResult();
-}
+//
+// Fix-review (2026-09-01) — brief liệt kê `sealed class WorkforceResult<T>`
+// trong interface nhưng không subtype/consumer nào cần tới nó: mọi method
+// của WorkforceMvpService đã trả `ApiResult<T>` (core/network/api_result.dart),
+// vốn đã đảm nhiệm việc phân biệt success/failure. Bỏ hẳn để tránh dead code.
 
 @immutable
 class WorkforceRun {

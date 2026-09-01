@@ -16,12 +16,12 @@ class WorkforceMvpService {
   WorkforceMvpService({MvpRequestClient? client, http.Client? httpClient})
       : _client = client ?? MvpRequestClient(httpClient: httpClient);
 
+  // Fix-review (2026-09-01) — `mvp_list` (apps/cosa/api/mvp_response.py) luôn
+  // đặt list trực tiếp dưới `data`, không bao giờ bọc thêm một object
+  // `{items: [...]}`; bỏ nhánh Map-fallback không thể chạy tới được.
   List<Map<String, dynamic>> _asList(Object? json) {
     if (json is List) {
       return json.whereType<Map<String, dynamic>>().toList();
-    }
-    if (json is Map<String, dynamic>) {
-      return (json['items'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
     }
     return const [];
   }

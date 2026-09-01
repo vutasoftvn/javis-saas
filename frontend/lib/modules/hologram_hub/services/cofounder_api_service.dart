@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_result.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
@@ -137,32 +138,40 @@ class CoFounderApiService {
   /// backend nào cả, nên trước đây mọi lỗi/404 bị nuốt và thay bằng danh sách
   /// giả 5 domain mặc định — một "success" ảo. Giờ gọi thẳng canonical
   /// `/agent/workforce/composition` qua `WorkforceMvpService`: chỉ hiển thị
-  /// đúng những functional agent mà backend thực sự biết tới; lỗi/016
-  /// thất bại trả về danh sách rỗng (KHÔNG còn fabricate 5/12 pack mặc định).
-  static Future<List<WorkforcePackModel>> listWorkforcePacks({
+  /// đúng những functional agent mà backend thực sự biết tới.
+  ///
+  /// Fix-review (2026-09-01): trả `ApiResult<List<WorkforcePackModel>>` thay
+  /// vì `List` trần — nếu không, "gọi thất bại" và "gọi thành công nhưng
+  /// workspace chưa gán agent nào" đều thành `[]` giống hệt nhau, khiến
+  /// caller (founder_command_center_controller.dart) không thể phân biệt
+  /// để hiển thị trạng thái "unavailable" đúng như brief Step 4 yêu cầu.
+  static Future<ApiResult<List<WorkforcePackModel>>> listWorkforcePacks({
     int? workspaceId,
     WorkforceMvpService? workforceMvpService,
   }) async {
     final service = workforceMvpService ?? WorkforceMvpService();
     final result = await service.getComposition();
     return result.when(
-      success: (entries, _) => entries
-          .map(
-            (e) => WorkforcePackModel(
-              key: e.functionalKey,
-              name: e.title,
-              roleTitle: e.title,
-              department: null,
-              category: 'DOMAIN',
-              isCore: false,
-              isActive: e.assigned,
-              description: e.description,
-            ),
-          )
-          .toList(),
+      success: (entries, meta) => ApiSuccess(
+        data: entries
+            .map(
+              (e) => WorkforcePackModel(
+                key: e.functionalKey,
+                name: e.title,
+                roleTitle: e.title,
+                department: null,
+                category: 'DOMAIN',
+                isCore: false,
+                isActive: e.assigned,
+                description: e.description,
+              ),
+            )
+            .toList(),
+        meta: meta,
+      ),
       failure: (failure) {
         debugPrint('[CoFounderApiService] listWorkforcePacks failure: ${failure.message}');
-        return const [];
+        return ApiFailure<List<WorkforcePackModel>>(failure);
       },
     );
   }

@@ -14,6 +14,12 @@ import '../../../modules/chat/models/data_access_declaration.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
 
+/// Fix-review (2026-09-01, Task 3) — trạng thái tải Workforce Packs cần phân
+/// biệt rõ "chưa tải xong"/"đã tải, hợp lệ (có thể rỗng)"/"tải thất bại,
+/// không có canonical route hoặc lỗi mạng" — không để lỗi/404 và "workspace
+/// thật sự chưa gán agent nào" trông giống hệt nhau trên UI.
+enum WorkforceLoadState { idle, loading, loaded, unavailable }
+
 class FounderCommandCenterController extends GetxController {
   final ApprovalsService _approvalsService = ApprovalsService();
   final AgentChatService _chatService = AgentChatService();
@@ -46,6 +52,11 @@ class FounderCommandCenterController extends GetxController {
   final RxList<Map<String, dynamic>> pendingApprovals =
       <Map<String, dynamic>>[].obs;
   final RxList<WorkforcePackModel> workforcePacks = <WorkforcePackModel>[].obs;
+  // Fix-review (2026-09-01, Task 3) — cho phép UI phân biệt "đang tải" /
+  // "đã tải" / "không tải được" cho Workforce Packs, thay vì suy diễn từ
+  // việc `workforcePacks` rỗng (rỗng có thể là hợp lệ: workspace chưa gán
+  // agent nào).
+  final Rx<WorkforceLoadState> workforceState = WorkforceLoadState.idle.obs;
   final RxInt selectedTabIndex = 0.obs; // 0: Command Center, 1: AI Workforce
 
   // Co-Founder Chat Sheet State
@@ -115,12 +126,25 @@ class FounderCommandCenterController extends GetxController {
       final decisionsRes = await CoFounderApiService.listPendingDecisions(
         workspaceId: wsId,
       );
-      final packsRes = await CoFounderApiService.listWorkforcePacks();
+      workforceState.value = WorkforceLoadState.loading;
+      final packsResult = await CoFounderApiService.listWorkforcePacks();
 
       pulse.value = pulseRes;
       top3Actions.assignAll(top3Res);
       pendingDecisions.assignAll(decisionsRes);
-      workforcePacks.assignAll(packsRes);
+      // Fix-review (2026-09-01, Task 3) — chỉ ghi đè workforcePacks khi tải
+      // thành công thật sự; thất bại (404/5xx/mất mạng) chuyển sang trạng
+      // thái `unavailable` rõ ràng thay vì âm thầm coi như "rỗng".
+      packsResult.when(
+        success: (data, _) {
+          workforcePacks.assignAll(data);
+          workforceState.value = WorkforceLoadState.loaded;
+        },
+        failure: (failure) {
+          debugPrint('[FounderCommandCenter] listWorkforcePacks failure: ${failure.message}');
+          workforceState.value = WorkforceLoadState.unavailable;
+        },
+      );
 
       // Load Approvals từ database thật
       try {
@@ -248,6 +272,15 @@ class FounderCommandCenterController extends GetxController {
             ? 'Đã kích hoạt gói mở rộng cho Workspace.'
             : 'Đã vô hiệu hóa gói mở rộng.',
         title: 'Cập nhật Workforce Pack',
+      );
+    } else {
+      // Fix-review (2026-09-01, Task 3) — `/workforce/packs/:key/toggle`
+      // không có canonical backend nên `toggleOptionalPack` luôn trả về
+      // `false`. Đây KHÔNG phải lỗi tạm thời nên không gợi ý "thử lại" —
+      // thông báo rõ tính năng này hiện chưa khả dụng.
+      AppToast.warning(
+        'Bật/tắt gói mở rộng hiện chưa khả dụng trên phiên bản này.',
+        title: 'Chưa khả dụng',
       );
     }
   }
