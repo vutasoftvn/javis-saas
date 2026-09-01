@@ -66,14 +66,40 @@ def test_checker_flags_disabled_contract_literal_separately(tmp_path: Path) -> N
     assert "unknown_literal_route" not in result.stderr
 
 
-def test_checker_skips_dynamic_interpolated_literal(tmp_path: Path) -> None:
-    # Chuỗi có nội suy `$var` không phải literal thuần — ngoài phạm vi checker
-    # (phải refactor về MvpEndpoint hoặc allowlist riêng nếu thật sự cần).
-    # Lưu ý: dùng đúng cú pháp nội suy Dart `$id` (không có backslash) — `\$id`
-    # trong Dart là dollar đã escape, tức literal thuần, không phải nội suy.
-    source = tmp_path / "frontend/lib/w.dart"
+def test_checker_matches_dynamic_path_segment_against_enabled_template(tmp_path: Path) -> None:
+    # Fix-round 1 (review "Needs fixes"): nội suy trong PATH (`$id`) không còn
+    # nghĩa là "bỏ qua hoàn toàn" — phải quy về template `:id` rồi so khớp với
+    # manifest, giống hệt cách manifest tự khai báo `:id`. `/operations/objectives/:id/progress`
+    # GET là entry enabled thật — một call site dynamic khớp đúng shape này
+    # phải PASS, không bị lờ đi và cũng không bị false-positive.
+    source = tmp_path / "frontend/lib/dyn_ok.dart"
+    source.parent.mkdir(parents=True)
+    source.write_text("await ApiClient.get('/operations/objectives/$objId/progress');")
+    result = run_checker(tmp_path)
+    assert result.returncode == 0
+
+
+def test_checker_catches_reintroduced_dynamic_vault_route(tmp_path: Path) -> None:
+    # Ca cụ thể reviewer yêu cầu: nếu route đã bị Task 5 disable (vault.*)
+    # quay lại dưới dạng call site DYNAMIC (`$id`) — style cực kỳ phổ biến
+    # thực tế (workspace_id/id luôn là biến, hiếm khi hard-code) — checker vẫn
+    # phải bắt được, không được báo "pass" vì lệnh gọi có nội suy.
+    source = tmp_path / "frontend/lib/dyn_vault.dart"
     source.parent.mkdir(parents=True)
     source.write_text("await ApiClient.get('/agent/vault/documents/$id');")
+    result = run_checker(tmp_path)
+    assert result.returncode == 1
+    assert "disabled_contract" in result.stderr
+
+
+def test_checker_strips_query_before_deciding_dynamism(tmp_path: Path) -> None:
+    # Brief Step 2: "query string bị bỏ trước match". Một call như
+    # `/commercial/marketing-context?workspace_id=$id` có PATH hoàn toàn tĩnh
+    # (khớp entry enabled thật) — nội suy chỉ nằm trong query, không được kéo
+    # cả path vào diện "dynamic" rồi bỏ qua kiểm tra.
+    source = tmp_path / "frontend/lib/query_dyn.dart"
+    source.parent.mkdir(parents=True)
+    source.write_text("await ApiClient.get('/commercial/marketing-context?workspace_id=$wsId');")
     result = run_checker(tmp_path)
     assert result.returncode == 0
 

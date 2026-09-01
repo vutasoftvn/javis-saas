@@ -1,18 +1,28 @@
 #!/usr/bin/env node
 // Task 7 — ngăn route literal frontend drift bằng contract consumer gate.
 //
-// Quét literal string argument đầu tiên của ApiClient.get/post/put/patch/
-// delete/sendForm trong frontend/lib/**/*.dart, đối chiếu với manifest nguồn
+// Quét argument đầu tiên của ApiClient.get/post/put/patch/delete/sendForm
+// trong frontend/lib/**/*.dart, đối chiếu với manifest nguồn
 // shared/contracts/mvp-surface.json (KHÔNG đọc các file generated — chúng là
-// generator-owned, đọc ngược sẽ tự xác nhận chính output của mình). Bất kỳ
-// literal nào không khớp entry enabled nào trong manifest là vi phạm
+// generator-owned, đọc ngược sẽ tự xác nhận chính output của mình).
+//
+// Fix-round 1 (review "Needs fixes"): ban đầu bất kỳ chuỗi nào chứa `$` (nội
+// suy) — kể cả nội suy nằm trong QUERY STRING, vd. `?workspace_id=$id` — bị
+// coi là "dynamic" và bỏ qua HOÀN TOÀN, khiến checker chỉ thấy 64/494 lệnh gọi
+// thật (13%). Brief Step 2 yêu cầu: (1) bỏ query string TRƯỚC khi quyết định
+// có phải dynamic hay không — một path như `/vault/documents?workspace_id=$id`
+// sau khi bỏ query là literal thuần, hoàn toàn kiểm tra được; (2) nội suy nằm
+// trong PATH (vd. `/vault/documents/$id`) phải được quy về template
+// (`/vault/documents/:id`) rồi so khớp với path template của manifest, giống
+// hệt cách `:id`/`:workspaceId` của manifest được so khớp; (3) template không
+// khớp entry enabled nào — kể cả khi nó tới từ một call site dynamic — vẫn là
+// vi phạm `unknown_literal_route`/`disabled_contract` như bình thường, phải
+// xuất hiện trong allowlist (theo đúng dạng template) nếu muốn được miễn.
+//
+// Literal nào không khớp entry enabled nào trong manifest là vi phạm
 // `unknown_literal_route`; literal khớp một entry đã bị disable (vd. 8 entry
 // vault.* Task 5 tắt) là vi phạm `disabled_contract` — khác nguyên nhân, khác
 // hành động sửa (route sai vs. tính năng đang tắt có chủ đích).
-//
-// Chuỗi có nội suy (`$var`, `${...}`) bị bỏ qua — ngoài phạm vi checker này,
-// phải refactor về MvpEndpoint hoặc khai báo tường minh trong allowlist nếu
-// thật sự cần một escape hatch.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,10 +95,13 @@ export function stripComments(content) {
   return out;
 }
 
-/** Tìm tất cả lệnh gọi ApiClient.<method>('literal') trong content đã bỏ
- * comment. Trả về null cho `literal` khi argument đầu tiên không phải string
- * literal thuần (không có quote ngay sau `(` khi bỏ qua khoảng trắng/newline,
- * hoặc string có nội suy `$`) — caller phải bỏ qua các entry này. */
+/** Tìm tất cả lệnh gọi ApiClient.<method>(<arg>) trong content đã bỏ comment.
+ * Trả về `raw` = toàn bộ nội dung string argument (đã giải escape `\\X`
+ * thành chính ký tự bị escape kế tiếp, GIỮ NGUYÊN — không unescape — để bước
+ * sau tự quyết định `\$` là dollar literal hay `$` trần là nội suy) khi
+ * argument đầu tiên là string literal (`'...'`/`"..."`, dù bên trong có nội
+ * suy hay không). Trả về `raw: null` khi argument đầu tiên không phải string
+ * literal (vd. biến, gọi hàm khác) — trường hợp này ngoài phạm vi checker. */
 export function findApiClientCalls(content) {
   const calls = [];
   let match;
@@ -100,16 +113,18 @@ export function findApiClientCalls(content) {
     const quote = content[i];
     const line = content.slice(0, match.index).split("\n").length;
     if (quote !== "'" && quote !== '"') {
-      calls.push({ method, literal: null, line });
+      calls.push({ method, raw: null, line });
       continue;
     }
     let j = i + 1;
     let str = "";
-    let dynamic = false;
     let closed = false;
     while (j < content.length) {
       const c = content[j];
       if (c === "\\") {
+        // Giữ nguyên cặp escape (vd. `\$`, `\'`) — quyết định ý nghĩa của nó
+        // (dollar literal hay không) thuộc về bước build-template phía sau,
+        // không phải bước tách token này.
         str += c + (content[j + 1] ?? "");
         j += 2;
         continue;
@@ -119,37 +134,109 @@ export function findApiClientCalls(content) {
         j++;
         break;
       }
-      if (c === "$") dynamic = true;
       str += c;
       j++;
     }
-    calls.push({ method, literal: closed && !dynamic ? str : null, line });
+    // Chuỗi đóng quote xong phải được theo sau ngay (bỏ qua khoảng trắng) bởi
+    // `)` hoặc `,` — tức đúng là TOÀN BỘ argument, không phải một vế của biểu
+    // thức nối chuỗi (`'/foo/' + id`). Nếu không, đây là expression phức tạp
+    // hơn một string literal thuần — ngoài phạm vi checker (raw: null), tránh
+    // hiểu nhầm thành literal cụt bị cắt mất phần còn lại.
+    if (closed) {
+      let k = j;
+      while (k < content.length && /\s/.test(content[k])) k++;
+      if (content[k] !== ")" && content[k] !== ",") closed = false;
+    }
+    calls.push({ method, raw: closed ? str : null, line });
   }
   return calls;
 }
 
-/** Bỏ query string trước khi so khớp — manifest chỉ khai báo path, không khai
- * báo query param. */
-export function stripQuery(literal) {
-  const idx = literal.indexOf("?");
-  return idx === -1 ? literal : literal.slice(0, idx);
+/** Regex khớp một cụm nội suy Dart trần (không phải `\$` đã escape) —
+ * `(?<!\\)\$` — theo sau là `{...}` (nội suy biểu thức) hoặc một identifier
+ * đơn giản (`$id`, `$workspaceId`). Dùng để (a) phát hiện segment có nội suy,
+ * (b) rút tên tham số để đặt tên template cho dễ đọc trong report/allowlist. */
+const INTERPOLATION_RE = /(?<!\\)\$(?:\{([^}]*)\}|([A-Za-z_][A-Za-z0-9_]*))/;
+
+function hasUnescapedInterpolation(segment) {
+  return INTERPOLATION_RE.test(segment);
 }
 
-/** So khớp một path cụ thể (đã bỏ query) với path template của manifest —
- * segment `:id`/`:workspaceId`/... khớp đúng một segment URL bất kỳ (non-empty,
- * không chứa `/`). Số lượng segment phải bằng nhau. */
-export function pathMatchesTemplate(literalPath, templatePath) {
-  const a = literalPath.split("/");
-  const b = templatePath.split("/");
+/** Đặt tên tham số cho một segment có nội suy, ưu tiên identifier đơn giản
+ * (`$workspaceId` → `workspaceId`) hoặc token đầu tiên trong biểu thức
+ * (`${a.b}` → `a`); fallback `param` khi không rút được gì hữu ích. */
+function paramNameFor(segment) {
+  const m = segment.match(INTERPOLATION_RE);
+  if (!m) return "param";
+  const inner = m[1] ?? m[2] ?? "";
+  const ident = inner.match(/[A-Za-z_][A-Za-z0-9_]*/);
+  return ident ? ident[0] : "param";
+}
+
+/** Từ raw string argument (chưa unescape), tách QUERY STRING trước (brief:
+ * "query string bị bỏ trước match") rồi mới xét từng path segment có nội suy
+ * hay không. Segment có nội suy trần → thay bằng placeholder `:<paramName>`
+ * (quy về path template, giống hệt cú pháp `:id` của manifest). Trả về
+ * `{ template, isDynamic }` — `template` luôn là một chuỗi path đã unescape
+ * (`\$` → `$`) sẵn sàng so khớp bằng `pathMatchesTemplate`. */
+export function buildPathTemplate(raw) {
+  // Bỏ mọi thứ từ dấu `?` TRẦN đầu tiên trở đi — kể cả khi query chứa nội
+  // suy (`?workspace_id=$id`) — vì manifest không khai báo query param, và
+  // brief yêu cầu bỏ query TRƯỚC khi quyết định dynamic hay không.
+  let queryIdx = -1;
+  for (let k = 0; k < raw.length; k++) {
+    if (raw[k] === "\\") {
+      k++;
+      continue;
+    }
+    if (raw[k] === "?") {
+      queryIdx = k;
+      break;
+    }
+  }
+  const pathOnly = queryIdx === -1 ? raw : raw.slice(0, queryIdx);
+
+  const segments = pathOnly.split("/");
+  let isDynamic = false;
+  const templateSegments = segments.map((seg) => {
+    if (hasUnescapedInterpolation(seg)) {
+      isDynamic = true;
+      return `:${paramNameFor(seg)}`;
+    }
+    // Không có nội suy trong segment này — unescape `\$` (dollar literal Dart)
+    // và các cặp escape khác về ký tự gốc để so khớp đúng chuỗi thật.
+    return seg.replace(/\\(.)/g, "$1");
+  });
+  return { template: templateSegments.join("/"), isDynamic };
+}
+
+/** So khớp hai path đã tách segment — cho phép wildcard ở CẢ HAI phía: một
+ * segment bắt đầu bằng `:` (từ manifest, từ allowlist, hoặc từ một call site
+ * dynamic đã quy về template) khớp bất kỳ segment non-empty nào ở phía kia,
+ * kể cả khi phía kia cũng là `:something` hoặc là literal cụ thể. Số lượng
+ * segment phải bằng nhau. */
+export function pathMatchesTemplate(pathA, pathB) {
+  const a = pathA.split("/");
+  const b = pathB.split("/");
   if (a.length !== b.length) return false;
   for (let k = 0; k < a.length; k++) {
-    if (b[k].startsWith(":")) {
-      if (a[k].length === 0) return false;
+    const aWild = a[k].startsWith(":");
+    const bWild = b[k].startsWith(":");
+    if (aWild || bWild) {
+      if (a[k].length === 0 || b[k].length === 0) return false;
       continue;
     }
     if (a[k] !== b[k]) return false;
   }
   return true;
+}
+
+/** Bỏ query string trước khi so khớp một path ĐÃ CHẮC CHẮN không có nội suy
+ * (dùng cho test/tiện ích bên ngoài — pipeline chính dùng `buildPathTemplate`
+ * để xử lý đồng thời query-strip lẫn dynamic-segment). */
+export function stripQuery(literal) {
+  const idx = literal.indexOf("?");
+  return idx === -1 ? literal : literal.slice(0, idx);
 }
 
 export function loadManifest(manifestPath) {
@@ -167,26 +254,34 @@ export function loadAllowlist(allowlistPath) {
   return { entries: raw.entries ?? [] };
 }
 
-function isAllowlisted(method, literalPath, allowlist, today) {
+/** Allowlist so khớp bằng cùng `pathMatchesTemplate` (không phải so bằng
+ * chuỗi tuyệt đối) — một entry allowlist dạng template (vd.
+ * `/vault/documents/:id`) sẽ miễn được đúng nhóm call site dynamic tương ứng,
+ * đúng yêu cầu brief "dynamic endpoint ... explicitly listed trong
+ * allowlist" (theo dạng template, không phải theo từng giá trị runtime cụ
+ * thể không thể biết trước). Entry literal thuần (không `:`) vẫn hoạt động
+ * như cũ vì `pathMatchesTemplate` coi non-`:` segment phải khớp tuyệt đối. */
+function isAllowlisted(method, templatePath, allowlist, today) {
   return allowlist.entries.some((entry) => {
-    if (entry.path !== literalPath) return false;
+    if (!pathMatchesTemplate(templatePath, entry.path)) return false;
     if (entry.method && entry.method !== method) return false;
     if (!entry.expires_on) return false;
     return entry.expires_on > today;
   });
 }
 
-/** Phân loại một literal route đã tìm thấy: 'ok' (khớp entry enabled, hoặc
+/** Phân loại một path/template đã tìm thấy: 'ok' (khớp entry enabled, hoặc
  * được allowlist còn hạn), 'disabled_contract' (khớp entry bị tắt), hoặc
- * 'unknown_literal_route' (không khớp gì, cũng không trong allowlist). */
-export function classify(method, literalPath, manifestEntries, allowlist, today) {
-  const normalized = stripQuery(literalPath);
+ * 'unknown_literal_route' (không khớp gì, cũng không trong allowlist). Dùng
+ * chung cho cả literal thuần lẫn template quy về từ call site dynamic — cùng
+ * một cây quyết định, cùng yêu cầu allowlist tường minh nếu muốn miễn. */
+export function classify(method, templatePath, manifestEntries, allowlist, today) {
   const matches = manifestEntries.filter(
-    (e) => e.method === method && pathMatchesTemplate(normalized, e.path),
+    (e) => e.method === method && pathMatchesTemplate(templatePath, e.path),
   );
   if (matches.some((e) => e.enabled)) return "ok";
   if (matches.length > 0) return "disabled_contract";
-  if (isAllowlisted(method, normalized, allowlist, today)) return "ok";
+  if (isAllowlisted(method, templatePath, allowlist, today)) return "ok";
   return "unknown_literal_route";
 }
 
@@ -213,19 +308,42 @@ export function scanRoot(rootDir, manifestEntries, allowlist, today = new Date()
     const relFile = path.relative(resolvedRoot, filePath).replace(/\\/g, "/");
     const content = stripComments(fs.readFileSync(filePath, "utf8"));
     for (const call of findApiClientCalls(content)) {
-      if (call.literal === null) continue; // dynamic/non-literal — ngoài phạm vi.
+      if (call.raw === null) continue; // argument đầu tiên không phải string literal — ngoài phạm vi.
       const httpMethod = toHttpMethod(call.method);
-      const verdict = classify(httpMethod, call.literal, manifestEntries, allowlist, today);
+      const { template } = buildPathTemplate(call.raw);
+      const verdict = classify(httpMethod, template, manifestEntries, allowlist, today);
       if (verdict === "ok") continue;
       violations.push({
         file: relFile,
         line: call.line,
-        path: call.literal,
+        path: template,
         reason: verdict,
       });
     }
   });
   return violations;
+}
+
+/** Thống kê coverage thật cho báo cáo/CLI: tổng số lệnh gọi ApiClient tìm
+ * thấy, bao nhiêu có argument là string literal (dù có nội suy hay không —
+ * KHÁC với bản trước đó coi nội suy = bị loại hoàn toàn), và bao nhiêu argument
+ * đầu tiên không phải string literal (biến/method call khác — thật sự ngoài
+ * phạm vi static-analysis). */
+export function computeCoverageStats(rootDir) {
+  const resolvedRoot = path.resolve(rootDir);
+  const libDir = path.join(resolvedRoot, "frontend", "lib");
+  let total = 0;
+  let stringArgCount = 0;
+  let nonStringArgCount = 0;
+  walkDartFiles(libDir, (filePath) => {
+    const content = stripComments(fs.readFileSync(filePath, "utf8"));
+    for (const call of findApiClientCalls(content)) {
+      total++;
+      if (call.raw === null) nonStringArgCount++;
+      else stringArgCount++;
+    }
+  });
+  return { total, stringArgCount, nonStringArgCount };
 }
 
 // ─── CLI entrypoint ───
@@ -235,11 +353,18 @@ if (process.argv[1] === __filename) {
   let rootDir = ".";
   let manifestPath = "shared/contracts/mvp-surface.json";
   let allowlistPath = "scripts/frontend-api-contract-allowlist.json";
+  let showStats = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--root" && args[i + 1]) rootDir = args[++i];
     else if (args[i] === "--manifest" && args[i + 1]) manifestPath = args[++i];
     else if (args[i] === "--allowlist" && args[i + 1]) allowlistPath = args[++i];
+    else if (args[i] === "--stats") showStats = true;
+  }
+
+  if (showStats) {
+    console.log(JSON.stringify(computeCoverageStats(rootDir), null, 2));
+    process.exit(0);
   }
 
   const manifestEntries = loadManifest(manifestPath);
@@ -254,6 +379,6 @@ if (process.argv[1] === __filename) {
     process.exit(1);
   }
 
-  console.log("✅ Frontend API contract check passed: mọi literal route khớp contract enabled hoặc allowlist còn hạn.");
+  console.log("✅ Frontend API contract check passed: mọi literal/template route khớp contract enabled hoặc allowlist còn hạn.");
   process.exit(0);
 }

@@ -399,6 +399,2246 @@
       "owner": "agent-platform",
       "reason": "KNOWN BUG, not endorsed — apps/cosa/api/approval_routes.py explicitly marks this prefix deprecated=True; canonical replacement /agent/workforce/approvals already exists (enabled) in mvp-surface.json. approvals_service.dart (used by founder_command_center_controller.dart) still calls the deprecated path, AND its response parsing (items/approvals keys) is incompatible with the canonical endpoint's mvp_list {data,meta} envelope, so a bare URL swap would silently break it. Needs a real fix (route + parsing + regression test) — flagged here, not fixed by Task 7 (frontend-api-contract-check tooling only).",
       "expires_on": "2026-10-15"
+    },
+    {
+      "path": "/agents/:agentId",
+      "method": "DELETE",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/ai/openrouter-key",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId/overrides/:assetId",
+      "method": "DELETE",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/:id",
+      "method": "DELETE",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/milestones/:milestoneId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/milestones/:milestoneId/evidence/:evidenceId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/stages/:stageId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-commitments/:commitmentId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/assumptions/:id",
+      "method": "DELETE",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/campaigns/:campaignId",
+      "method": "DELETE",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/decisions/:decisionId",
+      "method": "DELETE",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/loops/:loopId",
+      "method": "DELETE",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/objectives/:objectiveId",
+      "method": "DELETE",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/key-results/:keyResultId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/objectives/:objectiveId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/projects/:projectId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/canvases/:canvasId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/initiatives/:initiativeId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/dependencies/:dependencyId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/projects/:projectId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/synergies/:synergyId",
+      "method": "DELETE",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/agents/:idOrKey",
+      "method": "DELETE",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/admin/:workspaceId/diagnostics",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/admin/:workspaceId/hub-summary",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/skills/:skillId",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agents/",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agents/:agentId/system_prompt/revisions",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agents/execution/jobs",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agents/execution/jobs/:jobId",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agents/execution/jobs/:jobId/artifacts",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/ai/models",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/ai/usage",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId/sops/:sopId",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId/templates/:templateId",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/channels",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/channels/list",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/commercial/leads",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/email-approvals",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/google/status",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/zalo/sessions/:sid",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/devices",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/devices/jobs",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/compilation-status",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/contract",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/stages",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/timeline",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/week13/celebration",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/week13/readiness",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/week13/review",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/weekly-reviews",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-commitments",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-plans",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-plans/:planId/review",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/finance-legal/accounting-profiles/by-workspace/:wId",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/finance-legal/snapshots/latest",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/finance-legal/transactions",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/finance-legal/workspaces/:wId/fiscal-profiles",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/identity/workspaces/:workspaceId",
+      "method": "GET",
+      "owner": "control-plane",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/:await",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/analytics/:await",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/assumptions/:await",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/campaigns/:campaignId",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/canvases/:await",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/crm/:await",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/metrics/:metricName/:await",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/cycles",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/key-results",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/objectives",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/projects",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/projects/:projectId/operating-setup",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/assumptions",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/decision-records",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/gate-evaluations",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/maturity-assessments",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/pilots/:id",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/pmf-scoreboards/:runId",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/projects/:pId/next-best-actions",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/stage-policies",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/tasks/:id",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/tasks/:taskId/dependencies",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/org/:workspaceId",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/org/:workspaceId/chart",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/org/:workspaceId/command-center",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/org/:workspaceId/daily-briefing",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/platform/feature-flags",
+      "method": "GET",
+      "owner": "control-plane",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/platform/prompts/",
+      "method": "GET",
+      "owner": "control-plane",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/platform/prompts/:domain/:name",
+      "method": "GET",
+      "owner": "control-plane",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/platform/workspaces/:platformWorkspaceId/entitlement",
+      "method": "GET",
+      "owner": "control-plane",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/plugins/",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/policy-programs/:programId",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/policy-programs/:programId/claims",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/policy-programs/draft-watchlist",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/funding-overview",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/assumptions/riskiest",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/claims",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/contacts",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/evidence",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/experiments",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/hypotheses",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/interviews",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/next-best-action",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/problem-scorecard",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/quotes",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/reviews/latest",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/risk-matrix",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/role-coverage",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/session",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/solution-bias",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/state-vector",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/canvases",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/canvases/:canvasId",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/ceo/next-actions",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/founder-profile",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/initiatives",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/bsc",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/pestel",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/summary/:projectId",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/swot",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/tows",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/model-profiles",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/model-runs/audit",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolio-cycles/:cycleId/allocations",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/cycles",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/dependencies",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/impact-matrix",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/options",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/projects",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/swot",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/synergies",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/tows",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/detect",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/methodology",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/stages",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/revisions/:revisionId",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/workspace-templates",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/agents/:agentKey/stage-fit",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/approvals",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/prompts/:key",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/prompts/:key/:query",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/prompts/:key/versions",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/runs/:runId",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/skills/:query",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/stage-roster",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspace/file",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/missions/:missionId",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/revenue/crm/:queryStr",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/revenue/crm/pipeline",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/revenue/icp",
+      "method": "GET",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": ":path",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "WorkspaceService.getJson/postJson/putJson (frontend/lib/modules/organization/services/workspace_service.dart) is a generic query-param-injection helper that forwards an arbitrary caller-supplied `path` -- the ApiClient call itself has no static route component to check. The REAL literal/dynamic routes live at each of the 11 services extending WorkspaceService's call sites (e.g. sales_service.dart, finance_service.dart, legal_service.dart, next_best_action_service.dart), which call `getJson('/route')`, not `ApiClient.get(...)` directly, so they are invisible to this checker (it only inspects literal arguments to ApiClient.get/post/put/patch/delete/sendForm). Disclosed known coverage gap, not a verified-safe route -- out of this fix round's scope (would need call-chain tracing through wrapper methods, a materially bigger checker capability).",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agents/:agentId",
+      "method": "PATCH",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/identity/workspaces/:workspaceId/company-identity",
+      "method": "PATCH",
+      "owner": "control-plane",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/assumptions/:id",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/campaigns/:campaignId",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/decisions/:decisionId",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/loops/:loopId",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/objectives/:objectiveId",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/decision-records/:decisionId",
+      "method": "PATCH",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/projects/:projectId/stage",
+      "method": "PATCH",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/platform/prompts/:domain/:name",
+      "method": "PATCH",
+      "owner": "control-plane",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/tech-radar/:itemId",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/revenue/crm/opportunities/:opportunityId/stage",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/admin/:workspaceId/quick-actions/execute",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/approvals/:approvalId/decision",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/skills/:skillId/deprecate",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/skills/:skillId/evaluate",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/skills/:skillId/feedback",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/skills/:skillId/promote",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/skills/sync-built-in",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agents/:agentId/system_prompt:reset",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId/legal/annotations",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId/overrides",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId/updates/check",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId/updates/diff",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/business/packs/:packId/updates/resolve",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/email-approvals/:approvalId/:action",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/google/oauth/start",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/zalo/sessions/:sid/cancel",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/devices/enroll",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/devices/jobs",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/gate-decisions",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/milestones",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/milestones/:milestoneId/evidence",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/compile",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/contract",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/stages",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/stages/generate-standard",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/week13/finalize",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/twelve-week-cycles/:cycleId/weekly-reviews",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-commitments",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-plans",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-plans/:planId/compile",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/finance-legal/accounting-periods/:periodId/close",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/finance-legal/transactions/:transactionId/approve",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/ai/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/analytics/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/approvals/:approvalId/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/assets/:assetId/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/campaigns/:campaignId/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/canvases/revisions/:revisionId/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/crm/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/experiments/:experimentId/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/learning-loop/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/loops/:loopId/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/marketing/recommendations/:recId/:await",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/cycles",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/generate-ai",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/key-results",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/objectives",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/objectives/:objId/key-results",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/projects",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/projects/:projectId/operating-setup/activate",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/pilots/:pilotId/activate",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/pilots/:pilotId/approve",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/pilots/:pilotId/close",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/projects/:pId/stage",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/tasks/:taskId/status",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/platform/prompts/:domain/:name",
+      "method": "POST",
+      "owner": "control-plane",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/plugins/workspace-plugins/:pluginId/disable",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/plugins/workspace-plugins/:pluginId/enable",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/policy-programs/:programId/verify",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/assess-stage",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/assess-trl",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/check-double-funding",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/create-12wy-task",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/policy-match",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/assumptions/:assumptionId/generate-hypothesis",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/chat",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/claims/:claimId/confirm",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/claims/:claimId/edit",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/hypotheses/:hypothesisId/recommend-experiment",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/hypotheses/:hypothesisId/review/ai",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/problem-scorecard",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/projects/:projectId/validation/session/start",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/analysis/export",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/analysis/import",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/canvases",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/canvases/:canvasId/generate-ai-foundation",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/canvases/:canvasId/revisions",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/ceo/next-actions/evaluate",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/initiatives",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/pestel/:signalId/to-hypothesis",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/tows/:optionId/generate-tactics",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolio-cycles/:cycleId/activate",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolio-cycles/:cycleId/allocations/capacity",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolio-cycles/:cycleId/allocations/founder-attention",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/cycles",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/dependencies",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/options",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/projects",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/swot",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/synergies",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/tows",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/classify",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/methodology",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/mvp-roadmap:confirm",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/mvp-roadmap:generate",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/stages/:stageId",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/stages/:stageId/service-assessment:confirm",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/stages/:stageId/service-assessment:generate",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/revisions/:revisionId/approve",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/revisions/:revisionId/request-changes",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/revisions/:revisionId/submit-review",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/stages/:stageId",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/stages/:stageId/week-13:confirm",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/stages/:stageId/week-13:generate",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/workspace-templates/:templateId",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/workspace-templates:provision",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/tech-radar/seed",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/agents/:agentKey/test-run",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/agents/:agentKey/tools/batch-update",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/agents/:sourceKey/clone",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/approvals/:approvalId/approve",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/approvals/:approvalId/reject",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/decisions/:decisionId/accept",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/exceptions/:escalationId/resolve",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/exceptions/watchdog-scan",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/heartbeats/check-stalled",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/routines/:key/trigger",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/work-products/:workProductId/accept",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/work-products/:workProductId/revise",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/channels/telegram/test",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/channels/zalo/test",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/hub/quick-approve",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/outbox/:outboxId/retry",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/outbox/process-batch",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/revenue/crm/accounts",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/revenue/crm/leads/:leadId/convert-to-opportunity",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/revenue/crm/leads/:leadId/score",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workspaces/:workspaceId/revenue/outreach/generate",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": ":path",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "WorkspaceService.getJson/postJson/putJson (frontend/lib/modules/organization/services/workspace_service.dart) is a generic query-param-injection helper that forwards an arbitrary caller-supplied `path` -- the ApiClient call itself has no static route component to check. The REAL literal/dynamic routes live at each of the 11 services extending WorkspaceService's call sites (e.g. sales_service.dart, finance_service.dart, legal_service.dart, next_best_action_service.dart), which call `getJson('/route')`, not `ApiClient.get(...)` directly, so they are invisible to this checker (it only inspects literal arguments to ApiClient.get/post/put/patch/delete/sendForm). Disclosed known coverage gap, not a verified-safe route -- out of this fix round's scope (would need call-chain tracing through wrapper methods, a materially bigger checker capability).",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/skills/:skillId",
+      "method": "PUT",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/milestones/:milestoneId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/stages/:stageId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-commitments/:commitmentId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-plans/:planId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/execution/weekly-plans/:planId/mission",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/key-results/:keyResultId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/okrs/objectives/:objectiveId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/projects/:projectId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/projects/:projectId/operating-setup",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/policy-programs/:programId/claims/:claimId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/canvases/:canvasId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/ceo/next-actions/:actionId/status",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/founder-profile",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/initiatives/:initiativeId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/model-profiles/:profileId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/portfolios/:portfolioId/options/:optionId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/projects/:projectId/mvp-roadmap",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/revisions/:revisionId/foundation",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/workspace-templates/:templateId",
+      "method": "PUT",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": ":path",
+      "method": "PUT",
+      "owner": "agent-platform",
+      "reason": "WorkspaceService.getJson/postJson/putJson (frontend/lib/modules/organization/services/workspace_service.dart) is a generic query-param-injection helper that forwards an arbitrary caller-supplied `path` -- the ApiClient call itself has no static route component to check. The REAL literal/dynamic routes live at each of the 11 services extending WorkspaceService's call sites (e.g. sales_service.dart, finance_service.dart, legal_service.dart, next_best_action_service.dart), which call `getJson('/route')`, not `ApiClient.get(...)` directly, so they are invisible to this checker (it only inspects literal arguments to ApiClient.get/post/put/patch/delete/sendForm). Disclosed known coverage gap, not a verified-safe route -- out of this fix round's scope (would need call-chain tracing through wrapper methods, a materially bigger checker capability).",
+      "expires_on": "2026-12-31"
     }
   ]
 }
