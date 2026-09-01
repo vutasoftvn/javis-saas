@@ -52,14 +52,14 @@ bằng chứng.
   để cả hai service gọi `mod.getAuthData<AuthData>()` có type an toàn mà
   không cần suppress.
 
-- [ ] **Step 1: Xác nhận cấu trúc thư mục thật của từng service trước khi đặt file `.d.ts`.**
+- [x] **Step 1: Xác nhận cấu trúc thư mục thật của từng service trước khi đặt file `.d.ts`.**
 
 Run: `ls services/company/shared/types 2>/dev/null; ls services/cosa/shared 2>/dev/null; find services/cosa -maxdepth 2 -type d`
 
 Xác định vị trí phù hợp nhất theo convention hiện có của từng service (không
 tạo thư mục mới nếu đã có chỗ tương đương chứa type shim).
 
-- [ ] **Step 2: Viết ambient declaration.**
+- [x] **Step 2: Viết ambient declaration.**
 
 ```ts
 // services/company/shared/types/encore-auth.d.ts
@@ -72,7 +72,7 @@ declare module "~encore/auth" {
 ```
 Lặp lại (hoặc import chung nếu tsconfig cho phép) cho `services/cosa`.
 
-- [ ] **Step 3: Cập nhật 2 điểm dùng, bỏ `@ts-ignore`.**
+- [x] **Step 3: Cập nhật 2 điểm dùng, bỏ `@ts-ignore`.**
 
 ```ts
 // services/company/identity/handlers/auth.handler.ts
@@ -86,20 +86,20 @@ try {
 Áp dụng tương tự cho `services/cosa/handlers/auth.handler.ts` (hàm
 `resolveAuthData`).
 
-- [ ] **Step 4: Chạy typecheck từng service để xác nhận ambient decl không bị
+- [x] **Step 4: Chạy typecheck từng service để xác nhận ambient decl không bị
   Encore generated code ghi đè hoặc xung đột.**
 
 Run: `cd services/company && pnpm typecheck && cd ../cosa && pnpm typecheck`
 
 Expected: PASS, không còn `@ts-ignore` trong 2 file, không có lỗi type mới.
 
-- [ ] **Step 5: Chạy test auth hiện có (nếu có) để xác nhận hành vi runtime không đổi.**
+- [x] **Step 5: Chạy test auth hiện có (nếu có) để xác nhận hành vi runtime không đổi.**
 
 Run: `rg -l "auth.handler" services/company/identity/tests services/cosa/tests 2>/dev/null` rồi
 chạy vitest tương ứng nếu tìm thấy; nếu không có test trực tiếp, chạy full
 test suite của 2 service để đảm bảo không regressions.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add services/company/shared/types/encore-auth.d.ts \
@@ -129,7 +129,7 @@ git commit -m "fix(auth): remove @ts-ignore via typed ~encore/auth shim"
   additions: string[]; stale: string[] }`, mirror chính xác pattern của
   `scripts/check_encore_handler_boundaries.mjs`, và `make ts-suppression-check`.
 
-- [ ] **Step 1: Viết test trước (TDD), dùng fixture tạm thời.**
+- [x] **Step 1: Viết test trước (TDD), dùng fixture tạm thời.**
 
 ```python
 def test_checker_rejects_new_ts_ignore(tmp_path: Path) -> None:
@@ -154,13 +154,13 @@ def test_no_ts_suppressions_in_repo_after_task1() -> None:
     assert result.returncode == 0, result.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL vì script chưa tồn tại.**
+- [x] **Step 2: Chạy test, xác nhận FAIL vì script chưa tồn tại.**
 
 Run: `PYTHONPATH=. pytest tests/quality/test_ts_suppressions.py -q`
 
 Expected: FAIL (script missing).
 
-- [ ] **Step 3: Implement scanner — quét text-based cho `@ts-ignore` và
+- [x] **Step 3: Implement scanner — quét text-based cho `@ts-ignore` và
   `@ts-expect-error`, trả về `file:line:TS_SUPPRESSION:<directive>`.**
 
 ```js
@@ -175,7 +175,7 @@ chỉ match khi directive đứng ở đầu dòng comment `//` ngay trước m�
 theo đúng cách TS compiler nhận diện directive thật (dòng bắt đầu bằng
 `// @ts-ignore` hoặc `// @ts-expect-error`, cho phép khoảng trắng đầu dòng).
 
-- [ ] **Step 4: Generate baseline rỗng (vì Task 1 đã xóa 2 vi phạm duy nhất
+- [x] **Step 4: Generate baseline rỗng (vì Task 1 đã xóa 2 vi phạm duy nhất
   đã biết).**
 
 Run: `node scripts/check_ts_suppressions.mjs --root . --baseline scripts/ts-suppression-baseline.json --write-baseline`
@@ -184,7 +184,7 @@ Expected: `{"version": 1, "entries": []}` — nếu không rỗng, nghĩa là c�
 suppression khác chưa phát hiện trong Phần Phân tích; dừng lại và báo cáo
 trước khi tiếp tục (đừng baseline hoá âm thầm).
 
-- [ ] **Step 5: Wire vào Makefile và CI.**
+- [x] **Step 5: Wire vào Makefile và CI.**
 
 ```make
 ts-suppression-check:
@@ -194,18 +194,18 @@ Thêm `- run: make ts-suppression-check` ngay sau step
 `make encore-handler-boundary-check` trong job `boundaries` của
 `.github/workflows/quality.yml`.
 
-- [ ] **Step 6: Cập nhật CLAUDE.md rule #6 để liệt kê lệnh mới.**
+- [x] **Step 6: Cập nhật CLAUDE.md rule #6 để liệt kê lệnh mới.**
 
 Sửa dòng: `... make company-boundary-check, make encore-handler-boundary-check, và migration gates ...`
 → thêm `make ts-suppression-check`.
 
-- [ ] **Step 7: Chạy toàn bộ gate để xác nhận.**
+- [x] **Step 7: Chạy toàn bộ gate để xác nhận.**
 
 Run: `PYTHONPATH=. pytest tests/quality/test_ts_suppressions.py -q && make ts-suppression-check`
 
 Expected: PASS, baseline rỗng.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```bash
 git add scripts/check_ts_suppressions.mjs scripts/ts-suppression-baseline.json \
@@ -230,7 +230,7 @@ git commit -m "chore(quality): forbid new @ts-ignore/@ts-expect-error via CI gat
 - Produces: danh sách allowlist tường minh 9 endpoint đã audit + assertion
   "mọi endpoint expose:true && auth:false phải nằm trong allowlist".
 
-- [ ] **Step 1: Trích xuất danh sách 9 endpoint `auth:false` hiện tại làm
+- [x] **Step 1: Trích xuất danh sách 9 endpoint `auth:false` hiện tại làm
   allowlist ban đầu.**
 
 Run: `rg -n 'auth:\s*false' services/company services/cosa --type ts -g '*.handler.ts'`
@@ -239,7 +239,7 @@ Run: `rg -n 'auth:\s*false' services/company services/cosa --type ts -g '*.handl
 healthz, `/platform/internal/*`, `/identity/session/renew`) — xác nhận đúng
 9, không thiếu/thừa so với grep thật.
 
-- [ ] **Step 2: Viết test trước.**
+- [x] **Step 2: Viết test trước.**
 
 ```python
 ALLOWLIST = {
@@ -257,18 +257,18 @@ def test_every_unauthenticated_expose_endpoint_is_allowlisted() -> None:
     assert not unexpected, f"New expose&&!auth endpoint(s) need manual audit: {unexpected}"
 ```
 
-- [ ] **Step 3: Chạy test, xác nhận PASS với allowlist khớp thực tế (không
+- [x] **Step 3: Chạy test, xác nhận PASS với allowlist khớp thực tế (không
   phải khớp giả để test xanh — nếu lệch, quay lại Step 1 grep lại).**
 
 Run: `PYTHONPATH=. pytest tests/quality/test_route_auth_allowlist.py -q`
 
-- [ ] **Step 4: Thử thêm tạm 1 endpoint giả `expose:true, auth:false` ngoài
+- [x] **Step 4: Thử thêm tạm 1 endpoint giả `expose:true, auth:false` ngoài
   allowlist để xác nhận gate thật sự fail, rồi revert thay đổi thử nghiệm.**
 
 Run: thêm endpoint test vào 1 file `.handler.ts` tạm, chạy lại pytest, xác
 nhận FAIL với thông báo path lạ, sau đó `git checkout -- <file>`.
 
-- [ ] **Step 5: Wire vào Makefile/CI.**
+- [x] **Step 5: Wire vào Makefile/CI.**
 
 ```make
 route-auth-allowlist-check:
@@ -276,7 +276,7 @@ route-auth-allowlist-check:
 ```
 Thêm vào job `boundaries` cùng chỗ với 2 check trên.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add tests/quality/test_route_auth_allowlist.py Makefile .github/workflows/quality.yml \
@@ -306,19 +306,19 @@ git commit -m "chore(quality): gate unauthenticated expose endpoints behind expl
 - Produces: 4 file compile sạch không còn `any` tường minh, hành vi runtime
   không đổi.
 
-- [ ] **Step 1: Đọc từng vị trí `any` đã liệt kê, phân loại: (a) JSON tự do
+- [x] **Step 1: Đọc từng vị trí `any` đã liệt kê, phân loại: (a) JSON tự do
   → dùng `strategy-json.ts` helper, (b) shape domain cố định → viết interface
   cụ thể, (c) kiểu chưa rõ do thiếu thông tin → hỏi lại thay vì đoán bằng
   `unknown`+cast tùy tiện.**
 
-- [ ] **Step 2: Với mỗi file, viết/chạy test hiện có trước khi sửa để có
+- [x] **Step 2: Với mỗi file, viết/chạy test hiện có trước khi sửa để có
   baseline hành vi.**
 
 Run: `cd services/company && pnpm vitest run operations/tests -t "maturity-assessment|metric-contract|next-best-action|weekly-review"`
 
 (điều chỉnh pattern theo tên test file thật sau khi grep `find services/company/operations/tests -iname '*maturity*' -o -iname '*metric-contract*' -o -iname '*next-best-action*' -o -iname '*weekly-review*'`)
 
-- [ ] **Step 3: Sửa từng file, thay `any` bằng type cụ thể. Ví dụ dạng
+- [x] **Step 3: Sửa từng file, thay `any` bằng type cụ thể. Ví dụ dạng
   chung (điều chỉnh theo shape thật sau khi đọc code):**
 
 ```ts
@@ -333,22 +333,22 @@ interface MetricMapping {
 }
 ```
 
-- [ ] **Step 4: Chạy lại test tương ứng + typecheck sau mỗi file sửa (không
+- [x] **Step 4: Chạy lại test tương ứng + typecheck sau mỗi file sửa (không
   gộp cả 4 file rồi mới test).**
 
 Run: `cd services/company && pnpm typecheck && pnpm vitest run operations/tests`
 
 Expected: PASS sau mỗi file, không đổi assertion nào trong test hiện có.
 
-- [ ] **Step 5: Thêm 4 file vào whitelist của `test_strategy_type_safety.py`.**
+- [x] **Step 5: Thêm 4 file vào whitelist của `test_strategy_type_safety.py`.**
 
-- [ ] **Step 6: Chạy full gate.**
+- [x] **Step 6: Chạy full gate.**
 
 Run: `PYTHONPATH=. pytest tests/quality/test_strategy_type_safety.py -q && cd services/company && pnpm typecheck && pnpm vitest run operations/tests/strategy`
 
 Expected: PASS với 13/13 file trong whitelist.
 
-- [ ] **Step 7: Commit (có thể tách 1 commit/file nếu diff lớn, hoặc 1 commit
+- [x] **Step 7: Commit (có thể tách 1 commit/file nếu diff lớn, hoặc 1 commit
   gộp nếu nhỏ — quyết định theo dung lượng diff thật khi thực thi).**
 
 ```bash
@@ -370,7 +370,7 @@ git commit -m "refactor(strategy): remove remaining any usage in gate/action/rev
 
 **Interfaces:** không có — thay đổi tài liệu thuần túy, không chạm code.
 
-- [ ] **Step 1: Sửa `ADR-SLUG-001`.**
+- [x] **Step 1: Sửa `ADR-SLUG-001`.**
 
 Thay đoạn mô tả vị trí implementation từ `services/cosa/storage/schema.ts`
 sang vị trí thật: `services/company/identity/services/
@@ -379,14 +379,14 @@ slug-reservation.service.ts` + bảng `identityWorkspaceSlugs` trong schema
 thêm ghi chú cuối "Vị trí implementation đã được đính chính sau khi verify
 lại bằng grep — 2026-09-01."
 
-- [ ] **Step 2: Sửa `ADR-ID-MODEL-001`.**
+- [x] **Step 2: Sửa `ADR-ID-MODEL-001`.**
 
 Thêm section rõ ràng ngay dưới Status: "LeafId/UUIDv7 chưa được triển khai
 trong code (verify bằng grep toàn repo, 2026-09-01) — chỉ Snowflake spine đã
 implement. Không lên kế hoạch implement UUIDv7 cho đến khi có nhu cầu nghiệp
 vụ cụ thể (YAGNI)."
 
-- [ ] **Step 3: Verify bằng chính công cụ mà CLAUDE.md yêu cầu (grep, không
+- [x] **Step 3: Verify bằng chính công cụ mà CLAUDE.md yêu cầu (grep, không
   tin ngày tháng).**
 
 Run: `rg -n 'uuid.?v7|leaf.?id' services -i` (xác nhận vẫn 0 kết quả, tức ghi
@@ -394,7 +394,7 @@ chú vẫn đúng tại thời điểm commit) và
 `rg -n 'workspace_slugs|identityWorkspaceSlugs' services/cosa services/company`
 (xác nhận vị trí mới nêu trong ADR khớp thật).
 
-- [ ] **Step 4: Commit.**
+- [x] **Step 4: Commit.**
 
 ```bash
 git add docs/architecture/adr/ADR-SLUG-001-workspace-slug-subdomain.md \
@@ -408,7 +408,7 @@ git commit -m "docs(adr): correct slug service location and flag unimplemented u
 
 **Files:** không sửa.
 
-- [ ] **Step 1: Chạy toàn bộ quality gate liên quan.**
+- [x] **Step 1: Chạy toàn bộ quality gate liên quan.**
 
 Run:
 ```bash
@@ -422,7 +422,7 @@ cd services/company && pnpm typecheck && cd ../cosa && pnpm typecheck
 
 Expected: tất cả PASS.
 
-- [ ] **Step 2: Verify CI wiring.**
+- [x] **Step 2: Verify CI wiring.**
 
 Run: `rg -n 'ts-suppression-check|route-auth-allowlist-check' Makefile .github/workflows/quality.yml`
 
