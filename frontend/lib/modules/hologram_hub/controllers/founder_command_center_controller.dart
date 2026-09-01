@@ -41,8 +41,10 @@ class FounderCommandCenterController extends GetxController {
   final RxnString projectsError = RxnString();
   final Rx<CompanyPulseModel?> pulse = Rx<CompanyPulseModel?>(null);
   final RxList<NextBestActionModel> top3Actions = <NextBestActionModel>[].obs;
-  final RxList<FounderDecisionModel> pendingDecisions = <FounderDecisionModel>[].obs;
-  final RxList<Map<String, dynamic>> pendingApprovals = <Map<String, dynamic>>[].obs;
+  final RxList<FounderDecisionModel> pendingDecisions =
+      <FounderDecisionModel>[].obs;
+  final RxList<Map<String, dynamic>> pendingApprovals =
+      <Map<String, dynamic>>[].obs;
   final RxList<WorkforcePackModel> workforcePacks = <WorkforcePackModel>[].obs;
   final RxInt selectedTabIndex = 0.obs; // 0: Command Center, 1: AI Workforce
 
@@ -94,7 +96,9 @@ class FounderCommandCenterController extends GetxController {
 
       final activeProjectId = projects.isNotEmpty ? projects.first['id'] : null;
       final activeProjectStage = projects.isNotEmpty
-          ? (projects.first['lifecycleStage'] ?? projects.first['project_stage'] ?? projects.first['lifecycle_stage'])
+          ? (projects.first['lifecycleStage'] ??
+                projects.first['project_stage'] ??
+                projects.first['lifecycle_stage'])
           : null;
 
       final pulseRes = await CoFounderApiService.getCompanyPulse(
@@ -103,9 +107,14 @@ class FounderCommandCenterController extends GetxController {
         stage: activeProjectStage?.toString(),
       );
       final top3Res = (activeProjectId != null)
-          ? await CoFounderApiService.getTop3Focus(workspaceId: wsId, projectId: activeProjectId)
+          ? await CoFounderApiService.getTop3Focus(
+              workspaceId: wsId,
+              projectId: activeProjectId,
+            )
           : <NextBestActionModel>[];
-      final decisionsRes = await CoFounderApiService.listPendingDecisions(workspaceId: wsId);
+      final decisionsRes = await CoFounderApiService.listPendingDecisions(
+        workspaceId: wsId,
+      );
       final packsRes = await CoFounderApiService.listWorkforcePacks();
 
       pulse.value = pulseRes;
@@ -115,9 +124,13 @@ class FounderCommandCenterController extends GetxController {
 
       // Load Approvals từ database thật
       try {
-        final approvals = await _approvalsService.getApprovals(status: 'PENDING');
+        final approvals = await _approvalsService.getApprovals(
+          status: 'PENDING',
+        );
         if (approvals.isNotEmpty) {
-          pendingApprovals.assignAll(approvals.map((e) => e as Map<String, dynamic>).toList());
+          pendingApprovals.assignAll(
+            approvals.map((e) => e as Map<String, dynamic>).toList(),
+          );
         } else {
           pendingApprovals.clear();
         }
@@ -129,36 +142,25 @@ class FounderCommandCenterController extends GetxController {
     }
   }
 
-  /// Khởi tạo dự án đầu tiên theo flow
-  Future<bool> createFirstProject({
+  /// Khởi tạo dự án đầu tiên theo flow cơ bản và trả về ID dự án để chuyển tiếp sang Kickoff
+  Future<String?> createFirstProject({
     required String title,
     required String description,
-    String stage = 'P1_PROBLEM_VALIDATION',
   }) async {
     isLoading.value = true;
     try {
       final strategyService = StrategyService();
-      await strategyService.createProject(
+      final project = await strategyService.createBasicProject(
         title: title,
-        description: description,
-        projectStage: stage,
-        stageGoal: 'Xác thực mục tiêu trọng tâm của giai đoạn $stage',
-        status: 'active',
-        startDate: DateTime.now(),
+        description: description.isNotEmpty ? description : null,
       );
+      final createdId = project['id']?.toString();
       await loadDashboardData();
-      AppToast.success(
-        'Dự án "$title" đã được thiết lập thành công. AI Co-Founder đã sẵn sàng đồng hành!',
-        title: 'Đã khởi tạo dự án',
-      );
-      return true;
+      return createdId;
     } catch (e) {
       debugPrint('[FounderCommandCenter] createFirstProject error: $e');
-      AppToast.error(
-        'Lỗi: $e',
-        title: 'Không thể tạo dự án',
-      );
-      return false;
+      AppToast.error('Lỗi: $e', title: 'Không thể tạo dự án');
+      return null;
     } finally {
       isLoading.value = false;
     }
@@ -221,7 +223,10 @@ class FounderCommandCenterController extends GetxController {
 
   /// Bật/Tắt một Optional Pack
   Future<void> togglePack(String packKey, bool value) async {
-    final success = await CoFounderApiService.toggleOptionalPack(packKey: packKey, isActive: value);
+    final success = await CoFounderApiService.toggleOptionalPack(
+      packKey: packKey,
+      isActive: value,
+    );
     if (success) {
       final index = workforcePacks.indexWhere((p) => p.key == packKey);
       if (index != -1) {
@@ -239,7 +244,9 @@ class FounderCommandCenterController extends GetxController {
         );
       }
       AppToast.info(
-        value ? 'Đã kích hoạt gói mở rộng cho Workspace.' : 'Đã vô hiệu hóa gói mở rộng.',
+        value
+            ? 'Đã kích hoạt gói mở rộng cho Workspace.'
+            : 'Đã vô hiệu hóa gói mở rộng.',
         title: 'Cập nhật Workforce Pack',
       );
     }
@@ -268,8 +275,7 @@ class FounderCommandCenterController extends GetxController {
       _cofounderConversationId ??= (await _chatService.createConversation(
         title: 'Founder Command Center',
         activeAgentProfile: 'operations',
-      ))
-          ?.id;
+      ))?.id;
       final conversationId = _cofounderConversationId;
       if (conversationId == null) {
         throw Exception('Không tạo được conversation với COSA runtime.');
@@ -291,7 +297,8 @@ class FounderCommandCenterController extends GetxController {
     } catch (e) {
       chatMessages.add({
         'role': 'error',
-        'content': 'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission. ($e)',
+        'content':
+            'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission. ($e)',
       });
       isChatLoading.value = false;
     }
@@ -299,42 +306,48 @@ class FounderCommandCenterController extends GetxController {
 
   void _subscribeChatSse(String runId, Map<String, String> assistantMsg) {
     _chatSseSubscription?.cancel();
-    _chatSseSubscription = _chatService.streamRunEvents(runId).listen(
-      (event) {
-        final eventType = event['event_type']?.toString() ?? '';
-        final payload = (event['payload'] as Map<String, dynamic>?) ?? {};
-        switch (eventType) {
-          case 'message.delta':
-            final delta = payload['delta']?.toString() ?? '';
-            final idx = chatMessages.indexOf(assistantMsg);
-            if (idx != -1) {
-              assistantMsg['content'] = (assistantMsg['content'] ?? '') + delta;
-              chatMessages[idx] = assistantMsg;
+    _chatSseSubscription = _chatService
+        .streamRunEvents(runId)
+        .listen(
+          (event) {
+            final eventType = event['event_type']?.toString() ?? '';
+            final payload = (event['payload'] as Map<String, dynamic>?) ?? {};
+            switch (eventType) {
+              case 'message.delta':
+                final delta = payload['delta']?.toString() ?? '';
+                final idx = chatMessages.indexOf(assistantMsg);
+                if (idx != -1) {
+                  assistantMsg['content'] =
+                      (assistantMsg['content'] ?? '') + delta;
+                  chatMessages[idx] = assistantMsg;
+                }
+                break;
+              case 'run.completed':
+                if ((assistantMsg['content'] ?? '').isEmpty &&
+                    payload['output'] != null) {
+                  final idx = chatMessages.indexOf(assistantMsg);
+                  assistantMsg['content'] = payload['output'].toString();
+                  if (idx != -1) chatMessages[idx] = assistantMsg;
+                }
+                isChatLoading.value = false;
+                break;
+              case 'run.failed':
+              case 'run.cancelled':
+                final idx = chatMessages.indexOf(assistantMsg);
+                if (idx != -1) {
+                  assistantMsg['role'] = 'error';
+                  assistantMsg['content'] =
+                      (assistantMsg['content'] ?? '').isEmpty
+                      ? 'Mission thất bại hoặc bị huỷ.'
+                      : assistantMsg['content']!;
+                  chatMessages[idx] = assistantMsg;
+                }
+                isChatLoading.value = false;
+                break;
             }
-            break;
-          case 'run.completed':
-            if ((assistantMsg['content'] ?? '').isEmpty && payload['output'] != null) {
-              final idx = chatMessages.indexOf(assistantMsg);
-              assistantMsg['content'] = payload['output'].toString();
-              if (idx != -1) chatMessages[idx] = assistantMsg;
-            }
-            isChatLoading.value = false;
-            break;
-          case 'run.failed':
-          case 'run.cancelled':
-            final idx = chatMessages.indexOf(assistantMsg);
-            if (idx != -1) {
-              assistantMsg['role'] = 'error';
-              assistantMsg['content'] =
-                  (assistantMsg['content'] ?? '').isEmpty ? 'Mission thất bại hoặc bị huỷ.' : assistantMsg['content']!;
-              chatMessages[idx] = assistantMsg;
-            }
-            isChatLoading.value = false;
-            break;
-        }
-      },
-      onError: (_) => isChatLoading.value = false,
-      onDone: () => isChatLoading.value = false,
-    );
+          },
+          onError: (_) => isChatLoading.value = false,
+          onDone: () => isChatLoading.value = false,
+        );
   }
 }

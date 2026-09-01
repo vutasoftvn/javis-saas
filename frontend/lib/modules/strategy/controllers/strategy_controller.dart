@@ -7,7 +7,11 @@ import 'mixins/governance_state_mixin.dart';
 import 'mixins/portfolio_state_mixin.dart';
 
 class StrategyController extends GetxController
-    with OkrStateMixin, TwelveWyStateMixin, GovernanceStateMixin, PortfolioStateMixin {
+    with
+        OkrStateMixin,
+        TwelveWyStateMixin,
+        GovernanceStateMixin,
+        PortfolioStateMixin {
   final StrategyService _strategyService = StrategyService();
 
   @override
@@ -23,6 +27,23 @@ class StrategyController extends GetxController
   final projects = <dynamic>[].obs;
   final initiatives = <dynamic>[].obs;
   final activeProjectId = RxnString();
+  final activeKickoffProjectId = RxnString();
+  final isRoadmapAdvancedOpen = false.obs;
+
+  void openKickoff(String projectId) {
+    activeKickoffProjectId.value = projectId;
+    isRoadmapAdvancedOpen.value = false;
+  }
+
+  void openRoadmapAdvanced(String projectId) {
+    activeKickoffProjectId.value = projectId;
+    isRoadmapAdvancedOpen.value = true;
+  }
+
+  void closeKickoff() {
+    activeKickoffProjectId.value = null;
+    isRoadmapAdvancedOpen.value = false;
+  }
 
   @override
   void onInit() {
@@ -31,7 +52,10 @@ class StrategyController extends GetxController
   }
 
   @override
-  Future<void> runGuarded(Future<void> Function() action, {bool showSnackbar = false}) async {
+  Future<void> runGuarded(
+    Future<void> Function() action, {
+    bool showSnackbar = false,
+  }) async {
     try {
       errorMessage.value = null;
       await action();
@@ -45,11 +69,7 @@ class StrategyController extends GetxController
 
   Future<void> loadAllData() async {
     isLoading.value = true;
-    await Future.wait([
-      loadOkrs(),
-      loadExecution(),
-      loadProjects(),
-    ]);
+    await Future.wait([loadOkrs(), loadExecution(), loadProjects()]);
     isLoading.value = false;
   }
 
@@ -58,15 +78,35 @@ class StrategyController extends GetxController
     await runGuarded(() async {
       final projectsResult = await _strategyService.getProjects();
       projects.value = projectsResult.items;
-      if (projectsResult.errorMessage != null) errorMessage.value = projectsResult.errorMessage;
+      if (projectsResult.errorMessage != null)
+        errorMessage.value = projectsResult.errorMessage;
 
       final initiativesResult = await _strategyService.getInitiatives();
       initiatives.value = initiativesResult.items;
-      if (initiativesResult.errorMessage != null) errorMessage.value = initiativesResult.errorMessage;
+      if (initiativesResult.errorMessage != null)
+        errorMessage.value = initiativesResult.errorMessage;
 
       await loadPortfolios();
       await detectPortfolioNecessity();
     });
+  }
+
+  Future<String?> createBasicProject({
+    required String title,
+    String? description,
+  }) async {
+    String? createdId;
+    isSaving.value = true;
+    await runGuarded(() async {
+      final project = await _strategyService.createBasicProject(
+        title: title,
+        description: description,
+      );
+      createdId = project['id']?.toString();
+      await loadProjects();
+    }, showSnackbar: true);
+    isSaving.value = false;
+    return createdId;
   }
 
   Future<String?> createProject({
@@ -103,10 +143,7 @@ class StrategyController extends GetxController
     await runGuarded(() async {
       await _strategyService.deleteProject(projectId);
       await loadProjects();
-      AppToast.info(
-        'Đã xoá Dự án Chiến lược',
-        title: 'Đã xoá',
-      );
+      AppToast.info('Đã xoá Dự án Chiến lược', title: 'Đã xoá');
     }, showSnackbar: true);
     isSaving.value = false;
   }

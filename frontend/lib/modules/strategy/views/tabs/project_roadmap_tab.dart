@@ -8,6 +8,7 @@ import '../../../marketing/controllers/marketing_controller.dart';
 import '../../controllers/strategy_controller.dart';
 import '../../controllers/project_orchestration_controller.dart';
 import '../project_kickoff_view.dart';
+import '../project_roadmap_advanced_view.dart';
 import '../project_stage_workspace_view.dart';
 
 /// Điểm vào cho SaaS Project Stage & Agent Orchestration: chọn hoặc tạo một
@@ -28,7 +29,8 @@ class ProjectRoadmapTab extends StatefulWidget {
 
 class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
   StrategyController get controller => Get.find<StrategyController>();
-  ProjectOrchestrationController get orchestrationController => Get.find<ProjectOrchestrationController>();
+  ProjectOrchestrationController get orchestrationController =>
+      Get.find<ProjectOrchestrationController>();
 
   String? _selectedProjectId;
   String? _selectedStageId;
@@ -41,26 +43,62 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_selectedProjectId != null && _selectedStageId != null) {
-      return ProjectStageWorkspaceView(
-        key: ValueKey('${_selectedProjectId}_$_selectedStageId'),
-        projectId: _selectedProjectId!,
-        stageId: _selectedStageId!,
-        onBack: () => setState(() => _selectedStageId = null),
-      );
-    }
-    if (_selectedProjectId != null) {
-      return ProjectKickoffView(
-        key: ValueKey(_selectedProjectId),
-        projectId: _selectedProjectId!,
-        onBack: () => setState(() {
-          _selectedProjectId = null;
-          _selectedStageId = null;
-        }),
-        onOpenStageWorkspace: (stageId) => setState(() => _selectedStageId = stageId),
-      );
-    }
-    return _buildProjectList();
+    return Obx(() {
+      final dashboardCtrl = Get.isRegistered<DashboardController>()
+          ? Get.find<DashboardController>()
+          : null;
+      final activeProjectId =
+          dashboardCtrl?.activeKickoffProjectId.value ??
+          controller.activeKickoffProjectId.value ??
+          _selectedProjectId;
+
+      if (activeProjectId != null && _selectedStageId != null) {
+        return ProjectStageWorkspaceView(
+          key: ValueKey('${activeProjectId}_$_selectedStageId'),
+          projectId: activeProjectId,
+          stageId: _selectedStageId!,
+          onBack: () => setState(() => _selectedStageId = null),
+        );
+      }
+
+      if (activeProjectId != null) {
+        if (controller.isRoadmapAdvancedOpen.value) {
+          return ProjectRoadmapAdvancedView(
+            key: ValueKey('${activeProjectId}_advanced'),
+            projectId: activeProjectId,
+            onBack: () => controller.openKickoff(activeProjectId),
+            onOpenStageWorkspace: (stageId) =>
+                setState(() => _selectedStageId = stageId),
+          );
+        }
+
+        return ProjectKickoffView(
+          key: ValueKey(activeProjectId),
+          projectId: activeProjectId,
+          onBack: () {
+            setState(() {
+              _selectedProjectId = null;
+              _selectedStageId = null;
+            });
+            controller.closeKickoff();
+            dashboardCtrl?.closeProjectKickoff();
+          },
+          onActivated: (projectId) {
+            setState(() {
+              _selectedProjectId = null;
+              _selectedStageId = null;
+            });
+            controller.closeKickoff();
+            dashboardCtrl?.closeProjectKickoff();
+            controller.loadProjects();
+          },
+          onOpenAdvancedRoadmap: () =>
+              controller.openRoadmapAdvanced(activeProjectId),
+        );
+      }
+
+      return _buildProjectList();
+    });
   }
 
   Widget _buildProjectList() {
@@ -71,20 +109,32 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
         children: [
           CosaFloatingAppBar(
             title: 'Dự án & Lộ trình MVP',
-            subtitle: 'Chọn hoặc tạo một dự án để lập lộ trình phát triển MVP và OKRs/12 tuần.',
+            subtitle:
+                'Chọn hoặc tạo một dự án để lập lộ trình phát triển MVP và OKRs/12 tuần.',
             icon: Icons.rocket_launch_outlined,
             actions: [
               TextButton.icon(
-                onPressed: () => Get.find<DashboardController>().changePage(30, 6),
-                icon: const Icon(Icons.tune_rounded, size: 16, color: AppTheme.textMutedDark),
-                label: const Text('Quản trị Template', style: TextStyle(color: AppTheme.textMutedDark)),
+                onPressed: () =>
+                    Get.find<DashboardController>().changePage(30, 6),
+                icon: const Icon(
+                  Icons.tune_rounded,
+                  size: 16,
+                  color: AppTheme.textMutedDark,
+                ),
+                label: const Text(
+                  'Quản trị Template',
+                  style: TextStyle(color: AppTheme.textMutedDark),
+                ),
               ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () => _showCreateProjectDialog(context),
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Dự án mới'),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: AppTheme.backgroundDarker),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: AppTheme.backgroundDarker,
+                ),
               ),
             ],
           ),
@@ -114,17 +164,29 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                             color: AppTheme.primary.withValues(alpha: 0.12),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.rocket_launch_rounded, size: 36, color: AppTheme.primary),
+                          child: const Icon(
+                            Icons.rocket_launch_rounded,
+                            size: 36,
+                            color: AppTheme.primary,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         const Text(
                           'Chưa có Dự án nào',
-                          style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         const Text(
                           'Tạo dự án mới với ngày bắt đầu (Thứ Hai) và kết thúc để AI tự động thiết kế lộ trình MVP, phân bổ OKRs và chu kỳ thực thi 12 tuần.',
-                          style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13, height: 1.4),
+                          style: TextStyle(
+                            color: AppTheme.textMutedDark,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 20),
@@ -135,8 +197,13 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primary,
                             foregroundColor: AppTheme.backgroundDarker,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(100),
+                            ),
                           ),
                         ),
                       ],
@@ -149,13 +216,13 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   final crossAxisCount = constraints.maxWidth > 1300
                       ? 4
                       : (constraints.maxWidth > 900
-                          ? 3
-                          : (constraints.maxWidth > 600 ? 2 : 1));
+                            ? 3
+                            : (constraints.maxWidth > 600 ? 2 : 1));
                   final childAspectRatio = constraints.maxWidth > 1300
                       ? 2.1
                       : (constraints.maxWidth > 900
-                          ? 2.2
-                          : (constraints.maxWidth > 600 ? 2.3 : 2.8));
+                            ? 2.2
+                            : (constraints.maxWidth > 600 ? 2.3 : 2.8));
                   return GridView.builder(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
@@ -165,7 +232,8 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                     ),
                     itemCount: controller.projects.length,
                     itemBuilder: (context, index) {
-                      final project = controller.projects[index] as Map<String, dynamic>;
+                      final project =
+                          controller.projects[index] as Map<String, dynamic>;
                       return _projectCard(project);
                     },
                   );
@@ -189,10 +257,12 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
     if (startDateStr != null && startDateStr.isNotEmpty) {
       try {
         final startDt = DateTime.parse(startDateStr);
-        final startFmt = '${startDt.day.toString().padLeft(2, '0')}/${startDt.month.toString().padLeft(2, '0')}';
+        final startFmt =
+            '${startDt.day.toString().padLeft(2, '0')}/${startDt.month.toString().padLeft(2, '0')}';
         if (endDateStr != null && endDateStr.isNotEmpty) {
           final endDt = DateTime.parse(endDateStr);
-          final endFmt = '${endDt.day.toString().padLeft(2, '0')}/${endDt.month.toString().padLeft(2, '0')}/${endDt.year}';
+          final endFmt =
+              '${endDt.day.toString().padLeft(2, '0')}/${endDt.month.toString().padLeft(2, '0')}/${endDt.year}';
           final weeks = ((endDt.difference(startDt).inDays + 1) / 7).ceil();
           dateBadge = '$startFmt – $endFmt ($weeks tuần)';
         } else {
@@ -204,7 +274,9 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: projectId.isEmpty ? null : () => setState(() => _selectedProjectId = projectId),
+        onTap: projectId.isEmpty
+            ? null
+            : () => setState(() => _selectedProjectId = projectId),
         borderRadius: BorderRadius.circular(10),
         hoverColor: AppTheme.primary.withValues(alpha: 0.04),
         child: Container(
@@ -248,11 +320,16 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   if (phase != null && phase.isNotEmpty)
                     Flexible(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: AppTheme.primary.withValues(alpha: 0.2),
+                          ),
                         ),
                         child: Text(
                           phase,
@@ -269,21 +346,33 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   else if (dateBadge != null)
                     Flexible(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.calendar_today_outlined, size: 10, color: AppTheme.textMutedDark),
+                            const Icon(
+                              Icons.calendar_today_outlined,
+                              size: 10,
+                              color: AppTheme.textMutedDark,
+                            ),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 dateBadge,
-                                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 10.5),
+                                style: const TextStyle(
+                                  color: AppTheme.textMutedDark,
+                                  fontSize: 10.5,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -306,17 +395,26 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                             ? null
                             : () {
                                 if (Get.isRegistered<MarketingController>()) {
-                                  Get.find<MarketingController>().selectProject(projectId);
+                                  Get.find<MarketingController>().selectProject(
+                                    projectId,
+                                  );
                                 }
-                                Get.find<DashboardController>().changePage(17, 0);
+                                Get.find<DashboardController>().changePage(
+                                  17,
+                                  0,
+                                );
                               },
                         icon: const Icon(Icons.campaign_outlined, size: 16),
                         padding: EdgeInsets.zero,
                         color: AppTheme.primaryLight,
                         hoverColor: AppTheme.primary.withValues(alpha: 0.15),
                         style: IconButton.styleFrom(
-                          side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.3)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          side: BorderSide(
+                            color: AppTheme.primary.withValues(alpha: 0.3),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
                       ),
                     ),
@@ -329,14 +427,23 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                       width: 32,
                       height: 32,
                       child: IconButton(
-                        onPressed: projectId.isEmpty ? null : () => setState(() => _selectedProjectId = projectId),
-                        icon: const Icon(Icons.remove_red_eye_outlined, size: 16),
+                        onPressed: projectId.isEmpty
+                            ? null
+                            : () => setState(
+                                () => _selectedProjectId = projectId,
+                              ),
+                        icon: const Icon(
+                          Icons.remove_red_eye_outlined,
+                          size: 16,
+                        ),
                         padding: EdgeInsets.zero,
                         color: AppTheme.textMutedDark,
                         hoverColor: AppTheme.primary.withValues(alpha: 0.15),
                         style: IconButton.styleFrom(
                           side: BorderSide(color: AppTheme.borderDark),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
                       ),
                     ),
@@ -344,8 +451,10 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   const SizedBox(width: 6),
                   // AI auto-generate icon button
                   Obx(() {
-                    final isGenerating = orchestrationController.isGeneratingRoadmap.value &&
-                        orchestrationController.activeProjectId.value == projectId;
+                    final isGenerating =
+                        orchestrationController.isGeneratingRoadmap.value &&
+                        orchestrationController.activeProjectId.value ==
+                            projectId;
                     return Tooltip(
                       message: 'AI tạo Lộ trình MVP tự động',
                       child: SizedBox(
@@ -356,15 +465,30 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                               ? null
                               : () => _aiGenerateAndNavigate(projectId),
                           icon: isGenerating
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.auto_awesome_rounded, size: 16),
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 16,
+                                ),
                           padding: EdgeInsets.zero,
                           color: AppTheme.primary,
                           hoverColor: AppTheme.primary.withValues(alpha: 0.15),
                           style: IconButton.styleFrom(
-                            backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-                            side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            backgroundColor: AppTheme.primary.withValues(
+                              alpha: 0.12,
+                            ),
+                            side: BorderSide(
+                              color: AppTheme.primary.withValues(alpha: 0.4),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                           ),
                         ),
                       ),
@@ -390,171 +514,56 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
 
-    // Default start date: Monday of current week
-    final now = DateTime.now();
-    DateTime startDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
-    // Default end date: Sunday of week 12 (83 days from Monday)
-    DateTime endDate = startDate.add(const Duration(days: 83));
-
     AppModalDialog.show(
       context: context,
-      title: 'Dự án mới',
-      subtitle: 'Xác định mục tiêu và thời gian triển khai để AI thiết kế lộ trình MVP & OKRs chính xác',
+      title: 'Tạo Dự án Mới',
+      subtitle: 'Khởi tạo dự án và tiến hành thiết lập vòng khám phá đầu tiên',
       icon: Icons.rocket_launch_outlined,
-      maxWidth: 580,
+      maxWidth: 540,
       content: StatefulBuilder(
         builder: (context, setModalState) {
-          final durationDays = endDate.difference(startDate).inDays + 1;
-          final durationWeeks = (durationDays / 7).ceil();
-
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Tên dự án', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+              const Text(
+                'Tên dự án *',
+                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: titleController,
                 autofocus: true,
                 style: const TextStyle(color: AppTheme.textDark),
                 decoration: InputDecoration(
-                  hintText: 'Ví dụ: Nền tảng định danh điện tử',
+                  hintText: 'Ví dụ: Nền tảng B2B SaaS cho Doanh nghiệp',
                   hintStyle: const TextStyle(color: AppTheme.textMutedDark),
                   filled: true,
                   fillColor: AppTheme.surfaceDarkLighter,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('Mô tả dự án (brief cho AI)', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+              const Text(
+                'Mô tả dự án',
+                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: descriptionController,
                 maxLines: 3,
                 style: const TextStyle(color: AppTheme.textDark),
                 decoration: InputDecoration(
-                  hintText: 'Vấn đề đang giải quyết, khách hàng mục tiêu, giá trị cốt lõi...',
+                  hintText: 'Vấn đề đang giải quyết, khách hàng mục tiêu...',
                   hintStyle: const TextStyle(color: AppTheme.textMutedDark),
                   filled: true,
                   fillColor: AppTheme.surfaceDarkLighter,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Bắt đầu (Thứ Hai)', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12.5)),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: startDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2035),
-                            );
-                            if (picked != null) {
-                              // Align to Monday
-                              final pickedMonday = picked.subtract(Duration(days: picked.weekday - 1));
-                              setModalState(() {
-                                startDate = pickedMonday;
-                                if (endDate.isBefore(startDate)) {
-                                  endDate = startDate.add(const Duration(days: 83));
-                                }
-                              });
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceDarkLighter,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.borderDark),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today_rounded, size: 15, color: AppTheme.primary),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${startDate.day.toString().padLeft(2, '0')}/${startDate.month.toString().padLeft(2, '0')}/${startDate.year}',
-                                  style: const TextStyle(color: AppTheme.textDark, fontSize: 13, fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Dự kiến kết thúc (Chủ Nhật)', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12.5)),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: endDate,
-                              firstDate: startDate,
-                              lastDate: DateTime(2035),
-                            );
-                            if (picked != null) {
-                              // Align to Sunday of that week
-                              final pickedSunday = picked.add(Duration(days: 7 - picked.weekday));
-                              setModalState(() {
-                                endDate = pickedSunday;
-                              });
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceDarkLighter,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.borderDark),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.event_available_rounded, size: 15, color: AppTheme.secondaryLight),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${endDate.day.toString().padLeft(2, '0')}/${endDate.month.toString().padLeft(2, '0')}/${endDate.year}',
-                                  style: const TextStyle(color: AppTheme.textDark, fontSize: 13, fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.timer_outlined, size: 15, color: AppTheme.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Thời gian dự kiến: $durationWeeks tuần ($durationDays ngày)',
-                      style: const TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -569,40 +578,21 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
             if (title.isEmpty) return;
             final description = descriptionController.text.trim();
             Get.back();
-            await _createProjectAndAutoDraftRoadmap(
-              title,
-              description.isEmpty ? null : description,
-              startDate: startDate,
-              endDate: endDate,
+            final projectId = await controller.createBasicProject(
+              title: title,
+              description: description.isEmpty ? null : description,
             );
+            if (projectId != null && projectId.isNotEmpty) {
+              controller.openKickoff(projectId);
+            }
           },
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: AppTheme.backgroundDarker),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: AppTheme.backgroundDarker,
+          ),
           child: const Text('Tạo dự án'),
         ),
       ],
     );
-  }
-
-  /// Chỉ tự động sinh roadmap ở đúng lúc project vừa được tạo. Mở lại một
-  /// project có sẵn (ProjectKickoffView) không bao giờ tự gọi AI - founder
-  /// phải bấm "AI đề xuất lại" nếu muốn sinh mới, tránh AI âm thầm ghi đè
-  /// bản nháp đã sửa tay.
-  Future<void> _createProjectAndAutoDraftRoadmap(
-    String title,
-    String? description, {
-    DateTime? startDate,
-    DateTime? endDate,
-  }) async {
-    final projectId = await controller.createProject(
-      title: title,
-      description: description,
-      startDate: startDate,
-      endDate: endDate,
-    );
-    if (projectId == null || projectId.isEmpty) return;
-    // Điều hướng ngay vào ProjectKickoffView; AI sẽ sinh roadmap trong nền.
-    orchestrationController.activeProjectId.value = projectId;
-    setState(() => _selectedProjectId = projectId);
-    await orchestrationController.generateRoadmap(projectId);
   }
 }

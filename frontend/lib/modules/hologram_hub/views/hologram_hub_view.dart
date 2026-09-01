@@ -35,7 +35,9 @@ class HologramHubView extends StatelessWidget {
                 child: Obx(() {
                   if (controller.isLoading.value) {
                     return const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF6366F1),
+                      ),
                     );
                   }
 
@@ -50,7 +52,11 @@ class HologramHubView extends StatelessWidget {
                             index: controller.selectedTabIndex.value,
                             children: [
                               // Tab 0: Founder Command Center (Co-Founder, Pulse, Top 3, Waiting for You)
-                              _buildCommandCenterTab(context, controller, isWide),
+                              _buildCommandCenterTab(
+                                context,
+                                controller,
+                                isWide,
+                              ),
 
                               // Tab 1: AI Workforce & Optional Packs Store
                               _buildWorkforceTab(context, controller, isWide),
@@ -69,12 +75,17 @@ class HologramHubView extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, FounderCommandCenterController controller) {
+  Widget _buildHeader(
+    BuildContext context,
+    FounderCommandCenterController controller,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.9),
-        border: const Border(bottom: BorderSide(color: Color(0x336366F1), width: 1)),
+        border: const Border(
+          bottom: BorderSide(color: Color(0x336366F1), width: 1),
+        ),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -92,17 +103,25 @@ class HologramHubView extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                          ),
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                              color: const Color(
+                                0xFF6366F1,
+                              ).withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.rocket_launch, color: Colors.white, size: 18),
+                        child: const Icon(
+                          Icons.rocket_launch,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Flexible(
@@ -123,7 +142,10 @@ class HologramHubView extends StatelessWidget {
                             if (!isCompact)
                               Text(
                                 'Hệ điều hành doanh nghiệp AI',
-                                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                           ],
@@ -135,7 +157,10 @@ class HologramHubView extends StatelessWidget {
                         if (stage == null) return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.only(left: 12),
-                          child: StageBadge(stage: ProjectStage.fromString(stage), isCompact: true),
+                          child: StageBadge(
+                            stage: ProjectStage.fromString(stage),
+                            isCompact: true,
+                          ),
                         );
                       }),
                     ],
@@ -196,31 +221,53 @@ class HologramHubView extends StatelessWidget {
 
                       // Dashboard Button — vào màn hình quản trị (Dashboard)
                       IconButton(
-                        onPressed: () => Get.find<HologramHubController>().onSettingsPressed(),
-                        icon: const Icon(Icons.space_dashboard_outlined, color: Colors.white70, size: 20),
+                        onPressed: () => Get.find<HologramHubController>()
+                            .onSettingsPressed(),
+                        icon: const Icon(
+                          Icons.space_dashboard_outlined,
+                          color: Colors.white70,
+                          size: 20,
+                        ),
                         tooltip: 'Quản trị Dashboard',
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                       ),
                       const SizedBox(width: 4),
 
                       // Refresh Button
                       IconButton(
                         onPressed: () => controller.loadDashboardData(),
-                        icon: const Icon(Icons.refresh, color: Colors.white70, size: 20),
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: Colors.white70,
+                          size: 20,
+                        ),
                         tooltip: 'Làm mới dữ liệu',
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                       ),
                       const SizedBox(width: 4),
 
                       // Profile Button
                       IconButton(
                         onPressed: () => Get.toNamed(AppRoutes.profile),
-                        icon: const Icon(Icons.account_circle_outlined, color: Colors.white70, size: 20),
+                        icon: const Icon(
+                          Icons.account_circle_outlined,
+                          color: Colors.white70,
+                          size: 20,
+                        ),
                         tooltip: 'Hồ sơ của tôi',
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                       ),
                     ],
                   ),
@@ -330,7 +377,8 @@ class HologramHubView extends StatelessWidget {
                   flex: 6,
                   child: Top3FocusWidget(
                     actions: controller.top3Actions.toList(),
-                    onActionTap: (action) => _handleActionTap(context, controller, action),
+                    onActionTap: (action) =>
+                        _handleActionTap(context, controller, action),
                   ),
                 ),
                 const SizedBox(width: 24),
@@ -341,13 +389,15 @@ class HologramHubView extends StatelessWidget {
                   child: WaitingForYouWidget(
                     decisions: controller.pendingDecisions.toList(),
                     approvals: controller.pendingApprovals.toList(),
-                    onResolveDecision: (decId, optKey, notes) => controller.resolveDecision(
-                      decisionId: decId,
-                      optionKey: optKey,
-                      founderNotes: notes,
-                    ),
+                    onResolveDecision: (decId, optKey, notes) =>
+                        controller.resolveDecision(
+                          decisionId: decId,
+                          optionKey: optKey,
+                          founderNotes: notes,
+                        ),
                     onApproveTask: (appId) => controller.approveTask(appId),
-                    onRejectTask: (appId, reason) => controller.rejectTask(appId, reason),
+                    onRejectTask: (appId, reason) =>
+                        controller.rejectTask(appId, reason),
                   ),
                 ),
               ],
@@ -356,19 +406,22 @@ class HologramHubView extends StatelessWidget {
             // Mobile Stacked layout
             Top3FocusWidget(
               actions: controller.top3Actions.toList(),
-              onActionTap: (action) => _handleActionTap(context, controller, action),
+              onActionTap: (action) =>
+                  _handleActionTap(context, controller, action),
             ),
             const SizedBox(height: 24),
             WaitingForYouWidget(
               decisions: controller.pendingDecisions.toList(),
               approvals: controller.pendingApprovals.toList(),
-              onResolveDecision: (decId, optKey, notes) => controller.resolveDecision(
-                decisionId: decId,
-                optionKey: optKey,
-                founderNotes: notes,
-              ),
+              onResolveDecision: (decId, optKey, notes) =>
+                  controller.resolveDecision(
+                    decisionId: decId,
+                    optionKey: optKey,
+                    founderNotes: notes,
+                  ),
               onApproveTask: (appId) => controller.approveTask(appId),
-              onRejectTask: (appId, reason) => controller.rejectTask(appId, reason),
+              onRejectTask: (appId, reason) =>
+                  controller.rejectTask(appId, reason),
             ),
           ],
           const SizedBox(height: 24),
@@ -391,7 +444,10 @@ class HologramHubView extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.4), width: 1.2),
+        border: Border.all(
+          color: const Color(0xFF818CF8).withValues(alpha: 0.4),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF6366F1).withValues(alpha: 0.12),
@@ -415,7 +471,11 @@ class HologramHubView extends StatelessWidget {
                         color: const Color(0xFF6366F1).withValues(alpha: 0.25),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.rocket_launch, color: Color(0xFF818CF8), size: 24),
+                      child: const Icon(
+                        Icons.rocket_launch,
+                        color: Color(0xFF818CF8),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -443,13 +503,25 @@ class HologramHubView extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => _showCreateProjectDialog(context, controller),
+                    onPressed: () =>
+                        _showCreateProjectDialog(context, controller),
                     icon: const Icon(Icons.add, size: 18, color: Colors.white),
-                    label: const Text('Khởi tạo dự án ngay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Khởi tạo dự án ngay',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
                       elevation: 4,
                     ),
                   ),
@@ -467,7 +539,11 @@ class HologramHubView extends StatelessWidget {
                   color: const Color(0xFF6366F1).withValues(alpha: 0.25),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.rocket_launch, color: Color(0xFF818CF8), size: 28),
+                child: const Icon(
+                  Icons.rocket_launch,
+                  color: Color(0xFF818CF8),
+                  size: 28,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -498,11 +574,22 @@ class HologramHubView extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: () => _showCreateProjectDialog(context, controller),
                 icon: const Icon(Icons.add, size: 18, color: Colors.white),
-                label: const Text('Khởi tạo dự án', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'Khởi tạo dự án',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF10B981),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
                   elevation: 4,
                 ),
               ),
@@ -538,7 +625,11 @@ class HologramHubView extends StatelessWidget {
                   SizedBox(width: 10),
                   Text(
                     'Khởi tạo dự án mới',
-                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -548,61 +639,58 @@ class HologramHubView extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Tên dự án *', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const Text(
+                      'Tên dự án *',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: titleController,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Ví dụ: Nền tảng B2B SaaS cho Doanh nghiệp',
-                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          fontSize: 13,
+                        ),
                         filled: true,
                         fillColor: const Color(0xFF1E293B),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text('Mô tả bài toán / JTBD *', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const Text(
+                      'Mô tả bài toán / JTBD',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: descriptionController,
                       maxLines: 3,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Mô tả vấn đề khách hàng đang gặp phải, giải pháp dự kiến...',
-                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
+                        hintText:
+                            'Mô tả ngắn gọn ý tưởng, vấn đề cần giải quyết...',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          fontSize: 13,
+                        ),
                         filled: true,
                         fillColor: const Color(0xFF1E293B),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('Giai đoạn dự án (Stage)', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedStage,
-                          dropdownColor: const Color(0xFF1E293B),
-                          isExpanded: true,
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                          items: const [
-                            DropdownMenuItem(value: 'P1_PROBLEM_VALIDATION', child: Text('P1: Xác thực Vấn đề (Problem Validation)')),
-                            DropdownMenuItem(value: 'P2_SOLUTION_FIT', child: Text('P2: Phù hợp Giải pháp (Solution Fit)')),
-                            DropdownMenuItem(value: 'P3_MVP_BUILD', child: Text('P3: Xây dựng MVP (MVP Build)')),
-                            DropdownMenuItem(value: 'P4_PMF_GROWTH', child: Text('P4: Tăng trưởng & PMF (PMF Growth)')),
-                            DropdownMenuItem(value: 'P5_SCALE_OPERATE', child: Text('P5: Vận hành Quy mô lớn (Scale & Operate)')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) setModalState(() => selectedStage = val);
-                          },
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
                         ),
                       ),
                     ),
@@ -612,7 +700,10 @@ class HologramHubView extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Hủy', style: TextStyle(color: Colors.white60)),
+                  child: const Text(
+                    'Hủy',
+                    style: TextStyle(color: Colors.white60),
+                  ),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -626,17 +717,31 @@ class HologramHubView extends StatelessWidget {
                       return;
                     }
                     Navigator.pop(dialogContext);
-                    await controller.createFirstProject(
+                    final createdId = await controller.createFirstProject(
                       title: title,
-                      description: desc.isNotEmpty ? desc : 'Khởi tạo dự án đầu tiên cho doanh nghiệp.',
-                      stage: selectedStage,
+                      description: desc,
                     );
+                    if (createdId != null) {
+                      if (Get.isRegistered<DashboardController>()) {
+                        Get.find<DashboardController>().openProjectKickoff(
+                          createdId,
+                        );
+                      }
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Khởi tạo dự án', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Khởi tạo dự án',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             );
@@ -654,7 +759,9 @@ class HologramHubView extends StatelessWidget {
     if (action.category == 'DECISION') {
       final decId = action.actionPayload?['decision_id'];
       if (decId != null) {
-        final found = controller.pendingDecisions.firstWhereOrNull((d) => d.id == decId);
+        final found = controller.pendingDecisions.firstWhereOrNull(
+          (d) => d.id == decId,
+        );
         if (found != null) {
           showModalBottomSheet(
             context: context,
@@ -679,14 +786,16 @@ class HologramHubView extends StatelessWidget {
       _openChatBottomSheet(
         context,
         controller,
-        initialMessage: 'Tôi muốn thiết lập hồ sơ doanh nghiệp mới. Hãy hướng dẫn tôi định hình Vision, Problem và Target Market!',
+        initialMessage:
+            'Tôi muốn thiết lập hồ sơ doanh nghiệp mới. Hãy hướng dẫn tôi định hình Vision, Problem và Target Market!',
       );
       return;
     } else if (action.id == 'act_genesis_12wy') {
       _openChatBottomSheet(
         context,
         controller,
-        initialMessage: 'Hãy hướng dẫn tôi thiết lập Mục tiêu 12-Week Year cho Quý đầu tiên.',
+        initialMessage:
+            'Hãy hướng dẫn tôi thiết lập Mục tiêu 12-Week Year cho Quý đầu tiên.',
       );
       return;
     }
@@ -738,11 +847,19 @@ class HologramHubView extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.psychology, color: Color(0xFF8B5CF6), size: 24),
+                  const Icon(
+                    Icons.psychology,
+                    color: Color(0xFF8B5CF6),
+                    size: 24,
+                  ),
                   const SizedBox(width: 10),
                   const Text(
                     'Trao đổi cùng COSA Co-Founder',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
@@ -759,11 +876,18 @@ class HologramHubView extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.chat_bubble_outline, size: 48, color: Colors.white.withValues(alpha: 0.2)),
+                          Icon(
+                            Icons.chat_bubble_outline,
+                            size: 48,
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'Hãy hỏi COSA về tiến độ kinh doanh, phản biện giả định hoặc giao Mission!',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 13,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -778,20 +902,32 @@ class HologramHubView extends StatelessWidget {
                       final isUser = msg['role'] == 'user';
                       final isError = msg['role'] == 'error';
                       return Align(
-                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                        alignment: isUser
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: isUser
                                 ? const Color(0xFF6366F1)
-                                : (isError ? const Color(0x33EF4444) : const Color(0xFF1E293B)),
+                                : (isError
+                                      ? const Color(0x33EF4444)
+                                      : const Color(0xFF1E293B)),
                             borderRadius: BorderRadius.circular(12),
-                            border: isError ? Border.all(color: const Color(0xFFEF4444), width: 1) : null,
+                            border: isError
+                                ? Border.all(
+                                    color: const Color(0xFFEF4444),
+                                    width: 1,
+                                  )
+                                : null,
                           ),
                           child: Text(
                             msg['content'] ?? '',
-                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       );
@@ -813,18 +949,29 @@ class HologramHubView extends StatelessWidget {
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: InputDecoration(
                         hintText: 'Nhập tin nhắn trao đổi với Co-Founder...',
-                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 12,
+                        ),
                         filled: true,
                         fillColor: const Color(0xFF1E293B),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                       onSubmitted: (text) => controller.sendChatMessage(text),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    onPressed: () => controller.sendChatMessage(controller.chatInputController.text),
+                    onPressed: () => controller.sendChatMessage(
+                      controller.chatInputController.text,
+                    ),
                     icon: const Icon(Icons.send, color: Color(0xFF6366F1)),
                   ),
                 ],

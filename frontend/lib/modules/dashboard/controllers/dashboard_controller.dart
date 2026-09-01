@@ -11,6 +11,16 @@ class DashboardController extends GetxController {
   // Selected tab index
   final currentIndex = 0.obs;
   final strategyInitialTabIndex = 0.obs;
+  final activeKickoffProjectId = RxnString();
+
+  void openProjectKickoff(String projectId) {
+    activeKickoffProjectId.value = projectId;
+    changePage(1, 0, 0);
+  }
+
+  void closeProjectKickoff() {
+    activeKickoffProjectId.value = null;
+  }
 
   // Stage-Aware Adaptive Sidebar & Demo Mode
   final selectedStage = ProjectStage.p2SolutionValidation.obs;
@@ -38,21 +48,27 @@ class DashboardController extends GetxController {
 
   Future<void> _loadDeveloperMode() async {
     final preferences = await SharedPreferences.getInstance();
-    developerMode.value = preferences.getBool('developer_mode') ??
+    developerMode.value =
+        preferences.getBool('developer_mode') ??
         preferences.getBool('v13_developer_mode') ??
         false;
   }
 
   Future<void> setDeveloperMode(bool enabled) async {
     developerMode.value = enabled;
-    await (await SharedPreferences.getInstance()).setBool('developer_mode', enabled);
+    await (await SharedPreferences.getInstance()).setBool(
+      'developer_mode',
+      enabled,
+    );
   }
 
   // Tự động kiểm tra tính hợp lệ của token khi khởi động Dashboard.
   Future<void> _ensureWorkspaceCached() async {
     final me = await _authService.getMe();
     if (me == null) {
-      debugPrint('DashboardController: Token hết hạn hoặc không hợp lệ -> Tự động chuyển về màn Đăng nhập');
+      debugPrint(
+        'DashboardController: Token hết hạn hoặc không hợp lệ -> Tự động chuyển về màn Đăng nhập',
+      );
       await _authService.logout();
       Get.offAllNamed(AppRoutes.login);
       return;
@@ -69,7 +85,8 @@ class DashboardController extends GetxController {
     if (expandedGroupIndex.value == groupIndex) {
       expandedGroupIndex.value = -1; // Thu gọn nếu bấm lại đúng nhóm đang mở
     } else {
-      expandedGroupIndex.value = groupIndex; // Mở nhóm mới và tự động đóng các nhóm khác (Accordion)
+      expandedGroupIndex.value =
+          groupIndex; // Mở nhóm mới và tự động đóng các nhóm khác (Accordion)
     }
   }
 
