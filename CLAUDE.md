@@ -97,6 +97,10 @@ Mỗi service theo layout: `encore.service.ts`, `api.ts` (barrel export), `db.ts
 5. Không dùng `any`, `@ts-ignore`, `@ts-expect-error` hay cast để che typecheck.
 6. Thay đổi Encore phải chạy typecheck service, relevant test, `make company-boundary-check`,
    `make encore-handler-boundary-check`, `make ts-suppression-check`, và migration gates nếu có SQL thay đổi.
+7. Thay đổi route/endpoint gọi từ frontend (`frontend/lib/**`) phải chạy
+   `make frontend-api-contract-check` — chặn literal route lệch khỏi
+   `shared/contracts/mvp-surface.json` (route đã xoá quay lại lặng lẽ, hoặc
+   route unknown gọi thẳng bằng string tay thay vì qua contract/`MvpEndpoint`).
 
 
 ## Comment code

@@ -1,0 +1,404 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "path": "/auth/me",
+      "method": "GET",
+      "owner": "control-plane",
+      "reason": "Auth bootstrap — legacy session-check path kept for backward compatibility (ApiClient.normalizeEndpoint rewrites '/auth/*' to '/identity/*'); a foundational identity check, not an MVP business capability, so intentionally outside mvp-surface.json.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/identity/me",
+      "method": "GET",
+      "owner": "control-plane",
+      "reason": "Auth bootstrap — current-session identity fetch used on every app start; foundational, not an MVP business capability.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/identity/me",
+      "method": "PATCH",
+      "owner": "control-plane",
+      "reason": "Auth bootstrap — profile self-update tied to session identity, not an MVP business capability.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/identity/sync-from-platform",
+      "method": "POST",
+      "owner": "control-plane",
+      "reason": "Auth bootstrap — syncs local session identity from the control-plane right after login/switch-workspace; foundational, not an MVP business capability.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/identity/workforce-members",
+      "method": "POST",
+      "owner": "control-plane",
+      "reason": "Auth/identity bootstrap — provisions the WorkforceMember identity row for a newly onboarded human; foundational identity plumbing, not an MVP business capability.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/platform/auth/register",
+      "method": "POST",
+      "owner": "control-plane",
+      "reason": "Auth bootstrap — account registration, pre-dates and is outside the MVP business capability manifest by design.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/platform/auth/sessions",
+      "method": "POST",
+      "owner": "control-plane",
+      "reason": "Auth bootstrap — login/session creation, pre-dates and is outside the MVP business capability manifest by design.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/agents/execution/health",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Foundational runtime health probe (workspace runtime execution plane), not a business capability tracked by the MVP manifest.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/local-worker/health",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Foundational desktop-worker health probe (loopback execution plane), not a business capability tracked by the MVP manifest.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/local-worker/execute-task",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Foundational desktop-worker task dispatch transport, not a business capability tracked by the MVP manifest.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/runtime/doctor",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Foundational runtime diagnostics endpoint (Settings > Developer), not a business capability tracked by the MVP manifest.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/workspace/files",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Foundational local-workspace file listing (desktop companion feature), not a business capability tracked by the MVP manifest.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/workspace/file",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Foundational local-workspace file write (desktop companion feature), not a business capability tracked by the MVP manifest.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/workspace/reset-default",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Foundational local-workspace reset action (desktop companion feature), not a business capability tracked by the MVP manifest.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/ai/openrouter-key",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Foundational BYO-model-key bootstrap (Settings), not a business capability tracked by the MVP manifest.",
+      "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/workforce/dashboard-summary",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/tools",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/routing/test",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/org-chart",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/budgets",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/budgets",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/heartbeats",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/routines",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/agents",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/tools/webhook",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/skills/upload-markdown",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/exceptions/stage-mismatch",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/workforce/runtimes",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/skills/candidates",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/channels/telegram/save",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/channels/telegram/test",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/channels/zalo/save",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/channels/zalo/test",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/commercial/marketing-context/product-marketing",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/commercial/marketing-context/customer-research",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/commercial/marketing-context/offer-architecture",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/commercial/marketing-context/twelve-week-plan",
+      "method": "PATCH",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/commercial/marketing-context/submit-review",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/commercial/marketing-context/approve",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/connectors/zalo/sessions",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/tech-radar",
+      "method": "POST",
+      "owner": "company-commercial",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agents/mission-control/orchestrate",
+      "method": "POST",
+      "owner": "agent-platform",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/objectives",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/pilots",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/pmf-scoreboards/calculate",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/maturity-assessments",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/gate-evaluations",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/pestel",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/swot",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/tows",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/strategy/lenses/bsc",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/tasks",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/tasks",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/assumptions",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/evidence",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/strategy/decision-records",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/agent/approvals",
+      "method": "GET",
+      "owner": "agent-platform",
+      "reason": "KNOWN BUG, not endorsed — apps/cosa/api/approval_routes.py explicitly marks this prefix deprecated=True; canonical replacement /agent/workforce/approvals already exists (enabled) in mvp-surface.json. approvals_service.dart (used by founder_command_center_controller.dart) still calls the deprecated path, AND its response parsing (items/approvals keys) is incompatible with the canonical endpoint's mvp_list {data,meta} envelope, so a bare URL swap would silently break it. Needs a real fix (route + parsing + regression test) — flagged here, not fixed by Task 7 (frontend-api-contract-check tooling only).",
+      "expires_on": "2026-10-15"
+    }
+  ]
+}

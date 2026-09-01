@@ -792,6 +792,7 @@ jobs:
       - run: make route-auth-allowlist-check
       - run: make encore-type-safety-check
       - run: make mvp-e2e-purity-check
+      - run: make frontend-api-contract-check
 
   e2e-golden-path:
     runs-on: ubuntu-latest
