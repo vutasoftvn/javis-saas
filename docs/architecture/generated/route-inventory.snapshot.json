@@ -41,15 +41,7 @@
       "resolved": false,
       "owner": null
     },
-    "DELETE /operations/projects": {
-      "resolved": true,
-      "owner": null
-    },
     "DELETE /strategy/canvases": {
-      "resolved": false,
-      "owner": null
-    },
-    "DELETE /strategy/initiatives": {
       "resolved": false,
       "owner": null
     },
@@ -357,27 +349,7 @@
       "resolved": false,
       "owner": null
     },
-    "GET /strategy/projects": {
-      "resolved": false,
-      "owner": null
-    },
     "GET /strategy/revisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/workspace-templates": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /vault/documents": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /vault/graph": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /vault/knowledge": {
       "resolved": false,
       "owner": null
     },
@@ -414,10 +386,6 @@
       "owner": null
     },
     "GET /workforce/org-chart": {
-      "resolved": false,
-      "owner": "M7"
-    },
-    "GET /workforce/packs": {
       "resolved": false,
       "owner": "M7"
     },
@@ -609,23 +577,7 @@
       "resolved": false,
       "owner": null
     },
-    "POST /strategy/projects": {
-      "resolved": false,
-      "owner": null
-    },
     "POST /strategy/revisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /strategy/stages": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /strategy/workspace-templates": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /strategy/workspace-templates:provision": {
       "resolved": false,
       "owner": null
     },
@@ -654,10 +606,6 @@
       "owner": null
     },
     "POST /workforce/tools/webhook": {
-      "resolved": false,
-      "owner": null
-    },
-    "PUT /strategy/workspace-templates": {
       "resolved": false,
       "owner": null
     }

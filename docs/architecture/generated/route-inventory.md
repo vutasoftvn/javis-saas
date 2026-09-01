@@ -198,6 +198,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance/snapshots/calculate` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
 | GET | `/healthz` | company | ✓ |  | services/company/identity/handlers/health.handler.ts |
 | GET | `/healthz` | cosa | ✓ |  | services/cosa/handlers/health.handler.ts |
+| POST | `/identity/_e2e/session` | company |  |  | services/company/identity/handlers/e2e-session.handler.ts |
 | GET | `/identity/me` | company | ✓ | ✓ | services/company/identity/handlers/auth.handler.ts |
 | POST | `/identity/session/renew` | company | ✓ |  | services/company/identity/handlers/auth.handler.ts |
 | POST | `/identity/sync-from-platform` | company | ✓ |  | services/company/identity/handlers/sync.handler.ts |
@@ -236,6 +237,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | POST | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | GET | `/operations/projects/:id` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
+| GET | `/operations/projects/:id/operating-setup` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
+| PUT | `/operations/projects/:id/operating-setup` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
+| POST | `/operations/projects/:id/operating-setup/activate` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
 | GET | `/operations/strategy/action-context` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | GET | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | POST | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
@@ -375,423 +379,85 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/platform/workspaces/:workspaceId/members` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | GET | `/platform/workspaces/:workspaceId/runtime-nodes` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | POST | `/platform/workspaces/:workspaceId/runtime-nodes/:nodeId/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/workspaces/:workspaceId/skill-policies` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/workspaces/:workspaceId/skill-policies/:skillKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 
 ### ⚠ `expose:true` không `auth` (rà M1)
 
-- POST `/commercial/accounts` — services/company/commercial/handlers/account.handler.ts
-- GET `/commercial/accounts/:id` — services/company/commercial/handlers/account.handler.ts
-- POST `/commercial/campaign-assets` — services/company/commercial/handlers/marketing.handler.ts
-- POST `/commercial/campaigns` — services/company/commercial/handlers/marketing.handler.ts
-- POST `/commercial/contacts` — services/company/commercial/handlers/contact.handler.ts
-- GET `/commercial/contacts/:id` — services/company/commercial/handlers/contact.handler.ts
-- POST `/commercial/customers` — services/company/commercial/handlers/customer.handler.ts
-- GET `/commercial/customers/:id` — services/company/commercial/handlers/customer.handler.ts
-- GET `/commercial/engagement/automation/rules` — services/company/commercial/handlers/customer-engagement/automation.handler.ts
-- POST `/commercial/engagement/automation/rules` — services/company/commercial/handlers/customer-engagement/automation.handler.ts
-- POST `/commercial/engagement/automation/rules/:key/disable` — services/company/commercial/handlers/customer-engagement/automation.handler.ts
-- POST `/commercial/engagement/automation/rules/:key/enable` — services/company/commercial/handlers/customer-engagement/automation.handler.ts
-- POST `/commercial/engagement/autopilot/kill-switch` — services/company/commercial/handlers/customer-engagement/autopilot.handler.ts
-- GET `/commercial/engagement/autopilot/settings` — services/company/commercial/handlers/customer-engagement/autopilot.handler.ts
-- PUT `/commercial/engagement/autopilot/settings` — services/company/commercial/handlers/customer-engagement/autopilot.handler.ts
-- POST `/commercial/engagement/autopilot/threshold-check` — services/company/commercial/handlers/customer-engagement/autopilot.handler.ts
-- POST `/commercial/engagement/channels` — services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts
-- POST `/commercial/engagement/channels/:id/activate` — services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts
-- GET `/commercial/engagement/channels/:id/deliveries` — services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts
-- POST `/commercial/engagement/channels/:id/pause` — services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts
-- POST `/commercial/engagement/channels/zalo/webhook` — services/company/commercial/handlers/customer-engagement/channels/zalo.handler.ts
-- GET `/commercial/engagement/contacts/:id/360` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- GET `/commercial/engagement/copilot-invocations/:id` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- POST `/commercial/engagement/copilot-invocations/:id/feedback` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- POST `/commercial/engagement/copilot-invocations/:runId/result` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- GET `/commercial/engagement/copilot/settings` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- PATCH `/commercial/engagement/copilot/settings` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- POST `/commercial/engagement/copilot/settings/disable` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- POST `/commercial/engagement/copilot/settings/enable` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- POST `/commercial/engagement/decision-authorities` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/decision-authorities/:authorityKey/grants` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/decision-requests` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/decision-requests/:id/approvals` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/decision-requests/:id/execute` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/decision-requests/:id/review` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/decision-requests/:id/submit` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/deliveries/:id/retry` — services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts
-- PUT `/commercial/engagement/escalation-routes/:routeKey` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- GET `/commercial/engagement/threads` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/threads` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- GET `/commercial/engagement/threads/:id` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/threads/:id/assign` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- GET `/commercial/engagement/threads/:id/automation/applications` — services/company/commercial/handlers/customer-engagement/automation.handler.ts
-- POST `/commercial/engagement/threads/:id/automation/dry-run` — services/company/commercial/handlers/customer-engagement/automation.handler.ts
-- GET `/commercial/engagement/threads/:id/context` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- POST `/commercial/engagement/threads/:id/copilot` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
-- POST `/commercial/engagement/threads/:id/hand-back` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/threads/:id/messages` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/threads/:id/notes` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/threads/:id/status` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/engagement/threads/:id/takeover` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
-- POST `/commercial/invoices` — services/company/commercial/handlers/billing.handler.ts
-- GET `/commercial/leads` — services/company/commercial/handlers/lead.handler.ts
-- POST `/commercial/leads` — services/company/commercial/handlers/lead.handler.ts
-- GET `/commercial/leads/:id` — services/company/commercial/handlers/lead.handler.ts
-- POST `/commercial/leads/:id/stage` — services/company/commercial/handlers/lead.handler.ts
-- GET `/commercial/marketing-context` — services/company/commercial/handlers/marketing-context.handler.ts
-- PUT `/commercial/marketing-context` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- POST `/commercial/marketing-context/approve` — services/company/commercial/handlers/marketing-context.handler.ts
-- PATCH `/commercial/marketing-context/customer-research` — services/company/commercial/handlers/marketing-context.handler.ts
-- PATCH `/commercial/marketing-context/offer-architecture` — services/company/commercial/handlers/marketing-context.handler.ts
-- PATCH `/commercial/marketing-context/product-marketing` — services/company/commercial/handlers/marketing-context.handler.ts
-- POST `/commercial/marketing-context/submit-review` — services/company/commercial/handlers/marketing-context.handler.ts
-- PATCH `/commercial/marketing-context/twelve-week-plan` — services/company/commercial/handlers/marketing-context.handler.ts
-- POST `/commercial/marketing-forms` — services/company/commercial/handlers/marketing.handler.ts
-- GET `/commercial/marketing/assets` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- GET `/commercial/marketing/campaigns` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- POST `/commercial/marketing/campaigns` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- GET `/commercial/marketing/experiments` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- POST `/commercial/marketing/experiments` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- GET `/commercial/marketing/metrics/observed` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- GET `/commercial/marketing/objectives` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- POST `/commercial/marketing/objectives` — services/company/commercial/handlers/marketing-mvp.handler.ts
-- POST `/commercial/opportunities` — services/company/commercial/handlers/opportunity.handler.ts
-- GET `/commercial/opportunities/:id` — services/company/commercial/handlers/opportunity.handler.ts
-- POST `/commercial/opportunities/:id/stage` — services/company/commercial/handlers/opportunity.handler.ts
-- POST `/commercial/subscriptions` — services/company/commercial/handlers/billing.handler.ts
-- GET `/commercial/workspaces/:workspaceId/campaigns` — services/company/commercial/handlers/marketing.handler.ts
-- GET `/commercial/workspaces/:workspaceId/invoices` — services/company/commercial/handlers/billing.handler.ts
-- POST `/control-plane/internal/child-tasks` — services/cosa/handlers/control-plane.handler.ts
-- GET `/control-plane/internal/child-tasks/:parentTaskId` — services/cosa/handlers/control-plane.handler.ts
-- GET `/control-plane/internal/child-tasks/:parentTaskId/join` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/child-tasks/complete` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/cost-ledger` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/delivery-attempts` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/delivery-policies` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/leases/acquire` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/leases/release` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/leases/renew` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/missions` — services/cosa/handlers/control-plane.handler.ts
-- GET `/control-plane/internal/missions/:id` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/scheduled-tasks` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/scheduled-tasks/:taskId/complete` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/scheduled-tasks/:taskId/heartbeat` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/scheduled-tasks/poll` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/scheduled-tasks/reclaim-stuck` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/signals` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/tasks` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/tasks/:taskId/checkout` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/watches` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/workers` — services/cosa/handlers/control-plane.handler.ts
-- POST `/control-plane/internal/workers/:id/heartbeat` — services/cosa/handlers/control-plane.handler.ts
-- POST `/cosa/connectors/assert` — services/cosa/handlers/workspace-connector.handler.ts
-- POST `/cosa/connectors/authorize` — services/cosa/handlers/workspace-connector.handler.ts
-- POST `/cosa/connectors/grant` — services/cosa/handlers/workspace-connector.handler.ts
-- POST `/cosa/connectors/install` — services/cosa/handlers/workspace-connector.handler.ts
-- POST `/cosa/connectors/revoke` — services/cosa/handlers/workspace-connector.handler.ts
-- POST `/cosa/document-ingestions` — services/cosa/handlers/document-ingestion.handler.ts
-- GET `/cosa/document-ingestions/:ingestionId` — services/cosa/handlers/document-ingestion.handler.ts
-- POST `/cosa/document-ingestions/:ingestionId/complete` — services/cosa/handlers/document-ingestion.handler.ts
-- POST `/cosa/document-ingestions/:ingestionId/review` — services/cosa/handlers/document-ingestion.handler.ts
-- POST `/cosa/document-ingestions/:ingestionId/transition` — services/cosa/handlers/document-ingestion.handler.ts
-- GET `/cosa/runtime/nodes` — services/cosa/handlers/runtime-node.handler.ts
-- POST `/cosa/runtime/nodes/heartbeat` — services/cosa/handlers/runtime-node.handler.ts
-- POST `/cosa/runtime/nodes/register` — services/cosa/handlers/runtime-node.handler.ts
-- POST `/cosa/runtime/nodes/revoke` — services/cosa/handlers/runtime-node.handler.ts
-- POST `/cosa/runtime/route` — services/cosa/handlers/runtime-node.handler.ts
-- GET `/cosa/schedules` — services/cosa/handlers/workspace-schedule.handler.ts
-- POST `/cosa/schedules` — services/cosa/handlers/workspace-schedule.handler.ts
-- POST `/cosa/schedules/:scheduleId/run-now` — services/cosa/handlers/workspace-schedule.handler.ts
-- GET `/cosa/schedules/executions/:executionId` — services/cosa/handlers/workspace-schedule.handler.ts
-- POST `/cosa/schedules/executions/complete` — services/cosa/handlers/workspace-schedule.handler.ts
-- POST `/cosa/workers/ingress` — services/cosa/handlers/worker-ingress.handler.ts
-- POST `/events/internal/agent-runtime-signal` — services/company/events/handlers/agent-runtime-signal.handler.ts
-- POST `/events/internal/knowledge-published` — services/company/events/knowledge-published.api.ts
-- GET `/events/metrics` — services/company/events/event-operations.api.ts
-- GET `/events/outbox` — services/company/events/event-operations.api.ts
-- POST `/events/outbox/:eventId/retry` — services/company/events/event-operations.api.ts
-- POST `/finance-legal/accounting-periods` — services/company/finance-legal/handlers/accounting-period.handler.ts
-- GET `/finance-legal/accounting-periods/:id` — services/company/finance-legal/handlers/accounting-period.handler.ts
-- POST `/finance-legal/accounting-periods/:id/close` — services/company/finance-legal/handlers/accounting-period.handler.ts
-- POST `/finance-legal/accounting-profiles` — services/company/finance-legal/handlers/accounting-profile.handler.ts
-- GET `/finance-legal/accounting-profiles/by-workspace/:workspaceId` — services/company/finance-legal/handlers/accounting-profile.handler.ts
-- POST `/finance-legal/ai-compliance/authorizations` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
-- POST `/finance-legal/ai-compliance/authorizations/:id/withdraw` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
-- GET `/finance-legal/ai-compliance/center` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
-- POST `/finance-legal/ai-compliance/data-profiles` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
-- POST `/finance-legal/ai-compliance/data-subject-requests` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
-- POST `/finance-legal/ai-compliance/deployments` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
-- POST `/finance-legal/ai-compliance/deployments/:deploymentId/approve` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
-- POST `/finance-legal/ai-compliance/deployments/:deploymentId/assessments` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
-- POST `/finance-legal/ai-compliance/deployments/:deploymentId/resume` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
-- POST `/finance-legal/ai-compliance/deployments/:deploymentId/suspend` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
-- POST `/finance-legal/ai-compliance/incidents` — services/company/finance-legal/handlers/ai-incident-response.handler.ts
-- POST `/finance-legal/ai-compliance/incidents/:id/resolve` — services/company/finance-legal/handlers/ai-incident-response.handler.ts
-- POST `/finance-legal/ai-compliance/provider-profiles` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
-- POST `/finance-legal/ai-compliance/resolve-data-use` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
-- GET `/finance-legal/ai-compliance/snapshots` — services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts
-- POST `/finance-legal/ai-compliance/snapshots/:id/verify` — services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts
-- POST `/finance-legal/cas/webhook` — services/company/finance-legal/handlers/cas-webhook.handler.ts
-- POST `/finance-legal/checklist-items` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
-- GET `/finance-legal/checklist-items/:id` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
-- POST `/finance-legal/checklist-items/:id/complete` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
-- POST `/finance-legal/exceptions` — services/company/finance-legal/handlers/finance-exception.handler.ts
-- GET `/finance-legal/exceptions/:id` — services/company/finance-legal/handlers/finance-exception.handler.ts
-- POST `/finance-legal/exceptions/:id/resolve` — services/company/finance-legal/handlers/finance-exception.handler.ts
-- POST `/finance-legal/fiscal-profiles` — services/company/finance-legal/handlers/accounting-regime.handler.ts
-- GET `/finance-legal/obligation-templates` — services/company/finance-legal/handlers/regulation-catalog.handler.ts
-- POST `/finance-legal/obligations` — services/company/finance-legal/handlers/legal-obligation.handler.ts
-- GET `/finance-legal/obligations/:id` — services/company/finance-legal/handlers/legal-obligation.handler.ts
-- POST `/finance-legal/obligations/:id/fulfill` — services/company/finance-legal/handlers/legal-obligation.handler.ts
-- GET `/finance-legal/regulation-sources` — services/company/finance-legal/handlers/regulation-catalog.handler.ts
-- POST `/finance-legal/snapshots` — services/company/finance-legal/handlers/finance-snapshot.handler.ts
-- GET `/finance-legal/snapshots/latest` — services/company/finance-legal/handlers/finance-snapshot.handler.ts
-- GET `/finance-legal/transactions` — services/company/finance-legal/handlers/financial-transaction.handler.ts
-- POST `/finance-legal/transactions` — services/company/finance-legal/handlers/financial-transaction.handler.ts
-- GET `/finance-legal/transactions/:id` — services/company/finance-legal/handlers/financial-transaction.handler.ts
-- POST `/finance-legal/transactions/:id/approve` — services/company/finance-legal/handlers/financial-transaction.handler.ts
-- GET `/finance-legal/workspaces/:workspaceId/fiscal-profiles` — services/company/finance-legal/handlers/accounting-regime.handler.ts
-- GET `/finance/accounting-documents` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- POST `/finance/accounting-documents` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- POST `/finance/accounting-documents/:id/confirm` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- GET `/finance/bank-connections` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- POST `/finance/bank-connections` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- GET `/finance/bank-transactions` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- GET `/finance/reconciliation-proposals` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- POST `/finance/reconciliation-proposals/:id/accept` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- GET `/finance/regime-policy` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- GET `/finance/snapshots` — services/company/finance-legal/handlers/finance-tt58.handler.ts
-- POST `/finance/snapshots/calculate` — services/company/finance-legal/handlers/finance-tt58.handler.ts
 - GET `/healthz` — services/company/identity/handlers/health.handler.ts
 - GET `/healthz` — services/cosa/handlers/health.handler.ts
 - POST `/identity/session/renew` — services/company/identity/handlers/auth.handler.ts
 - POST `/identity/sync-from-platform` — services/company/identity/handlers/sync.handler.ts
-- POST `/identity/tenant-context/resolve` — services/company/identity/handlers/tenant-context.handler.ts
-- POST `/identity/workforce-members` — services/company/identity/handlers/workforce.handler.ts
-- GET `/identity/workforce-members/:id` — services/company/identity/handlers/workforce.handler.ts
-- GET `/identity/workspaces/:id` — services/company/identity/handlers/workspace.handler.ts
-- PATCH `/identity/workspaces/:id/company-identity` — services/company/identity/handlers/workspace.handler.ts
-- GET `/identity/workspaces/:workspaceId/platform-company` — services/company/identity/handlers/workspace.handler.ts
-- GET `/legal/applicable-obligations` — services/company/finance-legal/handlers/legal-applicability.handler.ts
-- GET `/legal/legal-entity-profiles` — services/company/finance-legal/handlers/legal-entity-profile.handler.ts
-- POST `/legal/legal-entity-profiles` — services/company/finance-legal/handlers/legal-entity-profile.handler.ts
-- POST `/legal/legal-entity-profiles/:id/verify` — services/company/finance-legal/handlers/legal-entity-profile.handler.ts
-- POST `/legal/legal-entity-profiles/:id/verify/confirm` — services/company/finance-legal/handlers/legal-entity-profile.handler.ts
-- GET `/legal/obligation-instances` — services/company/finance-legal/handlers/legal-obligation.handler.ts
-- POST `/legal/obligation-instances` — services/company/finance-legal/handlers/legal-obligation.handler.ts
-- POST `/operations/cycles` — services/company/operations/handlers/twelve-week-year.handler.ts
-- GET `/operations/executive-context` — services/company/operations/handlers/executive-context.handler.ts
-- POST `/operations/initiatives` — services/company/operations/handlers/initiative.handler.ts
-- GET `/operations/initiatives/:id` — services/company/operations/handlers/initiative.handler.ts
-- POST `/operations/key-results/:id/checkin` — services/company/operations/handlers/okr.handler.ts
-- GET `/operations/objectives` — services/company/operations/handlers/okr.handler.ts
-- POST `/operations/objectives` — services/company/operations/handlers/okr.handler.ts
-- DELETE `/operations/objectives/:id` — services/company/operations/handlers/okr.handler.ts
-- GET `/operations/objectives/:id` — services/company/operations/handlers/okr.handler.ts
-- GET `/operations/objectives/:id/progress` — services/company/operations/handlers/okr.handler.ts
-- GET `/operations/objectives/:id/projects` — services/company/operations/handlers/okr.handler.ts
-- POST `/operations/objectives/:id/projects` — services/company/operations/handlers/okr.handler.ts
-- DELETE `/operations/objectives/:id/projects/:projectId` — services/company/operations/handlers/okr.handler.ts
-- POST `/operations/objectives/:objectiveId/key-results` — services/company/operations/handlers/okr.handler.ts
-- GET `/operations/okr-cycles` — services/company/operations/handlers/okr.handler.ts
-- POST `/operations/okr-cycles` — services/company/operations/handlers/okr.handler.ts
-- GET `/operations/portfolios` — services/company/operations/handlers/project.handler.ts
-- POST `/operations/portfolios` — services/company/operations/handlers/project.handler.ts
-- GET `/operations/projects` — services/company/operations/handlers/project.handler.ts
-- POST `/operations/projects` — services/company/operations/handlers/project.handler.ts
-- GET `/operations/projects/:id` — services/company/operations/handlers/project.handler.ts
-- GET `/operations/strategy/action-context` — services/company/operations/strategy/handlers/next-best-action.handler.ts
-- GET `/operations/strategy/action-proposals` — services/company/operations/strategy/handlers/next-best-action.handler.ts
-- POST `/operations/strategy/action-proposals` — services/company/operations/strategy/handlers/next-best-action.handler.ts
-- POST `/operations/strategy/action-proposals/:id/accept` — services/company/operations/strategy/handlers/next-best-action.handler.ts
-- GET `/operations/strategy/assumptions` — services/company/operations/strategy/handlers/assumption.handler.ts
-- POST `/operations/strategy/assumptions` — services/company/operations/strategy/handlers/assumption.handler.ts
-- DELETE `/operations/strategy/assumptions/:id` — services/company/operations/strategy/handlers/assumption.handler.ts
-- GET `/operations/strategy/assumptions/:id` — services/company/operations/strategy/handlers/assumption.handler.ts
-- PATCH `/operations/strategy/assumptions/:id` — services/company/operations/strategy/handlers/assumption.handler.ts
-- GET `/operations/strategy/canvas-revisions/:id` — services/company/operations/handlers/canvas.handler.ts
-- POST `/operations/strategy/canvas-revisions/:id/approve` — services/company/operations/handlers/canvas.handler.ts
-- POST `/operations/strategy/canvas-revisions/:id/reject` — services/company/operations/handlers/canvas.handler.ts
-- POST `/operations/strategy/canvas-revisions/:id/submit-review` — services/company/operations/handlers/canvas.handler.ts
-- GET `/operations/strategy/canvases` — services/company/operations/handlers/canvas.handler.ts
-- POST `/operations/strategy/canvases` — services/company/operations/handlers/canvas.handler.ts
-- DELETE `/operations/strategy/canvases/:id` — services/company/operations/handlers/canvas.handler.ts
-- GET `/operations/strategy/canvases/:id` — services/company/operations/handlers/canvas.handler.ts
-- PUT `/operations/strategy/canvases/:id` — services/company/operations/handlers/canvas.handler.ts
-- POST `/operations/strategy/canvases/:id/revisions` — services/company/operations/handlers/canvas.handler.ts
-- GET `/operations/strategy/decision-records` — services/company/operations/strategy/handlers/decision-record.handler.ts
-- POST `/operations/strategy/decision-records` — services/company/operations/strategy/handlers/decision-record.handler.ts
-- DELETE `/operations/strategy/decision-records/:id` — services/company/operations/strategy/handlers/decision-record.handler.ts
-- GET `/operations/strategy/decision-records/:id` — services/company/operations/strategy/handlers/decision-record.handler.ts
-- GET `/operations/strategy/discovery-signals` — services/company/operations/strategy/handlers/discovery-signal.handler.ts
-- POST `/operations/strategy/discovery-signals` — services/company/operations/strategy/handlers/discovery-signal.handler.ts
-- DELETE `/operations/strategy/discovery-signals/:id` — services/company/operations/strategy/handlers/discovery-signal.handler.ts
-- GET `/operations/strategy/discovery-signals/:id` — services/company/operations/strategy/handlers/discovery-signal.handler.ts
-- PATCH `/operations/strategy/discovery-signals/:id` — services/company/operations/strategy/handlers/discovery-signal.handler.ts
-- GET `/operations/strategy/evidence` — services/company/operations/strategy/handlers/evidence.handler.ts
-- POST `/operations/strategy/evidence` — services/company/operations/strategy/handlers/evidence.handler.ts
-- GET `/operations/strategy/evidence-ingestions` — services/company/operations/strategy/handlers/evidence-ingestion.handler.ts
-- POST `/operations/strategy/evidence-ingestions` — services/company/operations/strategy/handlers/evidence-ingestion.handler.ts
-- DELETE `/operations/strategy/evidence/:id` — services/company/operations/strategy/handlers/evidence.handler.ts
-- GET `/operations/strategy/evidence/:id` — services/company/operations/strategy/handlers/evidence.handler.ts
-- PATCH `/operations/strategy/evidence/:id` — services/company/operations/strategy/handlers/evidence.handler.ts
-- POST `/operations/strategy/evidence/:id/review` — services/company/operations/strategy/handlers/evidence-review.handler.ts
-- GET `/operations/strategy/experiments` — services/company/operations/strategy/handlers/experiment.handler.ts
-- POST `/operations/strategy/experiments` — services/company/operations/strategy/handlers/experiment.handler.ts
-- DELETE `/operations/strategy/experiments/:id` — services/company/operations/strategy/handlers/experiment.handler.ts
-- GET `/operations/strategy/experiments/:id` — services/company/operations/strategy/handlers/experiment.handler.ts
-- PATCH `/operations/strategy/experiments/:id` — services/company/operations/strategy/handlers/experiment.handler.ts
-- GET `/operations/strategy/funding-matches` — services/company/operations/handlers/canvas.handler.ts
-- GET `/operations/strategy/gate-evaluations` — services/company/operations/strategy/handlers/gate-evaluation.handler.ts
-- POST `/operations/strategy/gate-evaluations` — services/company/operations/strategy/handlers/gate-evaluation.handler.ts
-- DELETE `/operations/strategy/gate-evaluations/:id` — services/company/operations/strategy/handlers/gate-evaluation.handler.ts
-- GET `/operations/strategy/gate-evaluations/:id` — services/company/operations/strategy/handlers/gate-evaluation.handler.ts
-- PATCH `/operations/strategy/gate-evaluations/:id` — services/company/operations/strategy/handlers/gate-evaluation.handler.ts
-- GET `/operations/strategy/interviews` — services/company/operations/strategy/handlers/interview.handler.ts
-- POST `/operations/strategy/interviews` — services/company/operations/strategy/handlers/interview.handler.ts
-- DELETE `/operations/strategy/interviews/:id` — services/company/operations/strategy/handlers/interview.handler.ts
-- GET `/operations/strategy/interviews/:id` — services/company/operations/strategy/handlers/interview.handler.ts
-- PATCH `/operations/strategy/interviews/:id` — services/company/operations/strategy/handlers/interview.handler.ts
-- GET `/operations/strategy/maturity-assessments` — services/company/operations/strategy/handlers/maturity-assessment.handler.ts
-- POST `/operations/strategy/maturity-assessments` — services/company/operations/strategy/handlers/maturity-assessment.handler.ts
-- GET `/operations/strategy/maturity-assessments/:id` — services/company/operations/strategy/handlers/maturity-assessment.handler.ts
-- GET `/operations/strategy/metric-contracts` — services/company/operations/strategy/handlers/metric-contract.handler.ts
-- POST `/operations/strategy/metric-contracts` — services/company/operations/strategy/handlers/metric-contract.handler.ts
-- GET `/operations/strategy/metric-contracts/:id` — services/company/operations/strategy/handlers/metric-contract.handler.ts
-- PATCH `/operations/strategy/metric-contracts/:id` — services/company/operations/strategy/handlers/metric-contract.handler.ts
-- POST `/operations/strategy/metric-contracts/:id/publish` — services/company/operations/strategy/handlers/metric-contract.handler.ts
-- POST `/operations/strategy/metric-contracts/:id/revise` — services/company/operations/strategy/handlers/metric-contract.handler.ts
-- GET `/operations/strategy/metric-snapshots` — services/company/operations/strategy/handlers/metric-snapshot.handler.ts
-- POST `/operations/strategy/metric-snapshots` — services/company/operations/strategy/handlers/metric-snapshot.handler.ts
-- GET `/operations/strategy/metric-snapshots/:id` — services/company/operations/strategy/handlers/metric-snapshot.handler.ts
-- GET `/operations/strategy/pilots` — services/company/operations/strategy/handlers/pilot-run.handler.ts
-- POST `/operations/strategy/pilots` — services/company/operations/strategy/handlers/pilot-run.handler.ts
-- GET `/operations/strategy/pilots/:id` — services/company/operations/strategy/handlers/pilot-run.handler.ts
-- POST `/operations/strategy/pilots/:id/activate` — services/company/operations/strategy/handlers/pilot-run.handler.ts
-- POST `/operations/strategy/pilots/:id/approve` — services/company/operations/strategy/handlers/pilot-run.handler.ts
-- POST `/operations/strategy/pilots/:id/close` — services/company/operations/strategy/handlers/pilot-run.handler.ts
-- GET `/operations/strategy/pmf-scoreboards` — services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts
-- GET `/operations/strategy/pmf-scoreboards/:id` — services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts
-- POST `/operations/strategy/pmf-scoreboards/calculate` — services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts
-- GET `/operations/strategy/projects/:id/next-best-actions` — services/company/operations/strategy/handlers/next-best-action.handler.ts
-- POST `/operations/strategy/projects/:id/stage` — services/company/operations/strategy/handlers/project-stage.handler.ts
-- GET `/operations/strategy/projects/:id/stage/transitions` — services/company/operations/strategy/handlers/project-stage.handler.ts
-- GET `/operations/strategy/projects/:projectId/proposed-experiments` — services/company/operations/strategy/handlers/experiment.handler.ts
-- GET `/operations/strategy/projects/:projectId/ranked-assumptions` — services/company/operations/strategy/handlers/assumption.handler.ts
-- GET `/operations/strategy/stage-context` — services/company/operations/strategy/handlers/project-stage.handler.ts
-- GET `/operations/strategy/stage-policies` — services/company/operations/strategy/handlers/stage-policy.handler.ts
-- POST `/operations/strategy/stage-policies` — services/company/operations/strategy/handlers/stage-policy.handler.ts
-- DELETE `/operations/strategy/stage-policies/:id` — services/company/operations/strategy/handlers/stage-policy.handler.ts
-- GET `/operations/strategy/stage-policies/:id` — services/company/operations/strategy/handlers/stage-policy.handler.ts
-- PATCH `/operations/strategy/stage-policies/:id` — services/company/operations/strategy/handlers/stage-policy.handler.ts
-- GET `/operations/strategy/stage-transitions` — services/company/operations/strategy/handlers/stage-transition-config.handler.ts
-- POST `/operations/strategy/stage-transitions` — services/company/operations/strategy/handlers/stage-transition-config.handler.ts
-- DELETE `/operations/strategy/stage-transitions/:id` — services/company/operations/strategy/handlers/stage-transition-config.handler.ts
-- GET `/operations/strategy/stage-transitions/:id` — services/company/operations/strategy/handlers/stage-transition-config.handler.ts
-- GET `/operations/strategy/venture-profile` — services/company/operations/strategy/handlers/venture-profile.handler.ts
-- PUT `/operations/strategy/venture-profile` — services/company/operations/strategy/handlers/venture-profile.handler.ts
-- POST `/operations/strategy/venture-stage/assess` — services/company/operations/strategy/handlers/venture-stage.handler.ts
-- POST `/operations/strategy/venture-stage/transition` — services/company/operations/strategy/handlers/venture-stage.handler.ts
-- GET `/operations/strategy/venture-stage/transitions` — services/company/operations/strategy/handlers/venture-stage.handler.ts
-- GET `/operations/strategy/weekly-reviews` — services/company/operations/strategy/handlers/weekly-review.handler.ts
-- POST `/operations/strategy/weekly-reviews` — services/company/operations/strategy/handlers/weekly-review.handler.ts
-- POST `/operations/strategy/weekly-reviews/:id/complete` — services/company/operations/strategy/handlers/weekly-review.handler.ts
-- POST `/operations/task-dependencies` — services/company/operations/handlers/task-dependency.handler.ts
-- POST `/operations/task-schedules` — services/company/operations/handlers/task-dependency.handler.ts
-- GET `/operations/tasks` — services/company/operations/handlers/task.handler.ts
-- POST `/operations/tasks` — services/company/operations/handlers/task.handler.ts
-- GET `/operations/tasks/:id` — services/company/operations/handlers/task.handler.ts
-- GET `/operations/tasks/:id/projects` — services/company/operations/handlers/task.handler.ts
-- POST `/operations/tasks/:id/projects` — services/company/operations/handlers/task.handler.ts
-- DELETE `/operations/tasks/:id/projects/:projectId` — services/company/operations/handlers/task.handler.ts
-- POST `/operations/tasks/:id/status` — services/company/operations/handlers/task.handler.ts
-- GET `/operations/tasks/:taskId/dependencies` — services/company/operations/handlers/task-dependency.handler.ts
-- GET `/operations/twelve-week-commitments` — services/company/operations/handlers/twelve-week-year.handler.ts
-- GET `/operations/twelve-week-cycles` — services/company/operations/handlers/twelve-week-year.handler.ts
-- GET `/operations/twelve-week-plans` — services/company/operations/handlers/twelve-week-year.handler.ts
-- POST `/operations/weekly-commitments` — services/company/operations/handlers/twelve-week-year.handler.ts
-- POST `/operations/weekly-plans` — services/company/operations/handlers/twelve-week-year.handler.ts
-- GET `/operations/workspace-runtime/blockers` — services/company/operations/handlers/workspace-runtime.handler.ts
-- GET `/operations/workspace-runtime/items/:sourceKind/:sourceId` — services/company/operations/handlers/workspace-runtime.handler.ts
-- POST `/operations/workspace-runtime/items/:sourceKind/:sourceId/snooze` — services/company/operations/handlers/workspace-runtime.handler.ts
-- GET `/operations/workspace-runtime/needs-you` — services/company/operations/handlers/workspace-runtime.handler.ts
-- GET `/operations/workspace-runtime/source-status` — services/company/operations/handlers/workspace-runtime.handler.ts
-- GET `/operations/workspaces/:workspaceId/cycles` — services/company/operations/handlers/twelve-week-year.handler.ts
 - POST `/platform/auth/register` — services/cosa/handlers/auth.handler.ts
 - POST `/platform/auth/sessions` — services/cosa/handlers/auth.handler.ts
 - POST `/platform/internal/list-workspace-memberships` — services/cosa/handlers/venture-workspace.handler.ts
 - POST `/platform/internal/mark-workspace-synced` — services/cosa/handlers/venture-workspace.handler.ts
 - POST `/platform/internal/validate-workspace-membership` — services/cosa/handlers/venture-workspace.handler.ts
-- GET `/platform/workspaces/:workspaceId/audit-events` — services/cosa/handlers/workspace-settings.handler.ts
-- GET `/platform/workspaces/:workspaceId/connectors` — services/cosa/handlers/workspace-settings.handler.ts
-- POST `/platform/workspaces/:workspaceId/connectors/:connectorKey/install` — services/cosa/handlers/workspace-settings.handler.ts
-- POST `/platform/workspaces/:workspaceId/connectors/:connectorKey/revoke` — services/cosa/handlers/workspace-settings.handler.ts
-- GET `/platform/workspaces/:workspaceId/members` — services/cosa/handlers/workspace-settings.handler.ts
-- GET `/platform/workspaces/:workspaceId/runtime-nodes` — services/cosa/handlers/workspace-settings.handler.ts
-- POST `/platform/workspaces/:workspaceId/runtime-nodes/:nodeId/revoke` — services/cosa/handlers/workspace-settings.handler.ts
 
 ## 2. Frontend company-bound call sites — trạng thái resolve
 
 | Key (METHOD prefix) | Resolved | Owner (allowlist) | Call sites |
 |---|---|---|---|
-| `DELETE /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:915 |
-| `DELETE /execution/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:841 |
-| `DELETE /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:522 |
-| `DELETE /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:626 |
-| `DELETE /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:276 |
-| `DELETE /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:557 |
-| `DELETE /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:518 |
-| `DELETE /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:228 |
-| `DELETE /okrs/key-results` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:358 |
-| `DELETE /okrs/objectives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:291 |
-| `DELETE /operations/projects` | ✓ |  | frontend/lib/modules/strategy/services/strategy_service.dart:629 |
-| `DELETE /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:139 |
-| `DELETE /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:682 |
+| `DELETE /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:324 |
+| `DELETE /execution/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:250 |
+| `DELETE /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:167 |
+| `DELETE /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:628 |
+| `DELETE /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:278 |
+| `DELETE /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:559 |
+| `DELETE /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:520 |
+| `DELETE /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:230 |
+| `DELETE /okrs/key-results` | ✗ GHOST |  | frontend/lib/modules/strategy/services/okr_service.dart:155 |
+| `DELETE /okrs/objectives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/okr_service.dart:88 |
+| `DELETE /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:52 |
 | `DELETE /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:484 |
 | `GET /admin` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:39, frontend/lib/modules/settings/services/admin_service.dart:14 |
 | `GET /business/packs` | ✗ GHOST |  | frontend/lib/modules/organization/services/business_pack_service.dart:17, frontend/lib/modules/organization/services/business_pack_service.dart:35, frontend/lib/modules/organization/services/business_pack_service.dart:52 … |
 | `GET /channels` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:50 |
 | `GET /channels/list` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:167 |
 | `GET /commercial/leads` | ✓ |  | frontend/lib/modules/sales/services/sales_service.dart:62 |
-| `GET /commercial/marketing-context` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:150 |
+| `GET /commercial/marketing-context` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:152 |
 | `GET /connectors` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:14 |
 | `GET /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:141 |
 | `GET /devices` | ✗ GHOST |  | frontend/lib/modules/settings/services/developer_service.dart:14 |
 | `GET /devices/jobs` | ✗ GHOST |  | frontend/lib/modules/settings/services/developer_service.dart:41 |
-| `GET /execution/gate-decisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:953 |
-| `GET /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:855 |
-| `GET /execution/twelve-week-cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:372, frontend/lib/modules/strategy/services/strategy_service.dart:772 |
-| `GET /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:476 |
-| `GET /execution/weekly-plans` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:419 |
-| `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:80 |
-| `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:31 |
-| `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:46 |
-| `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:144 |
-| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:100, frontend/lib/modules/auth/services/auth_service.dart:466 |
-| `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/onboarding/services/company_identity_service.dart:18 |
-| `GET /marketing/analytics/overview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:132 |
-| `GET /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:600 |
-| `GET /marketing/assumptions/summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:608 |
-| `GET /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:244, frontend/lib/modules/marketing/services/marketing_service.dart:254 |
-| `GET /marketing/canvases/revisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:736 |
-| `GET /marketing/canvases/status` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:654 |
-| `GET /marketing/cockpit-summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:125 |
-| `GET /marketing/crm/attributions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:708 |
-| `GET /marketing/crm/interviews` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:699 |
-| `GET /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:542 |
-| `GET /marketing/evidence` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:634 |
-| `GET /marketing/experiments` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:298 |
-| `GET /marketing/funnel` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:140 |
-| `GET /marketing/learnings` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:330 |
-| `GET /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:503 |
-| `GET /marketing/metrics` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:341, frontend/lib/modules/marketing/services/marketing_service.dart:351 |
-| `GET /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:211 |
-| `GET /marketing/recommendations` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:567 |
-| `GET /marketing/skill-executions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:365 |
-| `GET /marketing/skills` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:360 |
-| `GET /okrs/cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:216 |
-| `GET /okrs/key-results` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:302 |
-| `GET /okrs/objectives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:249 |
+| `GET /execution/gate-decisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:362 |
+| `GET /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:264 |
+| `GET /execution/twelve-week-cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:17, frontend/lib/modules/strategy/services/twelve_week_service.dart:181 |
+| `GET /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:121 |
+| `GET /execution/weekly-plans` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:64 |
+| `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:101 |
+| `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:52 |
+| `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:67 |
+| `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:170 |
+| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:100, frontend/lib/modules/auth/services/auth_service.dart:491 |
+| `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/settings/services/workspace_orientation_service.dart:16 |
+| `GET /marketing/analytics/overview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:134 |
+| `GET /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:602 |
+| `GET /marketing/assumptions/summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:610 |
+| `GET /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:246, frontend/lib/modules/marketing/services/marketing_service.dart:256 |
+| `GET /marketing/canvases/revisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:738 |
+| `GET /marketing/canvases/status` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:656 |
+| `GET /marketing/cockpit-summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:127 |
+| `GET /marketing/crm/attributions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:710 |
+| `GET /marketing/crm/interviews` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:701 |
+| `GET /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:544 |
+| `GET /marketing/evidence` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:636 |
+| `GET /marketing/experiments` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:300 |
+| `GET /marketing/funnel` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:142 |
+| `GET /marketing/learnings` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:332 |
+| `GET /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:505 |
+| `GET /marketing/metrics` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:343, frontend/lib/modules/marketing/services/marketing_service.dart:353 |
+| `GET /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:213 |
+| `GET /marketing/recommendations` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:569 |
+| `GET /marketing/skill-executions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:367 |
+| `GET /marketing/skills` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:362 |
+| `GET /okrs/cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/okr_service.dart:13 |
+| `GET /okrs/key-results` | ✗ GHOST |  | frontend/lib/modules/strategy/services/okr_service.dart:99 |
+| `GET /okrs/objectives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/okr_service.dart:46 |
 | `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/outcomes_service.dart:11, frontend/lib/modules/strategy/services/outcomes_service.dart:85 |
-| `GET /operations/projects` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:107, frontend/lib/modules/strategy/services/strategy_service.dart:561 |
+| `GET /operations/projects` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:109 |
 | `GET /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:21, frontend/lib/modules/vault/services/evidence_service.dart:88 |
-| `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:99, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
+| `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:104, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
 | `GET /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:60 |
 | `GET /operations/strategy/gate-evaluations` | ✓ |  | frontend/lib/modules/strategy/services/stage_gate_service.dart:40, frontend/lib/modules/strategy/services/stage_gate_service.dart:58 |
 | `GET /operations/strategy/maturity-assessments` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:153 |
@@ -799,32 +465,27 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /operations/strategy/metric-snapshots` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:42 |
 | `GET /operations/strategy/pilots` | ✓ |  | frontend/lib/modules/strategy/services/pilot_run_service.dart:15, frontend/lib/modules/strategy/services/pilot_run_service.dart:31 |
 | `GET /operations/strategy/pmf-scoreboards` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:89, frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:110 |
-| `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:79 |
+| `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:84 |
 | `GET /operations/strategy/stage-context` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:85 |
 | `GET /operations/strategy/stage-policies` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:14, frontend/lib/modules/strategy/services/stage_service.dart:98 |
 | `GET /operations/strategy/stage-transitions` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:68 |
-| `GET /operations/tasks` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:29, frontend/lib/modules/tasks/services/task_service.dart:18, frontend/lib/modules/tasks/services/task_service.dart:42 … |
+| `GET /operations/tasks` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:32, frontend/lib/modules/tasks/services/task_service.dart:18, frontend/lib/modules/tasks/services/task_service.dart:42 … |
 | `GET /org` | ✗ GHOST |  | frontend/lib/modules/organization/services/organization_service.dart:14, frontend/lib/modules/organization/services/organization_service.dart:25, frontend/lib/modules/organization/services/organization_service.dart:36 … |
 | `GET /plugins` | ✗ GHOST |  | frontend/lib/modules/skills/services/plugins_service.dart:14 |
 | `GET /policy-programs` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:172, frontend/lib/modules/finance/services/policy_funding_service.dart:202 |
 | `GET /policy-programs/draft-watchlist` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:165 |
 | `GET /projects` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:45, frontend/lib/modules/strategy/services/validation_service.dart:25, frontend/lib/modules/strategy/services/validation_service.dart:61 … |
 | `GET /runtime/doctor` | ✗ GHOST |  | frontend/lib/core/services/diagnostics_service.dart:8 |
-| `GET /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:100, frontend/lib/modules/strategy/services/strategy_service.dart:109 |
-| `GET /strategy/founder-profile` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1515 |
-| `GET /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:640 |
+| `GET /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:13, frontend/lib/modules/strategy/services/canvas_service.dart:22 |
+| `GET /strategy/founder-profile` | ✗ GHOST |  | frontend/lib/modules/strategy/services/founder_service.dart:13 |
+| `GET /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/project_service.dart:124 |
 | `GET /strategy/lenses/bsc` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:210 |
 | `GET /strategy/lenses/pestel` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:25 |
 | `GET /strategy/lenses/summary` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:11 |
 | `GET /strategy/lenses/swot` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:87 |
 | `GET /strategy/lenses/tows` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:133 |
-| `GET /strategy/portfolios` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1537 |
-| `GET /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1745 |
-| `GET /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:162 |
-| `GET /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1710 |
-| `GET /vault/documents` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:16, frontend/lib/modules/vault/services/vault_service.dart:33 |
-| `GET /vault/graph` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:116 |
-| `GET /vault/knowledge` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:100 |
+| `GET /strategy/portfolios` | ✗ GHOST |  | frontend/lib/modules/strategy/services/portfolio_service.dart:323 |
+| `GET /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:75 |
 | `GET /workforce/agents` | ✗ GHOST | M7 | frontend/lib/modules/agents/services/agent_platform_service.dart:24, frontend/lib/modules/agents/services/agent_platform_service.dart:605, frontend/lib/modules/agents/services/agents_service.dart:34 |
 | `GET /workforce/approvals` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:239 |
 | `GET /workforce/budgets` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:360 |
@@ -834,7 +495,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workforce/exceptions` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:635 |
 | `GET /workforce/heartbeats` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:414 |
 | `GET /workforce/org-chart` | ✗ GHOST | M7 | frontend/lib/modules/agents/services/agent_platform_service.dart:226, frontend/lib/modules/agents/services/agents_service.dart:54 |
-| `GET /workforce/packs` | ✗ GHOST | M7 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:136 |
 | `GET /workforce/prompts` | ✗ GHOST |  | frontend/lib/modules/skills/services/prompt_registry_service.dart:76, frontend/lib/modules/skills/services/prompt_registry_service.dart:85, frontend/lib/modules/skills/services/prompt_registry_service.dart:93 |
 | `GET /workforce/routines` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:441 |
 | `GET /workforce/runs` | ✗ GHOST |  | frontend/lib/modules/agents/services/agents_service.dart:113, frontend/lib/modules/agents/services/agents_service.dart:122 |
@@ -846,47 +506,43 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workspace/file` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:21 |
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
 | `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136, frontend/lib/modules/sales/services/revenue_engine_service.dart:16, frontend/lib/modules/sales/services/revenue_engine_service.dart:70 … |
-| `PATCH /commercial/marketing-context/product-marketing` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:199 |
-| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:453 |
-| `PATCH /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:620 |
-| `PATCH /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:260 |
-| `PATCH /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:552 |
-| `PATCH /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:513 |
-| `PATCH /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:223 |
+| `PATCH /commercial/marketing-context/product-marketing` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:201 |
+| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:478 |
+| `PATCH /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:622 |
+| `PATCH /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:262 |
+| `PATCH /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:554 |
+| `PATCH /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:515 |
+| `PATCH /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:225 |
 | `POST /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:151 |
-| `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:127 |
-| `POST /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:65 |
-| `POST /marketing/ai/design-experiment` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:660 |
-| `POST /marketing/ai/evaluate-learning-loop` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:714 |
-| `POST /marketing/ai/extract-assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:646 |
-| `POST /marketing/ai/extract-interview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:684 |
-| `POST /marketing/ai/propose-canvas-revision` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:726 |
-| `POST /marketing/analytics/attribution` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:533 |
-| `POST /marketing/assets` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:289 |
-| `POST /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:614 |
-| `POST /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:249 |
-| `POST /marketing/canvases/revisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:742, frontend/lib/modules/marketing/services/marketing_service.dart:748 |
-| `POST /marketing/crm/interviews` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:690 |
-| `POST /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:547 |
-| `POST /marketing/evidence` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:640 |
-| `POST /marketing/experiments` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:303 |
-| `POST /marketing/learning-loop/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:720 |
-| `POST /marketing/learnings` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:336 |
-| `POST /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:508, frontend/lib/modules/marketing/services/marketing_service.dart:523 |
-| `POST /marketing/metrics` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:346 |
-| `POST /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:218 |
-| `POST /marketing/recommendations` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:572 |
+| `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:153 |
+| `POST /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:86 |
+| `POST /marketing/ai/design-experiment` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:662 |
+| `POST /marketing/ai/evaluate-learning-loop` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:716 |
+| `POST /marketing/ai/extract-assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:648 |
+| `POST /marketing/ai/extract-interview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:686 |
+| `POST /marketing/ai/propose-canvas-revision` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:728 |
+| `POST /marketing/analytics/attribution` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:535 |
+| `POST /marketing/assets` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:291 |
+| `POST /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:616 |
+| `POST /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:251 |
+| `POST /marketing/canvases/revisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:744, frontend/lib/modules/marketing/services/marketing_service.dart:750 |
+| `POST /marketing/crm/interviews` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:692 |
+| `POST /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:549 |
+| `POST /marketing/evidence` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:642 |
+| `POST /marketing/experiments` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:305 |
+| `POST /marketing/learning-loop/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:722 |
+| `POST /marketing/learnings` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:338 |
+| `POST /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:510, frontend/lib/modules/marketing/services/marketing_service.dart:525 |
+| `POST /marketing/metrics` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:348 |
+| `POST /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:220 |
+| `POST /marketing/recommendations` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:574 |
 | `POST /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:36 |
 | `POST /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:132 |
 | `POST /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:75 |
 | `POST /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:77 |
 | `POST /projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/validation_service.dart:219 |
-| `POST /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:145 |
-| `POST /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1772 |
-| `POST /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:168 |
-| `POST /strategy/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1858 |
-| `POST /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1729 |
-| `POST /strategy/workspace-templates:provision` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1720 |
+| `POST /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:58 |
+| `POST /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:81 |
 | `POST /tech-radar/seed` | ✗ GHOST |  | frontend/lib/modules/skills/services/tech_radar_service.dart:116 |
 | `POST /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:470 |
 | `POST /workforce/decisions` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:347 |
@@ -894,7 +550,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /workforce/routines` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:455 |
 | `POST /workforce/routing/test` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:213 |
 | `POST /workforce/tools/webhook` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:539 |
-| `PUT /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1738 |
 
 ## 3. Known-broken allowlist (route ma đã biết — owned by M4/M7)
 
@@ -910,25 +565,23 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | Method | Path | File |
 |---|---|---|
 | GET | `/approvals` | apps/cosa/api/workforce_routes.py |
-| GET | `/approvals` | apps/cosa/api/routes.py |
 | POST | `/approvals/{approval_id}/decision` | apps/cosa/api/workforce_routes.py |
-| POST | `/approvals/{approval_id}/decision` | apps/cosa/api/routes.py |
 | GET | `/assignments` | apps/cosa/api/workforce_routes.py |
 | POST | `/assignments` | apps/cosa/api/workforce_routes.py |
 | POST | `/assignments/{assignment_id}/retire` | apps/cosa/api/workforce_routes.py |
 | POST | `/candidates` | apps/cosa/api/skill_registry_routes.py |
 | GET | `/capabilities` | apps/cosa/api/workforce_routes.py |
 | GET | `/composition` | apps/cosa/api/workforce_routes.py |
-| POST | `/connectors/authorize` | apps/cosa/api/routes.py |
-| POST | `/connectors/grant` | apps/cosa/api/routes.py |
-| POST | `/connectors/install` | apps/cosa/api/routes.py |
-| POST | `/connectors/revoke` | apps/cosa/api/routes.py |
-| GET | `/conversations` | apps/cosa/api/routes.py |
-| POST | `/conversations` | apps/cosa/api/routes.py |
-| GET | `/conversations/{conversation_id}` | apps/cosa/api/routes.py |
-| PATCH | `/conversations/{conversation_id}` | apps/cosa/api/routes.py |
-| GET | `/conversations/{conversation_id}/artifacts` | apps/cosa/api/routes.py |
-| POST | `/conversations/{conversation_id}/messages` | apps/cosa/api/routes.py |
+| POST | `/connectors/authorize` | apps/cosa/api/connector_routes.py |
+| POST | `/connectors/grant` | apps/cosa/api/connector_routes.py |
+| POST | `/connectors/install` | apps/cosa/api/connector_routes.py |
+| POST | `/connectors/revoke` | apps/cosa/api/connector_routes.py |
+| GET | `/conversations` | apps/cosa/api/conversation_routes.py |
+| POST | `/conversations` | apps/cosa/api/conversation_routes.py |
+| GET | `/conversations/{conversation_id}` | apps/cosa/api/conversation_routes.py |
+| PATCH | `/conversations/{conversation_id}` | apps/cosa/api/conversation_routes.py |
+| GET | `/conversations/{conversation_id}/artifacts` | apps/cosa/api/conversation_routes.py |
+| POST | `/conversations/{conversation_id}/messages` | apps/cosa/api/conversation_routes.py |
 | GET | `/correlation/{correlation_id}` | apps/cosa/api/event_operations_routes.py |
 | GET | `/cost-observations` | apps/cosa/api/workforce_routes.py |
 | POST | `/customer-support` | apps/cosa/api/copilot_routes.py |
@@ -942,10 +595,10 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/health` | apps/cosa/api/workforce_routes.py |
 | GET | `/healthz` | apps/cosa/api/app.py |
 | GET | `/knowledge/graph` | apps/cosa/api/vault_routes.py |
-| POST | `/knowledge/ingestions/{ingestion_id}/review` | apps/cosa/api/routes.py |
+| POST | `/knowledge/ingestions/{ingestion_id}/review` | apps/cosa/api/knowledge_routes.py |
 | GET | `/knowledge/sources` | apps/cosa/api/vault_routes.py |
-| POST | `/knowledge/uploads` | apps/cosa/api/routes.py |
-| POST | `/knowledge/uploads/{ingestion_id}/complete` | apps/cosa/api/routes.py |
+| POST | `/knowledge/uploads` | apps/cosa/api/knowledge_routes.py |
+| POST | `/knowledge/uploads/{ingestion_id}/complete` | apps/cosa/api/knowledge_routes.py |
 | GET | `/live` | apps/cosa/api/app.py |
 | GET | `/live` | apps/cosa/worker/health.py |
 | GET | `/metrics` | apps/cosa/api/app.py |
@@ -961,15 +614,15 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/runs/{run_id}/cancel` | apps/cosa/api/routes.py |
 | GET | `/runs/{run_id}/events` | apps/cosa/api/workforce_routes.py |
 | GET | `/runs/{run_id}/events` | apps/cosa/api/routes.py |
+| GET | `/schedules` | apps/cosa/api/schedule_routes.py |
 | GET | `/schedules` | apps/cosa/api/workforce_routes.py |
-| GET | `/schedules` | apps/cosa/api/routes.py |
+| POST | `/schedules` | apps/cosa/api/schedule_routes.py |
 | POST | `/schedules` | apps/cosa/api/workforce_routes.py |
-| POST | `/schedules` | apps/cosa/api/routes.py |
+| POST | `/schedules/{schedule_id}/run-now` | apps/cosa/api/schedule_routes.py |
 | POST | `/schedules/{schedule_id}/run-now` | apps/cosa/api/workforce_routes.py |
-| POST | `/schedules/{schedule_id}/run-now` | apps/cosa/api/routes.py |
-| GET | `/sessions/{conversation_id}` | apps/cosa/api/routes.py |
-| GET | `/sessions/{conversation_id}/artifacts` | apps/cosa/api/routes.py |
-| GET | `/sessions/{conversation_id}/timeline` | apps/cosa/api/routes.py |
+| GET | `/sessions/{conversation_id}` | apps/cosa/api/conversation_routes.py |
+| GET | `/sessions/{conversation_id}/artifacts` | apps/cosa/api/conversation_routes.py |
+| GET | `/sessions/{conversation_id}/timeline` | apps/cosa/api/conversation_routes.py |
 | GET | `/skills` | apps/cosa/api/settings_routes.py |
 | PUT | `/skills/{skill_key}` | apps/cosa/api/settings_routes.py |
 | POST | `/sync-built-in` | apps/cosa/api/skill_registry_routes.py |
