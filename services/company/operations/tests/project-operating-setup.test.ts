@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../models/db";
 import * as schema from "../../shared/db/schema/strategy";
 import { eventOutbox } from "../../shared/db/schema/integration";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { createProject, getProject } from "../handlers/project.handler";
 import {
   getProjectOperatingSetupEndpoint,
@@ -114,6 +115,34 @@ describe("Project Operating Setup Endpoints and Lifecycle", () => {
     expect(resumed.stageTargetDate).toBeDefined();
   });
 
+  it("clears stageTargetDate when a draft explicitly clears stageDurationWeeks", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Clear draft duration",
+    });
+    const initial = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+    });
+    expect(initial.stageTargetDate).not.toBeNull();
+
+    const cleared = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      stageDurationWeeks: null,
+    });
+
+    expect(cleared.stageDurationWeeks).toBeNull();
+    expect(cleared.stageTargetDate).toBeNull();
+  });
+
   it("activates P1 via lifecycle journal and persists commitment", async () => {
     const ws = await createTestWorkspaceWithMember();
     const project = await createProject({
@@ -158,6 +187,71 @@ describe("Project Operating Setup Endpoints and Lifecycle", () => {
     );
     expect(setupEvents).toHaveLength(1);
     expect(setupEvents[0]?.aggregateId).toBe(project.id);
+  });
+
+  it("prioritizes the target project's policy and ignores another project's policy", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const projectB = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Project with an allow policy",
+    });
+    const projectA = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Later project with blocking policy",
+    });
+    await db.insert(schema.projectStageTransitionPolicies).values([
+      {
+        id: generateSnowflake(),
+        workspaceId: BigInt(ws.workspaceId),
+        projectId: null,
+        fromStage: "P0_DISCOVERY",
+        toStage: "P1_PROBLEM_VALIDATION",
+        allowed: false,
+        policyVersion: "workspace-block-v7",
+      },
+      {
+        id: generateSnowflake(),
+        workspaceId: BigInt(ws.workspaceId),
+        projectId: BigInt(projectB.id),
+        fromStage: "P0_DISCOVERY",
+        toStage: "P1_PROBLEM_VALIDATION",
+        allowed: true,
+        policyVersion: "project-b-allow-v4",
+      },
+      {
+        id: generateSnowflake(),
+        workspaceId: BigInt(ws.workspaceId),
+        projectId: BigInt(projectA.id),
+        fromStage: "P0_DISCOVERY",
+        toStage: "P1_PROBLEM_VALIDATION",
+        allowed: false,
+        policyVersion: "project-a-block-v3",
+      },
+    ]);
+
+    const result = await activateProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: projectB.id,
+      targetCustomer: "Finance controllers",
+      problemStatement: "Close reporting is slow",
+      evidenceLevel: "FIVE_PLUS_INTERVIEWS",
+      selectedStage: "P1_PROBLEM_VALIDATION",
+      stageDurationWeeks: 3,
+      weeklyReviewWeekday: 5,
+      weeklyReviewTime: "15:00",
+      firstWeekOutcome: "Validate the close workflow",
+      firstWeekActions: [{ title: "Interview two controllers" }],
+    });
+
+    expect(result.project.lifecycleStage).toBe("P1_PROBLEM_VALIDATION");
+    const [journal] = await listProjectStageTransitions(
+      BigInt(ws.workspaceId),
+      BigInt(projectB.id),
+    );
+    expect(journal?.policyVersion).toBe("project-b-allow-v4");
   });
 
   it("rejects cross-workspace access with not_found or permission_denied", async () => {

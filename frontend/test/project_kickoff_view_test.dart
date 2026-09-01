@@ -73,7 +73,7 @@ Widget kickoffHarness({
   VoidCallback? onOpenAdvancedRoadmap,
 }) {
   Get.reset();
-  final controller = Get.put(
+  Get.put(
     ProjectKickoffController(service: FakeKickoffService(initialSetup: setup)),
   );
 
@@ -145,7 +145,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final buttonFinder = find.widgetWithText(ElevatedButton, 'Xác nhận vòng đầu');
+    final buttonFinder = find.widgetWithText(
+      ElevatedButton,
+      'Xác nhận vòng đầu',
+    );
     expect(buttonFinder, findsOneWidget);
     await tester.ensureVisible(buttonFinder);
     await tester.tap(buttonFinder);

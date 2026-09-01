@@ -12,6 +12,8 @@ import '../../../modules/chat/services/agent_chat_service.dart';
 import '../../../modules/chat/models/data_access_declaration.dart';
 
 import '../../../core/services/secure_storage_service.dart';
+import '../../../data/models/project_operating_setup_model.dart';
+import '../../../modules/strategy/services/project_operating_setup_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
 
 /// Fix-review (2026-09-01, Task 3) — trạng thái tải Workforce Packs cần phân
@@ -39,6 +41,8 @@ class FounderCommandCenterController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool hasProjects = true.obs;
   final RxList<dynamic> projectsList = <dynamic>[].obs;
+  final Rxn<ProjectOperatingSetup> activeProjectSetup =
+      Rxn<ProjectOperatingSetup>();
 
   /// Lỗi tải danh sách dự án (401/403/409/5xx, mất mạng...) — trước đây bị
   /// nuốt thành `[]`, khiến `hasProjects` hiểu nhầm "chưa có dự án nào" và
@@ -105,12 +109,26 @@ class FounderCommandCenterController extends GetxController {
       projectsList.assignAll(projects);
       hasProjects.value = projects.isNotEmpty || projectsError.value != null;
 
-      final activeProjectId = projects.isNotEmpty ? projects.first['id'] : null;
+      final activeProjectId = projects.isNotEmpty
+          ? projects.first['id']?.toString()
+          : null;
       final activeProjectStage = projects.isNotEmpty
           ? (projects.first['lifecycleStage'] ??
                 projects.first['project_stage'] ??
                 projects.first['lifecycle_stage'])
           : null;
+
+      if (activeProjectId != null) {
+        try {
+          final setupService = ProjectOperatingSetupService();
+          activeProjectSetup.value = await setupService.get(activeProjectId);
+        } catch (e) {
+          debugPrint('[FounderCommandCenter] get setup error: $e');
+          activeProjectSetup.value = null;
+        }
+      } else {
+        activeProjectSetup.value = null;
+      }
 
       final pulseRes = await CoFounderApiService.getCompanyPulse(
         workspaceId: wsId,

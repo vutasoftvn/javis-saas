@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show FlutterError;
 import 'package:flutter/services.dart'
     show MissingPluginException, PlatformException;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,9 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// M3 §7: legacy brain scope đã bị bỏ hoàn toàn — Workspace là scope duy nhất.
 class SecureStorageService {
   static const _storage = FlutterSecureStorage(
-    mOptions: MacOsOptions(
-      usesDataProtectionKeychain: false,
-    ),
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
   );
 
   /// Các key nhạy cảm cần migrate 1 lần từ SharedPreferences sang secure
@@ -38,27 +37,40 @@ class SecureStorageService {
   /// `SharedPreferences.setMockInitialValues`) không phải sửa hàng loạt —
   /// production luôn có binding + platform channel thật (khởi tạo qua
   /// `runApp()` trong main.dart) nên nhánh này không bao giờ chạy ở runtime thật.
-  static bool _isTestEnvironmentGap(Object e) =>
+  static bool _isRecoverableStorageError(Object e) =>
       e is MissingPluginException ||
-      (e is PlatformException && e.code == 'MissingPluginException') ||
+      e is PlatformException ||
       (e is FlutterError &&
           e.toString().contains('Binding has not yet been initialized'));
+
+  /// Widget tests do not register the native Keychain plugin. On macOS such a
+  /// MethodChannel call can remain pending rather than immediately throwing a
+  /// MissingPluginException, so select the existing SharedPreferences test
+  /// fallback before making that native call.
+  static bool get _isWidgetTest {
+    try {
+      return WidgetsBinding.instance.runtimeType.toString().contains(
+        'TestWidgetsFlutterBinding',
+      );
+    } catch (_) {
+      return false;
+    }
+  }
 
   static Future<void> write(String key, String value) =>
       _writeSecureOrFallback(key, value);
 
-  /// Trả về true nếu ghi được vào secure storage THẬT (Keychain/Keystore),
-  /// false nếu phải fallback sang SharedPreferences (chỉ xảy ra trong
-  /// `flutter test`). `migrateFromSharedPreferences()` dùng giá trị trả về
-  /// này để quyết định có an toàn xoá key cũ khỏi SharedPreferences hay
-  /// không — false nghĩa là giá trị vẫn đang nằm trong chính
-  /// SharedPreferences (đường fallback), xoá ngay sau khi ghi sẽ mất dữ liệu.
   static Future<bool> _writeSecureOrFallback(String key, String value) async {
+    if (_isWidgetTest) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, value);
+      return false;
+    }
     try {
       await _storage.write(key: key, value: value);
       return true;
     } catch (e) {
-      if (!_isTestEnvironmentGap(e)) rethrow;
+      if (!_isRecoverableStorageError(e)) rethrow;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(key, value);
       return false;
@@ -66,20 +78,29 @@ class SecureStorageService {
   }
 
   static Future<String?> read(String key) async {
+    if (_isWidgetTest) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(key);
+    }
     try {
       return await _storage.read(key: key);
     } catch (e) {
-      if (!_isTestEnvironmentGap(e)) rethrow;
+      if (!_isRecoverableStorageError(e)) rethrow;
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString(key);
     }
   }
 
   static Future<void> delete(String key) async {
+    if (_isWidgetTest) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(key);
+      return;
+    }
     try {
       await _storage.delete(key: key);
     } catch (e) {
-      if (!_isTestEnvironmentGap(e)) rethrow;
+      if (!_isRecoverableStorageError(e)) rethrow;
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(key);
     }

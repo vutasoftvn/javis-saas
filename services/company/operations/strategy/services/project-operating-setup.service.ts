@@ -266,10 +266,14 @@ export async function saveProjectOperatingSetup(
     }
   }
 
-  const durationWeeks = req.stageDurationWeeks ?? existing?.stageDurationWeeks ?? null;
-  const stageTargetDate = durationWeeks
-    ? new Date(Date.now() + durationWeeks * 7 * 24 * 60 * 60 * 1000)
-    : existing?.stageTargetDate ?? null;
+  const durationWeeks = req.stageDurationWeeks === undefined
+    ? existing?.stageDurationWeeks ?? null
+    : req.stageDurationWeeks;
+  const stageTargetDate = req.stageDurationWeeks === undefined
+    ? existing?.stageTargetDate ?? null
+    : durationWeeks === null
+      ? null
+      : new Date(Date.now() + durationWeeks * 7 * 24 * 60 * 60 * 1000);
 
   const actions = req.firstWeekActions !== undefined
     ? normalizeFirstWeekActions(req.firstWeekActions)

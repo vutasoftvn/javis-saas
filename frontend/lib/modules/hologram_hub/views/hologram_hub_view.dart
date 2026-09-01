@@ -7,12 +7,15 @@ import '../widgets/top3_focus_widget.dart';
 import '../widgets/waiting_for_you_widget.dart';
 import '../widgets/decision_modal_sheet.dart';
 import '../widgets/ai_workforce_tab.dart';
-import '../presentation/widgets/cyber_circuit_background.dart';
-import '../../../data/models/stage_model.dart';
-import '../../../shared/widgets/stage_badge.dart';
-import '../../../shared/widgets/company_scope_switcher.dart';
+import '../../../core/contracts/enums.generated.dart';
 import '../../../core/routing/app_routes.dart';
+import '../../../data/models/project_operating_setup_model.dart';
+import '../../../data/models/stage_model.dart';
+import '../../../shared/widgets/company_scope_switcher.dart';
+import '../../../shared/widgets/stage_badge.dart';
+import '../../dashboard/controllers/dashboard_controller.dart';
 import '../controllers/hologram_hub_controller.dart';
+import '../presentation/widgets/cyber_circuit_background.dart';
 
 class HologramHubView extends StatelessWidget {
   const HologramHubView({super.key});
@@ -364,6 +367,18 @@ class HologramHubView extends StatelessWidget {
             if (!controller.hasProjects.value) {
               return _buildFirstProjectBanner(context, controller);
             }
+            final setup = controller.activeProjectSetup.value;
+            final activeProjectId = controller.projectsList.isNotEmpty
+                ? controller.projectsList.first['id']?.toString()
+                : null;
+            if (activeProjectId != null &&
+                (setup == null ||
+                    setup.status != OperatingSetupStatus.active)) {
+              return _buildSetupIncompleteCard(context, activeProjectId);
+            }
+            if (setup != null && setup.status == OperatingSetupStatus.active) {
+              return _buildActiveOperatingSetupCard(context, setup);
+            }
             return const SizedBox.shrink();
           }),
 
@@ -600,13 +615,237 @@ class HologramHubView extends StatelessWidget {
     );
   }
 
+  Widget _buildSetupIncompleteCard(BuildContext context, String projectId) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.5),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 620;
+          final action = ElevatedButton.icon(
+            onPressed: () {
+              if (Get.isRegistered<DashboardController>()) {
+                Get.find<DashboardController>().openProjectKickoff(projectId);
+              }
+            },
+            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF59E0B),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            label: const Text(
+              'Tiếp tục thiết lập',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          );
+          final message = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                'Hoàn tất thiết lập vòng khởi đầu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Dự án của bạn chưa hoàn thành 3 bước thiết lập mục tiêu và hành động tuần đầu.',
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              ),
+            ],
+          );
+          final icon = Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.flag_circle_outlined,
+              color: Color(0xFFF59E0B),
+              size: 28,
+            ),
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    icon,
+                    const SizedBox(width: 16),
+                    Expanded(child: message),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Align(alignment: Alignment.centerRight, child: action),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              icon,
+              const SizedBox(width: 16),
+              Expanded(child: message),
+              const SizedBox(width: 16),
+              action,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildActiveOperatingSetupCard(
+    BuildContext context,
+    ProjectOperatingSetup setup,
+  ) {
+    final stageLabel =
+        setup.selectedStage == ProjectLifecycleStage.p1ProblemValidation
+        ? 'Xác thực vấn đề (P1)'
+        : 'Khám phá (P0)';
+    final duration =
+        setup.stageDurationWeeks ??
+        (setup.selectedStage == ProjectLifecycleStage.p1ProblemValidation
+            ? 4
+            : 2);
+    final reviewDay = setup.weeklyReviewWeekday == 5
+        ? 'Thứ Sáu'
+        : 'Thứ ${setup.weeklyReviewWeekday}';
+    final reviewTime = setup.weeklyReviewTime ?? '16:00';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF10B981).withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stage = Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Text(
+                  'Vòng hiện tại: $stageLabel · $duration tuần',
+                  style: const TextStyle(
+                    color: Color(0xFF10B981),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              );
+              final review = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.schedule_rounded,
+                    size: 15,
+                    color: Color(0xFF94A3B8),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Ngày review: $reviewDay · $reviewTime',
+                    style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ],
+              );
+              if (constraints.maxWidth < 760) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [stage, const SizedBox(height: 10), review],
+                );
+              }
+              return Row(children: [stage, const Spacer(), review]);
+            },
+          ),
+          if (setup.firstWeekOutcome != null &&
+              setup.firstWeekOutcome!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Kết quả tuần 1: ${setup.firstWeekOutcome}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (setup.firstWeekActions.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Hành động tuần đầu:',
+              style: TextStyle(
+                color: Color(0xFF94A3B8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: setup.firstWeekActions.asMap().entries.map((entry) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Text(
+                    '${entry.key + 1}. ${entry.value.title}',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   void _showCreateProjectDialog(
     BuildContext context,
     FounderCommandCenterController controller,
   ) {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
-    String selectedStage = 'P1_PROBLEM_VALIDATION';
 
     showDialog(
       context: context,

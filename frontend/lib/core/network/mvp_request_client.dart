@@ -13,9 +13,10 @@ class MvpRequestClient {
     http.Client? httpClient,
     ApiAuthResolver? authResolver,
     Duration requestTimeout = ApiClient.defaultTimeout,
-  })  : _httpClient = httpClient ?? http.Client(),
-        _authResolver = authResolver ?? const DefaultApiAuthResolver(),
-        _requestTimeout = requestTimeout;
+  }) : _httpClient = httpClient ?? http.Client(),
+       _authResolver = authResolver ?? const DefaultApiAuthResolver(),
+       // ignore: prefer_initializing_formals
+       _requestTimeout = requestTimeout;
 
   final http.Client _httpClient;
   final ApiAuthResolver _authResolver;
@@ -49,24 +50,32 @@ class MvpRequestClient {
       final workspaceId = await _authResolver.workspaceId();
 
       if (endpoint.requiresWorkspace && (token == null || token.isEmpty)) {
-        return const ApiFailure(ApiFailureDetail(
-          code: ApiFailureCode.unauthenticated,
-          statusCode: 401,
-          message: 'Missing authentication token',
-        ));
+        return const ApiFailure(
+          ApiFailureDetail(
+            code: ApiFailureCode.unauthenticated,
+            statusCode: 401,
+            message: 'Missing authentication token',
+          ),
+        );
       }
 
-      if (endpoint.requiresWorkspace && (workspaceId == null || workspaceId.isEmpty)) {
-        return const ApiFailure(ApiFailureDetail(
-          code: ApiFailureCode.invalidRequest,
-          statusCode: 400,
-          message: 'Missing workspace context',
-        ));
+      if (endpoint.requiresWorkspace &&
+          (workspaceId == null || workspaceId.isEmpty)) {
+        return const ApiFailure(
+          ApiFailureDetail(
+            code: ApiFailureCode.invalidRequest,
+            statusCode: 400,
+            message: 'Missing workspace context',
+          ),
+        );
       }
 
       var effectivePath = _buildPath(endpoint.path, pathParams);
       if (effectivePath.contains(':workspaceId') && workspaceId != null) {
-        effectivePath = effectivePath.replaceAll(':workspaceId', Uri.encodeComponent(workspaceId));
+        effectivePath = effectivePath.replaceAll(
+          ':workspaceId',
+          Uri.encodeComponent(workspaceId),
+        );
       }
 
       // Task 2 — route qua đúng transport target chung của `ApiClient`
@@ -84,10 +93,7 @@ class MvpRequestClient {
 
       var uri = target.uri!;
       if (query != null && query.isNotEmpty) {
-        uri = uri.replace(queryParameters: {
-          ...uri.queryParameters,
-          ...query,
-        });
+        uri = uri.replace(queryParameters: {...uri.queryParameters, ...query});
       }
 
       final headers = <String, String>{
@@ -106,47 +112,65 @@ class MvpRequestClient {
 
       switch (endpoint.method.toUpperCase()) {
         case 'GET':
-          response = await _httpClient.get(uri, headers: headers).timeout(_requestTimeout);
+          response = await _httpClient
+              .get(uri, headers: headers)
+              .timeout(_requestTimeout);
           break;
         case 'POST':
-          response = await _httpClient.post(uri, headers: headers, body: encodedBody).timeout(_requestTimeout);
+          response = await _httpClient
+              .post(uri, headers: headers, body: encodedBody)
+              .timeout(_requestTimeout);
           break;
         case 'PUT':
-          response = await _httpClient.put(uri, headers: headers, body: encodedBody).timeout(_requestTimeout);
+          response = await _httpClient
+              .put(uri, headers: headers, body: encodedBody)
+              .timeout(_requestTimeout);
           break;
         case 'PATCH':
-          response = await _httpClient.patch(uri, headers: headers, body: encodedBody).timeout(_requestTimeout);
+          response = await _httpClient
+              .patch(uri, headers: headers, body: encodedBody)
+              .timeout(_requestTimeout);
           break;
         case 'DELETE':
-          response = await _httpClient.delete(uri, headers: headers, body: encodedBody).timeout(_requestTimeout);
+          response = await _httpClient
+              .delete(uri, headers: headers, body: encodedBody)
+              .timeout(_requestTimeout);
           break;
         default:
-          return ApiFailure(ApiFailureDetail(
-            code: ApiFailureCode.invalidRequest,
-            message: 'Unsupported HTTP method: ${endpoint.method}',
-            endpointId: endpoint.id,
-          ));
+          return ApiFailure(
+            ApiFailureDetail(
+              code: ApiFailureCode.invalidRequest,
+              message: 'Unsupported HTTP method: ${endpoint.method}',
+              endpointId: endpoint.id,
+            ),
+          );
       }
 
       return _decodeResponse<T>(response, endpoint, decode);
     } on SocketException catch (e) {
-      return ApiFailure(ApiFailureDetail(
-        code: ApiFailureCode.unavailable,
-        message: 'Network connection failed: ${e.message}',
-        endpointId: endpoint.id,
-      ));
+      return ApiFailure(
+        ApiFailureDetail(
+          code: ApiFailureCode.unavailable,
+          message: 'Network connection failed: ${e.message}',
+          endpointId: endpoint.id,
+        ),
+      );
     } on TimeoutException catch (e) {
-      return ApiFailure(ApiFailureDetail(
-        code: ApiFailureCode.unavailable,
-        message: 'Request timed out: ${e.message}',
-        endpointId: endpoint.id,
-      ));
+      return ApiFailure(
+        ApiFailureDetail(
+          code: ApiFailureCode.unavailable,
+          message: 'Request timed out: ${e.message}',
+          endpointId: endpoint.id,
+        ),
+      );
     } catch (e) {
-      return ApiFailure(ApiFailureDetail(
-        code: ApiFailureCode.unknown,
-        message: e.toString(),
-        endpointId: endpoint.id,
-      ));
+      return ApiFailure(
+        ApiFailureDetail(
+          code: ApiFailureCode.unknown,
+          message: e.toString(),
+          endpointId: endpoint.id,
+        ),
+      );
     }
   }
 
@@ -160,33 +184,42 @@ class MvpRequestClient {
       try {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is! Map<String, dynamic>) {
-          return ApiFailure(ApiFailureDetail(
-            code: ApiFailureCode.malformedResponse,
-            statusCode: status,
-            message: 'Expected JSON object envelope but got ${decoded.runtimeType}',
-            endpointId: endpoint.id,
-          ));
+          return ApiFailure(
+            ApiFailureDetail(
+              code: ApiFailureCode.malformedResponse,
+              statusCode: status,
+              message:
+                  'Expected JSON object envelope but got ${decoded.runtimeType}',
+              endpointId: endpoint.id,
+            ),
+          );
         }
 
         if (!decoded.containsKey('data') || !decoded.containsKey('meta')) {
-          return ApiFailure(ApiFailureDetail(
-            code: ApiFailureCode.malformedResponse,
-            statusCode: status,
-            message: 'Missing "data" or "meta" in success envelope',
-            endpointId: endpoint.id,
-          ));
+          return ApiFailure(
+            ApiFailureDetail(
+              code: ApiFailureCode.malformedResponse,
+              statusCode: status,
+              message: 'Missing "data" or "meta" in success envelope',
+              endpointId: endpoint.id,
+            ),
+          );
         }
 
-        final meta = ApiResponseMeta.fromJson(decoded['meta'] as Map<String, dynamic>);
+        final meta = ApiResponseMeta.fromJson(
+          decoded['meta'] as Map<String, dynamic>,
+        );
         final data = decode(decoded['data']);
         return ApiSuccess(data: data, meta: meta);
       } catch (e) {
-        return ApiFailure(ApiFailureDetail(
-          code: ApiFailureCode.malformedResponse,
-          statusCode: status,
-          message: 'Failed to parse response: $e',
-          endpointId: endpoint.id,
-        ));
+        return ApiFailure(
+          ApiFailureDetail(
+            code: ApiFailureCode.malformedResponse,
+            statusCode: status,
+            message: 'Failed to parse response: $e',
+            endpointId: endpoint.id,
+          ),
+        );
       }
     }
 
@@ -230,12 +263,14 @@ class MvpRequestClient {
       }
     } catch (_) {}
 
-    return ApiFailure(ApiFailureDetail(
-      code: code,
-      statusCode: status,
-      message: message,
-      endpointId: endpoint.id,
-      raw: response.body,
-    ));
+    return ApiFailure(
+      ApiFailureDetail(
+        code: code,
+        statusCode: status,
+        message: message,
+        endpointId: endpoint.id,
+        raw: response.body,
+      ),
+    );
   }
 }

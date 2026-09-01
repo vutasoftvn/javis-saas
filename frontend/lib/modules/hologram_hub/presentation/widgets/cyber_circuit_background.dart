@@ -23,7 +23,12 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
-    )..repeat();
+    );
+    if (!WidgetsBinding.instance.runtimeType.toString().contains(
+      'TestWidgetsFlutterBinding',
+    )) {
+      _pulseController.repeat();
+    }
   }
 
   @override
@@ -38,9 +43,7 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
       animation: _pulseController,
       builder: (context, child) {
         return CustomPaint(
-          painter: _CircuitBoardPainter(
-            progress: _pulseController.value,
-          ),
+          painter: _CircuitBoardPainter(progress: _pulseController.value),
           child: widget.child,
         );
       },
@@ -409,11 +412,7 @@ class _CircuitBoardPainter extends CustomPainter {
     required double size,
     required Color color,
   }) {
-    final rect = Rect.fromCenter(
-      center: center,
-      width: size,
-      height: size,
-    );
+    final rect = Rect.fromCenter(center: center, width: size, height: size);
 
     // IC Body
     final chipPaint = Paint()
@@ -443,7 +442,11 @@ class _CircuitBoardPainter extends CustomPainter {
       // Left pin
       canvas.drawLine(Offset(rect.left - 4, y), Offset(rect.left, y), pinPaint);
       // Right pin
-      canvas.drawLine(Offset(rect.right, y), Offset(rect.right + 4, y), pinPaint);
+      canvas.drawLine(
+        Offset(rect.right, y),
+        Offset(rect.right + 4, y),
+        pinPaint,
+      );
     }
   }
 

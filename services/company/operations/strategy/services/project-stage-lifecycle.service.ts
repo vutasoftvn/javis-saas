@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../models/db";
 import { projects } from "../../../shared/db/schema/operations";
 import { identityWorkspaces } from "../../../shared/db/schema/identity";
@@ -112,10 +112,19 @@ export async function transitionProjectStageInTransaction(
       and(
         eq(projectStageTransitionPolicies.workspaceId, p.workspaceId),
         eq(projectStageTransitionPolicies.fromStage, currentStage),
-        eq(projectStageTransitionPolicies.toStage, p.toStage)
+        eq(projectStageTransitionPolicies.toStage, p.toStage),
+        or(
+          eq(projectStageTransitionPolicies.projectId, p.projectId),
+          isNull(projectStageTransitionPolicies.projectId),
+        ),
       )
     )
-    .orderBy(desc(projectStageTransitionPolicies.projectId))
+    .orderBy(
+      asc(sql<number>`case
+        when ${projectStageTransitionPolicies.projectId} = ${p.projectId} then 0
+        else 1
+      end`),
+    )
     .limit(1);
 
   const privileged = isLifecyclePrivileged(p.actorRole);

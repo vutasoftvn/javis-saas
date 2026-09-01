@@ -21,7 +21,10 @@ class CoFounderCardWidget extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3), width: 1.5),
+        border: Border.all(
+          color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF6366F1).withValues(alpha: 0.15),
@@ -54,13 +57,19 @@ class CoFounderCardWidget extends StatelessWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                                color: const Color(
+                                  0xFF8B5CF6,
+                                ).withValues(alpha: 0.4),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.psychology, color: Colors.white, size: 24),
+                          child: const Icon(
+                            Icons.psychology,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -82,22 +91,35 @@ class CoFounderCardWidget extends StatelessWidget {
                                     ),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                      color: const Color(
+                                        0xFF10B981,
+                                      ).withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFF10B981), width: 0.8),
+                                      border: Border.all(
+                                        color: const Color(0xFF10B981),
+                                        width: 0.8,
+                                      ),
                                     ),
                                     child: const Text(
                                       'ONLINE • AI PARTNER',
-                                      style: TextStyle(fontSize: 10, color: Color(0xFF34D399), fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF34D399),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                pulse?.suggestedFocus ?? 'Đang theo dõi nhịp tim doanh nghiệp và điều phối 5 Core Domains...',
+                                pulse?.suggestedFocus ??
+                                    'Đang theo dõi nhịp tim doanh nghiệp và điều phối 5 Core Domains...',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.white.withValues(alpha: 0.85),
@@ -114,12 +136,27 @@ class CoFounderCardWidget extends StatelessWidget {
                       alignment: Alignment.centerRight,
                       child: ElevatedButton.icon(
                         onPressed: onAskCosa,
-                        icon: const Icon(Icons.chat_bubble_outline, size: 16, color: Colors.white),
-                        label: const Text('Trao đổi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                        icon: const Icon(
+                          Icons.chat_bubble_outline,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          'Trao đổi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6366F1),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                           elevation: 4,
                         ),
                       ),
@@ -147,14 +184,21 @@ class CoFounderCardWidget extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.psychology, color: Colors.white, size: 30),
+                    child: const Icon(
+                      Icons.psychology,
+                      color: Colors.white,
+                      size: 30,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             const Text(
                               'COSA Co-Founder',
@@ -165,24 +209,36 @@ class CoFounderCardWidget extends StatelessWidget {
                                 letterSpacing: 0.3,
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                color: const Color(
+                                  0xFF10B981,
+                                ).withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFF10B981), width: 0.8),
+                                border: Border.all(
+                                  color: const Color(0xFF10B981),
+                                  width: 0.8,
+                                ),
                               ),
                               child: const Text(
                                 'ONLINE • AI PARTNER',
-                                style: TextStyle(fontSize: 10, color: Color(0xFF34D399), fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF34D399),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          pulse?.suggestedFocus ?? 'Đang theo dõi nhịp tim doanh nghiệp và điều phối 5 Core Domains...',
+                          pulse?.suggestedFocus ??
+                              'Đang theo dõi nhịp tim doanh nghiệp và điều phối 5 Core Domains...',
                           style: TextStyle(
                             fontSize: 13.5,
                             color: Colors.white.withValues(alpha: 0.85),
@@ -195,12 +251,27 @@ class CoFounderCardWidget extends StatelessWidget {
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: onAskCosa,
-                    icon: const Icon(Icons.chat_bubble_outline, size: 16, color: Colors.white),
-                    label: const Text('Trao đổi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    icon: const Icon(
+                      Icons.chat_bubble_outline,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Trao đổi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6366F1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       elevation: 4,
                     ),
                   ),
@@ -223,7 +294,8 @@ class CoFounderCardWidget extends StatelessWidget {
                     _buildPulseStat(
                       icon: Icons.check_circle_outline,
                       color: const Color(0xFF10B981),
-                      value: '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
+                      value:
+                          '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
                       label: 'Mục tiêu đúng hạn',
                     ),
                     _buildPulseStat(
@@ -255,7 +327,8 @@ class CoFounderCardWidget extends StatelessWidget {
                     child: _buildPulseStat(
                       icon: Icons.check_circle_outline,
                       color: const Color(0xFF10B981),
-                      value: '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
+                      value:
+                          '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
                       label: 'Mục tiêu đúng hạn',
                     ),
                   ),

@@ -9,6 +9,11 @@ class ProjectOperatingSetupService extends StrategyServiceBase {
     );
     final data = decode(response);
     if (data is Map<String, dynamic>) {
+      if (data.containsKey('setup') && data['setup'] is Map<String, dynamic>) {
+        return ProjectOperatingSetup.fromJson(
+          data['setup'] as Map<String, dynamic>,
+        );
+      }
       return ProjectOperatingSetup.fromJson(data);
     }
     throw StrategyApiException(
@@ -27,6 +32,11 @@ class ProjectOperatingSetupService extends StrategyServiceBase {
     );
     final data = decode(response);
     if (data is Map<String, dynamic>) {
+      if (data.containsKey('setup') && data['setup'] is Map<String, dynamic>) {
+        return ProjectOperatingSetup.fromJson(
+          data['setup'] as Map<String, dynamic>,
+        );
+      }
       return ProjectOperatingSetup.fromJson(data);
     }
     throw StrategyApiException(

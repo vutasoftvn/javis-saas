@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/contracts/enums.generated.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 import '../controllers/project_kickoff_controller.dart';
@@ -344,38 +343,44 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             ),
           ),
           const SizedBox(height: 8),
-          for (final level in KickoffEvidenceLevel.values)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: controller.evidenceLevel.value == level
-                    ? AppTheme.primary.withValues(alpha: 0.12)
-                    : AppTheme.backgroundDarker,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(
-                    color: controller.evidenceLevel.value == level
-                        ? AppTheme.primary
-                        : AppTheme.borderDark,
-                  ),
-                ),
-                child: RadioListTile<KickoffEvidenceLevel>(
-                  value: level,
-                  groupValue: controller.evidenceLevel.value,
-                  activeColor: AppTheme.primary,
-                  title: Text(
-                    level.label,
-                    style: const TextStyle(
-                      color: AppTheme.textDark,
-                      fontSize: 14,
+          RadioGroup<KickoffEvidenceLevel>(
+            groupValue: controller.evidenceLevel.value,
+            onChanged: (value) {
+              if (value != null) controller.selectEvidence(value);
+            },
+            child: Column(
+              children: [
+                for (final level in KickoffEvidenceLevel.values)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      color: controller.evidenceLevel.value == level
+                          ? AppTheme.primary.withValues(alpha: 0.12)
+                          : AppTheme.backgroundDarker,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: controller.evidenceLevel.value == level
+                              ? AppTheme.primary
+                              : AppTheme.borderDark,
+                        ),
+                      ),
+                      child: RadioListTile<KickoffEvidenceLevel>(
+                        value: level,
+                        activeColor: AppTheme.primary,
+                        title: Text(
+                          level.label,
+                          style: const TextStyle(
+                            color: AppTheme.textDark,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  onChanged: (val) {
-                    if (val != null) controller.selectEvidence(val);
-                  },
-                ),
-              ),
+              ],
             ),
+          ),
           const SizedBox(height: 20),
 
           // Actions

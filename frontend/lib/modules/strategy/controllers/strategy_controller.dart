@@ -78,13 +78,15 @@ class StrategyController extends GetxController
     await runGuarded(() async {
       final projectsResult = await _strategyService.getProjects();
       projects.value = projectsResult.items;
-      if (projectsResult.errorMessage != null)
+      if (projectsResult.errorMessage != null) {
         errorMessage.value = projectsResult.errorMessage;
+      }
 
       final initiativesResult = await _strategyService.getInitiatives();
       initiatives.value = initiativesResult.items;
-      if (initiativesResult.errorMessage != null)
+      if (initiativesResult.errorMessage != null) {
         errorMessage.value = initiativesResult.errorMessage;
+      }
 
       await loadPortfolios();
       await detectPortfolioNecessity();
