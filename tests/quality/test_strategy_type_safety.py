@@ -11,8 +11,12 @@ STRATEGY_SERVICES = (
     "experiment-proposal.service.ts",
     "gate-evaluation.service.ts",
     "interview.service.ts",
+    "maturity-assessment.service.ts",
+    "metric-contract.service.ts",
+    "next-best-action.service.ts",
     "pmf-scoreboard.service.ts",
     "stage-policy.service.ts",
+    "weekly-review.service.ts",
 )
 EXPLICIT_ANY = re.compile(r"(?::\s*|\bas\s+|,\s*)\bany\b")
 

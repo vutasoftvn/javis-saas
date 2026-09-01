@@ -9,6 +9,7 @@ import {
   metricContracts,
 } from "../../../shared/db/schema/strategy";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { ScoreComponent } from "./pmf-scoreboard.service";
 
 export type MaturityLevel = "NOT_ASSESSED" | "EARLY" | "REPEATABLE" | "GOVERNED";
 
@@ -130,9 +131,10 @@ export async function assessMaturity(p: AssessMaturityParams) {
   // 3. Retention Dimension
   let retentionLevel: MaturityLevel = "NOT_ASSESSED";
   const retentionMissing: string[] = [];
-  const retentionSnapshots = scoreboardRun
-    ? (scoreboardRun.scoreComponents as any[]).filter((c) => c.qualityStatus === "VALID")
+  const rawComponents = Array.isArray(scoreboardRun?.scoreComponents)
+    ? (scoreboardRun.scoreComponents as unknown as ScoreComponent[])
     : [];
+  const retentionSnapshots = rawComponents.filter((c) => c.qualityStatus === "VALID");
   if (retentionSnapshots.length === 0) {
     retentionMissing.push("Chưa có snapshot telemetry hợp lệ về tỷ lệ retention/hoạt động định kỳ");
   } else if (scoreboardRun?.result === "PROMISING") {

@@ -84,11 +84,12 @@ export interface ReviseMetricContractParams {
   actorRole?: string;
 }
 
-function validateSourceMapping(mapping: any): asserts mapping is SourceMapping {
+function validateSourceMapping(mapping: unknown): asserts mapping is SourceMapping {
   if (!mapping || typeof mapping !== "object") {
     throw APIError.invalidArgument("sourceMapping must be an object with system, identifier, aggregation, window");
   }
-  const { system, identifier, aggregation, window } = mapping;
+  const m = mapping as Record<string, unknown>;
+  const { system, identifier, aggregation, window } = m;
   if (!system || typeof system !== "string" || !system.trim()) {
     throw APIError.invalidArgument("sourceMapping.system is required");
   }

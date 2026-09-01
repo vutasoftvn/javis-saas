@@ -6,6 +6,7 @@ import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
 import { NEXT_BEST_ACTION_ACCEPTED } from "../../../shared/events";
 import { randomUUID } from "node:crypto";
+import { JsonObject, JsonValue, toJsonObject, toJsonArray } from "./strategy-json";
 
 const {
   nextBestActions,
@@ -13,27 +14,58 @@ const {
   financialSnapshots,
   legalObligationInstances,
   initiatives,
-  decisionRecords,
 } = schema;
+
+export type NextBestActionSource = "evidence" | "finance" | "legal" | "stage";
+export type NextBestActionStatus = "PROPOSED" | "ACCEPTED" | "REJECTED" | "DONE";
 
 export interface NextBestActionView {
   id: string;
   workspaceId: string;
-  source: "evidence" | "finance" | "legal" | "stage";
+  source: NextBestActionSource;
   recommendation: string;
   priority: number;
   dueBy: string | null;
-  status: "PROPOSED" | "ACCEPTED" | "REJECTED" | "DONE";
+  status: NextBestActionStatus;
   capabilityRequired: string | null;
   decisionReason: string;
-  contextSnapshot: any;
-  evidenceRefs: any[];
-  regulationRefs: any[];
+  contextSnapshot: JsonObject;
+  evidenceRefs: JsonValue[];
+  regulationRefs: JsonValue[];
   createdAt: string;
   updatedAt: string;
 }
 
-export async function assembleActionContextService(workspaceId: bigint): Promise<any> {
+export interface ActionContext {
+  workspaceId: string;
+  ventureProfile: {
+    problemStatement: string | null;
+    targetCustomer: string | null;
+    industry: string | null;
+    founderGoal: string | null;
+    initialRunwayMonths: number | null;
+  } | null;
+  latestFinancialSnapshot: {
+    snapshotDate: string;
+    cashIn: string;
+    cashOut: string;
+    netBurn: string;
+    runwayMonths: string | null;
+  } | null;
+  pendingObligationsCount: number;
+  pendingObligations: Array<{
+    id: string;
+    title: string;
+    dueDate: string | null;
+  }>;
+  activeInitiatives: Array<{
+    id: string;
+    title: string;
+  }>;
+  timestamp: string;
+}
+
+export async function assembleActionContextService(workspaceId: bigint): Promise<ActionContext> {
   // Deterministic context gathering without LLM
   const [profile] = await db
     .select()
@@ -157,18 +189,20 @@ export function generateAndRankNextActions(input: NextActionCandidateInput): Ran
   }));
 }
 
-export async function createActionProposalService(p: {
+export interface CreateActionProposalServiceInput {
   workspaceId: bigint;
-  source: "evidence" | "finance" | "legal" | "stage";
+  source: NextBestActionSource;
   recommendation: string;
   priority?: number;
   dueBy?: string;
   capabilityRequired?: string;
   decisionReason: string;
-  contextSnapshot?: any;
-  evidenceRefs?: any[];
-  regulationRefs?: any[];
-}): Promise<NextBestActionView> {
+  contextSnapshot?: JsonObject;
+  evidenceRefs?: JsonValue[];
+  regulationRefs?: JsonValue[];
+}
+
+export async function createActionProposalService(p: CreateActionProposalServiceInput): Promise<NextBestActionView> {
   if (!p.decisionReason) {
     throw APIError.invalidArgument("decisionReason is strictly required for all action proposals");
   }
@@ -187,7 +221,7 @@ export async function createActionProposalService(p: {
       source: p.source,
       recommendation: p.recommendation,
       priority: p.priority ?? 1,
-      dueBy: p.dueBy ? (p.dueBy as any) : null,
+      dueBy: p.dueBy ?? null,
       capabilityRequired: p.capabilityRequired ?? null,
       decisionReason: p.decisionReason,
       contextSnapshot: p.contextSnapshot ?? {},
@@ -200,16 +234,16 @@ export async function createActionProposalService(p: {
   return {
     id: String(created.id),
     workspaceId: String(created.workspaceId),
-    source: created.source as any,
+    source: created.source as NextBestActionSource,
     recommendation: created.recommendation,
     priority: created.priority,
     dueBy: created.dueBy ? (typeof created.dueBy === "string" ? created.dueBy : new Date(created.dueBy).toISOString().split("T")[0]) : null,
-    status: created.status as any,
+    status: created.status as NextBestActionStatus,
     capabilityRequired: created.capabilityRequired,
     decisionReason: created.decisionReason,
-    contextSnapshot: created.contextSnapshot,
-    evidenceRefs: (created.evidenceRefs || []) as any[],
-    regulationRefs: (created.regulationRefs || []) as any[],
+    contextSnapshot: toJsonObject(created.contextSnapshot),
+    evidenceRefs: toJsonArray(created.evidenceRefs),
+    regulationRefs: toJsonArray(created.regulationRefs),
     createdAt: created.createdAt.toISOString(),
     updatedAt: created.updatedAt.toISOString(),
   };
@@ -233,16 +267,16 @@ export async function listActionProposalsService(
   return filtered.map((r) => ({
     id: String(r.id),
     workspaceId: String(r.workspaceId),
-    source: r.source as any,
+    source: r.source as NextBestActionSource,
     recommendation: r.recommendation,
     priority: r.priority,
     dueBy: r.dueBy ? (typeof r.dueBy === "string" ? r.dueBy : new Date(r.dueBy).toISOString().split("T")[0]) : null,
-    status: r.status as any,
+    status: r.status as NextBestActionStatus,
     capabilityRequired: r.capabilityRequired,
     decisionReason: r.decisionReason,
-    contextSnapshot: r.contextSnapshot,
-    evidenceRefs: (r.evidenceRefs || []) as any[],
-    regulationRefs: (r.regulationRefs || []) as any[],
+    contextSnapshot: toJsonObject(r.contextSnapshot),
+    evidenceRefs: toJsonArray(r.evidenceRefs),
+    regulationRefs: toJsonArray(r.regulationRefs),
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   }));
@@ -298,16 +332,16 @@ export async function acceptActionProposalService(p: {
     return {
       id: String(updated.id),
       workspaceId: String(updated.workspaceId),
-      source: updated.source as any,
+      source: updated.source as NextBestActionSource,
       recommendation: updated.recommendation,
       priority: updated.priority,
       dueBy: updated.dueBy ? (typeof updated.dueBy === "string" ? updated.dueBy : new Date(updated.dueBy).toISOString().split("T")[0]) : null,
       status: "ACCEPTED",
       capabilityRequired: updated.capabilityRequired,
       decisionReason: updated.decisionReason,
-      contextSnapshot: updated.contextSnapshot,
-      evidenceRefs: (updated.evidenceRefs || []) as any[],
-      regulationRefs: (updated.regulationRefs || []) as any[],
+      contextSnapshot: toJsonObject(updated.contextSnapshot),
+      evidenceRefs: toJsonArray(updated.evidenceRefs),
+      regulationRefs: toJsonArray(updated.regulationRefs),
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     };

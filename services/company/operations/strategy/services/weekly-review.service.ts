@@ -6,8 +6,11 @@ import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
 import { WEEKLY_REVIEW_COMPLETED } from "../../../shared/events";
 import { randomUUID } from "node:crypto";
+import { JsonValue, toJsonArray } from "./strategy-json";
 
 const { weeklyReviews } = schema;
+
+export type WeeklyReviewStatus = "DRAFT" | "COMPLETED";
 
 export interface WeeklyReviewView {
   id: string;
@@ -17,28 +20,30 @@ export interface WeeklyReviewView {
   stageAssessment: string | null;
   cashSummary: string | null;
   obligationsSummary: string | null;
-  actionProposals: any[];
-  status: "DRAFT" | "COMPLETED";
+  actionProposals: JsonValue[];
+  status: WeeklyReviewStatus;
   createdAt: string;
   updatedAt: string;
 }
 
-export async function createWeeklyReviewService(p: {
+export interface CreateWeeklyReviewServiceInput {
   workspaceId: bigint;
   weekStartDate: string;
   summary: string;
   stageAssessment?: string;
   cashSummary?: string;
   obligationsSummary?: string;
-  actionProposals?: any[];
-}): Promise<WeeklyReviewView> {
+  actionProposals?: JsonValue[];
+}
+
+export async function createWeeklyReviewService(p: CreateWeeklyReviewServiceInput): Promise<WeeklyReviewView> {
   const newId = generateSnowflake();
   const [created] = await db
     .insert(weeklyReviews)
     .values({
       id: newId,
       workspaceId: p.workspaceId,
-      weekStartDate: p.weekStartDate as any,
+      weekStartDate: p.weekStartDate,
       summary: p.summary,
       stageAssessment: p.stageAssessment ?? null,
       cashSummary: p.cashSummary ?? null,
@@ -56,8 +61,8 @@ export async function createWeeklyReviewService(p: {
     stageAssessment: created.stageAssessment,
     cashSummary: created.cashSummary,
     obligationsSummary: created.obligationsSummary,
-    actionProposals: (created.actionProposals || []) as any[],
-    status: created.status as any,
+    actionProposals: toJsonArray(created.actionProposals),
+    status: created.status as WeeklyReviewStatus,
     createdAt: created.createdAt.toISOString(),
     updatedAt: created.updatedAt.toISOString(),
   };
@@ -80,8 +85,8 @@ export async function listWeeklyReviewsService(
     stageAssessment: r.stageAssessment,
     cashSummary: r.cashSummary,
     obligationsSummary: r.obligationsSummary,
-    actionProposals: (r.actionProposals || []) as any[],
-    status: r.status as any,
+    actionProposals: toJsonArray(r.actionProposals),
+    status: r.status as WeeklyReviewStatus,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   }));
@@ -140,7 +145,7 @@ export async function completeWeeklyReviewService(p: {
       stageAssessment: updated.stageAssessment,
       cashSummary: updated.cashSummary,
       obligationsSummary: updated.obligationsSummary,
-      actionProposals: (updated.actionProposals || []) as any[],
+      actionProposals: toJsonArray(updated.actionProposals),
       status: "COMPLETED",
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
