@@ -12,6 +12,7 @@ export interface Project {
   title: string;
   description?: string | null;
   lifecycleStage: string;
+  stageEnteredAt?: string | null;
   status: string;
   ownerMemberId?: string | null;
   projectType?: string | null;
@@ -58,6 +59,7 @@ function toProject(row: typeof projects.$inferSelect): Project {
     title: row.title,
     description: row.description,
     lifecycleStage: row.lifecycleStage,
+    stageEnteredAt: row.stageEnteredAt ? row.stageEnteredAt.toISOString() : null,
     status: row.status,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     projectType: row.projectType,

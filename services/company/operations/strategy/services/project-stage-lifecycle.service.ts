@@ -47,7 +47,8 @@ export interface ProjectTransitionResult {
   stageVersion: number;
 }
 
-export async function transitionProjectStage(
+export async function transitionProjectStageInTransaction(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   p: ProjectTransitionParams
 ): Promise<ProjectTransitionResult> {
   if (p.override) {
@@ -56,7 +57,7 @@ export async function transitionProjectStage(
     }
   }
 
-  const [proj] = await db
+  const [proj] = await tx
     .select({
       id: projects.id,
       lifecycleStage: projects.lifecycleStage,
@@ -100,7 +101,7 @@ export async function transitionProjectStage(
   }
 
   // Policy edge (currentStage -> toStage). Ưu tiên policy theo project, fallback theo workspace.
-  const [edge] = await db
+  const [edge] = await tx
     .select({
       allowed: projectStageTransitionPolicies.allowed,
       policyVersion: projectStageTransitionPolicies.policyVersion,
@@ -155,53 +156,51 @@ export async function transitionProjectStage(
   const source: "manual" | "autonomous" | "api" | "system" =
     p.source ?? (p.isAutonomous ? "autonomous" : "manual");
 
-  await db.transaction(async (tx) => {
-    const updated = await tx
-      .update(projects)
-      .set({
-        lifecycleStage: p.toStage,
-        stageVersion: nextVersion,
-        stageEnteredAt: now,
-        updatedAt: now,
-      })
-      .where(and(eq(projects.id, p.projectId), eq(projects.stageVersion, fromVersion)))
-      .returning({ id: projects.id });
+  const updated = await tx
+    .update(projects)
+    .set({
+      lifecycleStage: p.toStage,
+      stageVersion: nextVersion,
+      stageEnteredAt: now,
+      updatedAt: now,
+    })
+    .where(and(eq(projects.id, p.projectId), eq(projects.stageVersion, fromVersion)))
+    .returning({ id: projects.id });
 
-    if (updated.length === 0) {
-      throw APIError.aborted(
-        "project stage_version đã thay đổi (transition đồng thời) — hãy re-evaluate rồi thử lại"
-      );
-    }
+  if (updated.length === 0) {
+    throw APIError.aborted(
+      "project stage_version đã thay đổi (transition đồng thời) — hãy re-evaluate rồi thử lại"
+    );
+  }
 
-    await tx.insert(projectStageTransitions).values({
-      id: transitionId,
-      workspaceId: p.workspaceId,
-      projectId: p.projectId,
-      fromStage: currentStage,
-      toStage: p.toStage,
-      reason: p.reason,
-      actorMemberId: p.actorMemberId || null,
-      actorRole: p.actorRole ?? null,
-      overrideFlag: !!p.override,
-      overrideApprovalRef: p.overrideApprovalRef ?? null,
-      source,
-      stageVersionFrom: fromVersion,
-      policyVersion: edge?.policyVersion ?? null,
-      evidenceSnapshot: { capturedAt: now.toISOString() },
-      evaluationResult: edge ? { allowed: edge.allowed } : null,
-      decidedAt: now,
-      createdAt: now,
-    });
-
-    const event = buildProjectPhaseChangedEvent({
-      projectId: p.projectId.toString(),
-      workspaceId: p.workspaceId.toString(),
-      fromPhase: currentStage,
-      toPhase: p.toStage,
-      actorMemberId: p.actorMemberId ? p.actorMemberId.toString() : null,
-    });
-    await appendOutboxEvent(tx, event);
+  await tx.insert(projectStageTransitions).values({
+    id: transitionId,
+    workspaceId: p.workspaceId,
+    projectId: p.projectId,
+    fromStage: currentStage,
+    toStage: p.toStage,
+    reason: p.reason,
+    actorMemberId: p.actorMemberId || null,
+    actorRole: p.actorRole ?? null,
+    overrideFlag: !!p.override,
+    overrideApprovalRef: p.overrideApprovalRef ?? null,
+    source,
+    stageVersionFrom: fromVersion,
+    policyVersion: edge?.policyVersion ?? null,
+    evidenceSnapshot: { capturedAt: now.toISOString() },
+    evaluationResult: edge ? { allowed: edge.allowed } : null,
+    decidedAt: now,
+    createdAt: now,
   });
+
+  const event = buildProjectPhaseChangedEvent({
+    projectId: p.projectId.toString(),
+    workspaceId: p.workspaceId.toString(),
+    fromPhase: currentStage,
+    toPhase: p.toStage,
+    actorMemberId: p.actorMemberId ? p.actorMemberId.toString() : null,
+  });
+  await appendOutboxEvent(tx, event);
 
   return {
     projectId: p.projectId.toString(),
@@ -212,6 +211,12 @@ export async function transitionProjectStage(
     noop: false,
     stageVersion: nextVersion,
   };
+}
+
+export async function transitionProjectStage(
+  p: ProjectTransitionParams
+): Promise<ProjectTransitionResult> {
+  return db.transaction((tx) => transitionProjectStageInTransaction(tx, p));
 }
 
 export async function listProjectStageTransitions(workspaceId: bigint, projectId: bigint) {
