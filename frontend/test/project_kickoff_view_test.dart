@@ -1,72 +1,261 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:frontend/modules/strategy/controllers/project_orchestration_controller.dart';
+import 'package:frontend/core/contracts/enums.generated.dart';
+import 'package:frontend/data/models/project_operating_setup_model.dart';
+import 'package:frontend/modules/strategy/controllers/project_kickoff_controller.dart';
+import 'package:frontend/modules/strategy/services/project_operating_setup_service.dart';
 import 'package:frontend/modules/strategy/views/project_kickoff_view.dart';
 import 'package:frontend/modules/strategy/views/project_stage_workspace_view.dart';
+import 'package:frontend/modules/strategy/controllers/project_orchestration_controller.dart';
+
+class FakeKickoffService extends ProjectOperatingSetupService {
+  FakeKickoffService({this.initialSetup});
+  final ProjectOperatingSetup? initialSetup;
+
+  @override
+  Future<ProjectOperatingSetup> get(String projectId) async {
+    return initialSetup ??
+        ProjectOperatingSetup(
+          projectId: projectId,
+          workspaceId: 'w-1',
+          status: OperatingSetupStatus.notStarted,
+        );
+  }
+
+  @override
+  Future<ProjectOperatingSetup> saveDraft(
+    String projectId,
+    ProjectOperatingSetupDraft draft,
+  ) async {
+    return ProjectOperatingSetup(
+      projectId: projectId,
+      workspaceId: 'w-1',
+      status: OperatingSetupStatus.inProgress,
+      targetCustomer: draft.targetCustomer,
+      problemStatement: draft.problemStatement,
+      evidenceLevel: draft.evidenceLevel,
+      selectedStage: draft.selectedStage,
+      stageDurationWeeks: draft.stageDurationWeeks,
+      weeklyReviewWeekday: draft.weeklyReviewWeekday,
+      weeklyReviewTime: draft.weeklyReviewTime,
+      firstWeekOutcome: draft.firstWeekOutcome,
+      firstWeekActions: draft.firstWeekActions,
+    );
+  }
+
+  @override
+  Future<ProjectOperatingSetup> activate(
+    String projectId,
+    ProjectOperatingSetupDraft draft,
+  ) async {
+    return ProjectOperatingSetup(
+      projectId: projectId,
+      workspaceId: 'w-1',
+      status: OperatingSetupStatus.active,
+      targetCustomer: draft.targetCustomer,
+      problemStatement: draft.problemStatement,
+      evidenceLevel: draft.evidenceLevel,
+      selectedStage: draft.selectedStage,
+      stageDurationWeeks: draft.stageDurationWeeks,
+      weeklyReviewWeekday: draft.weeklyReviewWeekday,
+      weeklyReviewTime: draft.weeklyReviewTime,
+      firstWeekOutcome: draft.firstWeekOutcome,
+      firstWeekActions: draft.firstWeekActions,
+    );
+  }
+}
+
+Widget kickoffHarness({
+  required ProjectOperatingSetup setup,
+  void Function(String id)? onActivated,
+  VoidCallback? onBack,
+  VoidCallback? onOpenAdvancedRoadmap,
+}) {
+  Get.reset();
+  final controller = Get.put(
+    ProjectKickoffController(service: FakeKickoffService(initialSetup: setup)),
+  );
+
+  return GetMaterialApp(
+    home: Scaffold(
+      body: ProjectKickoffView(
+        projectId: setup.projectId,
+        onBack: onBack ?? () {},
+        onActivated: onActivated ?? (_) {},
+        onOpenAdvancedRoadmap: onOpenAdvancedRoadmap ?? () {},
+      ),
+    ),
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
     Get.reset();
+    Get.testMode = true;
   });
 
-  testWidgets('ProjectKickoffView shows the AI-proposed draft stages before any are confirmed', (WidgetTester tester) async {
-    final controller = Get.put(ProjectOrchestrationController());
-    controller.roadmapDraft.value = {
-      'stages': [
-        {'title': 'Validate demand', 'hypothesis': 'SMEs will pre-commit before build'},
-        {'title': 'Build MVP', 'hypothesis': 'A thin slice converts pilots'},
-      ],
-    };
+  final draftP0Setup = const ProjectOperatingSetup(
+    projectId: 'p-1',
+    workspaceId: 'w-1',
+    status: OperatingSetupStatus.inProgress,
+    targetCustomer: 'Fintech CFOs',
+    problemStatement: 'Manual reconciliation takes 3 days',
+    evidenceLevel: KickoffEvidenceLevel.none,
+  );
 
+  final completeP0Draft = const ProjectOperatingSetup(
+    projectId: 'p-1',
+    workspaceId: 'w-1',
+    status: OperatingSetupStatus.inProgress,
+    targetCustomer: 'Fintech CFOs',
+    problemStatement: 'Manual reconciliation takes 3 days',
+    evidenceLevel: KickoffEvidenceLevel.none,
+    selectedStage: ProjectLifecycleStage.p0Discovery,
+    stageDurationWeeks: 2,
+    weeklyReviewWeekday: 5,
+    weeklyReviewTime: '16:00',
+    firstWeekOutcome: 'Talk to 5 CFOs',
+    firstWeekActions: [FirstWeekActionDraft(title: 'List 10 target CFOs')],
+  );
+
+  testWidgets('P0 proposes two weeks and does not show 12-Week Year', (
+    tester,
+  ) async {
+    await tester.pumpWidget(kickoffHarness(setup: draftP0Setup));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('COSA đề xuất: Khám phá (P0) trong 2 tuần'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('12-Week Year'), findsNothing);
+    expect(find.textContaining('12 tuần'), findsNothing);
+  });
+
+  testWidgets('activate navigates only after success', (tester) async {
+    final activated = <String>[];
     await tester.pumpWidget(
-      GetMaterialApp(
-        home: Scaffold(
-          body: ProjectKickoffView(projectId: '100', onBack: () {}, onOpenStageWorkspace: (_) {}),
-        ),
+      kickoffHarness(
+        setup: completeP0Draft,
+        onActivated: (id) => activated.add(id),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text('Validate demand'), findsOneWidget);
-    expect(find.text('Build MVP'), findsOneWidget);
-    expect(find.text('Xác nhận Lộ trình'), findsOneWidget);
-    // No stage has been confirmed/activated yet.
-    expect(find.text('Kích hoạt'), findsNothing);
+    final buttonFinder = find.widgetWithText(ElevatedButton, 'Xác nhận vòng đầu');
+    expect(buttonFinder, findsOneWidget);
+    await tester.ensureVisible(buttonFinder);
+    await tester.tap(buttonFinder);
+    await tester.pumpAndSettle();
+
+    expect(activated, ['p-1']);
   });
 
-  testWidgets('legal/regulated review requirement is visible before activation', (WidgetTester tester) async {
-    final controller = Get.put(ProjectOrchestrationController());
-    controller.serviceAssessments.assignAll([
-      {
-        'id': 'a1',
-        'disposition': 'REQUIRED',
-        'reason': 'Regulated compliance checklist needed',
-        'risk_level': 'REGULATED',
-        'execution_mode': 'MANUAL',
-        'professional_review_required': true,
-        'status': 'DRAFT',
-      },
-      {
-        'id': 'a2',
-        'disposition': 'OPTIONAL',
-        'reason': 'Nice-to-have GTM support',
-        'risk_level': 'LOW',
-        'execution_mode': 'AI_ASSISTED',
-        'professional_review_required': false,
-        'status': 'DRAFT',
-      },
-    ]);
+  testWidgets('activation disabled when target customer is empty', (
+    tester,
+  ) async {
+    final controller = ProjectKickoffController();
+    controller.targetCustomerCtrl.text = '';
+    controller.problemStatementCtrl.text = 'Reconciliation is painful';
+    controller.selectEvidence(KickoffEvidenceLevel.none);
+    controller.firstWeekOutcomeCtrl.text = 'Talk to 5 CFOs';
+    controller.addAction('List 10 prospects');
+    expect(controller.canActivate, isFalse);
+  });
 
-    await tester.pumpWidget(
-      GetMaterialApp(
-        home: Scaffold(
-          body: ProjectStageWorkspaceView(projectId: '100', stageId: 's1', onBack: () {}),
+  testWidgets('activation disabled when problem statement is empty', (
+    tester,
+  ) async {
+    final controller = ProjectKickoffController();
+    controller.targetCustomerCtrl.text = 'CFOs';
+    controller.problemStatementCtrl.text = '';
+    controller.selectEvidence(KickoffEvidenceLevel.none);
+    controller.firstWeekOutcomeCtrl.text = 'Talk to 5 CFOs';
+    controller.addAction('List 10 prospects');
+    expect(controller.canActivate, isFalse);
+  });
+
+  testWidgets('activation disabled when first-week outcome is empty', (
+    tester,
+  ) async {
+    final controller = ProjectKickoffController();
+    controller.targetCustomerCtrl.text = 'CFOs';
+    controller.problemStatementCtrl.text = 'Reconciliation is painful';
+    controller.selectEvidence(KickoffEvidenceLevel.none);
+    controller.firstWeekOutcomeCtrl.text = '';
+    controller.addAction('List 10 prospects');
+    expect(controller.canActivate, isFalse);
+  });
+
+  testWidgets('activation disabled when action list has zero entries', (
+    tester,
+  ) async {
+    final controller = ProjectKickoffController();
+    controller.targetCustomerCtrl.text = 'CFOs';
+    controller.problemStatementCtrl.text = 'Reconciliation is painful';
+    controller.selectEvidence(KickoffEvidenceLevel.none);
+    controller.firstWeekOutcomeCtrl.text = 'Talk to 5 CFOs';
+    expect(controller.canActivate, isFalse);
+  });
+
+  testWidgets(
+    'P1 selected with NONE evidence is disallowed and shows explanation',
+    (tester) async {
+      final controller = ProjectKickoffController();
+      controller.targetCustomerCtrl.text = 'CFOs';
+      controller.problemStatementCtrl.text = 'Reconciliation is painful';
+      controller.selectEvidence(KickoffEvidenceLevel.none);
+      controller.selectedStage.value =
+          ProjectLifecycleStage.p1ProblemValidation;
+      controller.firstWeekOutcomeCtrl.text = 'Talk to 5 CFOs';
+      controller.addAction('List 10 prospects');
+
+      expect(controller.canActivate, isFalse);
+      expect(controller.isP1Allowed, isFalse);
+    },
+  );
+
+  testWidgets(
+    'legal/regulated review requirement is visible before activation',
+    (WidgetTester tester) async {
+      final controller = Get.put(ProjectOrchestrationController());
+      controller.serviceAssessments.assignAll([
+        {
+          'id': 'a1',
+          'disposition': 'REQUIRED',
+          'reason': 'Regulated compliance checklist needed',
+          'risk_level': 'REGULATED',
+          'execution_mode': 'MANUAL',
+          'professional_review_required': true,
+          'status': 'DRAFT',
+        },
+        {
+          'id': 'a2',
+          'disposition': 'OPTIONAL',
+          'reason': 'Nice-to-have GTM support',
+          'risk_level': 'LOW',
+          'execution_mode': 'AI_ASSISTED',
+          'professional_review_required': false,
+          'status': 'DRAFT',
+        },
+      ]);
+
+      await tester.pumpWidget(
+        GetMaterialApp(
+          home: Scaffold(
+            body: ProjectStageWorkspaceView(
+              projectId: '100',
+              stageId: 's1',
+              onBack: () {},
+            ),
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('Cần chuyên gia phê duyệt'), findsOneWidget);
-  });
+      expect(find.text('Cần chuyên gia phê duyệt'), findsOneWidget);
+    },
+  );
 }
