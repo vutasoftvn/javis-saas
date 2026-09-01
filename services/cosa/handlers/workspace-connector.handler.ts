@@ -84,6 +84,14 @@ export interface ConnectorAssertResponse {
   error?: string;
 }
 
+export function parseIsoDate(value: string, fieldName: string): Date {
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw APIError.invalidArgument(`${fieldName} must be a valid ISO-8601 timestamp`);
+  }
+  return parsed;
+}
+
 export const installConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/install", expose: true },
   async (params: InstallConnectorParams): Promise<ConnectorInstallationResponse> => {
@@ -115,7 +123,7 @@ export const registerAuthorizationEndpoint = api(
       principalId: authCtx.userID,
       secretRef: params.secretRef,
       grantedScopes: params.grantedScopes,
-      expiresAt: new Date(params.expiresAt),
+      expiresAt: parseIsoDate(params.expiresAt, "expiresAt"),
     });
     return res;
   }
@@ -146,7 +154,7 @@ export const grantConnectorEndpoint = api(
       authorizationId: params.authorizationId,
       grantedBy: authCtx.userID,
       allowedActions: params.allowedActions || [],
-      expiresAt: params.expiresAt ? new Date(params.expiresAt) : null,
+      expiresAt: params.expiresAt ? parseIsoDate(params.expiresAt, "expiresAt") : null,
       callerPrincipalId: authCtx.userID,
       allowManageOthers,
     });

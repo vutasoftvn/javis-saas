@@ -1,7 +1,13 @@
+import { eq } from "drizzle-orm";
 import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from "vitest";
 import * as connectorSvc from "../services/workspace-connector.service";
 import { db, schema } from "../models/db";
-import { installConnectorEndpoint, grantConnectorEndpoint, revokeGrantEndpoint } from "../handlers/workspace-connector.handler";
+import {
+  installConnectorEndpoint,
+  registerAuthorizationEndpoint,
+  grantConnectorEndpoint,
+  revokeGrantEndpoint,
+} from "../handlers/workspace-connector.handler";
 import { signPlatformToken } from "../services/token.service";
 
 const {
@@ -58,7 +64,6 @@ beforeAll(async () => {
   });
 });
 
-
 beforeEach(async () => {
   await db.delete(sessionConnectorGrants);
   await db.delete(connectorAuthorizations);
@@ -110,7 +115,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
         connectorKey: "dangerous-desktop-control",
         installedBy: "user_admin",
       })
-    ).rejects.toThrow(/not allowed/i);
+    ).rejects.toMatchObject({ code: "invalid_argument" });
   });
 
   it("rejects secret_ref not matching required secret URI format", async () => {
@@ -129,7 +134,32 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
         grantedScopes: ["read"],
         expiresAt: new Date(Date.now() + 3600000),
       })
-    ).rejects.toThrow(/must start with 'secret:\/\/cosa-connectors\/'/i);
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+  });
+
+  it("rejects invalid ISO timestamp in registerAuthorizationEndpoint", async () => {
+    await expect(
+      registerAuthorizationEndpoint({
+        authorization: `Bearer ${signPlatformToken(TEST_USER_ID.toString())}`,
+        workspaceId: "ws_test",
+        installationId: "missing",
+        secretRef: "not-a-vault-ref",
+        grantedScopes: ["read"],
+        expiresAt: "not-an-iso-date",
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+  });
+
+  it("rejects invalid ISO timestamp in grantConnectorEndpoint", async () => {
+    await expect(
+      grantConnectorEndpoint({
+        authorization: `Bearer ${signPlatformToken(TEST_USER_ID.toString())}`,
+        workspaceId: "ws_test",
+        conversationId: "conversation",
+        authorizationId: "authorization",
+        expiresAt: "tomorrow-ish",
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
   });
 
   it("registers authorization and does not leak raw credentials in response", async () => {
@@ -170,7 +200,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
       expiresAt: new Date(Date.now() + 3600000),
     });
 
-    // Try granting authA in company_B / ws_B -> reject
+    // Try granting authA in company_B / ws_B -> reject with not_found
     await expect(
       connectorSvc.grantConnectorToSession({
         workspaceId: "ws_B",
@@ -181,7 +211,31 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
         callerPrincipalId: "user_bob",
         allowManageOthers: false,
       })
-    ).rejects.toThrow(/mismatch/i);
+    ).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("rejects registerConnectorAuthorization when installation is disabled", async () => {
+    const inst = await connectorSvc.installWorkspaceConnector({
+      workspaceId: "ws_1",
+      connectorKey: "sandbox-read",
+      installedBy: "user_admin",
+    });
+
+    await db
+      .update(workspaceConnectorInstallations)
+      .set({ status: "disabled" })
+      .where(eq(workspaceConnectorInstallations.id, inst.id));
+
+    await expect(
+      connectorSvc.registerConnectorAuthorization({
+        installationId: inst.id,
+        workspaceId: "ws_1",
+        principalId: "user_alice",
+        secretRef: "secret://cosa-connectors/vault-key-1",
+        grantedScopes: ["read"],
+        expiresAt: new Date(Date.now() + 3600000),
+      })
+    ).rejects.toMatchObject({ code: "failed_precondition" });
   });
 
   it("assertConnectorInvocation returns connector_reauth_required when authorization or grant expired", async () => {
@@ -279,7 +333,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
         grantedScopes: ["read"],
         expiresAt: new Date(Date.now() + 3600_000),
       })
-    ).rejects.toThrow(/not found/i);
+    ).rejects.toMatchObject({ code: "not_found" });
   });
 
   it("rejects installConnectorEndpoint when caller is not a member of workspace", async () => {
@@ -299,7 +353,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
         workspaceId: "ws_test",
         connectorKey: "sandbox-read",
       })
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 });
 
@@ -363,7 +417,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
         conversationId: "conv_task4_grant_reject",
         authorizationId: auth.id,
       })
-    ).rejects.toThrow(/authorization owner/i);
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   it("allows grantConnectorEndpoint when the owner (B) grants their own authorization", async () => {
@@ -415,7 +469,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
         conversationId: "conv_task4_revoke_reject",
         grantId: grant.id,
       })
-    ).rejects.toThrow(/authorization owner/i);
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   it("allows revokeGrantEndpoint when the owner (B) revokes their own grant", async () => {
@@ -462,6 +516,6 @@ describe("Task 4: connector authorization ownership enforcement", () => {
         conversationId: "conv_task4_revoke_override",
         grantId: grant.id,
       })
-    ).rejects.toThrow(/authorization owner/i);
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 });

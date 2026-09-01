@@ -58,7 +58,7 @@ export function validateConnectorScopes(connectorKey: string, scopes: string[]):
 
 export function validateSecretRef(secretRef: string): void {
   if (!secretRef || !secretRef.startsWith("secret://cosa-connectors/")) {
-    throw new Error("invalid secret_ref: must start with 'secret://cosa-connectors/'");
+    throw APIError.invalidArgument("secret_ref must use the cosa-connectors vault namespace");
   }
 }
 
@@ -114,10 +114,7 @@ export async function installWorkspaceConnector(input: {
   connectorKey: string;
   installedBy: string;
 }) {
-  const allowed = getAllowedConnectorKeys();
-  if (!allowed.includes(input.connectorKey)) {
-    throw new Error(`connector_key '${input.connectorKey}' is not allowed in current test capability set`);
-  }
+  assertConnectorKeyAllowed(input.connectorKey);
 
   const existing = await db
     .select()
@@ -175,8 +172,9 @@ export async function registerConnectorAuthorization(input: {
       )
     );
 
-  if (!installation || installation.status !== "enabled") {
-    throw new Error("installation not found or disabled");
+  if (!installation) throw APIError.notFound("connector installation not found");
+  if (installation.status !== "enabled") {
+    throw APIError.failedPrecondition("connector installation is disabled");
   }
 
   validateConnectorScopes(installation.connectorKey, input.grantedScopes);
@@ -234,7 +232,7 @@ export async function grantConnectorToSession(input: {
     );
 
   if (!auth) {
-    throw new Error("authorization not found or workspace mismatch");
+    throw APIError.notFound("connector authorization not found");
   }
 
   const authRecord = auth.connector_authorizations;
@@ -248,7 +246,7 @@ export async function grantConnectorToSession(input: {
   }
 
   if (authRecord.state !== "active" || authRecord.expiresAt < new Date()) {
-    throw new Error("connector_reauth_required: authorization is not active or has expired");
+    throw APIError.failedPrecondition("connector authorization requires reauthorization");
   }
 
   const existingGrant = await db
