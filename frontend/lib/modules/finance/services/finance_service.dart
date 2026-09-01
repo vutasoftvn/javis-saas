@@ -3,7 +3,28 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/workspace_scoped_service.dart';
 import '../../../data/models/finance_legal_models.dart';
 
+/// Task 6 (Truthful MVP Hardening) — kết quả của một hành động mutation mà
+/// backend có thể chưa có route thật (khác `Future<T?>` thông thường, vốn
+/// không phân biệt được "lỗi mạng/404" với "chưa từng có API"). Hiện tại chỉ
+/// có nhánh `ActionUnavailable`; khi nào Encore có route mutation thật cho
+/// một hành động, thêm subclass thành công riêng thay vì tái dùng nhánh này.
+sealed class ActionResult<T> {
+  const ActionResult();
+}
+
+final class ActionUnavailable<T> extends ActionResult<T> {
+  const ActionUnavailable(this.message);
+  final String message;
+}
+
 class FinanceService extends WorkspaceService {
+  /// Thông tư 58 profile mode-change/activate chưa có Encore handler mutation
+  /// công khai nào — trước đây `updateProfile` gọi lại `createProfile` (gây
+  /// tạo mới thay vì cập nhật) và `activateProfile` trả một Map hard-code coi
+  /// như đã kích hoạt, dù không có request nào thực sự đi ra. Giữ nguyên
+  /// message này cho tới khi M-nào đó có route mutation thật.
+  static const String _noBackendMutationMessage =
+      'Chưa có API nghiệp vụ được phát hành';
   Future<FinanceSnapshotModel?> getTypedOverview() async {
     final data = await getOverview();
     return data != null ? FinanceSnapshotModel.fromJson(data) : null;
@@ -98,12 +119,17 @@ class FinanceService extends WorkspaceService {
     return data is Map ? Map<String, dynamic>.from(data) : null;
   }
 
-  Future<Map<String, dynamic>?> updateProfile(String mode) async {
-    return createProfile(mode);
+  Future<ActionResult<Map<String, dynamic>>> updateProfile(String mode) async {
+    // Không còn gọi lại createProfile — đó là hành vi "false success" (tạo
+    // mới bị hiểu nhầm thành cập nhật). Chưa có route PATCH/PUT thật cho đổi
+    // chế độ kế toán nên trả unavailable, không gọi HTTP nào cả.
+    return const ActionUnavailable(_noBackendMutationMessage);
   }
 
-  Future<Map<String, dynamic>?> activateProfile(String profileId) async {
-    return {'status': 'active', 'profileId': profileId};
+  Future<ActionResult<Map<String, dynamic>>> activateProfile(String profileId) async {
+    // Không còn trả Map hard-code giả định đã kích hoạt. Chưa có route kích
+    // hoạt hồ sơ kế toán thật nên trả unavailable, không gọi HTTP nào cả.
+    return const ActionUnavailable(_noBackendMutationMessage);
   }
 
   Future<List<dynamic>> getPeriods() async {

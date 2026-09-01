@@ -216,27 +216,25 @@ class FinanceController extends GetxController {
     return true;
   }
 
+  /// Task 6 — `updateProfile` chưa có route mutation thật nên luôn trả
+  /// `ActionUnavailable`. Không được toast "Đã chuyển ..." (thành công giả)
+  /// và không được đụng vào `profile` state cục bộ như thể đã đổi thành công.
   Future<bool> updateProfileMode(String mode) async {
-    final updated = await service.updateProfile(mode);
-    if (updated == null) return false;
-    profile.assignAll(updated);
-    profile.refresh();
-    AppToast.success(
-      'Đã chuyển sang chế độ $mode',
-      title: 'Cập nhật thành công',
-    );
-    await load();
-    return true;
+    final result = await service.updateProfile(mode);
+    final unavailable = result as ActionUnavailable<Map<String, dynamic>>;
+    AppToast.error(unavailable.message, title: 'Chưa khả dụng');
+    return false;
   }
 
+  /// Task 6 — tương tự `updateProfileMode`: chưa có route kích hoạt hồ sơ kế
+  /// toán thật, luôn trả unavailable, không sửa `profile['status']` cục bộ.
   Future<bool> activateProfile() async {
     final id = profile['id'];
     if (id == null) return false;
-    final updated = await service.activateProfile('$id');
-    if (updated == null) return false;
-    profile['status'] = updated['status'];
-    profile.refresh();
-    return true;
+    final result = await service.activateProfile('$id');
+    final unavailable = result as ActionUnavailable<Map<String, dynamic>>;
+    AppToast.error(unavailable.message, title: 'Chưa khả dụng');
+    return false;
   }
 
   Future<bool> createAccountingPeriod(String startDate, String endDate) async {

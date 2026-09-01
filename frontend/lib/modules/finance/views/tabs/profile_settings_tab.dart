@@ -65,7 +65,31 @@ class FinanceProfileSettingsTab extends GetView<FinanceController> {
                     'Doanh nghiệp siêu nhỏ được lựa chọn 1 trong 4 chế độ tính thuế & sổ sách phù hợp với mô hình kinh doanh.',
                     style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  // Task 6 (Truthful MVP Hardening): chưa có route mutation
+                  // đổi/kích hoạt chế độ kế toán thật trên backend, nên UI
+                  // không được để người dùng tưởng có thể đổi chế độ tại đây.
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C2D12).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF9A3412)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.lock_outline_rounded, color: Color(0xFFFDBA74), size: 16),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Chưa có API nghiệp vụ được phát hành',
+                            style: TextStyle(color: Color(0xFFFDBA74), fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   ..._taxProfiles.map((p) {
                     final isSelected = currentMode == p['mode'];
                     final books = p['books'] as List<String>;
@@ -81,7 +105,10 @@ class FinanceProfileSettingsTab extends GetView<FinanceController> {
                         ),
                       ),
                       child: InkWell(
-                        onTap: () => controller.updateProfileMode(p['mode'] as String),
+                        // Disable đổi chế độ: chưa có route mutation thật, nên
+                        // không cho phép tap tạo cảm giác "đổi được" rồi lặng
+                        // lẽ không có gì xảy ra.
+                        onTap: null,
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
