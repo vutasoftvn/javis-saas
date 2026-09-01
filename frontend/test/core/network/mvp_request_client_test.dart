@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_auth_resolver.dart';
+import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_endpoints.g.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
@@ -21,6 +22,99 @@ class _FakeAuthResolver implements ApiAuthResolver {
   Future<String?> workspaceId() async => wsId;
 }
 
+/// Thực hiện một request MVP thật qua `MvpRequestClient` với client ghi lại
+/// `http.BaseRequest` cuối cùng đã gửi — dùng để assert URL đã resolve (relay
+/// prefix, plane origin...) mà không quan tâm tới nội dung response.
+Future<http.BaseRequest> captureRequest(MvpEndpoint endpoint) async {
+  http.BaseRequest? captured;
+  final mockHttp = MockClient((request) async {
+    captured = request;
+    return http.Response(
+      jsonEncode({
+        'data': [],
+        'meta': {
+          'data_state': 'empty',
+          'observed_at': '2026-08-31T12:00:00.000Z',
+        },
+      }),
+      200,
+      headers: {'content-type': 'application/json'},
+    );
+  });
+
+  final client = MvpRequestClient(
+    httpClient: mockHttp,
+    authResolver: _FakeAuthResolver(token: 'test_token', wsId: '1001'),
+  );
+  await client.request<Object>(
+    endpoint,
+    decode: (json) => json ?? const <String>[],
+  );
+  return captured!;
+}
+
+/// Thực hiện một request MVP, ghi lại mọi `http.BaseRequest` mà `httpClient`
+/// nhận được vào [calls] — dùng để chứng minh offline guard chặn trước khi
+/// chạm transport (không có traffic nào rời máy khi remote node OFFLINE).
+Future<ApiResult<Object>> requestWithRecordingClient(
+  List<http.BaseRequest> calls,
+  MvpEndpoint endpoint,
+) async {
+  final mockHttp = MockClient((request) async {
+    calls.add(request);
+    return http.Response(
+      jsonEncode({
+        'data': [],
+        'meta': {
+          'data_state': 'empty',
+          'observed_at': '2026-08-31T12:00:00.000Z',
+        },
+      }),
+      200,
+      headers: {'content-type': 'application/json'},
+    );
+  });
+
+  final client = MvpRequestClient(
+    httpClient: mockHttp,
+    authResolver: _FakeAuthResolver(token: 'test_token', wsId: '1001'),
+  );
+  return client.request<Object>(
+    endpoint,
+    decode: (json) => json ?? const <String>[],
+  );
+}
+
+/// Thực hiện một request với client cố ý trễ hơn [timeout] để buộc
+/// `.timeout()` kích hoạt — chứng minh timeout được áp dụng thật, không chỉ
+/// khai báo mà không dùng.
+Future<ApiResult<Object>> requestWithDelayedClient({required Duration timeout}) async {
+  final mockHttp = MockClient((request) async {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    return http.Response(
+      jsonEncode({
+        'data': [],
+        'meta': {
+          'data_state': 'empty',
+          'observed_at': '2026-08-31T12:00:00.000Z',
+        },
+      }),
+      200,
+      headers: {'content-type': 'application/json'},
+    );
+  });
+
+  final client = MvpRequestClient(
+    httpClient: mockHttp,
+    authResolver: _FakeAuthResolver(token: 'test_token', wsId: '1001'),
+    requestTimeout: timeout,
+  );
+  return client.request<Object>(
+    MvpEndpoint.strategyCanvasList,
+    decode: (json) => json ?? const <String>[],
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -29,6 +123,13 @@ void main() {
       'auth_token': 'test_token_123',
       'workspace_id': '1001',
     });
+    // M5 §5/§6 — reset runtime context tĩnh của ApiClient trước mỗi test để
+    // tránh rò rỉ trạng thái REMOTE_ACCESS/OFFLINE giữa các test case.
+    ApiClient.clearRuntimeContext();
+  });
+
+  tearDown(() {
+    ApiClient.clearRuntimeContext();
   });
 
   group('MvpRequestClient', () {
@@ -173,6 +274,29 @@ void main() {
 
       expect(result, isA<ApiFailure<List<String>>>());
       expect((result as ApiFailure<List<String>>).failure.code, ApiFailureCode.unavailable);
+    });
+
+    // Task 2 — transport MVP phải dùng chung resolver của ApiClient
+    // (`resolveRequestTarget`) thay vì tự ghép base URL, để relay routing,
+    // offline guard và timeout nhất quán giữa mọi consumer.
+    test('company MVP request uses relay in REMOTE_ACCESS', () async {
+      ApiClient.runtimeMode = 'REMOTE_ACCESS';
+      final request = await captureRequest(MvpEndpoint.marketingContextGet);
+      expect(request.url.path, startsWith('/relay/commercial/'));
+    });
+
+    test('offline remote business request does not call HTTP client', () async {
+      ApiClient.runtimeMode = 'REMOTE_ACCESS';
+      ApiClient.nodePresence = 'OFFLINE';
+      final calls = <http.BaseRequest>[];
+      final result = await requestWithRecordingClient(calls, MvpEndpoint.strategyCanvasList);
+      expect(result, isA<ApiFailure<Object>>());
+      expect(calls, isEmpty);
+    });
+
+    test('MVP request maps elapsed timeout to unavailable', () async {
+      final result = await requestWithDelayedClient(timeout: const Duration(milliseconds: 1));
+      expect((result as ApiFailure).failure.code, ApiFailureCode.unavailable);
     });
   });
 }

@@ -12,24 +12,19 @@ class MvpRequestClient {
   MvpRequestClient({
     http.Client? httpClient,
     ApiAuthResolver? authResolver,
+    Duration requestTimeout = ApiClient.defaultTimeout,
   })  : _httpClient = httpClient ?? http.Client(),
-        _authResolver = authResolver ?? const DefaultApiAuthResolver();
+        _authResolver = authResolver ?? const DefaultApiAuthResolver(),
+        _requestTimeout = requestTimeout;
 
   final http.Client _httpClient;
   final ApiAuthResolver _authResolver;
-
-  String _resolveBaseUrl(ApiPlane plane) {
-    switch (plane) {
-      case ApiPlane.company:
-        return ApiClient.baseUrl;
-      case ApiPlane.platform:
-        return ApiClient.platformBaseUrl;
-      case ApiPlane.agent:
-        return ApiClient.agentOsBaseUrl;
-      case ApiPlane.localWorker:
-        return ApiClient.desktopWorkerBaseUrl;
-    }
-  }
+  // Task 2 — timeout injectable để test có thể ép elapsed-timeout mà không
+  // chờ mạng thật; production dùng mặc định `ApiClient.defaultTimeout` để
+  // hành vi giống hệt các entrypoint khác của `ApiClient`. Không dùng
+  // initializing formal vì tên tham số public (`requestTimeout`) khác tên
+  // field private (`_requestTimeout`).
+  final Duration _requestTimeout;
 
   String _buildPath(String pathTemplate, Map<String, String>? pathParams) {
     if (pathParams == null || pathParams.isEmpty) {
@@ -69,13 +64,25 @@ class MvpRequestClient {
         ));
       }
 
-      final base = _resolveBaseUrl(endpoint.plane);
       var effectivePath = _buildPath(endpoint.path, pathParams);
       if (effectivePath.contains(':workspaceId') && workspaceId != null) {
         effectivePath = effectivePath.replaceAll(':workspaceId', Uri.encodeComponent(workspaceId));
       }
 
-      var uri = Uri.parse('$base$effectivePath');
+      // Task 2 — route qua đúng transport target chung của `ApiClient`
+      // (relay khi REMOTE_ACCESS, chặn khi OFFLINE, origin đúng plane) thay vì
+      // tự ghép base URL ở đây — tránh lệch hành vi giữa MVP client và các
+      // consumer khác của ApiClient.
+      final routedPath = switch (endpoint.plane) {
+        ApiPlane.localWorker => '/local-worker$effectivePath',
+        _ => effectivePath,
+      };
+      final target = ApiClient.resolveRequestTarget(routedPath);
+      if (target.blockedResponse case final blocked?) {
+        return _decodeResponse(blocked, endpoint, decode);
+      }
+
+      var uri = target.uri!;
       if (query != null && query.isNotEmpty) {
         uri = uri.replace(queryParameters: {
           ...uri.queryParameters,
@@ -99,19 +106,19 @@ class MvpRequestClient {
 
       switch (endpoint.method.toUpperCase()) {
         case 'GET':
-          response = await _httpClient.get(uri, headers: headers);
+          response = await _httpClient.get(uri, headers: headers).timeout(_requestTimeout);
           break;
         case 'POST':
-          response = await _httpClient.post(uri, headers: headers, body: encodedBody);
+          response = await _httpClient.post(uri, headers: headers, body: encodedBody).timeout(_requestTimeout);
           break;
         case 'PUT':
-          response = await _httpClient.put(uri, headers: headers, body: encodedBody);
+          response = await _httpClient.put(uri, headers: headers, body: encodedBody).timeout(_requestTimeout);
           break;
         case 'PATCH':
-          response = await _httpClient.patch(uri, headers: headers, body: encodedBody);
+          response = await _httpClient.patch(uri, headers: headers, body: encodedBody).timeout(_requestTimeout);
           break;
         case 'DELETE':
-          response = await _httpClient.delete(uri, headers: headers, body: encodedBody);
+          response = await _httpClient.delete(uri, headers: headers, body: encodedBody).timeout(_requestTimeout);
           break;
         default:
           return ApiFailure(ApiFailureDetail(

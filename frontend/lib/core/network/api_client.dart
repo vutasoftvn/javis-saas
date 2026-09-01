@@ -16,6 +16,17 @@ class ApiOfflineException implements Exception {
   String toString() => 'ApiOfflineException: ${response.statusCode} ${response.body}';
 }
 
+/// Task 2 — kết quả thuần của resolver transport: hoặc có [uri] đã resolve
+/// đúng plane/relay để caller tự gửi request, hoặc có [blockedResponse] (503
+/// tổng hợp từ offline guard) khi request business bị chặn — hai trường hợp
+/// loại trừ lẫn nhau, không bao giờ cả hai cùng null hoặc cùng non-null.
+class ApiRequestTarget {
+  const ApiRequestTarget({this.uri, this.blockedResponse});
+
+  final Uri? uri;
+  final http.Response? blockedResponse;
+}
+
 class ApiClient {
   static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
   static String? _customBaseUrl;
@@ -251,6 +262,19 @@ class ApiClient {
     return null;
   }
 
+  /// Task 2 — transport target thuần, dùng chung cho `get/post/.../openSse/
+  /// sendMultipart/sendForm` VÀ cho `MvpRequestClient` (contract-based
+  /// client), tránh mỗi consumer tự ghép base URL / tự bỏ sót offline guard
+  /// và timeout. Gọi lại đúng `_offlineGuard` + `resolveUri` hiện có — không
+  /// nhân bản logic URL-joining ở nơi khác.
+  static ApiRequestTarget resolveRequestTarget(String endpoint) {
+    final blocked = _offlineGuard(endpoint);
+    if (blocked != null) {
+      return ApiRequestTarget(blockedResponse: blocked);
+    }
+    return ApiRequestTarget(uri: resolveUri(endpoint));
+  }
+
   /// Overridable in tests (e.g. `ApiClient.client = MockClient(...)`) so
   /// services calling the static get/post/... methods below don't need
   /// their own http.Client injection point to be testable.
@@ -302,43 +326,38 @@ class ApiClient {
   static const Duration uploadTimeout = Duration(seconds: 30);
 
   static Future<http.Response> get(String endpoint, {bool requiresAuth = true}) async {
-    final offline = _offlineGuard(endpoint);
-    if (offline != null) return offline;
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) return response;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
-    final url = resolveUri(endpoint);
-    return client.get(url, headers: headers).timeout(defaultTimeout);
+    return client.get(target.uri!, headers: headers).timeout(defaultTimeout);
   }
 
   static Future<http.Response> post(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
-    final offline = _offlineGuard(endpoint);
-    if (offline != null) return offline;
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) return response;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
-    final url = resolveUri(endpoint);
-    return client.post(url, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
+    return client.post(target.uri!, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
   }
 
   static Future<http.Response> put(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
-    final offline = _offlineGuard(endpoint);
-    if (offline != null) return offline;
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) return response;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
-    final url = resolveUri(endpoint);
-    return client.put(url, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
+    return client.put(target.uri!, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
   }
 
   static Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
-    final offline = _offlineGuard(endpoint);
-    if (offline != null) return offline;
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) return response;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
-    final url = resolveUri(endpoint);
-    return client.patch(url, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
+    return client.patch(target.uri!, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
   }
 
   static Future<http.Response> delete(String endpoint, {bool requiresAuth = true}) async {
-    final offline = _offlineGuard(endpoint);
-    if (offline != null) return offline;
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) return response;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
-    final url = resolveUri(endpoint);
-    return client.delete(url, headers: headers).timeout(defaultTimeout);
+    return client.delete(target.uri!, headers: headers).timeout(defaultTimeout);
   }
 
   /// Task 6 — SSE dùng chung resolver/offline-guard/token/`X-Workspace-Id` với
@@ -350,11 +369,11 @@ class ApiClient {
     Map<String, String>? extraHeaders,
     bool requiresAuth = true,
   }) async {
-    final offline = _offlineGuard(endpoint);
-    if (offline != null) throw ApiOfflineException(offline);
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) throw ApiOfflineException(response);
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     if (extraHeaders != null) headers.addAll(extraHeaders);
-    final request = http.Request('GET', resolveUri(endpoint));
+    final request = http.Request('GET', target.uri!);
     request.headers.addAll(headers);
     request.headers['Accept'] = 'text/event-stream';
     return client.send(request).timeout(defaultTimeout);
@@ -369,10 +388,10 @@ class ApiClient {
     List<http.MultipartFile>? files,
     bool requiresAuth = true,
   }) async {
-    final offline = _offlineGuard(endpoint);
-    if (offline != null) throw ApiOfflineException(offline);
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) throw ApiOfflineException(response);
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
-    final request = http.MultipartRequest('POST', resolveUri(endpoint));
+    final request = http.MultipartRequest('POST', target.uri!);
     request.headers.addAll(headers);
     if (fields != null) request.fields.addAll(fields);
     if (files != null) request.files.addAll(files);
@@ -390,11 +409,10 @@ class ApiClient {
     Map<String, String> fields, {
     bool requiresAuth = true,
   }) async {
-    final offline = _offlineGuard(endpoint);
-    if (offline != null) throw ApiOfflineException(offline);
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) throw ApiOfflineException(response);
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     headers.remove('Content-Type');
-    final url = resolveUri(endpoint);
-    return client.post(url, headers: headers, body: fields).timeout(defaultTimeout);
+    return client.post(target.uri!, headers: headers, body: fields).timeout(defaultTimeout);
   }
 }
