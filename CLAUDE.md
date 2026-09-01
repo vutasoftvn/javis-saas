@@ -35,7 +35,11 @@ tự trong `docs/archive/` chỉ là lưu trữ lịch sử, KHÔNG phải ngu�
 model provider (qua LiteLLM), LangChain là optional adapter.
 
 **Control Plane:** vị trí tại `services/cosa` (Encore/TS). Schema + service code
-TypeScript đã tồn tại nhưng **zero production consumer** tính đến 2026-08-25.
+TypeScript đã tồn tại; claim "zero production consumer" (tính đến 2026-08-25)
+đã lỗi thời — kể từ 2026-08-31, `services/company` gọi RPC HTTP thật sang
+`services/cosa` (`identity/services/platform.client.ts` xác thực workspace
+membership; `shared/auth/cosa-delegation.service.ts` bridge token cho
+`apps/cosa`). Luôn kiểm tra lại bằng grep thay vì tin ngày trong ghi chú này.
 
 Trạng thái ACCEPTED chỉ xác nhận quyết định kiến trúc; không mặc định có
 nghĩa implementation, migration cutover, runtime wiring hoặc production
