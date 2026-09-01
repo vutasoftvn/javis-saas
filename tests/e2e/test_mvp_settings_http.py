@@ -74,7 +74,33 @@ def test_settings_contracts_live(real_company_service):
         for node in nodes_data["data"]:
             assert node["presence"] in {"ONLINE", "OFFLINE", "DEGRADED"}
 
-    # ─── 6. Tenant Isolation ───
+    # ─── 6. Verify Skill Policies (Task 4 — Truthful MVP Hardening) ───
+    # If control plane is wired (services/cosa reachable from this Encore instance)
+    res_skill_policies = client.get(f"/platform/workspaces/{ws_a}/skill-policies", headers=headers_a)
+    if res_skill_policies.status_code == 200:
+        skill_data = res_skill_policies.json()
+        assert skill_data["meta"]["sources"][0]["kind"] == "control_plane"
+        assert isinstance(skill_data["data"], list)
+
+        put_res = client.put(
+            f"/platform/workspaces/{ws_a}/skill-policies/lead_enricher",
+            headers=headers_a,
+            json={"enabled": True, "config": {}},
+        )
+        if put_res.status_code == 200:
+            put_data = put_res.json()
+            assert put_data["data"]["revision"] >= 1
+            assert put_data["meta"]["sources"][0]["kind"] == "control_plane"
+
+            # Workspace B cannot mutate Workspace A's skill policies.
+            cross_put = client.put(
+                f"/platform/workspaces/{ws_a}/skill-policies/lead_enricher",
+                headers=headers_b,
+                json={"enabled": True, "config": {}},
+            )
+            assert cross_put.status_code in {401, 403, 404}
+
+    # ─── 7. Tenant Isolation ───
     # Workspace B cannot read Workspace A's members
     cross_res = client.get(f"/platform/workspaces/{ws_a}/members", headers=headers_b)
     assert cross_res.status_code in {401, 403, 404}

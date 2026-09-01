@@ -1,4 +1,4 @@
-import { pgSchema, text, integer, boolean, timestamp, jsonb, bigint, varchar } from "drizzle-orm/pg-core";
+import { pgSchema, text, integer, boolean, timestamp, jsonb, bigint, varchar, primaryKey, index } from "drizzle-orm/pg-core";
 import { controlPlaneSchema } from "./control-plane-schema";
 
 export * from "./control-plane-schema";
@@ -125,3 +125,25 @@ export const workspaceSettingsAuditEvents = controlPlaneSchema.table("workspace_
   details: jsonb("details").default({}).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// Task 4 (Truthful MVP Hardening, migration 30) — nguồn sự thật duy nhất cho
+// policy skill theo workspace tại COSA Control Plane. apps/cosa chỉ validate
+// skillKey với registry riêng rồi gọi control plane qua WorkspaceSettingsClient
+// để đọc/ghi bảng này — không tự lưu policy ở phía Agent Platform.
+export const workspaceSkillPolicies = controlPlaneSchema.table(
+  "workspace_skill_policies",
+  {
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    skillKey: text("skill_key").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    config: jsonb("config").default({}).notNull(),
+    revision: integer("revision").default(1).notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.workspaceId, t.skillKey] }),
+    wsUpdatedIdx: index("idx_workspace_skill_policies_ws_updated").on(t.workspaceId, t.updatedAt.desc()),
+  })
+);

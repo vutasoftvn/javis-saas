@@ -25,6 +25,7 @@ from agent.workforce.repository import WorkforceRepository
 
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.connector_grant_client import ConnectorGrantHttpClient
+from apps.cosa.capabilities.workspace_settings_client import WorkspaceSettingsClient
 from apps.cosa.composition.capability_registration import register_cosa_capabilities
 from apps.cosa.composition.compliance_coordination import ComplianceCoordination
 from apps.cosa.composition.kernel_factory import build_execution_kernel
@@ -82,6 +83,7 @@ class CosaAgentPlane:
         compliance_resolver: Any | None = None,
         workforce_repository: WorkforceRepository | None = None,
         vault_repository: VaultRepository | None = None,
+        workspace_settings_client: WorkspaceSettingsClient | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -97,6 +99,11 @@ class CosaAgentPlane:
         self.workflow_engine = workflow_engine
         self.company_client = company_client
         self.tenant_policy_client = tenant_policy_client
+        # Task 4 — thin HTTP client gọi COSA Control Plane (services/cosa) để
+        # đọc/ghi workspace_skill_policies. Mặc định luôn có instance (không
+        # None) để settings_routes.py fail rõ ràng (503) khi control plane
+        # network-unreachable, thay vì fail âm thầm vì thiếu wiring.
+        self.workspace_settings_client = workspace_settings_client or WorkspaceSettingsClient()
         self.scheduler = scheduler
         self.lease_client = lease_client
         self.stream_event_repository = stream_event_repository
@@ -187,6 +194,7 @@ def build_cosa_agent_plane(
     knowledge_ingestion_service: Any | None = None,
     workforce_repository: WorkforceRepository | None = None,
     vault_repository: VaultRepository | None = None,
+    workspace_settings_client: WorkspaceSettingsClient | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -308,4 +316,5 @@ def build_cosa_agent_plane(
         memory_service=storage.memory_service,
         knowledge_ingestion_service=storage.knowledge_ingestion_service,
         compliance_resolver=compliance_resolver,
+        workspace_settings_client=workspace_settings_client,
     )

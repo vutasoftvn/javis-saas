@@ -6,12 +6,15 @@ import {
   listWorkspaceConnectorsService,
   listWorkspaceMembersService,
   listWorkspaceRuntimeNodesService,
+  listWorkspaceSkillPoliciesService,
   MvpSuccess,
+  putWorkspaceSkillPolicyService,
   revokeWorkspaceConnectorService,
   revokeWorkspaceRuntimeNodeService,
   RuntimeNodeView,
   WorkspaceAuditEventDTO,
   WorkspaceMemberDTO,
+  WorkspaceSkillPolicyView,
 } from "../services/workspace-settings.service";
 
 export interface WorkspaceSettingsHeaderRequest {
@@ -25,6 +28,12 @@ export interface ConnectorActionRequest extends WorkspaceSettingsHeaderRequest {
 
 export interface RuntimeNodeActionRequest extends WorkspaceSettingsHeaderRequest {
   nodeId: string;
+}
+
+export interface SkillPolicyPutRequest extends WorkspaceSettingsHeaderRequest {
+  skillKey: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
 }
 
 // 1. Members
@@ -77,5 +86,20 @@ export const listWorkspaceAuditEvents = api(
   { expose: true, method: "GET", path: "/platform/workspaces/:workspaceId/audit-events" },
   async ({ workspaceId, authorization }: WorkspaceSettingsHeaderRequest): Promise<MvpSuccess<readonly WorkspaceAuditEventDTO[]>> => {
     return listWorkspaceAuditEventsService(workspaceId, authorization);
+  }
+);
+
+// 5. Skill Policies (Task 4 — Truthful MVP Hardening)
+export const listWorkspaceSkillPolicies = api(
+  { expose: true, method: "GET", path: "/platform/workspaces/:workspaceId/skill-policies" },
+  async ({ workspaceId, authorization }: WorkspaceSettingsHeaderRequest): Promise<MvpSuccess<readonly WorkspaceSkillPolicyView[]>> => {
+    return listWorkspaceSkillPoliciesService(workspaceId, authorization);
+  }
+);
+
+export const putWorkspaceSkillPolicy = api(
+  { expose: true, method: "PUT", path: "/platform/workspaces/:workspaceId/skill-policies/:skillKey" },
+  async ({ workspaceId, skillKey, enabled, config, authorization }: SkillPolicyPutRequest): Promise<MvpSuccess<WorkspaceSkillPolicyView>> => {
+    return putWorkspaceSkillPolicyService(workspaceId, skillKey, enabled, config ?? {}, authorization);
   }
 );

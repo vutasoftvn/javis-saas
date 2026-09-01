@@ -112,6 +112,11 @@ class SkillSettingModel {
   final String autonomyCeiling;
   final List<String> tags;
   final DateTime updatedAt;
+  // Task 4 — control plane (services/cosa) là nguồn sự thật, tăng dần mỗi
+  // lần persist thành công. Skill chưa từng có policy nào trả revision 0.
+  // SettingsMvpService dùng field này để chặn 1 response cũ/lặp đè lên state
+  // mới hơn đã áp dụng cục bộ.
+  final int revision;
 
   const SkillSettingModel({
     required this.id,
@@ -125,6 +130,7 @@ class SkillSettingModel {
     required this.autonomyCeiling,
     this.tags = const [],
     required this.updatedAt,
+    this.revision = 0,
   });
 
   factory SkillSettingModel.fromJson(Map<String, dynamic> json) {
@@ -140,6 +146,7 @@ class SkillSettingModel {
       autonomyCeiling: json['autonomyCeiling'] as String? ?? json['autonomy_ceiling'] as String? ?? 'supervised',
       tags: (json['tags'] as List? ?? []).map((e) => e.toString()).toList(),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? json['updated_at'] as String? ?? '') ?? DateTime.now(),
+      revision: (json['revision'] as num?)?.toInt() ?? 0,
     );
   }
 }

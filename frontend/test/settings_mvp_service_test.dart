@@ -145,7 +145,7 @@ void main() {
     expect(success.data.first.presence, 'ONLINE');
   });
 
-  test('list skills returns published skills from agent_db', () async {
+  test('list skills returns published skills with control_plane as authoritative source', () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'GET');
       expect(request.url.path, contains('/agent/settings/skills'));
@@ -165,12 +165,13 @@ void main() {
               'autonomyCeiling': 'supervised',
               'tags': ['growth', 'leads'],
               'updatedAt': '2026-08-31T12:00:00.000Z',
+              'revision': 1,
             }
           ],
           'meta': {
             'dataState': 'populated',
             'observedAt': '2026-08-31T12:00:00.000Z',
-            'sources': [{'kind': 'agent_db', 'ref': 'agent.skills'}],
+            'sources': [{'kind': 'control_plane', 'ref': 'control_plane.skill_policies'}],
           },
         }),
         200,
@@ -185,6 +186,89 @@ void main() {
     final success = result as ApiSuccess<List<SkillSettingModel>>;
     expect(success.data.length, 1);
     expect(success.data.first.name, 'Lead Enricher');
-    expect(success.meta.sources.first.kind, 'agent_db');
+    expect(success.data.first.revision, 1);
+    expect(success.meta.sources.first.kind, 'control_plane');
+    expect(service.cachedSkill('lead_enricher')?.revision, 1);
+  });
+
+  // Task 4 — SettingsMvpService.updateSkill chỉ áp state cục bộ khi response
+  // ApiSuccess trả về revision LỚN HƠN revision hiện tại đã biết. Đây là
+  // guard chống 1 response cũ/lặp (retry mạng, request trả về không theo
+  // đúng thứ tự gửi) bị coi là thành công và ghi đè state mới hơn.
+  group('updateSkill revision guard', () {
+    Map<String, dynamic> skillJson({required bool enabled, required int revision}) => {
+          'id': 'lead_enricher',
+          'skillKey': 'lead_enricher',
+          'name': 'Lead Enricher',
+          'description': 'Enriches leads from web sources',
+          'version': '1.0.0',
+          'installed': enabled,
+          'status': enabled ? 'active' : 'disabled',
+          'publisher': 'cosa_platform',
+          'autonomyCeiling': 'supervised',
+          'tags': <String>[],
+          'updatedAt': '2026-08-31T12:00:00.000Z',
+          'revision': revision,
+        };
+
+    Map<String, dynamic> envelope(Map<String, dynamic> data) => {
+          'data': data,
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-08-31T12:00:00.000Z',
+            'sources': [
+              {'kind': 'control_plane', 'ref': 'control_plane.skill_policies'},
+            ],
+          },
+        };
+
+    test('applies local state when revision increases', () async {
+      var callCount = 0;
+      final mockHttp = MockClient((request) async {
+        callCount += 1;
+        return http.Response(
+          jsonEncode(envelope(skillJson(enabled: callCount.isOdd, revision: callCount))),
+          200,
+        );
+      });
+
+      final service = SettingsMvpService(client: MvpRequestClient(httpClient: mockHttp));
+
+      final first = await service.updateSkill('lead_enricher', enabled: true, config: {});
+      expect(first, isA<ApiSuccess<SkillSettingModel>>());
+      expect(service.cachedSkill('lead_enricher')?.revision, 1);
+      expect(service.cachedSkill('lead_enricher')?.installed, true);
+
+      final second = await service.updateSkill('lead_enricher', enabled: false, config: {});
+      expect(second, isA<ApiSuccess<SkillSettingModel>>());
+      expect(service.cachedSkill('lead_enricher')?.revision, 2);
+      expect(service.cachedSkill('lead_enricher')?.installed, false);
+    });
+
+    test('does not overwrite newer local state with a stale/duplicate revision', () async {
+      final responses = <http.Response>[
+        http.Response(jsonEncode(envelope(skillJson(enabled: true, revision: 2))), 200),
+        // Response cũ/lặp: revision KHÔNG lớn hơn state cục bộ hiện tại (2).
+        http.Response(jsonEncode(envelope(skillJson(enabled: true, revision: 2))), 200),
+      ];
+      var callIndex = 0;
+      final mockHttp = MockClient((request) async {
+        return responses[callIndex++];
+      });
+
+      final service = SettingsMvpService(client: MvpRequestClient(httpClient: mockHttp));
+
+      await service.updateSkill('lead_enricher', enabled: true, config: {});
+      expect(service.cachedSkill('lead_enricher')?.revision, 2);
+
+      final stale = await service.updateSkill('lead_enricher', enabled: false, config: {});
+      // HTTP layer vẫn báo thành công (server trả 200) — ApiResult phản ánh
+      // đúng response thật...
+      expect(stale, isA<ApiSuccess<SkillSettingModel>>());
+      // ...nhưng state cục bộ (cachedSkill) KHÔNG bị đè bởi response revision
+      // không tăng — vẫn giữ nguyên revision 2 / enabled=true trước đó.
+      expect(service.cachedSkill('lead_enricher')?.revision, 2);
+      expect(service.cachedSkill('lead_enricher')?.installed, true);
+    });
   });
 }

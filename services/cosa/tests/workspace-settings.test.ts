@@ -8,6 +8,7 @@ import {
   listWorkspaceConnectors,
   listWorkspaceMembers,
   listWorkspaceRuntimeNodes,
+  putWorkspaceSkillPolicy,
   revokeWorkspaceConnector,
 } from "../handlers/workspace-settings.handler";
 
@@ -99,5 +100,86 @@ describe("Workspace Settings Endpoints", () => {
         authorization: `Bearer ${workerToken}`,
       })
     ).rejects.toThrow(/invalid or expired platform token|unauthenticated/i);
+  });
+});
+
+// Task 4 — Persist Workspace Skill Policy tại COSA Control Plane.
+describe("Workspace Skill Policy Endpoints (Task 4)", () => {
+  let founderToken: string;
+  let workspaceId: string;
+  let outsiderToken: string;
+
+  beforeAll(async () => {
+    const email = `skill-policy-founder-${Date.now()}@test.io`;
+    const reg = await registerPlatformUser({
+      email,
+      password: "SecurePassword123",
+      workspace_name: "Skill Policy Test Venture",
+    });
+    workspaceId = reg.platform_workspace_id!;
+    founderToken = reg.access_token;
+
+    // Người dùng khác, không thuộc workspace trên — dùng để test rejection.
+    const outsiderEmail = `skill-policy-outsider-${Date.now()}@test.io`;
+    const outsiderReg = await registerPlatformUser({
+      email: outsiderEmail,
+      password: "SecurePassword123",
+      workspace_name: "Outsider Venture",
+    });
+    outsiderToken = outsiderReg.access_token;
+  });
+
+  it("persists a skill policy and increments revision", async () => {
+    const first = await putWorkspaceSkillPolicy({
+      workspaceId,
+      skillKey: "lead_enricher",
+      authorization: `Bearer ${founderToken}`,
+      enabled: true,
+      config: {},
+    });
+    expect(first.data.revision).toBe(1);
+    expect(first.data.skillKey).toBe("lead_enricher");
+    expect(first.meta.sources[0].kind).toBe("control_plane");
+
+    const second = await putWorkspaceSkillPolicy({
+      workspaceId,
+      skillKey: "lead_enricher",
+      authorization: `Bearer ${founderToken}`,
+      enabled: false,
+      config: {},
+    });
+    expect(second.data.revision).toBe(first.data.revision + 1);
+    expect(second.data.enabled).toBe(false);
+  });
+
+  it("rejects a non-member mutation", async () => {
+    await expect(
+      putWorkspaceSkillPolicy({
+        workspaceId,
+        authorization: `Bearer ${outsiderToken}`,
+        skillKey: "lead_enricher",
+        enabled: true,
+        config: {},
+      })
+    ).rejects.toThrow(/permission/i);
+  });
+
+  it("records an audit event on every skill policy mutation", async () => {
+    await putWorkspaceSkillPolicy({
+      workspaceId,
+      skillKey: "growth_hacking",
+      authorization: `Bearer ${founderToken}`,
+      enabled: true,
+      config: { max_autonomy: "supervised" },
+    });
+
+    const auditRes = await listWorkspaceAuditEvents({
+      workspaceId,
+      authorization: `Bearer ${founderToken}`,
+    });
+
+    const skillPolicyEvent = auditRes.data.find((e) => e.targetKind === "skill_policy" && e.targetId === "growth_hacking");
+    expect(skillPolicyEvent).toBeDefined();
+    expect(skillPolicyEvent!.eventType).toBe("skill_policy.updated");
   });
 });

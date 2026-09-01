@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
 import { db } from "../db";
 import {
@@ -6,6 +6,7 @@ import {
   users,
   workspaceMemberships,
   workspaceSettingsAuditEvents,
+  workspaceSkillPolicies,
 } from "../storage/schema";
 import {
   workspaceConnectorInstallations,
@@ -52,7 +53,7 @@ function mvpItem<T>(item: T, sources: readonly MvpSourceRef[]): MvpSuccess<T> {
 
 const SOURCE_CONTROL_PLANE: MvpSourceRef = { kind: "control_plane", ref: "control_plane.settings" };
 
-async function verifyWorkspaceMembership(authorization: string | undefined, workspaceId: string): Promise<string> {
+async function verifyWorkspaceMembershipRow(authorization: string | undefined, workspaceId: string) {
   const authCtx = extractAuthContext(authorization, workspaceId);
 
   const wsIdBigInt = BigInt(workspaceId);
@@ -66,10 +67,29 @@ async function verifyWorkspaceMembership(authorization: string | undefined, work
 
   if (mem.length === 0) {
     // If not a member, check if user is admin or throw permissionDenied
-    throw APIError.permissionDenied("user does not belong to this workspace");
+    throw APIError.permissionDenied("user does not have permission to access this workspace");
   }
 
-  return authCtx.userID;
+  return { actorId: authCtx.userID, membership: mem[0] };
+}
+
+async function verifyWorkspaceMembership(authorization: string | undefined, workspaceId: string): Promise<string> {
+  const { actorId } = await verifyWorkspaceMembershipRow(authorization, workspaceId);
+  return actorId;
+}
+
+// Task 4 — quyết định mutate skill policy chỉ dành cho workspace operator
+// (founder/co-founder/admin), khớp `_WORKSPACE_OPERATOR_ROLES` phía Python
+// (apps/cosa/auth/dependency.py::require_workspace_operator) để 2 phía đồng
+// nhất khái niệm "operator" dù kiểm tra ở 2 tầng khác nhau.
+const WORKSPACE_OPERATOR_ROLES = new Set(["founder", "co-founder", "admin"]);
+
+async function requireWorkspaceOperator(authorization: string | undefined, workspaceId: string): Promise<string> {
+  const { actorId, membership } = await verifyWorkspaceMembershipRow(authorization, workspaceId);
+  if (!WORKSPACE_OPERATOR_ROLES.has((membership.roleId || "").toLowerCase())) {
+    throw APIError.permissionDenied("workspace operator role required");
+  }
+  return actorId;
 }
 
 // ─── Members ───
@@ -354,4 +374,105 @@ export async function listWorkspaceAuditEventsService(
   }));
 
   return mvpList(items, [SOURCE_CONTROL_PLANE]);
+}
+
+// ─── Skill Policies (Task 4 — Truthful MVP Hardening) ───
+
+export interface WorkspaceSkillPolicyView {
+  readonly workspaceId: string;
+  readonly skillKey: string;
+  readonly enabled: boolean;
+  readonly config: Record<string, unknown>;
+  readonly revision: number;
+  readonly updatedBy: string;
+  readonly updatedAt: string;
+}
+
+export async function listWorkspaceSkillPoliciesService(
+  workspaceId: string,
+  authorization?: string
+): Promise<MvpSuccess<readonly WorkspaceSkillPolicyView[]>> {
+  await verifyWorkspaceMembership(authorization, workspaceId);
+  const wsIdBigInt = BigInt(workspaceId);
+
+  const rows = await db
+    .select()
+    .from(workspaceSkillPolicies)
+    .where(eq(workspaceSkillPolicies.workspaceId, wsIdBigInt))
+    .orderBy(desc(workspaceSkillPolicies.updatedAt));
+
+  const items: WorkspaceSkillPolicyView[] = rows.map((r) => ({
+    workspaceId: r.workspaceId.toString(),
+    skillKey: r.skillKey,
+    enabled: r.enabled,
+    config: (r.config as Record<string, unknown>) ?? {},
+    revision: r.revision,
+    updatedBy: r.updatedBy,
+    updatedAt: r.updatedAt.toISOString(),
+  }));
+
+  return mvpList(items, [SOURCE_CONTROL_PLANE]);
+}
+
+export async function putWorkspaceSkillPolicyService(
+  workspaceId: string,
+  skillKey: string,
+  enabled: boolean,
+  config: Record<string, unknown>,
+  authorization?: string
+): Promise<MvpSuccess<WorkspaceSkillPolicyView>> {
+  // Chỉ workspace operator (founder/co-founder/admin) được mutate policy —
+  // member thường chỉ được đọc (list ở trên chỉ yêu cầu membership).
+  const actorId = await requireWorkspaceOperator(authorization, workspaceId);
+  const wsIdBigInt = BigInt(workspaceId);
+
+  // Upsert + audit event trong CÙNG 1 transaction — không được ghi policy mà
+  // thiếu audit event tương ứng (và ngược lại).
+  const saved = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(workspaceSkillPolicies)
+      .values({
+        workspaceId: wsIdBigInt,
+        skillKey,
+        enabled,
+        config,
+        revision: 1,
+        updatedBy: actorId,
+      })
+      .onConflictDoUpdate({
+        target: [workspaceSkillPolicies.workspaceId, workspaceSkillPolicies.skillKey],
+        set: {
+          enabled,
+          config,
+          revision: sql`${workspaceSkillPolicies.revision} + 1`,
+          updatedBy: actorId,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    await tx.insert(workspaceSettingsAuditEvents).values({
+      eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
+      workspaceId: wsIdBigInt,
+      actorId,
+      eventType: "skill_policy.updated",
+      targetKind: "skill_policy",
+      targetId: skillKey,
+      details: { skillKey, enabled, revision: row.revision },
+    });
+
+    return row;
+  });
+
+  const out: WorkspaceSkillPolicyView = {
+    workspaceId: saved.workspaceId.toString(),
+    skillKey: saved.skillKey,
+    enabled: saved.enabled,
+    config: (saved.config as Record<string, unknown>) ?? {},
+    revision: saved.revision,
+    updatedBy: saved.updatedBy,
+    updatedAt: saved.updatedAt.toISOString(),
+  };
+
+  return mvpItem(out, [SOURCE_CONTROL_PLANE]);
 }
