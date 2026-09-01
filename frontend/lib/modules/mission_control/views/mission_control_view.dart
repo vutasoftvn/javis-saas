@@ -505,10 +505,10 @@ class MissionControlView extends GetView<MissionControlController> {
 
           return Column(
             children: controller.pendingApprovals.map((item) {
-              final id = (item['id'] ?? '').toString();
-              final tool = (item['tool_name'] ?? '').toString();
-              final agent = (item['requested_by_agent'] ?? '').toString();
-              final risk = (item['risk_level'] ?? 'medium').toString();
+              final id = item.approvalId;
+              final tool = item.action;
+              final agent = item.subject;
+              final risk = item.riskLevel;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),

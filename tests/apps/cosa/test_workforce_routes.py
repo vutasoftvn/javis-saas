@@ -161,3 +161,58 @@ async def test_health_reports_not_observed_when_no_runs(test_app) -> None:
         assert len(items) == 1
         assert items[0]["status"] == "not_observed"
         assert items[0]["observed_at"] is None
+
+
+@pytest.mark.asyncio
+async def test_workforce_approvals_use_mvp_envelope(test_app) -> None:
+    """Task 3: GET /agent/workforce/approvals phải trả đúng MVP envelope
+    {data, meta} — không được trả object thô {items, total} trái contract
+    mà mọi consumer MvpRequestClient khác đang giả định."""
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/agent/workforce/approvals")
+        assert response.status_code == 200
+        assert set(response.json()) == {"data", "meta"}
+
+
+@pytest.mark.asyncio
+async def test_workspace_b_cannot_decide_workspace_a_approval(test_app) -> None:
+    """Workspace B không được phép quyết định approval thuộc workspace A —
+    approval_id không tự mang tenant scope, phải tra run liên kết trước khi
+    cho quyết định (xem test_tenant_b_cannot_decide_approval_of_tenant_a_run
+    trong test_tenant_isolation.py cho biến thể qua run thật)."""
+    from agent.runs.models import RunRecord
+
+    override_authenticated_identity(test_app, workspace_id="ws_A", role_id="founder")
+    plane = test_app.state.plane
+    run = RunRecord(
+        company_id="ws_A",
+        workspace_id="ws_A",
+        principal="user:alice",
+        root_executable_id="test-spec",
+    )
+    await plane.repository.create_run(run)
+
+    approval, _wait_desc = await plane.approval_service.create_approval_request(
+        run_id=run.run_id,
+        tool_call_id="tc_1",
+        checkpoint_ref="ckpt_1",
+        requirement={"risk_level": "high"},
+        requester="user:alice",
+        action="finance.wire_payout",
+        subject="Acme Corp",
+    )
+
+    override_authenticated_identity(test_app, workspace_id="ws_B", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client_b:
+        response = await client_b.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": True, "reason": "not allowed"},
+        )
+        assert response.status_code == 404

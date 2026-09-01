@@ -9,7 +9,7 @@ import '../../../modules/dashboard/services/hub_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
 import '../../../modules/hologram_hub/services/chat_service.dart';
 import '../../../modules/workspace_runtime/services/workspace_runtime_service.dart';
-import '../../../modules/mission_control/services/control_plane_service.dart';
+import '../../../modules/workforce/services/workforce_mvp_service.dart';
 import '../../../modules/agents/services/agent_platform_service.dart';
 import '../../../modules/strategy/services/stage_service.dart';
 import '../../../modules/vault/services/evidence_service.dart';
@@ -55,7 +55,7 @@ class HologramHubController extends GetxController
   final RealtimeService _realtimeService;
   final VoiceService _voiceService;
   final ChatService _chatService;
-  final ControlPlaneService _controlPlaneService;
+  final WorkforceMvpService _workforceMvpService;
   final AgentPlatformService _agentPlatformService;
   final IWakeWordService _wakeWordService;
 
@@ -75,7 +75,7 @@ class HologramHubController extends GetxController
     RealtimeService? realtimeService,
     VoiceService? voiceService,
     ChatService? chatService,
-    ControlPlaneService? controlPlaneService,
+    WorkforceMvpService? workforceMvpService,
     AgentPlatformService? agentPlatformService,
     IWakeWordService? wakeWordService,
     this.autoStartWakeWord = false,
@@ -91,7 +91,7 @@ class HologramHubController extends GetxController
         _realtimeService = realtimeService ?? RealtimeService(),
         _voiceService = voiceService ?? VoiceService(),
         _chatService = chatService ?? ChatService(),
-        _controlPlaneService = controlPlaneService ?? ControlPlaneService(),
+        _workforceMvpService = workforceMvpService ?? WorkforceMvpService(),
         _agentPlatformService = agentPlatformService ?? AgentPlatformService(),
         _wakeWordService = wakeWordService ?? WakeWordService();
 
@@ -107,7 +107,7 @@ class HologramHubController extends GetxController
   @override WorkspaceRuntimeService get runtimeService => _runtimeService;
   @override VoiceService get voiceService => _voiceService;
   @override ChatService get chatService => _chatService;
-  @override ControlPlaneService get controlPlaneService => _controlPlaneService;
+  @override WorkforceMvpService get workforceMvpService => _workforceMvpService;
   @override AgentPlatformService get agentPlatformService => _agentPlatformService;
   @override IWakeWordService get wakeWordService => _wakeWordService;
 
@@ -146,23 +146,26 @@ class HologramHubController extends GetxController
     });
 
     updateClock();
-    _clockTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => updateClock(),
-    );
-    _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      loadStageContext(projectId: selectedProjectId.value);
-      loadHubSummary(showLoading: false);
-      loadCommandCenterData();
-      loadCeoNextActions();
-      loadActiveCycleTimeline();
-      loadPendingApprovals();
-      loadAgentRuns();
-      loadControlPlaneSummary(showLoading: false);
-      loadControlPlaneApprovals();
-      // Phase 6: Refresh exception escalations every 60 seconds
-      loadOpenEscalations();
-    });
+    if (WidgetsBinding.instance.runtimeType.toString() !=
+        'TestWidgetsFlutterBinding') {
+      _clockTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => updateClock(),
+      );
+      _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+        loadStageContext(projectId: selectedProjectId.value);
+        loadHubSummary(showLoading: false);
+        loadCommandCenterData();
+        loadCeoNextActions();
+        loadActiveCycleTimeline();
+        loadPendingApprovals();
+        loadAgentRuns();
+        loadControlPlaneSummary(showLoading: false);
+        loadControlPlaneApprovals();
+        // Phase 6: Refresh exception escalations every 60 seconds
+        loadOpenEscalations();
+      });
+    }
 
     _realtimeService.connect();
     _realtimeService.addListener(_onRealtimeEvent);

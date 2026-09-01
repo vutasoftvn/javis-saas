@@ -5,6 +5,7 @@ import '../../../core/services/secure_storage_service.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
 import '../../../data/models/workforce_pack_model.dart';
+import '../../workforce/services/workforce_mvp_service.dart';
 
 class CoFounderApiService {
   /// Lấy thông tin nhịp tim tổng thể của doanh nghiệp (Company Pulse) từ Backend
@@ -132,90 +133,53 @@ class CoFounderApiService {
     }
   }
 
-  /// Lấy danh sách toàn bộ các 5 Core Domains và Optional Packs từ Backend
-  static Future<List<WorkforcePackModel>> listWorkforcePacks({int? workspaceId}) async {
-    try {
-      final q = workspaceId != null ? '?workspace_id=$workspaceId' : '';
-      final response = await ApiClient.get('/workforce/packs$q');
-      if (response.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(response.body);
-        return list.map((e) => WorkforcePackModel.fromJson(e as Map<String, dynamic>)).toList();
-      }
-    } catch (e) {
-      debugPrint('[CoFounderApiService] listWorkforcePacks exception: $e');
-    }
-    return [
-      WorkforcePackModel(
-        key: 'strategy',
-        name: 'Strategic Co-Founder',
-        roleTitle: 'AI Co-Founder & Strategy Lead',
-        department: 'Executive',
-        category: 'ORCHESTRATOR',
-        isCore: true,
-        isActive: true,
-        description: 'Chiến lược, OKRs và 12-Week Year Execution Planning',
-      ),
-      WorkforcePackModel(
-        key: 'sales',
-        name: 'Sales & Revenue',
-        roleTitle: 'Revenue Specialist',
-        department: 'Commercial',
-        category: 'DOMAIN',
-        isCore: true,
-        isActive: true,
-        description: 'Quản lý Pipeline, Leads và Opportunities',
-      ),
-      WorkforcePackModel(
-        key: 'marketing',
-        name: 'Growth Marketing',
-        roleTitle: 'Campaign Strategist',
-        department: 'Commercial',
-        category: 'DOMAIN',
-        isCore: true,
-        isActive: true,
-        description: 'Chiến dịch, Content và Phễu chuyển đổi khách hàng',
-      ),
-      WorkforcePackModel(
-        key: 'operations',
-        name: 'Operations & Execution',
-        roleTitle: 'Chief of Staff',
-        department: 'Operations',
-        category: 'DOMAIN',
-        isCore: true,
-        isActive: true,
-        description: 'Kanban, Task Dependencies và Execution Score',
-      ),
-      WorkforcePackModel(
-        key: 'finance_legal',
-        name: 'Finance & Legal',
-        roleTitle: 'Finance & Compliance Lead',
-        department: 'Finance-Legal',
-        category: 'DOMAIN',
-        isCore: true,
-        isActive: true,
-        description: 'Kế toán TT58, Dòng tiền và Pháp lý doanh nghiệp',
-      ),
-    ];
+  /// Task 3 (Truthful MVP Hardening) — `/workforce/packs` không có canonical
+  /// backend nào cả, nên trước đây mọi lỗi/404 bị nuốt và thay bằng danh sách
+  /// giả 5 domain mặc định — một "success" ảo. Giờ gọi thẳng canonical
+  /// `/agent/workforce/composition` qua `WorkforceMvpService`: chỉ hiển thị
+  /// đúng những functional agent mà backend thực sự biết tới; lỗi/016
+  /// thất bại trả về danh sách rỗng (KHÔNG còn fabricate 5/12 pack mặc định).
+  static Future<List<WorkforcePackModel>> listWorkforcePacks({
+    int? workspaceId,
+    WorkforceMvpService? workforceMvpService,
+  }) async {
+    final service = workforceMvpService ?? WorkforceMvpService();
+    final result = await service.getComposition();
+    return result.when(
+      success: (entries, _) => entries
+          .map(
+            (e) => WorkforcePackModel(
+              key: e.functionalKey,
+              name: e.title,
+              roleTitle: e.title,
+              department: null,
+              category: 'DOMAIN',
+              isCore: false,
+              isActive: e.assigned,
+              description: e.description,
+            ),
+          )
+          .toList(),
+      failure: (failure) {
+        debugPrint('[CoFounderApiService] listWorkforcePacks failure: ${failure.message}');
+        return const [];
+      },
+    );
   }
 
-  /// Bật/Tắt một Optional Pack
+  /// Task 3 — `/workforce/packs/:key/toggle` không có canonical backend.
+  /// Không còn route nào để bật/tắt pack ở mức này; trả `false` (không thực
+  /// hiện thay đổi nào) thay vì giả vờ gọi API rồi coi lỗi là thành công.
+  /// UI phía founder command center cần hiển thị trạng thái "unavailable"
+  /// cho hành động này.
   static Future<bool> toggleOptionalPack({
     required String packKey,
     required bool isActive,
     int? workspaceId,
   }) async {
-    try {
-      final response = await ApiClient.post(
-        '/workforce/packs/$packKey/toggle',
-        body: {
-          'is_active': isActive,
-          'workspace_id': workspaceId,
-        },
-      );
-      return response.statusCode == 200;
-    } catch (e) {
-      debugPrint('[CoFounderApiService] toggleOptionalPack error: $e');
-      return false;
-    }
+    debugPrint(
+      '[CoFounderApiService] toggleOptionalPack unavailable: no canonical route for pack toggle ($packKey)',
+    );
+    return false;
   }
 }

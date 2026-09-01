@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/network/api_result.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../../../modules/mission_control/services/control_plane_service.dart';
+import '../../../../modules/workforce/models/workforce_mvp_models.dart';
+import '../../../../modules/workforce/services/workforce_mvp_service.dart';
 import '../../../../modules/agents/services/agent_platform_service.dart';
 import '../../views/widgets/workforce_org_chart_modal.dart';
 import '../../views/widgets/approval_inbox_drawer.dart';
@@ -11,14 +13,17 @@ import '../../views/widgets/exception_escalation_inbox.dart';
 
 mixin HubControlPlaneMixin on GetxController {
   // ── Abstract service getters ─────────────────────────────────────────────
-  ControlPlaneService get controlPlaneService;
+  // Task 3 — ControlPlaneService (route không canonical) đã bị thay bằng
+  // WorkforceMvpService, xây trên MvpRequestClient để 404/5xx luôn ra
+  // ApiFailure thay vì bị nuốt thành danh sách rỗng.
+  WorkforceMvpService get workforceMvpService;
   AgentPlatformService get agentPlatformService;
 
   // ── Observables ──────────────────────────────────────────────────────────
 
   // Agent activity & pending approvals (Control Plane)
-  final pendingApprovals = <Map<String, dynamic>>[].obs;
-  final agentRuns = <Map<String, dynamic>>[].obs;
+  final pendingApprovals = <WorkforceApproval>[].obs;
+  final agentRuns = <WorkforceRun>[].obs;
 
   // COSA D2 Agent Workforce Control Plane
   final controlPlaneSummary = Rxn<Map<String, dynamic>>();
@@ -42,37 +47,34 @@ mixin HubControlPlaneMixin on GetxController {
   // ── Data loading ─────────────────────────────────────────────────────────
 
   Future<void> loadPendingApprovals() async {
-    try {
-      pendingApprovals.value =
-          await controlPlaneService.getPendingApprovals();
-    } catch (e) {
-      debugPrint('[HologramHub] Error loading pending approvals: $e');
-    }
+    final result = await workforceMvpService.listApprovals();
+    result.when(
+      success: (data, _) => pendingApprovals.value = data,
+      failure: (failure) =>
+          debugPrint('[HologramHub] Error loading pending approvals: ${failure.message}'),
+    );
   }
 
   Future<void> loadAgentRuns() async {
-    try {
-      agentRuns.value = await controlPlaneService.listRuns(limit: 5);
-    } catch (e) {
-      debugPrint('[HologramHub] Error loading agent runs: $e');
-    }
+    final result = await workforceMvpService.listRuns(limit: 5);
+    result.when(
+      success: (data, _) => agentRuns.value = data,
+      failure: (failure) =>
+          debugPrint('[HologramHub] Error loading agent runs: ${failure.message}'),
+    );
   }
 
   Future<void> approveTaskCard(String approvalId) async {
-    final ok = await controlPlaneService.approveAction(approvalId);
-    if (ok) {
-      pendingApprovals.removeWhere(
-        (a) => (a['id'] ?? '').toString() == approvalId,
-      );
+    final result = await workforceMvpService.decideApproval(approvalId, approved: true);
+    if (result is ApiSuccess<WorkforceApprovalDecision>) {
+      pendingApprovals.removeWhere((a) => a.approvalId == approvalId);
     }
   }
 
   Future<void> rejectTaskCard(String approvalId) async {
-    final ok = await controlPlaneService.rejectAction(approvalId);
-    if (ok) {
-      pendingApprovals.removeWhere(
-        (a) => (a['id'] ?? '').toString() == approvalId,
-      );
+    final result = await workforceMvpService.decideApproval(approvalId, approved: false);
+    if (result is ApiSuccess<WorkforceApprovalDecision>) {
+      pendingApprovals.removeWhere((a) => a.approvalId == approvalId);
     }
   }
 

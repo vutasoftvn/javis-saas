@@ -1,112 +1,18 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/modules/mission_control/services/control_plane_service.dart';
 import 'package:frontend/modules/agents/views/widgets/agent_activity_timeline_widget.dart';
 import 'package:frontend/modules/approvals/views/widgets/central_approval_inbox_widget.dart';
 import 'package:frontend/modules/dashboard/views/widgets/agentic_command_center_card.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+// Task 3 — Nhóm test "ControlPlaneService" trước đây đã bị xoá: chúng chỉ
+// kiểm chứng các route không canonical (`/agent/goals`, `/agent/runs`,
+// `/agents/approvals`) mà backend thật không hề có. Hành vi thật tương
+// đương giờ được kiểm chứng ở
+// `frontend/test/modules/workforce/workforce_mvp_service_test.dart`. Các
+// widget test render thuần từ dữ liệu truyền vào (không phụ thuộc
+// ControlPlaneService) nên vẫn giữ lại nguyên trạng.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  late http.Client realClient;
-
-  setUp(() {
-    realClient = ApiClient.client;
-    SharedPreferences.setMockInitialValues({
-      'workspace_id': '81948333752455169',
-      'auth_token': 'test_token',
-    });
-  });
-
-  tearDown(() {
-    ApiClient.client = realClient;
-  });
-
-  group('ControlPlaneService', () {
-    test('getGoals returns parsed goals list', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/agent/goals');
-        return http.Response(
-          jsonEncode([
-            {'id': '101', 'title': 'Increase pipeline', 'status': 'active'},
-          ]),
-          200,
-        );
-      });
-
-      final goals = await ControlPlaneService().getGoals();
-      expect(goals.length, 1);
-      expect(goals[0]['title'], 'Increase pipeline');
-    });
-
-    test('createGoal sends JSON payload and receives parsed response', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/agent/goals');
-        final body = jsonDecode(request.body);
-        expect(body['title'], 'New Goal');
-        return http.Response(
-          jsonEncode({'id': '102', 'title': 'New Goal', 'status': 'active'}),
-          200,
-        );
-      });
-
-      final res = await ControlPlaneService().createGoal(title: 'New Goal');
-      expect(res, isNotNull);
-      expect(res!['id'], '102');
-    });
-
-    test('listRuns returns parsed runs list', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/agent/runs');
-        return http.Response(
-          jsonEncode({
-            'total': 1,
-            'items': [
-              {'id': 'run_101', 'status': 'completed', 'agent_key': 'sales_reasoning'},
-            ],
-          }),
-          200,
-        );
-      });
-
-      final runs = await ControlPlaneService().listRuns();
-      expect(runs.length, 1);
-      expect(runs[0]['id'], 'run_101');
-      expect(runs[0]['agent_key'], 'sales_reasoning');
-    });
-
-    test('getRunEvents returns parsed events list', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/agent/runs/run_101/events');
-        return http.Response(
-          jsonEncode([
-            {'id': 'ev_1', 'event_type': 'step_completed', 'status': 'completed'},
-          ]),
-          200,
-        );
-      });
-
-      final events = await ControlPlaneService().getRunEvents('run_101');
-      expect(events.length, 1);
-      expect(events[0]['event_type'], 'step_completed');
-    });
-
-    test('approveAction sends approval request', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/agents/approvals/app_123/approve');
-        return http.Response(jsonEncode({'status': 'approved'}), 200);
-      });
-
-      final success = await ControlPlaneService().approveAction('app_123');
-      expect(success, isTrue);
-    });
-  });
 
   group('Agentic Widgets UI Rendering', () {
     testWidgets('AgentActivityTimelineWidget renders event items', (tester) async {

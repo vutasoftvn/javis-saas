@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/network/api_result.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../modules/workforce/models/workforce_mvp_models.dart';
+import '../../../modules/workforce/services/workforce_mvp_service.dart';
 import '../models/mission_event.dart';
 import '../services/mission_control_service.dart';
-import '../../../modules/mission_control/services/control_plane_service.dart';
 
 class MissionControlController extends GetxController {
-  MissionControlController({MissionControlService? service, ControlPlaneService? controlPlaneService})
-    : _service = service ?? MissionControlService(),
-      _controlPlaneService = controlPlaneService ?? ControlPlaneService();
+  MissionControlController({
+    MissionControlService? service,
+    WorkforceMvpService? workforceMvpService,
+  })  : _service = service ?? MissionControlService(),
+        _workforceMvpService = workforceMvpService ?? WorkforceMvpService();
 
   final MissionControlService _service;
-  final ControlPlaneService _controlPlaneService;
+  final WorkforceMvpService _workforceMvpService;
 
   final currentMission = Rxn<ChiefOfStaffMission>();
   final events = <MissionEvent>[].obs;
-  final pendingApprovals = <dynamic>[].obs;
+  final pendingApprovals = <WorkforceApproval>[].obs;
+  // Task 3 — lỗi tải approvals gần nhất; 404/5xx không được coi ngầm là danh
+  // sách rỗng, UI có thể đọc field này để hiển thị trạng thái không tải được
+  // thay vì hiển thị "không có approval nào đang chờ" một cách sai sự thật.
+  final approvalsLoadError = Rxn<String>();
   final isOrchestrating = false.obs;
   final goalInputController = TextEditingController();
 
@@ -32,8 +40,16 @@ class MissionControlController extends GetxController {
   }
 
   Future<void> loadApprovals() async {
-    final list = await _controlPlaneService.getPendingApprovals();
-    pendingApprovals.assignAll(list);
+    final result = await _workforceMvpService.listApprovals();
+    result.when(
+      success: (data, _) {
+        approvalsLoadError.value = null;
+        pendingApprovals.assignAll(data);
+      },
+      failure: (failure) {
+        approvalsLoadError.value = failure.message;
+      },
+    );
   }
 
   Future<void> runMission({String? customGoal}) async {
@@ -77,21 +93,21 @@ class MissionControlController extends GetxController {
   }
 
   Future<void> approve(String approvalId) async {
-    final ok = await _controlPlaneService.approveAction(approvalId);
-    if (ok) {
-      pendingApprovals.removeWhere(
-        (item) => (item['id'] ?? '').toString() == approvalId,
-      );
+    final result = await _workforceMvpService.decideApproval(approvalId, approved: true);
+    if (result is ApiSuccess<WorkforceApprovalDecision>) {
+      pendingApprovals.removeWhere((item) => item.approvalId == approvalId);
       AppToast.success('Đã phê duyệt hành động của agent');
     }
   }
 
   Future<void> reject(String approvalId, {String? reason}) async {
-    final ok = await _controlPlaneService.rejectAction(approvalId, reason: reason);
-    if (ok) {
-      pendingApprovals.removeWhere(
-        (item) => (item['id'] ?? '').toString() == approvalId,
-      );
+    final result = await _workforceMvpService.decideApproval(
+      approvalId,
+      approved: false,
+      reason: reason,
+    );
+    if (result is ApiSuccess<WorkforceApprovalDecision>) {
+      pendingApprovals.removeWhere((item) => item.approvalId == approvalId);
       AppToast.warning(
         'Đã từ chối hành động của agent',
         title: 'Đã từ chối',

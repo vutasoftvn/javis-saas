@@ -286,7 +286,9 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
         res_a = await ac.get("/agent/workforce/approvals")
         assert res_a.status_code == 200
-        items_a = res_a.json()["items"]
+        # Task 3: route giờ trả đúng MVP envelope {data, meta} thay vì
+        # object thô {items, total}.
+        items_a = res_a.json()["data"]
         approval_ids_a = [item["approval_id"] for item in items_a]
         assert approval_a.approval_id in approval_ids_a
         assert approval_b.approval_id not in approval_ids_a
@@ -296,7 +298,7 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
         override_authenticated_identity(test_app, **tenant_b_identity)
         res_b = await ac.get("/agent/workforce/approvals")
         assert res_b.status_code == 200
-        items_b = res_b.json()["items"]
+        items_b = res_b.json()["data"]
         approval_ids_b = [item["approval_id"] for item in items_b]
         assert approval_b.approval_id in approval_ids_b
         assert approval_a.approval_id not in approval_ids_b

@@ -1,15 +1,12 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/modules/mission_control/controllers/mission_control_controller.dart';
 import 'package:frontend/modules/mission_control/models/mission_event.dart';
-import 'package:frontend/modules/mission_control/services/control_plane_service.dart';
 import 'package:frontend/modules/mission_control/services/mission_control_service.dart';
+import 'package:frontend/modules/workforce/models/workforce_mvp_models.dart';
+import 'package:frontend/modules/workforce/services/workforce_mvp_service.dart';
 
 class _FakeMissionControlService extends MissionControlService {
   final Map<String, dynamic>? responseJson;
@@ -29,32 +26,81 @@ class _FakeMissionControlService extends MissionControlService {
   }
 }
 
-class _FakeControlPlaneService extends ControlPlaneService {
-  List<Map<String, dynamic>> approvalsToReturn = [];
-  bool approvalShouldFail = false;
-  bool rejectionShouldFail = false;
+/// Task 3 — thay cho `_FakeControlPlaneService` (đã gọi route không
+/// canonical); giờ controller phụ thuộc `WorkforceMvpService`, trả về
+/// `ApiResult` thay vì List/bool trần để không thể biến lỗi thành thành công
+/// giả.
+final _fakeMeta = ApiResponseMeta(
+  dataState: ApiDataState.empty,
+  observedAt: DateTime.utc(2026, 1, 1),
+);
+
+class _FakeWorkforceMvpService implements WorkforceMvpService {
+  ApiResult<List<WorkforceApproval>> approvalsResult =
+      ApiSuccess(data: const [], meta: _fakeMeta);
+  bool decisionShouldFail = false;
   int approvalsLoadCount = 0;
+  final List<String> decidedApprovals = [];
 
   @override
-  Future<List<Map<String, dynamic>>> getPendingApprovals() async {
+  Future<ApiResult<List<WorkforceApproval>>> listApprovals({String? status}) async {
     approvalsLoadCount++;
-    return approvalsToReturn;
+    return approvalsResult;
   }
 
   @override
-  Future<bool> approveAction(String approvalId, {String? reason}) async {
-    return !approvalShouldFail;
+  Future<ApiResult<WorkforceApprovalDecision>> decideApproval(
+    String approvalId, {
+    required bool approved,
+    String? reason,
+  }) async {
+    if (decisionShouldFail) {
+      return const ApiFailure(ApiFailureDetail(
+        code: ApiFailureCode.invalidRequest,
+        statusCode: 400,
+        message: 'decision failed',
+      ));
+    }
+    decidedApprovals.add(approvalId);
+    return ApiSuccess(
+      data: WorkforceApprovalDecision(
+        approvalId: approvalId,
+        runId: 'run_1',
+        status: approved ? 'approved' : 'rejected',
+        decidedAt: DateTime.now(),
+      ),
+      meta: _fakeMeta,
+    );
   }
 
   @override
-  Future<bool> rejectAction(String approvalId, {String? reason}) async {
-    return !rejectionShouldFail;
+  Future<ApiResult<List<WorkforceRun>>> listRuns({int limit = 50}) async {
+    return ApiSuccess(data: const [], meta: _fakeMeta);
   }
 
-  // Reset for reloads approvals test
-  void setApprovalsForReload(List<Map<String, dynamic>> first, List<Map<String, dynamic>> second) {
-    approvalsToReturn = first;
+  @override
+  Future<ApiResult<List<WorkforceRunEvent>>> listRunEvents(String runId) async {
+    return ApiSuccess(data: const [], meta: _fakeMeta);
   }
+
+  @override
+  Future<ApiResult<List<WorkforceCompositionEntry>>> getComposition() async {
+    return ApiSuccess(data: const [], meta: _fakeMeta);
+  }
+}
+
+WorkforceApproval _approval(String id, {String action = 'approve_action_1'}) {
+  return WorkforceApproval(
+    approvalId: id,
+    runId: 'run_1',
+    action: action,
+    subject: 'subject',
+    status: 'PENDING',
+    riskLevel: 'medium',
+    requiredRole: 'admin',
+    policyId: 'default',
+    createdAt: DateTime.now(),
+  );
 }
 
 void main() {
@@ -63,13 +109,13 @@ void main() {
 
   group('MissionControlController', () {
     late _FakeMissionControlService missionService;
-    late _FakeControlPlaneService controlPlaneService;
+    late _FakeWorkforceMvpService workforceMvpService;
 
     setUp(() {
       Get.reset();
       SharedPreferences.setMockInitialValues({});
       missionService = _FakeMissionControlService();
-      controlPlaneService = _FakeControlPlaneService();
+      workforceMvpService = _FakeWorkforceMvpService();
     });
 
     tearDown(() {
@@ -77,22 +123,22 @@ void main() {
     });
 
     test('onInit loads pending approvals', () async {
-      controlPlaneService.approvalsToReturn = [
-        {'id': 'app-001', 'action': 'approve_action_1'},
-        {'id': 'app-002', 'action': 'approve_action_2'},
-      ];
+      workforceMvpService.approvalsResult = ApiSuccess(
+        data: [_approval('app-001'), _approval('app-002')],
+        meta: _fakeMeta,
+      );
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
       await Future.delayed(const Duration(milliseconds: 100));
 
       expect(controller.pendingApprovals.length, 2);
-      expect(controller.pendingApprovals[0]['id'], 'app-001');
-      expect(controller.pendingApprovals[1]['id'], 'app-002');
+      expect(controller.pendingApprovals[0].approvalId, 'app-001');
+      expect(controller.pendingApprovals[1].approvalId, 'app-002');
 
       controller.onClose();
     });
@@ -100,7 +146,7 @@ void main() {
     test('onInit handles empty pending approvals', () async {
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -111,10 +157,31 @@ void main() {
       controller.onClose();
     });
 
+    test('404/failure surfaces as an error, not a silently-empty success', () async {
+      workforceMvpService.approvalsResult = const ApiFailure(ApiFailureDetail(
+        code: ApiFailureCode.notFound,
+        statusCode: 404,
+        message: 'Not found',
+      ));
+
+      final controller = MissionControlController(
+        service: missionService,
+        workforceMvpService: workforceMvpService,
+      );
+
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(controller.pendingApprovals, isEmpty);
+      expect(controller.approvalsLoadError.value, isNotNull);
+
+      controller.onClose();
+    });
+
     test('runMission with empty goal does nothing', () async {
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -145,7 +212,7 @@ void main() {
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -169,7 +236,7 @@ void main() {
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -193,7 +260,7 @@ void main() {
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -230,7 +297,7 @@ void main() {
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -279,7 +346,7 @@ void main() {
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -295,7 +362,7 @@ void main() {
     test('runMission adds mission_started event with correct data', () async {
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -327,37 +394,36 @@ void main() {
         },
       );
 
-      // Set initial empty approvals, then one approval after reload
-      controlPlaneService.approvalsToReturn = [];
-
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
-      expect(controlPlaneService.approvalsLoadCount, 1);
+      expect(workforceMvpService.approvalsLoadCount, 1);
 
-      // Set approvals for the reload
-      controlPlaneService.approvalsToReturn = [{'id': 'app-001'}];
+      workforceMvpService.approvalsResult = ApiSuccess(
+        data: [_approval('app-001')],
+        meta: _fakeMeta,
+      );
 
       controller.goalInputController.text = 'Test goal';
       await controller.runMission();
 
-      expect(controlPlaneService.approvalsLoadCount, 2);
+      expect(workforceMvpService.approvalsLoadCount, 2);
 
       controller.onClose();
     });
 
     test('controller correctly loads and filters approvals', () async {
-      controlPlaneService.approvalsToReturn = [
-        {'id': 'app-001', 'action': 'approve_action_1'},
-        {'id': 'app-002', 'action': 'approve_action_2'},
-      ];
+      workforceMvpService.approvalsResult = ApiSuccess(
+        data: [_approval('app-001'), _approval('app-002')],
+        meta: _fakeMeta,
+      );
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
@@ -365,60 +431,74 @@ void main() {
 
       expect(controller.pendingApprovals.length, 2);
       expect(
-        controller.pendingApprovals.map((a) => a['id']).toList(),
+        controller.pendingApprovals.map((a) => a.approvalId).toList(),
         ['app-001', 'app-002'],
       );
 
       controller.onClose();
     });
 
-    test('service correctly reports approval success/failure', () async {
-      controlPlaneService.approvalsToReturn = [
-        {'id': 'app-001', 'action': 'approve_action_1'},
-      ];
-      controlPlaneService.approvalShouldFail = false;
+    test('approve removes approval from list on success', () async {
+      workforceMvpService.approvalsResult = ApiSuccess(
+        data: [_approval('app-001')],
+        meta: _fakeMeta,
+      );
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
 
-      // Verify the service can indicate success
-      final successResult =
-          await controlPlaneService.approveAction('app-001');
-      expect(successResult, isTrue);
+      await controller.approve('app-001');
 
-      // Verify the service can indicate failure
-      controlPlaneService.approvalShouldFail = true;
-      final failureResult =
-          await controlPlaneService.approveAction('app-001');
-      expect(failureResult, isFalse);
+      expect(controller.pendingApprovals, isEmpty);
+      expect(workforceMvpService.decidedApprovals, ['app-001']);
 
       controller.onClose();
     });
 
-    test('service correctly reports rejection success/failure', () async {
-      controlPlaneService.rejectionShouldFail = false;
+    test('approve keeps the approval in list when the decision call fails', () async {
+      workforceMvpService.approvalsResult = ApiSuccess(
+        data: [_approval('app-001')],
+        meta: _fakeMeta,
+      );
+      workforceMvpService.decisionShouldFail = true;
 
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
 
-      // Verify the service can indicate success
-      final successResult =
-          await controlPlaneService.rejectAction('app-001');
-      expect(successResult, isTrue);
+      await controller.approve('app-001');
 
-      // Verify the service can indicate failure
-      controlPlaneService.rejectionShouldFail = true;
-      final failureResult =
-          await controlPlaneService.rejectAction('app-001');
-      expect(failureResult, isFalse);
+      expect(controller.pendingApprovals.length, 1);
+
+      controller.onClose();
+    });
+
+    test('reject removes approval from list on success', () async {
+      workforceMvpService.approvalsResult = ApiSuccess(
+        data: [_approval('app-456')],
+        meta: _fakeMeta,
+      );
+
+      final controller = MissionControlController(
+        service: missionService,
+        workforceMvpService: workforceMvpService,
+      );
+
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      await controller.reject('app-456', reason: 'Needs more review');
+
+      expect(controller.pendingApprovals, isEmpty);
 
       controller.onClose();
     });
@@ -426,7 +506,7 @@ void main() {
     test('onClose disposes goalInputController', () async {
       final controller = MissionControlController(
         service: missionService,
-        controlPlaneService: controlPlaneService,
+        workforceMvpService: workforceMvpService,
       );
 
       controller.onInit();

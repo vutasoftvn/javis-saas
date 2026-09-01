@@ -582,7 +582,9 @@ async def list_approvals(
                 else str(app.created_at),
             }
         )
-    return {"items": items, "total": len(items)}
+    # Trả về đúng MVP envelope (data/meta) thay vì object thô {items,total} —
+    # tránh vi phạm contract chung mà mọi consumer MvpRequestClient đang giả định.
+    return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent.approvals")])
 
 
 @router.post("/approvals/{approval_id}/decision")
@@ -689,11 +691,16 @@ async def decide_approval(
             },
         )
 
-    return {
-        "approval_id": decided.approval_id,
-        "run_id": decided.run_id,
-        "status": decided.status,
-        "reviewer": decided.reviewer or identity.principal_id,
-        "reason": decided.reason,
-        "decided_at": (decided.decided_at or datetime.now(UTC)).isoformat(),
-    }
+    # Cùng lý do với list_approvals — bọc qua mvp_item để consumer dùng chung
+    # MvpRequestClient (đòi hỏi envelope {data, meta}) decode được.
+    return mvp_item(
+        {
+            "approval_id": decided.approval_id,
+            "run_id": decided.run_id,
+            "status": decided.status,
+            "reviewer": decided.reviewer or identity.principal_id,
+            "reason": decided.reason,
+            "decided_at": (decided.decided_at or datetime.now(UTC)).isoformat(),
+        },
+        [MvpSourceRef(kind="agent_db", ref="agent.approvals")],
+    )

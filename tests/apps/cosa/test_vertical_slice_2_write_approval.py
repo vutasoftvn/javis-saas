@@ -130,7 +130,8 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
             json={"approved": True, "reason": "Verified purchase order PO-12345"},
         )
         assert res_decide.status_code == 200
-        decide_data = res_decide.json()
+        # Task 3: route giờ trả đúng MVP envelope {data, meta}.
+        decide_data = res_decide.json()["data"]
         assert decide_data["status"] == "approved"
 
         # Worker durable xử lý "resume" task đã schedule.
