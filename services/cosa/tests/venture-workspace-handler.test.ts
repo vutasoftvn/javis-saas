@@ -188,12 +188,13 @@ describe("venture-workspace handler", () => {
         platformWorkspaceId: testWorkspaceId.toString(),
       });
 
-      if (response.membership) {
-        expect(response.membership.workspaceName).toBe("Test Venture Workspace");
-        expect(response.membership.membershipUpdatedAt).toBeDefined();
-        // membershipUpdatedAt should be a valid ISO date string
-        expect(() => new Date(response.membership.membershipUpdatedAt)).not.toThrow();
-      }
+      expect(response.membership).toBeDefined();
+      const membership = response.membership;
+      if (!membership) throw new Error("valid membership response must include membership");
+      expect(membership.workspaceName).toBe("Test Venture Workspace");
+      expect(membership.membershipUpdatedAt).toBeDefined();
+      // membershipUpdatedAt should be a valid ISO date string
+      expect(() => new Date(membership.membershipUpdatedAt)).not.toThrow();
     });
   });
 

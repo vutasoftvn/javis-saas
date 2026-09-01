@@ -43,6 +43,12 @@ describe("Delivery/Cost Service & Handler (control-plane-delivery)", () => {
     });
 
     it("creates delivery policy for email channel", async () => {
+      function hasFromAddress(value: unknown): value is { fromAddress: string } {
+        return typeof value === "object" && value !== null &&
+          "fromAddress" in value &&
+          typeof (value as { fromAddress?: unknown }).fromAddress === "string";
+      }
+
       const result = await deliverySvc.createDeliveryPolicy({
         tenantId: 301n,
         channel: "email",
@@ -54,7 +60,10 @@ describe("Delivery/Cost Service & Handler (control-plane-delivery)", () => {
         .from(deliveryPolicies)
         .where(eq(deliveryPolicies.id, result.id));
       expect(stored[0].channel).toBe("email");
-      expect(stored[0].config.fromAddress).toBe("noreply@cosa.ai");
+      const config = stored[0]?.config;
+      expect(hasFromAddress(config)).toBe(true);
+      if (!hasFromAddress(config)) throw new Error("email delivery config must contain fromAddress");
+      expect(config.fromAddress).toBe("noreply@cosa.ai");
     });
 
     it("creates delivery policy for slack channel", async () => {

@@ -6,7 +6,7 @@ import {
 } from "../handlers/control-plane.handler";
 import { signWorkerServiceToken } from "../services/token.service";
 import { db, schema } from "../models/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 const { workers } = schema;
 
@@ -71,10 +71,11 @@ describe("Worker Lifecycle Service & Handler (control-plane-worker)", () => {
         });
       }
 
+      const workerIds = kinds.map((kind) => `worker-${kind}`);
       const stored = await db
         .select()
         .from(workers)
-        .where((w) => [kinds.map((k) => `worker-${k}`)].flat().includes(w.id));
+        .where(inArray(workers.id, workerIds));
       expect(stored.length).toBe(kinds.length);
     });
 
@@ -199,7 +200,7 @@ describe("Worker Lifecycle Service & Handler (control-plane-worker)", () => {
         runtimeKind: "python_local",
       });
 
-      const timestamps: (Date | undefined)[] = [];
+      const timestamps: Array<Date | null> = [];
 
       for (let i = 0; i < 3; i++) {
         await new Promise((r) => setTimeout(r, 10));
@@ -214,8 +215,11 @@ describe("Worker Lifecycle Service & Handler (control-plane-worker)", () => {
 
       // Each heartbeat should have a later or equal timestamp
       for (let i = 1; i < timestamps.length; i++) {
-        expect(timestamps[i]!.getTime()).toBeGreaterThanOrEqual(
-          timestamps[i - 1]!.getTime()
+        const current = timestamps[i];
+        const previous = timestamps[i - 1];
+        if (current === null || previous === null) throw new Error("heartbeat timestamp is required");
+        expect(current.getTime()).toBeGreaterThanOrEqual(
+          previous.getTime()
         );
       }
     });
@@ -374,7 +378,7 @@ describe("Worker Lifecycle Service & Handler (control-plane-worker)", () => {
         authorization: `Bearer ${token}`,
       });
 
-      const timestamps: (Date | undefined)[] = [];
+      const timestamps: Array<Date | null> = [];
 
       for (let i = 0; i < 3; i++) {
         await new Promise((r) => setTimeout(r, 10));
@@ -392,8 +396,11 @@ describe("Worker Lifecycle Service & Handler (control-plane-worker)", () => {
 
       // Verify monotonic increase in timestamps
       for (let i = 1; i < timestamps.length; i++) {
-        expect(timestamps[i]!.getTime()).toBeGreaterThanOrEqual(
-          timestamps[i - 1]!.getTime()
+        const current = timestamps[i];
+        const previous = timestamps[i - 1];
+        if (current === null || previous === null) throw new Error("heartbeat timestamp is required");
+        expect(current.getTime()).toBeGreaterThanOrEqual(
+          previous.getTime()
         );
       }
     });
