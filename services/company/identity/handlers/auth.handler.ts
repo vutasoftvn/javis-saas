@@ -38,9 +38,8 @@ export const meEndpoint = api(
   async (): Promise<MeResponse> => {
     let authData: AuthData | null = null;
     try {
-      // @ts-ignore
       const mod = await import("~encore/auth");
-      authData = mod.getAuthData();
+      authData = mod.getAuthData<AuthData>();
     } catch {
       // fallback
     }

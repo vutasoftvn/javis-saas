@@ -48,9 +48,8 @@ export const gateway = new Gateway({ authHandler: auth });
 export async function resolveAuthData(): Promise<AuthData> {
   let authData: AuthData | null = null;
   try {
-    // @ts-ignore
     const mod = await import("~encore/auth");
-    authData = mod.getAuthData();
+    authData = mod.getAuthData<AuthData>();
   } catch {
     // fallback
   }
