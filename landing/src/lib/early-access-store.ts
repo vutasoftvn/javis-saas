@@ -45,11 +45,14 @@ export function getSharedPgPool(connectionString: string): Pool {
 
 // Trạng thái gửi email xác nhận của một bản ghi đăng ký early access.
 // - pending: đã lưu bền vững, chưa gửi/chưa xác nhận queue thành công.
+// - sending: đã CLAIM quyền gửi (qua claimEmailAttempt) và đang gọi provider
+//   — trạng thái tạm thời, ngăn 1 request thứ hai đồng thời cũng claim và
+//   gửi trùng email cho cùng một bản ghi (xem claimEmailAttempt()).
 // - queued: nhà cung cấp email (Resend) đã trả về providerMessageId thật.
 // - simulated: môi trường dev/chưa cấu hình RESEND_API_KEY — không có email
 //   thật nào được gửi, nhưng bản ghi vẫn được lưu bền vững.
 // - failed: đã thử gửi nhưng nhà cung cấp báo lỗi.
-export type EmailDeliveryStatus = "pending" | "queued" | "simulated" | "failed";
+export type EmailDeliveryStatus = "pending" | "sending" | "queued" | "simulated" | "failed";
 
 export interface NewEarlyAccessRegistration {
   fullName: string;
@@ -85,6 +88,20 @@ export interface EarlyAccessStore {
   // không bao giờ được ghi, và lần đăng ký lại sau đó sẽ đọc "pending" mãi
   // mãi mà không biết cần thử gửi lại).
   markEmailFailed(id: string): Promise<void>;
+  // Đánh dấu "simulated" khi một lần RETRY (nhánh duplicate pending/failed)
+  // phát hiện môi trường đã chuyển sang simulated (RESEND_API_KEY bị gỡ
+  // giữa chừng) — nếu không cập nhật, bản ghi kẹt ở "pending"/"failed" mãi
+  // mãi và mọi lần resubmit sau đó sẽ lại thử retry vô ích.
+  markEmailSimulated(id: string): Promise<void>;
+  // Chuyển nguyên tử "pending"/"failed" -> "sending" và trả về true CHỈ KHI
+  // request này là request đầu tiên giành được quyền gửi lại. Một request
+  // đồng thời khác gọi hàm này trên cùng id sẽ nhận về false (bản ghi không
+  // còn ở "pending"/"failed" nữa) và KHÔNG được phép gọi sendEarlyAccessEmails
+  // — đây là cơ chế chống gửi trùng nhiều email xác nhận cho cùng một người
+  // dùng khi có 2+ request gần như đồng thời cho cùng email (double-click,
+  // retry storm...). Tương tự vai trò UNIQUE + upsert của create() bảo vệ
+  // race condition ở nhánh đăng ký mới.
+  claimEmailAttempt(id: string): Promise<boolean>;
 }
 
 /**
@@ -128,6 +145,32 @@ export class InMemoryEarlyAccessStore implements EarlyAccessStore {
         return;
       }
     }
+  }
+
+  async markEmailSimulated(id: string): Promise<void> {
+    for (const registration of this.byEmail.values()) {
+      if (registration.id === id) {
+        registration.emailDeliveryStatus = "simulated";
+        return;
+      }
+    }
+  }
+
+  async claimEmailAttempt(id: string): Promise<boolean> {
+    // JS đơn luồng nên không có race condition thật giữa 2 lệnh gọi đồng bộ
+    // này, nhưng vẫn implement đúng ngữ nghĩa "chỉ 1 request được claim" để
+    // hành vi nhất quán với PostgresEarlyAccessStore và test được ở cả hai
+    // adapter cùng một cách.
+    for (const registration of this.byEmail.values()) {
+      if (registration.id === id) {
+        if (registration.emailDeliveryStatus === "pending" || registration.emailDeliveryStatus === "failed") {
+          registration.emailDeliveryStatus = "sending";
+          return true;
+        }
+        return false;
+      }
+    }
+    return false;
   }
 }
 
@@ -228,6 +271,32 @@ export class PostgresEarlyAccessStore implements EarlyAccessStore {
       [id]
     );
   }
+
+  async markEmailSimulated(id: string): Promise<void> {
+    await this.ensureSchema();
+    await this.pool.query(
+      `UPDATE early_access_registrations SET email_delivery_status = 'simulated' WHERE id = $1`,
+      [id]
+    );
+  }
+
+  async claimEmailAttempt(id: string): Promise<boolean> {
+    await this.ensureSchema();
+    // UPDATE có điều kiện (optimistic lock) trên chính điều kiện trạng thái
+    // hiện tại — Postgres đảm bảo tính nguyên tử cho một câu UPDATE đơn lẻ,
+    // nên khi 2 request đồng thời cùng chạy câu này trên cùng id, CHỈ MỘT
+    // trong số đó khớp điều kiện WHERE (request thắng sẽ đổi trạng thái
+    // trước khi request thua đọc được), request còn lại nhận 0 dòng bị ảnh
+    // hưởng và biết mình không được phép gửi.
+    const result = await this.pool.query(
+      `UPDATE early_access_registrations
+       SET email_delivery_status = 'sending'
+       WHERE id = $1 AND email_delivery_status IN ('pending', 'failed')
+       RETURNING id`,
+      [id]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -295,4 +364,6 @@ export const earlyAccessStore: EarlyAccessStore = {
   create: (input) => getEarlyAccessStore().create(input),
   markEmailQueued: (id, providerMessageId) => getEarlyAccessStore().markEmailQueued(id, providerMessageId),
   markEmailFailed: (id) => getEarlyAccessStore().markEmailFailed(id),
+  markEmailSimulated: (id) => getEarlyAccessStore().markEmailSimulated(id),
+  claimEmailAttempt: (id) => getEarlyAccessStore().claimEmailAttempt(id),
 };

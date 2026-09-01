@@ -45,4 +45,44 @@ describe("InMemoryEarlyAccessStore", () => {
     expect(updated?.emailDeliveryStatus).toBe("queued");
     expect(updated?.emailProviderMessageId).toBe("resend-msg-1");
   });
+
+  it("claimEmailAttempt only succeeds once per pending/failed record (atomic claim semantics)", async () => {
+    const store = new InMemoryEarlyAccessStore();
+    const created = await store.create({
+      fullName: "Grace Hopper",
+      email: "grace@example.com",
+      phone: "0912345679",
+      company: "COBOL Inc",
+      priorityInterest: "Trọn bộ Hệ điều hành COSA OS",
+      accessCode: "ref-code-2",
+      emailDeliveryStatus: "pending",
+    });
+
+    expect(await store.claimEmailAttempt(created.id)).toBe(true);
+    // Lần claim thứ hai trên cùng bản ghi phải thất bại vì trạng thái đã
+    // chuyển sang "sending" — đây chính là cơ chế chống gửi email trùng khi
+    // có 2 request đồng thời cho cùng một bản ghi pending/failed.
+    expect(await store.claimEmailAttempt(created.id)).toBe(false);
+
+    await store.markEmailFailed(created.id);
+    expect((await store.findByEmail("grace@example.com"))?.emailDeliveryStatus).toBe("failed");
+    // Sau khi failed, claim lại được phép (retry tiếp theo).
+    expect(await store.claimEmailAttempt(created.id)).toBe(true);
+  });
+
+  it("markEmailSimulated transitions a record to simulated", async () => {
+    const store = new InMemoryEarlyAccessStore();
+    const created = await store.create({
+      fullName: "Ada Lovelace",
+      email: "ada2@example.com",
+      phone: "0912345678",
+      company: "Analytical Engines",
+      priorityInterest: "Trọn bộ Hệ điều hành COSA OS",
+      accessCode: "ref-code-3",
+      emailDeliveryStatus: "pending",
+    });
+
+    await store.markEmailSimulated(created.id);
+    expect((await store.findByEmail("ada2@example.com"))?.emailDeliveryStatus).toBe("simulated");
+  });
 });

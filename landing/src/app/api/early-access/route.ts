@@ -20,6 +20,7 @@ const EMAIL_RATE_LIMIT = { limit: 1, windowSeconds: 24 * 60 * 60 };
 const GENERIC_ERROR = "Đã có lỗi xảy ra trong quá trình xử lý. Vui lòng thử lại sau.";
 const RATE_LIMIT_ERROR = "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.";
 const SEND_FAILURE_ERROR = "Không thể gửi email xác nhận. Vui lòng thử lại sau hoặc liên hệ trực tiếp.";
+const CONCURRENT_ATTEMPT_ERROR = "Yêu cầu đang được xử lý, vui lòng thử lại sau ít phút.";
 const SUCCESS_MESSAGE = "Đăng ký quyền sử dụng sớm thành công! Email xác nhận đã được gửi.";
 const SIMULATED_MESSAGE =
   "Đăng ký quyền sử dụng sớm đã được ghi nhận (môi trường thử nghiệm — chưa cấu hình gửi email thật).";
@@ -197,6 +198,23 @@ export async function POST(req: NextRequest) {
       // gửi lại ngay tại đây; độ trễ mạng thật của lần thử lại này cũng tự
       // nhiên giảm chênh lệch thời gian so với nhánh đăng ký mới, không cần
       // độ trễ giả lập bổ sung.
+      //
+      // TRƯỚC KHI gửi, phải claim quyền gửi một cách NGUYÊN TỬ
+      // (claimEmailAttempt): nếu 2 request gần như đồng thời (double-click,
+      // retry storm) cùng đọc thấy "pending"/"failed" ở findByEmail phía
+      // trên, không có bước claim này thì CẢ HAI sẽ cùng gọi
+      // sendEarlyAccessEmails và người dùng nhận 2+ email xác nhận trùng
+      // lặp. claimEmailAttempt() đảm bảo chỉ request thắng cuộc (chuyển được
+      // pending/failed -> sending) mới được gọi provider; request thua thấy
+      // claim thất bại và trả về ngay, không gửi gì thêm.
+      const claimed = await earlyAccessStore.claimEmailAttempt(existing.id);
+      if (!claimed) {
+        return NextResponse.json(
+          { success: false, error: CONCURRENT_ATTEMPT_ERROR },
+          { status: 202 }
+        );
+      }
+
       const retryResult = await sendEarlyAccessEmails({
         fullName: existing.fullName,
         email: existing.email,
@@ -211,6 +229,10 @@ export async function POST(req: NextRequest) {
       });
 
       if (retryResult.simulated) {
+        // Môi trường đã chuyển sang simulated giữa các lần thử — cập nhật
+        // trạng thái lưu trữ tương ứng để không kẹt ở "sending"/"pending"
+        // mãi mãi và các lần resubmit sau không retry vô ích nữa.
+        await earlyAccessStore.markEmailSimulated(existing.id);
         return simulatedResponse(existing.accessCode);
       }
 

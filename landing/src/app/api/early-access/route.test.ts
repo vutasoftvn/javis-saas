@@ -11,6 +11,8 @@ vi.mock("@/lib/early-access-store", () => ({
     create: vi.fn(),
     markEmailQueued: vi.fn(),
     markEmailFailed: vi.fn(),
+    markEmailSimulated: vi.fn(),
+    claimEmailAttempt: vi.fn(),
   },
 }));
 vi.mock("@/lib/early-access-rate-limit", () => ({
@@ -63,6 +65,8 @@ describe("POST /api/early-access", () => {
       }));
     vi.mocked(store.markEmailQueued).mockReset().mockResolvedValue(undefined);
     vi.mocked(store.markEmailFailed).mockReset().mockResolvedValue(undefined);
+    vi.mocked(store.markEmailSimulated).mockReset().mockResolvedValue(undefined);
+    vi.mocked(store.claimEmailAttempt).mockReset().mockResolvedValue(true);
     vi.mocked(sendEarlyAccessEmails).mockReset();
     vi.mocked(isEarlyAccessEmailSimulated).mockReset().mockReturnValue(false);
   });
@@ -231,6 +235,67 @@ describe("POST /api/early-access", () => {
     expect(response.status).toBe(200);
     const json = await response.json();
     expect(json.success).toBe(true);
+  });
+
+  it("marks a retried pending duplicate as simulated when the environment flips to simulated mid-retry", async () => {
+    vi.mocked(store.findByEmail).mockResolvedValue({ ...existingRegistration, emailDeliveryStatus: "pending" });
+    vi.mocked(sendEarlyAccessEmails).mockResolvedValueOnce({
+      userEmailSent: false,
+      adminEmailSent: false,
+      simulated: true,
+    });
+
+    const response = await post(JSON.stringify(validBody));
+
+    expect(store.markEmailSimulated).toHaveBeenCalledWith(existingRegistration.id);
+    expect(store.markEmailQueued).not.toHaveBeenCalled();
+    expect(store.markEmailFailed).not.toHaveBeenCalled();
+    const json = await response.json();
+    expect(json.simulated).toBe(true);
+    expect(json.success).not.toBe(true);
+  });
+
+  it("does not send a second email when the retry claim fails (concurrent request already claimed it)", async () => {
+    vi.mocked(store.findByEmail).mockResolvedValue({ ...existingRegistration, emailDeliveryStatus: "pending" });
+    vi.mocked(store.claimEmailAttempt).mockResolvedValueOnce(false);
+
+    const response = await post(JSON.stringify(validBody));
+
+    expect(response.status).toBe(202);
+    expect(sendEarlyAccessEmails).not.toHaveBeenCalled();
+    const json = await response.json();
+    expect(json.success).not.toBe(true);
+  });
+
+  it("sends at most one confirmation email when two requests race for the same pending duplicate", async () => {
+    // Bằng chứng cho fix của race condition: mô phỏng claimEmailAttempt như
+    // một Postgres UPDATE ... WHERE status IN (...) thật — chỉ lệnh gọi ĐẦU
+    // TIÊN thành công (true), mọi lệnh gọi sau đó cho cùng id thất bại
+    // (false), giống hệt ngữ nghĩa "chỉ 1 dòng bị UPDATE" của SQL nguyên tử.
+    let claimed = false;
+    vi.mocked(store.claimEmailAttempt).mockImplementation(async () => {
+      if (claimed) return false;
+      claimed = true;
+      return true;
+    });
+    vi.mocked(store.findByEmail).mockResolvedValue({ ...existingRegistration, emailDeliveryStatus: "pending" });
+    vi.mocked(sendEarlyAccessEmails).mockResolvedValue({
+      userEmailSent: true,
+      adminEmailSent: true,
+      providerMessageId: "resend-msg-race",
+    });
+
+    const [firstResponse, secondResponse] = await Promise.all([
+      post(JSON.stringify(validBody)),
+      post(JSON.stringify(validBody)),
+    ]);
+
+    expect(sendEarlyAccessEmails).toHaveBeenCalledTimes(1);
+    const statuses = [firstResponse.status, secondResponse.status].sort();
+    // Một request thắng (200, gửi thật), request còn lại thấy claim thất bại
+    // (202, không gửi gì thêm) — tuyệt đối không có trường hợp cả hai đều
+    // gọi sendEarlyAccessEmails.
+    expect(statuses).toEqual([200, 202]);
   });
 
   it("rejects submissions with a filled honeypot field without persisting or emailing", async () => {
