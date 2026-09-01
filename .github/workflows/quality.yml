@@ -789,6 +789,7 @@ jobs:
       - run: make company-boundary-check
       - run: make encore-handler-boundary-check
       - run: make ts-suppression-check
+      - run: make route-auth-allowlist-check
       - run: make encore-type-safety-check
       - run: make mvp-e2e-purity-check
 

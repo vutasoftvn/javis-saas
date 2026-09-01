@@ -80,18 +80,24 @@ def collect_handlers() -> list[dict]:
                 pm = HANDLER_RE.search(block)
                 if not pm:
                     continue
-                meta = {"method": "GET", "expose": False, "auth": False}
+                meta = {"method": "GET", "expose": False, "auth": None}
                 for mm in HANDLER_META_RE.finditer(block):
                     key = mm.group(1)
                     val = mm.group(2) or mm.group(3)
-                    meta[key] = val if key == "method" else (val == "true")
+                    if key == "method":
+                        meta[key] = val
+                    elif key == "expose":
+                        meta[key] = (val == "true")
+                    elif key == "auth":
+                        meta[key] = (val == "true")
                 out.append(
                     {
                         "method": str(meta["method"]).upper(),
                         "path": pm.group(1),
                         "service": base.name,
                         "expose": bool(meta["expose"]),
-                        "auth": bool(meta["auth"]),
+                        "auth": bool(meta["auth"]) if meta["auth"] is not None else False,
+                        "explicit_auth_false": (meta["auth"] is False),
                         "file": _rel(f),
                     }
                 )
@@ -198,7 +204,7 @@ def render_doc(data: dict) -> str:
     L.append("")
     L.append("### ⚠ `expose:true` không `auth` (rà M1)")
     L.append("")
-    danger = [h for h in data["handlers"] if h["expose"] and not h["auth"]]
+    danger = [h for h in data["handlers"] if h["expose"] and h.get("explicit_auth_false")]
     for h in danger:
         L.append(f'- {h["method"]} `{h["path"]}` — {h["file"]}')
     if not danger:
