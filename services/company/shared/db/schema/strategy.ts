@@ -273,6 +273,27 @@ export const projectStageTransitions = strategySchema.table("project_stage_trans
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 13d. Project Operating Setups (Founder Project Kickoff)
+export const projectOperatingSetups = strategySchema.table("project_operating_setups", {
+  projectId: bigint("project_id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  status: varchar("status", { length: 20 }).default("NOT_STARTED").notNull(),
+  targetCustomer: text("target_customer"),
+  problemStatement: text("problem_statement"),
+  evidenceLevel: varchar("evidence_level", { length: 40 }),
+  recommendedStage: varchar("recommended_stage", { length: 50 }),
+  selectedStage: varchar("selected_stage", { length: 50 }),
+  stageDurationWeeks: integer("stage_duration_weeks"),
+  stageTargetDate: timestamp("stage_target_date", { withTimezone: true }),
+  weeklyReviewWeekday: integer("weekly_review_weekday"),
+  weeklyReviewTime: varchar("weekly_review_time", { length: 5 }),
+  firstWeekOutcome: text("first_week_outcome"),
+  firstWeekActions: jsonb("first_week_actions").default([]).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+
 // 14. Next Best Actions (Phase 5 / Release E)
 export const nextBestActions = strategySchema.table("next_best_actions", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
