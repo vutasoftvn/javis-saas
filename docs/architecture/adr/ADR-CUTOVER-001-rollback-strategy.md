@@ -44,6 +44,18 @@ Dự án quyết định lựa chọn **Phương án B**: **Chấp nhận Cutove
 1. **Quy tắc Expand-Contract**: Không thực hiện các thao tác phá huỷ DDL (`DROP COLUMN`, `DROP TABLE`, `RENAME`, `ALTER ... SET NOT NULL` không có giá trị mặc định an toàn) trong cùng phiên bản phát hành với mã nguồn sử dụng nó.
 2. **Migration Gate E (Down Migration Verification)**: Mọi migration phải có file `.down.sql` tương ứng và vượt qua bài test round-trip schema fingerprint trong CI.
 3. **Runbook Cutover chuẩn hoá**: Mọi thao tác deploy production phải thực thi theo đúng quy trình tại [`docs/runbooks/prod-cutover.md`](../../runbooks/prod-cutover.md).
+4. **Evidence Gate cho destructive migration (Task 8, 2026-09-02)**: Một
+   comment `-- migration-compat: allow-destructive` tự do KHÔNG còn đủ để
+   miễn trừ một migration phá huỷ khỏi Expand-Contract check. Migration đó
+   phải trỏ (`evidence=<path>`) tới một file evidence có đủ field: migration
+   identity khớp, `environment: prelaunch-only` (hoặc trạng thái thật tương
+   đương), `approved_adr` tham chiếu ADR này, `backup_sha256`, và
+   `restore_rehearsal: passed`. `scripts/check-migration-backward-compat.mjs`
+   verify CẤU TRÚC/đường dẫn tồn tại trong CI; giá trị checksum/timestamp
+   THẬT do release operator điền tay ngay trước khi chạy migration đó trên
+   môi trường thật — xem ví dụ đã áp dụng:
+   [`docs/runbooks/evidence/m2-destructive-cutover-29.md`](../../runbooks/evidence/m2-destructive-cutover-29.md)
+   cho migration 29 (`cosa/29_cleanup_legacy_companies_and_rename_workspaces.up.sql`).
 
 ## Hậu quả (Consequences)
 

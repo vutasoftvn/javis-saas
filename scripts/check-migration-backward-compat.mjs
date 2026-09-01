@@ -22,14 +22,23 @@
  *   node scripts/check-migration-backward-compat.mjs
  */
 
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..");
 
-const MIGRATION_TARGETS = [
+// `--dir <path>` cho phép test (tests/quality/test_migration_backward_compat.py)
+// trỏ checker vào một thư mục ad-hoc (vd. tmp_path) thay vì quét toàn repo —
+// không re-implement logic bằng Python, chỉ đổi phạm vi quét của chính script này.
+const argv = process.argv.slice(2);
+const dirFlagIndex = argv.indexOf("--dir");
+const overrideDir = dirFlagIndex !== -1 ? argv[dirFlagIndex + 1] : null;
+
+const MIGRATION_TARGETS = overrideDir
+  ? [{ group: "adhoc", dir: resolve(overrideDir), filter: (f) => f.endsWith(".up.sql") }]
+  : [
   {
     group: "cosa",
     dir: join(REPO_ROOT, "services", "cosa", "migrations"),
@@ -97,6 +106,92 @@ const DESTRUCTIVE_PATTERNS = [
 
 const EXEMPTION_MARKER = "migration-compat: allow-destructive";
 
+// Sau Task 8: một comment tự phong `allow-destructive` KHÔNG còn đủ để miễn trừ
+// destructive DDL — phải trỏ (`evidence=<path>`) tới một file evidence thật,
+// tồn tại trên đĩa và có đủ field bắt buộc (xem interface trong task-8-brief).
+// CI chỉ verify SYNTAX/PATH tồn tại + field không rỗng — giá trị thật
+// (checksum, timestamp) do release operator điền tay trước khi deploy thật.
+const EVIDENCE_REF_REGEX = /migration-compat:\s*allow-destructive\s+evidence=(\S+)/;
+const REQUIRED_EVIDENCE_FIELDS = [
+  "migration",
+  "environment",
+  "approved_adr",
+  "backup_sha256",
+  "restore_rehearsal"
+];
+
+function resolveEvidencePath(rawPath) {
+  if (isAbsolute(rawPath)) return rawPath;
+  return join(REPO_ROOT, rawPath);
+}
+
+function parseCutoverEvidence(content) {
+  const block = content.match(/```yaml\s*\ncutover:\s*\n([\s\S]*?)```/);
+  if (!block) return null;
+  const fields = {};
+  for (const line of block[1].split("\n")) {
+    const kv = line.match(/^\s{2}([a-zA-Z0-9_]+):\s*(.+?)\s*$/);
+    if (!kv) continue;
+    fields[kv[1]] = kv[2].replace(/^['"]|['"]$/g, "");
+  }
+  return fields;
+}
+
+/**
+ * Kiểm tra evidence file cho một exemption `allow-destructive`. Trả về mảng
+ * lý do lỗi (rỗng nếu hợp lệ) — luôn bắt đầu với "missing cutover evidence"
+ * để test/CI có thể grep chung một cụm từ ổn định.
+ */
+function validateCutoverEvidence(content, relativeName, migrationId) {
+  const refMatch = content.match(EVIDENCE_REF_REGEX);
+  if (!refMatch) {
+    return [
+      `missing cutover evidence: '${relativeName}' dùng exemption comment tự do, ` +
+        "không có tham chiếu 'evidence=<path>' tới file evidence đã duyệt"
+    ];
+  }
+
+  const evidencePath = resolveEvidencePath(refMatch[1]);
+  if (!existsSync(evidencePath)) {
+    return [`missing cutover evidence: file '${refMatch[1]}' không tồn tại trên đĩa`];
+  }
+
+  const evidenceContent = readFileSync(evidencePath, "utf-8");
+  const fields = parseCutoverEvidence(evidenceContent);
+  if (!fields) {
+    return [
+      `missing cutover evidence: '${refMatch[1]}' không chứa khối YAML 'cutover:' hợp lệ`
+    ];
+  }
+
+  const missing = REQUIRED_EVIDENCE_FIELDS.filter((key) => !fields[key]);
+  if (missing.length > 0) {
+    return [`missing cutover evidence: field(s) [${missing.join(", ")}] rỗng hoặc thiếu`];
+  }
+
+  if (fields.migration !== migrationId) {
+    return [
+      `missing cutover evidence: field 'migration' ('${fields.migration}') không khớp migration file '${migrationId}'`
+    ];
+  }
+
+  if (fields.environment !== "prelaunch-only") {
+    return [
+      "missing cutover evidence: field 'environment' phải là 'prelaunch-only' tường minh " +
+        `(nhận '${fields.environment}')`
+    ];
+  }
+
+  if (fields.restore_rehearsal !== "passed") {
+    return [
+      "missing cutover evidence: field 'restore_rehearsal' phải là 'passed' " +
+        `(nhận '${fields.restore_rehearsal}')`
+    ];
+  }
+
+  return [];
+}
+
 // Historical migrations prior to TPR Part 2A (2026-08-28) that were part of
 // legacy schema consolidation / baseline. These cannot be edited on disk because
 // their sha256 checksums are already recorded and immutable.
@@ -113,10 +208,20 @@ const HISTORICAL_EXEMPTIONS = new Set([
   "company/operations/10_drop_ghost_fields.up.sql",
   "company/operations/11_dedupe_strategy_company_workspace_id.up.sql",
   "company/operations/12_actor_naming_standardization.up.sql",
-  "agent/017_workspace_only_tenancy.sql"
+  "agent/017_workspace_only_tenancy.sql",
+  // Task 8 (2026-09-02) chỉ hardening evidence-gate cho migration 29
+  // (`cosa/29_cleanup_legacy_companies_and_rename_workspaces.up.sql` — xem
+  // docs/runbooks/evidence/m2-destructive-cutover-29.md). 4 migration dưới
+  // đây đã merge trước Task 8 với free-form `allow-destructive` comment, nằm
+  // ngoài phạm vi task này — grandfathered tạm thời để không phá vỡ CI của
+  // các thay đổi không liên quan; hardening cho chúng là follow-up riêng.
+  "company/finance-legal/25_legal_entity_status_v2.up.sql",
+  "company/identity/5_workspace_lifecycle_stage.up.sql",
+  "company/operations/24_workspace_stage_lifecycle_rename.up.sql",
+  "company/operations/26_project_lifecycle_stage.up.sql"
 ]);
 
-function checkFile(filePath, relativeName) {
+function checkFile(filePath, relativeName, baseFileName) {
   if (HISTORICAL_EXEMPTIONS.has(relativeName)) {
     return [];
   }
@@ -125,6 +230,14 @@ function checkFile(filePath, relativeName) {
   const lines = content.split("\n");
   const violations = [];
   const hasFileExemption = content.includes(EXEMPTION_MARKER);
+  const migrationId = baseFileName.replace(/\.up\.sql$/, "");
+
+  // Exemption chỉ hợp lệ khi có evidence file thật (Task 8) — tính 1 lần cho
+  // cả file, không phải theo từng dòng, vì marker + evidence luôn khai báo ở
+  // đầu file.
+  const evidenceErrors = hasFileExemption
+    ? validateCutoverEvidence(content, relativeName, migrationId)
+    : null;
 
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
@@ -135,6 +248,19 @@ function checkFile(filePath, relativeName) {
 
     // Check if current line has inline exemption
     if (line.includes(EXEMPTION_MARKER) || hasFileExemption) {
+      if (evidenceErrors && evidenceErrors.length > 0) {
+        for (const pattern of DESTRUCTIVE_PATTERNS) {
+          if (pattern.regex.test(line)) {
+            violations.push({
+              file: relativeName,
+              line: idx + 1,
+              code: trimmed,
+              rule: pattern.id,
+              description: evidenceErrors[0]
+            });
+          }
+        }
+      }
       return;
     }
 
@@ -172,7 +298,7 @@ async function main() {
       totalFiles++;
       const fullPath = join(target.dir, file);
       const relativeName = `${target.group}/${file}`;
-      const violations = checkFile(fullPath, relativeName);
+      const violations = checkFile(fullPath, relativeName, file);
       if (violations.length > 0) {
         allViolations.push(...violations);
       }

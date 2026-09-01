@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 132 | 35 |
 | VALID_KEEP (giữ nguyên) | 97 | 30 |
-| REVIEW (chưa phân loại) | 833 | 245 |
+| REVIEW (chưa phân loại) | 831 | 244 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -142,7 +142,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/handlers/agent-policy.handler.ts | 3 |
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
 | services/cosa/handlers/workspace-connector.handler.ts | 3 |
-| services/cosa/migrations/29_cleanup_legacy_companies_and_rename_workspaces.up.sql | 3 |
 | apps/cosa/capabilities/legal_read.py | 2 |
 | apps/cosa/capabilities/legal_write.py | 2 |
 | apps/cosa/capabilities/operations_write.py | 2 |
@@ -171,6 +170,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/contracts/mvp-response.ts | 2 |
 | services/company/shared/db/schema/identity.ts | 2 |
 | services/company/shared/services/workspace-resolver.service.ts | 2 |
+| services/cosa/migrations/29_cleanup_legacy_companies_and_rename_workspaces.up.sql | 2 |
 | apps/cosa/academy/contracts.py | 1 |
 | apps/cosa/academy/simulation/engine.py | 1 |
 | apps/cosa/api/mvp_response.py | 1 |
@@ -182,7 +182,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/core/controllers/company_scope_controller.dart | 1 |
 | frontend/lib/core/network/api_auth_resolver.dart | 1 |
 | frontend/lib/core/network/api_result.dart | 1 |
-| frontend/lib/core/network/mvp_request_client.dart | 1 |
 | frontend/lib/modules/agents/services/agent_platform_service.dart | 1 |
 | frontend/lib/modules/agents/services/agents_service.dart | 1 |
 | frontend/lib/modules/hologram_hub/controllers/mixins/hub_stage_mixin.dart | 1 |

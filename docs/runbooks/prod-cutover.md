@@ -94,6 +94,22 @@ ls -lh /backup/*_${TIMESTAMP}.dump
 export DEPLOY_BACKUP_CONFIRMED=true
 ```
 
+### Bước 2b: Điền evidence thật cho migration destructive (nếu release chứa)
+
+Nếu release đang cutover có migration destructive được miễn trừ qua
+`-- migration-compat: allow-destructive evidence=<path>` (vd. migration 29,
+xem [`docs/runbooks/evidence/m2-destructive-cutover-29.md`](evidence/m2-destructive-cutover-29.md)),
+Database Lead PHẢI điền giá trị thật vào file evidence đó **trước** khi chạy
+Bước 3 — không được để placeholder:
+- `backup_sha256`: `sha256sum` thật của file backup vừa tạo ở Bước 2.
+- Kết quả restore rehearsal thật (không phải "passed" suông — dán log lệnh
+  restore + số bảng khôi phục + kết quả `schema-fingerprint-check`).
+- Timestamp, operator, approval reference (Cutover Commander).
+
+`scripts/check-migration-backward-compat.mjs` chỉ verify file evidence tồn
+tại và đủ field về mặt cấu trúc — nó KHÔNG xác minh giá trị bên trong là
+thật. Trách nhiệm đó thuộc về Database Lead + Cutover Commander tại bước này.
+
 ### Bước 3: Chạy Database Migrations & Kiểm tra Schema
 Thực thi tuần tự các migration của Agent Core $\rightarrow$ COSA $\rightarrow$ Company:
 ```bash
