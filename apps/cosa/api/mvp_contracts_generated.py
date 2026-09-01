@@ -545,7 +545,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="vault.document.confirm_upload",
-        enabled=True,
+        enabled=False,
         owner="agent-platform",
         plane="agent",
         method="POST",
@@ -560,7 +560,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="vault.document.delete",
-        enabled=True,
+        enabled=False,
         owner="agent-platform",
         plane="agent",
         method="DELETE",
@@ -575,7 +575,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="vault.document.get",
-        enabled=True,
+        enabled=False,
         owner="agent-platform",
         plane="agent",
         method="GET",
@@ -590,7 +590,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="vault.document.list",
-        enabled=True,
+        enabled=False,
         owner="agent-platform",
         plane="agent",
         method="GET",
@@ -605,7 +605,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="vault.document.upload_ticket",
-        enabled=True,
+        enabled=False,
         owner="agent-platform",
         plane="agent",
         method="POST",
@@ -620,7 +620,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="vault.knowledge.graph",
-        enabled=True,
+        enabled=False,
         owner="agent-platform",
         plane="agent",
         method="GET",
@@ -635,7 +635,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="vault.knowledge.indexed_sources",
-        enabled=True,
+        enabled=False,
         owner="agent-platform",
         plane="agent",
         method="GET",
@@ -650,7 +650,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="vault.knowledge.retrieval_query",
-        enabled=True,
+        enabled=False,
         owner="agent-platform",
         plane="agent",
         method="POST",

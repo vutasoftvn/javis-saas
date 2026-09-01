@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/services/voice_service.dart';
 import '../../../../core/services/wake_word_service.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../domain/hologram_runtime_state.dart';
 
 mixin HubVoiceMixin on GetxController {
@@ -122,7 +123,13 @@ mixin HubVoiceMixin on GetxController {
         openDashboard(1, 1);
         break;
       case 'vault':
-        openDashboard(2, 5);
+        // Task 5 (Truthful MVP Hardening) — Vault chưa có storage/indexing
+        // thật ở backend; không còn điều hướng vào editor hỏng, chỉ báo cho
+        // người dùng biết tính năng chưa được phát hành.
+        AppToast.warning(
+          'Vault (Lưu trữ tri thức) chưa được phát hành trong bản dựng này.',
+          title: 'Tính năng chưa khả dụng',
+        );
         break;
       case 'strategy':
         openDashboard(3, 1);

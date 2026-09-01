@@ -28,6 +28,8 @@ from tests.apps.cosa.policy_test_helpers import (
     fake_active_tenant_policy_client,
 )
 
+_NOT_RELEASED_DETAIL = "Vault document ingestion is not released"
+
 
 @pytest.fixture
 def test_app():
@@ -52,93 +54,117 @@ def test_app():
     return create_cosa_app(plane)
 
 
+def _assert_honest_501(response: httpx.Response) -> None:
+    assert response.status_code == 501
+    detail = response.json()["detail"]
+    assert detail == _NOT_RELEASED_DETAIL
+    # Message không được tiết lộ storage topology (bucket, provider, tên bảng DB...).
+    lowered = detail.lower()
+    for topology_hint in ("bucket", "s3", "object_ref", "vault_repository", "postgres"):
+        assert topology_hint not in lowered
+
+
 @pytest.mark.asyncio
-async def test_empty_documents_roster_is_honest(test_app) -> None:
+async def test_legacy_upload_ticket_endpoint_returns_not_implemented(test_app) -> None:
+    """Task 5 (Truthful MVP Hardening) — Vault chưa có storage/ingestion thật ở
+    backend nên route legacy phải trả 501 trung thực, không giả lập ticket."""
     override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
-        res = await client.get("/agent/vault/documents")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["meta"]["data_state"] == "empty"
-        assert data["data"] == []
-
-
-@pytest.mark.asyncio
-async def test_upload_ticket_and_confirm_lifecycle(test_app) -> None:
-    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=test_app),
-        base_url="http://test",
-    ) as client:
-        # 1. Create upload ticket
-        ticket_res = await client.post(
+        response = await client.post(
             "/agent/vault/documents/upload-ticket",
             json={"file_name": "Product Spec.md", "media_type": "text/markdown", "size_bytes": 1024},
         )
-        assert ticket_res.status_code == 200
-        ticket = ticket_res.json()["data"]
-        doc_id = ticket["document_id"]
-        assert doc_id is not None
-
-        # 2. Confirm upload
-        confirm_res = await client.post(
-            f"/agent/vault/documents/{doc_id}/confirm",
-            json={"checksum_sha256": "sha256:fedcba", "size_bytes": 1024},
-        )
-        assert confirm_res.status_code == 200
-        doc = confirm_res.json()["data"]
-        assert doc["state"] == "INDEXED"
-        assert doc["current_version_id"] is not None
-
-        # 3. Get document detail
-        detail_res = await client.get(f"/agent/vault/documents/{doc_id}")
-        assert detail_res.status_code == 200
-        detail = detail_res.json()["data"]
-        assert detail["title"] == "Product Spec.md"
-        assert len(detail["versions"]) == 1
-
-        # 4. Search and retrieval query
-        query_res = await client.post(
-            "/agent/vault/retrieval/query",
-            json={"query": "Product", "limit": 5},
-        )
-        assert query_res.status_code == 200
-        hits = query_res.json()["data"]
-        assert len(hits) == 1
-        assert hits[0]["title"] == "Product Spec.md"
+        _assert_honest_501(response)
 
 
 @pytest.mark.asyncio
-async def test_tenant_isolation_cannot_see_or_delete_other_workspace_document(test_app) -> None:
-    # 1. Workspace A creates and confirms document
-    override_authenticated_identity(test_app, workspace_id="ws_A", role_id="founder")
+async def test_list_documents_returns_not_implemented(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
-    ) as client_a:
-        ticket_res = await client_a.post(
-            "/agent/vault/documents/upload-ticket",
-            json={"file_name": "Secret WS A.pdf", "media_type": "application/pdf", "size_bytes": 2048},
+    ) as client:
+        response = await client.get("/agent/vault/documents")
+        _assert_honest_501(response)
+
+
+@pytest.mark.asyncio
+async def test_get_document_returns_not_implemented(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        # Không còn tài liệu thật nào tồn tại — dùng id bất kỳ, phải trả 501
+        # (không phải 404, vì 404 sẽ ngụ ý "route hoạt động nhưng không tìm
+        # thấy", trong khi sự thật là toàn bộ tính năng chưa được triển khai).
+        response = await client.get("/agent/vault/documents/doc_anything")
+        _assert_honest_501(response)
+
+
+@pytest.mark.asyncio
+async def test_confirm_upload_does_not_trust_client_declared_checksum(test_app) -> None:
+    """Không còn storage thật để đối chiếu checksum/size do client khai báo —
+    route phải trả 501 bất kể payload trông hợp lệ thế nào."""
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/agent/vault/documents/doc_anything/confirm",
+            json={"checksum_sha256": "sha256:deadbeef", "size_bytes": 1024},
         )
-        doc_id_a = ticket_res.json()["data"]["document_id"]
+        _assert_honest_501(response)
 
-    # 2. Workspace B lists documents (must be empty)
-    override_authenticated_identity(test_app, workspace_id="ws_B", role_id="founder")
+
+@pytest.mark.asyncio
+async def test_delete_document_returns_not_implemented(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
-    ) as client_b:
-        list_res = await client_b.get("/agent/vault/documents")
-        assert list_res.status_code == 200
-        assert list_res.json()["data"] == []
+    ) as client:
+        response = await client.delete("/agent/vault/documents/doc_anything")
+        _assert_honest_501(response)
 
-        # 3. Workspace B attempts to get Workspace A's document (must be 404)
-        get_res = await client_b.get(f"/agent/vault/documents/{doc_id_a}")
-        assert get_res.status_code == 404
 
-        # 4. Workspace B attempts to delete Workspace A's document (must be 404)
-        del_res = await client_b.delete(f"/agent/vault/documents/{doc_id_a}")
-        assert del_res.status_code == 404
+@pytest.mark.asyncio
+async def test_knowledge_graph_returns_not_implemented(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/agent/vault/knowledge/graph")
+        _assert_honest_501(response)
+
+
+@pytest.mark.asyncio
+async def test_indexed_sources_returns_not_implemented(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/agent/vault/knowledge/sources")
+        _assert_honest_501(response)
+
+
+@pytest.mark.asyncio
+async def test_retrieval_query_returns_not_implemented(test_app) -> None:
+    """Không còn giả lập retrieval hit (score=0.95, content="Document content
+    for {title}") — route phải trả 501 thay vì kết quả tìm kiếm giả."""
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/agent/vault/retrieval/query",
+            json={"query": "Product", "limit": 5},
+        )
+        _assert_honest_501(response)

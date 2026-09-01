@@ -536,7 +536,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "vault.document.confirm_upload",
-    enabled: true,
+    enabled: false,
     owner: "agent-platform",
     plane: "agent",
     method: "POST",
@@ -551,7 +551,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "vault.document.delete",
-    enabled: true,
+    enabled: false,
     owner: "agent-platform",
     plane: "agent",
     method: "DELETE",
@@ -566,7 +566,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "vault.document.get",
-    enabled: true,
+    enabled: false,
     owner: "agent-platform",
     plane: "agent",
     method: "GET",
@@ -581,7 +581,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "vault.document.list",
-    enabled: true,
+    enabled: false,
     owner: "agent-platform",
     plane: "agent",
     method: "GET",
@@ -596,7 +596,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "vault.document.upload_ticket",
-    enabled: true,
+    enabled: false,
     owner: "agent-platform",
     plane: "agent",
     method: "POST",
@@ -611,7 +611,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "vault.knowledge.graph",
-    enabled: true,
+    enabled: false,
     owner: "agent-platform",
     plane: "agent",
     method: "GET",
@@ -626,7 +626,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "vault.knowledge.indexed_sources",
-    enabled: true,
+    enabled: false,
     owner: "agent-platform",
     plane: "agent",
     method: "GET",
@@ -641,7 +641,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "vault.knowledge.retrieval_query",
-    enabled: true,
+    enabled: false,
     owner: "agent-platform",
     plane: "agent",
     method: "POST",
