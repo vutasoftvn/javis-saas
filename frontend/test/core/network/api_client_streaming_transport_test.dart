@@ -1,15 +1,24 @@
 // Task 6 — SSE / multipart / form transport phải đi qua CÙNG resolver, offline
 // guard, token selector, và X-Workspace-Id header như các JSON method hiện có
 // của ApiClient (get/post/...). Test cả các primitive dùng chung LẪN các caller
-// thật (RealtimeService, VoiceService qua sendMultipart trực tiếp, VaultService,
+// thật (RealtimeService, VoiceService qua sendMultipart trực tiếp,
 // ChatService hub) để đảm bảo migration khỏi `Uri.parse(ApiClient.baseUrl)` không
 // làm mất routing REMOTE_ACCESS / offline guard.
+//
+// Task 7 (fix round 2) — VaultService (module Vault, đã disable hoàn toàn ở
+// Task 5) từng được dùng làm ví dụ "real caller" cho `ApiClient.sendForm` ở
+// đây, nhưng file đó đã bị xoá (dead code, 0 caller production, còn sót
+// literal route `/vault/*` khiến contract-consumer-gate của Task 7 báo vi
+// phạm không được allowlist). Hai test bên dưới đổi sang gọi thẳng
+// `ApiClient.sendForm(...)` với path test-only (file này nằm trong `test/**`
+// nên contract-consumer-gate bỏ qua) — vẫn kiểm đúng hành vi transport
+// (relay + form-encode khi REMOTE_ACCESS, chặn khi OFFLINE), không còn phụ
+// thuộc VaultService.
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/network/realtime_service.dart';
 import 'package:frontend/modules/hologram_hub/services/chat_service.dart';
-import 'package:frontend/modules/vault/services/vault_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -161,7 +170,7 @@ void main() {
       expect(captured!.headers['Authorization'], 'Bearer LOCAL_SESSION');
     });
 
-    test('VaultService.writeDocument đi qua relay + form-encoded khi REMOTE_ACCESS', () async {
+    test('ApiClient.sendForm (real caller shape) đi qua relay + form-encoded khi REMOTE_ACCESS', () async {
       ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'ONLINE');
       http.Request? captured;
       ApiClient.client = MockClient((request) async {
@@ -169,16 +178,19 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      await VaultService().writeDocument('notes/plan.md', 'hello world');
+      await ApiClient.sendForm(
+        '/test-only/notes-write?workspace_id=workspace-1',
+        {'content': 'hello world'},
+      );
 
-      expect(captured!.url.path, '/relay/vault/documents/notes%2Fplan.md');
+      expect(captured!.url.path, '/relay/test-only/notes-write');
       expect(captured!.url.queryParameters['workspace_id'], 'workspace-1');
       expect(captured!.headers['X-Workspace-Id'], 'workspace-1');
       expect(captured!.headers['Authorization'], 'Bearer LOCAL_SESSION');
       expect(captured!.bodyFields['content'], 'hello world');
     });
 
-    test('VaultService.writeDocument KHÔNG gửi request khi REMOTE_ACCESS + OFFLINE', () async {
+    test('ApiClient.sendForm (real caller shape) KHÔNG gửi request khi REMOTE_ACCESS + OFFLINE', () async {
       ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'OFFLINE');
       var sent = false;
       ApiClient.client = MockClient((request) async {
@@ -187,7 +199,7 @@ void main() {
       });
 
       await expectLater(
-        () => VaultService().writeDocument('notes/plan.md', 'hello world'),
+        () => ApiClient.sendForm('/test-only/notes-write', {'content': 'hello world'}),
         throwsA(anything),
       );
       expect(sent, isFalse);
