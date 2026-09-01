@@ -1,7 +1,11 @@
 import { Resend } from "resend";
 import { escapeHtml } from "./early-access";
 
-export interface EarlyAccessRegistration {
+// Dữ liệu đầu vào để dựng nội dung email — KHÁC với EarlyAccessRegistration
+// bền vững ở early-access-store.ts (type đó có thêm id/status/ISO timestamp
+// phục vụ lưu trữ, còn type này chỉ phục vụ render template email với
+// registeredAt đã format hiển thị sẵn).
+export interface EarlyAccessEmailData {
   fullName: string;
   email: string;
   phone: string;
@@ -21,26 +25,34 @@ const adminNotificationEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
 const resendClient = resendApiKey ? new Resend(resendApiKey) : null;
 
 /**
+ * True khi chưa cấu hình RESEND_API_KEY thật (môi trường dev/thử nghiệm) —
+ * route handler dùng giá trị này để quyết định trạng thái lưu trữ ban đầu
+ * ("simulated") TRƯỚC khi gọi sendEarlyAccessEmails(), vì việc lưu bền vững
+ * phải xảy ra trước bước gửi/queue email theo đúng thứ tự bắt buộc.
+ */
+export function isEarlyAccessEmailSimulated(): boolean {
+  return !resendClient || !resendApiKey || resendApiKey.startsWith("re_your_api_key");
+}
+
+/**
  * Gửi email xác nhận quyền truy cập sớm cho Người dùng và Thông báo Lead mới cho Ban Quản trị
  */
-export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Promise<{
+export async function sendEarlyAccessEmails(data: EarlyAccessEmailData): Promise<{
   userEmailSent: boolean;
   adminEmailSent: boolean;
   simulated?: boolean;
   error?: string;
+  providerMessageId?: string;
 }> {
   // Nếu chưa cấu hình API Key, ghi nhận log và phản hồi mô phỏng (KHÔNG email
   // nào thực sự được gửi) — route handler dựa vào cờ `simulated` để biết đây
   // là môi trường dev/chưa cấu hình, không phải một lần gửi thật thất bại.
-  if (!resendClient || !resendApiKey || resendApiKey.startsWith("re_your_api_key")) {
+  // KHÔNG log fullName/email/accessCode thô — chỉ log company (không phải PII
+  // định danh cá nhân) để tránh rò rỉ dữ liệu nhạy cảm vào log hệ thống.
+  if (isEarlyAccessEmailSimulated()) {
     console.log(
-      `[Resend Simulation] No RESEND_API_KEY configured. Early access registration logged:`,
-      {
-        fullName: data.fullName,
-        email: data.email,
-        company: data.company,
-        accessCode: data.accessCode,
-      }
+      `[Resend Simulation] No RESEND_API_KEY configured. Early access registration logged for company:`,
+      data.company
     );
     return {
       userEmailSent: false,
@@ -51,11 +63,12 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
 
   let userEmailSent = false;
   let adminEmailSent = false;
+  let providerMessageId: string | undefined;
 
   try {
     // 1. Gửi email xác nhận Early Access tới Người dùng
     const userHtml = generateUserConfirmationEmail(data);
-    const userRes = await resendClient.emails.send({
+    const userRes = await resendClient!.emails.send({
       from: resendFromEmail,
       to: [data.email],
       subject: `[COSA OS] Xác nhận Quyền Sử Dụng Sớm - Mã VIP: ${data.accessCode}`,
@@ -63,15 +76,16 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
     });
 
     if (userRes.error) {
-      console.error("[Resend User Email Error]:", userRes.error);
+      console.error("[Resend User Email Error]:", userRes.error.message);
     } else {
       userEmailSent = true;
+      providerMessageId = userRes.data?.id;
     }
 
     // 2. Gửi email thông báo cho Ban Quản Trị (nếu có ADMIN_NOTIFICATION_EMAIL)
     if (adminNotificationEmail) {
       const adminHtml = generateAdminNotificationEmail(data);
-      const adminRes = await resendClient.emails.send({
+      const adminRes = await resendClient!.emails.send({
         from: resendFromEmail,
         to: [adminNotificationEmail],
         subject: `🔥 [Lead Mới] ${data.fullName} (${data.company}) vừa đăng ký Early Access`,
@@ -79,7 +93,7 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
       });
 
       if (adminRes.error) {
-        console.error("[Resend Admin Email Error]:", adminRes.error);
+        console.error("[Resend Admin Email Error]:", adminRes.error.message);
       } else {
         adminEmailSent = true;
       }
@@ -88,9 +102,13 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
     return {
       userEmailSent,
       adminEmailSent,
+      providerMessageId,
     };
   } catch (error: unknown) {
-    console.error("[Resend Delivery Exception]:", error);
+    console.error(
+      "[Resend Delivery Exception]:",
+      error instanceof Error ? error.message : "Unknown email delivery error"
+    );
     const errorMessage = error instanceof Error ? error.message : "Unknown email delivery error";
     return {
       userEmailSent,
@@ -100,7 +118,7 @@ export async function sendEarlyAccessEmails(data: EarlyAccessRegistration): Prom
   }
 }
 
-function generateUserConfirmationEmail(data: EarlyAccessRegistration): string {
+function generateUserConfirmationEmail(data: EarlyAccessEmailData): string {
   // Escape mọi giá trị người dùng nhập trước khi nội suy vào HTML — chặn
   // stored/reflected XSS trong email client của người nhận (chính user đăng
   // ký, vì email này gửi tới địa chỉ họ vừa nhập).
@@ -234,7 +252,7 @@ function generateUserConfirmationEmail(data: EarlyAccessRegistration): string {
   `;
 }
 
-function generateAdminNotificationEmail(data: EarlyAccessRegistration): string {
+function generateAdminNotificationEmail(data: EarlyAccessEmailData): string {
   // Escape mọi giá trị người dùng nhập trước khi nội suy vào HTML gửi cho
   // Ban Quản Trị — đây chính là điểm stored/reflected XSS bị khai thác nếu
   // không escape, vì nội dung này được người đọc email mở trực tiếp.

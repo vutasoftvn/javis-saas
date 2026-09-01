@@ -12,6 +12,14 @@ const earlyAccessSchema = z.object({
   teamSize: z.string().trim().max(80).optional(),
   priorityInterest: z.string().trim().max(80).optional(),
   note: z.string().trim().max(2000).optional(),
+  // Token xác minh Cloudflare Turnstile — chỉ bắt buộc kiểm tra ở production
+  // (xem verifyTurnstileToken()); dev/test bỏ qua để không cần hạ tầng ngoài.
+  turnstileToken: z.string().trim().max(4096).optional(),
+  // Honeypot chống bot: trường ẩn qua CSS trên form thật, người dùng thật
+  // không bao giờ nhìn thấy nên luôn để trống — bot crawler tự động điền
+  // form thường điền cả trường ẩn này nên có giá trị non-empty là dấu hiệu
+  // bot rõ ràng.
+  website: z.string().trim().max(200).optional(),
 });
 
 export type EarlyAccessRegistrationInput = z.infer<typeof earlyAccessSchema>;
@@ -23,6 +31,53 @@ export type EarlyAccessRegistrationInput = z.infer<typeof earlyAccessSchema>;
  */
 export function parseEarlyAccessRegistration(input: unknown): EarlyAccessRegistrationInput {
   return earlyAccessSchema.parse(input);
+}
+
+/**
+ * Xác định môi trường production theo cách chuẩn của Next.js/Node
+ * (NODE_ENV) — dùng để bật bắt buộc xác minh Turnstile và để các adapter
+ * durable (store/rate-limit) fail loud khi thiếu cấu hình, thay vì đoán
+ * theo domain hay header có thể bị giả mạo.
+ */
+export function isProductionEnvironment(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+/**
+ * Xác minh token Cloudflare Turnstile qua API siteverify chính thức. CHỈ
+ * được gọi khi isProductionEnvironment() === true — ở production mà thiếu
+ * TURNSTILE_SECRET_KEY thì throw (fail loud) thay vì âm thầm bỏ qua CAPTCHA,
+ * vì bỏ qua sẽ vô hiệu hoá toàn bộ lớp chống bot mà không ai nhận ra.
+ */
+export async function verifyTurnstileToken(
+  token: string | undefined,
+  remoteIp: string
+): Promise<boolean> {
+  const secretKey = process.env.TURNSTILE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error(
+      "TURNSTILE_SECRET_KEY is not configured — refusing to silently skip CAPTCHA verification in production."
+    );
+  }
+  if (!token) {
+    return false;
+  }
+  try {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ secret: secretKey, response: token, remoteip: remoteIp }),
+    });
+    const result = (await response.json()) as { success?: boolean };
+    return result.success === true;
+  } catch (error: unknown) {
+    // Không log token/IP thô — chỉ log rằng bước xác minh gặp lỗi mạng/API.
+    console.error(
+      "[Turnstile Verification Error]:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return false;
+  }
 }
 
 // Escape các ký tự HTML metacharacter trước khi nội suy giá trị người dùng
