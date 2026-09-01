@@ -25,7 +25,7 @@ giữ chỗ atomically khi nhiều workspace đăng ký cùng lúc, và rename k
 
 `name` **không bao giờ** được dùng làm DNS identity. `workspace_id` **không đổi** khi slug đổi.
 
-### 2. Bảng `workspace_slugs` (Control Plane — `services/cosa/storage/schema.ts`)
+### 2. Bảng `workspace_slugs` (`services/company/identity/services/slug-reservation.service.ts` + bảng `identityWorkspaceSlugs` trong schema `services/company/shared/db/schema/identity.ts`)
 
 ```
 workspace_id      BIGINT   NOT NULL            -- SpineId
@@ -92,3 +92,6 @@ cosa, platform, control, controlplane, workspace, workspaces, runtime, vault, ga
 - [M0 §6](../plans/2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md),
   [M2 §6](../plans/2026-08-29-cosa-workspace-canonical/M2-workspace-canonical.md).
 - [ADR-ID-MODEL-001](./ADR-ID-MODEL-001-spine-snowflake-leaf-uuidv7.md) — `workspace_id` là SpineId.
+
+---
+*Vị trí implementation đã được đính chính sau khi verify lại bằng grep — 2026-09-01.*

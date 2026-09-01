@@ -5,6 +5,9 @@ ACCEPTED 2026-08-29 (Lưu ý: ACCEPTED ≠ IMPLEMENTED ≠ WIRED ≠ VERIFIED �
 Spec cho **M2** của [master plan M0–M7](../plans/2026-08-29-cosa-workspace-canonical-master-plan.md).
 Làm rõ và một phần supersede audit §4.5.
 
+> [!NOTE]
+> **Trạng thái triển khai (2026-09-01):** LeafId/UUIDv7 chưa được triển khai trong code (verify bằng grep toàn repo, 2026-09-01) — chỉ Snowflake spine đã implement (`services/cosa/services/snowflake.service.ts`, `services/company/shared/services/snowflake.service.ts`). Không lên kế hoạch implement UUIDv7 cho đến khi có nhu cầu nghiệp vụ cụ thể (YAGNI).
+
 ## Context
 
 [Readiness audit 2026-08-29](../reports/2026-08-29-cosa-code-first-workspace-local-cloud-readiness-audit.md)
