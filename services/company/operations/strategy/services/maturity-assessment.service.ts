@@ -247,3 +247,25 @@ export async function listMaturityAssessmentsInWorkspace(workspaceId: bigint, pr
     .where(eq(maturityAssessments.workspaceId, workspaceId))
     .orderBy(desc(maturityAssessments.assessedAt));
 }
+
+export interface MaturityAssessmentDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  scoreboardRunId: string | null;
+  dimensions: MaturityDimensions;
+  assessedAt: string;
+  createdAt: string;
+}
+
+export function toMaturityAssessmentDto(row: typeof maturityAssessments.$inferSelect): MaturityAssessmentDto {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    scoreboardRunId: row.scoreboardRunId ? row.scoreboardRunId.toString() : null,
+    dimensions: row.dimensions as MaturityDimensions,
+    assessedAt: row.assessedAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+  };
+}

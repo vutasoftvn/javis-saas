@@ -1,4 +1,4 @@
-import { api, APIError, Header } from "encore.dev/api";
+import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import {
   ingestMetricSnapshot,
@@ -6,50 +6,11 @@ import {
   listMetricSnapshotsInWorkspace,
   MetricSnapshotQuality,
   QualityChecks,
+  MetricSnapshotDto,
+  toMetricSnapshotDto,
 } from "../services/metric-snapshot.service";
-import { metricSnapshots } from "../../../shared/db/schema/strategy";
 
-export interface MetricSnapshotDto {
-  id: string;
-  workspaceId: string;
-  projectId: string;
-  contractVersionId: string;
-  sourceSystem: string;
-  sourceWindow: string;
-  sourceRecordId: string;
-  payloadHash: string;
-  observedAt: string;
-  capturedAt: string;
-  value: number;
-  numerator: number | null;
-  denominator: number | null;
-  qualityStatus: MetricSnapshotQuality;
-  qualityChecks: QualityChecks;
-  evidenceIngestionId: string | null;
-  createdAt: string;
-}
-
-function toMetricSnapshotDto(row: typeof metricSnapshots.$inferSelect): MetricSnapshotDto {
-  return {
-    id: row.id.toString(),
-    workspaceId: row.workspaceId.toString(),
-    projectId: row.projectId.toString(),
-    contractVersionId: row.contractVersionId.toString(),
-    sourceSystem: row.sourceSystem,
-    sourceWindow: row.sourceWindow,
-    sourceRecordId: row.sourceRecordId,
-    payloadHash: row.payloadHash,
-    observedAt: row.observedAt.toISOString(),
-    capturedAt: row.capturedAt.toISOString(),
-    value: row.value,
-    numerator: row.numerator ?? null,
-    denominator: row.denominator ?? null,
-    qualityStatus: row.qualityStatus as MetricSnapshotQuality,
-    qualityChecks: (row.qualityChecks as QualityChecks) || {},
-    evidenceIngestionId: row.evidenceIngestionId ? row.evidenceIngestionId.toString() : null,
-    createdAt: row.createdAt.toISOString(),
-  };
-}
+export type { MetricSnapshotDto, MetricSnapshotQuality, QualityChecks };
 
 export interface IngestMetricSnapshotRequestParams {
   authorization?: Header<"Authorization">;

@@ -8,62 +8,11 @@ import {
   getPilotInWorkspace,
   listPilotsInWorkspace,
   PilotRunStatus,
+  PilotRunDto,
+  toPilotRunDto,
 } from "../services/pilot-run.service";
-import { pilotRuns } from "../../../shared/db/schema/strategy";
 
-export interface PilotRunDto {
-  id: string;
-  workspaceId: string;
-  projectId: string;
-  experimentId: string | null;
-  status: PilotRunStatus;
-  designPartnerEvidenceRefs: string[];
-  metricContractArtifactRef: string | null;
-  instrumentationArtifactRef: string | null;
-  onboardingArtifactRef: string | null;
-  supportEscalationArtifactRef: string | null;
-  rollbackArtifactRef: string | null;
-  releaseOwnerMemberId: string;
-  approvedByMemberId: string | null;
-  approvalRef: string | null;
-  approvedAt: string | null;
-  activatedByMemberId: string | null;
-  activatedAt: string | null;
-  completedAt: string | null;
-  cancelledAt: string | null;
-  cancellationReason: string | null;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-function toPilotRunDto(row: typeof pilotRuns.$inferSelect): PilotRunDto {
-  return {
-    id: row.id.toString(),
-    workspaceId: row.workspaceId.toString(),
-    projectId: row.projectId.toString(),
-    experimentId: row.experimentId ? row.experimentId.toString() : null,
-    status: row.status as PilotRunStatus,
-    designPartnerEvidenceRefs: (row.designPartnerEvidenceRefs as string[]) || [],
-    metricContractArtifactRef: row.metricContractArtifactRef ?? null,
-    instrumentationArtifactRef: row.instrumentationArtifactRef ?? null,
-    onboardingArtifactRef: row.onboardingArtifactRef ?? null,
-    supportEscalationArtifactRef: row.supportEscalationArtifactRef ?? null,
-    rollbackArtifactRef: row.rollbackArtifactRef ?? null,
-    releaseOwnerMemberId: row.releaseOwnerMemberId.toString(),
-    approvedByMemberId: row.approvedByMemberId ? row.approvedByMemberId.toString() : null,
-    approvalRef: row.approvalRef ?? null,
-    approvedAt: row.approvedAt ? row.approvedAt.toISOString() : null,
-    activatedByMemberId: row.activatedByMemberId ? row.activatedByMemberId.toString() : null,
-    activatedAt: row.activatedAt ? row.activatedAt.toISOString() : null,
-    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
-    cancelledAt: row.cancelledAt ? row.cancelledAt.toISOString() : null,
-    cancellationReason: row.cancellationReason ?? null,
-    version: row.version,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
+export type { PilotRunDto };
 
 export interface CreatePilotParams {
   authorization?: Header<"Authorization">;

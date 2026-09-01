@@ -197,3 +197,45 @@ export async function listMetricSnapshotsInWorkspace(
     .where(eq(metricSnapshots.workspaceId, workspaceId))
     .orderBy(metricSnapshots.observedAt);
 }
+
+export interface MetricSnapshotDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  contractVersionId: string;
+  sourceSystem: string;
+  sourceWindow: string;
+  sourceRecordId: string;
+  payloadHash: string;
+  observedAt: string;
+  capturedAt: string;
+  value: number;
+  numerator: number | null;
+  denominator: number | null;
+  qualityStatus: MetricSnapshotQuality;
+  qualityChecks: QualityChecks;
+  evidenceIngestionId: string | null;
+  createdAt: string;
+}
+
+export function toMetricSnapshotDto(row: typeof metricSnapshots.$inferSelect): MetricSnapshotDto {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    contractVersionId: row.contractVersionId.toString(),
+    sourceSystem: row.sourceSystem,
+    sourceWindow: row.sourceWindow,
+    sourceRecordId: row.sourceRecordId,
+    payloadHash: row.payloadHash,
+    observedAt: row.observedAt.toISOString(),
+    capturedAt: row.capturedAt.toISOString(),
+    value: row.value,
+    numerator: row.numerator ?? null,
+    denominator: row.denominator ?? null,
+    qualityStatus: row.qualityStatus as MetricSnapshotQuality,
+    qualityChecks: (row.qualityChecks as QualityChecks) || {},
+    evidenceIngestionId: row.evidenceIngestionId ? row.evidenceIngestionId.toString() : null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}

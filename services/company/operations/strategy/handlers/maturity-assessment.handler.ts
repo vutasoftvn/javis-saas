@@ -1,34 +1,15 @@
-import { api, APIError, Header } from "encore.dev/api";
+import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import {
   assessMaturity,
   getMaturityAssessmentInWorkspace,
   listMaturityAssessmentsInWorkspace,
   MaturityDimensions,
+  MaturityAssessmentDto,
+  toMaturityAssessmentDto,
 } from "../services/maturity-assessment.service";
-import { maturityAssessments } from "../../../shared/db/schema/strategy";
 
-export interface MaturityAssessmentDto {
-  id: string;
-  workspaceId: string;
-  projectId: string;
-  scoreboardRunId: string | null;
-  dimensions: MaturityDimensions;
-  assessedAt: string;
-  createdAt: string;
-}
-
-function toMaturityAssessmentDto(row: typeof maturityAssessments.$inferSelect): MaturityAssessmentDto {
-  return {
-    id: row.id.toString(),
-    workspaceId: row.workspaceId.toString(),
-    projectId: row.projectId.toString(),
-    scoreboardRunId: row.scoreboardRunId ? row.scoreboardRunId.toString() : null,
-    dimensions: row.dimensions as MaturityDimensions,
-    assessedAt: row.assessedAt.toISOString(),
-    createdAt: row.createdAt.toISOString(),
-  };
-}
+export type { MaturityAssessmentDto, MaturityDimensions };
 
 export interface AssessMaturityRequestParams {
   authorization?: Header<"Authorization">;
