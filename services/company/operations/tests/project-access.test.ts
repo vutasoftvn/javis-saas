@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { getProjectInWorkspace } from "../services/project-access.service";
 import { createProject } from "../handlers/project.handler";
 import { createTestWorkspaceWithMember, createSecondWorkspace } from "./_helpers";
-import type { TenantContext } from "../../shared/types/tenant_context";
+import { makeTenantContext } from "./tenant-context.fixture";
 
 describe("Project Access Service with Workspace Isolation", () => {
   it("retrieves a project that belongs to the caller's workspace", async () => {
@@ -14,7 +14,7 @@ describe("Project Access Service with Workspace Isolation", () => {
       description: "Project in caller workspace",
     });
 
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
     const retrieved = await getProjectInWorkspace(project.id, ctx);
 
     expect(retrieved).toBeDefined();
@@ -24,7 +24,7 @@ describe("Project Access Service with Workspace Isolation", () => {
 
   it("throws not_found when project does not exist", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     await expect(getProjectInWorkspace("999999999999999999", ctx)).rejects.toMatchObject({
       code: "not_found",
@@ -43,7 +43,7 @@ describe("Project Access Service with Workspace Isolation", () => {
     });
 
     // Try to access it from workspace B context
-    const ctxB: TenantContext = { workspaceId: wsB.workspaceId, userId: "fake-user" };
+    const ctxB = makeTenantContext({ workspaceId: wsB.workspaceId, userId: "fake-user" });
 
     await expect(getProjectInWorkspace(projectA.id, ctxB)).rejects.toMatchObject({
       code: "not_found",
@@ -58,7 +58,7 @@ describe("Project Access Service with Workspace Isolation", () => {
       title: "ID Type Test",
     });
 
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     // Test with string
     const fromString = await getProjectInWorkspace(project.id, ctx);
@@ -81,7 +81,7 @@ describe("Project Access Service with Workspace Isolation", () => {
       strategicPriority: "P1",
     });
 
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
     const retrieved = await getProjectInWorkspace(project.id, ctx);
 
     expect(retrieved).toBeDefined();
@@ -98,10 +98,7 @@ describe("Project Access Service with Workspace Isolation", () => {
       title: "Workspace ID Type Test",
     });
 
-    const ctx: TenantContext = {
-      workspaceId: ws.workspaceId,
-      userId: ws.userId,
-    };
+    const ctx = makeTenantContext(ws);
 
     const retrieved = await getProjectInWorkspace(project.id, ctx);
     expect(retrieved).toBeDefined();

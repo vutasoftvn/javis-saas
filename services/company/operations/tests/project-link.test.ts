@@ -11,12 +11,12 @@ import { createProject } from "../handlers/project.handler";
 import { createTask } from "../handlers/task.handler";
 import { createOkrCycleService, createObjectiveService } from "../services/okr.service";
 import { createTestWorkspaceWithMember, createSecondWorkspace } from "./_helpers";
-import type { TenantContext } from "../../shared/types/tenant_context";
+import { makeTenantContext } from "./tenant-context.fixture";
 
 describe("Task-Project Linking Service", () => {
   it("links a task to multiple projects", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const task = await createTask({
       workspaceId: ws.workspaceId,
@@ -46,7 +46,7 @@ describe("Task-Project Linking Service", () => {
 
   it("lists empty array when no projects linked", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const task = await createTask({
       workspaceId: ws.workspaceId,
@@ -60,7 +60,7 @@ describe("Task-Project Linking Service", () => {
 
   it("makes duplicate project links idempotent via onConflictDoNothing", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const task = await createTask({
       workspaceId: ws.workspaceId,
@@ -85,7 +85,7 @@ describe("Task-Project Linking Service", () => {
 
   it("unlinks a project and leaves others intact", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const task = await createTask({
       workspaceId: ws.workspaceId,
@@ -119,7 +119,7 @@ describe("Task-Project Linking Service", () => {
 
   it("treats unlinking a non-existent link as no-op", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const task = await createTask({
       workspaceId: ws.workspaceId,
@@ -139,7 +139,7 @@ describe("Task-Project Linking Service", () => {
 
   it("throws not_found when task does not exist", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const project = await createProject({
       workspaceId: ws.workspaceId,
@@ -154,7 +154,7 @@ describe("Task-Project Linking Service", () => {
 
   it("throws not_found when listing projects for non-existent task", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     await expect(listTaskProjects(ctx, "999999999999999999")).rejects.toMatchObject({
       code: "not_found",
@@ -163,7 +163,7 @@ describe("Task-Project Linking Service", () => {
 
   it("throws not_found when unlinking from non-existent task", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const project = await createProject({
       workspaceId: ws.workspaceId,
@@ -179,7 +179,7 @@ describe("Task-Project Linking Service", () => {
   it("throws not_found when linking task to project in different workspace", async () => {
     const wsA = await createTestWorkspaceWithMember();
     const wsB = await createTestWorkspaceWithMember(); // Create second workspace with proper member
-    const ctxA: TenantContext = { workspaceId: wsA.workspaceId, userId: wsA.userId };
+    const ctxA = makeTenantContext(wsA);
 
     const taskA = await createTask({
       workspaceId: wsA.workspaceId,
@@ -201,7 +201,7 @@ describe("Task-Project Linking Service", () => {
 
   it("allows linking empty project list (no-op)", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const task = await createTask({
       workspaceId: ws.workspaceId,
@@ -218,7 +218,7 @@ describe("Task-Project Linking Service", () => {
 
   it("returns projectIds as strings", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const task = await createTask({
       workspaceId: ws.workspaceId,
@@ -244,7 +244,7 @@ describe("Task-Project Linking Service", () => {
 describe("Objective-Project Linking Service", () => {
   it("links an objective to multiple projects", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const cycle = await createOkrCycleService({
       workspaceId: ws.workspaceId,
@@ -281,7 +281,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("lists empty array when no projects linked to objective", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const cycle = await createOkrCycleService({
       workspaceId: ws.workspaceId,
@@ -302,7 +302,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("makes duplicate objective-project links idempotent", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const cycle = await createOkrCycleService({
       workspaceId: ws.workspaceId,
@@ -334,7 +334,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("unlinks a project from objective and leaves others intact", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const cycle = await createOkrCycleService({
       workspaceId: ws.workspaceId,
@@ -375,7 +375,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("treats unlinking a non-existent objective-project link as no-op", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const cycle = await createOkrCycleService({
       workspaceId: ws.workspaceId,
@@ -402,7 +402,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("throws not_found when objective does not exist", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const project = await createProject({
       workspaceId: ws.workspaceId,
@@ -417,7 +417,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("throws not_found when listing projects for non-existent objective", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     await expect(listObjectiveProjects(ctx, "999999999999999999")).rejects.toMatchObject({
       code: "not_found",
@@ -426,7 +426,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("throws not_found when unlinking from non-existent objective", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const project = await createProject({
       workspaceId: ws.workspaceId,
@@ -442,7 +442,7 @@ describe("Objective-Project Linking Service", () => {
   it("throws not_found when linking objective to project in different workspace", async () => {
     const wsA = await createTestWorkspaceWithMember();
     const wsB = await createTestWorkspaceWithMember();
-    const ctxA: TenantContext = { workspaceId: wsA.workspaceId, userId: wsA.userId };
+    const ctxA = makeTenantContext(wsA);
 
     const cycle = await createOkrCycleService({
       workspaceId: wsA.workspaceId,
@@ -471,7 +471,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("allows linking empty project list to objective (no-op)", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const cycle = await createOkrCycleService({
       workspaceId: ws.workspaceId,
@@ -495,7 +495,7 @@ describe("Objective-Project Linking Service", () => {
 
   it("returns objective projectIds as strings", async () => {
     const ws = await createTestWorkspaceWithMember();
-    const ctx: TenantContext = { workspaceId: ws.workspaceId, userId: ws.userId };
+    const ctx = makeTenantContext(ws);
 
     const cycle = await createOkrCycleService({
       workspaceId: ws.workspaceId,
