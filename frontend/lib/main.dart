@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'COSA Brain',
+      title: 'COSA - Hệ điều hành doanh nghiệp AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme, // We only use dark theme for now
       initialRoute: hasToken ? AppRoutes.hub : AppRoutes.login,

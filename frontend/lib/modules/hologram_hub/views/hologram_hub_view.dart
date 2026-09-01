@@ -71,133 +71,164 @@ class HologramHubView extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, FounderCommandCenterController controller) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.9),
         border: const Border(bottom: BorderSide(color: Color(0x336366F1), width: 1)),
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1360),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isCompact = constraints.maxWidth < 700;
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 850;
 
-              return Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.rocket_launch, color: Colors.white, size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'COSA COMMAND CENTER',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+          return Row(
+            children: [
+              // --- LEFT: Brand Logo & Subtitle & Stage ---
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        if (!isCompact)
-                          Text(
-                            'Autonomous Enterprise Operating System',
-                            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        child: const Icon(Icons.rocket_launch, color: Colors.white, size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'COSA',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (!isCompact)
+                              Text(
+                                'Hệ điều hành doanh nghiệp AI',
+                                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                      // StageBadge
+                      Obx(() {
+                        final stage = controller.pulse.value?.companyStage;
+                        if (stage == null) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: StageBadge(stage: ProjectStage.fromString(stage), isCompact: true),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+
+              // --- CENTER: 2 Navigation Tabs (Command Center & AI Workforce) ---
+              Obx(() {
+                final activeTab = controller.selectedTabIndex.value;
+                return Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF334155)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildTabButton(
+                        label: isCompact ? 'Command' : 'Command Center',
+                        icon: Icons.dashboard_outlined,
+                        isSelected: activeTab == 0,
+                        onTap: () => controller.selectedTabIndex.value = 0,
+                      ),
+                      const SizedBox(width: 4),
+                      _buildTabButton(
+                        label: isCompact ? 'Workforce' : 'AI Workforce',
+                        icon: Icons.groups_outlined,
+                        isSelected: activeTab == 1,
+                        onTap: () => controller.selectedTabIndex.value = 1,
+                      ),
+                    ],
+                  ),
+                );
+              }),
+
+              // --- RIGHT: CompanyScopeSwitcher & Actions ---
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Company Scope Switcher (Bên phải)
+                      if (!isCompact) ...[
+                        const CompanyScopeSwitcher(),
+                        const SizedBox(width: 8),
                       ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  
-                  // Company Scope Switcher
-                  if (!isCompact) ...[
-                    const CompanyScopeSwitcher(),
-                    const SizedBox(width: 16),
-                  ],
 
-                  // StageBadge
-                  Obx(() {
-                    final stage = controller.pulse.value?.companyStage;
-                    if (stage == null) return const SizedBox.shrink();
-                    return StageBadge(stage: ProjectStage.fromString(stage), isCompact: true);
-                  }),
-                  const Spacer(),
-
-                  // Navigation Switcher Tabs
-                  Obx(() {
-                    final activeTab = controller.selectedTabIndex.value;
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF334155)),
+                      // Dashboard Button — vào màn hình quản trị (Dashboard)
+                      IconButton(
+                        onPressed: () => Get.find<HologramHubController>().onSettingsPressed(),
+                        icon: const Icon(Icons.space_dashboard_outlined, color: Colors.white70, size: 20),
+                        tooltip: 'Quản trị Dashboard',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                       ),
-                      padding: const EdgeInsets.all(3),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildTabButton(
-                            label: isCompact ? 'Command' : 'Command Center',
-                            icon: Icons.dashboard_outlined,
-                            isSelected: activeTab == 0,
-                            onTap: () => controller.selectedTabIndex.value = 0,
-                          ),
-                          _buildTabButton(
-                            label: isCompact ? 'Workforce' : 'AI Workforce',
-                            icon: Icons.groups_outlined,
-                            isSelected: activeTab == 1,
-                            onTap: () => controller.selectedTabIndex.value = 1,
-                          ),
-                        ],
+                      const SizedBox(width: 4),
+
+                      // Refresh Button
+                      IconButton(
+                        onPressed: () => controller.loadDashboardData(),
+                        icon: const Icon(Icons.refresh, color: Colors.white70, size: 20),
+                        tooltip: 'Làm mới dữ liệu',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                       ),
-                    );
-                  }),
-                  const SizedBox(width: 8),
+                      const SizedBox(width: 4),
 
-                  // Dashboard Button — vào màn hình quản trị (Dashboard)
-                  IconButton(
-                    onPressed: () => Get.find<HologramHubController>().onSettingsPressed(),
-                    icon: const Icon(Icons.space_dashboard_outlined, color: Colors.white70, size: 20),
-                    tooltip: 'Quản trị Dashboard',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      // Profile Button
+                      IconButton(
+                        onPressed: () => Get.toNamed(AppRoutes.profile),
+                        icon: const Icon(Icons.account_circle_outlined, color: Colors.white70, size: 20),
+                        tooltip: 'Hồ sơ của tôi',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-
-                  // Refresh Button
-                  IconButton(
-                    onPressed: () => controller.loadDashboardData(),
-                    icon: const Icon(Icons.refresh, color: Colors.white70, size: 20),
-                    tooltip: 'Làm mới dữ liệu',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                  ),
-                  const SizedBox(width: 4),
-
-                  // Profile Button
-                  IconButton(
-                    onPressed: () => Get.toNamed(AppRoutes.profile),
-                    icon: const Icon(Icons.account_circle_outlined, color: Colors.white70, size: 20),
-                    tooltip: 'Hồ sơ của tôi',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -208,28 +239,57 @@ class HologramHubView extends StatelessWidget {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6366F1) : Colors.transparent,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        gradient: isSelected
+            ? const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        color: isSelected ? null : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white60),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Colors.white : Colors.white60,
-              ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
