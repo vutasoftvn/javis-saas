@@ -21,14 +21,28 @@ class NextBestActionModel {
   });
 
   factory NextBestActionModel.fromJson(Map<String, dynamic> json) {
+    final candidate = json['candidate'] as Map<String, dynamic>?;
+    final title = json['title'] ?? candidate?['title'] ?? json['recommendation'] ?? '';
+    final source = candidate?['source'] ?? json['category'];
+    String category = 'FOUNDER_ACTION';
+    if (source == 'assumption') {
+      category = 'EXPERIMENT';
+    } else if (source == 'task') {
+      category = 'MISSION';
+    } else if (source == 'okr_gap') {
+      category = 'FOUNDER_ACTION';
+    } else if (json['category'] != null) {
+      category = json['category'];
+    }
+
     return NextBestActionModel(
-      id: json['id'] ?? '',
-      category: json['category'] ?? 'FOUNDER_ACTION',
-      title: json['title'] ?? '',
-      rationale: json['rationale'] ?? '',
+      id: json['id']?.toString() ?? candidate?['refId']?.toString() ?? '',
+      category: category,
+      title: title.toString(),
+      rationale: json['rationale'] ?? json['decisionReason'] ?? 'Tập trung xác thực các giả định quan trọng nhất của giai đoạn P1 (Problem Validation).',
       urgency: json['urgency'] ?? 'HIGH',
       domain: json['domain'] ?? 'STRATEGY',
-      actionPayload: json['action_payload'],
+      actionPayload: json['action_payload'] ?? json['contextSnapshot'],
     );
   }
 }

@@ -8,7 +8,7 @@ import '../../../data/models/workforce_pack_model.dart';
 
 class CoFounderApiService {
   /// Lấy thông tin nhịp tim tổng thể của doanh nghiệp (Company Pulse) từ Backend
-  static Future<CompanyPulseModel> getCompanyPulse({dynamic workspaceId, dynamic projectId}) async {
+  static Future<CompanyPulseModel> getCompanyPulse({dynamic workspaceId, dynamic projectId, String? stage}) async {
     try {
       final wId = workspaceId?.toString() ?? await SecureStorageService.read('workspace_id');
       if (wId == null || wId.isEmpty) {
@@ -19,6 +19,7 @@ class CoFounderApiService {
           needsDecisionCount: 0,
           pendingApprovalsCount: 0,
           majorRisksCount: 0,
+          companyStage: stage,
           suggestedFocus: 'Chưa có dự án nào trong workspace. Hãy khởi tạo dự án đầu tiên để bắt đầu!',
           updatedAt: DateTime.now(),
         );
@@ -51,6 +52,7 @@ class CoFounderApiService {
         needsDecisionCount: decisions.length,
         pendingApprovalsCount: 0,
         majorRisksCount: 0,
+        companyStage: stage,
         suggestedFocus: (pId == null || pId.isEmpty)
             ? 'Chưa có dự án nào trong workspace. Hãy khởi tạo dự án đầu tiên để bắt đầu!'
             : 'Tập trung kiểm chứng bài toán khách hàng và hoàn thiện chiến thuật tuần.',
@@ -66,6 +68,7 @@ class CoFounderApiService {
       needsDecisionCount: 0,
       pendingApprovalsCount: 0,
       majorRisksCount: 0,
+      companyStage: stage,
       suggestedFocus: 'Chưa có dự án nào trong workspace. Hãy khởi tạo dự án đầu tiên để bắt đầu!',
       updatedAt: DateTime.now(),
     );

@@ -93,10 +93,14 @@ class FounderCommandCenterController extends GetxController {
       hasProjects.value = projects.isNotEmpty || projectsError.value != null;
 
       final activeProjectId = projects.isNotEmpty ? projects.first['id'] : null;
+      final activeProjectStage = projects.isNotEmpty
+          ? (projects.first['lifecycleStage'] ?? projects.first['project_stage'] ?? projects.first['lifecycle_stage'])
+          : null;
 
       final pulseRes = await CoFounderApiService.getCompanyPulse(
         workspaceId: wsId,
         projectId: activeProjectId,
+        stage: activeProjectStage?.toString(),
       );
       final top3Res = (activeProjectId != null)
           ? await CoFounderApiService.getTop3Focus(workspaceId: wsId, projectId: activeProjectId)
