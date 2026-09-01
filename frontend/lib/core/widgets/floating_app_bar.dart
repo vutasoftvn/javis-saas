@@ -3,13 +3,13 @@ import '../theme/app_theme.dart';
 
 /// Floating AppBar Component matching the Cyberpunk Dark design aesthetic.
 /// Standardized top floating header card for all COSA OS module views.
-class JavisFloatingAppBar extends StatelessWidget {
+class CosaFloatingAppBar extends StatelessWidget {
   final String title;
   final String? subtitle;
   final IconData? icon;
   final List<Widget>? actions;
 
-  const JavisFloatingAppBar({
+  const CosaFloatingAppBar({
     super.key,
     required this.title,
     this.subtitle,
@@ -116,3 +116,5 @@ class JavisFloatingAppBar extends StatelessWidget {
   }
 }
 
+/// Backward compatibility alias
+typedef JavisFloatingAppBar = CosaFloatingAppBar;

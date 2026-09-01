@@ -21,7 +21,7 @@ class OkrsView extends GetView<StrategyController> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Top Floating AppBar Card
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Mục tiêu & Kết quả Then chốt (OKRs)',
             subtitle: 'Theo dõi và đo lường tiến độ mục tiêu doanh nghiệp theo thời gian thực.',
             actions: [

@@ -56,7 +56,7 @@ class FinanceView extends StatelessWidget {
       length: 8,
       child: Column(
         children: [
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Quản lý Tài chính & Kế toán',
             subtitle: 'Theo dõi giao dịch, chứng từ, sổ sách và báo cáo tài chính doanh nghiệp.',
             icon: Icons.account_balance_rounded,

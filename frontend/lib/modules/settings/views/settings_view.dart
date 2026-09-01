@@ -17,7 +17,7 @@ class SettingsView extends GetView<SettingsController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const JavisFloatingAppBar(
+        const CosaFloatingAppBar(
           title: 'Cài đặt hệ thống',
           subtitle: 'Cấu hình tài khoản, AI Gateway & tối ưu hóa chi phí',
           icon: Icons.settings_rounded,

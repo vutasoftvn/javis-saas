@@ -69,7 +69,7 @@ class AuthResult {
 
 /// control_plane (Central) la nguon su that cho danh tinh - dang ky/dang
 /// nhap BAT BUOC online tren control_plane truoc, sau do sync xuong backend
-/// local (javis) de lay 1 local JWT dung cho moi API local khac. Local
+/// local (COSA) de lay 1 local JWT dung cho moi API local khac. Local
 /// KHONG con dang ky/dang nhap doc lap bang email+password nua.
 class AuthService {
   static String? _cachedToken;
@@ -215,7 +215,7 @@ class AuthService {
       } else if (response.statusCode == 404) {
         return const AuthResult(
           success: false,
-          errorMessage: 'Workspace không tồn tại',
+          errorMessage: 'Công ty không tồn tại',
         );
       } else if (response.statusCode == 422) {
         try {
@@ -274,13 +274,13 @@ class AuthService {
       } else if (response.statusCode == 422) {
         return const AuthResult(
           success: false,
-          errorMessage: 'Tên công ty không hợp lệ',
+          errorMessage: 'Tên không gian làm việc không hợp lệ',
         );
       }
       return AuthResult(
         success: false,
         errorMessage:
-            'Tạo công ty không thành công (mã lỗi ${response.statusCode})',
+            'Tạo không gian làm việc không thành công (mã lỗi ${response.statusCode})',
       );
     } catch (e) {
       debugPrint('createCompany error: $e');
@@ -301,7 +301,7 @@ class AuthService {
       if (parsedId == null) {
         return const AuthResult(
           success: false,
-          errorMessage: 'Mã công ty không hợp lệ (phải là số)',
+          errorMessage: 'Mã không gian làm việc không hợp lệ (phải là số)',
         );
       }
       final url = ApiClient.resolveUri('/platform/auth/companies/join');
@@ -327,13 +327,13 @@ class AuthService {
       } else if (response.statusCode == 404) {
         return const AuthResult(
           success: false,
-          errorMessage: 'Công ty muốn tham gia không tồn tại',
+          errorMessage: 'Không gian làm việc muốn tham gia không tồn tại',
         );
       }
       return AuthResult(
         success: false,
         errorMessage:
-            'Tham gia công ty không thành công (mã lỗi ${response.statusCode})',
+            'Tham gia không gian làm việc không thành công (mã lỗi ${response.statusCode})',
       );
     } catch (e) {
       debugPrint('joinCompany error: $e');
@@ -468,10 +468,11 @@ class AuthService {
         final data = jsonDecode(response.body);
 
         // Cache workspace id — scope tenant duy nhất (M3 §7).
-        if (data['workspace_id'] != null) {
+        final wsId = data['workspace_id'] ?? data['workspaceId'];
+        if (wsId != null) {
           await SecureStorageService.write(
             'workspace_id',
-            data['workspace_id'].toString(),
+            wsId.toString(),
           );
         }
         if (data['role'] != null) {

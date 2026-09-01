@@ -16,7 +16,7 @@ class WorkflowsView extends GetView<WorkflowsController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        JavisFloatingAppBar(
+        CosaFloatingAppBar(
           title: 'Tự động hóa & Workflows',
           subtitle: 'Quản lý sơ đồ quy trình tự động, thực thi đa tác tử AI và giám sát luồng chạy.',
           icon: Icons.account_tree_rounded,

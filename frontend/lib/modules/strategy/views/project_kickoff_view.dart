@@ -50,7 +50,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Lộ trình MVP (Roadmap)',
             subtitle: 'Đề xuất giai đoạn lộ trình thủ công hoặc bằng AI, lập kế hoạch OKR/12 tuần và kích hoạt từng giai đoạn.',
             icon: Icons.rocket_launch_outlined,

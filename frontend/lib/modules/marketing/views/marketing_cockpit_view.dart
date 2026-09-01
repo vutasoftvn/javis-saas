@@ -56,7 +56,7 @@ class MarketingCockpitView extends GetView<MarketingController> {
   }
 
   Widget _buildFloatingAppBar(BuildContext context) {
-    return JavisFloatingAppBar(
+    return CosaFloatingAppBar(
       title: 'Trung tâm điều hành Marketing',
       subtitle: 'Vòng lặp khép kín: Chiến lược → Thực thi → Đo lường → Học hỏi',
       icon: Icons.campaign_rounded,

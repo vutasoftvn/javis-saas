@@ -346,7 +346,7 @@ void main() {
       controller.regConfirmPasswordController.text = '123';
 
       await controller.register();
-      expect(controller.registerErrorMessage.value, contains('12 đến 128'));
+      expect(controller.registerErrorMessage.value, contains('8 đến 128'));
     });
 
     test('submitCompanyStep validates missing company name when creating a new company', () async {
@@ -356,7 +356,7 @@ void main() {
       controller.regCompanyNameController.text = '';
 
       await controller.submitCompanyStep();
-      expect(controller.registerErrorMessage.value, contains('workspace'));
+      expect(controller.registerErrorMessage.value, contains('công ty'));
     });
 
     test('submitCompanyStep validates missing join code when joining an existing company', () async {
@@ -366,7 +366,7 @@ void main() {
       controller.regJoinCompanyIdController.text = '';
 
       await controller.submitCompanyStep();
-      expect(controller.registerErrorMessage.value, contains('workspace'));
+      expect(controller.registerErrorMessage.value, contains('công ty'));
     });
 
     test('submitAccountStep validates mismatched password confirmation', () async {

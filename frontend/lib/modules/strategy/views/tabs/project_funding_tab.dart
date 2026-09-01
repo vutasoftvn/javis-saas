@@ -121,7 +121,7 @@ class _ProjectFundingTabState extends State<ProjectFundingTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Nguồn lực & Chính sách (Policy/Funding Intelligence)',
             subtitle: 'Phân tích cơ hội quỹ hỗ trợ, voucher, credit hạ tầng và điều kiện hồ sơ gắn với từng Dự án.',
             icon: Icons.account_balance_outlined,

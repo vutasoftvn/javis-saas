@@ -26,7 +26,7 @@ class ProjectStageWorkspaceView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Stage đang hoạt động',
             subtitle: 'Routing năng lực AI và cổng Week 13 cho stage này.',
             icon: Icons.dashboard_customize_outlined,

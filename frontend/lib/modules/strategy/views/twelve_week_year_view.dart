@@ -25,7 +25,7 @@ class TwelveWeekYearView extends GetView<StrategyController> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Top Floating AppBar Card
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Kế hoạch Thực thi 12 Tuần (12WY)',
             subtitle: 'Stage-Gate Governance, Weekly Mission, phân bổ năng lực Founder & AI Delegation theo mô hình 12 Week Year.',
             actions: [

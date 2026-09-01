@@ -18,7 +18,7 @@ class NeedsYouView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        JavisFloatingAppBar(
+        CosaFloatingAppBar(
           title: 'Cần bạn xử lý (Needs You)',
           subtitle: 'Hàng đợi ngoại lệ & các quyết định cần Founder / người điều hành phê duyệt',
           icon: Icons.notification_important_rounded,

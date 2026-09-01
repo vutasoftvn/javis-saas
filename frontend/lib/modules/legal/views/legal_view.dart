@@ -71,7 +71,7 @@ class LegalView extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Pháp lý & Thẩm định Hợp đồng AI',
             subtitle: 'AI Legal Reviewer, rà soát điều khoản rủi ro & quản lý tuân thủ pháp luật DN',
             icon: Icons.gavel_rounded,

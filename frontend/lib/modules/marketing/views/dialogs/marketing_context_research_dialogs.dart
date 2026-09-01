@@ -26,7 +26,7 @@ void showContextForm(BuildContext context, MarketingController controller) {
   AppModalDialog.show<void>(
     context: context,
     title: 'Cập nhật bối cảnh Marketing',
-    subtitle: 'Javis là nguồn sự thật duy nhất về bối cảnh; skill bên ngoài chỉ nhận gói tối thiểu.',
+    subtitle: 'COSA là nguồn sự thật duy nhất về bối cảnh; skill bên ngoài chỉ nhận gói tối thiểu.',
     icon: Icons.hub_outlined,
     maxWidth: 640,
     content: Column(

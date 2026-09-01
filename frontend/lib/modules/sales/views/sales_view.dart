@@ -23,7 +23,7 @@ class SalesView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        JavisFloatingAppBar(
+        CosaFloatingAppBar(
           title: 'Cỗ Máy Doanh Thu & CRM',
           subtitle: 'Vòng lặp khép kín: Khám phá lead, AI scoring, quản lý Pipeline và gửi thư tiếp cận.',
           icon: Icons.point_of_sale_rounded,

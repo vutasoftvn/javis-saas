@@ -18,7 +18,7 @@ class BlockedWorkView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        JavisFloatingAppBar(
+        CosaFloatingAppBar(
           title: 'Công việc tắc nghẽn (Blocked Work)',
           subtitle: 'Giám sát và gỡ bỏ các điểm nghẽn phụ thuộc giữa AI Agents & Founder',
           icon: Icons.block_rounded,

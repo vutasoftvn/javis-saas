@@ -17,7 +17,7 @@ class OrganizationView extends GetView<OrganizationController> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header
-        JavisFloatingAppBar(
+        CosaFloatingAppBar(
               title: 'Tổ chức & Nhân sự Hỗn hợp (Hybrid Workforce)',
               subtitle: 'Trung tâm Điều hành CEO (Command Center) & Quản trị Lực lượng Nhân sự AI kết hợp Con người.',
               icon: Icons.corporate_fare_rounded,

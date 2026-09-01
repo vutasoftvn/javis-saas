@@ -69,7 +69,7 @@ class RegisterView extends GetView<AuthController> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        step == 1 ? 'Tạo Tài Khoản Mới' : 'Thiết Lập Không Gian Làm Việc',
+                        step == 1 ? 'Tạo Tài Khoản Mới' : 'Thiết Lập Công Ty',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 22,
@@ -82,7 +82,7 @@ class RegisterView extends GetView<AuthController> {
                       Text(
                         step == 1
                             ? 'Khởi tạo tài khoản danh tính COSA Platform'
-                            : 'Tạo hoặc tham gia công ty để đồng bộ dữ liệu Brain về JAVIS Local',
+                            : 'Tạo hoặc tham gia công ty để đồng bộ dữ liệu Brain về COSA Local',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 13,
@@ -235,7 +235,7 @@ class RegisterView extends GetView<AuthController> {
               obscureText: !controller.isRegPasswordVisible.value,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
-                labelText: 'Mật khẩu (12–128 ký tự)',
+                labelText: 'Mật khẩu (8–128 ký tự)',
                 labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                 prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primary, size: 20),
                 suffixIcon: IconButton(
@@ -354,7 +354,7 @@ class RegisterView extends GetView<AuthController> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Tiếp tục: Thiết lập Công ty',
+                          'Tiếp tục',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -374,18 +374,22 @@ class RegisterView extends GetView<AuthController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Company choice toggle
+        // Company choice toggle (rounded pill tabs)
         Container(
           decoration: BoxDecoration(
-            color: AppTheme.borderDark,
-            borderRadius: BorderRadius.circular(10),
+            color: AppTheme.backgroundDarker,
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: AppTheme.borderDark,
+              width: 1,
+            ),
           ),
-          padding: const EdgeInsets.all(3),
+          padding: const EdgeInsets.all(4),
           child: Row(
             children: [
               Expanded(
                 child: _ChoiceTab(
-                  label: 'Tạo công ty mới',
+                  label: 'Tạo mới',
                   icon: Icons.add_business_outlined,
                   isSelected: !controller.isJoiningCompany.value,
                   onTap: () => controller.isJoiningCompany.value = false,
@@ -393,7 +397,7 @@ class RegisterView extends GetView<AuthController> {
               ),
               Expanded(
                 child: _ChoiceTab(
-                  label: 'Tham gia công ty',
+                  label: 'Tham gia',
                   icon: Icons.group_add_outlined,
                   isSelected: controller.isJoiningCompany.value,
                   onTap: () => controller.isJoiningCompany.value = true,
@@ -434,7 +438,7 @@ class RegisterView extends GetView<AuthController> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Nhập mã công ty đã tồn tại để tham gia vào workspace chung.',
+            'Nhập mã công ty đã tồn tại để tham gia vào doanh nghiệp.',
             style: TextStyle(fontSize: 11, color: AppTheme.textDimDark),
           ),
         ] else ...[
@@ -466,7 +470,7 @@ class RegisterView extends GetView<AuthController> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Bạn sẽ là Founder sở hữu công ty và không gian làm việc này.',
+            'Bạn sẽ là Founder sở hữu công ty này.',
             style: TextStyle(fontSize: 11, color: AppTheme.textDimDark),
           ),
         ],
@@ -517,7 +521,7 @@ class RegisterView extends GetView<AuthController> {
                   ],
                 )
               : const Text(
-                  'Hoàn Tất & Khởi Tạo Brain',
+                  'Khởi tạo',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -585,7 +589,7 @@ class _StepProgressIndicator extends StatelessWidget {
         Expanded(
           child: _StepBadge(
             stepNumber: 2,
-            label: 'Công ty & Brain',
+            label: 'Công ty',
             isActive: currentStep == 2,
             isCompleted: false,
           ),
@@ -686,14 +690,24 @@ class _ChoiceTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(100),
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: isSelected ? Border.all(color: AppTheme.primary.withValues(alpha: 0.5)) : null,
+          color: isSelected ? AppTheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -701,19 +715,16 @@ class _ChoiceTab extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: isSelected ? AppTheme.primary : AppTheme.textMutedDark,
+              color: isSelected ? AppTheme.backgroundDarker : AppTheme.textMutedDark,
             ),
             const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isSelected ? AppTheme.primary : AppTheme.textMutedDark,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isSelected ? AppTheme.backgroundDarker : AppTheme.textMutedDark,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],

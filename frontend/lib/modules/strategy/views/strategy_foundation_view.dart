@@ -19,7 +19,7 @@ class StrategyFoundationView extends GetView<FoundationController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Chiến lược Doanh nghiệp (Vision, Mission, Values)',
             subtitle: 'Khởi tạo và quản trị khung chiến lược với 1 Vision, 1 Mission và 3 Core Values cốt lõi.',
             actions: [

@@ -158,8 +158,8 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
   if (!email || !email.includes("@")) {
     throw APIError.invalidArgument("email không hợp lệ");
   }
-  if (!params.password || params.password.length < 12 || params.password.length > 128) {
-    throw APIError.invalidArgument("mật khẩu phải có từ 12 đến 128 ký tự");
+  if (!params.password || params.password.length < 8 || params.password.length > 128) {
+    throw APIError.invalidArgument("mật khẩu phải có từ 8 đến 128 ký tự");
   }
 
   const [existing] = await db

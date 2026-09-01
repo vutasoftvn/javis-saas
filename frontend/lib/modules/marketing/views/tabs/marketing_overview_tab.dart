@@ -29,7 +29,7 @@ class MarketingOverviewTab extends StatelessWidget {
                   const MarketingSectionHeader(
                     title: 'Khung quản trị Marketing khép kín',
                     description:
-                        'Javis giữ chiến lược, bối cảnh, bộ nhớ và quyền hạn. Các bộ kỹ năng bên ngoài chỉ đóng vai '
+                        'COSA giữ chiến lược, bối cảnh, bộ nhớ và quyền hạn. Các bộ kỹ năng bên ngoài chỉ đóng vai '
                         'nhà cung cấp năng lực; Python lo phần định lượng; con người giữ quyền phê duyệt.',
                   ),
                   const SizedBox(height: 16),

@@ -69,7 +69,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Dự án & Lộ trình MVP',
             subtitle: 'Chọn hoặc tạo một dự án để lập lộ trình phát triển MVP và OKRs/12 tuần.',
             icon: Icons.rocket_launch_outlined,

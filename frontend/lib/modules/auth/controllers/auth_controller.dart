@@ -116,7 +116,7 @@ class AuthController extends GetxController {
       platformToken: platformToken,
     );
     if (!syncResult.success) {
-      errorMessage.value = syncResult.errorMessage ?? 'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.';
+      errorMessage.value = syncResult.errorMessage ?? 'Đồng bộ dữ liệu công ty thất bại. Vui lòng thử lại.';
       isLoading.value = false;
       return;
     }
@@ -124,7 +124,7 @@ class AuthController extends GetxController {
     // Use workspaces returned by backend sync — NOT legacy company IDs
     final workspaces = syncResult.workspaces ?? [];
     if (workspaces.isEmpty) {
-      errorMessage.value = 'Tài khoản chưa thuộc workspace nào.';
+      errorMessage.value = 'Tài khoản chưa thuộc công ty nào.';
       isLoading.value = false;
       return;
     }
@@ -148,7 +148,7 @@ class AuthController extends GetxController {
       if (ok) {
         Get.offAllNamed(AppRoutes.hub);
       } else {
-        errorMessage.value = 'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.';
+        errorMessage.value = 'Đồng bộ dữ liệu công ty thất bại. Vui lòng thử lại.';
       }
     } else {
       isLoading.value = false;
@@ -184,8 +184,8 @@ class AuthController extends GetxController {
       return;
     }
 
-    if (password.length < 12 || password.length > 128) {
-      registerErrorMessage.value = 'Mật khẩu phải có từ 12 đến 128 ký tự';
+    if (password.length < 8 || password.length > 128) {
+      registerErrorMessage.value = 'Mật khẩu phải có từ 8 đến 128 ký tự';
       return;
     }
 
@@ -218,7 +218,7 @@ class AuthController extends GetxController {
     }
   }
 
-  /// Bước 2: Thiết lập Workspace (Tạo mới hoặc Tham gia) -> Đồng bộ về Local.
+  /// Bước 2: Thiết lập Công ty (Tạo mới hoặc Tham gia) -> Đồng bộ về Local.
   Future<void> submitCompanyStep() async {
     final token = registeredPlatformToken.value;
     if (token.isEmpty) {
@@ -231,11 +231,11 @@ class AuthController extends GetxController {
     final joinCompanyId = isJoiningCompany.value ? regJoinCompanyIdController.text.trim() : null;
 
     if (!isJoiningCompany.value && (companyName == null || companyName.isEmpty)) {
-      registerErrorMessage.value = 'Vui lòng nhập tên workspace muốn tạo';
+      registerErrorMessage.value = 'Vui lòng nhập tên công ty muốn tạo';
       return;
     }
     if (isJoiningCompany.value && (joinCompanyId == null || joinCompanyId.isEmpty)) {
-      registerErrorMessage.value = 'Vui lòng nhập mã workspace muốn tham gia';
+      registerErrorMessage.value = 'Vui lòng nhập mã công ty muốn tham gia';
       return;
     }
 
@@ -257,20 +257,22 @@ class AuthController extends GetxController {
       }
 
       if (!companyResult.success || companyResult.companyId == null) {
-        registerErrorMessage.value = companyResult.errorMessage ?? 'Thiết lập workspace thất bại. Vui lòng thử lại.';
+        registerErrorMessage.value = companyResult.errorMessage ?? 'Thiết lập công ty thất bại. Vui lòng thử lại.';
         return;
       }
 
       // Bước 3: Đã có Account + Workspace -> Đồng bộ về Local Database (backend
       // tự lấy/xác thực membership từ Control Plane, không nhận từ client).
-      final ok = await _authService.finishAuthentication(
+      final syncResult = await _authService.syncFromPlatform(
         platformToken: token,
       );
 
-      if (ok) {
+      if (syncResult.success) {
+        await _authService.getMe();
         Get.offAllNamed(AppRoutes.hub);
       } else {
-        registerErrorMessage.value = 'Đăng ký thành công nhưng đồng bộ dữ liệu về Local thất bại. Vui lòng thử đăng nhập lại.';
+        registerErrorMessage.value = syncResult.errorMessage ??
+            'Đăng ký thành công nhưng đồng bộ dữ liệu về Local thất bại. Vui lòng thử đăng nhập lại.';
       }
     } catch (e) {
       registerErrorMessage.value = 'Đã có lỗi xảy ra: $e';

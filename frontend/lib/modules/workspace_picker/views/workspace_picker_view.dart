@@ -110,13 +110,13 @@ class WorkspacePickerView extends GetView<WorkspacePickerController> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Chọn workspace',
+                    'Chọn công ty',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white),
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Tài khoản của bạn thuộc nhiều workspace - chọn workspace muốn làm việc trên máy này',
+                    'Tài khoản của bạn thuộc nhiều công ty - chọn công ty muốn làm việc trên máy này',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 13, color: AppTheme.textMutedDark),
                   ),

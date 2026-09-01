@@ -25,7 +25,7 @@ class TasksView extends GetView<TasksController> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Floating AppBar Card
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Bảng công việc Kanban (Harness Vòng đời 6 Bước)',
             subtitle: 'Quản lý tiến độ nhiệm vụ, phê duyệt và điều phối tự động',
             actions: [

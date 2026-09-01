@@ -24,7 +24,7 @@ class TemplateLibraryView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          JavisFloatingAppBar(
+          CosaFloatingAppBar(
             title: 'Thư viện Template & Năng lực',
             subtitle: 'Xem chi tiết, chỉnh sửa năng lực và routing mặc định cho các dự án trong workspace.',
             icon: Icons.tune_rounded,

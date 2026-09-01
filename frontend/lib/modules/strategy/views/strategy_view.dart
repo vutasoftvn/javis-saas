@@ -30,7 +30,7 @@ class StrategyView extends GetView<StrategyController> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 1. Top Floating AppBar Card
-            JavisFloatingAppBar(
+            CosaFloatingAppBar(
               title: 'Không Gian Chiến Lược Toàn Diện (COSA Strategy Engine)',
               subtitle: '6 Trụ cột cốt lõi: Validation Studio, 4 Lăng kính, Trục giả định & bằng chứng, Bộ nhớ quyết định, Stage-Gate và Vòng lặp 12WY.',
               icon: Icons.lightbulb_outline,

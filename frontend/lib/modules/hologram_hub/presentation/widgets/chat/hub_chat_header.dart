@@ -75,7 +75,7 @@ class HubChatHeader extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             const Text(
-              'JAVIS AGENT',
+              'COSA AGENT',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 14,

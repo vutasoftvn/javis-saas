@@ -20,7 +20,7 @@ class WorkInspectorView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const JavisFloatingAppBar(
+        const CosaFloatingAppBar(
           title: 'Giám sát công việc (Work Inspector)',
           subtitle: 'Kiểm tra vết truy xuất 360° công việc, log thực thi & kết quả AI',
           icon: Icons.visibility_rounded,

@@ -45,14 +45,14 @@ describe("Control Plane Service", () => {
     ).rejects.toThrow();
   });
 
-  it("rejects registration with a password shorter than 12 characters", async () => {
+  it("rejects registration with a password shorter than 8 characters", async () => {
     await expect(
       registerPlatform({
         email: `short_${Date.now()}@example.com`,
-        password: "12345678901",
+        password: "1234567",
         full_name: "Short Password",
       })
-    ).rejects.toThrow(/12/i);
+    ).rejects.toThrow(/8/i);
   });
 
   it("rejects registration with a password longer than 128 characters", async () => {
@@ -65,10 +65,10 @@ describe("Control Plane Service", () => {
     ).rejects.toThrow(/128/i);
   });
 
-  it("accepts registration with a 12-character password", async () => {
+  it("accepts registration with an 8-character password", async () => {
     const res = await registerPlatform({
       email: `valid_${Date.now()}@example.com`,
-      password: "123456789012",
+      password: "12345678",
       full_name: "Valid Password",
     });
     expect(res.access_token).toEqual(expect.any(String));

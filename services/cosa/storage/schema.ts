@@ -47,7 +47,7 @@ export const plans = cosaSchema.table("plans", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaces = cosaSchema.table("platform_workspaces", {
+export const workspaces = cosaSchema.table("workspaces", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceName: text("workspace_name").notNull(),
   ownerId: bigint("owner_user_id", { mode: "bigint" }).notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -56,7 +56,7 @@ export const workspaces = cosaSchema.table("platform_workspaces", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaceMemberships = cosaSchema.table("platform_workspace_memberships", {
+export const workspaceMemberships = cosaSchema.table("workspace_memberships", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   userId: bigint("user_id", { mode: "bigint" }).notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -100,7 +100,7 @@ export const workspaceEntitlements = cosaSchema.table("workspace_entitlements", 
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaceSyncLogs = cosaSchema.table("platform_workspace_sync_log", {
+export const workspaceSyncLogs = cosaSchema.table("workspace_sync_log", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   clientCreationId: text("client_creation_id").notNull().unique(),
