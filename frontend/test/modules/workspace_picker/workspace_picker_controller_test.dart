@@ -3,22 +3,6 @@ import 'package:get/get.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/workspace_picker/controllers/workspace_picker_controller.dart';
 
-class _FakeAuthService extends AuthService {
-  bool shouldSucceed = true;
-  String? lastPlatformToken;
-  String? lastWorkspaceId;
-
-  @override
-  Future<bool> finishAuthenticationForWorkspace({
-    required String platformToken,
-    required String workspaceId,
-  }) async {
-    lastPlatformToken = platformToken;
-    lastWorkspaceId = workspaceId;
-    return shouldSucceed;
-  }
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   Get.testMode = true;
@@ -71,8 +55,6 @@ void main() {
     });
 
     test('selectWorkspace sets isLoading during processing', () async {
-      final authService = _FakeAuthService();
-
       // Manually create the controller with platformToken and workspaces set
       final controller = WorkspacePickerController();
       controller.onInit();
@@ -92,6 +74,7 @@ void main() {
       // Should attempt to set isLoading even though it fails due to empty token
       expect(controller.errorMessage.value,
           'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+      expect(isLoadingChanged, isTrue);
 
       controller.onClose();
     });

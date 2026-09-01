@@ -383,7 +383,7 @@ class _FakeWakeWordService implements IWakeWordService {
   void Function(String)? onWakeWordCallback;
   String? lastWakeWord;
   bool _isListening = false;
-  bool _isAvailable = true;
+  final bool _isAvailable = true;
   bool _initResult = true;
   bool _throwOnStopListening = false;
 
@@ -446,17 +446,15 @@ class _FakeWakeWordService implements IWakeWordService {
 /// Reimplements the mixin locally for testing without pulling in the full
 /// HologramHubController dependency tree.
 class _TestHubVoiceController extends GetxController {
-  final IVoiceService? _voiceService;
-  final IWakeWordService? _wakeWordService;
-  final bool _autoStartWakeWord;
+  final IVoiceService? voiceService;
+  final IWakeWordService? wakeWordService;
+  final bool autoStartWakeWord;
 
   _TestHubVoiceController({
-    IVoiceService? voiceService,
-    IWakeWordService? wakeWordService,
-    bool autoStartWakeWord = false,
-  })  : _voiceService = voiceService,
-        _wakeWordService = wakeWordService,
-        _autoStartWakeWord = autoStartWakeWord;
+    this.voiceService,
+    this.wakeWordService,
+    this.autoStartWakeWord = false,
+  });
 
   // ── State mirrors from HubVoiceMixin ─────────────────────────────────────
   final isVoiceListening = false.obs;
@@ -474,13 +472,10 @@ class _TestHubVoiceController extends GetxController {
 
   bool get isTransitioning => _isTransitioningVoiceSession;
 
-  IVoiceService get voiceService =>
-      _voiceService ?? VoiceService();
+  IVoiceService get effectiveVoiceService => voiceService ?? VoiceService();
 
-  IWakeWordService get wakeWordService =>
-      _wakeWordService ?? WakeWordService();
-
-  bool get autoStartWakeWord => _autoStartWakeWord;
+  IWakeWordService get effectiveWakeWordService =>
+      wakeWordService ?? WakeWordService();
 
   // ── For testing purposes ──────────────────────────────────────────────────
   void setTransitioning(bool value) => _isTransitioningVoiceSession = value;
@@ -513,10 +508,10 @@ class _TestHubVoiceController extends GetxController {
   // ── HubVoiceMixin methods (copied for testing) ────────────────────────────
 
   Future<void> initWakeWord() async {
-    final available = await wakeWordService.initialize(
+    final available = await effectiveWakeWordService.initialize(
       onWakeWord: _onWakeWordDetected,
     );
-    if (available) await wakeWordService.startListening();
+    if (available) await effectiveWakeWordService.startListening();
   }
 
   Future<void> _onWakeWordDetected(String phrase) async {
@@ -525,8 +520,8 @@ class _TestHubVoiceController extends GetxController {
     );
     if (_isTransitioningVoiceSession) return;
 
-    if (wakeWordService.isListening) {
-      await wakeWordService.stopListening();
+    if (effectiveWakeWordService.isListening) {
+      await effectiveWakeWordService.stopListening();
     }
 
     await onConversationModePressed();
@@ -534,28 +529,31 @@ class _TestHubVoiceController extends GetxController {
 
   void onVoiceHologramStateChanged(HologramRuntimeState state) {
     if (state == HologramRuntimeState.idle) {
-      if (autoStartWakeWord && !wakeWordService.isListening) {
-        wakeWordService.startListening();
+      if (autoStartWakeWord && !effectiveWakeWordService.isListening) {
+        effectiveWakeWordService.startListening();
       }
     } else {
-      if (wakeWordService.isListening) wakeWordService.stopListening();
+      if (effectiveWakeWordService.isListening) {
+        effectiveWakeWordService.stopListening();
+      }
     }
 
     runtimeState.value = state;
   }
 
   Future<void> onTalkPressed() async {
-    if (voiceService.isRecording) {
+    if (effectiveVoiceService.isRecording) {
       isVoiceListening.value = false;
       runtimeState.value = HologramRuntimeState.thinking;
-      final transcript = await voiceService.stopRecordingAndTranscribe();
+      final transcript =
+          await effectiveVoiceService.stopRecordingAndTranscribe();
       if (transcript != null && transcript.trim().isNotEmpty) {
         executePrompt(transcript);
       } else {
         runtimeState.value = HologramRuntimeState.idle;
       }
     } else {
-      final started = await voiceService.startRecording();
+      final started = await effectiveVoiceService.startRecording();
       if (!started) {
         runtimeState.value = HologramRuntimeState.idle;
         isVoiceListening.value = false;
@@ -577,8 +575,8 @@ class _TestHubVoiceController extends GetxController {
         return;
       }
 
-      if (wakeWordService.isListening) {
-        await wakeWordService.stopListening();
+      if (effectiveWakeWordService.isListening) {
+        await effectiveWakeWordService.stopListening();
       }
 
       _isConversationModeActive.value = true;

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/modules/mission_control/models/mission_event.dart';
 import 'package:frontend/modules/mission_control/services/mission_control_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

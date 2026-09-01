@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/data/models/validation_models.dart';
 import 'package:frontend/modules/strategy/services/validation_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

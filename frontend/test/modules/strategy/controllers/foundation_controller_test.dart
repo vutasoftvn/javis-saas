@@ -3,9 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/strategy/controllers/foundation_controller.dart';
-import 'package:frontend/modules/strategy/services/strategy_service.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -38,7 +36,7 @@ void main() {
         expect(controller.isSaving.value, false);
         expect(controller.isGeneratingAi.value, false);
         expect(controller.errorMessage.value, isNull);
-        expect(controller.canvases.value, isEmpty);
+        expect(controller.canvases, isEmpty);
         expect(controller.selectedCanvas.value, isNull);
         expect(controller.currentRevision.value, isNull);
         expect(controller.visionController.text, '');
@@ -110,7 +108,7 @@ void main() {
         final controller = FoundationController();
         await controller.loadCanvases();
 
-        expect(controller.canvases.value, hasLength(1));
+        expect(controller.canvases, hasLength(1));
         expect(controller.isLoading.value, false);
       });
 
@@ -122,7 +120,7 @@ void main() {
         final controller = FoundationController();
         await controller.loadCanvases();
 
-        expect(controller.canvases.value, isEmpty);
+        expect(controller.canvases, isEmpty);
         expect(controller.isLoading.value, false);
       });
     });

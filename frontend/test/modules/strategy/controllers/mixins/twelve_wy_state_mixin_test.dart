@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/modules/strategy/controllers/mixins/twelve_wy_state_mixin.dart';
@@ -89,9 +88,9 @@ void main() {
         final controller = _TestTwelveWyController();
         await controller.loadExecution();
 
-        expect(controller.twelveWeekCycles.value, hasLength(1));
-        expect(controller.weeklyPlans.value, hasLength(1));
-        expect(controller.weeklyCommitments.value, hasLength(1));
+        expect(controller.twelveWeekCycles, hasLength(1));
+        expect(controller.weeklyPlans, hasLength(1));
+        expect(controller.weeklyCommitments, hasLength(1));
       });
 
       test('handles error in cycle loading', () async {
@@ -105,7 +104,7 @@ void main() {
         final controller = _TestTwelveWyController();
         await controller.loadExecution();
 
-        expect(controller.twelveWeekCycles.value, isEmpty);
+        expect(controller.twelveWeekCycles, isEmpty);
       });
     });
 

@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/modules/strategy/models/strategy_list_result.dart';
 import 'package:frontend/modules/strategy/services/founder_service.dart';
 import 'package:frontend/modules/strategy/services/strategy_service_base.dart';
 import 'package:http/http.dart' as http;

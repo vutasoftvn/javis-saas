@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/data/models/stage_gate_model.dart';
 import 'package:frontend/modules/strategy/services/stage_gate_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

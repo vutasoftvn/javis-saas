@@ -91,7 +91,7 @@ void main() {
         final controller = _TestPortfolioController();
         await controller.loadPortfolios();
 
-        expect(controller.portfolios.value, hasLength(2));
+        expect(controller.portfolios, hasLength(2));
       });
     });
 
@@ -178,10 +178,10 @@ void main() {
         final controller = _TestPortfolioController();
         await controller.loadPortfolioAdvancedData('port-1');
 
-        expect(controller.currentPortfolioTows.value, hasLength(1));
-        expect(controller.currentPortfolioSynergies.value, hasLength(1));
-        expect(controller.currentPortfolioDependencies.value, hasLength(1));
-        expect(controller.currentPortfolioOptions.value, hasLength(1));
+        expect(controller.currentPortfolioTows, hasLength(1));
+        expect(controller.currentPortfolioSynergies, hasLength(1));
+        expect(controller.currentPortfolioDependencies, hasLength(1));
+        expect(controller.currentPortfolioOptions, hasLength(1));
       });
     });
 
@@ -397,7 +397,7 @@ void main() {
         final controller = _TestPortfolioController();
         await controller.loadPortfolioCycles('port-1');
 
-        expect(controller.currentPortfolioCycles.value, hasLength(1));
+        expect(controller.currentPortfolioCycles, hasLength(1));
       });
 
       testWidgets('createPortfolioCycle creates new cycle', (tester) async {
@@ -438,7 +438,7 @@ void main() {
         final controller = _TestPortfolioController();
         await controller.loadCeoNextActions();
 
-        expect(controller.ceoNextActions.value, hasLength(1));
+        expect(controller.ceoNextActions, hasLength(1));
       });
 
       testWidgets('updateNextActionStatus updates action status', (tester) async {
@@ -477,7 +477,7 @@ void main() {
         final controller = _TestPortfolioController();
         await controller.loadModelProfiles();
 
-        expect(controller.modelProfiles.value, hasLength(1));
+        expect(controller.modelProfiles, hasLength(1));
       });
 
       testWidgets('updateModelProfile updates profile', (tester) async {

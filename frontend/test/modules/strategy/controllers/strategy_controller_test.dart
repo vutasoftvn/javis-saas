@@ -35,8 +35,8 @@ void main() {
         expect(controller.isSaving.value, false);
         expect(controller.isGeneratingAi.value, false);
         expect(controller.errorMessage.value, isNull);
-        expect(controller.projects.value, isEmpty);
-        expect(controller.initiatives.value, isEmpty);
+        expect(controller.projects, isEmpty);
+        expect(controller.initiatives, isEmpty);
         expect(controller.activeProjectId.value, isNull);
       });
     });
@@ -65,9 +65,7 @@ void main() {
 
     group('loadAllData', () {
       test('loads OKRs, execution, and projects concurrently', () async {
-        var callCount = 0;
         ApiClient.client = MockClient((request) async {
-          callCount++;
           if (request.url.path == '/okrs/cycles') {
             return http.Response(jsonEncode({'cycles': []}), 200);
           }
@@ -157,8 +155,8 @@ void main() {
         final controller = StrategyController();
         await controller.loadProjects();
 
-        expect(controller.projects.value, hasLength(1));
-        expect(controller.initiatives.value, hasLength(1));
+        expect(controller.projects, hasLength(1));
+        expect(controller.initiatives, hasLength(1));
       });
     });
 

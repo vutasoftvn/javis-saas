@@ -90,9 +90,9 @@ void main() {
         final controller = _TestOkrController();
         await controller.loadOkrs();
 
-        expect(controller.okrCycles.value, hasLength(1));
-        expect(controller.objectives.value, hasLength(1));
-        expect(controller.keyResults.value, hasLength(1));
+        expect(controller.okrCycles, hasLength(1));
+        expect(controller.objectives, hasLength(1));
+        expect(controller.keyResults, hasLength(1));
       });
 
       test('sets selectedCycleId to first cycle if not set', () async {

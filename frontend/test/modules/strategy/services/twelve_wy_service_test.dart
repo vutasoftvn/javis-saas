@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_result.dart';
-import 'package:frontend/data/models/twelve_wy_model.dart';
 import 'package:frontend/modules/strategy/services/strategy_mvp_client.dart';
 import 'package:frontend/modules/strategy/services/twelve_wy_service.dart';
 import 'package:frontend/modules/strategy/models/mvp_strategy_models.dart';
