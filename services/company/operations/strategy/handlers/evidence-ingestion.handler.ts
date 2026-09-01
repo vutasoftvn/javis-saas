@@ -1,7 +1,4 @@
-import { api, Header, APIError } from "encore.dev/api";
-import { eq, and, desc } from "drizzle-orm";
-import { db } from "../../models/db";
-import { evidenceIngestions, evidence } from "../../../shared/db/schema/strategy";
+import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import {
   ingestEvidenceSource,
@@ -9,6 +6,7 @@ import {
   IngestClaimInput,
   SourceSystem,
 } from "../services/evidence-ingestion.service";
+import { listEvidenceIngestionsInWorkspace } from "../services/evidence-lifecycle.service";
 import { assertNotAcademyReference } from "../../../academy/contracts";
 
 export interface IngestEvidenceSourceRequest {
@@ -57,43 +55,6 @@ export const listEvidenceIngestionsEndpoint = api(
     params: ListEvidenceIngestionsRequest
   ): Promise<{ items: EvidenceIngestionReceipt[] }> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
-    const wsId = BigInt(ctx.workspaceId);
-
-    const conditions = [eq(evidenceIngestions.workspaceId, wsId)];
-    if (params.projectId) {
-      conditions.push(eq(evidenceIngestions.projectId, BigInt(params.projectId)));
-    }
-
-    const rows = await db
-      .select()
-      .from(evidenceIngestions)
-      .where(and(...conditions))
-      .orderBy(desc(evidenceIngestions.createdAt));
-
-    const items: EvidenceIngestionReceipt[] = [];
-    for (const r of rows) {
-      const evCount = await db
-        .select({ id: evidence.id })
-        .from(evidence)
-        .where(eq(evidence.evidenceIngestionId, r.id));
-
-      items.push({
-        id: r.id.toString(),
-        workspaceId: r.workspaceId.toString(),
-        projectId: r.projectId.toString(),
-        sourceSystem: r.sourceSystem,
-        sourceRecordId: r.sourceRecordId,
-        sourcePayloadHash: r.sourcePayloadHash,
-        artifactRef: r.artifactRef ?? null,
-        sourceUrl: r.sourceUrl ?? null,
-        observedAt: r.observedAt.toISOString(),
-        ingestedByMemberId: r.ingestedByMemberId ? r.ingestedByMemberId.toString() : null,
-        createdAt: r.createdAt.toISOString(),
-        evidenceCount: evCount.length,
-        isReplay: false,
-      });
-    }
-
-    return { items };
+    return listEvidenceIngestionsInWorkspace(ctx, params);
   }
 );
