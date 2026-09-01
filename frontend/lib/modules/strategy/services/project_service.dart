@@ -11,10 +11,14 @@ class ProjectService extends StrategyServiceBase {
   Future<StrategyListResult<Map<String, dynamic>>> getProjects() async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
-      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+      return const StrategyListResult.failure(
+        'Chưa xác định workspace hiện tại',
+      );
     }
     try {
-      final response = await ApiClient.get('/operations/projects?workspace_id=$workspaceId');
+      final response = await ApiClient.get(
+        '/operations/projects?workspace_id=$workspaceId',
+      );
       return decodeList(response, 'projects');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
@@ -53,6 +57,22 @@ class ProjectService extends StrategyServiceBase {
     return decode(response);
   }
 
+  Future<Map<String, dynamic>> createBasicProject({
+    required String title,
+    String? description,
+  }) async {
+    final workspaceId = await requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/operations/projects?workspace_id=$workspaceId',
+      body: {
+        'title': title,
+        'description': ?description,
+        'lifecycleStage': 'P0_DISCOVERY',
+      },
+    );
+    return decode(response);
+  }
+
   Future<Map<String, dynamic>> updateProject(
     String projectId, {
     String? title,
@@ -82,16 +102,24 @@ class ProjectService extends StrategyServiceBase {
 
   Future<void> deleteProject(String projectId) async {
     final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.delete('/operations/projects/$projectId?workspace_id=$workspaceId');
+    final response = await ApiClient.delete(
+      '/operations/projects/$projectId?workspace_id=$workspaceId',
+    );
     decode(response);
   }
 
-  Future<StrategyListResult<Map<String, dynamic>>> getInitiatives({String? projectId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getInitiatives({
+    String? projectId,
+  }) async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
-      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+      return const StrategyListResult.failure(
+        'Chưa xác định workspace hiện tại',
+      );
     }
-    final query = projectId != null ? 'workspace_id=$workspaceId&project_id=$projectId' : 'workspace_id=$workspaceId';
+    final query = projectId != null
+        ? 'workspace_id=$workspaceId&project_id=$projectId'
+        : 'workspace_id=$workspaceId';
     try {
       final response = await ApiClient.get('/strategy/initiatives?$query');
       return decodeList(response, 'initiatives');
@@ -108,11 +136,7 @@ class ProjectService extends StrategyServiceBase {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post(
       '/strategy/initiatives?workspace_id=$workspaceId',
-      body: {
-        'title': title,
-        'project_id': ?projectId,
-        'status': ?status,
-      },
+      body: {'title': title, 'project_id': ?projectId, 'status': ?status},
     );
     return decode(response);
   }
@@ -125,17 +149,16 @@ class ProjectService extends StrategyServiceBase {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.put(
       '/strategy/initiatives/$initiativeId?workspace_id=$workspaceId',
-      body: {
-        'title': ?title,
-        'status': ?status,
-      },
+      body: {'title': ?title, 'status': ?status},
     );
     return decode(response);
   }
 
   Future<void> deleteInitiative(String initiativeId) async {
     final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.delete('/strategy/initiatives/$initiativeId?workspace_id=$workspaceId');
+    final response = await ApiClient.delete(
+      '/strategy/initiatives/$initiativeId?workspace_id=$workspaceId',
+    );
     decode(response);
   }
 
@@ -190,10 +213,7 @@ class ProjectService extends StrategyServiceBase {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post(
       '/strategy/analysis/export?workspace_id=$workspaceId',
-      body: {
-        'project_id': ?projectId,
-        'canvas_id': ?canvasId,
-      },
+      body: {'project_id': ?projectId, 'canvas_id': ?canvasId},
     );
     return decode(response);
   }
@@ -219,23 +239,31 @@ class ProjectService extends StrategyServiceBase {
   // SaaS Project Stage & Agent Orchestration
   // ====================================================================
 
-  Future<StrategyListResult<Map<String, dynamic>>> getWorkspaceTemplates() async {
+  Future<StrategyListResult<Map<String, dynamic>>>
+  getWorkspaceTemplates() async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
-      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+      return const StrategyListResult.failure(
+        'Chưa xác định workspace hiện tại',
+      );
     }
     try {
-      final response = await ApiClient.get('/strategy/workspace-templates?workspace_id=$workspaceId');
+      final response = await ApiClient.get(
+        '/strategy/workspace-templates?workspace_id=$workspaceId',
+      );
       return decodeList(response, 'templates');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
     }
   }
 
-  Future<StrategyListResult<Map<String, dynamic>>> provisionWorkspaceTemplates() async {
+  Future<StrategyListResult<Map<String, dynamic>>>
+  provisionWorkspaceTemplates() async {
     final workspaceId = await requireWorkspaceId();
     try {
-      final response = await ApiClient.post('/strategy/workspace-templates:provision?workspace_id=$workspaceId');
+      final response = await ApiClient.post(
+        '/strategy/workspace-templates:provision?workspace_id=$workspaceId',
+      );
       return decodeList(response, 'templates');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
@@ -244,39 +272,60 @@ class ProjectService extends StrategyServiceBase {
 
   Future<Map<String, dynamic>> resetWorkspaceTemplate(String templateId) async {
     final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/workspace-templates/$templateId:reset?workspace_id=$workspaceId');
+    final response = await ApiClient.post(
+      '/strategy/workspace-templates/$templateId:reset?workspace_id=$workspaceId',
+    );
     return decode(response);
   }
 
-  Future<Map<String, dynamic>> updateWorkspaceTemplate(String templateId, {String? name, List<dynamic>? capabilities}) async {
+  Future<Map<String, dynamic>> updateWorkspaceTemplate(
+    String templateId, {
+    String? name,
+    List<dynamic>? capabilities,
+  }) async {
     final workspaceId = await requireWorkspaceId();
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
     if (capabilities != null) body['capabilities'] = capabilities;
-    final response = await ApiClient.put('/strategy/workspace-templates/$templateId?workspace_id=$workspaceId', body: body);
+    final response = await ApiClient.put(
+      '/strategy/workspace-templates/$templateId?workspace_id=$workspaceId',
+      body: body,
+    );
     return decode(response);
   }
 
-  Future<StrategyListResult<Map<String, dynamic>>> getProjectStages(String projectId) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getProjectStages(
+    String projectId,
+  ) async {
     final workspaceId = await requireWorkspaceId();
     try {
-      final response = await ApiClient.get('/strategy/projects/$projectId/stages?workspace_id=$workspaceId');
+      final response = await ApiClient.get(
+        '/strategy/projects/$projectId/stages?workspace_id=$workspaceId',
+      );
       return decodeList(response, 'stages');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
     }
   }
 
-  Future<Map<String, dynamic>> generateMvpRoadmap(String projectId, {String? instruction}) async {
+  Future<Map<String, dynamic>> generateMvpRoadmap(
+    String projectId, {
+    String? instruction,
+  }) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post(
       '/strategy/projects/$projectId/mvp-roadmap:generate?workspace_id=$workspaceId',
-      body: instruction != null && instruction.trim().isNotEmpty ? {'instruction': instruction.trim()} : null,
+      body: instruction != null && instruction.trim().isNotEmpty
+          ? {'instruction': instruction.trim()}
+          : null,
     );
     return decode(response);
   }
 
-  Future<Map<String, dynamic>> saveMvpRoadmapDraft(String projectId, List<Map<String, dynamic>> stages) async {
+  Future<Map<String, dynamic>> saveMvpRoadmapDraft(
+    String projectId,
+    List<Map<String, dynamic>> stages,
+  ) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.put(
       '/strategy/projects/$projectId/mvp-roadmap?workspace_id=$workspaceId',
@@ -287,11 +336,16 @@ class ProjectService extends StrategyServiceBase {
 
   Future<Map<String, dynamic>> confirmMvpRoadmap(String projectId) async {
     final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/projects/$projectId/mvp-roadmap:confirm?workspace_id=$workspaceId');
+    final response = await ApiClient.post(
+      '/strategy/projects/$projectId/mvp-roadmap:confirm?workspace_id=$workspaceId',
+    );
     return decode(response);
   }
 
-  Future<Map<String, dynamic>> planMvpStage(String projectId, String stageId) async {
+  Future<Map<String, dynamic>> planMvpStage(
+    String projectId,
+    String stageId,
+  ) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post(
       '/strategy/projects/$projectId/stages/$stageId:plan?workspace_id=$workspaceId',
@@ -313,7 +367,8 @@ class ProjectService extends StrategyServiceBase {
     return decode(response);
   }
 
-  Future<StrategyListResult<Map<String, dynamic>>> generateStageServiceAssessment(String projectId, String stageId) async {
+  Future<StrategyListResult<Map<String, dynamic>>>
+  generateStageServiceAssessment(String projectId, String stageId) async {
     final workspaceId = await requireWorkspaceId();
     try {
       final response = await ApiClient.post(
@@ -325,7 +380,8 @@ class ProjectService extends StrategyServiceBase {
     }
   }
 
-  Future<StrategyListResult<Map<String, dynamic>>> confirmStageServiceAssessment(
+  Future<StrategyListResult<Map<String, dynamic>>>
+  confirmStageServiceAssessment(
     String projectId,
     String stageId,
     List<Map<String, dynamic>> decisions,
@@ -362,7 +418,10 @@ class ProjectService extends StrategyServiceBase {
     return decode(response);
   }
 
-  Future<Map<String, dynamic>> applyStageRevision(String stageId, String revisionId) async {
+  Future<Map<String, dynamic>> applyStageRevision(
+    String stageId,
+    String revisionId,
+  ) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post(
       '/strategy/stages/$stageId:apply-revision?workspace_id=$workspaceId',
@@ -373,11 +432,17 @@ class ProjectService extends StrategyServiceBase {
 
   Future<Map<String, dynamic>> generateWeek13(String stageId) async {
     final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/stages/$stageId/week-13:generate?workspace_id=$workspaceId');
+    final response = await ApiClient.post(
+      '/strategy/stages/$stageId/week-13:generate?workspace_id=$workspaceId',
+    );
     return decode(response);
   }
 
-  Future<Map<String, dynamic>> confirmWeek13(String stageId, String decision, String rationale) async {
+  Future<Map<String, dynamic>> confirmWeek13(
+    String stageId,
+    String decision,
+    String rationale,
+  ) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post(
       '/strategy/stages/$stageId/week-13:confirm?workspace_id=$workspaceId',

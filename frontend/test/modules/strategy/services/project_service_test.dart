@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/modules/strategy/services/project_service.dart';
 import 'package:frontend/modules/strategy/services/strategy_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -47,7 +46,9 @@ void main() {
     });
 
     test('getProjects returns failure on 500 error', () async {
-      ApiClient.client = MockClient((request) async => http.Response('server error', 500));
+      ApiClient.client = MockClient(
+        (request) async => http.Response('server error', 500),
+      );
 
       final result = await ProjectService().getProjects();
 
@@ -56,7 +57,9 @@ void main() {
     });
 
     test('getProjects returns failure on network error', () async {
-      ApiClient.client = MockClient((_) async => throw const SocketException('offline'));
+      ApiClient.client = MockClient(
+        (_) async => throw const SocketException('offline'),
+      );
 
       final result = await ProjectService().getProjects();
 
@@ -141,16 +144,44 @@ void main() {
       );
     });
 
+    test('createBasicProject posts only the P0 basic contract', () async {
+      ApiClient.client = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body, {
+          'title': 'Invoice assistant',
+          'description': 'Reduce reconciliation time',
+          'lifecycleStage': 'P0_DISCOVERY',
+        });
+        return http.Response(
+          jsonEncode({'id': 'p-1', 'lifecycleStage': 'P0_DISCOVERY'}),
+          200,
+        );
+      });
+      expect(
+        (await ProjectService().createBasicProject(
+          title: 'Invoice assistant',
+          description: 'Reduce reconciliation time',
+        ))['id'],
+        'p-1',
+      );
+    });
+
     test('updateProject puts title and optional fields', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'PUT');
         expect(request.url.path, '/operations/projects/proj-1');
         final body = jsonDecode(request.body);
         expect(body['title'], 'Updated Title');
-        return http.Response(jsonEncode({'id': 'proj-1', 'title': 'Updated Title'}), 200);
+        return http.Response(
+          jsonEncode({'id': 'proj-1', 'title': 'Updated Title'}),
+          200,
+        );
       });
 
-      final project = await ProjectService().updateProject('proj-1', title: 'Updated Title');
+      final project = await ProjectService().updateProject(
+        'proj-1',
+        title: 'Updated Title',
+      );
 
       expect(project['title'], 'Updated Title');
     });
@@ -206,7 +237,9 @@ void main() {
         return http.Response(jsonEncode({'id': 'init-1'}), 200);
       });
 
-      final init = await ProjectService().createInitiative(title: 'New Initiative');
+      final init = await ProjectService().createInitiative(
+        title: 'New Initiative',
+      );
 
       expect(init['id'], 'init-1');
     });
@@ -217,10 +250,16 @@ void main() {
         expect(request.url.path, '/strategy/initiatives/init-1');
         final body = jsonDecode(request.body);
         expect(body['title'], 'Updated Initiative');
-        return http.Response(jsonEncode({'id': 'init-1', 'title': 'Updated Initiative'}), 200);
+        return http.Response(
+          jsonEncode({'id': 'init-1', 'title': 'Updated Initiative'}),
+          200,
+        );
       });
 
-      final init = await ProjectService().updateInitiative('init-1', title: 'Updated Initiative');
+      final init = await ProjectService().updateInitiative(
+        'init-1',
+        title: 'Updated Initiative',
+      );
 
       expect(init['title'], 'Updated Initiative');
     });
@@ -243,7 +282,10 @@ void main() {
         expect(request.url.path, '/strategy/projects/proj-1/classify');
         final body = jsonDecode(request.body);
         expect(body['title_override'], 'Custom Title');
-        return http.Response(jsonEncode({'id': 'proj-1', 'classification': 'saas'}), 200);
+        return http.Response(
+          jsonEncode({'id': 'proj-1', 'classification': 'saas'}),
+          200,
+        );
       });
 
       final result = await ProjectService().classifyProject(
@@ -294,7 +336,9 @@ void main() {
         return http.Response(jsonEncode({'prompt': 'exported...'}), 200);
       });
 
-      final result = await ProjectService().exportAnalysisPrompt(projectId: 'proj-1');
+      final result = await ProjectService().exportAnalysisPrompt(
+        projectId: 'proj-1',
+      );
 
       expect(result.containsKey('prompt'), true);
     });
@@ -362,7 +406,10 @@ void main() {
         expect(request.url.path, '/strategy/workspace-templates/tpl-1');
         final body = jsonDecode(request.body);
         expect(body['name'], 'Updated Template');
-        return http.Response(jsonEncode({'id': 'tpl-1', 'name': 'Updated Template'}), 200);
+        return http.Response(
+          jsonEncode({'id': 'tpl-1', 'name': 'Updated Template'}),
+          200,
+        );
       });
 
       final result = await ProjectService().updateWorkspaceTemplate(
@@ -378,13 +425,13 @@ void main() {
     test('generateMvpRoadmap posts with optional instruction', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/strategy/projects/proj-1/mvp-roadmap:generate');
+        expect(
+          request.url.path,
+          '/strategy/projects/proj-1/mvp-roadmap:generate',
+        );
         final body = jsonDecode(request.body);
         expect(body['instruction'], 'Focus on user acquisition');
-        return http.Response(
-          jsonEncode({'stages': [], 'total': 0}),
-          200,
-        );
+        return http.Response(jsonEncode({'stages': [], 'total': 0}), 200);
       });
 
       final result = await ProjectService().generateMvpRoadmap(
@@ -395,15 +442,18 @@ void main() {
       expect(result.containsKey('stages'), true);
     });
 
-    test('generateMvpRoadmap sends null body when instruction is empty', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.method, 'POST');
-        // Empty body is sent as empty string or null depends on implementation
-        return http.Response(jsonEncode({'stages': []}), 200);
-      });
+    test(
+      'generateMvpRoadmap sends null body when instruction is empty',
+      () async {
+        ApiClient.client = MockClient((request) async {
+          expect(request.method, 'POST');
+          // Empty body is sent as empty string or null depends on implementation
+          return http.Response(jsonEncode({'stages': []}), 200);
+        });
 
-      await ProjectService().generateMvpRoadmap('proj-1', instruction: '');
-    });
+        await ProjectService().generateMvpRoadmap('proj-1', instruction: '');
+      },
+    );
 
     test('saveMvpRoadmapDraft puts stages', () async {
       ApiClient.client = MockClient((request) async {
@@ -414,12 +464,9 @@ void main() {
         return http.Response(jsonEncode({'saved': true}), 200);
       });
 
-      final result = await ProjectService().saveMvpRoadmapDraft(
-        'proj-1',
-        [
-          {'name': 'Stage 1', 'duration': 4},
-        ],
-      );
+      final result = await ProjectService().saveMvpRoadmapDraft('proj-1', [
+        {'name': 'Stage 1', 'duration': 4},
+      ]);
 
       expect(result['saved'], true);
     });
@@ -427,7 +474,10 @@ void main() {
     test('confirmMvpRoadmap posts confirmation', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/strategy/projects/proj-1/mvp-roadmap:confirm');
+        expect(
+          request.url.path,
+          '/strategy/projects/proj-1/mvp-roadmap:confirm',
+        );
         return http.Response(jsonEncode({'confirmed': true}), 200);
       });
 
@@ -460,7 +510,10 @@ void main() {
     test('planMvpStage posts stage planning', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/strategy/projects/proj-1/stages/stage-1:plan');
+        expect(
+          request.url.path,
+          '/strategy/projects/proj-1/stages/stage-1:plan',
+        );
         return http.Response(jsonEncode({'planned': true}), 200);
       });
 
@@ -472,7 +525,10 @@ void main() {
     test('activateMvpStage posts objectives and weekly focus', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/strategy/projects/proj-1/stages/stage-1:activate');
+        expect(
+          request.url.path,
+          '/strategy/projects/proj-1/stages/stage-1:activate',
+        );
         final body = jsonDecode(request.body);
         expect(body['objectives'], isA<List>());
         expect(body['weekly_focus'], isA<List>());
@@ -482,31 +538,42 @@ void main() {
       final result = await ProjectService().activateMvpStage(
         'proj-1',
         'stage-1',
-        objectives: [{'goal': 'Validate market'}],
+        objectives: [
+          {'goal': 'Validate market'},
+        ],
         weeklyFocus: ['Week 1: Research', 'Week 2: Interviews'],
       );
 
       expect(result['activated'], true);
     });
 
-    test('generateStageServiceAssessment posts and returns assessments', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(request.url.path, '/strategy/projects/proj-1/stages/stage-1/service-assessment:generate');
-        return http.Response(
-          jsonEncode({
-            'assessments': [
-              {'id': 'assess-1', 'type': 'service'},
-            ],
-          }),
-          200,
+    test(
+      'generateStageServiceAssessment posts and returns assessments',
+      () async {
+        ApiClient.client = MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(
+            request.url.path,
+            '/strategy/projects/proj-1/stages/stage-1/service-assessment:generate',
+          );
+          return http.Response(
+            jsonEncode({
+              'assessments': [
+                {'id': 'assess-1', 'type': 'service'},
+              ],
+            }),
+            200,
+          );
+        });
+
+        final result = await ProjectService().generateStageServiceAssessment(
+          'proj-1',
+          'stage-1',
         );
-      });
 
-      final result = await ProjectService().generateStageServiceAssessment('proj-1', 'stage-1');
-
-      expect(result.items, hasLength(1));
-    });
+        expect(result.items, hasLength(1));
+      },
+    );
 
     test('previewStageRevision posts revision parameters', () async {
       ApiClient.client = MockClient((request) async {
@@ -534,7 +601,10 @@ void main() {
         return http.Response(jsonEncode({'applied': true}), 200);
       });
 
-      final result = await ProjectService().applyStageRevision('stage-1', 'rev-1');
+      final result = await ProjectService().applyStageRevision(
+        'stage-1',
+        'rev-1',
+      );
 
       expect(result['applied'], true);
     });
@@ -563,7 +633,11 @@ void main() {
         return http.Response(jsonEncode({'confirmed': true}), 200);
       });
 
-      final result = await ProjectService().confirmWeek13('stage-1', 'proceed', 'Market validated');
+      final result = await ProjectService().confirmWeek13(
+        'stage-1',
+        'proceed',
+        'Market validated',
+      );
 
       expect(result['confirmed'], true);
     });
