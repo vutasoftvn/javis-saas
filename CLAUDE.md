@@ -96,7 +96,7 @@ Mỗi service theo layout: `encore.service.ts`, `api.ts` (barrel export), `db.ts
    và evidence rollback N-1.
 5. Không dùng `any`, `@ts-ignore`, `@ts-expect-error` hay cast để che typecheck.
 6. Thay đổi Encore phải chạy typecheck service, relevant test, `make company-boundary-check`,
-   `make encore-handler-boundary-check`, và migration gates nếu có SQL thay đổi.
+   `make encore-handler-boundary-check`, `make ts-suppression-check`, và migration gates nếu có SQL thay đổi.
 
 
 ## Comment code
