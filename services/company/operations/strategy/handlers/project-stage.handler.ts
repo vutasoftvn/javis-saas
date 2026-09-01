@@ -1,15 +1,16 @@
-import { api, Header, APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
-import { db } from "../../models/db";
-import { identityWorkspaces } from "../../../shared/db/schema/identity";
-import { projects } from "../../../shared/db/schema/operations";
 import {
   transitionProjectStage,
   listProjectStageTransitions,
+  getStageContextInWorkspace,
   ProjectLifecycleStage,
   ProjectTransitionResult,
+  StageContextResponse,
+  StageInfo,
 } from "../services/project-stage-lifecycle.service";
+
+export type { ProjectLifecycleStage, ProjectTransitionResult, StageContextResponse, StageInfo };
 
 // ── GET /operations/strategy/stage-context ──
 // M4 §6 — đọc ĐỘC LẬP workspace lifecycle_stage + project lifecycle_stage.
@@ -21,63 +22,11 @@ export interface StageContextRequest {
   projectId?: string;
 }
 
-export interface StageInfo {
-  lifecycleStage: string;
-  stageVersion: number;
-  stageEnteredAt: string | null;
-}
-
-export interface StageContextResponse {
-  workspace: StageInfo;
-  project: (StageInfo & { id: string }) | null;
-}
-
 export const getStageContext = api(
   { method: "GET", path: "/operations/strategy/stage-context", expose: true },
   async (params: StageContextRequest): Promise<StageContextResponse> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
-    const wsId = BigInt(ctx.workspaceId);
-
-    const [ws] = await db
-      .select({
-        lifecycleStage: identityWorkspaces.lifecycleStage,
-        stageVersion: identityWorkspaces.stageVersion,
-        stageEnteredAt: identityWorkspaces.stageEnteredAt,
-      })
-      .from(identityWorkspaces)
-      .where(eq(identityWorkspaces.id, wsId))
-      .limit(1);
-    if (!ws) throw APIError.notFound("Workspace không tồn tại");
-
-    let project: (StageInfo & { id: string }) | null = null;
-    if (params.projectId) {
-      const [p] = await db
-        .select({
-          id: projects.id,
-          lifecycleStage: projects.lifecycleStage,
-          stageVersion: projects.stageVersion,
-          stageEnteredAt: projects.stageEnteredAt,
-        })
-        .from(projects)
-        .where(and(eq(projects.id, BigInt(params.projectId)), eq(projects.workspaceId, wsId)))
-        .limit(1);
-      if (!p) throw APIError.notFound("Project không tồn tại trong workspace này");
-      project = {
-        id: p.id.toString(),
-        lifecycleStage: p.lifecycleStage,
-        stageVersion: p.stageVersion,
-        stageEnteredAt: p.stageEnteredAt ? p.stageEnteredAt.toISOString() : null,
-      };
-    }
-
-    return {
-      workspace: {
-        lifecycleStage: ws.lifecycleStage,
-        stageVersion: ws.stageVersion,
-        stageEnteredAt: ws.stageEnteredAt ? ws.stageEnteredAt.toISOString() : null,
-      },
-      project,
-    };
+    return getStageContextInWorkspace(ctx, params.projectId);
   }
 );
 

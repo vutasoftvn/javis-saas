@@ -1,16 +1,4 @@
 {
   "version": 1,
-  "entries": [
-    "services/company/operations/strategy/handlers/gate-evaluation.handler.ts:2:HANDLER_DIRECT_DB:drizzle-orm",
-    "services/company/operations/strategy/handlers/gate-evaluation.handler.ts:3:HANDLER_DIRECT_DB:../../models/db",
-    "services/company/operations/strategy/handlers/metric-contract.handler.ts:13:HANDLER_DIRECT_DB:../../../shared/db/schema/strategy",
-    "services/company/operations/strategy/handlers/project-stage.handler.ts:2:HANDLER_DIRECT_DB:drizzle-orm",
-    "services/company/operations/strategy/handlers/project-stage.handler.ts:4:HANDLER_DIRECT_DB:../../models/db",
-    "services/company/operations/strategy/handlers/project-stage.handler.ts:5:HANDLER_DIRECT_DB:../../../shared/db/schema/identity",
-    "services/company/operations/strategy/handlers/project-stage.handler.ts:6:HANDLER_DIRECT_DB:../../../shared/db/schema/operations",
-    "services/company/operations/strategy/handlers/stage-policy.handler.ts:2:HANDLER_DIRECT_DB:drizzle-orm",
-    "services/company/operations/strategy/handlers/stage-policy.handler.ts:3:HANDLER_DIRECT_DB:../../models/db",
-    "services/company/operations/strategy/handlers/stage-transition-config.handler.ts:2:HANDLER_DIRECT_DB:drizzle-orm",
-    "services/company/operations/strategy/handlers/stage-transition-config.handler.ts:3:HANDLER_DIRECT_DB:../../models/db"
-  ]
+  "entries": []
 }

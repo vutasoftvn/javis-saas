@@ -118,33 +118,16 @@ if (process.argv[1] === __filename) {
   const args = process.argv.slice(2);
   let rootDir = ".";
   let baselinePath = null;
-  let writeBaseline = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--root" && args[i + 1]) {
       rootDir = args[++i];
     } else if (args[i] === "--baseline" && args[i + 1]) {
       baselinePath = args[++i];
-    } else if (args[i] === "--write-baseline") {
-      writeBaseline = true;
     }
   }
 
   const { observed, additions, stale } = runCheck({ rootDir, baselinePath });
-
-  if (writeBaseline) {
-    if (!baselinePath) {
-      console.error("Error: --write-baseline requires --baseline <path>");
-      process.exit(1);
-    }
-    const data = {
-      version: 1,
-      entries: observed,
-    };
-    fs.writeFileSync(baselinePath, JSON.stringify(data, null, 2) + "\n", "utf8");
-    console.log(`Wrote ${observed.length} baseline entries to ${baselinePath}`);
-    process.exit(0);
-  }
 
   let failed = false;
 
@@ -168,6 +151,10 @@ if (process.argv[1] === __filename) {
     process.exit(1);
   }
 
-  console.log(`✅ Encore handler boundary check passed (${observed.length} baseline exceptions allowed).`);
+  if (observed.length === 0) {
+    console.log("✅ Encore handler boundary check passed: ZERO database access in handlers.");
+  } else {
+    console.log(`✅ Encore handler boundary check passed (${observed.length} baseline exceptions allowed).`);
+  }
   process.exit(0);
 }

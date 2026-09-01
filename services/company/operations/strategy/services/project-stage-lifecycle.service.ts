@@ -2,6 +2,8 @@ import { APIError } from "encore.dev/api";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../models/db";
 import { projects } from "../../../shared/db/schema/operations";
+import { identityWorkspaces } from "../../../shared/db/schema/identity";
+import { TenantContext } from "../../../shared/types/tenant_context";
 import {
   projectStageTransitionPolicies,
   projectStageTransitions,
@@ -223,4 +225,63 @@ export async function listProjectStageTransitions(workspaceId: bigint, projectId
       )
     )
     .orderBy(desc(projectStageTransitions.decidedAt));
+}
+
+export interface StageInfo {
+  lifecycleStage: string;
+  stageVersion: number;
+  stageEnteredAt: string | null;
+}
+
+export interface StageContextResponse {
+  workspace: StageInfo;
+  project: (StageInfo & { id: string }) | null;
+}
+
+export async function getStageContextInWorkspace(
+  ctx: TenantContext,
+  projectId?: string | number
+): Promise<StageContextResponse> {
+  const wsId = BigInt(ctx.workspaceId);
+
+  const [ws] = await db
+    .select({
+      lifecycleStage: identityWorkspaces.lifecycleStage,
+      stageVersion: identityWorkspaces.stageVersion,
+      stageEnteredAt: identityWorkspaces.stageEnteredAt,
+    })
+    .from(identityWorkspaces)
+    .where(eq(identityWorkspaces.id, wsId))
+    .limit(1);
+  if (!ws) throw APIError.notFound("Workspace không tồn tại");
+
+  let project: (StageInfo & { id: string }) | null = null;
+  if (projectId) {
+    const [p] = await db
+      .select({
+        id: projects.id,
+        lifecycleStage: projects.lifecycleStage,
+        stageVersion: projects.stageVersion,
+        stageEnteredAt: projects.stageEnteredAt,
+      })
+      .from(projects)
+      .where(and(eq(projects.id, BigInt(projectId)), eq(projects.workspaceId, wsId)))
+      .limit(1);
+    if (!p) throw APIError.notFound("Project không tồn tại trong workspace này");
+    project = {
+      id: p.id.toString(),
+      lifecycleStage: p.lifecycleStage,
+      stageVersion: p.stageVersion,
+      stageEnteredAt: p.stageEnteredAt ? p.stageEnteredAt.toISOString() : null,
+    };
+  }
+
+  return {
+    workspace: {
+      lifecycleStage: ws.lifecycleStage,
+      stageVersion: ws.stageVersion,
+      stageEnteredAt: ws.stageEnteredAt ? ws.stageEnteredAt.toISOString() : null,
+    },
+    project,
+  };
 }

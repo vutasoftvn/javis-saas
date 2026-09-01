@@ -467,3 +467,59 @@ export async function listMetricContractsInWorkspace(workspaceId: bigint, projec
     .where(and(eq(metricContracts.workspaceId, workspaceId), isNull(metricContracts.deletedAt)))
     .orderBy(desc(metricContracts.version));
 }
+
+export interface MetricContractDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  metricKey: string;
+  displayName: string;
+  unit: string;
+  numeratorDefinition: string;
+  denominatorDefinition: string;
+  cohortDefinition: string;
+  sourceMapping: SourceMapping;
+  cadence: string;
+  freshUntil: string | null;
+  guardrail: string | null;
+  ownerMemberId: string | null;
+  decisionUse: string;
+  status: MetricContractStatus;
+  version: number;
+  approvalRef: string | null;
+  changeRationale: string | null;
+  createdByMemberId: string | null;
+  publishedByMemberId: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function toMetricContractDto(row: typeof metricContracts.$inferSelect): MetricContractDto {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    metricKey: row.metricKey,
+    displayName: row.displayName,
+    unit: row.unit,
+    numeratorDefinition: row.numeratorDefinition,
+    denominatorDefinition: row.denominatorDefinition,
+    cohortDefinition: row.cohortDefinition,
+    sourceMapping: row.sourceMapping as SourceMapping,
+    cadence: row.cadence,
+    freshUntil: row.freshUntil ? row.freshUntil.toISOString() : null,
+    guardrail: row.guardrail ?? null,
+    ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
+    decisionUse: row.decisionUse,
+    status: row.status as MetricContractStatus,
+    version: row.version,
+    approvalRef: row.approvalRef ?? null,
+    changeRationale: row.changeRationale ?? null,
+    createdByMemberId: row.createdByMemberId ? row.createdByMemberId.toString() : null,
+    publishedByMemberId: row.publishedByMemberId ? row.publishedByMemberId.toString() : null,
+    publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
