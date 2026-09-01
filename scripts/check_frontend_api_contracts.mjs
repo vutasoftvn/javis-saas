@@ -23,6 +23,16 @@
 // `unknown_literal_route`; literal khớp một entry đã bị disable (vd. 8 entry
 // vault.* Task 5 tắt) là vi phạm `disabled_contract` — khác nguyên nhân, khác
 // hành động sửa (route sai vs. tính năng đang tắt có chủ đích).
+//
+// Fix-round 2 (review "Needs fixes"): allowlist entry template "toàn
+// wildcard" (vd. `:path`, không segment literal nào) so khớp THUẦN CẤU TRÚC
+// qua `pathMatchesTemplate`, nên vô tình miễn trừ MỌI lệnh gọi
+// `ApiClient.<method>('$bienBatKy')` fully-dynamic một-segment ở BẤT KỲ file
+// nào, không chỉ file dự định (`workspace_service.dart`). Fix: allowlist
+// entry có thể mang thêm field `file` (path tương đối, đúng định dạng report
+// vi phạm) để giới hạn phạm vi miễn trừ; entry có template toàn wildcard BẮT
+// BUỘC phải có `file`, thiếu thì bị bỏ qua hoàn toàn (fail-closed) — xem
+// `isFullyWildcardTemplate`/`isAllowlisted`.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -254,19 +264,47 @@ export function loadAllowlist(allowlistPath) {
   return { entries: raw.entries ?? [] };
 }
 
+/** Một template "toàn wildcard" (mọi segment đều bắt đầu bằng `:`, vd.
+ * `:path` — không segment literal nào neo path lại) không mang thông tin gì
+ * để phân biệt call site này với BẤT KỲ call site fully-dynamic single-segment
+ * nào khác trong toàn bộ codebase. Review round 2 phát hiện: allowlist entry
+ * dạng này (thêm ở round 1 cho `WorkspaceService.getJson/postJson/putJson`)
+ * vô tình miễn trừ MỌI lệnh gọi `ApiClient.<method>('$bienBatKy')` ở bất kỳ
+ * file nào khác, vì `pathMatchesTemplate` chỉ so khớp cấu trúc (số segment +
+ * wildcard-hay-không), không biết gì về danh tính call site thật. */
+function isFullyWildcardTemplate(templatePath) {
+  const segs = templatePath.split("/");
+  return segs.every((s) => s.startsWith(":"));
+}
+
 /** Allowlist so khớp bằng cùng `pathMatchesTemplate` (không phải so bằng
  * chuỗi tuyệt đối) — một entry allowlist dạng template (vd.
  * `/vault/documents/:id`) sẽ miễn được đúng nhóm call site dynamic tương ứng,
  * đúng yêu cầu brief "dynamic endpoint ... explicitly listed trong
  * allowlist" (theo dạng template, không phải theo từng giá trị runtime cụ
  * thể không thể biết trước). Entry literal thuần (không `:`) vẫn hoạt động
- * như cũ vì `pathMatchesTemplate` coi non-`:` segment phải khớp tuyệt đối. */
-function isAllowlisted(method, templatePath, allowlist, today) {
+ * như cũ vì `pathMatchesTemplate` coi non-`:` segment phải khớp tuyệt đối.
+ *
+ * Fix round 2: một entry có `file` sẽ CHỈ miễn vi phạm phát sinh từ đúng file
+ * đó (so khớp path tương đối, đúng định dạng `relFile` trong `scanRoot`) —
+ * đóng lỗ hổng generic-wildcard-đi-đâu-cũng-lọt. Entry có template toàn
+ * wildcard (`isFullyWildcardTemplate`) BẮT BUỘC phải có `file`; nếu thiếu,
+ * entry đó bị bỏ qua hoàn toàn (fail-closed) thay vì âm thầm miễn trừ mọi
+ * call site cùng shape — ngăn ai đó vô tình tái tạo đúng lỗ hổng này bằng một
+ * entry `:something` mới không giới hạn file. */
+function isAllowlisted(method, templatePath, file, allowlist, today) {
   return allowlist.entries.some((entry) => {
     if (!pathMatchesTemplate(templatePath, entry.path)) return false;
     if (entry.method && entry.method !== method) return false;
     if (!entry.expires_on) return false;
-    return entry.expires_on > today;
+    if (entry.expires_on <= today) return false;
+    if (isFullyWildcardTemplate(entry.path)) {
+      // Toàn wildcard, không neo path — bắt buộc scope theo file, không thì
+      // fail-closed (không miễn trừ được gì).
+      return !!entry.file && entry.file === file;
+    }
+    if (entry.file && entry.file !== file) return false;
+    return true;
   });
 }
 
@@ -275,13 +313,13 @@ function isAllowlisted(method, templatePath, allowlist, today) {
  * 'unknown_literal_route' (không khớp gì, cũng không trong allowlist). Dùng
  * chung cho cả literal thuần lẫn template quy về từ call site dynamic — cùng
  * một cây quyết định, cùng yêu cầu allowlist tường minh nếu muốn miễn. */
-export function classify(method, templatePath, manifestEntries, allowlist, today) {
+export function classify(method, templatePath, manifestEntries, allowlist, today, file = null) {
   const matches = manifestEntries.filter(
     (e) => e.method === method && pathMatchesTemplate(templatePath, e.path),
   );
   if (matches.some((e) => e.enabled)) return "ok";
   if (matches.length > 0) return "disabled_contract";
-  if (isAllowlisted(method, templatePath, allowlist, today)) return "ok";
+  if (isAllowlisted(method, templatePath, file, allowlist, today)) return "ok";
   return "unknown_literal_route";
 }
 
@@ -311,7 +349,7 @@ export function scanRoot(rootDir, manifestEntries, allowlist, today = new Date()
       if (call.raw === null) continue; // argument đầu tiên không phải string literal — ngoài phạm vi.
       const httpMethod = toHttpMethod(call.method);
       const { template } = buildPathTemplate(call.raw);
-      const verdict = classify(httpMethod, template, manifestEntries, allowlist, today);
+      const verdict = classify(httpMethod, template, manifestEntries, allowlist, today, relFile);
       if (verdict === "ok") continue;
       violations.push({
         file: relFile,
