@@ -1,9 +1,12 @@
 -- services/cosa/migrations/27_refactor_clean_roles_profiles_and_workspaces.up.sql
 
--- 1. Chuẩn hóa cosa.roles: Thêm name, category, sort_order và upsert 13 roles
+-- 1. Chuẩn hóa cosa.roles: Thêm name, category, sort_order, nới lỏng legacy NOT NULL constraints và upsert 13 roles
 ALTER TABLE cosa.roles ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT 'Legacy role';
 ALTER TABLE cosa.roles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'legacy';
 ALTER TABLE cosa.roles ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE cosa.roles ALTER COLUMN scope DROP NOT NULL;
+ALTER TABLE cosa.roles ALTER COLUMN level DROP NOT NULL;
 
 INSERT INTO cosa.roles (id, name, category, sort_order, description) VALUES
   ('founder',    'Sáng lập',      'leadership', 1,  'Nhà sáng lập doanh nghiệp / workspace'),
@@ -19,10 +22,10 @@ INSERT INTO cosa.roles (id, name, category, sort_order, description) VALUES
   ('member',     'Thành viên',    'community',  11, 'Thành viên chung'),
   ('superadmin', 'Quản trị viên', 'system',     12, 'Quản trị tối cao toàn bộ nền tảng'),
   ('support',    'Hỗ trợ viên',   'system',     13, 'Hỗ trợ khách hàng và vận hành hệ thống')
-ON CONFLICT (id) DO UPDATE
-SET name = EXCLUDED.name,
-    category = EXCLUDED.category,
-    sort_order = EXCLUDED.sort_order,
+ON CONFLICT (id) DO UPDATE 
+SET name = EXCLUDED.name, 
+    category = EXCLUDED.category, 
+    sort_order = EXCLUDED.sort_order, 
     description = EXCLUDED.description;
 
 -- 2. Thêm các trường profile mới cho cosa.profiles
