@@ -243,15 +243,15 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       ENVIRONMENT: production
       PYTHONUNBUFFERED: "1"
+      COSA_WORKER_HEALTH_HOST: "127.0.0.1"
+      COSA_WORKER_HEALTH_PORT: "8090"
     depends_on:
       migrate:
         condition: service_completed_successfully
       services-cosa:
         condition: service_healthy
-    # Worker không mở HTTP — health = tiến trình chính còn sống.
-    # Khi Part 1E thêm worker /ready endpoint, đổi test này sang curl.
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'apps.cosa.worker.main' > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8090/ready || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 3

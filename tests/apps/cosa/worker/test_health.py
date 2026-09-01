@@ -60,10 +60,14 @@ def test_worker_ready_fails_before_first_poll(mock_plane, health_state):
     response = client.get("/ready")
     assert response.status_code == 503
     data = response.json()
+    assert set(data.keys()) == {"status", "app", "worker_id", "checks"}
     assert data["status"] == "error"
+    assert data["app"] == "cosa-worker"
+    assert data["worker_id"] == "test_worker_1"
     assert data["checks"]["polling"] is False
     assert data["checks"]["scheduler"] is True
     assert data["checks"]["lease_store"] is True
+    assert all(isinstance(v, bool) for v in data["checks"].values())
 
 
 def test_worker_ready_passes_after_first_poll(mock_plane, health_state):
@@ -75,10 +79,14 @@ def test_worker_ready_passes_after_first_poll(mock_plane, health_state):
     response = client.get("/ready")
     assert response.status_code == 200
     data = response.json()
+    assert set(data.keys()) == {"status", "app", "worker_id", "checks"}
     assert data["status"] == "ok"
+    assert data["app"] == "cosa-worker"
+    assert data["worker_id"] == "test_worker_1"
     assert data["checks"]["polling"] is True
     assert data["checks"]["scheduler"] is True
     assert data["checks"]["lease_store"] is True
+    assert all(isinstance(v, bool) for v in data["checks"].values())
 
 
 def test_worker_ready_fails_when_scheduler_down(health_state):
@@ -95,10 +103,12 @@ def test_worker_ready_fails_when_scheduler_down(health_state):
     response = client.get("/ready")
     assert response.status_code == 503
     data = response.json()
+    assert set(data.keys()) == {"status", "app", "worker_id", "checks"}
     assert data["status"] == "error"
     assert data["checks"]["scheduler"] is False
     assert data["checks"]["polling"] is True
     assert data["checks"]["lease_store"] is True
+    assert all(isinstance(v, bool) for v in data["checks"].values())
 
 
 def test_worker_ready_fails_when_lease_store_down(health_state):
@@ -115,10 +125,12 @@ def test_worker_ready_fails_when_lease_store_down(health_state):
     response = client.get("/ready")
     assert response.status_code == 503
     data = response.json()
+    assert set(data.keys()) == {"status", "app", "worker_id", "checks"}
     assert data["status"] == "error"
     assert data["checks"]["lease_store"] is False
     assert data["checks"]["scheduler"] is True
     assert data["checks"]["polling"] is True
+    assert all(isinstance(v, bool) for v in data["checks"].values())
 
 
 def test_worker_ready_fails_when_polling_stale(mock_plane, health_state):
@@ -133,8 +145,10 @@ def test_worker_ready_fails_when_polling_stale(mock_plane, health_state):
     response = client.get("/ready")
     assert response.status_code == 503
     data = response.json()
+    assert set(data.keys()) == {"status", "app", "worker_id", "checks"}
     assert data["status"] == "error"
     assert data["checks"]["polling"] is False
+    assert all(isinstance(v, bool) for v in data["checks"].values())
 
 
 def test_worker_health_does_not_leak_secrets(mock_plane, health_state):
