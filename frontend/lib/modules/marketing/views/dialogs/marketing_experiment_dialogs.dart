@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../controllers/marketing_controller.dart';
 import '../widgets/marketing_common.dart';
 import '../widgets/marketing_forms.dart';
@@ -73,8 +74,10 @@ void showExperimentForm(BuildContext context, MarketingController controller) {
         onSubmit: () {
           if (hypothesis.text.trim().isEmpty || metric.text.trim().isEmpty ||
               variantA.text.trim().isEmpty || variantB.text.trim().isEmpty) {
-            Get.snackbar('Thiếu thông tin', 'Cần nhập giả thuyết, chỉ số và hai phương án',
-                snackPosition: SnackPosition.BOTTOM);
+            AppToast.warning(
+              'Cần nhập giả thuyết, chỉ số và hai phương án',
+              title: 'Thiếu thông tin',
+            );
             return;
           }
           Get.back<void>();
@@ -142,10 +145,9 @@ void showExperimentEvaluateForm(BuildContext context, MarketingController contro
           });
           final evaluation = result['evaluation'];
           if (evaluation is Map) {
-            Get.snackbar(
-              'Kết quả: ${MarketingLabels.experiment(evaluation['decision']?.toString().toLowerCase())}',
+            AppToast.info(
               'Chênh lệch ${evaluation['uplift_pct']}% · z = ${evaluation['z_score']} · p = ${evaluation['p_value']}',
-              snackPosition: SnackPosition.BOTTOM,
+              title: 'Kết quả: ${MarketingLabels.experiment(evaluation['decision']?.toString().toLowerCase())}',
               duration: const Duration(seconds: 5),
             );
           }

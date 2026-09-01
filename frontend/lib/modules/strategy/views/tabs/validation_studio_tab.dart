@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../data/models/validation_models.dart';
 import '../../../../modules/strategy/services/validation_service.dart';
 
@@ -46,11 +47,9 @@ class ValidationStudioTabController extends GetxController {
     try {
       final res = await ValidationService.generateHypothesis(currentProjectId.value, assumptionId);
       if (res != null) {
-        Get.snackbar(
-          'Đã tạo Giả thuyết',
+        AppToast.success(
           'Giả thuyết mới đã được đưa vào bảng kiểm chứng',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.withValues(alpha: 0.2),
+          title: 'Đã tạo Giả thuyết',
         );
         await loadAllData();
       }
@@ -64,11 +63,9 @@ class ValidationStudioTabController extends GetxController {
     try {
       final res = await ValidationService.recommendExperiment(currentProjectId.value, hypothesisId);
       if (res != null) {
-        Get.snackbar(
-          'Đã đề xuất Thử nghiệm',
+        AppToast.info(
           'Thử nghiệm nhỏ nhất [${res.name}] đã được tạo',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.blue.withValues(alpha: 0.2),
+          title: 'Đã đề xuất Thử nghiệm',
         );
         await loadAllData();
       }

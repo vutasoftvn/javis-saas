@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/services/workspace_service.dart';
+import 'package:frontend/core/widgets/app_toast.dart';
 import 'package:frontend/data/models/workspace_file_model.dart';
 
 class CompanyWorkspaceView extends StatefulWidget {
@@ -55,12 +56,11 @@ class _CompanyWorkspaceViewState extends State<CompanyWorkspaceView> {
     );
     setState(() => _isSaving = false);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? 'Saved successfully' : 'Failed to save file'),
-          backgroundColor: ok ? const Color(0xFF10B981) : Colors.redAccent,
-        ),
-      );
+      if (ok) {
+        AppToast.success('Saved successfully');
+      } else {
+        AppToast.error('Failed to save file');
+      }
     }
   }
 
@@ -96,12 +96,7 @@ class _CompanyWorkspaceViewState extends State<CompanyWorkspaceView> {
       if (defaultContent != null) {
         setState(() => _contentController.text = defaultContent);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Reset to system default completed.'),
-              backgroundColor: Color(0xFF10B981),
-            ),
-          );
+          AppToast.success('Reset to system default completed.');
         }
       }
     }

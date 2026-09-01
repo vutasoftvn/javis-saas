@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/organization_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
 class OrganizationView extends GetView<OrganizationController> {
@@ -411,7 +412,7 @@ class OrganizationView extends GetView<OrganizationController> {
     final chart = controller.orgChartData.value;
     final depts = (chart?['departments'] as List<dynamic>?) ?? [];
     if (depts.isEmpty) {
-      Get.snackbar('Lỗi', 'Không tìm thấy phòng ban để tuyển dụng');
+      AppToast.error('Không tìm thấy phòng ban để tuyển dụng');
       return;
     }
 

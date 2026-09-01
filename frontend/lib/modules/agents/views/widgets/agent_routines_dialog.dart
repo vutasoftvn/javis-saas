@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../modules/agents/services/agent_platform_service.dart';
 
 class AgentRoutinesDialog extends StatefulWidget {
@@ -39,20 +40,10 @@ class _AgentRoutinesDialogState extends State<AgentRoutinesDialog> {
 
     if (mounted) {
       if (res != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Kích hoạt quy trình "$key" thành công!'),
-            backgroundColor: const Color(0xFF10B981),
-          ),
-        );
+        AppToast.success('Kích hoạt quy trình "$key" thành công!');
         _loadData();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi kích hoạt quy trình "$key"'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
+        AppToast.error('Lỗi khi kích hoạt quy trình "$key"');
       }
     }
   }
@@ -61,12 +52,7 @@ class _AgentRoutinesDialogState extends State<AgentRoutinesDialog> {
     final res = await _service.checkStalledRuns(timeoutMinutes: 10);
     if (mounted && res != null) {
       final count = res['recovered_count'] ?? 0;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Watchdog: Đã kiểm tra và xử lý $count phiên chạy bị treo.'),
-          backgroundColor: Colors.blueAccent,
-        ),
-      );
+      AppToast.info('Watchdog: Đã kiểm tra và xử lý $count phiên chạy bị treo.');
       _loadData();
     }
   }

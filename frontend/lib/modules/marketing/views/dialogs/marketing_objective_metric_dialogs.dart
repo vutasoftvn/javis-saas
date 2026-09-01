@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../controllers/marketing_controller.dart';
 import '../widgets/marketing_forms.dart';
 
@@ -44,7 +45,7 @@ void showObjectiveForm(BuildContext context, MarketingController controller, {Ma
         submitLabel: isEdit ? 'Lưu thay đổi' : 'Tạo mục tiêu',
         onSubmit: () {
           if (title.text.trim().isEmpty || metric.text.trim().isEmpty) {
-            Get.snackbar('Thiếu thông tin', 'Cần nhập tên mục tiêu và chỉ số theo dõi', snackPosition: SnackPosition.BOTTOM);
+            AppToast.warning('Cần nhập tên mục tiêu và chỉ số theo dõi', title: 'Thiếu thông tin');
             return;
           }
           final payload = {
@@ -110,7 +111,7 @@ void showMetricForm(BuildContext context, MarketingController controller, {Map<S
         submitLabel: isEdit ? 'Lưu' : 'Thêm chỉ số',
         onSubmit: () {
           if (code.text.trim().isEmpty || name.text.trim().isEmpty) {
-            Get.snackbar('Thiếu thông tin', 'Mã và tên chỉ số là bắt buộc', snackPosition: SnackPosition.BOTTOM);
+            AppToast.warning('Mã và tên chỉ số là bắt buộc', title: 'Thiếu thông tin');
             return;
           }
           final payload = {

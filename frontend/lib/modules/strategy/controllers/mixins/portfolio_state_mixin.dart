@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../services/strategy_service.dart';
 
 mixin PortfolioStateMixin on GetxController {
@@ -75,7 +75,7 @@ mixin PortfolioStateMixin on GetxController {
       final p = await strategyService.createPortfolio(name: name, description: description, strategicFocus: strategicFocus);
       await loadPortfolios();
       await selectPortfolio(p['id']?.toString() ?? '');
-      Get.snackbar('Thành công', 'Đã khởi tạo Portfolio "$name"', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã khởi tạo Portfolio "$name"');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -97,7 +97,7 @@ mixin PortfolioStateMixin on GetxController {
         founderAttentionHours: founderAttentionHours,
       );
       await selectPortfolio(portfolioId);
-      Get.snackbar('Thành công', 'Đã thêm dự án vào Portfolio', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã thêm dự án vào Portfolio');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -107,7 +107,10 @@ mixin PortfolioStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.removeProjectFromPortfolio(portfolioId, projectId);
       await selectPortfolio(portfolioId);
-      Get.snackbar('Đã xoá', 'Đã gỡ dự án khỏi Portfolio', snackPosition: SnackPosition.BOTTOM);
+      AppToast.info(
+        'Đã gỡ dự án khỏi Portfolio',
+        title: 'Đã xoá',
+      );
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -136,7 +139,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioTows(portfolioId);
       currentPortfolioTows.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Đã thêm định hướng TOWS', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã thêm định hướng TOWS');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -148,7 +151,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioSynergies(portfolioId);
       currentPortfolioSynergies.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Đã thêm điểm cộng hưởng', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã thêm điểm cộng hưởng');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -160,7 +163,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioSynergies(portfolioId);
       currentPortfolioSynergies.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Đã xóa quan hệ cộng hưởng', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã xóa quan hệ cộng hưởng');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -172,7 +175,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioDependencies(portfolioId);
       currentPortfolioDependencies.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Đã ghi nhận phụ thuộc', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã ghi nhận phụ thuộc');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -184,7 +187,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioDependencies(portfolioId);
       currentPortfolioDependencies.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Đã xóa quan hệ phụ thuộc', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã xóa quan hệ phụ thuộc');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -196,7 +199,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioOptions(portfolioId);
       currentPortfolioOptions.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Đã thêm Tùy Chọn Chiến Lược', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã thêm Tùy Chọn Chiến Lược');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -208,7 +211,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioOptions(portfolioId);
       currentPortfolioOptions.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Đã cập nhật trạng thái tùy chọn', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã cập nhật trạng thái tùy chọn');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -223,7 +226,7 @@ mixin PortfolioStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       founderProfile.value = await strategyService.updateFounderProfile(weeklyCapacityHours: weeklyCapacityHours, maxActiveStrategicProjects: maxActiveStrategicProjects);
-      Get.snackbar('Thành công', 'Đã cập nhật cấu hình WIP Limit', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã cập nhật cấu hình WIP Limit');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -243,7 +246,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioCycles(portfolioId);
       currentPortfolioCycles.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Đã khởi tạo chu kỳ danh mục "$title"', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã khởi tạo chu kỳ danh mục "$title"');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -255,7 +258,7 @@ mixin PortfolioStateMixin on GetxController {
       final result = await strategyService.getPortfolioCycles(portfolioId);
       currentPortfolioCycles.value = result.items;
       if (result.errorMessage != null) errorMessage.value = result.errorMessage;
-      Get.snackbar('Thành công', 'Kích hoạt Chu kỳ Portfolio 12WY thành công', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Kích hoạt Chu kỳ Portfolio 12WY thành công');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -278,7 +281,7 @@ mixin PortfolioStateMixin on GetxController {
       } else {
         await loadCeoNextActions();
       }
-      Get.snackbar('Thành công', 'Đã xếp hạng lại danh sách Next Best Actions', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã xếp hạng lại danh sách Next Best Actions');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -288,7 +291,7 @@ mixin PortfolioStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.updateNextActionStatus(actionId, newStatus);
       await loadCeoNextActions();
-      Get.snackbar('Thành công', 'Đã cập nhật trạng thái', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã cập nhật trạng thái');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -314,7 +317,7 @@ mixin PortfolioStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.updateModelProfile(profileId, displayName: displayName, temperature: temperature, isActive: isActive);
       await loadModelProfiles();
-      Get.snackbar('Thành công', 'Đã cập nhật cấu hình Model Profile', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã cập nhật cấu hình Model Profile');
     }, showSnackbar: true);
     isSaving.value = false;
   }

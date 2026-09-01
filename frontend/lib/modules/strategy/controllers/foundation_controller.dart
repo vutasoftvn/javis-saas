@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
 import '../../../modules/auth/services/auth_service.dart';
 
@@ -99,12 +99,9 @@ class FoundationController extends GetxController {
         await createNewRevision();
         await generateAiFoundation();
       }
-      Get.snackbar(
-        'Thành công',
+      AppToast.success(
         'Đã khởi tạo Strategy Canvas và sinh Foundation gợi ý từ AI',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Thành công',
       );
     });
     isSaving.value = false;
@@ -118,12 +115,9 @@ class FoundationController extends GetxController {
       await _service.updateCanvas(canvasId, name: name, description: description);
       await loadCanvases();
       await selectCanvas(canvasId);
-      Get.snackbar(
-        'Thành công',
+      AppToast.success(
         'Đã cập nhật thông tin Strategy Canvas',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Thành công',
       );
     });
     isSaving.value = false;
@@ -132,12 +126,9 @@ class FoundationController extends GetxController {
   Future<void> deleteCanvas(dynamic rawCanvasId) async {
     final canvasId = rawCanvasId?.toString();
     if (canvasId == null || canvasId.isEmpty) {
-      Get.snackbar(
-        'Lỗi',
+      AppToast.error(
         'ID của Strategy Canvas không hợp lệ',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppTheme.accent,
-        colorText: Colors.white,
+        title: 'Lỗi',
       );
       return;
     }
@@ -148,12 +139,9 @@ class FoundationController extends GetxController {
       currentRevision.value = null;
       _clearFoundationForm();
       await loadCanvases();
-      Get.snackbar(
-        'Thành công',
+      AppToast.success(
         'Đã xóa Strategy Canvas',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Thành công',
       );
     });
     isSaving.value = false;
@@ -162,12 +150,9 @@ class FoundationController extends GetxController {
   Future<void> generateAiFoundation() async {
     final canvasId = selectedCanvas.value?['id']?.toString();
     if (canvasId == null || canvasId.isEmpty) {
-      Get.snackbar(
-        'Thông báo',
+      AppToast.warning(
         'Vui lòng chọn hoặc tạo Canvas trước khi sinh Foundation bằng AI',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFE11D48),
-        colorText: Colors.white,
+        title: 'Thông báo',
       );
       return;
     }
@@ -185,12 +170,9 @@ class FoundationController extends GetxController {
           valueDecisionRuleControllers[i].text = values[i]['decision_rule'] ?? '';
         }
       }
-      Get.snackbar(
-        'Hoàn thành',
+      AppToast.success(
         'AI đã sinh gợi ý Vision, Mission và 3 Core Values',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppTheme.surfaceDarkElevated,
-        colorText: Colors.white,
+        title: 'Hoàn thành',
       );
     });
     isGeneratingAi.value = false;

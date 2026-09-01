@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 import '../controllers/project_orchestration_controller.dart';
 
@@ -729,7 +730,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             onPressed: () {
               final title = titleCtrl.text.trim();
               if (title.isEmpty) {
-                Get.snackbar('Lỗi', 'Vui lòng nhập tên giai đoạn', snackPosition: SnackPosition.BOTTOM);
+                AppToast.error('Vui lòng nhập tên giai đoạn');
                 return;
               }
               final stageData = {

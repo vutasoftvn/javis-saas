@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../modules/agents/services/agent_platform_service.dart';
 
 class WorkProductViewerDialog extends StatefulWidget {
@@ -33,9 +34,7 @@ class _WorkProductViewerDialogState extends State<WorkProductViewerDialog> {
     final res = await _service.acceptWorkProduct(id);
     if (mounted) {
       if (res != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã nghiệm thu sản phẩm bàn giao!'), backgroundColor: Color(0xFF10B981)),
-        );
+        AppToast.success('Đã nghiệm thu sản phẩm bàn giao!');
         _loadWorkProducts();
       }
     }
@@ -75,9 +74,7 @@ class _WorkProductViewerDialogState extends State<WorkProductViewerDialog> {
                 Navigator.pop(ctx);
                 await _service.requestWorkProductRevision(id, feedback: ctrl.text.trim());
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã gửi yêu cầu chỉnh sửa cho Agent!'), backgroundColor: Color(0xFF6366F1)),
-                  );
+                  AppToast.info('Đã gửi yêu cầu chỉnh sửa cho Agent!');
                   _loadWorkProducts();
                 }
               }

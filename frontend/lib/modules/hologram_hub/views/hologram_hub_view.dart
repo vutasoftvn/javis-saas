@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../controllers/founder_command_center_controller.dart';
 import '../widgets/cofounder_card_widget.dart';
 import '../widgets/top3_focus_widget.dart';
@@ -11,6 +12,7 @@ import '../../../data/models/stage_model.dart';
 import '../../../shared/widgets/stage_badge.dart';
 import '../../../shared/widgets/company_scope_switcher.dart';
 import '../../../core/routing/app_routes.dart';
+import '../controllers/hologram_hub_controller.dart';
 
 class HologramHubView extends StatelessWidget {
   const HologramHubView({super.key});
@@ -162,6 +164,16 @@ class HologramHubView extends StatelessWidget {
                     );
                   }),
                   const SizedBox(width: 8),
+
+                  // Dashboard Button — vào màn hình quản trị (Dashboard)
+                  IconButton(
+                    onPressed: () => Get.find<HologramHubController>().onSettingsPressed(),
+                    icon: const Icon(Icons.space_dashboard_outlined, color: Colors.white70, size: 20),
+                    tooltip: 'Quản trị Dashboard',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  ),
+                  const SizedBox(width: 4),
 
                   // Refresh Button
                   IconButton(
@@ -547,12 +559,9 @@ class HologramHubView extends StatelessWidget {
                     final title = titleController.text.trim();
                     final desc = descriptionController.text.trim();
                     if (title.isEmpty) {
-                      Get.snackbar(
-                        'Thiếu thông tin',
+                      AppToast.warning(
                         'Vui lòng nhập tên dự án',
-                        snackPosition: SnackPosition.TOP,
-                        backgroundColor: const Color(0xFFEF4444),
-                        colorText: Colors.white,
+                        title: 'Thiếu thông tin',
                       );
                       return;
                     }

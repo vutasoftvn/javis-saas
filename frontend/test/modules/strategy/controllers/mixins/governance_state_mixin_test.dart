@@ -61,7 +61,13 @@ void main() {
         ApiClient.client = MockClient((request) async {
           // Accept all requests
           return http.Response(
-            jsonEncode({'items': [{'id': 'stage-1'}], 'id': 'contract-1'}),
+            jsonEncode({
+              'stages': [{'id': 'stage-1'}],
+              'milestones': [{'id': 'ms-1'}],
+              'gate_decisions': [{'id': 'gd-1'}],
+              'items': [{'id': 'stage-1'}],
+              'id': 'contract-1',
+            }),
             200,
           );
         });

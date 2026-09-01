@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../models/mission_event.dart';
 import '../services/mission_control_service.dart';
 import '../../../modules/mission_control/services/control_plane_service.dart';
@@ -81,13 +82,7 @@ class MissionControlController extends GetxController {
       pendingApprovals.removeWhere(
         (item) => (item['id'] ?? '').toString() == approvalId,
       );
-      Get.snackbar(
-        'Thành công',
-        'Đã phê duyệt hành động của agent',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green.withValues(alpha: 0.8),
-        colorText: Colors.white,
-      );
+      AppToast.success('Đã phê duyệt hành động của agent');
     }
   }
 
@@ -97,12 +92,9 @@ class MissionControlController extends GetxController {
       pendingApprovals.removeWhere(
         (item) => (item['id'] ?? '').toString() == approvalId,
       );
-      Get.snackbar(
-        'Đã từ chối',
+      AppToast.warning(
         'Đã từ chối hành động của agent',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.orange.withValues(alpha: 0.8),
-        colorText: Colors.white,
+        title: 'Đã từ chối',
       );
     }
   }

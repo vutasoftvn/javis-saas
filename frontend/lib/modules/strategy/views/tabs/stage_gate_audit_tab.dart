@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../data/models/stage_gate_model.dart';
 import '../../../../data/models/stage_model.dart';
 import '../../../../data/models/pilot_run_model.dart';
@@ -110,13 +111,7 @@ class _StageGateAuditTabState extends State<StageGateAuditTab> {
         toStage: toStage,
       );
       if (success) {
-        Get.snackbar(
-          'Thành Công',
-          'Đã chuyển Stage dự án thành công!',
-          backgroundColor: const Color(0xFF10B981),
-          colorText: Colors.black,
-          margin: const EdgeInsets.all(16),
-        );
+        AppToast.success('Đã chuyển Stage dự án thành công!');
         await _loadInitialData();
       }
     } catch (e) {

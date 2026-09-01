@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../controllers/strategy_controller.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
+import '../../../../core/widgets/app_toast.dart';
 
 class TwelveWyModals {
   static void showCreateWeeklyPlanDialog(BuildContext context, StrategyController controller) {
@@ -115,7 +116,7 @@ class TwelveWyModals {
     }
 
     if (currentCycleId == null) {
-      Get.snackbar('Thông báo', 'Chưa có chu kỳ 12 tuần nào để biên dịch', snackPosition: SnackPosition.BOTTOM);
+      AppToast.warning('Chưa có chu kỳ 12 tuần nào để biên dịch');
       return;
     }
 
@@ -324,7 +325,7 @@ class TwelveWyModals {
     }
 
     if (currentCycleId == null) {
-      Get.snackbar('Thông báo', 'Chưa có chu kỳ 12 tuần nào để chuyển dịch', snackPosition: SnackPosition.BOTTOM);
+      AppToast.warning('Chưa có chu kỳ 12 tuần nào để chuyển dịch');
       return;
     }
 

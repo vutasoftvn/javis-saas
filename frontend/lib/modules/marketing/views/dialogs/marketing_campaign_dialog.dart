@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../controllers/marketing_controller.dart';
 import '../widgets/marketing_forms.dart';
 
@@ -68,7 +68,7 @@ void showCreateCampaignDialog(BuildContext context, MarketingController controll
         onSubmit: () {
           final name = nameController.text.trim();
           if (name.isEmpty) {
-            Get.snackbar('Thiếu thông tin', 'Vui lòng nhập tên chiến dịch', snackPosition: SnackPosition.BOTTOM);
+            AppToast.warning('Vui lòng nhập tên chiến dịch', title: 'Thiếu thông tin');
             return;
           }
           final budget = double.tryParse(budgetController.text.trim()) ?? 0.0;

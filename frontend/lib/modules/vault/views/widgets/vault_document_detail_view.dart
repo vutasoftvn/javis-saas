@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../controllers/vault_controller.dart';
 
 class VaultDocumentDetailView extends StatelessWidget {
@@ -86,11 +87,9 @@ class VaultDocumentDetailView extends StatelessWidget {
                   final content = controller.selectedDocumentContent.value ?? '';
                   if (content.isNotEmpty) {
                     Clipboard.setData(ClipboardData(text: content));
-                    Get.snackbar(
-                      'Đã sao chép',
+                    AppToast.success(
                       'Nội dung Markdown đã được chép vào Clipboard',
-                      backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-                      colorText: const Color(0xFF10B981),
+                      title: 'Đã sao chép',
                       duration: const Duration(seconds: 2),
                     );
                   }

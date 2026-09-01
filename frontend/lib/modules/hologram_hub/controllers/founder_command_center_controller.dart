@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
 import '../../../data/models/workforce_pack_model.dart';
@@ -142,22 +143,16 @@ class FounderCommandCenterController extends GetxController {
         startDate: DateTime.now(),
       );
       await loadDashboardData();
-      Get.snackbar(
-        'Đã khởi tạo dự án',
+      AppToast.success(
         'Dự án "$title" đã được thiết lập thành công. AI Co-Founder đã sẵn sàng đồng hành!',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Đã khởi tạo dự án',
       );
       return true;
     } catch (e) {
       debugPrint('[FounderCommandCenter] createFirstProject error: $e');
-      Get.snackbar(
-        'Không thể tạo dự án',
+      AppToast.error(
         'Lỗi: $e',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Không thể tạo dự án',
       );
       return false;
     } finally {
@@ -179,69 +174,43 @@ class FounderCommandCenterController extends GetxController {
 
     if (success) {
       pendingDecisions.removeWhere((d) => d.id == decisionId);
-      Get.snackbar(
-        'Đã chốt quyết định',
+      AppToast.success(
         'Lựa chọn đã được ghi nhận vào Decision Memory để điều phối Workforce.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Đã chốt quyết định',
       );
     }
   }
 
   /// Phê duyệt một Task kỹ thuật (Approval)
-  ///
-  /// G2 P0.7 / G3 §10.3: trước đây method này không hề gọi backend — chỉ xóa
-  /// item khỏi list local và báo thành công vô điều kiện. Giờ gọi thật
-  /// ApprovalsService.approve() và chỉ cập nhật UI khi backend xác nhận
-  /// thành công, cùng pattern với resolveDecision()/togglePack() ở trên.
   Future<void> approveTask(dynamic approvalId) async {
     final success = await _approvalsService.approve(approvalId);
     if (success) {
       pendingApprovals.removeWhere((a) => a['id'] == approvalId);
-      Get.snackbar(
-        'Đã phê duyệt tác vụ',
+      AppToast.success(
         'Agent sẽ tiếp tục tiến trình thực thi ngay lập tức.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF3B82F6),
-        colorText: Colors.white,
+        title: 'Đã phê duyệt tác vụ',
       );
     } else {
-      Get.snackbar(
-        'Không thể phê duyệt',
+      AppToast.error(
         'Yêu cầu phê duyệt chưa được ghi nhận ở backend. Vui lòng thử lại.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Không thể phê duyệt',
       );
     }
   }
 
   /// Từ chối một Task kỹ thuật (Approval)
-  ///
-  /// G3 Phase 1E: waiting_for_you_widget.dart trước đây chỉ có nút Phê
-  /// duyệt — founder muốn từ chối không có đường nào ngoài lờ đi cho tới
-  /// khi hết hạn. Tái dùng đúng ApprovalsService.reject() mà module
-  /// `approvals` độc lập đã dùng (approvals_controller.dart::rejectTicket),
-  /// không viết UI/service reject lần thứ 5.
   Future<void> rejectTask(dynamic approvalId, String reason) async {
     final success = await _approvalsService.reject(approvalId, reason: reason);
     if (success) {
       pendingApprovals.removeWhere((a) => a['id'] == approvalId);
-      Get.snackbar(
-        'Đã từ chối tác vụ',
+      AppToast.warning(
         'Lý do từ chối đã được ghi nhận.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Đã từ chối tác vụ',
       );
     } else {
-      Get.snackbar(
-        'Không thể từ chối',
+      AppToast.error(
         'Yêu cầu từ chối chưa được ghi nhận ở backend. Vui lòng thử lại.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Không thể từ chối',
       );
     }
   }
@@ -265,12 +234,9 @@ class FounderCommandCenterController extends GetxController {
           toolsCount: old.toolsCount,
         );
       }
-      Get.snackbar(
-        'Cập nhật Workforce Pack',
+      AppToast.info(
         value ? 'Đã kích hoạt gói mở rộng cho Workspace.' : 'Đã vô hiệu hóa gói mở rộng.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF6366F1),
-        colorText: Colors.white,
+        title: 'Cập nhật Workforce Pack',
       );
     }
   }

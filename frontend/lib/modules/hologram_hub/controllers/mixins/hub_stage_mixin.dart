@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../data/models/stage_model.dart';
 import '../../../../modules/strategy/services/stage_service.dart';
 import '../../../../modules/strategy/services/strategy_service.dart';
@@ -145,25 +146,15 @@ mixin HubStageMixin on GetxController {
         await loadStageContext();
       }
 
-      Get.snackbar(
-        'Kích hoạt thành công',
+      AppToast.success(
         'Hệ điều hành COSA AI đã sẵn sàng cùng dự án "$projectTitle"!',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.85),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        margin: const EdgeInsets.all(16),
-        borderRadius: 12,
+        title: 'Kích hoạt thành công',
       );
     } catch (e) {
       debugPrint('[Genesis] Activation error: $e');
-      Get.snackbar(
-        'Lỗi kích hoạt',
+      AppToast.error(
         'Không thể hoàn tất thiết lập: $e',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.85),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        margin: const EdgeInsets.all(16),
-        borderRadius: 12,
+        title: 'Lỗi kích hoạt',
       );
     } finally {
       isStageLoading.value = false;

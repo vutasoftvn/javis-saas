@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../data/models/ai_compliance_models.dart';
 import '../../controllers/ai_compliance_controller.dart';
 import 'compliance_incident_dialog.dart';
@@ -259,12 +260,9 @@ class ComplianceCenterPanel extends StatelessWidget {
                     if (dep.currentAssessmentId == null ||
                         dep.currentAssessmentId!.isEmpty ||
                         dep.assessmentExpiresAt.isEmpty) {
-                      Get.snackbar(
-                        'Chưa thể phê duyệt',
+                      AppToast.warning(
                         'Triển khai này chưa có đánh giá rủi ro (assessment) hoặc hạn đánh giá hợp lệ',
-                        snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const Color(0xFFEF4444),
-                        colorText: Colors.white,
+                        title: 'Chưa thể phê duyệt',
                       );
                       return;
                     }

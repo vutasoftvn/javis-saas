@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/skills/services/skill_registry_service.dart';
 
 class SkillRegistryController extends GetxController {
@@ -56,20 +57,14 @@ class SkillRegistryController extends GetxController {
     try {
       final data = await _service.syncBuiltInSkills();
       skills.assignAll(data);
-      Get.snackbar(
-        'Đồng bộ thành công',
+      AppToast.success(
         'Đã nạp ${data.length} kỹ năng tích hợp sẵn (Built-in Skills) vào Workspace',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Đồng bộ thành công',
       );
     } catch (e) {
-      Get.snackbar(
-        'Lỗi đồng bộ',
+      AppToast.error(
         '$e',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Lỗi đồng bộ',
       );
     } finally {
       isLoading.value = false;
@@ -126,20 +121,14 @@ class SkillRegistryController extends GetxController {
         createdByAgent: createdByAgent,
       );
       await loadSkills();
-      Get.snackbar(
-        'Đã tạo ứng viên kỹ năng',
+      AppToast.success(
         'Kỹ năng mới đã được đưa vào hàng đợi kiểm thử Candidate',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Đã tạo ứng viên kỹ năng',
       );
     } catch (e) {
-      Get.snackbar(
-        'Lỗi tạo kỹ năng',
+      AppToast.error(
         '$e',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Lỗi tạo kỹ năng',
       );
     }
   }
@@ -167,20 +156,14 @@ class SkillRegistryController extends GetxController {
       if (updated.isNotEmpty) {
         selectedSkill.value = updated;
       }
-      Get.snackbar(
-        'Đã lưu thay đổi',
+      AppToast.success(
         'Cập nhật thông tin kỹ năng thành công',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Đã lưu thay đổi',
       );
     } catch (e) {
-      Get.snackbar(
-        'Lỗi cập nhật',
+      AppToast.error(
         '$e',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Lỗi cập nhật',
       );
     }
   }
@@ -193,20 +176,14 @@ class SkillRegistryController extends GetxController {
         evalDetails: details,
       );
       await loadSkills();
-      Get.snackbar(
-        'Đánh giá hoàn tất',
+      AppToast.info(
         'Điểm kiểm thử: ${(score * 100).toInt()}%',
-        backgroundColor: const Color(0xFF00E5FF).withValues(alpha: 0.8),
-        colorText: Colors.black,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Đánh giá hoàn tất',
       );
     } catch (e) {
-      Get.snackbar(
-        'Lỗi đánh giá',
+      AppToast.error(
         '$e',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Lỗi đánh giá',
       );
     }
   }
@@ -225,20 +202,14 @@ class SkillRegistryController extends GetxController {
         version: version,
       );
       await loadSkills();
-      Get.snackbar(
-        'Phê duyệt thành công',
+      AppToast.success(
         'Kỹ năng đã được nâng cấp lên Production (Active)',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Phê duyệt thành công',
       );
     } catch (e) {
-      Get.snackbar(
-        'Không thể phê duyệt',
+      AppToast.error(
         '$e',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Không thể phê duyệt',
       );
     }
   }
@@ -247,20 +218,14 @@ class SkillRegistryController extends GetxController {
     try {
       await _service.deprecateSkill(skillId, reason: reason);
       await loadSkills();
-      Get.snackbar(
-        'Đã ngưng sử dụng',
+      AppToast.warning(
         'Kỹ năng đã chuyển sang trạng thái Deprecated',
-        backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.8),
-        colorText: Colors.black,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Đã ngưng sử dụng',
       );
     } catch (e) {
-      Get.snackbar(
-        'Lỗi',
+      AppToast.error(
         '$e',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        title: 'Lỗi',
       );
     }
   }

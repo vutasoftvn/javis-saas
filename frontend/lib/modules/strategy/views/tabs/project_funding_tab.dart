@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/floating_app_bar.dart';
 import '../../../../modules/finance/services/policy_funding_service.dart';
 import '../../controllers/strategy_controller.dart';
@@ -86,10 +87,10 @@ class _ProjectFundingTabState extends State<ProjectFundingTab> {
       await _service.triggerMatching(_currentProjectId!);
       await _loadOverview();
       await _loadCatalogData();
-      Get.snackbar('Thành công', 'Đã hoàn tất khớp nối chính sách cho dự án.', snackPosition: SnackPosition.BOTTOM);
+      AppToast.success('Đã hoàn tất khớp nối chính sách cho dự án.');
     } catch (e) {
       setState(() => _isLoading = false);
-      Get.snackbar('Lỗi', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      AppToast.error(e.toString());
     }
   }
 
@@ -98,9 +99,12 @@ class _ProjectFundingTabState extends State<ProjectFundingTab> {
     try {
       await _service.create12wyTask(projectId: _currentProjectId!, missingRequirementId: missingReqId, customTitle: title);
       await _loadOverview();
-      Get.snackbar('Đã tạo nhiệm vụ', 'Nhiệm vụ "$title" đã được thêm vào 12WY.', snackPosition: SnackPosition.BOTTOM);
+      AppToast.success(
+        'Nhiệm vụ "$title" đã được thêm vào 12WY.',
+        title: 'Đã tạo nhiệm vụ',
+      );
     } catch (e) {
-      Get.snackbar('Lỗi', e.toString(), snackPosition: SnackPosition.BOTTOM);
+      AppToast.error(e.toString());
     }
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/organization/services/organization_service.dart';
 import '../../../core/network/realtime_service.dart';
 
@@ -71,11 +72,9 @@ class OrganizationController extends GetxController with GetSingleTickerProvider
       'system_prompt': systemPrompt,
     });
     if (res != null) {
-      Get.snackbar(
-        'Tuyển dụng Thành công',
+      AppToast.success(
         'Tác tử AI $name đã chính thức gia nhập tổ chức!',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-        colorText: const Color(0xFF10B981),
+        title: 'Tuyển dụng Thành công',
       );
       await loadOrganizationData();
     }

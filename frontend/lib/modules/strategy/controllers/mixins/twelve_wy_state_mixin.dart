@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../services/strategy_service.dart';
 
 mixin TwelveWyStateMixin on GetxController {
@@ -38,7 +38,7 @@ mixin TwelveWyStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.createWeeklyPlan(weekNo: weekNo, focus: focus, startDate: startDate, endDate: endDate);
       await loadExecution();
-      Get.snackbar('Thành công', 'Đã tạo kế hoạch tuần $weekNo', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã tạo kế hoạch tuần $weekNo');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -48,7 +48,7 @@ mixin TwelveWyStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.createWeeklyCommitment(weeklyPlanId: planId, title: title, plannedEffort: effort);
       await loadExecution();
-      Get.snackbar('Thành công', 'Đã thêm cam kết công việc', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã thêm cam kết công việc');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -77,7 +77,7 @@ mixin TwelveWyStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.updateWeeklyMission(planId, mission: mission, outcomeScore: outcomeScore);
       await loadExecution();
-      Get.snackbar('Thành công', 'Đã lưu Weekly Mission', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã lưu Weekly Mission');
     }, showSnackbar: true);
     isSaving.value = false;
   }

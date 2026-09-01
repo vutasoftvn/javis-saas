@@ -153,9 +153,14 @@ class AuthService {
       );
     } catch (e) {
       debugPrint('loginPlatform error: $e');
-      return const AuthResult(
+      final isNetwork = e.toString().contains('SocketException') ||
+          e.toString().contains('ClientException') ||
+          e.toString().contains('TimeoutException');
+      return AuthResult(
         success: false,
-        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+        errorMessage: isNetwork
+            ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
+            : 'Đăng nhập thất bại: $e',
       );
     }
   }
@@ -238,9 +243,14 @@ class AuthService {
       );
     } catch (e) {
       debugPrint('registerPlatform error: $e');
-      return const AuthResult(
+      final isNetwork = e.toString().contains('SocketException') ||
+          e.toString().contains('ClientException') ||
+          e.toString().contains('TimeoutException');
+      return AuthResult(
         success: false,
-        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+        errorMessage: isNetwork
+            ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
+            : 'Đăng ký thất bại: $e',
       );
     }
   }
@@ -284,9 +294,14 @@ class AuthService {
       );
     } catch (e) {
       debugPrint('createCompany error: $e');
-      return const AuthResult(
+      final isNetwork = e.toString().contains('SocketException') ||
+          e.toString().contains('ClientException') ||
+          e.toString().contains('TimeoutException');
+      return AuthResult(
         success: false,
-        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+        errorMessage: isNetwork
+            ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
+            : 'Tạo công ty thất bại: $e',
       );
     }
   }
@@ -337,9 +352,14 @@ class AuthService {
       );
     } catch (e) {
       debugPrint('joinCompany error: $e');
-      return const AuthResult(
+      final isNetwork = e.toString().contains('SocketException') ||
+          e.toString().contains('ClientException') ||
+          e.toString().contains('TimeoutException');
+      return AuthResult(
         success: false,
-        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+        errorMessage: isNetwork
+            ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
+            : 'Tham gia công ty thất bại: $e',
       );
     }
   }
@@ -408,9 +428,14 @@ class AuthService {
       );
     } catch (e) {
       debugPrint('syncFromPlatform error: $e');
-      return const AuthResult(
+      final isNetwork = e.toString().contains('SocketException') ||
+          e.toString().contains('ClientException') ||
+          e.toString().contains('TimeoutException');
+      return AuthResult(
         success: false,
-        errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.',
+        errorMessage: isNetwork
+            ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
+            : 'Đồng bộ dữ liệu thất bại: $e',
       );
     }
   }

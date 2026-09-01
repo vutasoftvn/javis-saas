@@ -176,15 +176,21 @@ services:
     ports:
       - "127.0.0.1:8001:8000"
     environment:
-      - AGENT_DATABASE_URL=${AGENT_DATABASE_URL:?AGENT_DATABASE_URL is required}
-      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
-      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL is required}
+      # NOTE: KHÔNG đọc trực tiếp AGENT_DATABASE_URL/COSA_CONTROL_PLANE_URL... từ
+      # root .env ở đây — .env định nghĩa các URL đó cho HOST process (127.0.0.1,
+      # xem comment "3 chân" phía trên), còn container này nằm trên docker network
+      # riêng nên 127.0.0.1 trỏ vào chính container, không tới postgres/Encore trên
+      # host. Dùng biến *_DOCKER_OVERRIDE riêng (mặc định rỗng) để container luôn
+      # có default đúng mạng Docker (service `postgres`, `host.docker.internal`).
+      - AGENT_DATABASE_URL=${COSA_API_AGENT_DATABASE_URL:-postgresql+asyncpg://agent_app:${AGENT_APP_PASSWORD:-change-me-agent-app}@postgres:5432/agent}
+      - COSA_DATABASE_URL=${COSA_API_COSA_DATABASE_URL:-postgresql://cosa_app:${COSA_APP_PASSWORD:-change-me-cosa-app}@postgres:5432/cosa?sslmode=disable}
+      - WORKSPACE_DATABASE_URL=${COSA_API_WORKSPACE_DATABASE_URL:-postgresql://workspace_app:${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}@postgres:5432/workspace?sslmode=disable}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - COSA_MODEL_PROVIDER=${COSA_MODEL_PROVIDER:-fake}
-      - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:-http://services-cosa:4001}
-      - COMPANY_SERVICE_URL=${COMPANY_SERVICE_URL:-http://services-company:4000}
-      - COSA_PLATFORM_CONTROL_PLANE_URL=${COSA_PLATFORM_CONTROL_PLANE_URL:-http://services-cosa:4001}
-      - COSA_EXECUTION_PLANE_URL=${COSA_EXECUTION_PLANE_URL:-http://services-cosa:4001}
+      - COSA_CONTROL_PLANE_URL=${COSA_API_CONTROL_PLANE_URL:-http://host.docker.internal:4001}
+      - COMPANY_SERVICE_URL=${COSA_API_COMPANY_SERVICE_URL:-http://host.docker.internal:4000}
+      - COSA_PLATFORM_CONTROL_PLANE_URL=${COSA_API_PLATFORM_CONTROL_PLANE_URL:-http://host.docker.internal:4001}
+      - COSA_EXECUTION_PLANE_URL=${COSA_API_EXECUTION_PLANE_URL:-http://host.docker.internal:4001}
       - COSA_WORKER_SERVICE_TOKEN=${COSA_WORKER_SERVICE_TOKEN:-}
       - PLATFORM_JWT_SECRET=${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET is required}
       - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
@@ -211,15 +217,17 @@ services:
     ports:
       - "127.0.0.1:8090:8090"
     environment:
-      - AGENT_DATABASE_URL=${AGENT_DATABASE_URL:?AGENT_DATABASE_URL is required}
-      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
-      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL is required}
+      # Xem NOTE ở service cosa-api: dùng *_DOCKER_OVERRIDE riêng, không đọc thẳng
+      # URL host-oriented từ .env (127.0.0.1 sai trong container network).
+      - AGENT_DATABASE_URL=${COSA_API_AGENT_DATABASE_URL:-postgresql+asyncpg://agent_app:${AGENT_APP_PASSWORD:-change-me-agent-app}@postgres:5432/agent}
+      - COSA_DATABASE_URL=${COSA_API_COSA_DATABASE_URL:-postgresql://cosa_app:${COSA_APP_PASSWORD:-change-me-cosa-app}@postgres:5432/cosa?sslmode=disable}
+      - WORKSPACE_DATABASE_URL=${COSA_API_WORKSPACE_DATABASE_URL:-postgresql://workspace_app:${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}@postgres:5432/workspace?sslmode=disable}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - COSA_MODEL_PROVIDER=${COSA_MODEL_PROVIDER:-fake}
-      - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:-http://services-cosa:4001}
-      - COMPANY_SERVICE_URL=${COMPANY_SERVICE_URL:-http://services-company:4000}
-      - COSA_PLATFORM_CONTROL_PLANE_URL=${COSA_PLATFORM_CONTROL_PLANE_URL:-http://services-cosa:4001}
-      - COSA_EXECUTION_PLANE_URL=${COSA_EXECUTION_PLANE_URL:-http://services-cosa:4001}
+      - COSA_CONTROL_PLANE_URL=${COSA_API_CONTROL_PLANE_URL:-http://host.docker.internal:4001}
+      - COMPANY_SERVICE_URL=${COSA_API_COMPANY_SERVICE_URL:-http://host.docker.internal:4000}
+      - COSA_PLATFORM_CONTROL_PLANE_URL=${COSA_API_PLATFORM_CONTROL_PLANE_URL:-http://host.docker.internal:4001}
+      - COSA_EXECUTION_PLANE_URL=${COSA_API_EXECUTION_PLANE_URL:-http://host.docker.internal:4001}
       - COSA_WORKER_SERVICE_TOKEN=${COSA_WORKER_SERVICE_TOKEN:-}
       - PLATFORM_JWT_SECRET=${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET is required}
       - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}

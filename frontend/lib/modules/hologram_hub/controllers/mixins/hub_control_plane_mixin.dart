@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../modules/mission_control/services/control_plane_service.dart';
 import '../../../../modules/agents/services/agent_platform_service.dart';
 import '../../views/widgets/workforce_org_chart_modal.dart';
@@ -181,10 +182,9 @@ mixin HubControlPlaneMixin on GetxController {
         );
         // Reload để cập nhật summary
         await loadOpenEscalations();
-        Get.snackbar(
-          '✓ Đã xử lý',
+        AppToast.success(
           'Exception đã được resolve với action: $action',
-          snackPosition: SnackPosition.BOTTOM,
+          title: 'Đã xử lý',
           duration: const Duration(seconds: 3),
         );
       }

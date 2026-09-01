@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../controllers/marketing_controller.dart';
 import '../widgets/marketing_common.dart';
 import '../widgets/marketing_forms.dart';
@@ -104,7 +105,7 @@ void showLearningForm(BuildContext context, MarketingController controller) {
         submitLabel: 'Lưu bài học',
         onSubmit: () {
           if (observation.text.trim().isEmpty || learning.text.trim().isEmpty) {
-            Get.snackbar('Thiếu thông tin', 'Cần nhập ít nhất quan sát và bài học', snackPosition: SnackPosition.BOTTOM);
+            AppToast.warning('Cần nhập ít nhất quan sát và bài học', title: 'Thiếu thông tin');
             return;
           }
           Get.back<void>();

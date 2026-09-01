@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/agents/services/agents_service.dart';
 
 class AgentsController extends GetxController {
@@ -139,14 +139,9 @@ class AgentsController extends GetxController {
       if (result != null) {
         testRunResult.value = result;
         loadRuns(); // Cập nhật lại lịch sử runs
-        Get.snackbar(
-          'Thành công',
-          'Đã hoàn thành phiên chạy thử nghiệm',
-          backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.15),
-          colorText: const Color(0xFF10B981),
-        );
+        AppToast.success('Đã hoàn thành phiên chạy thử nghiệm');
       } else {
-        Get.snackbar('Lỗi', 'Không thể thực thi phiên chạy', backgroundColor: Colors.red.withValues(alpha: 0.15), colorText: Colors.red);
+        AppToast.error('Không thể thực thi phiên chạy');
       }
     } finally {
       isTestingRun.value = false;

@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/task_kanban_model.dart';
 import '../../../modules/tasks/services/task_service.dart';
 
@@ -47,7 +48,7 @@ class TasksController extends GetxController {
       }
     } catch (e) {
       tasks.removeWhere((t) => t.id == tempTask.id);
-      Get.snackbar('Error', 'Không thể tạo công việc');
+      AppToast.error('Không thể tạo công việc');
     }
   }
 
@@ -69,7 +70,7 @@ class TasksController extends GetxController {
       // Revert on failure
       tasks[index] = tasks[index].copyWith(status: oldStatus);
       tasks.refresh();
-      Get.snackbar('Error', 'Không thể cập nhật trạng thái');
+      AppToast.error('Không thể cập nhật trạng thái');
     }
   }
 

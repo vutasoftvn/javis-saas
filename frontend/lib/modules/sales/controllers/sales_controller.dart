@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/sales/services/sales_service.dart';
 import '../../../modules/sales/services/revenue_engine_service.dart';
 import '../../../data/models/commercial_models.dart';
@@ -96,12 +96,9 @@ class SalesController extends GetxController {
     );
 
     if (res != null && res['status'] == 'success') {
-      Get.snackbar(
-        'Thành công',
+      AppToast.success(
         res['message']?.toString() ?? 'Đã thêm $name vào CRM.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Thành công',
       );
       await loadAll();
       return true;
@@ -119,12 +116,9 @@ class SalesController extends GetxController {
       stage: newStage,
     );
     if (res != null && res['status'] == 'success') {
-      Get.snackbar(
-        'Đã chuyển Stage',
+      AppToast.info(
         'Cơ hội bán hàng đã được cập nhật sang $newStage.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF0F172A),
-        colorText: Colors.white,
+        title: 'Đã chuyển Stage',
         duration: const Duration(seconds: 2),
       );
       final pData = await _revenueService.getPipeline();
@@ -135,12 +129,9 @@ class SalesController extends GetxController {
   Future<void> scoreLead(String leadId) async {
     final res = await _revenueService.scoreLead(leadId);
     if (res != null && res['status'] == 'success') {
-      Get.snackbar(
-        'AI Đã Chấm Điểm',
+      AppToast.info(
         'Fit Score: ${res['data']?['fit_score']} | Phân loại: ${res['data']?['qualification_status']}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF0F172A),
-        colorText: Colors.white,
+        title: 'AI Đã Chấm Điểm',
         duration: const Duration(seconds: 2),
       );
       final updatedLeads = await _revenueService.getLeads();
@@ -154,12 +145,9 @@ class SalesController extends GetxController {
       title: 'Hợp đồng $company ($name)',
     );
     if (res != null && res['status'] == 'success') {
-      Get.snackbar(
-        'Đã Tạo Cơ Hội Bán Hàng',
+      AppToast.success(
         'Lead $name đã được đưa vào Pipeline Kanban.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF0F172A),
-        colorText: Colors.white,
+        title: 'Đã Tạo Cơ Hội Bán Hàng',
         duration: const Duration(seconds: 2),
       );
       await loadAll();
@@ -179,12 +167,9 @@ class SalesController extends GetxController {
       focusPainPoint: focusPainPoint,
     );
     if (res != null && res['status'] == 'success') {
-      Get.snackbar(
-        'Đã Gửi Duyệt Outreach',
+      AppToast.info(
         res['data']?['message']?.toString() ?? 'Bản nháp đã nằm trên CEO Command Center.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF0F172A),
-        colorText: Colors.white,
+        title: 'Đã Gửi Duyệt Outreach',
         duration: const Duration(seconds: 3),
       );
     }

@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/marketing/services/marketing_service.dart';
 
 /// Trạng thái của Marketing Cockpit.
@@ -389,13 +389,13 @@ class MarketingController extends GetxController {
       await action();
       await loadAllData();
       if (successMessage != null) {
-        Get.snackbar('Thành công', successMessage, snackPosition: SnackPosition.BOTTOM);
+        AppToast.success(successMessage);
       }
       return true;
     } catch (e) {
       final message = _describe(e);
       errorMessage.value = message;
-      Get.snackbar('Không thực hiện được', message, snackPosition: SnackPosition.BOTTOM);
+      AppToast.error(message, title: 'Không thực hiện được');
       return false;
     } finally {
       isSubmitting.value = false;
@@ -551,18 +551,22 @@ class MarketingController extends GetxController {
       final result = await _service.changeCampaignStatus(campaignId, status);
       await loadAllData();
       final queued = result['status'] == 'pending_approval';
-      Get.snackbar(
-        queued ? 'Chờ phê duyệt' : 'Đã cập nhật',
-        queued
-            ? 'Thay đổi đã được đưa vào hàng đợi phê duyệt, cần người duyệt trước khi có hiệu lực.'
-            : 'Trạng thái chiến dịch đã được cập nhật.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      if (queued) {
+        AppToast.info(
+          'Thay đổi đã được đưa vào hàng đợi phê duyệt, cần người duyệt trước khi có hiệu lực.',
+          title: 'Chờ phê duyệt',
+        );
+      } else {
+        AppToast.success(
+          'Trạng thái chiến dịch đã được cập nhật.',
+          title: 'Đã cập nhật',
+        );
+      }
       return true;
     } catch (e) {
       final message = _describe(e);
       errorMessage.value = message;
-      Get.snackbar('Không thực hiện được', message, snackPosition: SnackPosition.BOTTOM);
+      AppToast.error(message, title: 'Không thực hiện được');
       return false;
     } finally {
       isSubmitting.value = false;
@@ -573,7 +577,7 @@ class MarketingController extends GetxController {
     try {
       return await _service.getCampaignDetail(campaignId);
     } catch (e) {
-      Get.snackbar('Không tải được chiến dịch', _describe(e), snackPosition: SnackPosition.BOTTOM);
+      AppToast.error(_describe(e), title: 'Không tải được chiến dịch');
       return <String, dynamic>{};
     }
   }
@@ -604,7 +608,7 @@ class MarketingController extends GetxController {
       await loadAllData();
       return result;
     } catch (e) {
-      Get.snackbar('Không đánh giá được', _describe(e), snackPosition: SnackPosition.BOTTOM);
+      AppToast.error(_describe(e), title: 'Không đánh giá được');
       return <String, dynamic>{};
     } finally {
       isSubmitting.value = false;
@@ -641,7 +645,7 @@ class MarketingController extends GetxController {
       await loadAllData();
       return result;
     } catch (e) {
-      Get.snackbar('Không chạy được skill', _describe(e), snackPosition: SnackPosition.BOTTOM);
+      AppToast.error(_describe(e), title: 'Không chạy được skill');
       return <String, dynamic>{};
     } finally {
       isSubmitting.value = false;
@@ -722,9 +726,12 @@ class MarketingController extends GetxController {
         'conversion_value': convValue,
       });
       attributionResult.value = res;
-      Get.snackbar('Thành công', 'Đã tính toán phân bổ chuyển đổi ($modelType)', snackPosition: SnackPosition.BOTTOM);
+      AppToast.success(
+        'Đã tính toán phân bổ chuyển đổi ($modelType)',
+        title: 'Thành công',
+      );
     } catch (e) {
-      Get.snackbar('Lỗi phân tích', _describe(e), snackPosition: SnackPosition.BOTTOM);
+      AppToast.error(_describe(e), title: 'Lỗi phân tích');
     } finally {
       isSubmitting.value = false;
     }

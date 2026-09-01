@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../data/models/twelve_wy_model.dart';
 import '../../../../modules/strategy/services/twelve_wy_service.dart';
 import 'weekly_execution_gauge.dart';
@@ -123,12 +124,9 @@ class _TwelveWyHubModalState extends State<TwelveWyHubModal>
     setState(() => _isCreatingTactic = false);
     _loadDashboard();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Đã thêm Tactic mới'),
-          backgroundColor: Color(0xFF10B981),
-          duration: Duration(seconds: 2),
-        ),
+      AppToast.success(
+        'Đã thêm Tactic mới',
+        duration: const Duration(seconds: 2),
       );
     }
   }

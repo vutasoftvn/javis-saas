@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../services/strategy_service.dart';
 import 'mixins/okr_state_mixin.dart';
 import 'mixins/twelve_wy_state_mixin.dart';
@@ -38,13 +38,7 @@ class StrategyController extends GetxController
     } catch (e) {
       errorMessage.value = e.toString();
       if (showSnackbar) {
-        Get.snackbar(
-          'Lỗi',
-          e.toString(),
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: const Color(0xFFEF4444),
-          colorText: Colors.white,
-        );
+        AppToast.error(e.toString());
       }
     }
   }
@@ -98,7 +92,7 @@ class StrategyController extends GetxController
       );
       createdId = res['id']?.toString();
       await loadProjects();
-      Get.snackbar('Thành công', 'Đã thêm Dự án Chiến lược', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã thêm Dự án Chiến lược');
     }, showSnackbar: true);
     isSaving.value = false;
     return createdId;
@@ -109,7 +103,10 @@ class StrategyController extends GetxController
     await runGuarded(() async {
       await _strategyService.deleteProject(projectId);
       await loadProjects();
-      Get.snackbar('Đã xoá', 'Đã xoá Dự án Chiến lược', snackPosition: SnackPosition.BOTTOM);
+      AppToast.info(
+        'Đã xoá Dự án Chiến lược',
+        title: 'Đã xoá',
+      );
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -129,12 +126,9 @@ class StrategyController extends GetxController
         cycleId: cycleId,
       );
       await loadOkrs();
-      Get.snackbar(
-        'Hoàn thành',
+      AppToast.success(
         'AI đã tạo tự động $objectivesCount Mục tiêu cùng $krsPerObjectiveCount Kết quả Then chốt/mục tiêu',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF1E293B),
-        colorText: Colors.white,
+        title: 'Hoàn thành',
       );
     }, showSnackbar: true);
     isGeneratingAi.value = false;

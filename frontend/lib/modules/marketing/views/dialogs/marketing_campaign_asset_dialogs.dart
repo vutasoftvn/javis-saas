@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../controllers/marketing_controller.dart';
 import '../widgets/marketing_common.dart';
 import '../widgets/marketing_forms.dart';
@@ -73,7 +74,7 @@ void showCampaignForm(BuildContext context, MarketingController controller, {Map
         submitLabel: isEdit ? 'Lưu thay đổi' : 'Tạo chiến dịch',
         onSubmit: () {
           if (name.text.trim().isEmpty) {
-            Get.snackbar('Thiếu thông tin', 'Cần nhập tên chiến dịch', snackPosition: SnackPosition.BOTTOM);
+            AppToast.warning('Cần nhập tên chiến dịch', title: 'Thiếu thông tin');
             return;
           }
           final payload = {
@@ -126,7 +127,7 @@ void showAssetForm(BuildContext context, MarketingController controller, String 
         submitLabel: 'Lưu nháp',
         onSubmit: () {
           if (title.text.trim().isEmpty || content.text.trim().isEmpty) {
-            Get.snackbar('Thiếu thông tin', 'Cần nhập tiêu đề và nội dung', snackPosition: SnackPosition.BOTTOM);
+            AppToast.warning('Cần nhập tiêu đề và nội dung', title: 'Thiếu thông tin');
             return;
           }
           Get.back<void>();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../modules/agents/services/agent_platform_service.dart';
 
 class DecisionRecordsDialog extends StatefulWidget {
@@ -31,9 +32,7 @@ class _DecisionRecordsDialogState extends State<DecisionRecordsDialog> {
   Future<void> _acceptDecision(int id) async {
     final res = await _service.acceptDecision(id);
     if (mounted && res != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã phê duyệt quyết định kiến trúc (ADR)!'), backgroundColor: Color(0xFF10B981)),
-      );
+      AppToast.success('Đã phê duyệt quyết định kiến trúc (ADR)!');
       _loadDecisions();
     }
   }

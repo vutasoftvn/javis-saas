@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/vault/services/vault_service.dart';
 import '../../../core/network/realtime_service.dart';
 
@@ -106,11 +107,9 @@ class VaultController extends GetxController {
   Future<void> promoteObject(String objectId) async {
     final success = await _vaultService.promoteKnowledgeObject(objectId);
     if (success) {
-      Get.snackbar(
-        'Đã Phê duyệt',
+      AppToast.success(
         'Tri thức đã được nâng cấp lên trạng thái Chính thức (Approved)',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-        colorText: const Color(0xFF10B981),
+        title: 'Đã Phê duyệt',
       );
       await loadKnowledgeObjects();
     }
@@ -249,14 +248,12 @@ class VaultController extends GetxController {
       selectedDocumentContent.value = newContent;
       isEditing.value = false;
       loadDocuments();
-      Get.snackbar(
-        'Đã lưu',
+      AppToast.success(
         'Tài liệu đã được cập nhật thành công vào Vault',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-        colorText: const Color(0xFF10B981),
+        title: 'Đã lưu',
       );
     } catch (e) {
-      Get.snackbar('Lỗi', 'Không thể lưu tài liệu');
+      AppToast.error('Không thể lưu tài liệu');
     }
   }
 }

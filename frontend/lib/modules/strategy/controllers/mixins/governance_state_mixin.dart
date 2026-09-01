@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../services/strategy_service.dart';
 
 mixin GovernanceStateMixin on GetxController {
@@ -43,12 +43,9 @@ mixin GovernanceStateMixin on GetxController {
       if (result.errorMessage != null) {
         errorMessage.value = result.errorMessage;
       } else {
-        Get.snackbar(
-          'Thành công',
+        AppToast.success(
           'Đã tạo 5 giai đoạn chuẩn (13-Week Stages) cho chu kỳ',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: const Color(0xFF10B981),
-          colorText: Colors.white,
+          title: 'Thành công',
         );
       }
     }, showSnackbar: true);
@@ -78,12 +75,9 @@ mixin GovernanceStateMixin on GetxController {
       );
       if (cycleId != null) await loadCycleGovernance(cycleId);
       await loadProjects();
-      Get.snackbar(
-        'Quyết định Cổng đã lưu',
+      AppToast.success(
         'Cổng kiểm soát ghi nhận quyết định: $decision',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Quyết định Cổng đã lưu',
       );
     }, showSnackbar: true);
     isSaving.value = false;
@@ -105,7 +99,7 @@ mixin GovernanceStateMixin on GetxController {
         status: 'approved',
       );
       cycleContract.value = res;
-      Get.snackbar('Thành công', 'Đã lưu hợp đồng cam kết chu kỳ 12 tuần', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã lưu hợp đồng cam kết chu kỳ 12 tuần');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -138,7 +132,10 @@ mixin GovernanceStateMixin on GetxController {
     await runGuarded(() async {
       final res = await strategyService.compileCycle(cycleId);
       cycleCompilationStatus.value = res;
-      Get.snackbar('Hoàn tất biên dịch', 'Đã biên dịch thành công chu kỳ sang Runtime V10', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success(
+        'Đã biên dịch thành công chu kỳ sang Runtime V10',
+        title: 'Hoàn tất biên dịch',
+      );
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -147,7 +144,10 @@ mixin GovernanceStateMixin on GetxController {
     isSaving.value = true;
     await runGuarded(() async {
       await strategyService.compileWeeklyPlan(planId);
-      Get.snackbar('Hoàn tất', 'Đã biên dịch kế hoạch tuần sang danh mục Tasks', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success(
+        'Đã biên dịch kế hoạch tuần sang danh mục Tasks',
+        title: 'Hoàn tất',
+      );
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -172,7 +172,10 @@ mixin GovernanceStateMixin on GetxController {
         narrativeSummary: narrativeSummary,
         recommendation: recommendation,
       );
-      Get.snackbar('Đánh giá đã lưu', 'Đã ghi nhận Weekly Review và lưu vết bài học kinh nghiệm', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success(
+        'Đã ghi nhận Weekly Review và lưu vết bài học kinh nghiệm',
+        title: 'Đánh giá đã lưu',
+      );
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -203,7 +206,10 @@ mixin GovernanceStateMixin on GetxController {
         strategicLearnings: strategicLearnings,
         rewardsOrRituals: rewardsOrRituals,
       );
-      Get.snackbar('Tuần 13 hoàn tất', 'Chu kỳ đã hoàn thành xuất sắc và sẵn sàng cho chu kỳ tiếp theo', snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.pinkAccent, colorText: Colors.white);
+      AppToast.success(
+        'Chu kỳ đã hoàn thành xuất sắc và sẵn sàng cho chu kỳ tiếp theo',
+        title: 'Tuần 13 hoàn tất',
+      );
     }, showSnackbar: true);
     isSaving.value = false;
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/legal/services/legal_service.dart';
 import '../../../data/models/finance_legal_models.dart';
 
@@ -57,14 +58,10 @@ class LegalController extends GetxController {
       );
       if (res != null) {
         lastAnalysis.value = res;
-        Get.snackbar(
-          'Đã rà soát hợp đồng',
+        AppToast.info(
           'Rà soát pháp lý tham khảo: ${res['risk_level'] ?? 'Đã hoàn tất'}',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: const Color(0xFF00E5FF),
-          colorText: Colors.black,
+          title: 'Đã rà soát hợp đồng',
         );
-
       }
       return res;
     } finally {
@@ -75,12 +72,9 @@ class LegalController extends GetxController {
   Future<bool> createChecklistItem(String title) async {
     final res = await service.createChecklistItem(title);
     if (res != null) {
-      Get.snackbar(
-        'Thành công',
+      AppToast.success(
         'Đã thêm hạng mục kiểm tra pháp lý',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Thành công',
       );
       await load();
       return true;

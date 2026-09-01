@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/approval_model.dart';
 import '../../../modules/approvals/services/approvals_service.dart';
 import '../../../core/network/realtime_service.dart';
@@ -70,19 +71,15 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
   Future<void> approveTicket(dynamic approvalId, {String? comment}) async {
     final success = await _approvalsService.approve(approvalId, comment: comment);
     if (success) {
-      Get.snackbar(
-        'Đã chấp thuận',
+      AppToast.success(
         'Lệnh đã được phê duyệt và đang tiếp tục thực thi',
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
-        colorText: const Color(0xFF10B981),
+        title: 'Đã chấp thuận',
       );
       await loadApprovals();
     } else {
-      Get.snackbar(
-        'Lỗi',
+      AppToast.error(
         'Không thể phê duyệt yêu cầu này',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
-        colorText: const Color(0xFFEF4444),
+        title: 'Lỗi',
       );
     }
   }
@@ -90,19 +87,15 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
   Future<void> rejectTicket(dynamic approvalId, {String? reason}) async {
     final success = await _approvalsService.reject(approvalId, reason: reason);
     if (success) {
-      Get.snackbar(
-        'Đã từ chối',
+      AppToast.warning(
         'Đã từ chối thực thi tác vụ rủi ro này',
-        backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-        colorText: const Color(0xFFF59E0B),
+        title: 'Đã từ chối',
       );
       await loadApprovals();
     } else {
-      Get.snackbar(
-        'Lỗi',
+      AppToast.error(
         'Không thể từ chối yêu cầu này',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
-        colorText: const Color(0xFFEF4444),
+        title: 'Lỗi',
       );
     }
   }
@@ -110,19 +103,15 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
   Future<void> requestRevisionTicket(dynamic approvalId, {required String feedback}) async {
     final success = await _approvalsService.requestRevision(approvalId, feedback: feedback);
     if (success) {
-      Get.snackbar(
-        'Đã gửi yêu cầu sửa',
+      AppToast.info(
         'Agent sẽ cập nhật lại nội dung theo chỉ dẫn',
-        backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
-        colorText: const Color(0xFF818CF8),
+        title: 'Đã gửi yêu cầu sửa',
       );
       await loadApprovals();
     } else {
-      Get.snackbar(
-        'Lỗi',
+      AppToast.error(
         'Không thể gửi yêu cầu chỉnh sửa',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
-        colorText: const Color(0xFFEF4444),
+        title: 'Lỗi',
       );
     }
   }

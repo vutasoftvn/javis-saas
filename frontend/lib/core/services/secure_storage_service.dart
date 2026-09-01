@@ -10,7 +10,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// chỗ chứa bí mật, xem docs/implementation/production-runtime-closure.md Phase 2).
 /// M3 §7: legacy brain scope đã bị bỏ hoàn toàn — Workspace là scope duy nhất.
 class SecureStorageService {
-  static const _storage = FlutterSecureStorage();
+  static const _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(
+      usesDataProtectionKeychain: false,
+    ),
+  );
 
   /// Các key nhạy cảm cần migrate 1 lần từ SharedPreferences sang secure
   /// storage — user hiện tại không bị logout đột ngột.

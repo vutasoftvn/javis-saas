@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../services/strategy_service.dart';
 
 mixin OkrStateMixin on GetxController {
@@ -62,7 +62,7 @@ mixin OkrStateMixin on GetxController {
       final cycle = await strategyService.createOkrCycle(name: name, startDate: startDate, endDate: endDate);
       await loadOkrs();
       selectedCycleId.value = cycle['id']?.toString();
-      Get.snackbar('Thành công', 'Đã tạo chu kỳ OKR mới', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã tạo chu kỳ OKR mới');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -72,7 +72,7 @@ mixin OkrStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.createObjective(title: title, cycleId: selectedCycleId.value, status: status);
       await loadOkrs();
-      Get.snackbar('Thành công', 'Đã thêm mục tiêu OKR', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã thêm mục tiêu OKR');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -99,7 +99,7 @@ mixin OkrStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.deleteObjective(objectiveId);
       await loadOkrs();
-      Get.snackbar('Thành công', 'Đã xóa mục tiêu OKR', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã xóa mục tiêu OKR');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -125,7 +125,7 @@ mixin OkrStateMixin on GetxController {
         cadence: cadence,
       );
       await loadOkrs();
-      Get.snackbar('Thành công', 'Đã thêm Kết quả Then chốt (Key Result)', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã thêm Kết quả Then chốt (Key Result)');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -135,7 +135,7 @@ mixin OkrStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.updateKeyResult(keyResultId, currentValue: currentValue, targetValue: targetValue, status: status);
       await loadOkrs();
-      Get.snackbar('Thành công', 'Đã cập nhật tiến độ Key Result', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã cập nhật tiến độ Key Result');
     }, showSnackbar: true);
     isSaving.value = false;
   }
@@ -145,7 +145,7 @@ mixin OkrStateMixin on GetxController {
     await runGuarded(() async {
       await strategyService.deleteKeyResult(keyResultId);
       await loadOkrs();
-      Get.snackbar('Thành công', 'Đã xóa Key Result', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
+      AppToast.success('Đã xóa Key Result');
     }, showSnackbar: true);
     isSaving.value = false;
   }

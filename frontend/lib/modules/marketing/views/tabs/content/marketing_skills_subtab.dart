@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:frontend/core/theme/app_theme.dart';
+import 'package:frontend/core/widgets/app_toast.dart';
 import 'package:frontend/modules/marketing/controllers/marketing_controller.dart';
 import 'package:frontend/modules/marketing/views/widgets/marketing_common.dart';
 
@@ -458,12 +459,19 @@ class MarketingSkillsSubtab extends StatelessWidget {
               final result = await controller.executeSkill(capabilityId, {'title': title});
               final status = result['status']?.toString();
               if (status == null) return;
-              Get.snackbar(
-                status == 'pending_approval' ? 'Đã đưa vào hàng đợi duyệt' : 'Đã định tuyến năng lực',
-                status == 'pending_approval' ? 'Hành động cần người phê duyệt trước khi thực thi.' : (result['result']?['message']?.toString() ?? 'Đã ghi nhận lần chạy.'),
-                snackPosition: SnackPosition.BOTTOM,
-                duration: const Duration(seconds: 5),
-              );
+              if (status == 'pending_approval') {
+                AppToast.info(
+                  'Hành động cần người phê duyệt trước khi thực thi.',
+                  title: 'Đã đưa vào hàng đợi duyệt',
+                  duration: const Duration(seconds: 5),
+                );
+              } else {
+                AppToast.success(
+                  result['result']?['message']?.toString() ?? 'Đã ghi nhận lần chạy.',
+                  title: 'Đã định tuyến năng lực',
+                  duration: const Duration(seconds: 5),
+                );
+              }
             },
             child: Text(requiresApproval ? 'Gửi duyệt' : 'Chạy'),
           ),

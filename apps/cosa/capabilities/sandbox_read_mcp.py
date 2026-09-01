@@ -17,11 +17,11 @@ def register_sandbox_read_mcp_tools(registry: CapabilityRegistry) -> list[str]:
     thực thi side effect ở đây — handler CHỈ gọi MCP server thật, mọi
     governance/approval/audit vẫn do CapabilityGateway.execute() quyết định."""
     from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
+    from mcp.client.streamable_http import streamable_http_client
 
     async def caller(tool_name: str, payload: dict[str, Any]) -> Any:
         async with (
-            streamablehttp_client(SANDBOX_READ_MCP_URL) as (read, write, _),
+            streamable_http_client(SANDBOX_READ_MCP_URL) as (read, write, _),
             ClientSession(read, write) as session,
         ):
             await session.initialize()

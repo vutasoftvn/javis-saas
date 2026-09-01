@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/ai_compliance_models.dart';
 import '../services/ai_compliance_service.dart';
 
@@ -32,21 +33,15 @@ class AiComplianceController extends GetxController {
   Future<bool> suspendDeployment(String deploymentId, {required String reason}) async {
     final ok = await service.suspendDeployment(deploymentId, rationale: reason);
     if (ok) {
-      Get.snackbar(
-        'Đã tạm đình chỉ',
+      AppToast.warning(
         'Hệ thống AI đã chuyển sang trạng thái SUSPENDED',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Đã tạm đình chỉ',
       );
       await load();
     } else {
-      Get.snackbar(
-        'Thao tác thất bại',
+      AppToast.error(
         'Máy chủ từ chối yêu cầu tạm đình chỉ',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Thao tác thất bại',
       );
     }
     return ok;
@@ -55,21 +50,15 @@ class AiComplianceController extends GetxController {
   Future<bool> resumeDeployment(String deploymentId, {required String reason}) async {
     final ok = await service.resumeDeployment(deploymentId, rationale: reason);
     if (ok) {
-      Get.snackbar(
-        'Đã phục hồi',
+      AppToast.success(
         'Hệ thống AI đã phục hồi trạng thái APPROVED_FOR_USE',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Đã phục hồi',
       );
       await load();
     } else {
-      Get.snackbar(
-        'Thao tác thất bại',
+      AppToast.error(
         'Máy chủ từ chối yêu cầu phục hồi (yêu cầu quyền Founder)',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Thao tác thất bại',
       );
     }
     return ok;
@@ -82,12 +71,9 @@ class AiComplianceController extends GetxController {
     required String expiresAt,
   }) async {
     if (assessmentId.isEmpty || expiresAt.isEmpty) {
-      Get.snackbar(
-        'Không thể phê duyệt',
+      AppToast.warning(
         'Cần có đánh giá rủi ro (assessment) và thời hạn hợp lệ để phê duyệt',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Không thể phê duyệt',
       );
       return false;
     }
@@ -98,21 +84,15 @@ class AiComplianceController extends GetxController {
       expiresAt: expiresAt,
     );
     if (ok) {
-      Get.snackbar(
-        'Đã phê duyệt',
+      AppToast.success(
         'Founder đã phê duyệt triển khai AI',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Đã phê duyệt',
       );
       await load();
     } else {
-      Get.snackbar(
-        'Phê duyệt thất bại',
+      AppToast.error(
         'Máy chủ từ chối phê duyệt (yêu cầu quyền Founder và bằng chứng đầy đủ)',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Phê duyệt thất bại',
       );
     }
     return ok;
@@ -131,21 +111,15 @@ class AiComplianceController extends GetxController {
       incidentType: incidentType,
     );
     if (ok) {
-      Get.snackbar(
-        'Đã ghi nhận sự cố',
+      AppToast.warning(
         'Sự cố tuân thủ AI đã được báo cáo',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFF59E0B),
-        colorText: Colors.white,
+        title: 'Đã ghi nhận sự cố',
       );
       await load();
     } else {
-      Get.snackbar(
-        'Báo cáo thất bại',
+      AppToast.error(
         'Không thể ghi nhận sự cố tuân thủ trên máy chủ',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444),
-        colorText: Colors.white,
+        title: 'Báo cáo thất bại',
       );
     }
     return ok;

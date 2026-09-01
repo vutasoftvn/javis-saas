@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/finance/services/finance_service.dart';
 import '../../../modules/finance/services/finance_tt58_service.dart';
 import '../../../data/models/finance_legal_models.dart';
@@ -94,12 +95,9 @@ class FinanceController extends GetxController {
     );
 
     if (result != null && result['status'] == 'success') {
-      Get.snackbar(
-        'Chuyển đổi thành công',
+      AppToast.success(
         'Đã nâng cấp sang chế độ $toRegulation cho năm $toYear',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Chuyển đổi thành công',
       );
       await loadRegimeData();
       await selectFiscalYear(toYear);
@@ -178,23 +176,17 @@ class FinanceController extends GetxController {
     );
 
     if (res != null) {
-      Get.snackbar(
-        'Thành công',
+      AppToast.success(
         'Chứng từ $documentNo đã được ghi sổ thành công',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Thành công',
       );
       await load();
       await loadTT58Data();
       return true;
     }
-    Get.snackbar(
-      'Lỗi',
+    AppToast.error(
       'Không thể ghi sổ chứng từ',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: const Color(0xFFEF4444),
-      colorText: Colors.white,
+      title: 'Lỗi',
     );
     return false;
   }
@@ -202,12 +194,9 @@ class FinanceController extends GetxController {
   Future<bool> voidDocument(String documentId, String reason) async {
     final res = await tt58Service.voidDocument(documentId, reason);
     if (res != null) {
-      Get.snackbar(
-        'Đã hủy chứng từ',
+      AppToast.info(
         'Chứng từ đã được hủy và ghi nhận bút toán đảo',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF0F172A),
-        colorText: Colors.white,
+        title: 'Đã hủy chứng từ',
       );
       await load();
       await loadTT58Data();
@@ -220,12 +209,9 @@ class FinanceController extends GetxController {
     final created = await service.createProfile(mode);
     if (created == null) return false;
     profile.assignAll(created);
-    Get.snackbar(
-      'Hồ sơ chế độ kế toán',
+    AppToast.success(
       'Đã thiết lập chế độ $mode',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: const Color(0xFF10B981),
-      colorText: Colors.white,
+      title: 'Hồ sơ chế độ kế toán',
     );
     return true;
   }
@@ -235,12 +221,9 @@ class FinanceController extends GetxController {
     if (updated == null) return false;
     profile.assignAll(updated);
     profile.refresh();
-    Get.snackbar(
-      'Cập nhật thành công',
+    AppToast.success(
       'Đã chuyển sang chế độ $mode',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: const Color(0xFF10B981),
-      colorText: Colors.white,
+      title: 'Cập nhật thành công',
     );
     await load();
     return true;
@@ -259,12 +242,9 @@ class FinanceController extends GetxController {
   Future<bool> createAccountingPeriod(String startDate, String endDate) async {
     final res = await service.createPeriod(startDate, endDate);
     if (res != null) {
-      Get.snackbar(
-        'Thành công',
+      AppToast.success(
         'Đã mở kỳ kế toán mới ($startDate đến $endDate)',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
+        title: 'Thành công',
       );
       await load();
       return true;
@@ -275,12 +255,9 @@ class FinanceController extends GetxController {
   Future<bool> togglePeriodStatus(String periodId, String newStatus) async {
     final res = await service.changePeriodStatus(periodId, newStatus, authorizeReopen: true);
     if (res != null) {
-      Get.snackbar(
-        'Kỳ kế toán',
+      AppToast.info(
         'Trạng thái kỳ đã chuyển sang $newStatus',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF0F172A),
-        colorText: Colors.white,
+        title: 'Kỳ kế toán',
       );
       await load();
       return true;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../modules/workflows/services/workflows_service.dart';
 import '../../../data/models/workflow_models.dart';
 
@@ -46,21 +47,14 @@ class WorkflowsController extends GetxController with GetSingleTickerProviderSta
   Future<void> triggerRun(String definitionId) async {
     final res = await _workflowsService.triggerRun(definitionId);
     if (res != null) {
-      Get.snackbar(
-        'Đã khởi chạy',
+      AppToast.info(
         'Workflow run #${res['id'].toString().substring(0, 8)} đã bắt đầu thực thi',
-        backgroundColor: const Color(0xFF00F0FF).withValues(alpha: 0.2),
-        colorText: const Color(0xFF00F0FF),
+        title: 'Đã khởi chạy',
       );
       await loadData();
       tabController.animateTo(1); // Switch to runs tab
     } else {
-      Get.snackbar(
-        'Lỗi',
-        'Không thể khởi chạy quy trình',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
-        colorText: const Color(0xFFEF4444),
-      );
+      AppToast.error('Không thể khởi chạy quy trình');
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../modules/finance/services/policy_funding_service.dart';
 
 class FundingVerificationModals {
@@ -225,15 +226,15 @@ class FundingVerificationModals {
                               notes: noteCtrl.text.trim(),
                             );
                             await onUpdated();
-                            Get.snackbar(
-                              'Đã cập nhật',
+                            AppToast.success(
                               'Chương trình "$progName" đã được cập nhật trạng thái $selectedStatus.',
-                              snackPosition: SnackPosition.BOTTOM,
-                              backgroundColor: AppTheme.success.withValues(alpha: 0.2),
-                              colorText: Colors.white,
+                              title: 'Đã cập nhật',
                             );
                           } catch (e) {
-                            Get.snackbar('Lỗi xác minh', e.toString(), snackPosition: SnackPosition.BOTTOM);
+                            AppToast.error(
+                              e.toString(),
+                              title: 'Lỗi xác minh',
+                            );
                           }
                         },
                         icon: const Icon(Icons.check_circle_outline, size: 16),
