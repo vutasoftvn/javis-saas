@@ -781,10 +781,14 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: packages/agent/requirements.txt
+      - run: pip install pytest
+      - run: npm ci
+        working-directory: services/company
       - run: make boundary-check
       - run: make frontend-boundary-check
       - run: make company-boundary-check
       - run: make encore-handler-boundary-check
+      - run: make encore-type-safety-check
       - run: make mvp-e2e-purity-check
 
   e2e-golden-path:

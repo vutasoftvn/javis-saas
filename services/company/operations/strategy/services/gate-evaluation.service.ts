@@ -4,12 +4,13 @@ import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
+import { isJsonObject, JsonValue, toJsonArray } from "./strategy-json";
 
 const { gateEvaluations, stagePolicies, evidence } = schema;
 
 export interface StagePolicyRule {
   key: string;
-  description: string;
+  description?: string;
   minCount?: number;
   minStrength?: number;
   sourceType?: string;
@@ -19,8 +20,9 @@ export interface StagePolicyData {
   id?: number | bigint | string;
   stageKey: string;
   minimumEvidenceScore: number;
-  requirements: StagePolicyRule[] | any;
-  blockingRiskRules?: string[] | any;
+  requirements: StagePolicyRule[];
+  blockingRiskRules?: JsonValue[];
+  invalidRequirementCount?: number;
 }
 
 export interface EvidenceItem {
@@ -61,7 +63,7 @@ export interface GateEvaluation {
   stagePolicyId: string | null;
   requirementsMet: boolean;
   evidenceScore: number;
-  blockingRisks: any[];
+  blockingRisks: BlockingRiskItem[];
   result: string;
   rationale: string;
   humanOverride: boolean;
@@ -79,6 +81,61 @@ export interface ListGateEvaluationsInput {
   projectId?: string | number;
 }
 
+function isStagePolicyRule(value: unknown): value is StagePolicyRule {
+  if (!isJsonObject(value) || typeof value.key !== "string") {
+    return false;
+  }
+
+  return (
+    (value.description === undefined || typeof value.description === "string") &&
+    (value.minCount === undefined || typeof value.minCount === "number") &&
+    (value.minStrength === undefined || typeof value.minStrength === "number") &&
+    (value.sourceType === undefined || typeof value.sourceType === "string")
+  );
+}
+
+export function parseStagePolicyRules(value: unknown): {
+  rules: StagePolicyRule[];
+  invalidCount: number;
+} {
+  if (!Array.isArray(value)) {
+    return { rules: [], invalidCount: 1 };
+  }
+
+  const rules: StagePolicyRule[] = [];
+  let invalidCount = 0;
+  for (const item of value) {
+    if (isStagePolicyRule(item)) {
+      rules.push(item);
+    } else {
+      invalidCount += 1;
+    }
+  }
+  return { rules, invalidCount };
+}
+
+export function toStagePolicyRules(value: unknown): StagePolicyRule[] {
+  return parseStagePolicyRules(value).rules;
+}
+
+function isBlockingRiskItem(value: unknown): value is BlockingRiskItem {
+  return (
+    isJsonObject(value) &&
+    typeof value.riskKey === "string" &&
+    typeof value.severity === "string" &&
+    typeof value.resolved === "boolean" &&
+    (value.notes === undefined || typeof value.notes === "string")
+  );
+}
+
+function toBlockingRiskItems(value: unknown): BlockingRiskItem[] {
+  const risks: BlockingRiskItem[] = [];
+  for (const item of toJsonArray(value)) {
+    if (isBlockingRiskItem(item)) risks.push(item);
+  }
+  return risks;
+}
+
 export function toGateEvaluation(row: typeof gateEvaluations.$inferSelect): GateEvaluation {
   return {
     id: row.id.toString(),
@@ -87,7 +144,7 @@ export function toGateEvaluation(row: typeof gateEvaluations.$inferSelect): Gate
     stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
     requirementsMet: row.requirementsMet,
     evidenceScore: row.evidenceScore,
-    blockingRisks: row.blockingRisks as any[],
+    blockingRisks: toBlockingRiskItems(row.blockingRisks),
     result: row.result,
     rationale: row.rationale,
     humanOverride: row.humanOverride,
@@ -124,6 +181,10 @@ export function evaluateGate(input: GateEvaluationInput): GateEvaluationOutput {
   // 3. Check requirements
   const rawRequirements: StagePolicyRule[] = Array.isArray(policy.requirements) ? policy.requirements : [];
   const failedRequirements: string[] = [];
+
+  if ((policy.invalidRequirementCount ?? 0) > 0) {
+    failedRequirements.push(`Stage policy has ${policy.invalidRequirementCount} invalid requirement(s).`);
+  }
 
   for (const req of rawRequirements) {
     if (req.minCount) {
@@ -216,13 +277,15 @@ export async function runGateEvaluationInWorkspace(
   });
 
   // 3. Evaluate deterministically without LLM - recommendation only
+  const parsedRequirements = parseStagePolicyRules(policyRow.requirements);
   const evaluation = evaluateGate({
     policy: {
       id: policyRow.id.toString(),
       stageKey: policyRow.stageKey,
       minimumEvidenceScore: policyRow.minimumEvidenceScore,
-      requirements: policyRow.requirements as any[],
-      blockingRiskRules: policyRow.blockingRiskRules as any[],
+      requirements: parsedRequirements.rules,
+      blockingRiskRules: toJsonArray(policyRow.blockingRiskRules),
+      invalidRequirementCount: parsedRequirements.invalidCount,
     },
     evidenceList: freshEvidenceRows.map((e) => ({
       id: e.id.toString(),
@@ -245,7 +308,7 @@ export async function runGateEvaluationInWorkspace(
       stagePolicyId: BigInt(params.stagePolicyId),
       requirementsMet: evaluation.requirementsMet,
       evidenceScore: evaluation.evidenceScore,
-      blockingRisks: evaluation.blockingRisks as any[],
+      blockingRisks: evaluation.blockingRisks,
       result: evaluation.result,
       rationale: evaluation.rationale,
       humanOverride: false,
@@ -302,8 +365,10 @@ export async function updateGateEvaluationInWorkspace(
   }
 
   const wsId = BigInt(ctx.workspaceId);
-  const updateValues: Record<string, any> = { updatedAt: new Date() };
-  if (params.rationale !== undefined) updateValues.rationale = params.rationale;
+  const updateValues = {
+    updatedAt: new Date(),
+    ...(params.rationale !== undefined ? { rationale: params.rationale } : {}),
+  };
 
   const [row] = await db
     .update(gateEvaluations)

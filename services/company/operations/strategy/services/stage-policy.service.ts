@@ -4,6 +4,7 @@ import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { assertLifecyclePrivileged } from "./lifecycle-authorization.service";
+import { JsonValue, toJsonArray } from "./strategy-json";
 
 const { stagePolicies } = schema;
 
@@ -11,18 +12,18 @@ export interface StagePolicy {
   id: string;
   workspaceId: string;
   stageKey: string;
-  requirements: any[];
+  requirements: JsonValue[];
   minimumEvidenceScore: number;
-  blockingRiskRules: any[];
+  blockingRiskRules: JsonValue[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateStagePolicyInput {
   stageKey: string;
-  requirements?: any[];
+  requirements?: JsonValue[];
   minimumEvidenceScore?: string | number;
-  blockingRiskRules?: any[];
+  blockingRiskRules?: JsonValue[];
 }
 
 export interface ListStagePoliciesInput {
@@ -30,9 +31,9 @@ export interface ListStagePoliciesInput {
 }
 
 export interface UpdateStagePolicyInput {
-  requirements?: any[];
+  requirements?: JsonValue[];
   minimumEvidenceScore?: string | number;
-  blockingRiskRules?: any[];
+  blockingRiskRules?: JsonValue[];
 }
 
 export function toStagePolicy(row: typeof stagePolicies.$inferSelect): StagePolicy {
@@ -40,9 +41,9 @@ export function toStagePolicy(row: typeof stagePolicies.$inferSelect): StagePoli
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
     stageKey: row.stageKey,
-    requirements: row.requirements as any[],
+    requirements: toJsonArray(row.requirements),
     minimumEvidenceScore: row.minimumEvidenceScore,
-    blockingRiskRules: row.blockingRiskRules as any[],
+    blockingRiskRules: toJsonArray(row.blockingRiskRules),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -121,15 +122,18 @@ export async function updateStagePolicyInWorkspace(
   assertLifecyclePrivileged(ctx.membershipRole, "updateStagePolicy");
   const wsId = BigInt(ctx.workspaceId);
 
-  const updateValues: Record<string, any> = { updatedAt: new Date() };
-  if (params.requirements !== undefined) updateValues.requirements = params.requirements;
-  if (params.minimumEvidenceScore !== undefined) {
-    updateValues.minimumEvidenceScore =
-      typeof params.minimumEvidenceScore === "string"
+  const minimumEvidenceScore =
+    params.minimumEvidenceScore !== undefined
+      ? typeof params.minimumEvidenceScore === "string"
         ? parseFloat(params.minimumEvidenceScore)
-        : params.minimumEvidenceScore;
-  }
-  if (params.blockingRiskRules !== undefined) updateValues.blockingRiskRules = params.blockingRiskRules;
+        : params.minimumEvidenceScore
+      : undefined;
+  const updateValues = {
+    updatedAt: new Date(),
+    ...(params.requirements !== undefined ? { requirements: params.requirements } : {}),
+    ...(minimumEvidenceScore !== undefined ? { minimumEvidenceScore } : {}),
+    ...(params.blockingRiskRules !== undefined ? { blockingRiskRules: params.blockingRiskRules } : {}),
+  };
 
   const [row] = await db
     .update(stagePolicies)

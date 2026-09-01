@@ -119,12 +119,14 @@ export async function updateInterviewInWorkspace(
 ): Promise<Interview> {
   const wsId = BigInt(ctx.workspaceId);
 
-  const updateValues: Record<string, any> = { updatedAt: new Date() };
-  if (params.notes !== undefined) updateValues.notes = params.notes;
-  if (params.contactRef !== undefined) {
-    updateValues.contactRef = params.contactRef ? BigInt(params.contactRef) : null;
-  }
-  if (params.conductedAt !== undefined) updateValues.conductedAt = new Date(params.conductedAt);
+  const updateValues = {
+    updatedAt: new Date(),
+    ...(params.notes !== undefined ? { notes: params.notes } : {}),
+    ...(params.contactRef !== undefined
+      ? { contactRef: params.contactRef ? BigInt(params.contactRef) : null }
+      : {}),
+    ...(params.conductedAt !== undefined ? { conductedAt: new Date(params.conductedAt) } : {}),
+  };
 
   const [row] = await db
     .update(interviews)

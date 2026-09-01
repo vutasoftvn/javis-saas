@@ -4,7 +4,8 @@ import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
-import { EvidenceItem, GateEvaluationOutput } from "./gate-evaluation.service";
+import { EvidenceItem } from "./gate-evaluation.service";
+import { JsonObject, toJsonObject } from "./strategy-json";
 
 const { decisionRecords, gateEvaluations, evidence } = schema;
 
@@ -17,7 +18,7 @@ export interface DecisionRecord {
   gateEvaluationId: string | null;
   decision: string;
   actorMemberId: string | null;
-  evidenceSnapshot: Record<string, any>;
+  evidenceSnapshot: JsonObject;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,11 +38,18 @@ export interface ListDecisionRecordsInput {
 export interface RecordDecisionInput {
   projectId: number | bigint | string;
   gateEvaluationId?: number | bigint | string | null;
-  gateEvaluation?: GateEvaluationOutput;
+  gateEvaluation?: DecisionGateEvaluationSummary;
   decision: StrategyDecision;
   actorMemberId?: number | bigint | string | null;
   evidenceList: EvidenceItem[];
   notes?: string;
+}
+
+export interface DecisionGateEvaluationSummary {
+  requirementsMet: boolean;
+  evidenceScore: number;
+  result: string;
+  rationale: string;
 }
 
 export interface EvidenceSnapshot {
@@ -51,18 +59,13 @@ export interface EvidenceSnapshot {
   refutingCount: number;
   averageStrength: number;
   items: Array<{
-    id?: number | bigint | string;
+    id?: string;
     sourceType: string;
     strength: number;
     confidence: number;
     supportsOrRefutes: string;
   }>;
-  gateEvaluationSummary?: {
-    requirementsMet: boolean;
-    evidenceScore: number;
-    result: string;
-    rationale: string;
-  };
+  gateEvaluationSummary?: DecisionGateEvaluationSummary;
   decisionNotes?: string;
 }
 
@@ -104,7 +107,7 @@ export function buildDecisionRecord(input: RecordDecisionInput): DecisionRecordP
     refutingCount: refuting.length,
     averageStrength: avgStrength,
     items: evidenceList.map((e) => ({
-      id: e.id,
+      id: e.id?.toString(),
       sourceType: e.sourceType,
       strength: e.strength,
       confidence: e.confidence,
@@ -137,7 +140,7 @@ export function toDecisionRecord(row: typeof decisionRecords.$inferSelect): Deci
     gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
     decision: row.decision,
     actorMemberId: row.actorMemberId ? row.actorMemberId.toString() : null,
-    evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
+    evidenceSnapshot: toJsonObject(row.evidenceSnapshot),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -156,7 +159,7 @@ export async function createDecisionRecordInWorkspace(
   await getProjectInWorkspace(params.projectId, ctx);
 
   // 1. Fetch gate evaluation if provided
-  let gateEvalData: any = undefined;
+  let gateEvalData: DecisionGateEvaluationSummary | undefined;
   if (params.gateEvaluationId) {
     const [evalRow] = await db
       .select()
@@ -207,7 +210,7 @@ export async function createDecisionRecordInWorkspace(
       gateEvaluationId: params.gateEvaluationId ? BigInt(params.gateEvaluationId) : null,
       decision: params.decision,
       actorMemberId: params.actorMemberId ? BigInt(params.actorMemberId) : null,
-      evidenceSnapshot: built.evidenceSnapshot as Record<string, any>,
+      evidenceSnapshot: built.evidenceSnapshot,
     })
     .returning();
 

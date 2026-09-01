@@ -206,15 +206,17 @@ export async function updateExperimentInWorkspace(
 ): Promise<Experiment> {
   const wsId = BigInt(ctx.workspaceId);
 
-  const updateValues: Record<string, any> = { updatedAt: new Date() };
-  if (params.hypothesis !== undefined) updateValues.hypothesis = params.hypothesis;
-  if (params.method !== undefined) updateValues.method = params.method;
-  if (params.successCriteria !== undefined) updateValues.successCriteria = params.successCriteria;
-  if (params.budget !== undefined) updateValues.budget = params.budget;
-  if (params.ownerMemberId !== undefined) {
-    updateValues.ownerMemberId = params.ownerMemberId ? BigInt(params.ownerMemberId) : null;
-  }
-  if (params.status !== undefined) updateValues.status = params.status;
+  const updateValues = {
+    updatedAt: new Date(),
+    ...(params.hypothesis !== undefined ? { hypothesis: params.hypothesis } : {}),
+    ...(params.method !== undefined ? { method: params.method } : {}),
+    ...(params.successCriteria !== undefined ? { successCriteria: params.successCriteria } : {}),
+    ...(params.budget !== undefined ? { budget: params.budget } : {}),
+    ...(params.ownerMemberId !== undefined
+      ? { ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null }
+      : {}),
+    ...(params.status !== undefined ? { status: params.status } : {}),
+  };
 
   const [row] = await db
     .update(experiments)

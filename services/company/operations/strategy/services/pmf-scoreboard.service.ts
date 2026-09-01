@@ -10,6 +10,7 @@ import {
 } from "../../../shared/db/schema/strategy";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { createHash } from "node:crypto";
+import { JsonObject, toJsonObject } from "./strategy-json";
 
 export type PmfScoreboardResult = "INSUFFICIENT_DATA" | "MIXED" | "PROMISING" | "CONCERNING";
 
@@ -292,7 +293,7 @@ export interface PmfScoreboardRunDto {
   reliabilityFlags: string[];
   calculationHash: string;
   result: PmfScoreboardResult;
-  humanReviewState: Record<string, any>;
+  humanReviewState: JsonObject;
   calculatedAt: string;
   createdAt: string;
 }
@@ -311,7 +312,7 @@ export function toPmfScoreboardRunDto(row: typeof pmfScoreboardRuns.$inferSelect
     reliabilityFlags: (row.reliabilityFlags as string[]) || [],
     calculationHash: row.calculationHash,
     result: row.result as PmfScoreboardResult,
-    humanReviewState: (row.humanReviewState as Record<string, any>) || {},
+    humanReviewState: toJsonObject(row.humanReviewState),
     calculatedAt: row.calculatedAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
   };

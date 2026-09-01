@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "../services/company/node_modules/typescript/lib/typescript.js";
 
 const FORBIDDEN = ["drizzle-orm", "/models/db", "/db", "/shared/db/schema"];
 
@@ -51,23 +52,34 @@ export function findHandlerImports(rootDir) {
     walkHandlerFiles(targetDir, (filePath) => {
       const relFile = path.relative(resolvedRoot, filePath).replace(/\\/g, "/");
       const content = fs.readFileSync(filePath, "utf8");
-      const lines = content.split("\n");
+      const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true);
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const lineNum = i + 1;
-
-        // Match import statements: import ... from '...'; or import '...';
-        const importMatch = line.match(/^\s*import\s+(?:.*from\s+)?['"]([^'"]+)['"]/);
-        if (!importMatch) continue;
-
-        const moduleSpecifier = importMatch[1];
+      const recordModuleReference = (node, moduleSpecifier) => {
+        if (!ts.isStringLiteralLike(moduleSpecifier)) return;
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
         results.push({
           file: relFile,
-          line: lineNum,
-          moduleSpecifier,
+          line: line + 1,
+          moduleSpecifier: moduleSpecifier.text,
         });
-      }
+      };
+
+      const visit = (node) => {
+        if (ts.isImportDeclaration(node)) {
+          recordModuleReference(node, node.moduleSpecifier);
+        } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+          recordModuleReference(node, node.moduleReference.expression);
+        } else if (ts.isCallExpression(node)) {
+          const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+          const isRequireCall = ts.isIdentifier(node.expression) && node.expression.text === "require";
+          if (isDynamicImport || isRequireCall) {
+            recordModuleReference(node, node.arguments[0]);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+
+      visit(sourceFile);
     });
   }
 

@@ -191,11 +191,13 @@ export async function updateEvidenceInWorkspace(
     assertLifecyclePrivileged(ctx.membershipRole, "updateApprovedEvidence");
   }
 
-  const updateValues: Record<string, any> = { updatedAt: new Date() };
-  if (params.claim !== undefined) updateValues.claim = params.claim;
-  if (params.strength !== undefined) updateValues.strength = params.strength;
-  if (params.confidence !== undefined) updateValues.confidence = params.confidence;
-  if (params.supportsOrRefutes !== undefined) updateValues.supportsOrRefutes = params.supportsOrRefutes;
+  const updateValues = {
+    updatedAt: new Date(),
+    ...(params.claim !== undefined ? { claim: params.claim } : {}),
+    ...(params.strength !== undefined ? { strength: params.strength } : {}),
+    ...(params.confidence !== undefined ? { confidence: params.confidence } : {}),
+    ...(params.supportsOrRefutes !== undefined ? { supportsOrRefutes: params.supportsOrRefutes } : {}),
+  };
 
   const [row] = await db
     .update(evidence)

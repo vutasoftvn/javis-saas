@@ -4,6 +4,7 @@ import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
+import { JsonObject, toJsonObject } from "./strategy-json";
 
 const { discoverySignals } = schema;
 
@@ -12,7 +13,7 @@ export interface DiscoverySignal {
   workspaceId: string;
   projectId: string;
   signalType: string;
-  payload: Record<string, any>;
+  payload: JsonObject;
   source: string;
   createdAt: string;
   updatedAt: string;
@@ -21,7 +22,7 @@ export interface DiscoverySignal {
 export interface CreateDiscoverySignalInput {
   projectId: string | number;
   signalType: string;
-  payload?: Record<string, any>;
+  payload?: JsonObject;
   source: string;
 }
 
@@ -32,7 +33,7 @@ export interface ListDiscoverySignalsInput {
 
 export interface UpdateDiscoverySignalInput {
   signalType?: string;
-  payload?: Record<string, any>;
+  payload?: JsonObject;
   source?: string;
 }
 
@@ -42,7 +43,7 @@ export function toDiscoverySignal(row: typeof discoverySignals.$inferSelect): Di
     workspaceId: row.workspaceId.toString(),
     projectId: row.projectId.toString(),
     signalType: row.signalType,
-    payload: row.payload as Record<string, any>,
+    payload: toJsonObject(row.payload),
     source: row.source,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -123,10 +124,12 @@ export async function updateDiscoverySignalInWorkspace(
 ): Promise<DiscoverySignal> {
   const wsId = BigInt(ctx.workspaceId);
 
-  const updateValues: Record<string, any> = { updatedAt: new Date() };
-  if (params.signalType !== undefined) updateValues.signalType = params.signalType;
-  if (params.payload !== undefined) updateValues.payload = params.payload;
-  if (params.source !== undefined) updateValues.source = params.source;
+  const updateValues = {
+    updatedAt: new Date(),
+    ...(params.signalType !== undefined ? { signalType: params.signalType } : {}),
+    ...(params.payload !== undefined ? { payload: params.payload } : {}),
+    ...(params.source !== undefined ? { source: params.source } : {}),
+  };
 
   const [row] = await db
     .update(discoverySignals)

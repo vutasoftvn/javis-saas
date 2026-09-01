@@ -5,7 +5,8 @@ import { identityWorkspaces } from "../../../shared/db/schema/identity";
 import { stagePolicies, stageTransitionPolicies, workspaceStageTransitions, evidence } from "../../../shared/db/schema/strategy";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { buildVentureStageChangedEvent } from "../events/venture-stage-events";
-import { evaluateGate, EvidenceItem } from "./gate-evaluation.service";
+import { evaluateGate, EvidenceItem, parseStagePolicyRules } from "./gate-evaluation.service";
+import { toJsonArray } from "./strategy-json";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 // M4 §1 — Workspace lifecycle stage (W0..W5), độc lập với Project stage (P0..P6).
@@ -131,12 +132,14 @@ export async function assessVentureStage(workspaceId: bigint): Promise<AssessRes
     supportsOrRefutes: e.supportsOrRefutes,
   }));
 
+  const parsedRequirements = parseStagePolicyRules(policy.requirements);
   const gateResult = evaluateGate({
     policy: {
       stageKey: policy.stageKey,
       minimumEvidenceScore: policy.minimumEvidenceScore,
-      requirements: policy.requirements,
-      blockingRiskRules: policy.blockingRiskRules,
+      requirements: parsedRequirements.rules,
+      blockingRiskRules: toJsonArray(policy.blockingRiskRules),
+      invalidRequirementCount: parsedRequirements.invalidCount,
     },
     evidenceList: evidenceItems,
   });

@@ -2,7 +2,7 @@ import { APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
-import { rankAssumptions } from "./assumption-ranking.service";
+import { RankedAssumption, rankAssumptions } from "./assumption-ranking.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 
@@ -148,14 +148,14 @@ export async function updateAssumptionInWorkspace(
   const uncertainty = params.uncertainty !== undefined ? Math.max(1, Math.min(10, params.uncertainty)) : existing.uncertainty;
   const riskScore = importance * uncertainty;
 
-  const updateValues: Record<string, any> = {
+  const updateValues = {
     importance,
     uncertainty,
     riskScore,
     updatedAt: new Date(),
+    ...(params.statement !== undefined ? { statement: params.statement } : {}),
+    ...(params.status !== undefined ? { status: params.status } : {}),
   };
-  if (params.statement !== undefined) updateValues.statement = params.statement;
-  if (params.status !== undefined) updateValues.status = params.status;
 
   const [row] = await db
     .update(assumptions)
@@ -185,7 +185,7 @@ export async function deleteAssumptionInWorkspace(
 export async function getRankedAssumptionsByProjectInWorkspace(
   ctx: TenantContext,
   projectId: string | number
-): Promise<{ items: any[] }> {
+): Promise<{ items: RankedAssumption[] }> {
   const wsId = BigInt(ctx.workspaceId);
 
   // Verify project belongs to this workspace
