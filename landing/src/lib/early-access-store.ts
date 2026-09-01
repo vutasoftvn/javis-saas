@@ -1,5 +1,19 @@
 import { Pool } from "pg";
 
+// Dùng chung một Pool cho mỗi connection string thay vì mỗi adapter
+// (EarlyAccessStore và RateLimiter) tự mở Pool riêng — tránh nhân đôi số kết
+// nối/pool tới cùng một database khi cả hai adapter cùng trỏ tới
+// DATABASE_URL giống nhau.
+const poolsByConnectionString = new Map<string, Pool>();
+export function getSharedPgPool(connectionString: string): Pool {
+  let pool = poolsByConnectionString.get(connectionString);
+  if (!pool) {
+    pool = new Pool({ connectionString });
+    poolsByConnectionString.set(connectionString, pool);
+  }
+  return pool;
+}
+
 /**
  * PRIVACY OPERATIONS — Early Access registrations
  *
@@ -64,6 +78,13 @@ export interface EarlyAccessStore {
   findByEmail(email: string): Promise<EarlyAccessRegistration | null>;
   create(input: NewEarlyAccessRegistration): Promise<EarlyAccessRegistration>;
   markEmailQueued(id: string, providerMessageId: string): Promise<void>;
+  // Đánh dấu "failed" khi lần gửi (đầu tiên hoặc retry ở nhánh duplicate)
+  // thất bại — bắt buộc để route handler KHÔNG bao giờ trả success: true
+  // cho một bản ghi mà email xác nhận chưa từng được gửi thành công (nếu
+  // không có method này, trạng thái "failed" trong EmailDeliveryStatus sẽ
+  // không bao giờ được ghi, và lần đăng ký lại sau đó sẽ đọc "pending" mãi
+  // mãi mà không biết cần thử gửi lại).
+  markEmailFailed(id: string): Promise<void>;
 }
 
 /**
@@ -95,6 +116,15 @@ export class InMemoryEarlyAccessStore implements EarlyAccessStore {
       if (registration.id === id) {
         registration.emailDeliveryStatus = "queued";
         registration.emailProviderMessageId = providerMessageId;
+        return;
+      }
+    }
+  }
+
+  async markEmailFailed(id: string): Promise<void> {
+    for (const registration of this.byEmail.values()) {
+      if (registration.id === id) {
+        registration.emailDeliveryStatus = "failed";
         return;
       }
     }
@@ -134,7 +164,7 @@ export class PostgresEarlyAccessStore implements EarlyAccessStore {
   private schemaReady: Promise<void> | null = null;
 
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString });
+    this.pool = getSharedPgPool(connectionString);
   }
 
   private ensureSchema(): Promise<void> {
@@ -188,6 +218,14 @@ export class PostgresEarlyAccessStore implements EarlyAccessStore {
        SET email_delivery_status = 'queued', email_provider_message_id = $2
        WHERE id = $1`,
       [id, providerMessageId]
+    );
+  }
+
+  async markEmailFailed(id: string): Promise<void> {
+    await this.ensureSchema();
+    await this.pool.query(
+      `UPDATE early_access_registrations SET email_delivery_status = 'failed' WHERE id = $1`,
+      [id]
     );
   }
 }
@@ -256,4 +294,5 @@ export const earlyAccessStore: EarlyAccessStore = {
   findByEmail: (email) => getEarlyAccessStore().findByEmail(email),
   create: (input) => getEarlyAccessStore().create(input),
   markEmailQueued: (id, providerMessageId) => getEarlyAccessStore().markEmailQueued(id, providerMessageId),
+  markEmailFailed: (id) => getEarlyAccessStore().markEmailFailed(id),
 };

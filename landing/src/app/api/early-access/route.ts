@@ -19,6 +19,62 @@ const EMAIL_RATE_LIMIT = { limit: 1, windowSeconds: 24 * 60 * 60 };
 
 const GENERIC_ERROR = "Đã có lỗi xảy ra trong quá trình xử lý. Vui lòng thử lại sau.";
 const RATE_LIMIT_ERROR = "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.";
+const SEND_FAILURE_ERROR = "Không thể gửi email xác nhận. Vui lòng thử lại sau hoặc liên hệ trực tiếp.";
+const SUCCESS_MESSAGE = "Đăng ký quyền sử dụng sớm thành công! Email xác nhận đã được gửi.";
+const SIMULATED_MESSAGE =
+  "Đăng ký quyền sử dụng sớm đã được ghi nhận (môi trường thử nghiệm — chưa cấu hình gửi email thật).";
+
+// Độ trễ giả lập cho nhánh "email đã đăng ký & đã gửi/simulated từ trước"
+// (idempotent-fast-path) — nhánh này vốn dĩ chỉ chạy 2 bước rẻ (rate-limit
+// IP + findByEmail) trong khi nhánh đăng ký MỚI còn phải qua rate-limit
+// theo email, insert DB, và gọi mạng thật tới Resend (thường mất hàng trăm
+// ms). Không bù độ trễ này sẽ tạo ra một side-channel qua thời gian phản hồi
+// để phân biệt "email đã tồn tại" với "email mới" — vi phạm yêu cầu không
+// tiết lộ trạng thái đăng ký của một địa chỉ email. Có thể tinh chỉnh qua
+// biến môi trường để khớp độ trễ thực tế của Resend trên từng hạ tầng.
+const DUPLICATE_RESPONSE_PADDING_MS = Number(process.env.EARLY_ACCESS_DUPLICATE_LATENCY_MS ?? 300);
+
+async function padDuplicateResponseLatency(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, DUPLICATE_RESPONSE_PADDING_MS));
+}
+
+function successResponse(
+  accessCode: string,
+  delivery: { simulated: boolean; userEmailSent: boolean; adminEmailSent: boolean }
+) {
+  return NextResponse.json({
+    success: true,
+    accessCode,
+    message: SUCCESS_MESSAGE,
+    emailDelivery: delivery,
+  });
+}
+
+function simulatedResponse(accessCode: string) {
+  // KHÔNG trả success: true ở nhánh này — chưa có email thật nào được gửi,
+  // nên success phải là false để caller không thể hiểu nhầm là đã gửi email
+  // thành công. `simulated: true` + `message` mang thông tin trung thực về
+  // trạng thái môi trường dev/chưa cấu hình.
+  return NextResponse.json({
+    success: false,
+    simulated: true,
+    accessCode,
+    message: SIMULATED_MESSAGE,
+    emailDelivery: { simulated: true, userEmailSent: false, adminEmailSent: false },
+  });
+}
+
+function sendFailureResponse() {
+  return NextResponse.json({ success: false, error: SEND_FAILURE_ERROR }, { status: 502 });
+}
+
+function formatRegisteredAt(isoTimestamp: string): string {
+  return new Date(isoTimestamp).toLocaleString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    dateStyle: "full",
+    timeStyle: "medium",
+  });
+}
 
 /**
  * Lấy client IP thật từ header nền tảng tin cậy. Trên Vercel và hầu hết các
@@ -119,21 +175,62 @@ export async function POST(req: NextRequest) {
     }
 
     // Bước 3: persist trước, queue/gửi email sau — dedup theo email đã
-    // normalize (lowercase/trim ở schema). Idempotent: nếu email đã tồn tại,
-    // trả về đúng hình dạng response thành công như một đăng ký mới, KHÔNG
-    // gửi lại email và KHÔNG để lộ qua status/hình dạng response rằng đây là
-    // một địa chỉ đã đăng ký từ trước.
+    // normalize (lowercase/trim ở schema). Idempotent CHỈ khi lần đăng ký
+    // trước đó thực sự đã gửi/queue email thành công (queued) hoặc đã ghi
+    // nhận đúng trạng thái simulated — trả về đúng hình dạng response thành
+    // công như một đăng ký mới, KHÔNG gửi lại email và KHÔNG để lộ qua
+    // status/hình dạng response rằng đây là một địa chỉ đã đăng ký từ trước.
     const existing = await earlyAccessStore.findByEmail(input.email);
     if (existing) {
-      return NextResponse.json({
-        success: true,
-        accessCode: existing.accessCode,
-        message: "Đăng ký quyền sử dụng sớm thành công! Email xác nhận đã được gửi.",
-        emailDelivery: {
+      if (existing.emailDeliveryStatus === "queued" || existing.emailDeliveryStatus === "simulated") {
+        await padDuplicateResponseLatency();
+        return successResponse(existing.accessCode, {
           simulated: existing.emailDeliveryStatus === "simulated",
           userEmailSent: existing.emailDeliveryStatus === "queued",
           adminEmailSent: existing.emailDeliveryStatus === "queued",
-        },
+        });
+      }
+
+      // Trạng thái "pending"/"failed": lần đăng ký trước đó CHƯA từng gửi
+      // email thành công (ví dụ crash giữa chừng, hoặc lần gửi trước lỗi
+      // 502) — không được trả success: true chỉ vì bản ghi đã tồn tại. Thử
+      // gửi lại ngay tại đây; độ trễ mạng thật của lần thử lại này cũng tự
+      // nhiên giảm chênh lệch thời gian so với nhánh đăng ký mới, không cần
+      // độ trễ giả lập bổ sung.
+      const retryResult = await sendEarlyAccessEmails({
+        fullName: existing.fullName,
+        email: existing.email,
+        phone: existing.phone,
+        company: existing.company,
+        role: existing.role,
+        teamSize: existing.teamSize,
+        priorityInterest: existing.priorityInterest,
+        note: existing.note,
+        accessCode: existing.accessCode,
+        registeredAt: formatRegisteredAt(existing.registeredAt),
+      });
+
+      if (retryResult.simulated) {
+        return simulatedResponse(existing.accessCode);
+      }
+
+      if (!retryResult.userEmailSent) {
+        await earlyAccessStore.markEmailFailed(existing.id);
+        console.error(
+          "[Early Access API] Retried user email delivery failed for registration id:",
+          existing.id
+        );
+        return sendFailureResponse();
+      }
+
+      if (retryResult.providerMessageId) {
+        await earlyAccessStore.markEmailQueued(existing.id, retryResult.providerMessageId);
+      }
+
+      return successResponse(existing.accessCode, {
+        simulated: false,
+        userEmailSent: retryResult.userEmailSent,
+        adminEmailSent: retryResult.adminEmailSent,
       });
     }
 
@@ -170,12 +267,6 @@ export async function POST(req: NextRequest) {
       emailDeliveryStatus: simulated ? "simulated" : "pending",
     });
 
-    const registeredAtDisplay = new Date(registration.registeredAt).toLocaleString("vi-VN", {
-      timeZone: "Asia/Ho_Chi_Minh",
-      dateStyle: "full",
-      timeStyle: "medium",
-    });
-
     const emailResult = await sendEarlyAccessEmails({
       fullName: registration.fullName,
       email: registration.email,
@@ -186,7 +277,7 @@ export async function POST(req: NextRequest) {
       priorityInterest: registration.priorityInterest,
       note: registration.note,
       accessCode: registration.accessCode,
-      registeredAt: registeredAtDisplay,
+      registeredAt: formatRegisteredAt(registration.registeredAt),
     });
 
     // Chỉ trả success: true khi email xác nhận thực sự gửi tới người dùng
@@ -195,35 +286,17 @@ export async function POST(req: NextRequest) {
     // tuyệt đối không tuyên bố "đã gửi email" khi không có email nào được
     // gửi thật.
     if (emailResult.simulated) {
-      // KHÔNG trả success: true ở nhánh này — chưa có email thật nào được
-      // gửi, nên success phải là false để caller không thể hiểu nhầm là đã
-      // gửi email thành công. `simulated: true` + `message` mang thông tin
-      // trung thực về trạng thái môi trường dev/chưa cấu hình.
-      return NextResponse.json({
-        success: false,
-        simulated: true,
-        accessCode,
-        message:
-          "Đăng ký quyền sử dụng sớm đã được ghi nhận (môi trường thử nghiệm — chưa cấu hình gửi email thật).",
-        emailDelivery: {
-          simulated: true,
-          userEmailSent: false,
-          adminEmailSent: false,
-        },
-      });
+      return simulatedResponse(accessCode);
     }
 
     if (!emailResult.userEmailSent) {
-      // Không log email/phone/accessCode — chỉ log id bản ghi (UUID nội bộ,
-      // không phải PII) để tra cứu khi cần điều tra sự cố.
+      // Ghi nhận trạng thái "failed" để lần đăng ký lại (duplicate) sau này
+      // biết phải thử gửi lại thay vì âm thầm báo success: true. Không log
+      // email/phone/accessCode — chỉ log id bản ghi (UUID nội bộ, không phải
+      // PII) để tra cứu khi cần điều tra sự cố.
+      await earlyAccessStore.markEmailFailed(registration.id);
       console.error("[Early Access API] User email delivery failed for registration id:", registration.id);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Không thể gửi email xác nhận. Vui lòng thử lại sau hoặc liên hệ trực tiếp.",
-        },
-        { status: 502 }
-      );
+      return sendFailureResponse();
     }
 
     // Chỉ đánh dấu "queued" sau khi nhà cung cấp email trả về message ID thật
@@ -232,15 +305,10 @@ export async function POST(req: NextRequest) {
       await earlyAccessStore.markEmailQueued(registration.id, emailResult.providerMessageId);
     }
 
-    return NextResponse.json({
-      success: true,
-      accessCode,
-      message: "Đăng ký quyền sử dụng sớm thành công! Email xác nhận đã được gửi.",
-      emailDelivery: {
-        simulated: false,
-        userEmailSent: emailResult.userEmailSent,
-        adminEmailSent: emailResult.adminEmailSent,
-      },
+    return successResponse(accessCode, {
+      simulated: false,
+      userEmailSent: emailResult.userEmailSent,
+      adminEmailSent: emailResult.adminEmailSent,
     });
   } catch (error: unknown) {
     // Không log raw body/email/phone/accessCode — chỉ log message lỗi chung

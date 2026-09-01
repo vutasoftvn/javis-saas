@@ -1,5 +1,5 @@
-import { Pool } from "pg";
-import { assertDurableAdapterConfigured } from "./early-access-store";
+import type { Pool } from "pg";
+import { assertDurableAdapterConfigured, getSharedPgPool } from "./early-access-store";
 
 export interface RateLimiter {
   consume(
@@ -65,7 +65,7 @@ export class PostgresRateLimiter implements RateLimiter {
   private schemaReady: Promise<void> | null = null;
 
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString });
+    this.pool = getSharedPgPool(connectionString);
   }
 
   private ensureSchema(): Promise<void> {

@@ -10,6 +10,7 @@ vi.mock("@/lib/early-access-store", () => ({
     findByEmail: vi.fn(),
     create: vi.fn(),
     markEmailQueued: vi.fn(),
+    markEmailFailed: vi.fn(),
   },
 }));
 vi.mock("@/lib/early-access-rate-limit", () => ({
@@ -61,12 +62,14 @@ describe("POST /api/early-access", () => {
         registeredAt: new Date().toISOString(),
       }));
     vi.mocked(store.markEmailQueued).mockReset().mockResolvedValue(undefined);
+    vi.mocked(store.markEmailFailed).mockReset().mockResolvedValue(undefined);
     vi.mocked(sendEarlyAccessEmails).mockReset();
     vi.mocked(isEarlyAccessEmailSimulated).mockReset().mockReturnValue(false);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.useRealTimers();
   });
 
   it("returns 400 for invalid JSON", async () => {
@@ -77,14 +80,16 @@ describe("POST /api/early-access", () => {
     expect((await post(JSON.stringify({ ...validBody, note: "x".repeat(17_000) }))).status).toBe(413);
   });
 
-  it("returns 502 when the real user-email delivery fails", async () => {
+  it("returns 502 when the real user-email delivery fails, and marks the registration failed", async () => {
     vi.mocked(sendEarlyAccessEmails).mockResolvedValueOnce({
       userEmailSent: false,
       adminEmailSent: false,
       simulated: false,
       error: "provider down",
     });
-    expect((await post(JSON.stringify(validBody))).status).toBe(502);
+    const response = await post(JSON.stringify(validBody));
+    expect(response.status).toBe(502);
+    expect(store.markEmailFailed).toHaveBeenCalledWith("new-registration-1");
   });
 
   it("returns 200 only after real user-email delivery", async () => {
@@ -142,14 +147,90 @@ describe("POST /api/early-access", () => {
   });
 
   it("is idempotent for an email already queued", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.mocked(store.findByEmail).mockResolvedValue(existingRegistration);
-    const response = await post(JSON.stringify(validBody));
+    const responsePromise = post(JSON.stringify(validBody));
+    await vi.advanceTimersByTimeAsync(10_000);
+    const response = await responsePromise;
     expect(response.status).toBe(200);
     expect(sendEarlyAccessEmails).not.toHaveBeenCalled();
     expect(store.create).not.toHaveBeenCalled();
     const json = await response.json();
     expect(json.success).toBe(true);
     expect(json.accessCode).toBe(existingRegistration.accessCode);
+  });
+
+  it("pads the response latency for an already-queued duplicate so it isn't trivially faster than a fresh registration", async () => {
+    // Bằng chứng cho fix Important #2: nhánh duplicate (queued/simulated)
+    // KHÔNG được resolve ngay lập tức — nếu không có độ trễ giả lập, promise
+    // sẽ resolve trước khi advance timer, và assertion `resolved === false`
+    // dưới đây sẽ fail.
+    vi.useFakeTimers();
+    vi.mocked(store.findByEmail).mockResolvedValue(existingRegistration);
+
+    let resolved = false;
+    const responsePromise = post(JSON.stringify(validBody)).then((response) => {
+      resolved = true;
+      return response;
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(resolved).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    const response = await responsePromise;
+    expect(resolved).toBe(true);
+    expect(response.status).toBe(200);
+  });
+
+  it("does NOT report success for a duplicate whose earlier email delivery never completed (status pending), and retries delivery instead", async () => {
+    vi.mocked(store.findByEmail).mockResolvedValue({ ...existingRegistration, emailDeliveryStatus: "pending" });
+    vi.mocked(sendEarlyAccessEmails).mockResolvedValueOnce({
+      userEmailSent: true,
+      adminEmailSent: true,
+      providerMessageId: "resend-msg-retry",
+    });
+
+    const response = await post(JSON.stringify(validBody));
+
+    expect(sendEarlyAccessEmails).toHaveBeenCalledTimes(1);
+    expect(store.create).not.toHaveBeenCalled();
+    expect(store.markEmailQueued).toHaveBeenCalledWith(existingRegistration.id, "resend-msg-retry");
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.success).toBe(true);
+  });
+
+  it("returns 502 (not success) when the retried delivery for a pending duplicate also fails", async () => {
+    vi.mocked(store.findByEmail).mockResolvedValue({ ...existingRegistration, emailDeliveryStatus: "pending" });
+    vi.mocked(sendEarlyAccessEmails).mockResolvedValueOnce({
+      userEmailSent: false,
+      adminEmailSent: false,
+      error: "still down",
+    });
+
+    const response = await post(JSON.stringify(validBody));
+
+    expect(response.status).toBe(502);
+    const json = await response.json();
+    expect(json.success).not.toBe(true);
+    expect(store.markEmailFailed).toHaveBeenCalledWith(existingRegistration.id);
+  });
+
+  it("does NOT report success for a duplicate with a previously failed delivery until a retry actually succeeds", async () => {
+    vi.mocked(store.findByEmail).mockResolvedValue({ ...existingRegistration, emailDeliveryStatus: "failed" });
+    vi.mocked(sendEarlyAccessEmails).mockResolvedValueOnce({
+      userEmailSent: true,
+      adminEmailSent: true,
+      providerMessageId: "resend-msg-retry-2",
+    });
+
+    const response = await post(JSON.stringify(validBody));
+
+    expect(sendEarlyAccessEmails).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.success).toBe(true);
   });
 
   it("rejects submissions with a filled honeypot field without persisting or emailing", async () => {

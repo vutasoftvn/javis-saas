@@ -76,7 +76,11 @@ export async function sendEarlyAccessEmails(data: EarlyAccessEmailData): Promise
     });
 
     if (userRes.error) {
-      console.error("[Resend User Email Error]:", userRes.error.message);
+      // Chỉ log `.name` (mã lỗi cố định dạng enum của Resend, vd.
+      // "validation_error"), KHÔNG log `.message` — message tự do có thể
+      // echo lại giá trị người dùng nhập (vd. địa chỉ email không hợp lệ)
+      // tuỳ theo cách Resend diễn giải lỗi.
+      console.error("[Resend User Email Error]:", userRes.error.name);
     } else {
       userEmailSent = true;
       providerMessageId = userRes.data?.id;
@@ -93,7 +97,7 @@ export async function sendEarlyAccessEmails(data: EarlyAccessEmailData): Promise
       });
 
       if (adminRes.error) {
-        console.error("[Resend Admin Email Error]:", adminRes.error.message);
+        console.error("[Resend Admin Email Error]:", adminRes.error.name);
       } else {
         adminEmailSent = true;
       }
@@ -105,11 +109,12 @@ export async function sendEarlyAccessEmails(data: EarlyAccessEmailData): Promise
       providerMessageId,
     };
   } catch (error: unknown) {
-    console.error(
-      "[Resend Delivery Exception]:",
-      error instanceof Error ? error.message : "Unknown email delivery error"
-    );
-    const errorMessage = error instanceof Error ? error.message : "Unknown email delivery error";
+    // Log tên loại lỗi (class name cố định, vd. "TypeError"), KHÔNG log
+    // `.message` — exception ở tầng SDK/mạng hiếm khi chứa PII nhưng không
+    // có gì đảm bảo tuyệt đối, nên vẫn tránh forward nguyên văn để nhất
+    // quán với chính sách log của toàn bộ file này.
+    console.error("[Resend Delivery Exception]:", error instanceof Error ? error.name : "UnknownError");
+    const errorMessage = "Unknown email delivery error";
     return {
       userEmailSent,
       adminEmailSent,
