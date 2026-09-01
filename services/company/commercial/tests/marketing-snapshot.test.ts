@@ -242,9 +242,17 @@ describe("marketing-snapshot.service", () => {
         )
         .limit(1);
 
+      function hasSnapshotId(value: unknown): value is { id: string } {
+        return typeof value === "object" && value !== null &&
+          "id" in value && typeof (value as { id?: unknown }).id === "string";
+      }
+
       expect(snapshot).toBeDefined();
       expect(snapshot?.revision).toBe(2);
-      expect(snapshot?.snapshot.id).toBe(dto.id);
+      const snapshotPayload = snapshot?.snapshot;
+      expect(hasSnapshotId(snapshotPayload)).toBe(true);
+      if (!hasSnapshotId(snapshotPayload)) throw new Error("snapshot payload must contain an id");
+      expect(snapshotPayload.id).toBe(dto.id);
       expect(snapshot?.sourceSkillId).toBe("skill.marketing");
       expect(snapshot?.sourceSkillVersion).toBe("1.0.0");
       expect(snapshot?.sourceSkillHash).toBe("abc123");
