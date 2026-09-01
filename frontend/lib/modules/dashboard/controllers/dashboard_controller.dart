@@ -14,8 +14,8 @@ class DashboardController extends GetxController {
 
   // Stage-Aware Adaptive Sidebar & Demo Mode
   final selectedStage = ProjectStage.p2SolutionValidation.obs;
-  final isStageFilteringEnabled = true.obs;
-  final isDemoModeActive = true.obs;
+  final isStageFilteringEnabled = false.obs;
+  final isDemoModeActive = false.obs;
 
   // Accordion mode: chỉ mở duy nhất 1 nhóm menu tại một thời điểm (-1 = đóng tất cả)
   final expandedGroupIndex = 0.obs;

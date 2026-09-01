@@ -122,12 +122,14 @@ class DashboardDesktopSidebar extends StatelessWidget {
                       children: const [
                         Icon(Icons.arrow_back, size: 16, color: AppTheme.primary),
                         SizedBox(width: 8),
-                        Text(
-                          'COSA Hologram Hub',
-                          style: TextStyle(
-                            color: AppTheme.primary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                        Expanded(
+                          child: Text(
+                            'COSA Hologram Hub',
+                            style: TextStyle(
+                              color: AppTheme.primary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
@@ -136,12 +138,19 @@ class DashboardDesktopSidebar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-
-            // Stage Context Demo & Policy Bar
-            DashboardStageDemoBar(controller: controller),
-
-            const SizedBox(height: 4),
+            Obx(() {
+              if (!controller.isDemoModeActive.value) {
+                return const SizedBox(height: 8);
+              }
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 6),
+                  DashboardStageDemoBar(controller: controller),
+                  const SizedBox(height: 4),
+                ],
+              );
+            }),
             const Divider(height: 1, color: AppTheme.borderDark),
 
             // Grouped Accordion Submenu List
@@ -247,9 +256,9 @@ class DashboardDesktopSidebar extends StatelessWidget {
                         ),
                         children: group.items.map((item) {
                           final isSelected = activeIndex == item.index;
+                          final isFiltered = controller.isDemoModeActive.value && controller.isStageFilteringEnabled.value;
                           final stage = controller.selectedStage.value;
-                          final isFiltered = controller.isStageFilteringEnabled.value;
-                          final isRec = DashboardNavConfig.isItemRecommendedForStage(item.index, stage);
+                          final isRec = isFiltered && DashboardNavConfig.isItemRecommendedForStage(item.index, stage);
                           final isDimmed = isFiltered && !isRec;
 
                           return Padding(
@@ -354,27 +363,29 @@ class DashboardMobileDrawer extends StatelessWidget {
                     child: const Icon(Icons.psychology, size: 30, color: AppTheme.primary),
                   ),
                   const SizedBox(width: 14),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'COSA OS',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 1.2,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'COSA OS',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'AI Business Operations',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textMutedDark,
+                        SizedBox(height: 2),
+                        Text(
+                          'AI Business Operations',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textMutedDark,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -402,12 +413,14 @@ class DashboardMobileDrawer extends StatelessWidget {
                       children: const [
                         Icon(Icons.arrow_back, size: 18, color: AppTheme.primary),
                         SizedBox(width: 10),
-                        Text(
-                          'Về COSA Hologram Hub',
-                          style: TextStyle(
-                            color: AppTheme.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            'Về COSA Hologram Hub',
+                            style: TextStyle(
+                              color: AppTheme.primary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -416,9 +429,19 @@ class DashboardMobileDrawer extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            DashboardStageDemoBar(controller: controller),
-            const SizedBox(height: 4),
+            Obx(() {
+              if (!controller.isDemoModeActive.value) {
+                return const SizedBox(height: 8);
+              }
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 6),
+                  DashboardStageDemoBar(controller: controller),
+                  const SizedBox(height: 4),
+                ],
+              );
+            }),
             Expanded(
               child: Obx(() {
                 final activeIndex = controller.currentIndex.value;
@@ -524,9 +547,9 @@ class DashboardMobileDrawer extends StatelessWidget {
                         ),
                         children: group.items.map((item) {
                           final isSelected = activeIndex == item.index;
+                          final isFiltered = controller.isDemoModeActive.value && controller.isStageFilteringEnabled.value;
                           final stage = controller.selectedStage.value;
-                          final isFiltered = controller.isStageFilteringEnabled.value;
-                          final isRec = DashboardNavConfig.isItemRecommendedForStage(item.index, stage);
+                          final isRec = isFiltered && DashboardNavConfig.isItemRecommendedForStage(item.index, stage);
                           final isDimmed = isFiltered && !isRec;
 
                           return Padding(
