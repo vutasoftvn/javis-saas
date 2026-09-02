@@ -14,8 +14,6 @@ void main() {
   setUp(() {
     realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({
-      'local_session_token': 'LOCAL_SESSION',
-      'platform_access_token': 'PLATFORM_ACCESS',
       'workspace_id': '123',
     });
     ApiClient.setBaseUrl('http://company.local');

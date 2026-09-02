@@ -8,7 +8,7 @@ import 'package:frontend/modules/agents/services/agent_platform_service.dart';
 
 void main() {
   setUp(() {
-    SharedPreferences.setMockInitialValues({'auth_token': 'test_jwt_token'});
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('AgentPlatformService Tests', () {

@@ -48,7 +48,6 @@ void main() {
   setUp(() async {
     realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test-token-jwt',
       'workspace_id': '1001',
     });
     await SecureStorageService.write('auth_token', 'test-token');

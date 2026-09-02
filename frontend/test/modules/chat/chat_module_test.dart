@@ -22,7 +22,6 @@ void main() {
   setUp(() {
     realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test_jwt_token',
       'workspace_id': 'ws-1',
     });
     Get.reset();

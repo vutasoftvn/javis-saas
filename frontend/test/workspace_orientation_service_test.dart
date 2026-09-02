@@ -11,7 +11,7 @@ void main() {
   late http.Client originalClient;
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({'auth_token': 'test_token'});
+    SharedPreferences.setMockInitialValues({});
     originalClient = ApiClient.client;
   });
 

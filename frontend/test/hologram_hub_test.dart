@@ -13,7 +13,6 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test_token',
       'workspace_id': 'ws_123',
     });
     Get.testMode = true;

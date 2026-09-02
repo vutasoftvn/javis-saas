@@ -14,7 +14,6 @@ void main() {
     realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({
       'workspace_id': 'ws_123',
-      'local_session_token': 'test_token_456',
     });
   });
 

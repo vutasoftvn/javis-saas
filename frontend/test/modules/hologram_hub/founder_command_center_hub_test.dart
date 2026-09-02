@@ -17,8 +17,6 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test_token',
-      'local_session_token': 'test_token',
       'workspace_id': 'ws_123',
     });
     Get.reset();

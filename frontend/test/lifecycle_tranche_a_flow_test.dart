@@ -12,7 +12,6 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test-token-jwt',
       'workspace_id': 'ws-tranche-a',
     });
   });
