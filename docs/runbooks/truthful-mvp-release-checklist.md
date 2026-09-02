@@ -188,15 +188,20 @@ cho phần DB-backed. Container đã bị xoá (`docker rm -f`) sau khi dùng xo
   - `test_run_counter_and_auth.py::test_run_counter_counts_accepted_today`,
     `test_crash_recovery_subprocess.py::test_two_real_processes_crash_recovery_real_worker`
     — cả 2 lỗi `relation "cosa.companies" does not exist`. Bảng
-    `cosa.companies` đã bị **DROP có chủ đích** bởi migration 26
-    (`26_workspace_agent_policy_and_drop_legacy_companies.up.sql`) và dọn
-    tiếp bởi migration 29 (cùng migration nêu trong DoD) — đúng theo quyết
-    định kiến trúc "Company aggregate xoá ở M2" đã ghi trong CLAUDE.md. Đây
-    là 2 test **chưa được cập nhật sau cutover migration 26/29** (viết trước
-    cutover, chèn thẳng vào `cosa.companies` để dựng fixture) — bug ở test,
-    không phải ở migration hay ở code Task 1-9. KHÔNG fix trong Task 10 (sửa
-    đòi viết lại fixture dùng bảng workspace mới — thuộc phạm vi cutover
-    migration 26/29, không phải dependency/type hardening). Owner: chưa gán.
+    `cosa.companies` đã bị **DROP có chủ đích** bởi migration 29
+    (`29_cleanup_legacy_companies_and_rename_workspaces.up.sql:17`, `DROP
+    TABLE IF EXISTS cosa.companies CASCADE` — cùng migration nêu trong DoD).
+    Đính chính: migration 26
+    (`26_workspace_agent_policy_and_drop_legacy_companies.up.sql`), dù tên
+    file gợi ý có DROP, thực chất chỉ tạo bảng `cosa.workspace_agent_policy`,
+    KHÔNG động tới `cosa.companies` — đã đọc lại toàn bộ file để xác nhận,
+    trách nhiệm drop hoàn toàn thuộc về migration 29. Việc xoá bảng này đúng
+    theo quyết định kiến trúc "Company aggregate xoá ở M2" đã ghi trong
+    CLAUDE.md. Đây là 2 test **chưa được cập nhật sau cutover migration 29**
+    (viết trước cutover, chèn thẳng vào `cosa.companies` để dựng fixture) —
+    bug ở test, không phải ở migration hay ở code Task 1-9. KHÔNG fix trong
+    Task 10 (sửa đòi viết lại fixture dùng bảng workspace mới — thuộc phạm vi
+    cutover migration 29, không phải dependency/type hardening). Owner: chưa gán.
 - **Kết luận mục 4**: Không có lỗi nào trong bảng trên hoặc trong phần
   migration/DB do các thay đổi CỦA TASK 10 gây ra. Toàn bộ lỗi hoặc (a) đã
   sửa tại chỗ vì rẻ và nằm ngay trên đường Step 4 (ruff format, contract
