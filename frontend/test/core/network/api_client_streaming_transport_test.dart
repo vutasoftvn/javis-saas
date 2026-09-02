@@ -18,6 +18,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/network/realtime_service.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/modules/hologram_hub/services/chat_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -28,13 +29,13 @@ void main() {
 
   late http.Client realClient;
 
-  setUp(() {
+  setUp(() async {
     realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({
-      'local_session_token': 'LOCAL_SESSION',
-      'platform_access_token': 'PLATFORM_ACCESS',
       'workspace_id': 'workspace-1',
     });
+    await SecureStorageService.write('local_session_token', 'LOCAL_SESSION');
+    await SecureStorageService.write('platform_access_token', 'PLATFORM_ACCESS');
     ApiClient.setBaseUrl('http://company.local');
     ApiClient.setPlatformBaseUrl('http://platform.local');
     ApiClient.setRelayBaseUrl('http://gateway.local');

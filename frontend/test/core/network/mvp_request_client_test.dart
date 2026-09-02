@@ -9,6 +9,7 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_endpoints.g.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 
 class _FakeAuthResolver implements ApiAuthResolver {
   _FakeAuthResolver({this.token, this.wsId});
@@ -120,9 +121,9 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test_token_123',
       'workspace_id': '1001',
     });
+    await SecureStorageService.write('auth_token', 'test_token_123');
     // M5 §5/§6 — reset runtime context tĩnh của ApiClient trước mỗi test để
     // tránh rò rỉ trạng thái REMOTE_ACCESS/OFFLINE giữa các test case.
     ApiClient.clearRuntimeContext();

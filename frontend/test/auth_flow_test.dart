@@ -5,16 +5,28 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/core/routing/auth_middleware.dart';
 import 'package:frontend/core/routing/app_routes.dart';
 import 'package:frontend/modules/auth/controllers/auth_controller.dart';
 
+import 'core/services/fakes/fake_secret_store.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  // Token (auth_token/local_session_token/platform_access_token) đi qua
+  // secret store fail-closed thật (Keychain/Keystore) chứ không còn qua
+  // SharedPreferences — widget test tiêm fake in-memory thay vì mock
+  // MethodChannel để không phải quan tâm platform channel native.
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    SecureStorageService.configureForTest(FakeSecretStore());
+  });
+
+  tearDown(() {
+    SecureStorageService.resetForTest();
   });
 
   group('AuthService State & Tokens', () {
@@ -121,10 +133,11 @@ void main() {
       expect(result.workspaces![0].roleId, 'founder');
       expect(result.workspaces![1].workspaceId, 'real-ws-2');
 
-      // Token is cached; company_id never appears
+      // Token is cached trong secret store (không phải SharedPreferences);
+      // company_id không bao giờ xuất hiện ở đâu cả.
       expect(AuthService.isAuthenticated, isTrue);
+      expect(await SecureStorageService.read('auth_token'), 'local-jwt-123');
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('auth_token'), 'local-jwt-123');
       expect(prefs.getString('company_id'), isNull);
     });
 
@@ -213,8 +226,7 @@ void main() {
 
       expect(result.success, isTrue);
       expect(AuthService.isAuthenticated, isTrue);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('auth_token'), 'local-tok-abc');
+      expect(await SecureStorageService.read('auth_token'), 'local-tok-abc');
     });
 
     test('syncFromPlatform surfaces 403 as not-a-member error', () async {

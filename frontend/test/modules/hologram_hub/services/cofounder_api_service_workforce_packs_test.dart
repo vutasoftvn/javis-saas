@@ -5,6 +5,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/data/models/workforce_pack_model.dart';
 import 'package:frontend/modules/hologram_hub/services/cofounder_api_service.dart';
 import 'package:frontend/modules/workforce/services/workforce_mvp_service.dart';
@@ -15,11 +16,11 @@ import 'package:frontend/modules/workforce/services/workforce_mvp_service.dart';
 // agent nào" (ApiSuccess với data rỗng) — hai trạng thái này trước đây đều
 // bị gộp chung thành `[]`.
 void main() {
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test-token',
       'workspace_id': 'ws_1001',
     });
+    await SecureStorageService.write('auth_token', 'test-token');
   });
 
   test('listWorkforcePacks returns ApiFailure (not an empty list) when composition fetch fails', () async {

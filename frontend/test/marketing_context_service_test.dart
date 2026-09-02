@@ -4,16 +4,17 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/modules/marketing/services/marketing_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test-token-jwt',
       'workspace_id': '351550739880456242',
     });
+    await SecureStorageService.write('auth_token', 'test-token-jwt');
   });
 
   tearDown(() {

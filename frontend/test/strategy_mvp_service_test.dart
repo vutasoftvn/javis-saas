@@ -5,15 +5,16 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/modules/strategy/services/strategy_mvp_client.dart';
 import 'package:frontend/modules/strategy/models/mvp_strategy_models.dart';
 
 void main() {
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test-token',
       'workspace_id': 'ws_1001',
     });
+    await SecureStorageService.write('auth_token', 'test-token');
   });
 
   test('canvas 503 is unavailable, not an empty canvas collection', () async {

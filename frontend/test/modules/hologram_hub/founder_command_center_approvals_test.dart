@@ -12,17 +12,18 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontend/core/network/mvp_request_client.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import 'package:frontend/modules/workforce/services/workforce_mvp_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({
-      'auth_token': 'test_token',
       'workspace_id': 'ws_123',
     });
+    await SecureStorageService.write('auth_token', 'test_token');
   });
 
   test(
