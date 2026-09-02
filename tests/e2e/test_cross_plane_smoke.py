@@ -8,7 +8,7 @@ File này sẽ chứa S1–S4; hiện chỉ có S1 (auth + cô lập tenant).
 
 from __future__ import annotations
 
-from tests.e2e.scenarios import auth_tenant_isolation
+from tests.e2e.scenarios import auth_tenant_isolation, dispatch_worker_result
 from tests.e2e.seed import identity
 
 
@@ -17,3 +17,11 @@ def test_s1_auth_tenant_isolation(real_cosa_stack, disposable_cluster) -> None:
     # cho member (xem tests/e2e/seed/identity.py::add_member).
     seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster, with_member=True)
     auth_tenant_isolation.run(real_cosa_stack, seeded)
+
+
+def test_s2_dispatch_worker_result(real_cosa_stack, disposable_cluster) -> None:
+    # S2: apps/cosa lên lịch task "run" durable ở control-plane cosa → tiến
+    # trình worker THẬT claim + chạy → run_events thật trong agent DB + signal
+    # projection idempotent sang company (workspace DB).
+    seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster)
+    dispatch_worker_result.run(real_cosa_stack, seeded, disposable_cluster)
