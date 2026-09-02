@@ -35,6 +35,8 @@ import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:frontend/modules/dashboard/views/dashboard_view.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
+import 'package:frontend/modules/settings/bindings/settings_binding.dart';
+import 'package:frontend/modules/settings/views/settings_view.dart';
 import 'package:frontend/modules/strategy/controllers/strategy_controller.dart';
 import 'package:frontend/modules/strategy/views/okrs_view.dart';
 import 'package:frontend/modules/tasks/bindings/tasks_binding.dart';
@@ -89,6 +91,25 @@ class _TestHubBinding extends Bindings {
 /// lý" và fail test dù mọi `expect()` đều đúng — rút đúng loại exception này
 /// ra khỏi hàng đợi bằng `takeException()`, KHÔNG nuốt bất kỳ exception nào
 /// khác (một exception thật sẽ được re-throw).
+/// `openDashboard()` (Settings icon trên Hub) điều hướng qua `AppRoutes
+/// .dashboard` (redirect middleware) trước khi redirect adapter của
+/// `DashboardContentBody` tự đẩy tiếp sang route module thật — nghĩa là 1
+/// lần tap thực chất gây RA HAI transition animation nối tiếp nhau (mỗi cái
+/// mặc định ~300ms, cái sau chỉ bắt đầu sau khi cái trước dựng xong 1 frame
+/// qua `postFrameCallback`), không phải một. Bơm hữu hạn nhưng NHIỀU bước
+/// nhỏ (không dùng `pumpAndSettle` — xem lý do ở `pumpShellAt`) để chắc chắn
+/// đủ thời gian cho toàn bộ chuỗi ổn định, dù có bao nhiêu transition nối
+/// tiếp.
+Future<void> _pumpUntilSettled(
+  WidgetTester tester, {
+  int steps = 20,
+  Duration step = const Duration(milliseconds: 100),
+}) async {
+  for (var i = 0; i < steps; i++) {
+    await tester.pump(step);
+  }
+}
+
 void _drainCosmeticOverflowExceptions(WidgetTester tester) {
   Object? exception = tester.takeException();
   while (exception != null) {
@@ -101,7 +122,7 @@ void _drainCosmeticOverflowExceptions(WidgetTester tester) {
 }
 
 Future<void> pumpShellAt(WidgetTester tester, String initialRoute) async {
-  tester.view.physicalSize = const Size(1400, 900);
+  tester.view.physicalSize = const Size(2200, 1200);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -115,6 +136,14 @@ Future<void> pumpShellAt(WidgetTester tester, String initialRoute) async {
         binding: _TestHubBinding(),
         middlewares: [AuthMiddleware()],
       ),
+      // `HologramHubController.openDashboard()` (nút Settings trên Hub) điều
+      // hướng qua `AppRoutes.dashboard` — route legacy redirect y hệt
+      // `app_pages.dart` thật, cần có mặt ở đây để test đi đúng đường thật.
+      GetPage(
+        name: AppRoutes.dashboard,
+        page: () => const SizedBox.shrink(),
+        middlewares: [LegacyModuleRedirectMiddleware(AppRoutes.hub)],
+      ),
       GetPage(
         name: WorkspaceModule.tasks.path,
         page: () => const AppShell(activeModule: WorkspaceModule.tasks, child: TasksView()),
@@ -125,6 +154,12 @@ Future<void> pumpShellAt(WidgetTester tester, String initialRoute) async {
         name: WorkspaceModule.approvals.path,
         page: () => const AppShell(activeModule: WorkspaceModule.approvals, child: ApprovalsView()),
         binding: _FakeApprovalsBinding(),
+        middlewares: [AuthMiddleware()],
+      ),
+      GetPage(
+        name: WorkspaceModule.settings.path,
+        page: () => const AppShell(activeModule: WorkspaceModule.settings, child: SettingsView()),
+        binding: SettingsBinding(),
         middlewares: [AuthMiddleware()],
       ),
     ],
@@ -260,6 +295,48 @@ void main() {
       expect(Get.currentRoute, AppRoutes.hub);
       expect(find.byType(OkrsView), findsOneWidget);
       expect(find.byType(TasksView), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Settings button on Hub navigates to Settings, and back from it lands on Hub with no re-push loop (Critical #1, second trigger)',
+    (tester) async {
+      // Review vòng 2: `hub_command_mixin.dart`'s `onSettingsPressed()` (nút
+      // Settings trên Hub) là 1 đường ghi `currentIndex` HOÀN TOÀN KHÁC với
+      // sidebar (đi qua `HologramHubController.openDashboard`, không qua
+      // `dashboard_sidebar.dart`) nhưng chạm ĐÚNG cùng bug: ghi index migrate
+      // (13 = settings) vào `DashboardController.currentIndex` dùng chung rồi
+      // điều hướng. Test này lần theo đúng đường thật — tap icon Settings —
+      // để chứng minh fix trung tâm ở `dashboard_content_body.dart` (reset
+      // `currentIndex` sau khi kích hoạt điều hướng) chặn được bug bất kể ai
+      // là người ghi vào `currentIndex`.
+      await pumpShellAt(tester, AppRoutes.hub);
+      expect(find.byType(HologramHubView), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Quản trị Dashboard'));
+      await tester.pump();
+      await _pumpUntilSettled(tester);
+      _drainCosmeticOverflowExceptions(tester);
+
+      expect(Get.currentRoute, WorkspaceModule.settings.path);
+      expect(find.byType(SettingsView), findsOneWidget);
+
+      Get.back();
+      await tester.pump();
+      await _pumpUntilSettled(tester);
+      _drainCosmeticOverflowExceptions(tester);
+
+      // Bug cũ (biến thể thứ 2): `currentIndex` vẫn "dính" ở 13 sau khi back
+      // — `DashboardContentBody`'s redirect adapter đọc lại, tự
+      // `Get.toNamed('/work/settings')` lần nữa → lặp vô hạn mỗi lần back.
+      // Bơm thêm để chắc chắn không có redirect âm thầm nào xảy ra sau khi
+      // đã "ổn định" ở `/hub`.
+      await _pumpUntilSettled(tester, steps: 5);
+      _drainCosmeticOverflowExceptions(tester);
+
+      expect(Get.currentRoute, AppRoutes.hub);
+      expect(find.byType(HologramHubView), findsOneWidget);
+      expect(find.byType(SettingsView), findsNothing);
     },
   );
 }

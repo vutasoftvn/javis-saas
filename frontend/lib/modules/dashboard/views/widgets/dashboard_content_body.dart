@@ -61,6 +61,24 @@ class DashboardContentBody extends StatelessWidget {
         if (Get.currentRoute != module.path) {
           Get.toNamed(module.path);
         }
+        // SỬA LỖI review vòng 2 (biến thể thứ hai của Critical #1) —
+        // `currentIndex` là state DÙNG CHUNG (`DashboardController` là
+        // singleton `permanent`), và không chỉ sidebar mới ghi vào nó:
+        // `hub_command_mixin.dart`'s `openDashboard()` (Settings icon trên
+        // Hub, `openStrategyNextActions`, ...) cũng gọi `changePage()` với 1
+        // index đã migrate rồi mới điều hướng — để lại `currentIndex` "dính"
+        // ở giá trị migrate đó. Lần sau `/hub` build lại (vd. sau khi back
+        // từ chính route vừa push) mà không có gì reset `currentIndex`, `Obx`
+        // này đọc lại đúng index migrate cũ → tự động push lại route đó →
+        // lặp vô hạn mỗi lần back — HỆT bug đã sửa ở `AppShell`, chỉ khác nơi
+        // ghi vào `currentIndex`.
+        //
+        // Sửa tại ĐÚNG MỘT điểm trung tâm này (thay vì lần theo từng nơi ghi
+        // `currentIndex`, vốn có thể còn nơi khác chưa phát hiện): ngay sau
+        // khi kích hoạt điều hướng, reset `currentIndex` về sentinel hub (0)
+        // — bất kể AI đã ghi giá trị migrate vào đó, giá trị "dính" không
+        // bao giờ còn tồn tại để redirect adapter đọc lại ở lần build sau.
+        controller.currentIndex.value = 0;
       });
       return const Center(child: CircularProgressIndicator());
     }
