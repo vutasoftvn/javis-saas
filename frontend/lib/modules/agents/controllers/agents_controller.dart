@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../../../core/network/api_result.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../modules/agents/services/agents_service.dart';
 
@@ -64,11 +65,16 @@ class AgentsController extends GetxController {
   Future<void> loadOrgChart() async {
     isLoadingOrgChart.value = true;
     try {
-      final data = await _agentsService.getOrgChart();
-      if (data != null) {
-        orgChartData.value = data;
+      final result = await _agentsService.getOrgChart();
+      switch (result) {
+        case ApiSuccess(data: final data):
+          orgChartData.value = data;
+        case ApiFailure(failure: final f):
+          // Fix-review (2026-09-02) — trước đây `null` từ service bị nuốt
+          // im lặng, Org Chart tab đứng yên trắng trơn không rõ lý do. Báo
+          // lỗi thật cho Founder thay vì giả vờ "chưa tải xong".
+          AppToast.error('Không tải được sơ đồ tổ chức: ${f.message}');
       }
-    } catch (_) {
     } finally {
       isLoadingOrgChart.value = false;
     }
@@ -77,9 +83,13 @@ class AgentsController extends GetxController {
   Future<void> loadRuns() async {
     isLoadingRuns.value = true;
     try {
-      final data = await _agentsService.getRuns();
-      runs.value = data.cast<Map<String, dynamic>>();
-    } catch (_) {
+      final result = await _agentsService.getRuns();
+      switch (result) {
+        case ApiSuccess(data: final data):
+          runs.value = data;
+        case ApiFailure(failure: final f):
+          AppToast.error('Không tải được lịch sử phiên chạy: ${f.message}');
+      }
     } finally {
       isLoadingRuns.value = false;
     }

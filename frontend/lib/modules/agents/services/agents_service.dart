@@ -3,7 +3,6 @@ import '../../../core/services/secure_storage_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_result.dart';
 import '../../../data/models/agent_model.dart';
-import '../../workforce/models/workforce_mvp_models.dart';
 import '../../workforce/services/workforce_mvp_service.dart';
 
 class AgentsService {
@@ -12,6 +11,10 @@ class AgentsService {
   // nhánh business/company runtime thay vì AgentOS thật — 404 vĩnh viễn dù
   // `agents_controller.dart` gọi sống. Tái dùng `WorkforceMvpService` đã có
   // sẵn envelope-unwrap cho đúng các route này thay vì tự chép lại.
+  //
+  // Fix-review (2026-09-02) — bản đầu tiên vẫn nuốt `ApiFailure` thành
+  // `null`/`[]`. Trả thẳng `ApiResult<T>` để `agents_controller.dart` biết
+  // chắc chắn "request lỗi" khác "backend trả rỗng thật".
   final WorkforceMvpService _workforceMvpService;
 
   AgentsService({WorkforceMvpService? workforceMvpService})
@@ -63,13 +66,7 @@ class AgentsService {
   }
 
   /// Lấy sơ đồ cây phân cấp Org Chart — canonical `/agent/workforce/org-chart`.
-  Future<Map<String, dynamic>?> getOrgChart() async {
-    final result = await _workforceMvpService.getOrgChart();
-    if (result case ApiFailure()) {
-      return null;
-    }
-    return (result as ApiSuccess<Map<String, dynamic>>).data;
-  }
+  Future<ApiResult<Map<String, dynamic>>> getOrgChart() => _workforceMvpService.getOrgChart();
 
   /// Test run trực tiếp Agent
   Future<Map<String, dynamic>?> testRunAgent(
@@ -103,15 +100,13 @@ class AgentsService {
     return [];
   }
 
-  /// Lấy danh sách typed AgentRunModel
+  /// Lấy danh sách typed AgentRunModel. Không có consumer sống nào gọi
+  /// method này (đã `rg` toàn repo) — giữ hành vi rỗng-khi-lỗi cũ vì đây là
+  /// đường phụ, ngoài phạm vi honest-failure-propagation của `getRuns`.
   Future<List<AgentRunModel>> getRunsList({String? agentKey, String? status, int limit = 20, int offset = 0}) async {
-    final raw = await getRuns(agentKey: agentKey, status: status, limit: limit, offset: offset);
-    return raw.map((item) {
-      if (item is Map<String, dynamic>) {
-        return AgentRunModel.fromJson(item);
-      }
-      return AgentRunModel.fromJson(Map<String, dynamic>.from(item as Map));
-    }).toList();
+    final result = await getRuns(agentKey: agentKey, status: status, limit: limit, offset: offset);
+    final raw = result.dataOrNull ?? const [];
+    return raw.map((item) => AgentRunModel.fromJson(item)).toList();
   }
 
   /// Lấy danh sách các lần chạy AgentRun — canonical `/agent/workforce/runs`.
@@ -119,26 +114,33 @@ class AgentsService {
   /// nhận `limit`, KHÔNG có filter theo `agent_key`/`status`/`offset` — giữ
   /// tham số trong chữ ký để không phá call site cũ, nhưng không giả vờ gửi
   /// filter mà server không đọc.
-  Future<List<dynamic>> getRuns({String? agentKey, String? status, int limit = 20, int offset = 0}) async {
+  Future<ApiResult<List<Map<String, dynamic>>>> getRuns({
+    String? agentKey,
+    String? status,
+    int limit = 20,
+    int offset = 0,
+  }) async {
     final result = await _workforceMvpService.listRuns(limit: limit);
-    if (result case ApiFailure()) {
-      return [];
-    }
-    final runs = (result as ApiSuccess<List<WorkforceRun>>).data;
-    return runs
-        .map((r) => {
-              'run_id': r.runId,
-              'workspace_id': r.workspaceId,
-              'agent_spec_id': r.agentSpecId,
-              'agent_spec_version': r.agentSpecVersion,
-              'definition_hash': r.definitionHash,
-              'status': r.status,
-              'created_at': r.createdAt.toIso8601String(),
-              'completed_at': r.completedAt?.toIso8601String(),
-              'total_tokens': r.totalTokens,
-              'error_message': r.errorMessage,
-            })
-        .toList();
+    return switch (result) {
+      ApiSuccess(data: final runs, meta: final meta) => ApiSuccess(
+          data: runs
+              .map((r) => {
+                    'run_id': r.runId,
+                    'workspace_id': r.workspaceId,
+                    'agent_spec_id': r.agentSpecId,
+                    'agent_spec_version': r.agentSpecVersion,
+                    'definition_hash': r.definitionHash,
+                    'status': r.status,
+                    'created_at': r.createdAt.toIso8601String(),
+                    'completed_at': r.completedAt?.toIso8601String(),
+                    'total_tokens': r.totalTokens,
+                    'error_message': r.errorMessage,
+                  })
+              .toList(),
+          meta: meta,
+        ),
+      ApiFailure(failure: final f) => ApiFailure(f),
+    };
   }
 
   /// Xem chi tiết phiên chạy và các bước AgentStep

@@ -53,6 +53,11 @@ class _FakeWorkforceMvpService implements WorkforceMvpService {
   Future<ApiResult<List<WorkforceCompositionEntry>>> getComposition() async {
     return ApiSuccess(data: const [], meta: _fakeMeta);
   }
+
+  @override
+  Future<ApiResult<Map<String, dynamic>>> getOrgChart() async {
+    return ApiSuccess(data: const {}, meta: _fakeMeta);
+  }
 }
 
 void main() {

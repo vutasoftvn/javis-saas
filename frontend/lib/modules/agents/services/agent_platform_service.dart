@@ -13,8 +13,16 @@ class AgentPlatformService {
   // (Founder Dashboard) vẫn gọi sống mỗi lần refresh. Tái dùng
   // `WorkforceMvpService` (đã có sẵn envelope-unwrap + `ApiFailure` thật cho
   // đúng các route này) thay vì tự chép lại logic decode — tránh nhân bản
-  // kiến trúc. Giữ nguyên type trả về (`Map`/`List<Map>`) để không phải sửa
-  // toàn bộ call site đang dùng shape cũ.
+  // kiến trúc.
+  //
+  // Fix-review (2026-09-02) — bản đầu tiên vẫn pattern-match `ApiFailure` rồi
+  // trả `null`/`[]` để giữ nguyên chữ ký cũ — CHÍNH XÁC hành vi nuốt lỗi mà
+  // việc migrate sang `WorkforceMvpService` vốn để sửa. `approveRequest`/
+  // `rejectRequest` là mutation Founder chạm tới thật (approve/reject qua
+  // `hub_control_plane_mixin.dart`), nuốt lỗi ở đây khiến approve/reject thất
+  // bại trông giống hệt thành công. 4 method dưới đây giờ trả thẳng
+  // `ApiResult<T>` — caller BẮT BUỘC phải xử lý nhánh `ApiFailure` tường minh,
+  // không còn suy diễn "null nghĩa là lỗi, nhưng cũng có thể là rỗng".
   final WorkforceMvpService _workforceMvpService;
 
   AgentPlatformService({WorkforceMvpService? workforceMvpService})
@@ -238,26 +246,20 @@ class AgentPlatformService {
   }
 
   /// Get organization hierarchy — canonical `/agent/workforce/org-chart`.
-  Future<Map<String, dynamic>?> getOrgChart() async {
-    final result = await _workforceMvpService.getOrgChart();
-    if (result case ApiFailure(failure: final f)) {
-      debugPrint('[AgentPlatformService] getOrgChart failed: $f');
-      return null;
-    }
-    return (result as ApiSuccess<Map<String, dynamic>>).data;
-  }
+  /// Trả thẳng `ApiResult` của `WorkforceMvpService` — không có gì để biến
+  /// đổi ngoài shape dữ liệu, nên không có lý do nuốt `ApiFailure`.
+  Future<ApiResult<Map<String, dynamic>>> getOrgChart() => _workforceMvpService.getOrgChart();
 
   /// List pending approvals for human review — canonical
   /// `/agent/workforce/approvals` (KHÔNG PHẢI `/agent/approvals`, stub
   /// `deprecated=True` chưa từng được mount trong `apps/cosa/api/app.py`).
-  Future<List<Map<String, dynamic>>> listApprovals({String status = 'PENDING'}) async {
+  Future<ApiResult<List<Map<String, dynamic>>>> listApprovals({String status = 'PENDING'}) async {
     final result = await _workforceMvpService.listApprovals(status: status);
-    if (result case ApiFailure(failure: final f)) {
-      debugPrint('[AgentPlatformService] listApprovals failed: $f');
-      return [];
-    }
-    final approvals = (result as ApiSuccess<List<WorkforceApproval>>).data;
-    return approvals.map(_approvalToMap).toList();
+    return switch (result) {
+      ApiSuccess(data: final approvals, meta: final meta) =>
+        ApiSuccess(data: approvals.map(_approvalToMap).toList(), meta: meta),
+      ApiFailure(failure: final f) => ApiFailure(f),
+    };
   }
 
   Map<String, dynamic> _approvalToMap(WorkforceApproval a) => {
@@ -279,32 +281,32 @@ class AgentPlatformService {
   /// `/agent/workforce/approvals/{id}/decision` (`approved: true`). Backend
   /// không còn 2 route con `/approve`/`/reject` riêng — một endpoint decision
   /// duy nhất nhận cờ `approved`.
-  Future<Map<String, dynamic>?> approveRequest(int approvalId, {String? comment}) async {
+  Future<ApiResult<Map<String, dynamic>>> approveRequest(int approvalId, {String? comment}) async {
     final result = await _workforceMvpService.decideApproval(
       '$approvalId',
       approved: true,
       reason: comment ?? 'Approved by Founder via Control Plane UI',
     );
-    if (result case ApiFailure(failure: final f)) {
-      debugPrint('[AgentPlatformService] approveRequest failed: $f');
-      return null;
-    }
-    return _decisionToMap((result as ApiSuccess<WorkforceApprovalDecision>).data);
+    return switch (result) {
+      ApiSuccess(data: final decision, meta: final meta) =>
+        ApiSuccess(data: _decisionToMap(decision), meta: meta),
+      ApiFailure(failure: final f) => ApiFailure(f),
+    };
   }
 
   /// Reject a pending request — canonical decision endpoint
   /// `/agent/workforce/approvals/{id}/decision` (`approved: false`).
-  Future<Map<String, dynamic>?> rejectRequest(int approvalId, {String? comment}) async {
+  Future<ApiResult<Map<String, dynamic>>> rejectRequest(int approvalId, {String? comment}) async {
     final result = await _workforceMvpService.decideApproval(
       '$approvalId',
       approved: false,
       reason: comment ?? 'Rejected by Founder via Control Plane UI',
     );
-    if (result case ApiFailure(failure: final f)) {
-      debugPrint('[AgentPlatformService] rejectRequest failed: $f');
-      return null;
-    }
-    return _decisionToMap((result as ApiSuccess<WorkforceApprovalDecision>).data);
+    return switch (result) {
+      ApiSuccess(data: final decision, meta: final meta) =>
+        ApiSuccess(data: _decisionToMap(decision), meta: meta),
+      ApiFailure(failure: final f) => ApiFailure(f),
+    };
   }
 
   Map<String, dynamic> _decisionToMap(WorkforceApprovalDecision d) => {

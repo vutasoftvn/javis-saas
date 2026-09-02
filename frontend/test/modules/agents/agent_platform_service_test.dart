@@ -8,8 +8,16 @@
 // (`apps/cosa/api/workforce_routes.py`, mount qua `workforce_router` ở
 // `apps/cosa/api/app.py:200`) — KHÔNG PHẢI `/agent/approvals`
 // (`approval_routes.py`, `deprecated=True`, chưa từng được `include_router`).
-// Test này khoá đúng canonical path + không âm thầm biến response hỏng
-// thành danh sách rỗng bình thường.
+//
+// Fix-review (2026-09-02) — bản đầu tiên của lát cắt này vẫn giữ chữ ký cũ
+// (`Future<Map?>`/`Future<List<Map>>`) và nuốt `ApiFailure` thành `null`/`[]`
+// bên trong service — đúng lỗi mà việc migrate sang `WorkforceMvpService`
+// (vốn cho `ApiFailure` thật) lẽ ra phải sửa. `approveRequest`/`rejectRequest`
+// là mutation Founder chạm tới thật qua `hub_control_plane_mixin.dart`, nên
+// một lỗi bị nuốt ở đây khiến approve/reject thất bại trông giống hệt thành
+// công. 4 method này giờ trả thẳng `ApiResult<T>` — test dưới đây khoá đúng
+// hành vi đó tại chính boundary này (không chỉ ở tầng `WorkforceMvpService`
+// một lớp bên dưới).
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +25,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
 import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/modules/agents/services/agent_platform_service.dart';
@@ -63,17 +72,15 @@ void main() {
         workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
       );
 
-      final approvals = await service.listApprovals();
+      final result = await service.listApprovals();
 
+      expect(result, isA<ApiSuccess<List<Map<String, dynamic>>>>());
+      final approvals = (result as ApiSuccess<List<Map<String, dynamic>>>).data;
       expect(approvals, hasLength(1));
       expect(approvals.single['approval_id'], 'app_1');
     });
 
-    test('listApprovals does not turn a failed/legacy response into a fabricated empty list check', () async {
-      // Không thể phân biệt "thật sự rỗng" vs "request lỗi" từ chữ ký cũ
-      // (`Future<List<Map<String,dynamic>>>`) nhưng ít nhất phải log lỗi và
-      // KHÔNG throw — hành vi được giữ tương thích ngược cho
-      // `hub_control_plane_mixin.dart`. Route dùng vẫn phải là canonical.
+    test('listApprovals propagates a 500 as ApiFailure, never a fabricated empty list', () async {
       var requested = '';
       final mockHttp = MockClient((request) async {
         requested = request.url.path;
@@ -83,10 +90,11 @@ void main() {
         workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
       );
 
-      final approvals = await service.listApprovals();
+      final result = await service.listApprovals();
 
       expect(requested, '/agent/workforce/approvals');
-      expect(approvals, isEmpty);
+      expect(result, isA<ApiFailure<List<Map<String, dynamic>>>>());
+      expect((result as ApiFailure<List<Map<String, dynamic>>>).failure.statusCode, 500);
     });
 
     test('approveRequest posts a decision to the canonical endpoint with approved=true', () async {
@@ -120,7 +128,23 @@ void main() {
 
       final result = await service.approveRequest(1, comment: 'ok');
 
-      expect(result?['status'], 'approved');
+      expect(result, isA<ApiSuccess<Map<String, dynamic>>>());
+      expect((result as ApiSuccess<Map<String, dynamic>>).data['status'], 'approved');
+    });
+
+    test('approveRequest propagates a failed decision as ApiFailure — a rejected/broken '
+        'approve must never look like success to the Founder', () async {
+      final mockHttp = MockClient((request) async {
+        return http.Response(jsonEncode({'detail': 'Approval not found'}), 404);
+      });
+      final service = AgentPlatformService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
+
+      final result = await service.approveRequest(1, comment: 'ok');
+
+      expect(result, isA<ApiFailure<Map<String, dynamic>>>());
+      expect((result as ApiFailure<Map<String, dynamic>>).failure.code, ApiFailureCode.notFound);
     });
 
     test('rejectRequest posts a decision to the canonical endpoint with approved=false', () async {
@@ -153,7 +177,21 @@ void main() {
 
       final result = await service.rejectRequest(2, comment: 'no');
 
-      expect(result?['status'], 'rejected');
+      expect(result, isA<ApiSuccess<Map<String, dynamic>>>());
+      expect((result as ApiSuccess<Map<String, dynamic>>).data['status'], 'rejected');
+    });
+
+    test('rejectRequest propagates a 500 as ApiFailure, never a silent no-op', () async {
+      final mockHttp = MockClient((request) async {
+        return http.Response('Server error', 500);
+      });
+      final service = AgentPlatformService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
+
+      final result = await service.rejectRequest(2, comment: 'no');
+
+      expect(result, isA<ApiFailure<Map<String, dynamic>>>());
     });
   });
 
@@ -179,9 +217,23 @@ void main() {
         workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
       );
 
-      final chart = await service.getOrgChart();
+      final result = await service.getOrgChart();
 
-      expect(chart?['root'], 'founder_copilot');
+      expect(result, isA<ApiSuccess<Map<String, dynamic>>>());
+      expect((result as ApiSuccess<Map<String, dynamic>>).data['root'], 'founder_copilot');
+    });
+
+    test('getOrgChart propagates a 404 as ApiFailure, never a fabricated empty chart', () async {
+      final mockHttp = MockClient((request) async {
+        return http.Response(jsonEncode({'message': 'not found'}), 404);
+      });
+      final service = AgentPlatformService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
+
+      final result = await service.getOrgChart();
+
+      expect(result, isA<ApiFailure<Map<String, dynamic>>>());
     });
   });
 }

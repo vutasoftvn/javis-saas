@@ -96,13 +96,12 @@ mixin HubControlPlaneMixin on GetxController {
   }
 
   Future<void> loadControlPlaneApprovals() async {
-    try {
-      activeApprovals.assignAll(
-        await agentPlatformService.listApprovals(status: 'PENDING'),
-      );
-    } catch (e) {
-      debugPrint('[HologramHub] Error loading approvals: $e');
-    }
+    final result = await agentPlatformService.listApprovals(status: 'PENDING');
+    result.when(
+      success: (data, _) => activeApprovals.assignAll(data),
+      failure: (failure) =>
+          debugPrint('[HologramHub] Error loading approvals: ${failure.message}'),
+    );
   }
 
   Future<void> loadWorkProducts() async {
@@ -198,23 +197,30 @@ mixin HubControlPlaneMixin on GetxController {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   Future<void> approveAgentAction(int id, [String? comment]) async {
-    try {
-      await agentPlatformService.approveRequest(id, comment: comment);
-      await loadControlPlaneApprovals();
-      await loadControlPlaneSummary();
-    } catch (e) {
-      debugPrint('[HologramHub] Error approving agent action: $e');
+    final result = await agentPlatformService.approveRequest(id, comment: comment);
+    if (result case ApiFailure(failure: final f)) {
+      // Fix-review (2026-09-02) — trước đây `approveRequest` trả `null` khi
+      // lỗi và bị nuốt ở đây: Founder bấm "Duyệt", request 500/404 thật,
+      // nhưng UI vẫn coi như đã duyệt xong (reload danh sách rỗng trông
+      // giống "đã xử lý"). Đây là mutation rủi ro — phải báo lỗi thật, không
+      // được âm thầm tiếp tục như đã thành công.
+      debugPrint('[HologramHub] Error approving agent action: ${f.message}');
+      AppToast.error('Không thể duyệt yêu cầu: ${f.message}');
+      return;
     }
+    await loadControlPlaneApprovals();
+    await loadControlPlaneSummary();
   }
 
   Future<void> rejectAgentAction(int id, [String? comment]) async {
-    try {
-      await agentPlatformService.rejectRequest(id, comment: comment);
-      await loadControlPlaneApprovals();
-      await loadControlPlaneSummary();
-    } catch (e) {
-      debugPrint('[HologramHub] Error rejecting agent action: $e');
+    final result = await agentPlatformService.rejectRequest(id, comment: comment);
+    if (result case ApiFailure(failure: final f)) {
+      debugPrint('[HologramHub] Error rejecting agent action: ${f.message}');
+      AppToast.error('Không thể từ chối yêu cầu: ${f.message}');
+      return;
     }
+    await loadControlPlaneApprovals();
+    await loadControlPlaneSummary();
   }
 
   Future<void> acceptAgentWorkProduct(int id) async {

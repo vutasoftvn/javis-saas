@@ -4,6 +4,14 @@ import 'package:get/get.dart';
 /// ExceptionEscalationInbox — Phase 6
 /// Hiển thị và quản lý Exception Escalations trong AI Workforce.
 /// 3 tier: FOUNDER_GATE (🔴 đỏ), LEAD_NOTIFY (🟡 vàng), AUTO_RETRY (🔵 xanh)
+///
+/// Truthfulness fix (2026-09-02): backend không có route thật cho
+/// `POST /workforce/exceptions/{id}/resolve` (không router nào trong
+/// `apps/cosa/api/` phục vụ `/workforce/exceptions/*`, chỉ có
+/// `/agent/workforce/*`). Trước đây bấm nút hành động vẫn gọi API này, luôn
+/// nhận 404 bị nuốt thành `null`, và không có phản hồi gì cho founder — nút
+/// "chạy" nhưng không làm gì. Nay các nút hành động bị vô hiệu hoá ngay từ
+/// đầu (không bấm được) và hiển thị rõ lý do, thay vì im lặng thất bại.
 class ExceptionEscalationInbox extends StatelessWidget {
   final RxList<Map<String, dynamic>> escalations;
   final Map<String, dynamic>? summary;
@@ -113,25 +121,21 @@ class ExceptionEscalationInbox extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // Summary chips
-                Obx(() {
-                  final s = summary;
-                  if (s == null) return const SizedBox.shrink();
-                  return Wrap(
+                if (summary != null)
+                  Wrap(
                     spacing: 8,
                     runSpacing: 6,
                     children: [
                       _tierChip(
-                        '🔴 ${s['founder_gate_count'] ?? 0} Founder Gate',
+                        '🔴 ${summary!['founder_gate_count'] ?? 0} Founder Gate',
                         const Color(0xFFEF4444),
                       ),
                       _tierChip(
-                        '🟡 ${s['lead_notify_count'] ?? 0} Lead Notify',
+                        '🟡 ${summary!['lead_notify_count'] ?? 0} Lead Notify',
                         const Color(0xFFEAB308),
                       ),
                     ],
-                  );
-                }),
+                  ),
                 const SizedBox(height: 12),
                 Divider(color: Colors.white.withValues(alpha: 0.08)),
               ],
@@ -331,7 +335,7 @@ class _EscalationCard extends StatelessWidget {
             const SizedBox(height: 12),
 
             // Row 4: Action buttons (contextual per exception type)
-            _buildActionRow(context, tier, exceptionType),
+            _buildActionRow(tier, exceptionType),
           ],
         ),
       ),
@@ -377,7 +381,14 @@ class _EscalationCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionRow(BuildContext context, String tier, String exceptionType) {
+  /// Task truthfulness fix (2026-09-02): các action trước đây gọi
+  /// `POST /workforce/exceptions/{id}/resolve` — route này không tồn tại ở
+  /// backend (`apps/cosa/api/workforce_routes.py` chỉ có prefix
+  /// `/agent/workforce/*`, không có `exceptions/*`). Danh sách action vẫn
+  /// giữ lại để founder biết những hành động nào SẼ có khi backend làm xong,
+  /// nhưng render dưới dạng disabled (không có `GestureDetector`/`onTap`) kèm
+  /// banner giải thích lý do — không còn là no-op im lặng.
+  Widget _buildActionRow(String tier, String exceptionType) {
     final List<_ActionButton> actions;
 
     switch (exceptionType) {
@@ -409,85 +420,53 @@ class _EscalationCard extends StatelessWidget {
         ];
     }
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: actions.map((a) {
-        return GestureDetector(
-          onTap: () {
-            if (a.action == 'force_approve' || a.action == 'increase_budget') {
-              // Hiện dialog comment trước
-              _showCommentDialog(context, a);
-            } else {
-              onResolve(a.action, null);
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: a.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: a.color.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              a.label,
-              style: TextStyle(
-                color: a.color,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Các nút action bị vô hiệu hoá — không còn GestureDetector/onTap nên
+        // không có cách nào tap để kích hoạt lệnh gọi tới route không tồn tại.
+        Opacity(
+          opacity: 0.4,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: actions.map((a) {
+              return Container(
+                key: Key('escalation_action_disabled_${a.action}'),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: a.color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: a.color.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  a.label,
+                  style: TextStyle(
+                    color: a.color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          key: const Key('escalation_resolve_unavailable_banner'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lock_clock_rounded, size: 13, color: Colors.white38),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Xử lý escalation qua API hiện chưa khả dụng — backend chưa có route resolve.',
+                style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.3),
               ),
             ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  void _showCommentDialog(BuildContext context, _ActionButton action) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1D24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          action.label,
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ],
         ),
-        content: TextField(
-          controller: controller,
-          style: TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: 'Ghi chú quyết định (tùy chọn)...',
-            hintStyle: TextStyle(color: Colors.white38),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.06),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          maxLines: 3,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Huỷ', style: TextStyle(color: Colors.white38)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: action.color.withValues(alpha: 0.2),
-              foregroundColor: action.color,
-              elevation: 0,
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              onResolve(action.action, controller.text.isEmpty ? null : controller.text);
-            },
-            child: Text('Xác nhận', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
+      ],
     );
   }
 

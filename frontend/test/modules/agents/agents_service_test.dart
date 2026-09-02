@@ -4,6 +4,12 @@
 // `agents_controller.dart` (`getOrgChart()`, `getRuns()`) là consumer sống
 // của hai method này. Route thật đã mount: `/agent/workforce/org-chart`,
 // `/agent/workforce/runs` (`apps/cosa/api/workforce_routes.py`).
+//
+// Fix-review (2026-09-02) — bản đầu tiên vẫn nuốt `ApiFailure` thành
+// `null`/`[]` bên trong service dù đã đi qua `WorkforceMvpService` (vốn có
+// `ApiFailure` thật). `getOrgChart`/`getRuns` giờ trả thẳng `ApiResult<T>` —
+// test dưới đây khoá đúng hành vi honest-failure-propagation tại boundary
+// này (`agents_controller.dart` xử lý nhánh `ApiFailure` tường minh).
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +17,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
 import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/modules/agents/services/agents_service.dart';
@@ -44,9 +51,23 @@ void main() {
       workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
     );
 
-    final chart = await service.getOrgChart();
+    final result = await service.getOrgChart();
 
-    expect(chart?['root'], 'founder_copilot');
+    expect(result, isA<ApiSuccess<Map<String, dynamic>>>());
+    expect((result as ApiSuccess<Map<String, dynamic>>).data['root'], 'founder_copilot');
+  });
+
+  test('getOrgChart propagates a 404 as ApiFailure, never a fabricated empty chart', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(jsonEncode({'message': 'not found'}), 404);
+    });
+    final service = AgentsService(
+      workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+    );
+
+    final result = await service.getOrgChart();
+
+    expect(result, isA<ApiFailure<Map<String, dynamic>>>());
   });
 
   test('getRuns calls the canonical /agent/workforce/runs path and decodes the MVP envelope', () async {
@@ -80,13 +101,15 @@ void main() {
       workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
     );
 
-    final runs = await service.getRuns();
+    final result = await service.getRuns();
 
+    expect(result, isA<ApiSuccess<List<Map<String, dynamic>>>>());
+    final runs = (result as ApiSuccess<List<Map<String, dynamic>>>).data;
     expect(runs, hasLength(1));
-    expect((runs.single as Map<String, dynamic>)['run_id'], 'run_1');
+    expect(runs.single['run_id'], 'run_1');
   });
 
-  test('getRuns returns an empty list (not a throw) when the canonical endpoint fails', () async {
+  test('getRuns propagates a 500 as ApiFailure, never a fabricated empty history', () async {
     var requested = '';
     final mockHttp = MockClient((request) async {
       requested = request.url.path;
@@ -96,9 +119,10 @@ void main() {
       workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
     );
 
-    final runs = await service.getRuns();
+    final result = await service.getRuns();
 
     expect(requested, '/agent/workforce/runs');
-    expect(runs, isEmpty);
+    expect(result, isA<ApiFailure<List<Map<String, dynamic>>>>());
+    expect((result as ApiFailure<List<Map<String, dynamic>>>).failure.statusCode, 500);
   });
 }
