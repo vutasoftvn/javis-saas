@@ -1,33 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/routing/module_routes.dart';
 import '../../../../core/services/feature_flags_controller.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/feature_not_enabled_view.dart';
-import '../../../agents/views/agents_view.dart';
-import '../../../approvals/views/approvals_view.dart';
-import '../../../finance/views/finance_view.dart';
 import '../../../hologram_hub/views/hologram_hub_view.dart';
-import '../../../legal/views/legal_view.dart';
-import '../../../marketing/views/marketing_cockpit_view.dart';
 import '../../../organization/views/organization_view.dart';
-import '../../../sales/views/sales_view.dart';
-import '../../../settings/views/settings_view.dart';
 import '../../../skills/views/skill_registry_view.dart';
 import '../../../strategy/views/okrs_view.dart';
 import '../../../strategy/views/project_funding_view.dart';
 import '../../../strategy/views/project_roadmap_view.dart';
-import '../../../strategy/views/strategy_view.dart';
 import '../../../strategy/views/template_library_view.dart';
 import '../../../strategy/views/twelve_week_year_view.dart';
-import '../../../tasks/views/tasks_view.dart';
-import '../../../vault/views/vault_view.dart';
-import '../../../workflows/views/workflows_view.dart';
 import '../../../workspace_runtime/views/blocked_work_view.dart';
 import '../../../workspace_runtime/views/needs_you_view.dart';
 import '../../../workspace_runtime/views/work_inspector_view.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../models/dashboard_nav_config.dart';
 
+/// Task 9 — trước đây widget này là "authority" DUY NHẤT chọn view bằng một
+/// index nguyên (switch 0..33), không thể deep-link/back-stack/guard riêng
+/// từng mục. Nay chỉ còn giữ các mục CHƯA có route canonical
+/// (`WorkspaceModule`) — xem `module_routes.dart`. Mục ĐÃ migrate không còn
+/// build view tại đây nữa: `_buildFeatureView` trở thành một "redirect
+/// adapter" tạm thời, điều hướng sang route thật thay vì render inline.
+///
+/// Switch chỉ được XOÁ HẲN khi mọi mục sidebar đều có route canonical — hiện
+/// tại còn ~10 mục (OKRs, 12WY, roadmap, template library, project funding,
+/// needs-you, blocked-work, work-inspector, organization, skill registry)
+/// chưa có route riêng, nên adapter này còn cần thiết (đúng tinh thần "retain
+/// feature pages initially" của Task 9).
 class DashboardContentBody extends StatelessWidget {
   final DashboardController controller;
 
@@ -50,36 +52,24 @@ class DashboardContentBody extends StatelessWidget {
   }
 
   Widget _buildFeatureView(int index) {
+    // Redirect adapter: mục này đã có route canonical thật — điều hướng
+    // sang đó thay vì render trực tiếp. Không dùng cho `index == 0` (hub) vì
+    // hub CHÍNH LÀ route đang host widget này.
+    final module = moduleForLegacyIndex(index);
+    if (module != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Get.currentRoute != module.path) {
+          Get.toNamed(module.path);
+        }
+      });
+      return const Center(child: CircularProgressIndicator());
+    }
+
     switch (index) {
       case 0:
         return const HologramHubView();
-      case 1:
-        return const TasksView();
-      case 2:
-        return const VaultView();
-      case 3:
-        return StrategyView(
-          key: ValueKey('strategy_view_${controller.strategyInitialTabIndex.value}'),
-          initialTabIndex: controller.strategyInitialTabIndex.value,
-        );
-      case 5:
-        return const WorkflowsView();
-      case 6:
-        return const ApprovalsView();
-      case 7:
-        return const AgentsView();
-      case 13:
-        return const SettingsView();
-      case 17:
-        return const MarketingCockpitView();
       case 19:
         return const OrganizationView();
-      case 21:
-        return const FinanceView();
-      case 22:
-        return const LegalView();
-      case 23:
-        return const SalesView();
       case 24:
         return const NeedsYouView();
       case 25:

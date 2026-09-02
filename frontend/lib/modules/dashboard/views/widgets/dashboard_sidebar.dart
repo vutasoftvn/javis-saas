@@ -1,11 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/routing/app_routes.dart';
+import '../../../../core/routing/module_routes.dart';
 import '../../../../core/services/feature_flags_controller.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../models/dashboard_nav_config.dart';
 import 'dashboard_stage_demo_bar.dart';
+
+/// Task 9 — sidebar không còn tự quyết định nội dung bằng
+/// `controller.changePage(index, ...)` cho các mục ĐÃ có route canonical
+/// thật (`WorkspaceModule`): những mục đó điều hướng bằng `Get.toNamed` để
+/// có back-stack thật + guard riêng. Mục CHƯA migrate (chưa có route) vẫn
+/// giữ hành vi cũ — đổi `currentIndex` tại chỗ trong `DashboardContentBody`.
+void _navigateOrChangePage(DashboardController controller, int index, int groupIndex) {
+  final module = moduleForLegacyIndex(index);
+  if (module != null) {
+    Get.toNamed(module.path);
+    return;
+  }
+  controller.changePage(index, groupIndex);
+}
 
 class DashboardDesktopSidebar extends StatelessWidget {
   final DashboardController controller;
@@ -175,7 +190,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: () => controller.changePage(item.index, gIndex),
+                            onTap: () => _navigateOrChangePage(controller, item.index, gIndex),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -269,7 +284,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
                               isSelected: isSelected,
                               isRecommended: isRec,
                               isDimmed: isDimmed,
-                              onTap: () => controller.changePage(item.index, gIndex),
+                              onTap: () => _navigateOrChangePage(controller, item.index, gIndex),
                             ),
                           );
                         }).toList(),
@@ -464,7 +479,7 @@ class DashboardMobileDrawer extends StatelessWidget {
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
-                              controller.changePage(item.index, gIndex);
+                              _navigateOrChangePage(controller, item.index, gIndex);
                               Navigator.pop(context);
                             },
                             borderRadius: BorderRadius.circular(8),
@@ -561,7 +576,7 @@ class DashboardMobileDrawer extends StatelessWidget {
                               isRecommended: isRec,
                               isDimmed: isDimmed,
                               onTap: () {
-                                controller.changePage(item.index, gIndex);
+                                _navigateOrChangePage(controller, item.index, gIndex);
                                 Navigator.pop(context);
                               },
                             ),

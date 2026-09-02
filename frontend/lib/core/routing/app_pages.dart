@@ -1,45 +1,28 @@
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'app_routes.dart';
 import 'auth_middleware.dart';
+import 'module_routes.dart';
 
 import '../../modules/auth/views/login_view.dart';
 import '../../modules/auth/views/register_view.dart';
 import '../../modules/auth/bindings/auth_binding.dart';
 import '../../modules/dashboard/views/dashboard_view.dart';
 import '../../modules/dashboard/bindings/dashboard_binding.dart';
-import '../../modules/hologram_hub/views/hologram_hub_view.dart';
-import '../../modules/hologram_hub/bindings/hologram_hub_binding.dart';
 import '../../modules/mission_control/views/mission_control_view.dart';
 import '../../modules/mission_control/bindings/mission_control_binding.dart';
-import '../../modules/approvals/views/approvals_view.dart';
-import '../../modules/approvals/bindings/approvals_binding.dart';
-import '../../modules/agents/views/agents_view.dart';
-import '../../modules/agents/bindings/agents_binding.dart';
-import '../../modules/tasks/views/tasks_view.dart';
-import '../../modules/tasks/bindings/tasks_binding.dart';
 import '../../modules/profile/views/profile_view.dart';
 import '../../modules/profile/bindings/profile_binding.dart';
 import '../../modules/workspace_picker/views/workspace_picker_view.dart';
 import '../../modules/workspace_picker/bindings/workspace_picker_binding.dart';
-import '../../modules/strategy/views/strategy_view.dart';
-import '../../modules/strategy/bindings/strategy_binding.dart';
-import '../../modules/vault/views/vault_view.dart';
-import '../../modules/vault/bindings/vault_binding.dart';
-import '../../modules/sales/views/sales_view.dart';
-import '../../modules/sales/bindings/sales_binding.dart';
-import '../../modules/marketing/views/marketing_cockpit_view.dart';
-import '../../modules/marketing/bindings/marketing_binding.dart';
-import '../../modules/finance/views/finance_view.dart';
-import '../../modules/finance/bindings/finance_binding.dart';
-import '../../modules/legal/views/legal_view.dart';
-import '../../modules/legal/bindings/legal_binding.dart';
-import '../../modules/workflows/views/workflows_view.dart';
-import '../../modules/workflows/bindings/workflows_binding.dart';
 import '../../modules/chat/views/chat_view.dart';
 import '../../modules/chat/bindings/chat_binding.dart';
 
-import '../widgets/capability_gated_view.dart';
-
+/// Task 9 — `/dashboard` và `/hub` từng trỏ tới 2 view KHÁC NHAU
+/// (`DashboardView` so với `HologramHubView`), trùng lặp vai trò "hub". Nay
+/// `/hub` là route canonical DUY NHẤT host `DashboardView` (chrome
+/// `AppShell` + `DashboardContentBody` cho các mục sidebar chưa migrate);
+/// `/dashboard` chỉ còn là alias redirect sang `/hub`.
 class AppPages {
   static const initial = AppRoutes.login;
 
@@ -70,16 +53,17 @@ class AppPages {
       // thẳng bằng deep-link/hot-restart mất arguments.
       middlewares: [AuthMiddleware(), WorkspacePickerGuardMiddleware()],
     ),
+    // Task 9 — `/dashboard` không còn tự render: chỉ redirect sang `/hub`
+    // (route canonical mới), giữ lại để không phá deep-link/bookmark cũ.
     GetPage(
       name: AppRoutes.dashboard,
-      page: () => const DashboardView(),
-      binding: DashboardBinding(),
-      middlewares: [AuthMiddleware()],
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(AppRoutes.hub)],
     ),
     GetPage(
       name: AppRoutes.hub,
-      page: () => const HologramHubView(),
-      binding: HologramHubBinding(),
+      page: () => const DashboardView(),
+      binding: DashboardBinding(),
       middlewares: [AuthMiddleware()],
     ),
     GetPage(
@@ -89,86 +73,72 @@ class AppPages {
       middlewares: [AuthMiddleware()],
     ),
     GetPage(
-      name: AppRoutes.approvals,
-      page: () => const ApprovalsView(),
-      binding: ApprovalsBinding(),
-      middlewares: [AuthMiddleware()],
-    ),
-    GetPage(
-      name: AppRoutes.agents,
-      page: () => const AgentsView(),
-      binding: AgentsBinding(),
-      middlewares: [AuthMiddleware()],
-    ),
-    GetPage(
-      name: AppRoutes.tasks,
-      page: () => const TasksView(),
-      binding: TasksBinding(),
-      middlewares: [AuthMiddleware()],
-    ),
-    GetPage(
       name: AppRoutes.profile,
       page: () => const ProfileView(),
       binding: ProfileBinding(),
       middlewares: [AuthMiddleware()],
     ),
+
+    // Task 9 — 10 route flat cũ bên dưới (approvals/agents/tasks/vault/
+    // strategy/sales/marketing/finance/legal/workflows) KHÔNG còn tự render
+    // nữa — mỗi module giờ có route canonical thật dưới `/work/*`
+    // (`moduleRoutes`, xem cuối danh sách). Route cũ chỉ redirect, giữ lại
+    // để không phá deep-link/bookmark cũ (per Task 9 brief: "retain legacy
+    // URLs").
     GetPage(
-      name: AppRoutes.strategy,
-      page: () => const StrategyView(),
-      binding: StrategyBinding(),
-      middlewares: [AuthMiddleware()],
+      name: AppRoutes.approvals,
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.approvals.path)],
+    ),
+    GetPage(
+      name: AppRoutes.agents,
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.agents.path)],
+    ),
+    GetPage(
+      name: AppRoutes.tasks,
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.tasks.path)],
     ),
     GetPage(
       name: AppRoutes.vault,
-      page: () => CapabilityGatedView.gated(
-        moduleName: 'Vault & Knowledge Store',
-        capabilitySelector: (m) => m.vaultSupported,
-        child: const VaultView(),
-      ),
-      binding: VaultBinding(),
-      middlewares: [AuthMiddleware()],
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.vault.path)],
+    ),
+    GetPage(
+      name: AppRoutes.strategy,
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.strategy.path)],
     ),
     GetPage(
       name: AppRoutes.sales,
-      page: () => CapabilityGatedView.gated(
-        moduleName: 'Sales CRM & Deals',
-        capabilitySelector: (m) => m.salesSupported,
-        child: const SalesView(),
-      ),
-      binding: SalesBinding(),
-      middlewares: [AuthMiddleware()],
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.sales.path)],
     ),
     GetPage(
       name: AppRoutes.marketing,
-      page: () => CapabilityGatedView.gated(
-        moduleName: 'Marketing Cockpit',
-        capabilitySelector: (m) => m.marketingSupported,
-        child: const MarketingCockpitView(),
-      ),
-      binding: MarketingBinding(),
-      middlewares: [AuthMiddleware()],
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.marketing.path)],
     ),
     GetPage(
       name: AppRoutes.finance,
-      page: () => const FinanceView(),
-      binding: FinanceBinding(),
-      middlewares: [AuthMiddleware()],
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.finance.path)],
     ),
     GetPage(
       name: AppRoutes.legal,
-      page: () => const LegalView(),
-      binding: LegalBinding(),
-      middlewares: [AuthMiddleware()],
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.legal.path)],
     ),
     GetPage(
       name: AppRoutes.workflows,
-      page: () => CapabilityGatedView.gated(
-        moduleName: 'Automated Workflows',
-        capabilitySelector: (m) => m.workflowsSupported,
-        child: const WorkflowsView(),
-      ),
-      binding: WorkflowsBinding(),
-      middlewares: [AuthMiddleware()],
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware(WorkspaceModule.workflows.path)],
     ),
+
+    // Task 9 — route canonical thật cho mọi module (mỗi route có
+    // binding/page/guard riêng, xem `module_routes.dart`). `settings` là
+    // route MỚI HOÀN TOÀN — trước đây chỉ vào được qua index sidebar cũ.
+    ...moduleRoutes,
   ];
 }

@@ -2,27 +2,33 @@ import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
 import '../../hologram_hub/controllers/hologram_hub_controller.dart';
 import '../../hologram_hub/controllers/founder_command_center_controller.dart';
-import '../../tasks/controllers/tasks_controller.dart';
-import '../../vault/controllers/vault_controller.dart';
 import '../../strategy/controllers/strategy_controller.dart';
 import '../../strategy/controllers/project_orchestration_controller.dart';
 import '../../strategy/controllers/foundation_controller.dart';
-import '../../approvals/controllers/approvals_controller.dart';
-import '../../agents/controllers/agents_controller.dart';
-import '../../workflows/controllers/workflows_controller.dart';
-import '../../marketing/controllers/marketing_controller.dart';
-import '../../sales/controllers/sales_controller.dart';
-import '../../sales/controllers/sales_today_controller.dart';
-import '../../sales/controllers/funnel_controller.dart';
-import '../../finance/controllers/finance_controller.dart';
-import '../../legal/controllers/legal_controller.dart';
 import '../../organization/controllers/organization_controller.dart';
-import '../../settings/controllers/settings_controller.dart';
 import '../../workspace_runtime/controllers/workspace_runtime_controller.dart';
 import '../../skills/controllers/skill_registry_controller.dart';
 import '../../mission_control/controllers/mission_control_controller.dart';
 import '../../../core/services/feature_flags_controller.dart';
 
+/// Task 9 Step 3 — trước đây binding này eager-load TOÀN BỘ controller của
+/// mọi module workspace (Tasks/Vault/Approvals/Agents/Workflows/Marketing/
+/// Sales+SalesToday+Funnel/Finance/Legal/Settings) dù người dùng chưa mở
+/// module nào — mỗi lần vào `/hub`/`/dashboard` đều dựng ~20 controller.
+///
+/// Các module ĐÃ có route canonical riêng (`module_routes.dart`) nay tự
+/// đăng ký controller của mình qua binding riêng khi vào route, và tự huỷ
+/// khi rời route (hành vi mặc định của `Get.lazyPut` gắn với `GetPage`) —
+/// `DashboardBinding` không còn cần đăng ký hộ chúng nữa.
+///
+/// Những gì còn lại ở đây là dependency cho các mục sidebar CHƯA migrate
+/// (vẫn hiển thị qua `DashboardContentBody` tại `/hub`): hub/founder command
+/// center (index 0), strategy family — dùng chung bởi CẢ `/work/strategy`
+/// LẪN các sub-view chưa migrate okrs/12WY/roadmap/template-library/funding
+/// (index 27/28/29/30/32), organization (19), workspace runtime — needs-you/
+/// blocked-work/work-inspector (24/25/26), skill registry (33), mission
+/// control. KHÔNG được xoá các controller này khỏi đây cho tới khi các mục
+/// sidebar tương ứng cũng có route canonical riêng.
 class DashboardBinding extends Bindings {
   @override
   void dependencies() {
@@ -30,25 +36,12 @@ class DashboardBinding extends Bindings {
     Get.lazyPut<DashboardController>(() => DashboardController());
     Get.lazyPut<HologramHubController>(() => HologramHubController());
     Get.lazyPut<FounderCommandCenterController>(() => FounderCommandCenterController());
-    Get.lazyPut<TasksController>(() => TasksController());
-    Get.lazyPut<VaultController>(() => VaultController());
     Get.lazyPut<StrategyController>(() => StrategyController());
     Get.lazyPut<ProjectOrchestrationController>(() => ProjectOrchestrationController());
     Get.lazyPut<FoundationController>(() => FoundationController());
-    Get.lazyPut<ApprovalsController>(() => ApprovalsController());
-    Get.lazyPut<AgentsController>(() => AgentsController());
-    Get.lazyPut<WorkflowsController>(() => WorkflowsController());
-    Get.lazyPut<MarketingController>(() => MarketingController());
-    Get.lazyPut<SalesController>(() => SalesController());
-    Get.lazyPut<SalesTodayController>(() => SalesTodayController());
-    Get.lazyPut<FunnelController>(() => FunnelController());
-    Get.lazyPut<FinanceController>(() => FinanceController());
-    Get.lazyPut<LegalController>(() => LegalController());
     Get.lazyPut<OrganizationController>(() => OrganizationController());
-    Get.lazyPut<SettingsController>(() => SettingsController());
     Get.lazyPut<WorkspaceRuntimeController>(() => WorkspaceRuntimeController());
     Get.lazyPut<SkillRegistryController>(() => SkillRegistryController());
     Get.lazyPut<MissionControlController>(() => MissionControlController());
   }
 }
-

@@ -15,6 +15,12 @@ abstract class AppRoutes {
   static const profile = '/profile';
 
   // Feature Modules Routes
+  // Task 9 — các hằng số path bên dưới (approvals/agents/tasks/vault/
+  // strategy/sales/marketing/finance/legal/workflows) giờ chỉ còn dùng làm
+  // NGUỒN cho route redirect legacy (xem `LegacyModuleRedirectMiddleware`
+  // trong `module_routes.dart`) — route thật, đang guard bởi AuthMiddleware,
+  // nằm ở `WorkspaceModule.<module>.path` (namespace `/work/*`). Giữ nguyên
+  // các hằng số này để không phá deep-link/bookmark cũ.
   static const approvals = '/approvals';
   static const agents = '/agents';
   static const tasks = '/tasks';
