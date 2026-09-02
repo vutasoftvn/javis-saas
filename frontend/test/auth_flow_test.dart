@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +16,7 @@ import 'core/services/fakes/fake_secret_store.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  Get.testMode = true;
 
   // Token (auth_token/local_session_token/platform_access_token) đi qua
   // secret store fail-closed thật (Keychain/Keystore) chứ không còn qua
@@ -248,6 +250,81 @@ void main() {
       expect(ok, isFalse);
       expect(AuthService.isAuthenticated, isFalse);
     });
+
+    // Task 4 — trước đây finishAuthenticationForWorkspace luôn trả `true` bất
+    // kể getMe() thành công hay không (chỉ ghi workspace_id rồi gọi getMe()
+    // không kiểm tra kết quả). Global constraint: không được nuốt lỗi
+    // network/HTTP thành `true`/`null` mập mờ — trả typed AuthResult để
+    // SessionController biết chính xác vì sao activation thất bại.
+    test('finishAuthenticationForWorkspace returns a failed AuthResult when /identity/me is 401',
+        () async {
+      AuthService.setCachedToken('local-session-token');
+      ApiClient.client = MockClient((request) async => http.Response('{}', 401));
+
+      final service = AuthService();
+      final result = await service.finishAuthenticationForWorkspace(
+        workspaceId: 'ws-1',
+      );
+
+      expect(result.success, isFalse);
+      expect(result.errorMessage, isNotNull);
+    });
+
+    test('finishAuthenticationForWorkspace returns a failed AuthResult when /identity/me is 500',
+        () async {
+      AuthService.setCachedToken('local-session-token');
+      ApiClient.client = MockClient((request) async => http.Response('{}', 500));
+
+      final service = AuthService();
+      final result = await service.finishAuthenticationForWorkspace(
+        workspaceId: 'ws-1',
+      );
+
+      expect(result.success, isFalse);
+      expect(result.errorMessage, isNotNull);
+    });
+
+    test('finishAuthenticationForWorkspace returns a failed AuthResult when the response workspace does not match the target',
+        () async {
+      AuthService.setCachedToken('local-session-token');
+      ApiClient.client = MockClient((request) async => http.Response(
+            jsonEncode({
+              'id': 'user-1',
+              'workspaceId': 'ws-OTHER',
+              'role': 'member',
+            }),
+            200,
+          ));
+
+      final service = AuthService();
+      final result = await service.finishAuthenticationForWorkspace(
+        workspaceId: 'ws-1',
+      );
+
+      expect(result.success, isFalse);
+      expect(result.errorMessage, isNotNull);
+    });
+
+    test('finishAuthenticationForWorkspace returns a successful AuthResult when the workspace matches',
+        () async {
+      AuthService.setCachedToken('local-session-token');
+      ApiClient.client = MockClient((request) async => http.Response(
+            jsonEncode({
+              'id': 'user-1',
+              'workspaceId': 'ws-1',
+              'role': 'founder',
+            }),
+            200,
+          ));
+
+      final service = AuthService();
+      final result = await service.finishAuthenticationForWorkspace(
+        workspaceId: 'ws-1',
+      );
+
+      expect(result.success, isTrue);
+      expect(result.user, isNotNull);
+    });
   });
 
   group('AuthService.validateCachedToken', () {
@@ -308,6 +385,62 @@ void main() {
     test('allows authenticated user to access protected routes', () {
       AuthService.setCachedToken('valid-token');
       final result = middleware.redirect(AppRoutes.hub);
+      expect(result, isNull);
+    });
+  });
+
+  group('WorkspacePickerGuardMiddleware', () {
+    final middleware = WorkspacePickerGuardMiddleware();
+
+    tearDown(() => Get.routing.args = null);
+
+    test('redirects to login when route arguments are missing entirely', () {
+      Get.routing.args = null;
+      final result = middleware.redirect(AppRoutes.workspacePicker);
+      expect(result, isNotNull);
+      expect(result?.name, AppRoutes.login);
+    });
+
+    test('redirects to login when platformToken is empty', () {
+      Get.routing.args = {
+        'platformToken': '',
+        'workspaces': <WorkspaceSummary>[
+          const WorkspaceSummary(
+            workspaceId: 'ws-1',
+            name: 'A',
+            roleId: 'founder',
+            status: 'active',
+          ),
+        ],
+      };
+      final result = middleware.redirect(AppRoutes.workspacePicker);
+      expect(result, isNotNull);
+      expect(result?.name, AppRoutes.login);
+    });
+
+    test('redirects to login when workspaces list is empty (stale arguments)', () {
+      Get.routing.args = {
+        'platformToken': 'plat-tok-123',
+        'workspaces': <WorkspaceSummary>[],
+      };
+      final result = middleware.redirect(AppRoutes.workspacePicker);
+      expect(result, isNotNull);
+      expect(result?.name, AppRoutes.login);
+    });
+
+    test('allows the route when arguments carry a real platformToken + workspaces', () {
+      Get.routing.args = {
+        'platformToken': 'plat-tok-123',
+        'workspaces': <WorkspaceSummary>[
+          const WorkspaceSummary(
+            workspaceId: 'ws-1',
+            name: 'A',
+            roleId: 'founder',
+            status: 'active',
+          ),
+        ],
+      };
+      final result = middleware.redirect(AppRoutes.workspacePicker);
       expect(result, isNull);
     });
   });

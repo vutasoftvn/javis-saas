@@ -64,6 +64,11 @@ class AppPages {
       name: AppRoutes.workspacePicker,
       page: () => const WorkspacePickerView(),
       binding: WorkspacePickerBinding(),
+      // Task 4 — AuthMiddleware (đã đăng nhập local) + guard riêng cho
+      // đúng route argument (platformToken + workspaces) — trước đây route
+      // này không có middleware nào, cho phép render picker "chết" nếu vào
+      // thẳng bằng deep-link/hot-restart mất arguments.
+      middlewares: [AuthMiddleware(), WorkspacePickerGuardMiddleware()],
     ),
     GetPage(
       name: AppRoutes.dashboard,

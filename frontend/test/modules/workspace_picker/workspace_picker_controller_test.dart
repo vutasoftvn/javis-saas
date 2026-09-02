@@ -2,23 +2,34 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:frontend/core/session/session_context_service.dart';
+import 'package:frontend/core/session/session_controller.dart';
+import 'package:frontend/core/session/session_snapshot.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/workspace_picker/controllers/workspace_picker_controller.dart';
 
-/// Fake AuthService để kiểm soát chính xác thời điểm request "hoàn tất" bằng
-/// [Completer], thay vì phụ thuộc network thật (không xác định, không thể
-/// test được isLoading transitions một cách tin cậy).
-class _FakeAuthService extends AuthService {
-  _FakeAuthService(this._completer);
+/// Context service không bao giờ thực sự được gọi trong các test dùng
+/// [_FakeSessionController] (activateWorkspace bị override hoàn toàn) — chỉ
+/// tồn tại để thoả constructor mặc định của SessionController.
+class _NeverCalledContextService implements SessionContextService {
+  @override
+  Future<SessionSnapshot> fetch(String workspaceId) =>
+      throw StateError('SessionContextService.fetch should not be called in this test');
+}
 
-  final Completer<bool> _completer;
+/// Task 4 — Fake SessionController để kiểm soát chính xác thời điểm
+/// activateWorkspace "hoàn tất" bằng [Completer], thay vì phụ thuộc network
+/// thật (không xác định, không thể test được isLoading transitions một cách
+/// tin cậy). Kế thừa được vì SessionController không phải `final class`.
+class _FakeSessionController extends SessionController {
+  _FakeSessionController(this._completer)
+      : super(contextService: _NeverCalledContextService());
+
+  final Completer<SessionActivationResult> _completer;
   int callCount = 0;
 
   @override
-  Future<bool> finishAuthenticationForWorkspace({
-    required String platformToken,
-    required String workspaceId,
-  }) {
+  Future<SessionActivationResult> activateWorkspace(String workspaceId) {
     callCount++;
     return _completer.future;
   }
@@ -103,15 +114,16 @@ void main() {
     test(
         'selectWorkspace flips isLoading true only while a real request is pending',
         () async {
-      final completer = Completer<bool>();
-      final fakeAuth = _FakeAuthService(completer);
+      final completer = Completer<SessionActivationResult>();
+      final fakeSession = _FakeSessionController(completer);
       Get.routing.args = {
         'platformToken': 'platform-token-123',
         'workspaces': <WorkspaceSummary>[],
       };
       addTearDown(() => Get.routing.args = null);
 
-      final controller = WorkspacePickerController(authService: fakeAuth);
+      final controller =
+          WorkspacePickerController(sessionController: fakeSession);
       controller.onInit();
 
       expect(controller.platformToken, 'platform-token-123');
@@ -121,18 +133,21 @@ void main() {
 
       // Request đang pending (Completer chưa complete) -> isLoading phải true.
       expect(controller.isLoading.value, isTrue);
-      expect(fakeAuth.callCount, 1);
+      expect(fakeSession.callCount, 1);
 
-      // Complete với false để tránh nhánh điều hướng Get.offAllNamed (cần
+      // Complete với failure để tránh nhánh điều hướng Get.offAllNamed (cần
       // GetMaterialApp thật, không liên quan tới điều test này muốn chứng
       // minh: vòng đời isLoading trong lúc request đang pending).
-      completer.complete(false);
+      completer.complete(
+        SessionActivationResult.failure(message: 'simulated failure'),
+      );
       await future;
 
-      // Request đã hoàn tất -> isLoading phải quay lại false.
+      // Request đã hoàn tất -> isLoading phải quay lại false. Message hiển
+      // thị đúng nguyên văn `failureMessage` mà SessionController trả về
+      // (không còn message chung chung cố định — typed failure).
       expect(controller.isLoading.value, isFalse);
-      expect(controller.errorMessage.value,
-          'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.');
+      expect(controller.errorMessage.value, 'simulated failure');
 
       controller.onClose();
     });

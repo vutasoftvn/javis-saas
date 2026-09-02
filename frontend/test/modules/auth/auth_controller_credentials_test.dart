@@ -4,8 +4,48 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/session/session_context_service.dart';
+import 'package:frontend/core/session/session_controller.dart';
+import 'package:frontend/core/session/session_snapshot.dart';
 import 'package:frontend/modules/auth/controllers/auth_controller.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
+
+/// Task 4 — `AuthController.login` (single-workspace path) đi qua
+/// `SessionController.activateWorkspace` thay vì gọi
+/// `AuthService.finishAuthenticationForWorkspace` trực tiếp. Test này chỉ
+/// quan tâm hành vi lưu credentials (không bao giờ lưu plaintext password),
+/// không phải transaction xác minh workspace (đã có
+/// `test/core/session/session_controller_test.dart` cho việc đó), nên fake
+/// SessionController luôn thành công ngay, không đụng network.
+class _AlwaysSucceedsSessionController extends SessionController {
+  _AlwaysSucceedsSessionController()
+      : super(contextService: _UnusedContextService());
+
+  @override
+  Future<SessionActivationResult> activateWorkspace(String workspaceId) async {
+    return SessionActivationResult.success(
+      SessionSnapshot(
+        userId: 'user-1',
+        workspaceId: workspaceId,
+        role: 'founder',
+        runtime: const SessionRuntimeInfo(
+          mode: 'LOCAL_ONLY',
+          modeSource: 'inferred',
+          presenceStatus: 'ONLINE',
+          lastHeartbeatAt: null,
+          asOf: null,
+        ),
+        capabilities: const [],
+      ),
+    );
+  }
+}
+
+class _UnusedContextService implements SessionContextService {
+  @override
+  Future<SessionSnapshot> fetch(String workspaceId) =>
+      throw StateError('should not be called — activateWorkspace is overridden');
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -64,7 +104,9 @@ void main() {
           return http.Response('{}', 404);
         });
 
-        final controller = AuthController();
+        final controller = AuthController(
+          sessionController: _AlwaysSucceedsSessionController(),
+        );
         await Future<void>.delayed(Duration.zero);
 
         controller.rememberMe.value = true;

@@ -3,8 +3,22 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../modules/auth/services/auth_service.dart';
 import '../../../core/routing/app_routes.dart';
+import '../../../core/session/session_controller.dart';
 
 class AuthController extends GetxController {
+  // Task 4 — `sessionController` inject được cho test; production luôn
+  // resolve `Get.find<SessionController>()` (đăng ký permanent từ
+  // `main.dart` trước khi bất kỳ route nào mount). KHÔNG resolve trong
+  // constructor — các test form-validation dựng `AuthController()` trực
+  // tiếp mà không cần SessionController đăng ký, vì các đường validate đó
+  // return sớm, chưa bao giờ chạm `_session`.
+  AuthController({SessionController? sessionController})
+      : _injectedSessionController = sessionController;
+
+  final SessionController? _injectedSessionController;
+  SessionController get _session =>
+      _injectedSessionController ?? Get.find<SessionController>();
+
   final AuthService _authService = AuthService();
 
   // Login State
@@ -140,15 +154,16 @@ class AuthController extends GetxController {
     }
 
     if (workspaces.length == 1) {
-      // Auto-select single workspace
-      final ok = await _authService.finishAuthenticationForWorkspace(
-        platformToken: platformToken,
-        workspaceId: workspaces.first.workspaceId,
-      );
-      if (ok) {
+      // Auto-select single workspace — đi qua SessionController transaction
+      // (verify identity + session-context trước khi commit), CÙNG một
+      // đường với Workspace Picker, không tự điều hướng dựa trên bool đơn
+      // giản từ AuthService nữa (Task 4).
+      final result = await _session.activateWorkspace(workspaces.first.workspaceId);
+      if (result.isSuccess) {
         Get.offAllNamed(AppRoutes.hub);
       } else {
-        errorMessage.value = 'Đồng bộ dữ liệu công ty thất bại. Vui lòng thử lại.';
+        errorMessage.value = result.failureMessage ??
+            'Đồng bộ dữ liệu công ty thất bại. Vui lòng thử lại.';
       }
     } else {
       isLoading.value = false;

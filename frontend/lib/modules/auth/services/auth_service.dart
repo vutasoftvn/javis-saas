@@ -450,17 +450,45 @@ class AuthService {
     return true;
   }
 
-  /// Hoàn tất xác thực cho một workspace cụ thể sau khi đã sync toàn bộ list.
-  /// (Dùng sau khi người dùng chọn workspace từ Workspace Picker)
-  Future<bool> finishAuthenticationForWorkspace({
-    required String platformToken,
+  /// Hoàn tất xác thực cho một workspace cụ thể sau khi đã sync toàn bộ list
+  /// (dùng sau khi người dùng chọn workspace từ Workspace Picker, HOẶC khi
+  /// `SessionController.activateWorkspace` verify lại một workspace đã có
+  /// local_session_token).
+  ///
+  /// Task 4 review — TRƯỚC ĐÂY hàm này luôn trả `true` bất kể `getMe()`
+  /// thành công hay không, khiến picker/AuthController tin một session chưa
+  /// hề được xác thực. Global constraint của kế hoạch: không được nuốt lỗi
+  /// network/HTTP thành `true`/`false` mập mờ — trả typed [AuthResult] để
+  /// caller (đặc biệt `SessionController`) biết CHÍNH XÁC vì sao xác thực
+  /// thất bại (401/500/mismatch) trước khi commit bất kỳ state nào.
+  /// `platformToken` giữ lại (nullable) cho tương thích chữ ký cũ — thân hàm
+  /// chưa từng dùng tới giá trị này (identity xác nhận qua local session
+  /// token đã lưu, không qua platform token).
+  Future<AuthResult> finishAuthenticationForWorkspace({
+    String? platformToken,
     required String workspaceId,
   }) async {
-    // Lưu workspace_id vào secure storage
+    // Lưu workspace_id vào secure storage TRƯỚC khi gọi /identity/me — server
+    // đọc `X-Workspace-Id` để trả đúng ngữ cảnh workspace (user nhiều
+    // workspace).
     await SecureStorageService.write('workspace_id', workspaceId);
-    // Đã sync từ platform, bây giờ chỉ cần lấy ME data
-    await getMe();
-    return true;
+    final me = await getMe();
+    if (me == null) {
+      return const AuthResult(
+        success: false,
+        errorMessage:
+            'Không xác thực được phiên làm việc cho workspace này (identity/me thất bại)',
+      );
+    }
+    final actualWorkspaceId = (me['workspaceId'] ?? me['workspace_id'])?.toString();
+    if (actualWorkspaceId != workspaceId) {
+      return AuthResult(
+        success: false,
+        errorMessage:
+            'Workspace trả về ("$actualWorkspaceId") không khớp với workspace mục tiêu ("$workspaceId")',
+      );
+    }
+    return AuthResult(success: true, user: me);
   }
 
   /// Cap nhat ho so sau khi da dang nhap - dung de bo sung so dien thoai
