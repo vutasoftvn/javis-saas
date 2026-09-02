@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/services/secure_storage_service.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../modules/auth/services/auth_service.dart';
 import '../../../../modules/dashboard/services/hub_service.dart';
 import '../../../../modules/strategy/services/strategy_service.dart';
@@ -16,6 +17,15 @@ mixin HubCommandMixin on GetxController {
   HubService get hubService;
   StrategyService get strategyService;
   WorkspaceRuntimeService get runtimeService;
+
+  // Fix (2026-09-02, epoch-guard siblings) — cùng cơ chế đã áp dụng ở
+  // `HubControlPlaneMixin._workspaceGeneration`: các hàm `load*()` dưới đây
+  // capture giá trị này NGAY TRƯỚC mỗi `await` gọi service, rồi so sánh lại
+  // NGAY SAU khi await resolve — nếu khác, đã có switch workspace hoặc
+  // logout xảy ra trong lúc chờ, discard response, không ghi vào Rx state.
+  int get _workspaceGeneration => Get.isRegistered<SessionController>()
+      ? Get.find<SessionController>().workspaceGeneration
+      : 0;
 
   // ── Observables ──────────────────────────────────────────────────────────
   final isLoading = false.obs;
@@ -61,18 +71,22 @@ mixin HubCommandMixin on GetxController {
   // ── Data loading ─────────────────────────────────────────────────────────
 
   Future<void> loadHubSummary({bool showLoading = true}) async {
+    final generation = _workspaceGeneration;
     if (showLoading) isLoading.value = true;
     try {
       final wsId = await SecureStorageService.read('workspace_id');
+      if (_workspaceGeneration != generation) return;
 
       if (wsId == null || wsId.isEmpty) {
         final me = await authService.getMe();
+        if (_workspaceGeneration != generation) return;
         if (me != null && me['display_name'] != null) {
           // userName is in HubAuthMixin — accessed via controller
         }
       }
 
       final data = await hubService.getHubSummary();
+      if (_workspaceGeneration != generation) return;
       if (data != null) hubSummary.value = data;
       await loadNeedsYou();
     } catch (e) {
@@ -83,9 +97,11 @@ mixin HubCommandMixin on GetxController {
   }
 
   Future<void> loadCommandCenterData({bool showLoading = true}) async {
+    final generation = _workspaceGeneration;
     if (showLoading && commandCenterData.value == null) isLoading.value = true;
     try {
       final data = await hubService.getCommandCenterData();
+      if (_workspaceGeneration != generation) return;
       if (data != null) commandCenterData.value = data;
     } catch (e) {
       debugPrint('Error loading command center data: $e');
@@ -95,8 +111,10 @@ mixin HubCommandMixin on GetxController {
   }
 
   Future<void> loadCeoNextActions() async {
+    final generation = _workspaceGeneration;
     try {
       final result = await strategyService.getCeoNextActions(limit: 3);
+      if (_workspaceGeneration != generation) return;
       ceoNextActions.value = result.items;
       if (result.errorMessage != null) {
         dataLoadError.value = result.errorMessage;
@@ -107,13 +125,16 @@ mixin HubCommandMixin on GetxController {
       }
     } catch (e) {
       debugPrint('[HologramHub] Error loading CEO next actions: $e');
+      if (_workspaceGeneration != generation) return;
       dataLoadError.value = 'Không thể tải Next Best Actions: $e';
     }
   }
 
   Future<void> loadActiveCycleTimeline() async {
+    final generation = _workspaceGeneration;
     try {
       final result = await strategyService.getTwelveWeekCycles();
+      if (_workspaceGeneration != generation) return;
       if (result.errorMessage != null) {
         dataLoadError.value = result.errorMessage;
       } else {
@@ -129,8 +150,9 @@ mixin HubCommandMixin on GetxController {
         );
         final cycleId = activeCycle['id']?.toString();
         if (cycleId != null) {
-          activeCycleTimeline.value =
-              await strategyService.getCycleTimeline(cycleId);
+          final timeline = await strategyService.getCycleTimeline(cycleId);
+          if (_workspaceGeneration != generation) return;
+          activeCycleTimeline.value = timeline;
         }
       }
     } catch (e) {
@@ -139,8 +161,11 @@ mixin HubCommandMixin on GetxController {
   }
 
   Future<void> loadNeedsYou() async {
+    final generation = _workspaceGeneration;
     try {
-      needsYouItems.value = await runtimeService.getNeedsYou();
+      final items = await runtimeService.getNeedsYou();
+      if (_workspaceGeneration != generation) return;
+      needsYouItems.value = items;
     } catch (e) {
       debugPrint('[HologramHub] Error loading Needs You items: $e');
     }

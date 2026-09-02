@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../data/models/stage_model.dart';
 import '../../../../modules/strategy/services/stage_service.dart';
@@ -11,6 +12,15 @@ mixin HubStageMixin on GetxController {
   StrategyService get strategyService;
   RxnString get dataLoadError;
 
+  // Fix (2026-09-02, epoch-guard siblings) — cùng cơ chế đã áp dụng ở
+  // `HubControlPlaneMixin._workspaceGeneration`: các hàm `load*()` dưới đây
+  // capture giá trị này NGAY TRƯỚC mỗi `await` gọi service, rồi so sánh lại
+  // NGAY SAU khi await resolve — nếu khác, đã có switch workspace hoặc
+  // logout xảy ra trong lúc chờ, discard response, không ghi vào Rx state.
+  int get _workspaceGeneration => Get.isRegistered<SessionController>()
+      ? Get.find<SessionController>().workspaceGeneration
+      : 0;
+
   // ── Observables ──────────────────────────────────────────────────────────
   final stageContext = Rxn<StageContextModel>();
   final currentProjectStage = ProjectStage.p1ProblemValidation.obs;
@@ -21,11 +31,13 @@ mixin HubStageMixin on GetxController {
   // ── Methods ──────────────────────────────────────────────────────────────
 
   Future<void> loadStageContext({int? projectId}) async {
+    final generation = _workspaceGeneration;
     isStageLoading.value = true;
     try {
       final contextData = await stageService.getStageContext(
         projectId: projectId,
       );
+      if (_workspaceGeneration != generation) return;
       if (contextData != null) {
         stageContext.value = contextData;
         selectedProjectId.value = contextData.projectId;
@@ -44,8 +56,10 @@ mixin HubStageMixin on GetxController {
   }
 
   Future<void> loadProjectsList() async {
+    final generation = _workspaceGeneration;
     try {
       final result = await strategyService.getProjects();
+      if (_workspaceGeneration != generation) return;
       if (result.errorMessage != null) {
         // Lỗi thật (401/403/409/5xx, mất mạng...) — KHÔNG ghi đè
         // projectsList bằng [] để tránh isGenesisMode hiểu nhầm "chưa có dự
@@ -60,6 +74,7 @@ mixin HubStageMixin on GetxController {
       projectsList.value = result.items;
     } catch (e) {
       debugPrint('Error loading projects list: $e');
+      if (_workspaceGeneration != generation) return;
       dataLoadError.value = 'Không thể tải danh sách dự án: $e';
     }
   }
