@@ -67,6 +67,9 @@ def create_disposable_cluster(run_id: str) -> DisposableCluster:
         with conn.cursor() as cur:
             for svc in ("agent", "cosa", "workspace"):
                 name = _db_name(svc, run_id)
+                # Dọn DB sót lại từ lần chạy trước bị abort để CREATE không
+                # hard-fail khi tên trùng.
+                cur.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
                 cur.execute(f'CREATE DATABASE "{name}" OWNER {svc}_migrator')
                 cur.execute(f'GRANT CONNECT ON DATABASE "{name}" TO {svc}_app, {svc}_migrator')
     finally:
@@ -153,14 +156,20 @@ def apply_migrations(cluster: DisposableCluster) -> None:
 
 
 def drop_disposable_cluster(cluster: DisposableCluster) -> None:
-    conn = _admin_conn()
+    # Contract: teardown KHÔNG được raise — chạy trong fixture `finally`, một
+    # exception ở đây sẽ che kết quả test thật. Nuốt cả lỗi connect admin.
+    conn = None
     try:
+        conn = _admin_conn()
         with conn.cursor() as cur:
             for svc in ("agent", "cosa", "workspace"):
                 with contextlib.suppress(Exception):
                     cur.execute(
                         f'DROP DATABASE IF EXISTS "{_db_name(svc, cluster.run_id)}" WITH (FORCE)'
                     )
+    except Exception:
+        pass
     finally:
-        with contextlib.suppress(Exception):
-            conn.close()
+        if conn is not None:
+            with contextlib.suppress(Exception):
+                conn.close()
