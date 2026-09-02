@@ -4,11 +4,24 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  # Task 11 — "release candidate gate": job `frontend-integration` (macOS UI
+  # + disposable fixture) chỉ chạy nightly/on-demand, KHÔNG chặn mỗi PR (build
+  # macOS app + chạy N file integration_test tốn nhiều phút hơn hẳn analyzer/
+  # unit test) — xem M4 trong plan gốc
+  # (`.superpowers/sdd/2026-09-02-frontend-trust-and-ux-hardening/`).
+  schedule:
+    - cron: '0 18 * * *' # 01:00 ICT hàng ngày
 
 permissions:
   contents: read
 
 jobs:
+  # Task 11 — tầng PR-fast của "staged CI": analyzer + unit test (bao gồm
+  # golden test đã có ở `frontend/test/golden/`, Task 9/10 — `flutter test`
+  # ở đây chạy TOÀN BỘ `test/**/*_test.dart`, không cần bước riêng) chạy trên
+  # MỌI push/PR. Contract check (`frontend-api-contract-check`) nằm ở job
+  # `boundaries` bên dưới — không lặp lại ở đây. Job macOS UI integration
+  # nặng hơn nằm riêng ở `frontend-integration` (nightly/on-demand).
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -35,6 +48,84 @@ jobs:
           path: |
             test-results/frontend.json
             test-results/frontend-lcov.info
+          if-no-files-found: error
+
+  # Task 11 — tầng release-candidate của "staged CI": macOS UI thật
+  # (`flutter test <file> -d macos`) chạy từng file integration_test riêng lẻ
+  # chống lại `FixtureServer` disposable (HTTP loopback thật, không mock
+  # `ApiClient`, không chạm DB/credential thật nào) — xem
+  # `docs/testing/frontend-integration.md`. CHỈ chạy nightly (`schedule`) hoặc
+  # khi bấm tay (`workflow_dispatch`) — KHÔNG chặn mỗi PR (build macOS app +
+  # N file integration_test tốn nhiều phút hơn hẳn tầng `frontend` ở trên).
+  #
+  # Nguyên tắc lõi bắt buộc của Task 11: "A skipped test is not a green
+  # release gate" — nếu KHÔNG tìm thấy file `integration_test/*_test.dart`
+  # nào, job này FAIL (coi là lỗi hạ tầng test), KHÔNG được âm thầm pass vì
+  # "không có gì để chạy". Mỗi bước test dùng `set -o pipefail` qua
+  # `bash -euo pipefail` mặc định của `run:` step nên một `flutter test` lỗi
+  # sẽ làm cả step (và cả job) fail ngay, không bị nuốt bởi lệnh sau nó.
+  frontend-integration:
+    runs-on: macos-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: frontend
+      - name: Fail closed if no integration_test files exist (no silent skip)
+        working-directory: frontend
+        run: |
+          shopt -s nullglob
+          files=(integration_test/*_test.dart)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No integration_test/*_test.dart found — treating as infrastructure failure, not a skip."
+            exit 1
+          fi
+          echo "found_files=${#files[@]}" >> "$GITHUB_ENV"
+      - name: Run each integration_test file against its own disposable fixture
+        working-directory: frontend
+        run: |
+          mkdir -p ../test-results
+          summary="../test-results/frontend-integration-summary.txt"
+          : > "$summary"
+          status=0
+          for f in integration_test/*_test.dart; do
+            echo "── flutter test $f -d macos ──" | tee -a "$summary"
+            if flutter test "$f" -d macos -r compact 2>&1 | tee -a "$summary"; then
+              echo "PASS $f" >> "$summary"
+            else
+              echo "FAIL $f" >> "$summary"
+              status=1
+            fi
+          done
+          exit $status
+      - uses: actions/setup-python@v5
+        if: always()
+        with:
+          python-version: '3.11'
+      - name: Publish GHOST route count / allowlist expiry / integration summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend release-gate summary"
+            echo ""
+            echo "### GHOST routes (docs/architecture/generated/route-inventory.snapshot.json)"
+            python3 scripts/ci/frontend_release_summary.py
+            echo ""
+            echo "### Frontend API contract allowlist expiry (scripts/frontend-api-contract-allowlist.json)"
+            node scripts/ci/frontend_allowlist_expiry.mjs
+            echo ""
+            echo "### Integration test summary"
+            (cat test-results/frontend-integration-summary.txt 2>/dev/null | grep -E '^(PASS|FAIL) ') || echo "(no summary file produced — job likely failed before running any test)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-integration-test-results
+          path: test-results/frontend-integration-summary.txt
           if-no-files-found: error
 
   landing:

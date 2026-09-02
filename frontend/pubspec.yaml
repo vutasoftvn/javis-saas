@@ -56,6 +56,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # Task 11 — package chính thức của Flutter cho black-box integration test
+  # (`frontend/integration_test/*_test.dart`, chạy bằng
+  # `flutter test integration_test -d macos`) — khác `flutter_test` (widget
+  # test cô lập, fake clock): binding này chạy trên engine THẬT (Timer/socket
+  # thật), cần thiết để `ApiRecorder`/`FixtureServer` (HTTP loopback thật)
+  # hoạt động đúng. Xem docs/testing/frontend-integration.md.
+  integration_test:
+    sdk: flutter
+
   # Task 10 — dùng trực tiếp trong
   # `test/modules/hologram_hub/hologram_hub_controller_exit_cleanup_test.dart`
   # để kiểm soát thời gian tất định khi chứng minh Timer thực sự bị huỷ sau
