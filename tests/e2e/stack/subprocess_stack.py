@@ -66,15 +66,20 @@ def _asyncpg_url(url: str) -> str:
     """apps/cosa mở agent DB bằng driver `postgresql+asyncpg`; `DisposableCluster`
     phát app URL ở scheme `postgresql://` trần kèm `?sslmode=disable`.
 
-    Hai việc phải làm: (1) đổi scheme sang `postgresql+asyncpg`, (2) bỏ query
-    `sslmode` — asyncpg nhận param `ssl`, không hiểu `sslmode` và sẽ raise
+    Hai việc phải làm: (1) đổi scheme sang `postgresql+asyncpg`, (2) bỏ RIÊNG
+    param `sslmode` khỏi query (giữ nguyên các param khác) — asyncpg nhận param
+    `ssl`, không hiểu `sslmode` và sẽ raise
     `connect() got an unexpected keyword argument 'sslmode'`."""
-    base, _, _query = url.partition("?")
-    for prefix in ("postgresql+asyncpg://", "postgresql://", "postgres://"):
-        if base.startswith(prefix):
-            base = "postgresql+asyncpg://" + base[len(prefix) :]
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    parts = urlsplit(url)
+    scheme = parts.scheme
+    for prefix in ("postgresql+asyncpg", "postgresql", "postgres"):
+        if scheme == prefix:
+            scheme = "postgresql+asyncpg"
             break
-    return base
+    kept = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k != "sslmode"]
+    return urlunsplit((scheme, parts.netloc, parts.path, urlencode(kept), parts.fragment))
 
 
 def _mint_worker_token(run_id: str) -> str:

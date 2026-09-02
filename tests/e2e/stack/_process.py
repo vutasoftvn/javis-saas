@@ -41,10 +41,20 @@ class ManagedProc:
     # Ring buffer + thread rút pipe: field private, không truyền qua ctor.
     _lines: deque[str] = field(default_factory=lambda: deque(maxlen=_RING_BUFFER_LINES))
     _drain_thread: threading.Thread | None = None
+    # Bảo vệ `_lines`: drain thread `append` liên tục trong khi luồng chính gọi
+    # `tail()` — không có lock thì `list(self._lines)` raise
+    # `RuntimeError: deque mutated during iteration`, đúng ngay nhánh timeout của
+    # `wait_until_ready` (tiến trình còn sống, drain thread còn ghi) mà bản vá
+    # này sinh ra để bảo vệ. Append của `deque(maxlen=...)` là O(1) nên tranh
+    # chấp lock không đáng kể.
+    _lines_lock: threading.Lock = field(default_factory=threading.Lock)
 
     def tail(self, n: int = 200) -> str:
         """Trả về tối đa `n` dòng stdout gần nhất đã bắt được."""
-        return "".join(list(self._lines)[-n:])
+        # Copy nhanh dưới lock rồi format ngoài lock để giữ thời gian giữ lock tối thiểu.
+        with self._lines_lock:
+            lines = list(self._lines)
+        return "".join(lines[-n:])
 
 
 def _drain_loop(proc: ManagedProc) -> None:
@@ -54,7 +64,8 @@ def _drain_loop(proc: ManagedProc) -> None:
     # `iter(readline, "")` chạy tới khi pipe EOF (tiến trình con đóng stdout).
     with contextlib.suppress(Exception):
         for line in iter(stdout.readline, ""):
-            proc._lines.append(line)
+            with proc._lines_lock:
+                proc._lines.append(line)
 
 
 def spawn(name: str, argv: list[str], *, cwd: str, env: dict[str, str]) -> ManagedProc:
