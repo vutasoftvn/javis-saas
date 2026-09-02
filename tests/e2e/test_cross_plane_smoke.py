@@ -12,6 +12,7 @@ from tests.e2e.scenarios import (
     auth_tenant_isolation,
     capability_governance,
     dispatch_worker_result,
+    outbox_relay,
 )
 from tests.e2e.seed import identity
 
@@ -39,3 +40,12 @@ def test_s3_capability_governance(real_cosa_stack, disposable_cluster) -> None:
     # không ngầm execute capability.
     seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster)
     capability_governance.run(real_cosa_stack, seeded, disposable_cluster)
+
+
+def test_s4_outbox_relay(real_cosa_stack, disposable_cluster) -> None:
+    # S4: mutation company (`POST /operations/tasks`) ghi domain event vào
+    # `integration.event_outbox` cùng transaction → `POST /events/relay/tick`
+    # ký HMAC và đẩy sang apps/cosa `/agent/internal/events` → INSERT idempotent
+    # vào `event_inbox` (agent DB), duplicate delivery không tạo hàng thứ hai.
+    seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster)
+    outbox_relay.run(real_cosa_stack, seeded, disposable_cluster)

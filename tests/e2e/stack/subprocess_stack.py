@@ -35,6 +35,11 @@ _SECRETS = {
     "PLATFORM_JWT_SECRET": "cosa-super-secret-platform-jwt-key-change-in-prod",
     "WORKER_SERVICE_JWT_SECRET": "cosa-worker-service-jwt-key-change-in-prod-min32chars",
     "JWT_SECRET": "cosa-dev-jwt-secret-do-not-use-in-prod",
+    # HMAC dùng chung cho local outbox relay (`services/company` ký) ↔ apps/cosa
+    # intake (`/agent/internal/events` verify). Cả hai phía mặc định về
+    # `"dev-secret"` khi biến này trống ở APP_ENV=development, nhưng set tường
+    # minh (>= 32 ký tự) để relay POST được chấp nhận không phụ thuộc default.
+    "COSA_LOCAL_SERVICE_SECRET": "cosa-local-service-hmac-secret-change-in-prod-32b",
 }
 
 # Encore compile cả 2 service TS ở lần chạy đầu -> boot có thể mất 60-180s;
@@ -131,6 +136,9 @@ def boot_subprocess_stack(cluster: DisposableCluster) -> StackHandles:
                 E2E_TEST_SEED_ENABLED="1",
                 COSA_CONTROL_PLANE_URL=cosa_url,
                 PLATFORM_API_BASE_URL=cosa_url,
+                # Đích relay outbox → apps/cosa intake. Mặc định code là
+                # `http://127.0.0.1:8000`, sai khi stack dùng cổng động.
+                COSA_AGENTOS_INTAKE_URL=api_url,
             ),
         )
         procs.append(company)
