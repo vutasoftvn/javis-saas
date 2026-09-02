@@ -2219,6 +2219,11 @@ Nêu tác động tenancy/security mỗi phương án, khuyến nghị 1, để 
 **DoD:** ADR file tồn tại, `make check-docs` (doc-links) xanh, liên kết từ
 `docs/testing/cross-plane-e2e.md` và từ plan này.
 
+**Kết quả:** [`docs/architecture/adr/ADR-COSA-DELEGATION-002-agent-run-tenant-token.md`](../../architecture/adr/ADR-COSA-DELEGATION-002-agent-run-tenant-token.md)
+(PROPOSED, 2026-09-03) — khuyến nghị Option B (secret thứ tư
+`COSA_CONTROL_DELEGATION_SECRET` cho hop policy-snapshot), hoặc Option A nếu
+`provisionVentureWorkspace` đã double-write membership company-side.
+
 ### Thứ tự thực thi P4–P5
 
 16 (S7) → 19 (B5 ADR — rẻ, gỡ nợ nhận thức) → 17 (golden-path runner) → 18 (Flutter Tier 2).

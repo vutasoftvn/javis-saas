@@ -92,6 +92,33 @@ POST sang `apps/cosa` `/agent/internal/events` → verify HMAC → INSERT `event
 (agent DB) với `ON CONFLICT DO NOTHING`. Duplicate delivery KHÔNG tạo hàng thứ
 hai. Vòng cross-plane trọn vẹn, không nhánh dormant.
 
+### S7 — `policy_snapshot_tenant` (fail-closed đầy đủ; tenant-scoped `rules` dormant)
+
+`GET services/cosa /platform/auth/me/agent-policy-snapshot` có HAI tầng auth xếp
+chồng: (1) Encore gateway `verifyPlatformToken` (`PLATFORM_JWT_SECRET` + `aud="cosa"`
++ `iss="cosa_platform"`), (2) handler gọi `verifyWorkspaceMembership` — forward
+nguyên `Authorization` header sang `services/company` (verify bằng `JWT_SECRET`).
+Không token seed đơn lẻ nào qua được cả hai (biến thể B5 tại endpoint này).
+
+**S7 chứng minh THẬT hôm nay:**
+
+- `/healthz` == 200 (liveness control — 401/403 bên dưới là quyết định auth thật,
+  không phải "service chết").
+- Gateway auth gate: no bearer → 401 `code=="unauthenticated"`; bearer rác → 401
+  `code=="unauthenticated"`.
+- **Fail-closed tại hop membership:** với một cosa platform token HỢP LỆ (qua
+  gateway), cả ba workspace id (có grant `operations`, có grant `finance`, không
+  grant) → **403 `permission_denied`** — endpoint KHÔNG trả snapshot rỗng ("= allow"),
+  không leak tín hiệu nội dung policy khi cross-plane membership check hỏng.
+
+**Đang park (dormant, chờ ADR-COSA-DELEGATION-002):** nhánh `200` — `rules` lọc
+đúng theo tenant qua wire (`{"operations.*"}` cho ws A, `{"finance.*"}` cho ws B,
+không leo cross-tenant; workspace không membership → 403/404). Hiện với token
+company `local_session` gateway reject → 401, S7 assert điều đó rồi `return`.
+Nhánh tự kích hoạt khi B5 bridge land — không phải viết lại test. Round-trip
+tenant scoping ở tầng SQL (`cosa.workspace_agent_policy WHERE platform_workspace_id`)
+đã được S3 (A) phủ.
+
 ## Cái gì CHƯA phủ và vì sao — bug B5
 
 Danh tính hợp lệ duy nhất qua biên `apps/cosa` là `local_session` (do
@@ -111,4 +138,11 @@ Hệ quả: các phần sau CHƯA được dàn này exercise:
 
 Khắc phục cần một cầu nối identity/delegation cosa ↔ company (mint được platform
 token `aud="cosa"` cho identity gốc local session), theo dõi riêng. Khi vá xong,
-nhánh dormant ở S2/S3 tự kích hoạt — không phải viết lại test.
+nhánh dormant ở S2/S3/S7 tự kích hoạt — không phải viết lại test.
+
+**Điều tra + phương án khắc phục:**
+[`ADR-COSA-DELEGATION-002`](../architecture/adr/ADR-COSA-DELEGATION-002-agent-run-tenant-token.md)
+(PROPOSED) — mô hình 3 secret / 3 chiều tin cậy, mô tả chính xác điểm hỏng, 3
+phương án (A: cosa platform token + workspace liên kết; B: secret thứ tư
+`COSA_CONTROL_DELEGATION_SECRET` cho hop policy-snapshot — khuyến nghị; C:
+`services/cosa` nhận local_session token cho đúng route này), và những gì mở khoá.
