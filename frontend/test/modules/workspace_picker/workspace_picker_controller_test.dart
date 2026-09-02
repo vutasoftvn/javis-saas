@@ -1,7 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/workspace_picker/controllers/workspace_picker_controller.dart';
+
+/// Fake AuthService để kiểm soát chính xác thời điểm request "hoàn tất" bằng
+/// [Completer], thay vì phụ thuộc network thật (không xác định, không thể
+/// test được isLoading transitions một cách tin cậy).
+class _FakeAuthService extends AuthService {
+  _FakeAuthService(this._completer);
+
+  final Completer<bool> _completer;
+  int callCount = 0;
+
+  @override
+  Future<bool> finishAuthenticationForWorkspace({
+    required String platformToken,
+    required String workspaceId,
+  }) {
+    callCount++;
+    return _completer.future;
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -54,14 +75,12 @@ void main() {
       controller.onClose();
     });
 
-    test('selectWorkspace sets isLoading during processing', () async {
-      // Manually create the controller with platformToken and workspaces set
+    test(
+        'selectWorkspace never touches isLoading when platformToken is empty (early return)',
+        () async {
       final controller = WorkspacePickerController();
       controller.onInit();
 
-      // Since platformToken and workspaces are late final, we need to access
-      // them through the initializer. For this test, we just verify the behavior
-      // when selectWorkspace is called with empty token.
       expect(controller.platformToken, isEmpty);
 
       var isLoadingChanged = false;
@@ -71,10 +90,49 @@ void main() {
 
       await controller.selectWorkspace('ws-001');
 
-      // Should attempt to set isLoading even though it fails due to empty token
+      // Method trả về sớm ở guard clause trước khi chạm tới isLoading.value =
+      // true, nên listener không bao giờ được gọi và isLoading giữ nguyên false.
       expect(controller.errorMessage.value,
           'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
-      expect(isLoadingChanged, isTrue);
+      expect(isLoadingChanged, isFalse);
+      expect(controller.isLoading.value, isFalse);
+
+      controller.onClose();
+    });
+
+    test(
+        'selectWorkspace flips isLoading true only while a real request is pending',
+        () async {
+      final completer = Completer<bool>();
+      final fakeAuth = _FakeAuthService(completer);
+      Get.routing.args = {
+        'platformToken': 'platform-token-123',
+        'workspaces': <WorkspaceSummary>[],
+      };
+      addTearDown(() => Get.routing.args = null);
+
+      final controller = WorkspacePickerController(authService: fakeAuth);
+      controller.onInit();
+
+      expect(controller.platformToken, 'platform-token-123');
+      expect(controller.isLoading.value, isFalse);
+
+      final future = controller.selectWorkspace('ws-001');
+
+      // Request đang pending (Completer chưa complete) -> isLoading phải true.
+      expect(controller.isLoading.value, isTrue);
+      expect(fakeAuth.callCount, 1);
+
+      // Complete với false để tránh nhánh điều hướng Get.offAllNamed (cần
+      // GetMaterialApp thật, không liên quan tới điều test này muốn chứng
+      // minh: vòng đời isLoading trong lúc request đang pending).
+      completer.complete(false);
+      await future;
+
+      // Request đã hoàn tất -> isLoading phải quay lại false.
+      expect(controller.isLoading.value, isFalse);
+      expect(controller.errorMessage.value,
+          'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.');
 
       controller.onClose();
     });

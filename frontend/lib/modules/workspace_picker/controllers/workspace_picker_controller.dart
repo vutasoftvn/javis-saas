@@ -3,7 +3,12 @@ import '../../auth/services/auth_service.dart';
 import '../../../core/routing/app_routes.dart';
 
 class WorkspacePickerController extends GetxController {
-  final AuthService _authService = AuthService();
+  // `authService` cho phép test tiêm fake implementation (Completer-based)
+  // để kiểm chứng vòng đời isLoading mà không cần gọi network thật.
+  WorkspacePickerController({AuthService? authService})
+      : _authService = authService ?? AuthService();
+
+  final AuthService _authService;
 
   late final String platformToken;
   late final List<WorkspaceSummary> workspaces;

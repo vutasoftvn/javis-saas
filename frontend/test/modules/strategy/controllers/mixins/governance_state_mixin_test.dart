@@ -88,7 +88,14 @@ void main() {
         await tester.pumpWidget(GetMaterialApp(home: Container()));
 
         ApiClient.client = MockClient((request) async {
-          return http.Response(jsonEncode({'items': [{'id': 'stage-1'}]}), 200);
+          // Service decode key 'stages' (xem twelve_week_service.dart:
+          // decodeList(response, 'stages')), không phải 'items'.
+          return http.Response(
+            jsonEncode({
+              'stages': [{'id': 'stage-1', 'name': 'Discovery'}],
+            }),
+            200,
+          );
         });
 
         final controller = _TestGovernanceController();
