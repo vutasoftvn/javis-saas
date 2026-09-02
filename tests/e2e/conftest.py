@@ -31,12 +31,14 @@ from dataclasses import dataclass
 import httpx
 import pytest
 
+from tests.e2e.mvp_stack import MvpStack
 from tests.e2e.stack.disposable_postgres import (
     DisposableCluster,
     apply_migrations,
     create_disposable_cluster,
     drop_disposable_cluster,
 )
+from tests.e2e.stack.subprocess_stack import boot_subprocess_stack, teardown_subprocess_stack
 
 COMPANY_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "services", "company")
 
@@ -270,3 +272,36 @@ def disposable_cluster() -> Iterator[DisposableCluster]:
         yield cluster
     finally:
         drop_disposable_cluster(cluster)
+
+
+@pytest.fixture(scope="session")
+def real_cosa_stack(disposable_cluster: DisposableCluster) -> Iterator[MvpStack]:
+    """Bó `MvpStack` trỏ vào 4 plane THẬT đang chạy.
+
+    Nếu cả 3 biến `E2E_BASE_URL_COMPANY/_COSA/_API` được set → dùng stack ngoài
+    (vd. `docker compose` đã dựng sẵn), bỏ qua bước boot subprocess. Ngược lại
+    boot 4 process cục bộ trên `disposable_cluster` rồi teardown ở `finally`."""
+    ext_company = os.environ.get("E2E_BASE_URL_COMPANY", "").strip()
+    ext_cosa = os.environ.get("E2E_BASE_URL_COSA", "").strip()
+    ext_api = os.environ.get("E2E_BASE_URL_API", "").strip()
+    if ext_company and ext_cosa and ext_api:
+        yield MvpStack.from_base_urls(
+            company=ext_company,
+            platform=ext_cosa,
+            agent=ext_api,
+            apps_cosa=ext_api,
+            worker_health_url=f"{ext_api}/live",
+        )
+        return
+
+    handles = boot_subprocess_stack(disposable_cluster)
+    try:
+        yield MvpStack.from_base_urls(
+            company=handles.company_url,
+            platform=handles.cosa_url,
+            agent=handles.apps_cosa_url,
+            apps_cosa=handles.apps_cosa_url,
+            worker_health_url=handles.worker_health_url,
+        )
+    finally:
+        teardown_subprocess_stack(handles)

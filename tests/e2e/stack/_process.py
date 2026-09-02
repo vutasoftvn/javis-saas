@@ -2,6 +2,13 @@
 
 Rút từ pattern đã kiểm chứng ở `tests/e2e/conftest.py::real_company_service`
 (pick free port, chờ /healthz chấp nhận 200/503, teardown try/finally).
+
+Bổ sung Task 5: mỗi tiến trình con có một daemon thread liên tục đọc
+`popen.stdout` vào một ring buffer trong bộ nhớ. `encore run` in log RẤT nhiều
+lúc khởi động; nếu không ai rút pipe, buffer ~64KB của OS đầy và tiến trình con
+bị chặn ở lệnh write → stack không bao giờ healthy và ta nhận timeout gây hiểu
+lầm. Ring buffer giữ lại phần đuôi log để chẩn đoán khi tiến trình chết hoặc
+health check timeout.
 """
 
 from __future__ import annotations
@@ -9,10 +16,16 @@ from __future__ import annotations
 import contextlib
 import socket
 import subprocess
+import threading
 import time
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, field
 
 import httpx
+
+# Giữ tối đa ngần này dòng stdout mỗi tiến trình — đủ để đọc nguyên nhân crash
+# lúc boot mà không giữ toàn bộ log Encore (hàng chục nghìn dòng) trong RAM.
+_RING_BUFFER_LINES = 4000
 
 
 def pick_free_port() -> int:
@@ -25,6 +38,23 @@ def pick_free_port() -> int:
 class ManagedProc:
     name: str
     popen: subprocess.Popen
+    # Ring buffer + thread rút pipe: field private, không truyền qua ctor.
+    _lines: deque[str] = field(default_factory=lambda: deque(maxlen=_RING_BUFFER_LINES))
+    _drain_thread: threading.Thread | None = None
+
+    def tail(self, n: int = 200) -> str:
+        """Trả về tối đa `n` dòng stdout gần nhất đã bắt được."""
+        return "".join(list(self._lines)[-n:])
+
+
+def _drain_loop(proc: ManagedProc) -> None:
+    stdout = proc.popen.stdout
+    if stdout is None:
+        return
+    # `iter(readline, "")` chạy tới khi pipe EOF (tiến trình con đóng stdout).
+    with contextlib.suppress(Exception):
+        for line in iter(stdout.readline, ""):
+            proc._lines.append(line)
 
 
 def spawn(name: str, argv: list[str], *, cwd: str, env: dict[str, str]) -> ManagedProc:
@@ -35,8 +65,13 @@ def spawn(name: str, argv: list[str], *, cwd: str, env: dict[str, str]) -> Manag
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        bufsize=1,
     )
-    return ManagedProc(name=name, popen=popen)
+    proc = ManagedProc(name=name, popen=popen)
+    thread = threading.Thread(target=_drain_loop, args=(proc,), name=f"drain-{name}", daemon=True)
+    proc._drain_thread = thread
+    thread.start()
+    return proc
 
 
 def wait_until_ready(
@@ -46,10 +81,12 @@ def wait_until_ready(
     last_error: Exception | None = None
     while time.monotonic() < deadline:
         if proc.popen.poll() is not None:
-            output = _drain(proc)
+            # Cho drain thread một nhịp để flush nốt phần đuôi trước khi in.
+            if proc._drain_thread is not None:
+                proc._drain_thread.join(timeout=2.0)
             raise RuntimeError(
                 f"[{name}] process exited early with code {proc.popen.returncode} "
-                f"before {health_url} became ready.\n--- captured output ---\n{output}"
+                f"before {health_url} became ready.\n--- captured stdout tail ---\n{proc.tail()}"
             )
         try:
             resp = httpx.get(health_url, timeout=2.0)
@@ -60,7 +97,10 @@ def wait_until_ready(
         except httpx.HTTPError as err:
             last_error = err
         time.sleep(0.5)
-    raise RuntimeError(f"[{name}] not ready within {timeout_s}s: {last_error}")
+    raise RuntimeError(
+        f"[{name}] not ready within {timeout_s}s: {last_error}\n"
+        f"--- captured stdout tail ---\n{proc.tail()}"
+    )
 
 
 def terminate_all(procs: list[ManagedProc]) -> None:
@@ -73,11 +113,5 @@ def terminate_all(procs: list[ManagedProc]) -> None:
                 proc.popen.kill()
                 with contextlib.suppress(Exception):
                     proc.popen.wait(timeout=15)
-
-
-def _drain(proc: ManagedProc) -> str:
-    if proc.popen.stdout is None:
-        return ""
-    with contextlib.suppress(Exception):
-        return proc.popen.stdout.read() or ""
-    return ""
+        if proc._drain_thread is not None:
+            proc._drain_thread.join(timeout=2.0)
