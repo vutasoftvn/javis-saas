@@ -2114,3 +2114,113 @@ make ai-compliance-production-gate
 ```
 
 Milestone khớp `docs/superpowers/plans/2026-09-02-frontend-trust-and-ux-hardening.md` M4 ("CI has isolated end-to-end evidence"): job `e2e-cross-plane-smoke` xanh trên PR + artifact junit lưu mỗi lần chạy.
+
+---
+
+## PHASE P4–P5 — Bổ sung chi tiết (thêm 2026-09-03 sau khi P1–P3 hoàn tất)
+
+> **Bối cảnh:** P1–P3 đã xong và review sạch (final review commit `b36b5636`). Khi triển khai
+> lộ ra **bug B5**: agent run trong stack thật KHÔNG chạm được kernel — `local_session`
+> delegation token (ký `JWT_SECRET`, không `aud`) bị `services/cosa` gateway từ chối tại
+> hop tenant-policy-snapshot → run `run.failed{error:"policy_snapshot_unavailable"}`.
+> B5 là ranh giới kiến trúc auth 3 chiều (xem comment dày trong `apps/cosa/auth/jwt.py`),
+> KHÔNG phải bug vá nhanh — cần ADR riêng. Vì vậy P4/P5 dưới đây được thu hẹp về phần
+> **đạt được thật mà không phụ thuộc B5 / Docker rebuild / DeepSeek key**, phần còn lại
+> ghi rõ là follow-up có chủ đích.
+
+### Task 16: Scenario S7 — policy snapshot tenant isolation (subprocess stack)
+
+**Files:** Create `tests/e2e/scenarios/policy_snapshot_tenant.py`; modify `tests/e2e/test_cross_plane_smoke.py` (+`test_s7_policy_snapshot_tenant`, `@pytest.mark.cross_plane`).
+
+**Đạt được (không phụ thuộc B5):** `GET /platform/auth/me/agent-policy-snapshot` trên `services/cosa`
+CHẤP NHẬN cosa platform token (từ `identity.register_user` + `identity.login`). S7:
+1. `register_user` + `login` (cosa) → cosa platform token cho user U.
+2. `entitlement.grant_entitlement(cluster, ws_a, "operations")` + `grant_entitlement(cluster, ws_b, "finance")`
+   (2 workspace, mỗi cái 1 rule khác nhau trong `cosa.workspace_agent_policy`).
+3. Gọi snapshot với `workspaceId=ws_a` + token U → 200, `rules` CHỈ chứa `operations.*`,
+   `workspaceId == ws_a`, `snapshotHash` không rỗng.
+4. Gọi với `workspaceId=ws_b` → `rules` CHỈ chứa `finance.*` (không rò rule của ws_a).
+5. Gọi không token → 401; token U + `workspaceId` U không có quyền → 403/404 (assert mã cụ thể quan sát được).
+
+Purity như S1–S4. TDD: RED (collection) → GREEN. `make e2e-cross-plane-smoke` chạy 5 test (S1–S4 + S7).
+
+**DoD:** S7 xanh trên subprocess stack; `make e2e-cross-plane-smoke` = 5 passed; purity ✅.
+
+### Task 17: `test_golden_path.py` — chạy thư viện scenario với target ngoài (compose/staging)
+
+**Files:** Create `tests/e2e/test_golden_path.py` (`@pytest.mark.cross_plane` KHÔNG áp — nó chạy khi có `E2E_BASE_URL_*`, không boot gì); modify `.github/workflows/quality.yml` job `e2e-golden-path` để chạy nó; modify `docs/testing/cross-plane-e2e.md`.
+
+**Nội dung:** khi `E2E_BASE_URL_COMPANY` + `_COSA` + `_API` được set (nhánh external của `real_cosa_stack`
+đã hỗ trợ từ Task 5), `test_golden_path.py` gọi lại `scenarios.auth_tenant_isolation`,
+`scenarios.outbox_relay`, `scenarios.policy_snapshot_tenant` (S1, S4, S7 — các scenario KHÔNG cần
+B5) qua `MvpStack.from_base_urls`. Bỏ qua S2/S3 completed-branch (B5). Fixture skip-fail rõ ràng
+nếu thiếu 1 trong 3 URL (KHÔNG `pytest.skip` — dùng `pytest.fail` hoặc marker `e2e` sẵn có +
+`-m e2e` chỉ chạy khi env đủ; thống nhất cách chọn với maintainer, mặc định: gate bằng env-var
+guard ở đầu module `if not all(...): pytest.skip` LÀ được phép ở file golden-path này vì nó
+KHÔNG nằm trong `check_mvp_e2e_purity` scope — xác nhận `run_check` không glob `test_golden_path.py`).
+
+`scripts/e2e/run-golden-path.sh` sau khi `docker compose --profile e2e up --wait` đã export
+`E2E_BASE_URL_COMPANY` — bổ sung export `_COSA=http://127.0.0.1:4001` + `_API=http://127.0.0.1:8001`
+để `test_golden_path.py` chạy được cả 3 scenario, rồi `pytest tests/e2e -m "not cross_plane"`
+(đã có) sẽ nhặt `test_golden_path.py`.
+
+**P4-live (DeepSeek) + P4 compose scenario S5/S6/S8:** GHI LẠI là follow-up phụ thuộc:
+- S5 (SSE reconnect), S8 (multi-agent) cần run chạm kernel → phụ thuộc B5.
+- S6 (knowledge ingest→retrieval) cần `object_store`/`scanner`/`sandbox` inject vào worker dispatch
+  (gap Task 13 đã ghi) → phụ thuộc follow-up B1-b.
+- P4-live cần `DEEPSEEK_API_KEY` thật (chi phí) + B5. Job `e2e-golden-path` compose đã tồn tại
+  và chạy `run-golden-path.sh` trên `main`; thêm 1 job `e2e-golden-path-live` khi cả 2 điều kiện
+  sẵn sàng.
+
+**DoD:** `test_golden_path.py` chạy S1/S4/S7 xanh khi trỏ vào subprocess stack đang chạy (mô phỏng
+target ngoài bằng cách set `E2E_BASE_URL_*` tới stack boot tay); doc cập nhật; job YAML valid.
+
+### Task 18: P5 — Flutter Tier 2 (integration_test vs stack thật)
+
+**Files:** Create `frontend/integration_test/support/real_stack_config.dart`; modify 3 file
+`frontend/integration_test/{session_workspace_flow,remote_access_flow,approvals_truthfulness}_test.dart`
+để chạy được 2 chế độ; create `frontend/tool/run_integration_real.sh`; modify
+`docs/testing/frontend-integration.md` + `docs/testing/cross-plane-e2e.md`.
+
+**Nội dung:**
+- `real_stack_config.dart` đọc `--dart-define=E2E_MODE=real|fixture` (mặc định `fixture`) +
+  `--dart-define=E2E_COMPANY_URL/E2E_COSA_URL/E2E_API_URL`. Khi `real`: `ApiClient` base URLs
+  trỏ các URL đó; giữ `FakeSecretStore` (không chạm Keychain).
+- 3 test hiện có: bọc phần seed/fixture trong `if (E2E_MODE == 'fixture') { <FixtureServer cũ> } else { <dựa vào stack thật đã seed sẵn qua tests/e2e/seed hoặc một bước setup Dart gọi /identity/_e2e/session> }`.
+  Giữ nguyên assertion (wire-level qua `ApiRecorder`). Nếu 1 test không thể chạy chế độ `real`
+  mà không có `modeSource` adapter (`remote_access_flow` phần `configured`), ĐỂ phần đó chỉ chạy
+  `fixture` + comment `// TODO(modeSource-adapter)` — KHÔNG mock để giả `configured`.
+- `run_integration_real.sh`: boot subprocess stack (tái dùng logic Python `tests/e2e/stack` qua
+  một script wrapper, hoặc yêu cầu `make dev-stack` chạy sẵn) → export 3 URL → vòng lặp
+  `flutter test integration_test/<file> -d macos --dart-define=E2E_MODE=real ...` từng file
+  (macOS driver rớt nếu chạy cả thư mục 1 lệnh — đã biết).
+- CI: job `frontend-integration` (nightly) thêm matrix `mode: [fixture, real]`; `real` chỉ nightly.
+
+**DoD:** ít nhất `session_workspace_flow_test.dart` + `approvals_truthfulness_test.dart` xanh ở
+`E2E_MODE=real` vs stack thật (chạy tay); `flutter analyze` sạch; doc cập nhật. `remote_access_flow`
+phần `configured` ghi rõ blocker.
+
+### Task 19: B5 — ADR + design cho cầu identity apps/cosa ↔ services/cosa (KHÔNG code fix)
+
+**Files:** Create `docs/architecture/adr/ADR-COSA-DELEGATION-002-agent-run-tenant-token.md` (hoặc số
+ADR trống kế tiếp — kiểm `ls docs/architecture/adr/`).
+
+**Nội dung:** ghi lại đầy đủ điều tra B5 (từ `tests/.../task-7-report.md`, `task-8-report.md`,
+`docs/testing/cross-plane-e2e.md`): 3 secret / 3 chiều tin cậy hiện có (`PLATFORM_JWT_SECRET`
+cosa→cosa/apps, `JWT_SECRET` company→apps, `COSA_COMPANY_DELEGATION_SECRET` apps→company); vì sao
+run seed qua `/identity/_e2e/session` (company local_session) không qua được hop
+`GET /platform/auth/me/agent-policy-snapshot` (cosa `verifyPlatformToken`); các phương án:
+(a) run được khởi tạo bằng cosa platform token (user auth với cosa, workspace liên kết cosa↔company),
+(b) apps/cosa mint token cosa-audience cho hop policy-snapshot,
+(c) `services/cosa` chấp nhận local delegation token cho đúng route này.
+Nêu tác động tenancy/security mỗi phương án, khuyến nghị 1, để trạng thái `PROPOSED`.
+Đây là điều kiện để S2 Tier-1 / S3 completed-branch / S5 / S8 / P4-live kích hoạt.
+
+**DoD:** ADR file tồn tại, `make check-docs` (doc-links) xanh, liên kết từ
+`docs/testing/cross-plane-e2e.md` và từ plan này.
+
+### Thứ tự thực thi P4–P5
+
+16 (S7) → 19 (B5 ADR — rẻ, gỡ nợ nhận thức) → 17 (golden-path runner) → 18 (Flutter Tier 2).
+Mỗi task: implementer + task-review + fix-loop như P1–P3. Sau Task 18: final review lần 2 chỉ
+trên range P4–P5, rồi `finishing-a-development-branch`.
