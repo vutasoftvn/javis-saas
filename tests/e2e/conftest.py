@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import secrets
 import shutil
 import socket
 import subprocess
@@ -29,6 +30,13 @@ from dataclasses import dataclass
 
 import httpx
 import pytest
+
+from tests.e2e.stack.disposable_postgres import (
+    DisposableCluster,
+    apply_migrations,
+    create_disposable_cluster,
+    drop_disposable_cluster,
+)
 
 COMPANY_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "services", "company")
 
@@ -243,3 +251,22 @@ def real_company_service() -> Iterator[CompanyServiceHandle]:
         if proc.returncode not in (0, None, -15, -9) and remaining_output:
             # Log ra để debug CI mà không làm fail test đã pass — chỉ in.
             print(f"[real_company_service] encore run output:\n{remaining_output}")
+
+
+@pytest.fixture(scope="session")
+def disposable_cluster() -> Iterator[DisposableCluster]:
+    """Cluster Postgres tạm cho toàn phiên E2E cross-plane. Fail rõ nếu Postgres
+    admin không reachable — không skip."""
+    run_id = secrets.token_hex(4)
+    try:
+        cluster = create_disposable_cluster(run_id)
+    except Exception as err:  # pragma: no cover - defensive
+        pytest.fail(
+            f"Cannot create disposable Postgres cluster ({err}). Start Postgres and run "
+            "scripts/bootstrap-postgres-cluster.sh (or use the CI 'services' Postgres container)."
+        )
+    try:
+        apply_migrations(cluster)
+        yield cluster
+    finally:
+        drop_disposable_cluster(cluster)
