@@ -47,10 +47,44 @@ void main() {
         'http://platform.local/platform/workspaces/1/entitlement');
   });
 
+  // Task 5 — chốt lại rõ ràng bằng test riêng: /agent và /local-worker KHÔNG
+  // bao giờ đi qua relay dù đang REMOTE_ACCESS. AgentOS (`/agent/*`) và
+  // desktop worker (`/local-worker/*`) là các plane riêng, không phải
+  // "business/local company runtime" — offline guard cũng không áp dụng.
+  test('REMOTE_ACCESS KHÔNG đổi target của /agent (AgentOS vẫn thẳng)', () {
+    ApiClient.setAgentOsBaseUrl('http://agentos.local');
+    ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'ONLINE');
+    expect(ApiClient.resolveUri('/agent/skills').toString(),
+        'http://agentos.local/agent/skills');
+    expect(ApiClient.isBusinessEndpoint('/agent/skills'), isFalse);
+  });
+
+  test('REMOTE_ACCESS KHÔNG đổi target của /local-worker (desktop worker vẫn thẳng)', () {
+    ApiClient.setDesktopWorkerBaseUrl('http://worker.local');
+    ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'ONLINE');
+    expect(ApiClient.resolveUri('/local-worker/status').toString(),
+        'http://worker.local/status');
+    expect(ApiClient.isBusinessEndpoint('/local-worker/status'), isFalse);
+  });
+
   Future<http.Response> hit(String endpoint) {
     ApiClient.client = MockClient((_) async => http.Response('{"ok":true}', 200));
     return ApiClient.get(endpoint);
   }
+
+  test('REMOTE_ACCESS + OFFLINE ⇒ /agent vẫn đi được (không bị offline guard)', () async {
+    ApiClient.setAgentOsBaseUrl('http://agentos.local');
+    ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'OFFLINE');
+    final res = await hit('/agent/skills');
+    expect(res.statusCode, 200);
+  });
+
+  test('REMOTE_ACCESS + OFFLINE ⇒ /local-worker vẫn đi được (không bị offline guard)', () async {
+    ApiClient.setDesktopWorkerBaseUrl('http://worker.local');
+    ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'OFFLINE');
+    final res = await hit('/local-worker/status');
+    expect(res.statusCode, 200);
+  });
 
   test('REMOTE_ACCESS + OFFLINE ⇒ business request trả 503 runtime_offline, KHÔNG gửi', () async {
     ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'OFFLINE');

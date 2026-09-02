@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/runtime/mutation_gate.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/task_kanban_model.dart';
 import '../../controllers/tasks_controller.dart';
@@ -71,65 +73,105 @@ class KanbanTaskCard extends StatelessWidget {
               ),
 
               // Action Buttons (Pause, Resume, Approve)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (task.status == TaskKanbanStatus.inProgress)
-                    Tooltip(
-                      message: 'Tạm dừng (Pause)',
-                      child: InkWell(
-                        onTap: () => controller.pauseTask(task.id),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+              // Task 5 — bọc Obx để tự disable + đổi tooltip ngay khi runtime
+              // đổi (offline/read-only), thay vì để người dùng bấm rồi mới
+              // thấy lỗi.
+              Obx(() {
+                final permission = controller.mutationPermission();
+                final blocked = permission.isHardBlocked;
+
+                Future<void> runGated(
+                  Future<void> Function({required bool confirmed}) action,
+                  String actionLabel,
+                ) async {
+                  if (blocked) return;
+                  if (permission == MutationPermission.confirmDegraded) {
+                    final ok = await confirmDegradedMutation(context, actionLabel: actionLabel);
+                    if (!ok) return;
+                    await action(confirmed: true);
+                    return;
+                  }
+                  await action(confirmed: false);
+                }
+
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (task.status == TaskKanbanStatus.inProgress)
+                      Tooltip(
+                        message: blocked ? permission.blockedTooltip : 'Tạm dừng (Pause)',
+                        child: InkWell(
+                          onTap: blocked
+                              ? null
+                              : () => runGated(
+                                    ({required confirmed}) =>
+                                        controller.pauseTask(task.id, confirmed: confirmed),
+                                    'tạm dừng công việc',
+                                  ),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withValues(alpha: blocked ? 0.05 : 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.pause, size: 14, color: Color(0xFFEF4444)),
                           ),
-                          child: const Icon(Icons.pause, size: 14, color: Color(0xFFEF4444)),
                         ),
                       ),
-                    ),
-                  if (task.status == TaskKanbanStatus.blocked)
-                    Tooltip(
-                      message: 'Tiếp tục (Resume)',
-                      child: InkWell(
-                        onTap: () => controller.resumeTask(task.id),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                    if (task.status == TaskKanbanStatus.blocked)
+                      Tooltip(
+                        message: blocked ? permission.blockedTooltip : 'Tiếp tục (Resume)',
+                        child: InkWell(
+                          onTap: blocked
+                              ? null
+                              : () => runGated(
+                                    ({required confirmed}) =>
+                                        controller.resumeTask(task.id, confirmed: confirmed),
+                                    'tiếp tục công việc',
+                                  ),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: blocked ? 0.05 : 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.play_arrow, size: 14, color: Color(0xFF10B981)),
                           ),
-                          child: const Icon(Icons.play_arrow, size: 14, color: Color(0xFF10B981)),
                         ),
                       ),
-                    ),
-                  if (task.status == TaskKanbanStatus.waitingApproval)
-                    Tooltip(
-                      message: 'Phê duyệt nhanh (Approve)',
-                      child: InkWell(
-                        onTap: () => controller.approveTask(task.id),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                    if (task.status == TaskKanbanStatus.waitingApproval)
+                      Tooltip(
+                        message: blocked ? permission.blockedTooltip : 'Phê duyệt nhanh (Approve)',
+                        child: InkWell(
+                          onTap: blocked
+                              ? null
+                              : () => runGated(
+                                    ({required confirmed}) =>
+                                        controller.approveTask(task.id, confirmed: confirmed),
+                                    'phê duyệt nhanh công việc',
+                                  ),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withValues(alpha: blocked ? 0.05 : 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.check, size: 14, color: Color(0xFFF59E0B)),
                           ),
-                          child: const Icon(Icons.check, size: 14, color: Color(0xFFF59E0B)),
                         ),
                       ),
+                    const SizedBox(width: 6),
+                    const CircleAvatar(
+                      radius: 9,
+                      backgroundColor: AppTheme.backgroundDark,
+                      child: Icon(Icons.person, size: 11, color: AppTheme.textMutedDark),
                     ),
-                  const SizedBox(width: 6),
-                  const CircleAvatar(
-                    radius: 9,
-                    backgroundColor: AppTheme.backgroundDark,
-                    child: Icon(Icons.person, size: 11, color: AppTheme.textMutedDark),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              }),
             ],
           ),
         ],

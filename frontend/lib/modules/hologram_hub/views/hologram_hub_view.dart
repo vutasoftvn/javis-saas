@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/runtime_app_chrome.dart';
 import '../controllers/founder_command_center_controller.dart';
 import '../widgets/cofounder_card_widget.dart';
 import '../widgets/top3_focus_widget.dart';
@@ -24,54 +25,59 @@ class HologramHubView extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.put(FounderCommandCenterController());
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF040712),
-      body: CyberCircuitBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              // 1. Top Header & Navigation Bar
-              _buildHeader(context, controller),
+    // Task 5 — Hub đứng độc lập (standalone shell) cũng phải có
+    // RuntimeAppChrome giống Dashboard: banner offline/degraded không được
+    // chỉ xuất hiện ở một shell mà thiếu ở shell còn lại.
+    return RuntimeAppChrome(
+      child: Scaffold(
+        backgroundColor: const Color(0xFF040712),
+        body: CyberCircuitBackground(
+          child: SafeArea(
+            child: Column(
+              children: [
+                // 1. Top Header & Navigation Bar
+                _buildHeader(context, controller),
 
-              // 2. Main Tab Content Area
-              Expanded(
-                child: Obx(() {
-                  if (controller.isLoading.value) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF6366F1),
-                      ),
-                    );
-                  }
-
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isWide = constraints.maxWidth >= 950;
-
-                      return Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1360),
-                          child: IndexedStack(
-                            index: controller.selectedTabIndex.value,
-                            children: [
-                              // Tab 0: Founder Command Center (Co-Founder, Pulse, Top 3, Waiting for You)
-                              _buildCommandCenterTab(
-                                context,
-                                controller,
-                                isWide,
-                              ),
-
-                              // Tab 1: AI Workforce & Optional Packs Store
-                              _buildWorkforceTab(context, controller, isWide),
-                            ],
-                          ),
+                // 2. Main Tab Content Area
+                Expanded(
+                  child: Obx(() {
+                    if (controller.isLoading.value) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF6366F1),
                         ),
                       );
-                    },
-                  );
-                }),
-              ),
-            ],
+                    }
+
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth >= 950;
+
+                        return Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1360),
+                            child: IndexedStack(
+                              index: controller.selectedTabIndex.value,
+                              children: [
+                                // Tab 0: Founder Command Center (Co-Founder, Pulse, Top 3, Waiting for You)
+                                _buildCommandCenterTab(
+                                  context,
+                                  controller,
+                                  isWide,
+                                ),
+
+                                // Tab 1: AI Workforce & Optional Packs Store
+                                _buildWorkforceTab(context, controller, isWide),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ),
+              ],
+            ),
           ),
         ),
       ),

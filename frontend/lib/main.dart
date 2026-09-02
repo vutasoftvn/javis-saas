@@ -9,6 +9,7 @@ import 'core/services/secure_storage_service.dart';
 import 'core/session/session_binding.dart';
 import 'core/session/session_controller.dart';
 import './modules/auth/services/auth_service.dart';
+import './modules/remote_access/controllers/remote_access_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +24,12 @@ void main() async {
   // công hay lỗi. Việc `Get.put` một GetxController thuần không có I/O nên
   // không nằm trong try/catch của bootstrap.
   final sessionController = Get.put(SessionController(), permanent: true);
+  // Task 5 — phải đăng ký TRƯỚC `activateWorkspace(...)` bên dưới: commit
+  // của SessionController chỉ đồng bộ RemoteAccessController khi nó ĐÃ được
+  // đăng ký (`Get.isRegistered` guard trong `_commit`) — nếu đăng ký muộn
+  // hơn (vd. chỉ trong SessionBinding của GetMaterialApp), lần activate đầu
+  // tiên lúc bootstrap sẽ bị bỏ lỡ, RuntimeAppChrome không nhận state ban đầu.
+  Get.put(RemoteAccessController(), permanent: true);
 
   var initialRoute = AppRoutes.login;
   try {

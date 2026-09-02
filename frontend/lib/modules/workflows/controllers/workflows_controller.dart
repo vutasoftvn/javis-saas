@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/runtime/mutation_gate.dart';
 import '../../../modules/workflows/services/workflows_service.dart';
 import '../../../data/models/workflow_models.dart';
 
 class WorkflowsController extends GetxController with GetSingleTickerProviderStateMixin {
+  WorkflowsController({MutationGate? mutationGate})
+      : _mutationGate = mutationGate ?? SessionMutationGate();
+
   final WorkflowsService _workflowsService = WorkflowsService();
+  // Task 5 — khởi chạy workflow là mutation rủi ro cao (thực thi hành động
+  // thật), phải qua cùng gate với Approvals/Tasks trước khi gọi service.
+  final MutationGate _mutationGate;
+
+  MutationPermission mutationPermission() => _mutationGate.check(isMutation: true);
 
   late TabController tabController;
   final isLoading = false.obs;
@@ -44,7 +53,11 @@ class WorkflowsController extends GetxController with GetSingleTickerProviderSta
     }
   }
 
-  Future<void> triggerRun(String definitionId) async {
+  Future<void> triggerRun(String definitionId, {bool confirmed = false}) async {
+    final permission = mutationPermission();
+    if (permission.isHardBlocked) return;
+    if (permission == MutationPermission.confirmDegraded && !confirmed) return;
+
     final res = await _workflowsService.triggerRun(definitionId);
     if (res != null) {
       AppToast.info(

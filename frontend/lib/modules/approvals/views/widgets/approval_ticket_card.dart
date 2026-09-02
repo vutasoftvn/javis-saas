@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/runtime/mutation_gate.dart';
 import '../../../../data/models/approval_model.dart';
 import '../../controllers/approvals_controller.dart';
 import 'approval_action_dialogs.dart';
@@ -163,54 +165,118 @@ class ApprovalTicketCard extends StatelessWidget {
           const Divider(color: Color(0xFF334155), height: 20),
 
           // 3-Action Buttons (Approve, Reject, Request Revision)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              // Request Revision Button
-              OutlinedButton.icon(
-                onPressed: () => ApprovalActionDialogs.showRevision(context, controller, item.id),
-                icon: const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF818CF8)),
-                label: const Text('Yêu cầu sửa lại', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12.5)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF4F46E5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-              const SizedBox(width: 10),
+          // Task 5 — bọc trong Obx để phản ứng ngay khi
+          // `SessionController.active.runtime` đổi (vd. node vừa rớt
+          // offline): control phải TỰ disable + hiện tooltip giải thích
+          // TRƯỚC khi người dùng bấm, không đợi tới lúc bấm rồi báo lỗi.
+          Obx(() {
+            final permission = controller.mutationPermission();
+            final blocked = permission.isHardBlocked;
+            final tooltip = blocked ? permission.blockedTooltip : null;
 
-              // Reject Button
-              OutlinedButton.icon(
-                onPressed: () => ApprovalActionDialogs.showReject(context, controller, item.id),
-                icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFF87171)),
-                label: const Text('Từ chối', style: TextStyle(color: Color(0xFFF87171), fontSize: 12.5)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFDC2626)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-              const SizedBox(width: 10),
+            Future<void> runGated(
+              void Function({required bool confirmed}) openDialog,
+              String actionLabel,
+            ) async {
+              if (blocked) return; // control lẽ ra đã bị disable, phòng hờ.
+              if (permission == MutationPermission.confirmDegraded) {
+                final ok = await confirmDegradedMutation(context, actionLabel: actionLabel);
+                if (!ok) return;
+                openDialog(confirmed: true);
+                return;
+              }
+              openDialog(confirmed: false);
+            }
 
-              // Approve Button
-              ElevatedButton.icon(
-                onPressed: (item.isHumanOwnedOnly || item.isExpired || (item.skillHash != null && item.skillHash!.isEmpty))
-                    ? null
-                    : () => ApprovalActionDialogs.showApprove(context, controller, item.id),
-                icon: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
-                label: const Text(
-                  'Chấp thuận (Approve)',
-                  style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700),
+            Widget withTooltip(Widget child) =>
+                tooltip == null || tooltip.isEmpty ? child : Tooltip(message: tooltip, child: child);
+
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Request Revision Button
+                withTooltip(
+                  OutlinedButton.icon(
+                    onPressed: blocked
+                        ? null
+                        : () => runGated(
+                              ({required confirmed}) => ApprovalActionDialogs.showRevision(
+                                context,
+                                controller,
+                                item.id,
+                                confirmed: confirmed,
+                              ),
+                              'yêu cầu sửa lại',
+                            ),
+                    icon: const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF818CF8)),
+                    label: const Text('Yêu cầu sửa lại', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12.5)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF4F46E5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  disabledBackgroundColor: Colors.grey.shade800,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                const SizedBox(width: 10),
+
+                // Reject Button
+                withTooltip(
+                  OutlinedButton.icon(
+                    onPressed: blocked
+                        ? null
+                        : () => runGated(
+                              ({required confirmed}) => ApprovalActionDialogs.showReject(
+                                context,
+                                controller,
+                                item.id,
+                                confirmed: confirmed,
+                              ),
+                              'từ chối',
+                            ),
+                    icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFF87171)),
+                    label: const Text('Từ chối', style: TextStyle(color: Color(0xFFF87171), fontSize: 12.5)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFDC2626)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 10),
+
+                // Approve Button
+                withTooltip(
+                  ElevatedButton.icon(
+                    onPressed: (blocked ||
+                            item.isHumanOwnedOnly ||
+                            item.isExpired ||
+                            (item.skillHash != null && item.skillHash!.isEmpty))
+                        ? null
+                        : () => runGated(
+                              ({required confirmed}) => ApprovalActionDialogs.showApprove(
+                                context,
+                                controller,
+                                item.id,
+                                confirmed: confirmed,
+                              ),
+                              'phê duyệt',
+                            ),
+                    icon: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                    label: const Text(
+                      'Chấp thuận (Approve)',
+                      style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      disabledBackgroundColor: Colors.grey.shade800,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
         ],
       ),
     );

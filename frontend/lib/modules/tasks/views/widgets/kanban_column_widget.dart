@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/runtime/mutation_gate.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/glassmorphism.dart';
 import '../../../../data/models/task_kanban_model.dart';
@@ -40,6 +41,11 @@ class KanbanColumnWidget extends StatelessWidget {
         ),
         child: DragTarget<TaskKanbanModel>(
           onWillAcceptWithDetails: (details) {
+            // Task 5 — không cho kéo-thả "thành công về mặt UI" (đổi vị trí,
+            // rồi lại revert) khi mutation chắc chắn bị chặn cứng. `moveTask`
+            // vẫn tự gate lại lần nữa (defense in depth) cho cả các call site
+            // khác ngoài kéo-thả.
+            if (controller.mutationPermission().isHardBlocked) return false;
             return details.data.status.value != status;
           },
           onAcceptWithDetails: (details) {

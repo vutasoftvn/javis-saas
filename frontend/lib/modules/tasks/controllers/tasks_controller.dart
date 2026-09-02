@@ -1,10 +1,20 @@
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/runtime/mutation_gate.dart';
 import '../../../data/models/task_kanban_model.dart';
 import '../../../modules/tasks/services/task_service.dart';
 
 class TasksController extends GetxController {
+  TasksController({MutationGate? mutationGate})
+      : _mutationGate = mutationGate ?? SessionMutationGate();
+
   final TaskService _taskService = TaskService();
+  // Task 5 — cùng nguyên tắc với ApprovalsController: gate DUY NHẤT trước
+  // khi đổi trạng thái task (kéo-thả Kanban hoặc nút pause/resume/approve/
+  // cancel), đọc `SessionController.active.runtime`.
+  final MutationGate _mutationGate;
+
+  MutationPermission mutationPermission() => _mutationGate.check(isMutation: true);
 
   final isLoading = false.obs;
   final tasks = <TaskKanbanModel>[].obs;
@@ -52,7 +62,20 @@ class TasksController extends GetxController {
     }
   }
 
-  Future<void> moveTask(String taskId, String newStatusStr) async {
+  /// [confirmed] — bắt buộc `true` khi gate trả [MutationPermission.confirmDegraded]
+  /// và người dùng đã xác nhận qua `confirmDegradedMutation` (xem
+  /// `kanban_task_card.dart`). Kéo-thả Kanban khi degraded sẽ không tự động
+  /// coi là đã xác nhận — item chỉ đứng yên, không mất optimistic state vì
+  /// chưa từng đổi.
+  Future<void> moveTask(String taskId, String newStatusStr, {bool confirmed = false}) async {
+    final permission = mutationPermission();
+    // blockedOffline/blockedReadOnly: các nút pause/resume/approve/cancel
+    // trong `kanban_task_card.dart` PHẢI đã disable trước khi bấm được — nếu
+    // vẫn tới đây (vd. kéo-thả), im lặng không đổi trạng thái, không gọi
+    // service, không toast lỗi giả.
+    if (permission.isHardBlocked) return;
+    if (permission == MutationPermission.confirmDegraded && !confirmed) return;
+
     final index = tasks.indexWhere((t) => t.id == taskId);
     if (index == -1) return;
 
@@ -75,19 +98,19 @@ class TasksController extends GetxController {
   }
 
 
-  Future<void> pauseTask(String taskId) async {
-    await moveTask(taskId, 'blocked');
+  Future<void> pauseTask(String taskId, {bool confirmed = false}) async {
+    await moveTask(taskId, 'blocked', confirmed: confirmed);
   }
 
-  Future<void> resumeTask(String taskId) async {
-    await moveTask(taskId, 'in_progress');
+  Future<void> resumeTask(String taskId, {bool confirmed = false}) async {
+    await moveTask(taskId, 'in_progress', confirmed: confirmed);
   }
 
-  Future<void> approveTask(String taskId) async {
-    await moveTask(taskId, 'in_progress');
+  Future<void> approveTask(String taskId, {bool confirmed = false}) async {
+    await moveTask(taskId, 'in_progress', confirmed: confirmed);
   }
 
-  Future<void> cancelTask(String taskId) async {
-    await moveTask(taskId, 'cancelled');
+  Future<void> cancelTask(String taskId, {bool confirmed = false}) async {
+    await moveTask(taskId, 'cancelled', confirmed: confirmed);
   }
 }

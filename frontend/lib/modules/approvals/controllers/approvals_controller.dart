@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/runtime/mutation_gate.dart';
 import '../../../data/models/approval_model.dart';
 import '../../../modules/approvals/services/approvals_service.dart';
 import '../../../core/network/realtime_service.dart';
 
 class ApprovalsController extends GetxController with GetSingleTickerProviderStateMixin {
+  ApprovalsController({MutationGate? mutationGate})
+      : _mutationGate = mutationGate ?? SessionMutationGate();
+
   final ApprovalsService _approvalsService = ApprovalsService();
   final RealtimeService _realtimeService = RealtimeService();
+  // Task 5 — cổng gate DUY NHẤT trước khi gọi service quyết định (approve/
+  // reject/request-revision): đọc `SessionController.active.runtime`, không
+  // đọc UI toggle riêng lẻ. REMOTE_ACCESS + OFFLINE phải chặn ở đây TRƯỚC
+  // khi có bất kỳ lời gọi HTTP nào tới `ApprovalsService`.
+  final MutationGate _mutationGate;
+
+  MutationPermission mutationPermission() => _mutationGate.check(isMutation: true);
 
   late TabController tabController;
   final isLoading = false.obs;
@@ -68,7 +79,21 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     }
   }
 
-  Future<void> approveTicket(dynamic approvalId, {String? comment}) async {
+  /// [confirmed] — bắt buộc `true` khi gate trả [MutationPermission.confirmDegraded]
+  /// (UI đã hiện dialog `confirmDegradedMutation` và người dùng xác nhận
+  /// tiếp tục). Không đặt mặc định `true` để không ai vô tình bỏ qua bước
+  /// xác nhận khi gọi trực tiếp từ code khác.
+  Future<void> approveTicket(dynamic approvalId, {String? comment, bool confirmed = false}) async {
+    final permission = mutationPermission();
+    // blockedOffline/blockedReadOnly: UI PHẢI đã disable control trước khi
+    // bấm được (§Task 5 RuntimeAppChrome/mutation gate) — nếu vẫn tới được
+    // đây, im lặng không gọi service thay vì báo lỗi giả sau một cú bấm lẽ
+    // ra không thể xảy ra.
+    if (permission.isHardBlocked) return;
+    // confirmDegraded chưa được xác nhận ⇒ chưa cho gọi service; UI cần hiện
+    // `confirmDegradedMutation` rồi gọi lại với `confirmed: true`.
+    if (permission == MutationPermission.confirmDegraded && !confirmed) return;
+
     final success = await _approvalsService.approve(approvalId, comment: comment);
     if (success) {
       AppToast.success(
@@ -84,7 +109,11 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     }
   }
 
-  Future<void> rejectTicket(dynamic approvalId, {String? reason}) async {
+  Future<void> rejectTicket(dynamic approvalId, {String? reason, bool confirmed = false}) async {
+    final permission = mutationPermission();
+    if (permission.isHardBlocked) return;
+    if (permission == MutationPermission.confirmDegraded && !confirmed) return;
+
     final success = await _approvalsService.reject(approvalId, reason: reason);
     if (success) {
       AppToast.warning(
@@ -100,7 +129,15 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     }
   }
 
-  Future<void> requestRevisionTicket(dynamic approvalId, {required String feedback}) async {
+  Future<void> requestRevisionTicket(
+    dynamic approvalId, {
+    required String feedback,
+    bool confirmed = false,
+  }) async {
+    final permission = mutationPermission();
+    if (permission.isHardBlocked) return;
+    if (permission == MutationPermission.confirmDegraded && !confirmed) return;
+
     final success = await _approvalsService.requestRevision(approvalId, feedback: feedback);
     if (success) {
       AppToast.info(

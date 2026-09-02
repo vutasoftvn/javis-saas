@@ -2,7 +2,18 @@ import 'package:flutter/material.dart';
 import '../../controllers/approvals_controller.dart';
 
 class ApprovalActionDialogs {
-  static void showApprove(BuildContext context, ApprovalsController controller, dynamic id) {
+  // Task 5 — [confirmed] được set `true` bởi caller (ApprovalTicketCard) chỉ
+  // sau khi người dùng đã xác nhận qua `confirmDegradedMutation` khi
+  // `MutationGate` báo `confirmDegraded`. Truyền thẳng xuống
+  // `ApprovalsController.approveTicket/...` để không phải xác nhận hai lần —
+  // dialog "Xác nhận Duyệt" bên dưới là bước nhập nội dung, KHÔNG thay thế
+  // bước xác nhận runtime chưa ổn định.
+  static void showApprove(
+    BuildContext context,
+    ApprovalsController controller,
+    dynamic id, {
+    bool confirmed = false,
+  }) {
     final commentCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -34,7 +45,7 @@ class ApprovalActionDialogs {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              controller.approveTicket(id, comment: commentCtrl.text.trim());
+              controller.approveTicket(id, comment: commentCtrl.text.trim(), confirmed: confirmed);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
             child: const Text('Xác nhận Duyệt', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -44,7 +55,12 @@ class ApprovalActionDialogs {
     );
   }
 
-  static void showReject(BuildContext context, ApprovalsController controller, dynamic id) {
+  static void showReject(
+    BuildContext context,
+    ApprovalsController controller,
+    dynamic id, {
+    bool confirmed = false,
+  }) {
     final reasonCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -76,7 +92,7 @@ class ApprovalActionDialogs {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              controller.rejectTicket(id, reason: reasonCtrl.text.trim());
+              controller.rejectTicket(id, reason: reasonCtrl.text.trim(), confirmed: confirmed);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Từ chối lệnh', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -86,7 +102,12 @@ class ApprovalActionDialogs {
     );
   }
 
-  static void showRevision(BuildContext context, ApprovalsController controller, dynamic id) {
+  static void showRevision(
+    BuildContext context,
+    ApprovalsController controller,
+    dynamic id, {
+    bool confirmed = false,
+  }) {
     final feedbackCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -120,7 +141,7 @@ class ApprovalActionDialogs {
             onPressed: () {
               if (feedbackCtrl.text.trim().isNotEmpty) {
                 Navigator.pop(ctx);
-                controller.requestRevisionTicket(id, feedback: feedbackCtrl.text.trim());
+                controller.requestRevisionTicket(id, feedback: feedbackCtrl.text.trim(), confirmed: confirmed);
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5)),

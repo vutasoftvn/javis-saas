@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/workflows_controller.dart';
+import '../../../core/runtime/mutation_gate.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
@@ -164,18 +165,40 @@ class WorkflowsView extends GetView<WorkflowsController> {
                   ],
                 ),
               ),
-              ElevatedButton.icon(
-                onPressed: () => controller.triggerRun(defId),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00F0FF).withValues(alpha: 0.2),
-                  foregroundColor: const Color(0xFF00F0FF),
-                  side: const BorderSide(color: Color(0xFF00F0FF)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                icon: const Icon(Icons.play_arrow, size: 16),
-                label: const Text('Chạy ngay', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
+              // Task 5 — khởi chạy workflow là mutation rủi ro cao (thực thi
+              // hành động thật); nút phải tự disable + hiện tooltip TRƯỚC
+              // khi bấm khi runtime offline/read-only, và bắt xác nhận rõ
+              // ràng khi runtime chưa được xác minh/degraded.
+              Obx(() {
+                final permission = controller.mutationPermission();
+                final blocked = permission.isHardBlocked;
+                final button = ElevatedButton.icon(
+                  onPressed: blocked
+                      ? null
+                      : () async {
+                          if (permission == MutationPermission.confirmDegraded) {
+                            final ok = await confirmDegradedMutation(
+                              context,
+                              actionLabel: 'khởi chạy workflow "$slug"',
+                            );
+                            if (!ok) return;
+                            await controller.triggerRun(defId, confirmed: true);
+                            return;
+                          }
+                          await controller.triggerRun(defId);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00F0FF).withValues(alpha: 0.2),
+                    foregroundColor: const Color(0xFF00F0FF),
+                    side: const BorderSide(color: Color(0xFF00F0FF)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.play_arrow, size: 16),
+                  label: const Text('Chạy ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+                );
+                return blocked ? Tooltip(message: permission.blockedTooltip, child: button) : button;
+              }),
             ],
           ),
         );
