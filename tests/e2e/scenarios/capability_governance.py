@@ -141,12 +141,12 @@ def _assert_apps_cosa_auth_boundary(stack: MvpStack, seeded: SeededWorkspace) ->
     #    không phải member). `services/company` /identity/tenant-context/resolve
     #    trả 403 (thiếu membership); `WorkspaceTenantContextClient` (client mỏng
     #    ở apps/cosa) gộp MỌI non-200 thành `WorkspaceTenantContextError` →
-    #    boundary trả 502 "workspace scope verification unavailable".
-    #    Đây vẫn là FAIL-CLOSED (DENY, không bao giờ ngầm ALLOW) — bất biến §10.5
-    #    freshness. Việc 403 bị "hạ cấp" thành 502 là một sai lệch fidelity mã
-    #    trạng thái (ghi rõ ở report) chứ không phải lỗ hổng cấp quyền; assert
-    #    đúng giá trị QUAN SÁT ĐƯỢC + detail có cấu trúc ổn định (equality, không
-    #    substring).
+    #    boundary trả 502 "workspace scope verification unavailable" hoặc propagate
+    #    403. Đây vẫn là FAIL-CLOSED (DENY, không bao giờ ngầm ALLOW) — bất biến §10.5
+    #    freshness. Việc 403/502 là một sai lệch fidelity mã trạng thái (product
+    #    nên propagate 403, đang collapse thành 502) chứ không phải lỗ hổng cấp quyền;
+    #    assert cả hai kết quả để không break khi fix đó đặt hàng. Assert detail
+    #    có cấu trúc ổn định (equality, không substring).
     _foreign_user_id, foreign_ws_id, _foreign_token = identity.create_company_session(
         stack.company.base_url, display_name="E2E S3 Foreign Owner"
     )
@@ -156,7 +156,7 @@ def _assert_apps_cosa_auth_boundary(stack: MvpStack, seeded: SeededWorkspace) ->
         token=seeded.owner_token,
         workspace_id=foreign_ws_id,
     )
-    assert r_cross.status_code == 502, r_cross.text
+    assert r_cross.status_code in (403, 502), r_cross.text
     assert r_cross.json().get("detail") == "workspace scope verification unavailable", r_cross.text
 
     # 4. Positive control: token owner + workspace của chính mình → 201. Chứng
@@ -186,6 +186,17 @@ def _assert_governance_fails_closed(
     #      `services/cosa` verify `PLATFORM_JWT_SECRET` + `aud="cosa"` → 401.
     #      Đây là điểm fail-closed ở tầng gateway: policy KHÔNG lấy được ⇒ caller
     #      PHẢI coi là DENY, endpoint không trả snapshot "rỗng = allow".
+    #
+    #      Liveness control: trước tiên assert /healthz trả 200 để chứng minh gateway
+    #      lên được (không phải "401 vì service chết"). Discriminator: 401 body PHẢI
+    #      là structured Encore error với code="unauthenticated" (không phải 500 or
+    #      undefined structure).
+    r_healthz = stack.platform.get("/healthz")
+    assert r_healthz.status_code == 200, (
+        f"services/cosa gateway không lên (healthz={r_healthz.status_code}), "
+        f"không thể test policy snapshot auth rejection: {r_healthz.text}"
+    )
+
     r_snapshot = stack.platform.get(
         "/platform/auth/me/agent-policy-snapshot",
         token=seeded.owner_token,
@@ -194,6 +205,12 @@ def _assert_governance_fails_closed(
     assert r_snapshot.status_code == 401, (
         f"policy snapshot với token company kỳ vọng 401 (gateway từ chối), "
         f"thực tế {r_snapshot.status_code}: {r_snapshot.text}"
+    )
+    # Discriminator: 401 body PHẢI có structured Encore error shape.
+    body_json = r_snapshot.json()
+    assert body_json.get("code") == "unauthenticated", (
+        f"401 response PHẢI có Encore error structure (code='unauthenticated'), "
+        f"thực tế body={body_json!r}"
     )
 
     # (c2) Một run THẬT qua worker. Tiền đề: spec operations đã publish (boot seed).
