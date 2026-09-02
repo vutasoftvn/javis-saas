@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_markdown_body.dart';
 import '../../models/chat_models.dart';
 
 class ChatMessageBubble extends StatelessWidget {
@@ -60,7 +60,7 @@ class ChatMessageBubble extends StatelessWidget {
                 ],
               )
             else
-              MarkdownBody(
+              AppMarkdownBody(
                 data: msg.content,
                 selectable: true,
                 styleSheet: MarkdownStyleSheet(

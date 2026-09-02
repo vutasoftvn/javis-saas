@@ -6,7 +6,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | Lớp | Occurrences | Files |
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 132 | 35 |
-| VALID_KEEP (giữ nguyên) | 97 | 30 |
+| VALID_KEEP (giữ nguyên) | 111 | 31 |
 | REVIEW (chưa phân loại) | 831 | 244 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
@@ -303,8 +303,9 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | File | Hits |
 |---|---|
 | frontend/lib/modules/hologram_hub/widgets/company_activation_card.dart | 13 |
+| landing/src/lib/early-access-store.ts | 10 |
+| landing/src/lib/resend.ts | 10 |
 | services/company/commercial/services/marketing-mvp.service.ts | 10 |
-| landing/src/lib/resend.ts | 8 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 7 |
 | frontend/lib/modules/sales/views/widgets/lead_scoring_list.dart | 6 |
 | landing/src/components/sections/LeadFormSection.tsx | 6 |
@@ -315,6 +316,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/widgets/activation/activation_step4_diagnostics.dart | 3 |
 | frontend/lib/modules/sales/views/sales_view.dart | 3 |
 | frontend/lib/modules/sales/views/widgets/ai_outreach_composer_dialog.dart | 3 |
+| landing/src/app/api/early-access/route.ts | 3 |
 | frontend/lib/modules/hologram_hub/controllers/mixins/hub_stage_mixin.dart | 2 |
 | frontend/lib/modules/sales/controllers/sales_controller.dart | 2 |
 | landing/src/app/layout.tsx | 2 |
@@ -323,7 +325,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/auth/views/register_view.dart | 1 |
 | frontend/lib/modules/sales/views/widgets/crm_account_entry_dialog.dart | 1 |
 | frontend/lib/modules/sales/views/widgets/deal_kanban_board.dart | 1 |
-| landing/src/app/api/early-access/route.ts | 1 |
 | landing/src/components/sections/BentoFeatures.tsx | 1 |
 | landing/src/components/sections/FaqSection.tsx | 1 |
 | landing/src/lib/early-access.ts | 1 |

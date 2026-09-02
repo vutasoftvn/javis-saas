@@ -217,7 +217,8 @@ jobs:
           echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
       - name: Install dependencies
         run: |
-          pip install -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest-asyncio
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install pytest-asyncio
           cd services/company && npm install -g pnpm && pnpm install
           cd ../../frontend && flutter pub get
       - name: Run AI Compliance Production Gate
@@ -324,10 +325,35 @@ jobs:
             requirements-dev.txt
             packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install -r requirements-dev.txt
       - run: ruff check packages/agent apps/cosa packages/agent_integrations
       - run: ruff format --check packages/agent apps/cosa packages/agent_integrations
       - run: mypy
+
+  python-dependency-audit:
+    # Task 10 (truthful-mvp-hardening) — dependency resolution phải lặp lại
+    # được (lock + hash) và không âm thầm trôi khỏi requirements.in. Job này
+    # KHÔNG thay pip install --require-hashes ở các job khác — nó chỉ xác
+    # nhận lock hiện tại còn khớp input và không có lỗ hổng đã biết.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install pip-tools pip-audit
+      - name: Verify committed locks match requirements.in (no silent drift)
+        run: |
+          pip-compile --generate-hashes --allow-unsafe -o packages/agent/requirements.txt packages/agent/requirements.in
+          pip-compile --generate-hashes --allow-unsafe -o apps/cosa/requirements.txt apps/cosa/requirements.in
+          git diff --exit-code packages/agent/requirements.txt apps/cosa/requirements.txt
+      - name: Audit locked dependencies for known vulnerabilities
+        run: |
+          pip-audit -r packages/agent/requirements.txt --require-hashes
+          pip-audit -r apps/cosa/requirements.txt --require-hashes
 
   quality-unit:
     runs-on: ubuntu-latest
@@ -367,7 +393,9 @@ jobs:
             requirements-dev.txt
             packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install -r requirements-dev.txt pytest pytest-asyncio
       - name: Apply agent database migrations
         run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
@@ -406,7 +434,9 @@ jobs:
             requirements-dev.txt
             packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install -r requirements-dev.txt pytest pytest-asyncio
       - name: AgentOS application unit tests
         run: make apps-cosa-test
 
@@ -448,7 +478,9 @@ jobs:
             requirements-dev.txt
             packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install -r requirements-dev.txt pytest pytest-asyncio
       - name: Apply agent database migrations
         run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
@@ -524,7 +556,9 @@ jobs:
             requirements-dev.txt
             packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install -r requirements-dev.txt pytest pytest-asyncio
       - name: Apply agent database migrations
         run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
@@ -600,7 +634,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: pip install -r packages/agent/requirements.txt
+      - run: pip install --require-hashes -r packages/agent/requirements.txt
       - run: npm ci
         working-directory: services/cosa
       - run: npm ci
@@ -661,7 +695,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: pip install -r packages/agent/requirements.txt
+      - run: pip install --require-hashes -r packages/agent/requirements.txt
       - run: npm ci
         working-directory: services/cosa
       - run: npm ci
@@ -713,7 +747,9 @@ jobs:
           cache-dependency-path: |
             packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install pytest pytest-asyncio
       - name: Apply agent database migrations
         run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
@@ -759,7 +795,9 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: packages/agent/requirements.txt
-      - run: pip install -r packages/agent/requirements.txt pytest pytest-asyncio pyyaml
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt
+          pip install pytest pytest-asyncio pyyaml
       - run: mkdir -p test-results
       - run: PYTHONPATH=. pytest tests/desktop_worker -q --junitxml=test-results/desktop-worker.xml
       - uses: actions/upload-artifact@v4
@@ -807,7 +845,9 @@ jobs:
             requirements-dev.txt
             packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio httpx pyjwt
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install -r requirements-dev.txt pytest pytest-asyncio httpx pyjwt
       - name: Run E2E Golden Path test suite
         run: bash scripts/e2e/run-golden-path.sh
       - uses: actions/upload-artifact@v4

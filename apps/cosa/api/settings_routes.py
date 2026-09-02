@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from apps.cosa.api.mvp_response import MvpSourceRef, mvp_item, mvp_list
+from apps.cosa.api.mvp_response import MvpSourceRef, MvpSuccess, mvp_item, mvp_list
 from apps.cosa.auth import (
     AuthenticatedIdentity,
     get_authenticated_identity,
@@ -122,7 +122,7 @@ def _skill_view_from_spec(
 async def list_settings_skills(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[SkillSettingView]]:
     """List available skills with genuine provenance: danh mục skill từ
     registry Agent Platform, policy (enabled/config/revision) từ COSA Control
     Plane (authoritative)."""
@@ -160,7 +160,7 @@ async def update_settings_skill(
     body: UpdateSkillSettingRequest,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[SkillSettingView]:
     """Update workspace-level skill configuration/policy.
 
     Chỉ workspace operator được mutate (khớp `require_workspace_operator`

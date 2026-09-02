@@ -27,10 +27,24 @@ quote-style = "double"
 python_version = "3.11"
 ignore_missing_imports = true      # lenient giai đoạn 1
 disallow_untyped_defs = false
+check_untyped_defs = true          # kiểm tra thân hàm kể cả khi chưa có annotation đầy đủ (Task 10)
 warn_unused_ignores = true
 warn_redundant_casts = true
 files = ["packages/agent", "apps/cosa", "packages/agent_integrations"]
 exclude = "(migrations|tests|\\.venv)"
+
+# Task 10: tăng dần độ nghiêm ngặt cho các module Tasks 1-9 (plan
+# truthful-mvp-hardening) đã sửa trong phiên này — không flip global vì phần
+# còn lại của repo chưa được rà soát type toàn bộ.
+[[tool.mypy.overrides]]
+module = [
+    "apps.cosa.api.mvp_contracts_generated",
+    "apps.cosa.api.settings_routes",
+    "apps.cosa.api.vault_routes",
+    "apps.cosa.api.workforce_routes",
+    "apps.cosa.composition.agent_plane",
+]
+disallow_untyped_defs = true
 
 [tool.pytest.ini_options]
 # migrate nguyên trạng từ pytest.ini

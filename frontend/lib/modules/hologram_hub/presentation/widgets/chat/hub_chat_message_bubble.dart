@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:frontend/core/widgets/app_markdown_body.dart';
 import 'package:frontend/modules/hologram_hub/controllers/hologram_hub_controller.dart';
 
 /// Task 7 — chỉ cho phép mở link `https://` trong markdown chat; `http://`
@@ -114,7 +114,7 @@ class HubChatMessageBubble extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           )
-                        : MarkdownBody(
+                        : AppMarkdownBody(
                             data: text.trim(),
                             selectable: true,
                             onTapLink: (text, href, title) {

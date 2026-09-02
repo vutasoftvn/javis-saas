@@ -42,9 +42,7 @@ class WorkspaceSettingsClient:
         self.base_url = (base_url or resolve_platform_control_plane_url()).rstrip("/")
         self.timeout = timeout
 
-    async def list_policies(
-        self, *, workspace_id: str, bearer_token: str
-    ) -> list[dict[str, Any]]:
+    async def list_policies(self, *, workspace_id: str, bearer_token: str) -> list[dict[str, Any]]:
         """`GET /platform/workspaces/:workspaceId/skill-policies` — trả danh
         sách policy đã persist (có thể rỗng nếu workspace chưa cấu hình skill
         nào — khác với "control plane không phản hồi được")."""

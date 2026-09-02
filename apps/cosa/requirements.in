@@ -1,0 +1,23 @@
+# apps/cosa (Agent Execution Application) — dependency thật đang dùng qua
+# import trực tiếp, trước đây chưa từng khai báo ở đâu (chỉ ngầm định có sẵn
+# trong môi trường dev). packages/agent/requirements.txt khai riêng
+# dependency của agent; file này chỉ thêm phần apps/cosa cần thêm.
+#
+# Đây là input nguồn cho `pip-compile` (pip-tools) — không cài trực tiếp từ
+# file này. File .txt cùng tên do pip-compile sinh ra mới là lock có hash,
+# CI cài từ đó để đảm bảo resolution lặp lại được.
+fastapi==0.141.1
+uvicorn[standard]==0.51.0
+pyjwt==2.13.0
+httpx==0.28.1
+pydantic==2.13.4
+openai-agents==0.20.0
+litellm==1.98.0
+boto3==1.43.67
+prometheus-client==0.26.0
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+opentelemetry-exporter-otlp==1.44.0
+opentelemetry-instrumentation-fastapi==0.65b0
+opentelemetry-instrumentation-httpx==0.65b0
+structlog==26.1.0

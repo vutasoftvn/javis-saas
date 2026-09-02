@@ -44,7 +44,9 @@ dependencies:
   url_launcher: ^6.3.2
   livekit_client: ^2.11.0
   speech_to_text: ^7.4.0
-  flutter_markdown: ^0.7.6
+  # flutter_markdown gốc đã discontinued (không còn maintain) — chuyển sang
+  # fork API tương thích flutter_markdown_plus (Task 10, truthful-mvp-hardening).
+  flutter_markdown_plus: ^1.0.3
   flutter_localizations:
     sdk: flutter
   intl: ^0.20.2

@@ -9,7 +9,7 @@ from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_s
 from agent.workforce.repository import WorkforceRepository
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from apps.cosa.api.mvp_response import MvpSourceRef, mvp_item, mvp_list
+from apps.cosa.api.mvp_response import MvpSourceRef, MvpSuccess, mvp_item, mvp_list
 from apps.cosa.api.workforce_schemas import (
     ApprovalDecisionRequest,
     CreateAssignmentRequest,
@@ -68,7 +68,7 @@ async def list_assignments(
     request: Request,
     status_filter: str | None = Query(None, alias="status"),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[WorkforceAssignmentOut]]:
     repo = _get_workforce_repo(request)
     records = await repo.list_assignments(identity.workspace_id, status=status_filter)
     items = [
@@ -97,7 +97,7 @@ async def create_assignment(
     req: CreateAssignmentRequest,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[WorkforceAssignmentOut]:
     require_workspace_operator(identity)
     repo = _get_workforce_repo(request)
 
@@ -145,7 +145,7 @@ async def retire_assignment(
     assignment_id: str,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[WorkforceAssignmentOut]:
     require_workspace_operator(identity)
     repo = _get_workforce_repo(request)
 
@@ -184,7 +184,7 @@ async def retire_assignment(
 async def get_composition(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[WorkforceCompositionEntry]]:
     repo = _get_workforce_repo(request)
     assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
     assignment_map = {a.functional_key: a for a in assignments}
@@ -220,7 +220,7 @@ async def get_composition(
 async def get_org_chart(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[WorkforceOrgChartOut]:
     repo = _get_workforce_repo(request)
     active_assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
 
@@ -256,7 +256,7 @@ async def get_org_chart(
 async def list_capabilities(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[WorkforceCapabilityOut]]:
     repo = _get_workforce_repo(request)
     assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
 
@@ -290,7 +290,7 @@ async def list_cost_observations(
     run_id: str | None = Query(None),
     limit: int = Query(100, ge=1, le=500),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[WorkforceCostObservationOut]]:
     repo = _get_workforce_repo(request)
     records = await repo.list_cost_observations(identity.workspace_id, run_id=run_id, limit=limit)
     items = [
@@ -318,7 +318,7 @@ async def list_cost_observations(
 async def get_health(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[WorkforceHealthOut]]:
     plane = _get_plane(request)
     repo = _get_workforce_repo(request)
     assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
@@ -371,7 +371,7 @@ async def list_runs(
     request: Request,
     limit: int = Query(50, ge=1, le=200),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[WorkforceRunSummaryOut]]:
     plane = _get_plane(request)
     runs = await plane.repository.list_runs(workspace_id=identity.workspace_id, limit=limit)
     items = [
@@ -397,7 +397,7 @@ async def get_run(
     run_id: str,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[WorkforceRunDetailOut]:
     plane = _get_plane(request)
     r = await plane.repository.get_scoped_run(run_id=run_id, workspace_id=identity.workspace_id)
     if r is None:
@@ -429,7 +429,7 @@ async def get_run_events(
     run_id: str,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[WorkforceRunEventOut]]:
     plane = _get_plane(request)
     r = await plane.repository.get_scoped_run(run_id=run_id, workspace_id=identity.workspace_id)
     if r is None:
@@ -460,7 +460,7 @@ async def get_run_artifacts(
     run_id: str,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[WorkforceRunArtifactOut]]:
     plane = _get_plane(request)
     r = await plane.repository.get_scoped_run(run_id=run_id, workspace_id=identity.workspace_id)
     if r is None:
@@ -497,7 +497,7 @@ async def get_run_artifacts(
 async def list_schedules(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[ScheduleOut]]:
     # Schedules from workspace scheduler
     items: list[ScheduleOut] = []
     return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent.schedules")])
@@ -508,7 +508,7 @@ async def create_schedule(
     req: CreateScheduleRequest,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[ScheduleOut]:
     require_workspace_operator(identity)
     schedule_id = f"sched_{uuid4().hex[:12]}"
     out = ScheduleOut(
@@ -529,7 +529,7 @@ async def run_schedule_now(
     schedule_id: str,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[RunScheduleNowOut]:
     require_workspace_operator(identity)
     run_id = f"run_{uuid4().hex[:12]}"
     out = RunScheduleNowOut(
@@ -548,7 +548,7 @@ async def list_approvals(
     request: Request,
     status_filter: str | None = Query(None, alias="status"),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[list[dict]]:
     """List pending approvals — consolidated canonical endpoint at /agent/workforce/approvals."""
     plane = _get_plane(request)
     pending = await plane.approval_service.list_pending_approvals(
@@ -593,7 +593,7 @@ async def decide_approval(
     req: ApprovalDecisionRequest,
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> MvpSuccess[dict]:
     """Decide on approval — consolidated canonical endpoint at /agent/workforce/approvals/{approval_id}/decision."""
     plane = _get_plane(request)
     from agent.capabilities.approval_service import ApprovalAlreadyDecidedError

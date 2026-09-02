@@ -1,0 +1,10 @@
+# packages/agent — dependency thật của Agent Platform Core (framework-neutral).
+# Đây là input nguồn cho `pip-compile` (pip-tools) — không cài trực tiếp từ
+# file này. File requirements.txt cùng tên do pip-compile sinh ra mới là lock
+# có hash, CI cài từ đó để đảm bảo resolution lặp lại được.
+pydantic==2.13.4
+openai==2.53.0
+sqlalchemy==2.0.51
+pyyaml==6.0.3
+httpx==0.28.1
+asyncpg==0.31.0

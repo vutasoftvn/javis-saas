@@ -20,6 +20,8 @@ chỉ hành vi trung thực hơn.
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from apps.cosa.api.vault_schemas import (
@@ -46,69 +48,76 @@ def _not_released() -> HTTPException:
     )
 
 
+# Mọi handler dưới đây chỉ `raise` (không bao giờ return) nên type hint đúng
+# là `NoReturn` (Task 10 — mypy `disallow_untyped_defs` cho module này).
+# FastAPI lại cố build response model Pydantic từ type hint đó ở import-time
+# và crash vì `NoReturn` không phải Pydantic field hợp lệ — `response_model=
+# None` tắt hành vi suy luận response model đó, không ảnh hưởng hành vi 501
+# thật đang trả về.
+
 # ─── Documents ───
 
 
-@router.get("/documents")
+@router.get("/documents", response_model=None)
 async def list_documents(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> NoReturn:
     raise _not_released()
 
 
-@router.post("/documents/upload-ticket")
+@router.post("/documents/upload-ticket", response_model=None)
 async def create_upload_ticket(
     req: CreateUploadTicketRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> NoReturn:
     raise _not_released()
 
 
-@router.get("/documents/{document_id}")
+@router.get("/documents/{document_id}", response_model=None)
 async def get_document(
     document_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> NoReturn:
     raise _not_released()
 
 
-@router.post("/documents/{document_id}/confirm")
+@router.post("/documents/{document_id}/confirm", response_model=None)
 async def confirm_upload(
     document_id: str,
     req: ConfirmUploadRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> NoReturn:
     raise _not_released()
 
 
-@router.delete("/documents/{document_id}")
+@router.delete("/documents/{document_id}", response_model=None)
 async def delete_document(
     document_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> NoReturn:
     raise _not_released()
 
 
 # ─── Knowledge Graph & Sources & Retrieval ───
 
 
-@router.get("/knowledge/graph")
+@router.get("/knowledge/graph", response_model=None)
 async def get_knowledge_graph(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> NoReturn:
     raise _not_released()
 
 
-@router.get("/knowledge/sources")
+@router.get("/knowledge/sources", response_model=None)
 async def list_indexed_sources(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> NoReturn:
     raise _not_released()
 
 
-@router.post("/retrieval/query")
+@router.post("/retrieval/query", response_model=None)
 async def retrieval_query(
     req: RetrievalQueryRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-):
+) -> NoReturn:
     raise _not_released()

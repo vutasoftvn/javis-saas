@@ -4,7 +4,8 @@ from typing import Any
 
 from agent.artifacts import ArtifactRepository
 from agent.capabilities.approval_service import DurableApprovalService
-from agent.capabilities.gateway import CapabilityGateway
+from agent.capabilities.gateway import CapabilityGateway, GatewayExecutionRequest
+from agent.capabilities.grants import ConnectorGrant
 from agent.capabilities.registry import CapabilityRegistry
 from agent.capabilities.web_search import (
     WebSearchBudgetStore,
@@ -251,7 +252,9 @@ def build_cosa_agent_plane(
     # 4. Capability Gateway
     connector_grant_client = ConnectorGrantHttpClient(base_url=resolve_platform_control_plane_url())
 
-    async def _connector_grant_resolver(connector_id: str, req):
+    async def _connector_grant_resolver(
+        connector_id: str, req: GatewayExecutionRequest
+    ) -> ConnectorGrant | None:
         return await connector_grant_client.assert_usable(
             connector_id,
             workspace_id=req.workspace_id or "",
