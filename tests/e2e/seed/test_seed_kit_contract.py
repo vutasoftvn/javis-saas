@@ -12,8 +12,13 @@ Kiểm chứng 3 bất biến mà các scenario task S1–S4 sẽ dựa vào:
 
 from __future__ import annotations
 
+import pytest
+
 from tests.e2e.seed import agent_spec, entitlement, identity
 from tests.e2e.seed.handles import SeededWorkspace
+
+# Chạy trên `real_cosa_stack` (4 plane thật) → chỉ job `e2e-cross-plane-smoke`.
+pytestmark = pytest.mark.cross_plane
 
 
 def test_seed_workspace_yields_usable_owner_and_member_tokens(

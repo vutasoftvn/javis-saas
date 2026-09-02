@@ -8,6 +8,8 @@ File này sẽ chứa S1–S4; hiện chỉ có S1 (auth + cô lập tenant).
 
 from __future__ import annotations
 
+import pytest
+
 from tests.e2e.scenarios import (
     auth_tenant_isolation,
     capability_governance,
@@ -15,6 +17,11 @@ from tests.e2e.scenarios import (
     outbox_relay,
 )
 from tests.e2e.seed import identity
+
+# Toàn bộ file cần Encore CLI + disposable Postgres cluster + PGPASSWORD —
+# chỉ job `e2e-cross-plane-smoke` cung cấp. Loại khỏi `e2e-golden-path` /
+# `make e2e-test` bằng `-m "not cross_plane"`.
+pytestmark = pytest.mark.cross_plane
 
 
 def test_s1_auth_tenant_isolation(real_cosa_stack, disposable_cluster) -> None:

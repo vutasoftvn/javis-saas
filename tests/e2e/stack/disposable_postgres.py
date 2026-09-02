@@ -10,9 +10,10 @@ import contextlib
 import os
 import subprocess
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+if TYPE_CHECKING:
+    import psycopg2
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
@@ -56,12 +57,21 @@ def _url(svc: str, run_id: str, *, role: str, pwd: str, driver: str = "postgresq
 
 
 def _admin_conn() -> psycopg2.extensions.connection:
+    # Import cục bộ: `psycopg2` chỉ cài ở job `e2e-cross-plane-smoke`. Các job
+    # khác (`e2e-golden-path`, `ai-compliance-production-gate`) collect
+    # `tests/e2e` mà không có psycopg2 — import module-scope sẽ làm đỏ collection.
+    import psycopg2
+    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
     conn = psycopg2.connect(connect_timeout=5, **_ADMIN)
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     return conn
 
 
 def create_disposable_cluster(run_id: str) -> DisposableCluster:
+    import psycopg2
+    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
     conn = _admin_conn()
     try:
         with conn.cursor() as cur:

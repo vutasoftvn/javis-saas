@@ -4,4 +4,3 @@
 -- "permission denied for table event_inbox". Cấp tường minh ở đây.
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.event_inbox TO agent_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.event_trigger_rules TO agent_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO agent_app;

@@ -35,9 +35,10 @@ không được disposable cluster áp -> đó là regression B2/Task 12, KHÔNG
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import psycopg2
+if TYPE_CHECKING:
+    import psycopg2
 
 from tests.e2e.mvp_stack import MvpStack
 from tests.e2e.seed.handles import SeededWorkspace
@@ -175,6 +176,8 @@ def _outbox_diag(cluster: DisposableCluster, workspace_id: str) -> list[tuple[An
 
 
 def _connect(dsn: str) -> psycopg2.extensions.connection:
+    import psycopg2  # import cục bộ — psycopg2 chỉ có ở job e2e-cross-plane-smoke
+
     return psycopg2.connect(dsn, connect_timeout=10)
 
 

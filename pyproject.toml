@@ -58,6 +58,7 @@ markers = [
   "durability: test qua nhiều OS process (Part 1C)",
   "order: execution order marker for pytest-order",
   "e2e: full stack golden path E2E suite",
+  "cross_plane: cross-plane E2E harness tests requiring Encore CLI + a disposable Postgres cluster (blocking job e2e-cross-plane-smoke)",
 ]
 filterwarnings = [
   "ignore::DeprecationWarning",

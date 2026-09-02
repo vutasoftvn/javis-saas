@@ -28,8 +28,6 @@ from __future__ import annotations
 import secrets
 import time
 
-import psycopg2
-
 from tests.e2e.stack.disposable_postgres import DisposableCluster
 
 
@@ -47,6 +45,8 @@ def grant_entitlement(
     capability_prefix)` (bỏ `cosa_base_url` + `owner_token` — không có route
     HTTP dùng được, phải INSERT theo schema).
     """
+    import psycopg2  # import cục bộ — psycopg2 chỉ có ở job e2e-cross-plane-smoke
+
     wid = int(workspace_id)
     tool_pattern = f"{capability_prefix}.*"
 

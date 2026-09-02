@@ -6,7 +6,6 @@ from __future__ import annotations
 import os
 import secrets
 
-import psycopg2
 import pytest
 
 from tests.e2e.stack.disposable_postgres import (
@@ -14,6 +13,11 @@ from tests.e2e.stack.disposable_postgres import (
     create_disposable_cluster,
     drop_disposable_cluster,
 )
+
+# psycopg2 chỉ được cài ở job `e2e-cross-plane-smoke`; các job khác collect
+# `tests/e2e` mà không có nó, nên import module-scope sẽ làm đỏ collection.
+# Marker `cross_plane` chỉ deselect SAU khi module đã import → phải import cục bộ.
+pytestmark = pytest.mark.cross_plane
 
 
 @pytest.fixture()
@@ -30,6 +34,8 @@ def cluster():
 def test_app_role_can_read_migrated_schema(cluster) -> None:
     # agent_app phải truy vấn được bảng do migration tạo trong schema có tên
     # (không phải public) — chứng minh _grant_application_access đã chạy.
+    import psycopg2
+
     conn = psycopg2.connect(cluster.agent_app_url, connect_timeout=5)
     try:
         with conn.cursor() as cur:
@@ -40,6 +46,8 @@ def test_app_role_can_read_migrated_schema(cluster) -> None:
 
 
 def test_databases_are_dropped_on_teardown() -> None:
+    import psycopg2
+
     c = create_disposable_cluster(run_id=secrets.token_hex(4))
     try:
         apply_migrations(c)

@@ -175,11 +175,11 @@ contract-freeze-check: contracts-check route-inventory-check ## M0 gate tổng h
 	$(PYTHON) scripts/company_usage_inventory.py --check
 
 e2e-test:        ## Run full-stack E2E golden path test suite
-	PYTHONPATH=$(CURDIR) $(PYTEST) tests/e2e -q
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/e2e -m "not cross_plane" -q
 
-e2e-cross-plane-smoke: ## Tier-1 E2E: 4-plane subprocess stack + disposable Postgres, model=fake
+e2e-cross-plane-smoke: ## Tier-1 cross-plane smoke: 4 real planes + disposable PG, model=fake — transport/auth/fail-closed; NOT kernel/capability-governance (see docs/testing/cross-plane-e2e.md)
 	mkdir -p test-results
-	PYTHONPATH=. $(PYTEST) tests/e2e/test_cross_plane_smoke.py -q --junitxml=test-results/e2e-smoke.xml
+	PYTHONPATH=. $(PYTEST) tests/e2e/test_cross_plane_smoke.py -m cross_plane -q --junitxml=test-results/e2e-smoke.xml
 
 verify-local: lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs contract-freeze-check e2e-test e2e-cross-plane-smoke
 

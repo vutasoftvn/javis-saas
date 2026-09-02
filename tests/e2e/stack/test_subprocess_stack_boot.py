@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import httpx
+import pytest
+
+# Boot 4 process thật + disposable Postgres → chỉ job `e2e-cross-plane-smoke`.
+pytestmark = pytest.mark.cross_plane
 
 
 def test_all_four_planes_report_healthy(real_cosa_stack) -> None:

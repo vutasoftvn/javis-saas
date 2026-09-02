@@ -35,10 +35,12 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
-import psycopg2
+
+if TYPE_CHECKING:
+    import psycopg2
 
 from tests.e2e.mvp_stack import MvpStack
 from tests.e2e.seed import agent_spec, identity
@@ -247,7 +249,7 @@ def _seed_ai_compliance(company_base_url: str) -> dict[str, Any]:
 def _ensure_core_workspace(workspace_app_dsn: str, workspace_id: str) -> None:
     """INSERT hàng `core.workspaces` tối thiểu (id + name) — phần còn lại dùng
     default schema. Idempotent qua `ON CONFLICT DO NOTHING`."""
-    conn = psycopg2.connect(workspace_app_dsn, connect_timeout=10)
+    conn = _connect(workspace_app_dsn)
     try:
         with conn, conn.cursor() as cur:
             cur.execute(
@@ -320,6 +322,8 @@ def _run_diagnostics(agent_dsn: str, cosa_dsn: str, run_id: str) -> str:
 
 
 def _connect(dsn: str) -> psycopg2.extensions.connection:
+    import psycopg2  # import cục bộ — psycopg2 chỉ có ở job e2e-cross-plane-smoke
+
     return psycopg2.connect(dsn, connect_timeout=10)
 
 

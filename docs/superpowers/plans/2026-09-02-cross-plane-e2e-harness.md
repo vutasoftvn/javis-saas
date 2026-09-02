@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Vận hành:** xem `docs/testing/cross-plane-e2e.md` (phạm vi phủ S1–S4 + khoảng trống B5, cách chạy).
+
 **Goal:** Dựng dàn E2E cross-plane tự động — Tầng 1 (subprocess, `model=fake`, chặn PR) chạy 4 vùng thật (`services/company` + `services/cosa` + `apps/cosa` API + `cosa-worker`) trên Postgres disposable, cùng workstream sửa 4 bug tích hợp đã lộ.
 
 **Architecture:** Lớp dùng chung (`tests/e2e/seed/`, `tests/e2e/stack/`, `tests/e2e/scenarios/`) tách khỏi cách boot stack. Tầng 1 boot 4 process bằng `subprocess.Popen` (mở rộng pattern `tests/e2e/conftest.py::real_company_service` đã có), Postgres disposable tạo 3 DB mới có suffix `run_id` mỗi lần chạy. Scenario assert trên HTTP/SSE/DB thật, không mock, không skip.

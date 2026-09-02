@@ -26,8 +26,6 @@ from __future__ import annotations
 import hashlib
 import json
 
-import psycopg2
-
 from tests.e2e.stack.disposable_postgres import DisposableCluster
 
 _PREFERRED_SPEC_ID = "cosa.agents.operations"
@@ -41,6 +39,8 @@ def seed_minimal_agent_spec(
     Reuse spec do boot seed nếu có (ưu tiên `cosa.agents.operations`); nếu không
     có spec `agent` nào thì INSERT một spec tối thiểu và trả id của nó.
     """
+    import psycopg2  # import cục bộ — psycopg2 chỉ có ở job e2e-cross-plane-smoke
+
     conn = psycopg2.connect(cluster.agent_app_url, connect_timeout=10)
     try:
         with conn, conn.cursor() as cur:

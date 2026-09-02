@@ -31,7 +31,6 @@ import secrets
 import time
 
 import httpx
-import psycopg2
 
 from tests.e2e.seed.handles import SeededWorkspace
 from tests.e2e.stack.disposable_postgres import DisposableCluster
@@ -121,6 +120,8 @@ def add_member(
     reproduce đúng thuật toán/secret. Chỉ hàng membership là SQL trực tiếp.
     Trả `(member_user_id, member_token)`.
     """
+    import psycopg2  # import cục bộ — psycopg2 chỉ có ở job e2e-cross-plane-smoke
+
     member_user_id, _throwaway_ws, member_token = create_company_session(
         company_base_url, display_name=display_name
     )

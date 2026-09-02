@@ -43,9 +43,10 @@ THẬT và có cấu trúc:
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import psycopg2
+if TYPE_CHECKING:
+    import psycopg2
 
 from tests.e2e.mvp_stack import MvpStack
 from tests.e2e.seed import agent_spec, entitlement, identity
@@ -286,30 +287,70 @@ def _assert_governance_fails_closed(
     terminal_type, terminal_payload = terminal_row
     assert isinstance(terminal_payload, dict), terminal_payload
 
-    # Bức tường B5: kể cả khi `cosa.workspace_agent_policy` đã có hàng ALLOW cho
-    # workspace này (bước A ở trên), run vẫn KHÔNG chạm được capability pipeline
-    # vì hop lấy policy snapshot (auth) hỏng trước. Assert lý do là MÃ LỖI CÓ
-    # CẤU TRÚC, không suy diễn từ text tự do. Đây là bằng chứng governance path
-    # fail CLOSED: `CosaTenantPolicyError` ⇒ `run.failed`, không bao giờ ngầm
-    # ALLOW rồi execute capability.
-    assert terminal_type == "run.failed", (
-        f"kỳ vọng run.failed (fail-closed ở hop policy snapshot) nhưng thấy "
-        f"{terminal_type!r} payload={terminal_payload!r}. {_run_diag(agent_dsn, cosa_dsn, run_id)}"
-    )
-    assert terminal_payload.get("error") == "policy_snapshot_unavailable", (
-        f"run.failed với lý do ngoài dự kiến: {terminal_payload!r}. "
-        f"{_run_diag(agent_dsn, cosa_dsn, run_id)}"
-    )
+    # Nhánh theo KẾT QUẢ run (mirror S2 `dispatch_worker_result`) — KHÔNG hard-assert
+    # thất bại B5. Khi một PR sau vá B5 (bridge token cosa↔company) làm run chạy
+    # trọn, nhánh `run.completed` bên dưới tự kích hoạt; test này không khoá bug lại.
+    if terminal_type == "run.failed":
+        # Bức tường B5 (trạng thái hiện tại): kể cả khi `cosa.workspace_agent_policy`
+        # đã có hàng ALLOW cho workspace này (bước A ở trên), run vẫn KHÔNG chạm được
+        # capability pipeline vì hop lấy policy snapshot (auth) hỏng trước. Assert lý
+        # do là MÃ LỖI CÓ CẤU TRÚC, không suy diễn từ text tự do — bằng chứng
+        # governance path fail CLOSED: `CosaTenantPolicyError` ⇒ `run.failed`, không
+        # bao giờ ngầm ALLOW rồi execute capability.
+        assert terminal_payload.get("error") == "policy_snapshot_unavailable", (
+            f"run.failed với lý do ngoài dự kiến: {terminal_payload!r}. "
+            f"{_run_diag(agent_dsn, cosa_dsn, run_id)}"
+        )
+        # Governance không được "mở" khi policy unavailable: kernel chưa chạy nên
+        # `agent.runs` cho run này phải trống hoặc failed.
+        kernel_run_status = _scalar(
+            agent_dsn, "SELECT status FROM agent.runs WHERE run_id = %s", (run_id,)
+        )
+        assert kernel_run_status in (None, "failed"), (
+            f"agent.runs.status cho run {run_id} = {kernel_run_status!r} — kỳ vọng None/failed "
+            "(kernel không được chạy khi policy snapshot unavailable)"
+        )
+        return
 
-    # Governance không được "mở" khi policy unavailable: không có hàng nào trong
-    # agent.runs (kernel chưa chạy) và không có audit capability nào được ghi.
+    # --- Nhánh `run.completed`: capability pipeline ĐÃ chạy trọn (tự kích hoạt khi
+    #     B5 được vá). Assert những fact THẬT của pipeline governance. ---
     kernel_run_status = _scalar(
         agent_dsn, "SELECT status FROM agent.runs WHERE run_id = %s", (run_id,)
     )
-    assert kernel_run_status in (None, "failed"), (
-        f"agent.runs.status cho run {run_id} = {kernel_run_status!r} — kỳ vọng None/failed "
-        "(kernel không được chạy khi policy snapshot unavailable)"
+    assert kernel_run_status == "completed", (
+        f"agent.runs.status cho run {run_id} = {kernel_run_status!r} (kỳ vọng completed "
+        "khi terminal event là run.completed)"
     )
+
+    # (a) Audit ledger: `agent.run_events` là operational event ledger append-only —
+    #     một run chạm capability pipeline luôn ghi ≥1 hàng (run.started + tool calls
+    #     + run.completed).
+    audit_event_count = _scalar(
+        agent_dsn,
+        "SELECT count(*) FROM agent.run_events WHERE run_id = %s",
+        (run_id,),
+    )
+    assert audit_event_count and int(audit_event_count) > 0, (
+        f"agent.run_events cho run {run_id} rỗng — capability pipeline không ghi audit "
+        f"({_run_diag(agent_dsn, cosa_dsn, run_id)})"
+    )
+
+    # (b) Governance accumulator đã đánh giá ít nhất một invocation cho run này.
+    governance_state_count = _scalar(
+        agent_dsn,
+        "SELECT count(*) FROM agent_governance.invocation_governance_state WHERE run_id = %s",
+        (run_id,),
+    )
+    assert governance_state_count and int(governance_state_count) > 0, (
+        f"agent_governance.invocation_governance_state trống cho run {run_id} — "
+        "governance không chạy dù run.completed"
+    )
+
+    # (c) TODO(B5): khi bridge token được vá VÀ scenario này bổ sung một lời gọi
+    #     `operations_write` HIGH-risk, assert thêm: có đúng một hàng `run_approvals`
+    #     bind `run_id + tool_call_id + checkpoint_ref` (REQUIRE_APPROVAL binding —
+    #     bất biến §5 CLAUDE.md). Chưa kích hoạt vì message S3 hiện chỉ là
+    #     `operations_read` (LOW risk, không REQUIRE_APPROVAL).
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +380,8 @@ def _run_diag(agent_dsn: str, cosa_dsn: str, run_id: str) -> str:
 
 
 def _connect(dsn: str) -> psycopg2.extensions.connection:
+    import psycopg2  # import cục bộ — psycopg2 chỉ có ở job e2e-cross-plane-smoke
+
     return psycopg2.connect(dsn, connect_timeout=10)
 
 

@@ -953,6 +953,17 @@ jobs:
     # services/company) dưới subprocess thật + Postgres disposable, model=fake.
     # KHÔNG có `if:` guard → chạy blocking trên mọi push/PR (khác e2e-golden-path
     # vốn chỉ chạy nhánh main).
+    #
+    # Job này CHỨNG MINH: transport cross-plane thật (HTTP giữa 4 process), auth +
+    # tenant-isolation ở biên apps/cosa và services/cosa, các bất biến fail-closed
+    # (policy snapshot không lấy được ⇒ DENY, không ngầm ALLOW), và một vòng
+    # dispatch worker cross-process THẬT (schedule → poll → claim → lease →
+    # execute → complete) + outbox→relay→inbox idempotent.
+    # Job này CHƯA exercise: agent kernel, CapabilityGateway, governance approval
+    # binding (`run_id + tool_call_id + checkpoint_ref`), và projection run→signal —
+    # tất cả bị chặn sau bug B5 (delegation token `local_session` bị gateway
+    # services/cosa từ chối ở hop tenant-policy). Chi tiết + phạm vi từng scenario:
+    # docs/testing/cross-plane-e2e.md.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:

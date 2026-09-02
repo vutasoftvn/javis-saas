@@ -21,7 +21,7 @@ if [ -n "${E2E_BASE_URL_API:-}" ] || [ -n "${E2E_BASE_URL_COSA:-}" ] || [ -n "${
   echo "   E2E_BASE_URL_COSA:    ${E2E_BASE_URL_COSA:-default}"
   echo "   E2E_BASE_URL_COMPANY: ${E2E_BASE_URL_COMPANY:-default}"
   mkdir -p test-results
-  PYTHONPATH=. "$PYTEST_BIN" tests/e2e -q --junitxml=test-results/e2e.xml "$@"
+  PYTHONPATH=. "$PYTEST_BIN" tests/e2e -m "not cross_plane" -q --junitxml=test-results/e2e.xml "$@"
   exit 0
 fi
 
@@ -44,4 +44,4 @@ trap 'echo "🧹 Tearing down E2E stack..."; docker compose --profile e2e down -
 
 mkdir -p test-results
 echo "🧪 Running E2E Golden Path test suite..."
-PYTHONPATH=. "$PYTEST_BIN" tests/e2e -q --junitxml=test-results/e2e.xml "$@"
+PYTHONPATH=. "$PYTEST_BIN" tests/e2e -m "not cross_plane" -q --junitxml=test-results/e2e.xml "$@"

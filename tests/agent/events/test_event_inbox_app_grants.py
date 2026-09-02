@@ -28,6 +28,8 @@ def test_agent_app_can_insert_into_event_inbox() -> None:
                 ("ws-b2", str(uuid.uuid4()), "b2-consumer", "test.evt", "corr-b2", "accepted"),
             )
             cur.execute("SELECT count(*) FROM event_trigger_rules")
-            assert cur.fetchone()[0] >= 0  # SELECT quyền tối thiểu cũng phải có
+            # Kiểm tra thật là: SELECT/INSERT phía trên KHÔNG raise InsufficientPrivilege.
+            # count(*) chỉ cần trả về một int hợp lệ (>= 0 luôn đúng, vô nghĩa).
+            assert isinstance(cur.fetchone()[0], int)
     finally:
         conn.close()

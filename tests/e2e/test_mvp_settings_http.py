@@ -76,7 +76,9 @@ def test_settings_contracts_live(real_company_service):
 
     # ─── 6. Verify Skill Policies (Task 4 — Truthful MVP Hardening) ───
     # If control plane is wired (services/cosa reachable from this Encore instance)
-    res_skill_policies = client.get(f"/platform/workspaces/{ws_a}/skill-policies", headers=headers_a)
+    res_skill_policies = client.get(
+        f"/platform/workspaces/{ws_a}/skill-policies", headers=headers_a
+    )
     if res_skill_policies.status_code == 200:
         skill_data = res_skill_policies.json()
         assert skill_data["meta"]["sources"][0]["kind"] == "control_plane"
