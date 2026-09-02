@@ -158,22 +158,7 @@ class HologramHubController extends GetxController
       return;
     }
 
-    ensureAuthenticated().then((_) {
-      loadStageContext();
-      loadProjectsList();
-      loadHubSummary();
-      loadCommandCenterData();
-      loadCeoNextActions();
-      loadActiveCycleTimeline();
-      loadPendingApprovals();
-      loadAgentRuns();
-      loadControlPlaneSummary();
-      loadWorkforceAgents();
-      loadControlPlaneApprovals();
-      loadWorkProducts();
-      // Phase 6: Load exception escalations on startup
-      loadOpenEscalations();
-    });
+    _loadInitialHubData();
 
     updateClock();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -211,6 +196,98 @@ class HologramHubController extends GetxController
     cancelChatStream();
     _realtimeService.removeListener(_onRealtimeEvent);
     super.onClose();
+  }
+
+  /// Tách khỏi `onInit` để dùng lại được ở [resetForWorkspace] — cùng một
+  /// chuỗi load "authoritative" phải chạy lại y hệt sau khi state bị xoá vì
+  /// chuyển workspace, không phải chỉ chạy đúng một lần khi controller được
+  /// tạo.
+  void _loadInitialHubData() {
+    ensureAuthenticated().then((_) {
+      loadStageContext();
+      loadProjectsList();
+      loadHubSummary();
+      loadCommandCenterData();
+      loadCeoNextActions();
+      loadActiveCycleTimeline();
+      loadPendingApprovals();
+      loadAgentRuns();
+      loadControlPlaneSummary();
+      loadWorkforceAgents();
+      loadControlPlaneApprovals();
+      loadWorkProducts();
+      // Phase 6: Load exception escalations on startup
+      loadOpenEscalations();
+    });
+  }
+
+  /// Fix-review (2026-09-02, final review C-1) — `HologramHubController` được
+  /// đăng ký `permanent: true` tại `AppShellController` nên KHÔNG bị Get huỷ
+  /// khi logout/chuyển workspace (trước Task 9, mọi route đều qua
+  /// `DashboardBinding`/`HologramHubBinding` dạng `lazyPut` nên
+  /// `Get.offAllNamed(login)` tự dispose nó). Thiếu bước dọn dẹp này, dữ liệu
+  /// tenant CŨ (approvals, agent runs, control-plane summary, work products,
+  /// escalations, stage roster...) tiếp tục hiển thị cho tenant MỚI cho tới
+  /// khi timer 60s kế tiếp chạy hoặc người dùng tự bấm retry — một rò rỉ cách
+  /// ly tenant thật sự (không phải chỉ là dữ liệu cũ vô hại). Gọi bởi
+  /// `SessionController` ngay sau khi commit snapshot mới (activateWorkspace)
+  /// và trong logout().
+  ///
+  /// [reload] = false khi gọi từ `logout()` — không có workspace mới nào để
+  /// tải lại, chỉ cần xoá sạch state hiển thị trước khi coi phiên là đã kết
+  /// thúc.
+  void resetForWorkspace({bool reload = true}) {
+    // Control-plane / approvals (HubControlPlaneMixin).
+    pendingApprovals.clear();
+    agentRuns.clear();
+    controlPlaneSummary.value = null;
+    workforceAgents.clear();
+    activeApprovals.clear();
+    workProducts.clear();
+    stageRoster.clear();
+    stageRosterMeta.value = null;
+    stageRosterSummary.value = null;
+    openEscalations.clear();
+    hasActiveEscalations.value = false;
+    hasCriticalEscalation.value = false;
+    escalationSummary.value = null;
+
+    // Command center / hub summary (HubCommandMixin).
+    hubSummary.value = null;
+    commandCenterData.value = null;
+    ceoNextActions.clear();
+    dataLoadError.value = null;
+    needsYouItems.clear();
+    resolvedProposalIds.clear();
+    snoozedProposalIds.clear();
+    activeCycleTimeline.value = null;
+    mobileMessages.clear();
+
+    // Strategy stage context (HubStageMixin).
+    stageContext.value = null;
+    projectsList.clear();
+    selectedProjectId.value = null;
+
+    // Evidence/lenses/gate/12WY — tải theo-yêu-cầu khi mở tab tương ứng
+    // (không nằm trong luồng load ban đầu), nhưng vẫn phải xoá ở đây để
+    // không hiện dữ liệu tenant cũ nếu người dùng mở lại tab đó trước khi
+    // tab tự fetch lại.
+    hypothesesList.clear();
+    evidencesList.clear();
+    assumptionMatrix.value = null;
+    decisionsList.clear();
+    latestStageAudit.value = null;
+    prematureAlerts.clear();
+    twelveWyDashboard.value = null;
+    stageLensSummary.value = null;
+
+    // Realtime cue tức thời — không phải state nghiệp vụ nhưng vẫn thuộc về
+    // phiên cũ, reset về idle cho tới khi có event mới của workspace mới.
+    runtimeState.value = HologramRuntimeState.idle;
+
+    if (reload) {
+      _loadInitialHubData();
+    }
   }
 
   // ── Realtime event handler ───────────────────────────────────────────────

@@ -48,7 +48,23 @@ class SessionMutationGate implements MutationGate {
           : MutationPermission.blockedReadOnly;
     }
 
-    return isMutation ? _checkMutation(runtime) : _checkRead(runtime);
+    final result = isMutation ? _checkMutation(runtime) : _checkRead(runtime);
+
+    // Fix-review (2026-09-02, final review I-2) — `modeSource == 'inferred'`
+    // hôm nay LUÔN đúng (chưa có adapter đọc canonical config thật), nên nếu
+    // không hạ cấp `confirmDegraded` xuống `allowed` sau khi người dùng ĐÃ xác
+    // nhận một lần trong phiên/workspace hiện tại
+    // (`SessionController.acknowledgeDegradedMutation`), dialog sẽ bật lên ở
+    // MỌI lần bấm mutation, kể cả khi runtime hoàn toàn khỏe mạnh — huấn
+    // luyện người dùng bấm qua loa. Chỉ áp dụng cho `confirmDegraded` — không
+    // bao giờ hạ cấp `blockedOffline`/`blockedReadOnly` (những nhánh đó không
+    // có ngoại lệ theo xác nhận người dùng).
+    if (isMutation &&
+        result == MutationPermission.confirmDegraded &&
+        _session.degradedMutationAcknowledged) {
+      return MutationPermission.allowed;
+    }
+    return result;
   }
 
   MutationPermission _checkRead(SessionRuntimeInfo runtime) {
@@ -163,7 +179,13 @@ extension MutationPermissionUi on MutationPermission {
   String get blockedTooltip {
     switch (this) {
       case MutationPermission.blockedOffline:
-        return 'Node workspace đang offline (REMOTE_ACCESS) — không thể gửi thao tác này lúc này, hệ thống không tự chuyển sang cloud.';
+        // Fix-review (2026-09-02, final review I-3, minor đã ghi nhận nhưng
+        // chưa sửa từ review Task 5) — trước đây hardcode "(REMOTE_ACCESS)"
+        // dù `blockedOffline` cũng xảy ra với CLOUD_CONTINUITY (cùng nhánh
+        // `_checkRelayedMutation`) và với mode lạ (fail-closed) — tooltip nói
+        // sai nguyên nhân chặn trong hai trường hợp đó. Đọc mode thật từ
+        // `SessionController.active` thay vì hardcode.
+        return 'Node workspace đang offline (${_currentRuntimeModeLabel()}) — không thể gửi thao tác này lúc này, hệ thống không tự chuyển sang cloud.';
       case MutationPermission.blockedReadOnly:
         return 'Đang ở chế độ chỉ đọc — không thể thực hiện thao tác này lúc này.';
       case MutationPermission.confirmDegraded:
@@ -171,6 +193,16 @@ extension MutationPermissionUi on MutationPermission {
         return '';
     }
   }
+}
+
+/// Đọc mode runtime hiện tại từ `SessionController.active` để hiện đúng
+/// nguyên nhân chặn trên tooltip — không giả định luôn là REMOTE_ACCESS.
+/// Không throw khi `SessionController` chưa đăng ký (vd. widget test cô lập
+/// không setup GetX) — trả về nhãn trung tính thay vì crash UI.
+String _currentRuntimeModeLabel() {
+  if (!Get.isRegistered<SessionController>()) return 'không rõ chế độ';
+  final mode = Get.find<SessionController>().active.value?.runtime.mode;
+  return mode ?? 'không rõ chế độ';
 }
 
 /// Dialog xác nhận dùng chung cho mọi mutation surface khi gate trả về
@@ -201,5 +233,15 @@ Future<bool> confirmDegradedMutation(
       ],
     ),
   );
-  return confirmed ?? false;
+  final result = confirmed ?? false;
+  // Fix-review (2026-09-02, final review I-2) — ghi nhận xác nhận vào
+  // `SessionController` để `SessionMutationGate.check` không hỏi lại dialog
+  // này ở MỌI lần bấm tiếp theo trong cùng phiên/workspace hiện tại, miễn là
+  // trạng thái runtime chưa đổi mode/presence sang một nhánh khác. Không
+  // throw khi `SessionController` chưa đăng ký (test cô lập gọi hàm này
+  // trực tiếp không qua GetX).
+  if (result && Get.isRegistered<SessionController>()) {
+    Get.find<SessionController>().acknowledgeDegradedMutation();
+  }
+  return result;
 }

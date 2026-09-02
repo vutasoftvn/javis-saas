@@ -14,6 +14,14 @@ class RuntimeStatus {
   final NodePresence presence;
   final DateTime? lastHeartbeatAt;
 
+  /// Fix-review (2026-09-02, final review I-1) — "configured" (đọc từ cấu
+  /// hình canonical) | "inferred" (heuristic tạm, có thể sai) | null (chưa
+  /// biết nguồn). Bơm từ `SessionRuntimeInfo.modeSource` (`session_snapshot.
+  /// dart`) qua `SessionController._commit` — trước đây field này dừng lại ở
+  /// tầng session, không đi tiếp tới đây, khiến banner khẳng định chắc nịch
+  /// một giá trị `mode` có thể chỉ là suy đoán chưa xác minh.
+  final String? modeSource;
+
   /// Thời điểm quan sát trạng thái này (dùng cho nhãn "dữ liệu tính đến …").
   final DateTime asOf;
 
@@ -25,10 +33,16 @@ class RuntimeStatus {
     required this.mode,
     required this.presence,
     this.lastHeartbeatAt,
+    this.modeSource,
     DateTime? asOf,
     this.routeTarget,
     this.routeReason,
   }) : asOf = asOf ?? DateTime.now().toUtc();
+
+  /// `true` khi `modeSource` KHÔNG phải "configured" — tức giá trị [mode]
+  /// hiện tại chỉ là suy đoán (hoặc không rõ nguồn), chưa được xác minh bằng
+  /// canonical config từ `services/company`.
+  bool get isModeInferred => modeSource != 'configured';
 
   static RuntimeMode parseMode(String? s) {
     switch (s) {
@@ -106,6 +120,7 @@ class RuntimeStatus {
             node['lastHeartbeatAt'] ??
             node['last_heartbeat_at'],
       ),
+      modeSource: (j['modeSource'] ?? j['mode_source']) as String?,
       asOf: _dt(j['asOf'] ?? j['as_of']),
       routeTarget: (j['target'] ?? j['routeTarget']) as String?,
       routeReason: (j['reason'] ?? j['routeReason']) as String?,
@@ -116,6 +131,7 @@ class RuntimeStatus {
     RuntimeMode? mode,
     NodePresence? presence,
     DateTime? lastHeartbeatAt,
+    String? modeSource,
     DateTime? asOf,
     String? routeTarget,
     String? routeReason,
@@ -124,23 +140,37 @@ class RuntimeStatus {
         mode: mode ?? this.mode,
         presence: presence ?? this.presence,
         lastHeartbeatAt: lastHeartbeatAt ?? this.lastHeartbeatAt,
+        modeSource: modeSource ?? this.modeSource,
         asOf: asOf ?? this.asOf,
         routeTarget: routeTarget ?? this.routeTarget,
         routeReason: routeReason ?? this.routeReason,
       );
 
-  /// REMOTE_ACCESS + node không ONLINE ⇒ chỉ đọc.
+  /// Fix-review (2026-09-02, final review I-3) — trước đây chỉ đặc cách
+  /// `remoteAccess`, bỏ sót `CLOUD_CONTINUITY` (cùng đi qua node/relay từ xa
+  /// có thể offline độc lập — xem `MutationGate._checkRelayedMutation`, dùng
+  /// CHUNG một quy tắc cho cả hai mode) — một workspace CLOUD_CONTINUITY +
+  /// OFFLINE bị `MutationGate` chặn (`blockedOffline`) nhưng KHÔNG có banner
+  /// giải thích lý do, tạo ra dead UI. Mode không nhận diện được (`unknown`)
+  /// cũng fail-closed sang chỉ đọc, khớp nhánh fail-closed của
+  /// `MutationGate._checkRead`/`_checkMutation` (mặc định `blocked*`, không
+  /// bao giờ "allowed").
+  bool get _isRelayedMode =>
+      mode == RuntimeMode.remoteAccess || mode == RuntimeMode.cloudContinuity;
+
   bool get isReadOnly =>
-      mode == RuntimeMode.remoteAccess && presence != NodePresence.online;
+      (_isRelayedMode && presence != NodePresence.online) ||
+      mode == RuntimeMode.unknown;
 
   bool get isOffline =>
-      mode == RuntimeMode.remoteAccess && presence == NodePresence.offline;
+      (_isRelayedMode && presence == NodePresence.offline) ||
+      mode == RuntimeMode.unknown;
 
   bool get isDegraded => presence == NodePresence.degraded;
 
   /// Có cần hiện banner cảnh báo không (ẩn khi local-only / online bình thường).
   bool get needsBanner =>
-      isOffline || isDegraded || (mode == RuntimeMode.remoteAccess && isReadOnly);
+      isOffline || isDegraded || (_isRelayedMode && isReadOnly);
 
   String get presenceLabel {
     switch (presence) {
@@ -155,15 +185,33 @@ class RuntimeStatus {
     }
   }
 
+  /// Fix-review (2026-09-02, final review I-1) — hậu tố hedge khi [mode] hiện
+  /// tại chỉ là suy đoán ([isModeInferred]), chưa được xác minh bằng canonical
+  /// config — không để banner khẳng định chắc nịch một giá trị có thể sai.
+  /// Cùng tông với comment `runtimeModeSource` ở Task 3
+  /// (`workspace-settings.service.ts`): "suy đoán", không phải sự thật đã xác
+  /// nhận.
+  String get _inferredHedgeSuffix =>
+      isModeInferred ? ' (chế độ runtime hiện tại là suy đoán, chưa xác minh)' : '';
+
   String get bannerMessage {
+    // Fix-review (2026-09-02, final review I-3) — mode không nhận diện được
+    // (mới trong tương lai, hoặc lỗi parse) fail-closed sang read-only qua
+    // `isOffline`/`isReadOnly` ở trên nhưng cần thông điệp riêng, không mượn
+    // nhầm câu "node offline" (sai nguyên nhân, gây hiểu lầm là do mất kết
+    // nối trong khi thực ra là do giá trị mode lạ).
+    if (mode == RuntimeMode.unknown) {
+      return 'Không xác định được chế độ runtime của workspace — tạm khoá thao tác, chỉ đọc để an toàn.';
+    }
     if (isOffline) {
-      return 'Workspace runtime node đang offline — chỉ đọc, không chạy tác vụ. Không tự chuyển sang cloud.';
+      return 'Workspace runtime node đang offline — chỉ đọc, không chạy tác vụ. '
+          'Không tự chuyển sang cloud.$_inferredHedgeSuffix';
     }
     if (isDegraded) {
-      return 'Kết nối tới runtime node chập chờn — thao tác có thể chậm hoặc lỗi.';
+      return 'Kết nối tới runtime node chập chờn — thao tác có thể chậm hoặc lỗi.$_inferredHedgeSuffix';
     }
     if (isReadOnly) {
-      return 'Đang ở chế độ chỉ đọc.';
+      return 'Đang ở chế độ chỉ đọc.$_inferredHedgeSuffix';
     }
     return '';
   }

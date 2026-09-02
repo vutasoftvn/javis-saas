@@ -53,6 +53,16 @@ class FounderCommandCenterController extends GetxController {
   String? _cofounderConversationId;
   StreamSubscription<Map<String, dynamic>>? _chatSseSubscription;
 
+  /// Chỉ dùng trong test để seed/kiểm tra `_cofounderConversationId` — chứng
+  /// minh `resetForWorkspace()` (final review C-1) thực sự xoá conversation
+  /// id của workspace CŨ, không rò rỉ tin nhắn của phiên/workspace mới vào
+  /// conversation cũ.
+  @visibleForTesting
+  void seedConversationIdForTest(String id) => _cofounderConversationId = id;
+
+  @visibleForTesting
+  String? get cofounderConversationIdForTest => _cofounderConversationId;
+
   // Task 10 — quyết định đã duyệt: `/chat` redirect sang `/hub?panel=chat`
   // (xem `app_pages.dart`); Hub phải tự mở chat sheet hiện có khi nhận
   // query param này, đúng MỘT lần cho mỗi lần vào route bằng cờ này — nếu
@@ -118,6 +128,48 @@ class FounderCommandCenterController extends GetxController {
     _chatSseSubscription?.cancel();
     chatInputController.dispose();
     super.onClose();
+  }
+
+  /// Fix-review (2026-09-02, final review C-1) — controller này đăng ký
+  /// `permanent: true` tại `AppShellController` nên sống xuyên suốt logout/
+  /// chuyển workspace. Không có bước dọn dẹp, `pulse`/`top3Actions`/
+  /// `pendingDecisions`/`pendingApprovals`/`workforcePacks` của tenant CŨ tiếp
+  /// tục hiển thị trên màn hình Hub chính cho tenant MỚI — vô thời hạn, vì
+  /// controller này (khác `HologramHubController`) KHÔNG có timer refresh nào
+  /// — và `_cofounderConversationId` (gán một lần qua `??=`) có thể khiến tin
+  /// nhắn gõ sau khi chuyển workspace bị nối vào conversation của workspace
+  /// TRƯỚC ĐÓ. Gọi bởi `SessionController` ngay sau khi commit snapshot mới
+  /// (activateWorkspace) và trong logout().
+  ///
+  /// [reload] = false khi gọi từ `logout()` — không có workspace mới để tải,
+  /// chỉ cần xoá sạch state hiển thị.
+  void resetForWorkspace({bool reload = true}) {
+    isLoading.value = false;
+    hasProjects.value = true;
+    projectsList.clear();
+    activeProjectSetup.value = null;
+    projectsError.value = null;
+    pulse.value = null;
+    top3Actions.clear();
+    pendingDecisions.clear();
+    pendingApprovals.clear();
+    workforcePacks.clear();
+    workforceState.value = WorkforceLoadState.idle;
+    approvalsState.value = WorkforceLoadState.idle;
+
+    // Chat sheet: không được để tin nhắn/gõ dở của workspace cũ lẫn vào
+    // workspace mới, và conversation id phải reset để lần gửi tiếp theo tạo
+    // conversation MỚI thay vì nối vào conversation của tenant trước.
+    _chatSseSubscription?.cancel();
+    _chatSseSubscription = null;
+    _cofounderConversationId = null;
+    chatMessages.clear();
+    chatInputController.clear();
+    isChatLoading.value = false;
+
+    if (reload) {
+      loadDashboardData();
+    }
   }
 
   /// Tải toàn bộ dữ liệu cho Founder Command Center

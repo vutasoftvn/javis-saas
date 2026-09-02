@@ -10,6 +10,7 @@
 //      pattern gọi thật trong ApprovalsController/TasksController/
 //      WorkflowsController (check gate trước, chỉ gọi ApiClient khi allowed).
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -185,6 +186,52 @@ void main() {
     test('read ⇒ blockedReadOnly (không chặn cứng như mutation nhưng không giả vờ live)', () {
       session.seedForTest(_snapshot(mode: 'REMOTE_ACCESS', modeSource: 'configured', presence: 'OFFLINE'));
       expect(gate.check(isMutation: false), MutationPermission.blockedReadOnly);
+    });
+  });
+
+  // Fix-review (2026-09-02, final review I-2) — `modeSource == 'inferred'`
+  // hôm nay LUÔN đúng (chưa có adapter đọc canonical config thật), nên nếu
+  // gate không hạ cấp `confirmDegraded` xuống `allowed` sau khi người dùng ĐÃ
+  // xác nhận một lần, dialog sẽ bật lên ở MỌI lần bấm mutation cho MỌI người
+  // dùng kể cả runtime khỏe mạnh — huấn luyện người dùng bấm qua loa.
+  group('degradedMutationAcknowledged — dialog chỉ hỏi một lần mỗi phiên/workspace', () {
+    test('sau khi acknowledge, confirmDegraded hạ xuống allowed', () {
+      session.seedForTest(_snapshot(mode: 'REMOTE_ACCESS', modeSource: 'inferred', presence: 'ONLINE'));
+      expect(gate.check(isMutation: true), MutationPermission.confirmDegraded);
+
+      session.acknowledgeDegradedMutation();
+
+      expect(gate.check(isMutation: true), MutationPermission.allowed);
+    });
+
+    test('acknowledge KHÔNG hạ cấp blockedOffline (không có ngoại lệ)', () {
+      session.seedForTest(_snapshot(mode: 'REMOTE_ACCESS', modeSource: 'inferred', presence: 'OFFLINE'));
+      session.acknowledgeDegradedMutation();
+
+      expect(gate.check(isMutation: true), MutationPermission.blockedOffline);
+    });
+
+  });
+
+  // Fix-review (2026-09-02, final review I-3, minor từ review Task 5) —
+  // `blockedTooltip` trước đây hardcode "(REMOTE_ACCESS)" dù `blockedOffline`
+  // cũng xảy ra với CLOUD_CONTINUITY và mode lạ (fail-closed) — tooltip nói
+  // sai nguyên nhân chặn.
+  group('blockedTooltip — nêu đúng mode thật gây chặn', () {
+    test('CLOUD_CONTINUITY + OFFLINE ⇒ tooltip nêu đúng CLOUD_CONTINUITY, không phải REMOTE_ACCESS', () {
+      // `blockedTooltip` đọc mode thật qua `Get.find<SessionController>()`
+      // (không nhận tham số) — đăng ký tạm CHÍNH instance `session` đang dùng
+      // ở test này để mô phỏng đúng cách production wiring (SessionController
+      // đăng ký permanent một lần khi app khởi động).
+      Get.testMode = true;
+      Get.put<SessionController>(session);
+      addTearDown(() => Get.delete<SessionController>());
+
+      session.seedForTest(_snapshot(mode: 'CLOUD_CONTINUITY', modeSource: 'configured', presence: 'OFFLINE'));
+      final permission = gate.check(isMutation: true);
+      expect(permission, MutationPermission.blockedOffline);
+      expect(permission.blockedTooltip, contains('CLOUD_CONTINUITY'));
+      expect(permission.blockedTooltip, isNot(contains('(REMOTE_ACCESS)')));
     });
   });
 

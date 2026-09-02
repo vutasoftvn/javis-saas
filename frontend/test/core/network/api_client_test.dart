@@ -49,6 +49,26 @@ void main() {
       expect(target.blockedResponse!.statusCode, 503);
     });
 
+    // Fix-review (2026-09-02, final review I-4) — trước fix, `_offlineGuard`
+    // chỉ nhận diện `REMOTE_ACCESS`; một workspace CLOUD_CONTINUITY+OFFLINE
+    // đi thẳng qua guard này mà không bị chặn (khác với MutationGate, vốn đã
+    // chặn đúng ở tầng gate — nhưng hai surface Hub approve/reject không gọi
+    // qua gate, nên transport phải tự backstop).
+    test('business endpoint CLOUD_CONTINUITY + OFFLINE ⇒ blockedResponse 503, uri null', () {
+      ApiClient.setRuntimeContext(mode: 'CLOUD_CONTINUITY', presence: 'OFFLINE');
+      final target = ApiClient.resolveRequestTarget('/operations/tasks');
+      expect(target.uri, isNull);
+      expect(target.blockedResponse, isNotNull);
+      expect(target.blockedResponse!.statusCode, 503);
+    });
+
+    test('business endpoint CLOUD_CONTINUITY + ONLINE ⇒ không bị chặn', () {
+      ApiClient.setRuntimeContext(mode: 'CLOUD_CONTINUITY', presence: 'ONLINE');
+      final target = ApiClient.resolveRequestTarget('/operations/tasks');
+      expect(target.blockedResponse, isNull);
+      expect(target.uri, isNotNull);
+    });
+
     test('uri và blockedResponse loại trừ lẫn nhau ở mọi nhánh', () {
       for (final scenario in [
         () {

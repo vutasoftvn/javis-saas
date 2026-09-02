@@ -9,6 +9,8 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:get/get.dart';
 
 import '../../modules/auth/services/auth_service.dart';
+import '../../modules/hologram_hub/controllers/founder_command_center_controller.dart';
+import '../../modules/hologram_hub/controllers/hologram_hub_controller.dart';
 import '../../modules/remote_access/controllers/remote_access_controller.dart';
 import '../../modules/remote_access/models/runtime_status.dart';
 import '../network/api_client.dart';
@@ -109,6 +111,20 @@ class SessionController extends GetxController {
 
   final Rxn<SessionSnapshot> active = Rxn<SessionSnapshot>();
 
+  // Fix-review (2026-09-02, final review I-2) — cờ ghi nhận người dùng ĐÃ xác
+  // nhận dialog `confirmDegradedMutation` (xem `mutation_gate.dart`) trong
+  // phiên/workspace hiện tại. `modeSource == 'inferred'` hôm nay LUÔN đúng
+  // (chưa có adapter đọc canonical config thật từ `services/company` —
+  // `workspace-settings.service.ts` hard-code 'inferred'), nên nếu không có
+  // cờ này, dialog sẽ bật lên ở MỌI lần bấm mutation cho MỌI người dùng, kể
+  // cả khi runtime đang hoàn toàn khỏe mạnh — huấn luyện người dùng bấm qua
+  // loa, làm mất tác dụng cảnh báo cho các trường hợp thật sự nguy hiểm. Reset
+  // về false khi logout hoặc chuyển workspace vì điều kiện runtime của
+  // workspace mới chưa chắc giống hệt workspace cũ.
+  bool _degradedMutationAcknowledged = false;
+  bool get degradedMutationAcknowledged => _degradedMutationAcknowledged;
+  void acknowledgeDegradedMutation() => _degradedMutationAcknowledged = true;
+
   @override
   void onInit() {
     super.onInit();
@@ -197,10 +213,31 @@ class SessionController extends GetxController {
         RuntimeStatus(
           mode: RuntimeStatus.parseMode(snapshot.runtime.mode),
           presence: RuntimeStatus.parsePresence(snapshot.runtime.presenceStatus),
+          // Fix-review (2026-09-02, final review I-1) — trước đây `modeSource`
+          // dừng lại ở `SessionSnapshot`, không đi tiếp tới `RuntimeStatus`
+          // nên banner (`remote_access_banner.dart`) khẳng định chắc nịch một
+          // giá trị mode có thể chỉ là suy đoán. Truyền tiếp để banner tự
+          // quyết định có cần hedge ngôn từ hay không.
+          modeSource: snapshot.runtime.modeSource,
           lastHeartbeatAt: snapshot.runtime.lastHeartbeatAt,
           asOf: snapshot.runtime.asOf,
         ),
       );
+    }
+    // Fix-review (2026-09-02, final review I-2) — workspace mới có thể có
+    // điều kiện runtime khác hẳn workspace cũ; không giữ lại một xác nhận đã
+    // bấm cho trạng thái degraded của workspace TRƯỚC ĐÓ.
+    _degradedMutationAcknowledged = false;
+    // Fix-review (2026-09-02, final review C-1) — xem ghi chú tại
+    // `HologramHubController.resetForWorkspace`/
+    // `FounderCommandCenterController.resetForWorkspace`: cả hai đều
+    // `permanent: true` nên không tự dispose khi chuyển workspace, phải chủ
+    // động xoá + tải lại ngay tại đây, SAU khi snapshot mới đã commit ở trên.
+    if (Get.isRegistered<HologramHubController>()) {
+      Get.find<HologramHubController>().resetForWorkspace();
+    }
+    if (Get.isRegistered<FounderCommandCenterController>()) {
+      Get.find<FounderCommandCenterController>().resetForWorkspace();
     }
   }
 
@@ -212,8 +249,19 @@ class SessionController extends GetxController {
     _realtime.stop();
     _clearRuntime();
     active.value = null;
+    _degradedMutationAcknowledged = false;
     if (Get.isRegistered<RemoteAccessController>()) {
       Get.find<RemoteAccessController>().reset();
+    }
+    // Fix-review (2026-09-02, final review C-1) — `reload: false` vì chưa có
+    // workspace mới nào để tải; chỉ cần đảm bảo dữ liệu tenant vừa đăng xuất
+    // không còn hiển thị nếu một user KHÁC đăng nhập vào ngay controller
+    // permanent này (không bị Get huỷ giữa hai phiên).
+    if (Get.isRegistered<HologramHubController>()) {
+      Get.find<HologramHubController>().resetForWorkspace(reload: false);
+    }
+    if (Get.isRegistered<FounderCommandCenterController>()) {
+      Get.find<FounderCommandCenterController>().resetForWorkspace(reload: false);
     }
     // `AuthService.logout()` xoá cả secret keys (auth_token/
     // local_session_token/platform_access_token) lẫn cache keys

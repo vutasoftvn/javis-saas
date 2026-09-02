@@ -48,6 +48,20 @@ class ApiClient {
   /// thẳng local (`LOCAL_ONLY`) hay qua secure relay (`REMOTE_ACCESS`).
   /// `nodePresence == 'OFFLINE'` trong `REMOTE_ACCESS` ⇒ chặn request business,
   /// trả 503 tổng hợp (KHÔNG âm thầm chạy nơi khác — guardrail 7).
+  /// Fix-review (2026-09-02, final review I-1) — quyết định routing ở
+  /// `resolveUri`/`_offlineGuard` bên dưới đọc THẲNG `runtimeMode` này, không
+  /// biết (và không cần biết) `modeSource` đi kèm nó là "configured" hay
+  /// "inferred" (`SessionRuntimeInfo.modeSource`,
+  /// `workspace-settings.service.ts` hard-code 'inferred' hôm nay — chưa có
+  /// adapter đọc canonical config thật từ `services/company`). Nghĩa là một
+  /// giá trị `REMOTE_ACCESS`/`LOCAL_ONLY` SUY ĐOÁN sai vẫn điều khiển việc gửi
+  /// business request đi thẳng hay qua relay — `MutationGate` (`mutation_
+  /// gate.dart`) là tuyến phòng thủ duy nhất chặn mutation ở tầng gate cho
+  /// case suy đoán này (`confirmDegraded`), nhưng KHÔNG chặn ở tầng transport
+  /// vì ApiClient không có khái niệm `modeSource`. Không redesign routing ở
+  /// đây (cần adapter cosa→company thật, ngoài phạm vi fix frontend) — chỉ
+  /// ghi chú lại rủi ro đã biết để không ai lầm tưởng route này đã được xác
+  /// minh an toàn.
   static String? runtimeMode;
   static String? nodePresence;
 
@@ -242,18 +256,31 @@ class ApiClient {
         n.startsWith('/local-worker'));
   }
 
-  /// M5 §5 — REMOTE_ACCESS + node OFFLINE ⇒ trả 503 tổng hợp cho request business,
-  /// KHÔNG gửi đi (không âm thầm fallback local/cloud). UI đọc mã này để hiện
-  /// trạng thái offline / read-only.
+  /// M5 §5 — REMOTE_ACCESS/CLOUD_CONTINUITY + node OFFLINE ⇒ trả 503 tổng hợp
+  /// cho request business, KHÔNG gửi đi (không âm thầm fallback local/cloud).
+  /// UI đọc mã này để hiện trạng thái offline / read-only.
+  ///
+  /// Fix-review (2026-09-02, final review I-4) — trước đây nhánh này chỉ nhận
+  /// diện `REMOTE_ACCESS`, bỏ sót `CLOUD_CONTINUITY` (mode thứ ba có thật —
+  /// `session_snapshot.dart`, `workspace-settings.service.ts`) dùng CHUNG một
+  /// quy tắc với REMOTE_ACCESS trong `MutationGate._checkRelayedMutation`: cả
+  /// hai đều đi qua node/relay từ xa có thể offline độc lập. Hai surface Hub
+  /// (`FounderCommandCenterController`/`HubControlPlaneMixin` approve/reject)
+  /// gọi service KHÔNG qua `MutationGate` — nếu tầng transport dùng chung này
+  /// không tự chặn CLOUD_CONTINUITY+OFFLINE, chúng có ZERO enforcement. Sửa ở
+  /// đây (điểm chốt chặn dùng chung cho MỌI caller: get/post/openSse/
+  /// sendMultipart/sendForm/MvpRequestClient) thay vì vá riêng từng call site
+  /// — bảo vệ cả những caller trong tương lai quên tự check gate.
   static http.Response? _offlineGuard(String endpoint) {
-    if (runtimeMode == 'REMOTE_ACCESS' &&
-        nodePresence == 'OFFLINE' &&
-        isBusinessEndpoint(endpoint)) {
+    final isRelayedOfflineMode =
+        (runtimeMode == 'REMOTE_ACCESS' || runtimeMode == 'CLOUD_CONTINUITY') &&
+            nodePresence == 'OFFLINE';
+    if (isRelayedOfflineMode && isBusinessEndpoint(endpoint)) {
       return http.Response(
         jsonEncode({
           'error': 'runtime_offline',
           'message':
-              'Workspace runtime node đang offline (REMOTE_ACCESS) — chỉ đọc, thử lại sau',
+              'Workspace runtime node đang offline ($runtimeMode) — chỉ đọc, thử lại sau',
         }),
         503,
         headers: {'content-type': 'application/json'},
