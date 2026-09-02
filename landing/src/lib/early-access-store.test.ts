@@ -9,6 +9,7 @@ describe("createEarlyAccessStore", () => {
   it("fails loudly instead of silently using an in-memory store when production has no DATABASE_URL", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("ALLOW_IN_MEMORY_FALLBACK", "false");
     expect(() => createEarlyAccessStore()).toThrow(/DATABASE_URL/);
   });
 

@@ -9,6 +9,7 @@ describe("createRateLimiter", () => {
   it("fails loudly instead of silently using in-memory rate limiting when production has no DATABASE_URL", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("ALLOW_IN_MEMORY_FALLBACK", "false");
     expect(() => createRateLimiter()).toThrow(/DATABASE_URL/);
   });
 
