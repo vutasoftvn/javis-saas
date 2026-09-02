@@ -29,6 +29,12 @@ void main() {
 
   tearDown(() {
     SecureStorageService.resetForTest();
+    // `AuthService._cachedToken` là static singleton: một test set token
+    // (vd. group "State & Tokens") mà không dọn sẽ khiến test sau thấy
+    // `AuthService.isAuthenticated == true` sai lệch. Ở thứ tự khai báo, test
+    // `logout` tình cờ chạy cuối group nên che được rò rỉ này; random order /
+    // full-suite thì không. Reset global để mọi test bắt đầu từ trạng thái sạch.
+    AuthService.setCachedToken(null);
   });
 
   group('AuthService State & Tokens', () {

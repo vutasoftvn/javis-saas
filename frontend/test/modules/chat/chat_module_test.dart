@@ -27,7 +27,16 @@ void main() {
     Get.reset();
   });
 
-  tearDown(() {
+  tearDown(() async {
+    // `ChatController.onInit()` gọi `loadConversations()` mà KHÔNG await. Nếu test
+    // kết thúc trước khi future đó settle, lời gọi `getConversations()` treo lại sẽ
+    // chạy SAU khi tearDown khôi phục `ApiClient.client = realClient` (→ HTTP 400) và
+    // nổ ở test chạy kế tiếp dưới dạng "This test failed after it had already
+    // completed" — đây chính là nguồn flaky khi chạy full-suite / random order.
+    // Dispose controller (Get.reset → onClose) rồi xả hết microtask/timer đang treo
+    // TRƯỚC khi trả lại client thật, để future treo hoàn tất trên mockClient.
+    Get.reset();
+    await Future<void>.delayed(Duration.zero);
     ApiClient.client = realClient;
     ApiClient.clearRuntimeContext();
   });
