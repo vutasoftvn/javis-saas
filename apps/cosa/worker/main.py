@@ -93,9 +93,18 @@ async def _dispatch_knowledge_ingestion_task(plane: CosaAgentPlane, task, payloa
         # Import here to avoid circular dependency
         from apps.cosa.knowledge_ingestion.handler import execute_knowledge_ingestion_task
 
-        # Execute handler with task claim token for control plane fencing
+        # Execute handler with task claim token for control plane fencing.
+        # B1: truyền knowledge_ingestion_service ĐÃ WIRE trên plane (Postgres khi
+        # AGENT_DATABASE_URL set — xem composition/storage_factory.py) vào handler.
+        # Không truyền → handler fallback `KnowledgeIngestionService()` =
+        # InMemoryKnowledgeStore (dev) hoặc raise (prod), nên đường ingestion thật
+        # không bao giờ ghi `knowledge.source_versions` (ingestion_run_id luôn NULL).
         async def _execute_handler():
-            await execute_knowledge_ingestion_task(payload, claim_token=task.claim_token)
+            await execute_knowledge_ingestion_task(
+                payload,
+                claim_token=task.claim_token,
+                knowledge_service=plane.knowledge_ingestion_service,
+            )
 
         await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
 
