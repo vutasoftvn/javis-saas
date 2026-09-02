@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, ArrowRight, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowRight, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface EmailSubscribeFormProps {
   className?: string;
@@ -94,9 +94,6 @@ export function EmailSubscribeForm({
 
               {/* Input container */}
               <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                  <Mail className="w-5 h-5 text-cyan-400" />
-                </div>
                 <input
                   type="email"
                   value={email}
@@ -107,7 +104,7 @@ export function EmailSubscribeForm({
                   placeholder={placeholder}
                   required
                   disabled={loading}
-                  className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm sm:text-base font-sans backdrop-blur-xl transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"
+                  className="w-full px-4 sm:px-5 py-3.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-sm sm:text-base font-sans backdrop-blur-xl transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"
                 />
               </div>
 
