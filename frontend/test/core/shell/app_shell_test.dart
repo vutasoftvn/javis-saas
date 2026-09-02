@@ -2,6 +2,14 @@
 // (Get.toNamed) đẩy một entry MỚI vào Navigator stack, nên nút back trả về
 // đúng route trước đó (Tasks) thay vì "reset index" như hành vi cũ của
 // `DashboardContentBody`/`changePage`.
+//
+// SỬA LỖI review (Critical #1 + #2, root-cause fix) — file này bổ sung 2 test
+// theo đúng đường đi mà review chỉ ra bug: (a) Hub → module đã migrate →
+// back → phải VỀ ĐÚNG Hub, không lặp lại vào chính module vừa rời (Critical
+// #1 — do `AppShell` từng ghi đè `DashboardController.currentIndex`, khiến
+// `DashboardContentBody` ở `/hub` "nhớ nhầm" và tự redirect lại). (b) Từ 1
+// route module đã migrate, bấm 1 mục sidebar CHƯA migrate phải điều hướng về
+// Hub và hiển thị đúng tab cũ đó, không phải "dead click" (Critical #2).
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -13,15 +21,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/network/api_result.dart';
+import 'package:frontend/core/routing/app_routes.dart';
 import 'package:frontend/core/routing/auth_middleware.dart';
 import 'package:frontend/core/routing/module_routes.dart';
 import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/core/shell/app_shell.dart';
+import 'package:frontend/core/shell/app_shell_controller.dart';
 import 'package:frontend/data/models/approval_model.dart';
 import 'package:frontend/modules/approvals/controllers/approvals_controller.dart';
 import 'package:frontend/modules/approvals/services/approvals_service.dart';
 import 'package:frontend/modules/approvals/views/approvals_view.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
+import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
+import 'package:frontend/modules/dashboard/views/dashboard_view.dart';
+import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
+import 'package:frontend/modules/strategy/controllers/strategy_controller.dart';
+import 'package:frontend/modules/strategy/views/okrs_view.dart';
 import 'package:frontend/modules/tasks/bindings/tasks_binding.dart';
 import 'package:frontend/modules/tasks/views/tasks_view.dart';
 
@@ -53,6 +68,20 @@ class _NoopApprovalsService implements ApprovalsService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// `/hub` thật dùng `DashboardBinding` (đăng ký ~10 controller cho các mục
+/// sidebar chưa migrate — Organization/WorkspaceRuntime/SkillRegistry/...).
+/// Test này chỉ cần đúng phần liên quan tới kịch bản đang chứng minh: chrome
+/// (qua `AppShellController.ensureShellDependencies`, đã bao gồm
+/// `DashboardController`/`HologramHubController`) + `StrategyController` cho
+/// case OKRs (mục sidebar chưa migrate dùng trong test (b)).
+class _TestHubBinding extends Bindings {
+  @override
+  void dependencies() {
+    AppShellController.ensureShellDependencies();
+    Get.lazyPut<StrategyController>(() => StrategyController());
+  }
+}
+
 /// Task 9 — `KanbanColumnWidget`/`ApprovalHeaderBar` có RenderFlex overflow
 /// cosmetic từ trước ở bề rộng cột cố định của chúng (không liên quan điều
 /// hướng/back-stack, nằm ngoài phạm vi Task 9 — "không viết lại widget
@@ -81,6 +110,12 @@ Future<void> pumpShellAt(WidgetTester tester, String initialRoute) async {
     initialRoute: initialRoute,
     getPages: [
       GetPage(
+        name: AppRoutes.hub,
+        page: () => const DashboardView(),
+        binding: _TestHubBinding(),
+        middlewares: [AuthMiddleware()],
+      ),
+      GetPage(
         name: WorkspaceModule.tasks.path,
         page: () => const AppShell(activeModule: WorkspaceModule.tasks, child: TasksView()),
         binding: TasksBinding(),
@@ -101,6 +136,15 @@ Future<void> pumpShellAt(WidgetTester tester, String initialRoute) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
   _drainCosmeticOverflowExceptions(tester);
+}
+
+/// Sau fix Critical #1, `AppShell` không còn tự mở nhóm sidebar chứa mục
+/// active nữa (đó chính là mutation gây bug) — người dùng thật phải bấm mở
+/// nhóm trước khi thấy mục con. Helper này mô phỏng đúng bước đó (đọc
+/// `DashboardController` thật đang dùng trong cây widget, không tự bịa
+/// state) trước khi tap 1 mục con trong sidebar.
+void _expandSidebarGroup(int groupIndex) {
+  Get.find<DashboardController>().expandedGroupIndex.value = groupIndex;
 }
 
 void main() {
@@ -133,6 +177,12 @@ void main() {
     await pumpShellAt(tester, WorkspaceModule.tasks.path);
     expect(find.byType(TasksView), findsOneWidget);
 
+    // "Phê duyệt" nằm trong nhóm "Công việc & Vận hành" (index 2 trong
+    // `DashboardNavConfig.coreNavGroups`) — nhóm nhiều mục nên mặc định thu
+    // gọn, phải mở trước khi tap được.
+    _expandSidebarGroup(2);
+    await tester.pump();
+
     await tester.tap(find.text('Phê duyệt'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
@@ -153,4 +203,63 @@ void main() {
 
     expect(find.byType(TasksView), findsOneWidget);
   });
+
+  testWidgets(
+    'back from a migrated module to Hub lands on Hub content, not looped back into the module (Critical #1 regression)',
+    (tester) async {
+      await pumpShellAt(tester, AppRoutes.hub);
+      expect(find.byType(HologramHubView), findsOneWidget);
+
+      Get.toNamed(WorkspaceModule.tasks.path);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      _drainCosmeticOverflowExceptions(tester);
+      expect(find.byType(TasksView), findsOneWidget);
+
+      Get.back();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      _drainCosmeticOverflowExceptions(tester);
+
+      // Bug cũ: `DashboardContentBody` ở `/hub` tự `Get.toNamed('/work/tasks')`
+      // lại ngay lập tức vì `currentIndex` bị `AppShell` ghi đè thành 1
+      // (tasks) trước đó — lặp vô hạn mỗi lần back. Bơm thêm vài frame để
+      // chắc chắn không có redirect nào âm thầm xảy ra sau đó.
+      await tester.pump(const Duration(milliseconds: 200));
+      _drainCosmeticOverflowExceptions(tester);
+
+      expect(Get.currentRoute, AppRoutes.hub);
+      expect(find.byType(HologramHubView), findsOneWidget);
+      expect(find.byType(TasksView), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'tapping an unmigrated sidebar entry from a migrated module route navigates to Hub and renders that tab (Critical #2 regression)',
+    (tester) async {
+      await pumpShellAt(tester, WorkspaceModule.tasks.path);
+      expect(find.byType(TasksView), findsOneWidget);
+
+      // "OKRs" (index 27, chưa migrate) nằm trong nhóm "Chu kỳ & Chiến lược"
+      // (index 1) — mở nhóm trước khi tap, giống hành vi người dùng thật.
+      _expandSidebarGroup(1);
+      await tester.pump();
+
+      await tester.tap(find.text('OKRs'));
+      await tester.pump();
+      // `Get.offNamed` thay stack qua 1 animation transition (mặc định
+      // ~300ms) — route cũ (`/work/tasks`) vẫn còn mounted trong lúc chuyển
+      // cảnh; bơm đủ lâu để transition xong và nó thực sự bị dispose trước
+      // khi assert `findsNothing`.
+      await tester.pump(const Duration(milliseconds: 400));
+      _drainCosmeticOverflowExceptions(tester);
+
+      // Bug cũ: chỉ `changePage` được gọi, không điều hướng — màn hình vẫn
+      // là `TasksView` cố định (không đọc `currentIndex`) nên không có gì
+      // đổi: "dead click".
+      expect(Get.currentRoute, AppRoutes.hub);
+      expect(find.byType(OkrsView), findsOneWidget);
+      expect(find.byType(TasksView), findsNothing);
+    },
+  );
 }

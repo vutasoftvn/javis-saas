@@ -8,10 +8,28 @@
 //   sidebar) → Scaffold (sidebar desktop / drawer mobile) → child.
 // Đây là cấu trúc y hệt `DashboardView` cũ trước Task 9 — chỉ chuyển quyền
 // sở hữu sang một widget dùng chung cho mọi route, không đổi cách lồng.
+//
+// SỬA LỖI review (Critical #1) — bản trước ghi `dashboardController
+// .currentIndex.value = legacyIndex` mỗi lần build cho 1 module đã migrate.
+// `DashboardController` là singleton `permanent` DÙNG CHUNG với
+// `DashboardContentBody` tại `/hub` (route đó KHÔNG bị dispose khi bị đẩy
+// xuống dưới route module vừa push — Flutter giữ nguyên state). Ghi đè
+// `currentIndex` như vậy làm `/hub` "nhớ nhầm" nó đang ở tab của module vừa
+// rời đi; quay lại `/hub` bằng back, `DashboardContentBody` đọc thấy
+// `currentIndex` khớp module đó nhưng `Get.currentRoute` lại là `/hub` →
+// redirect adapter của nó (`dashboard_content_body.dart`) hiểu nhầm là
+// "chưa điều hướng xong" và tự động `Get.toNamed` lại chính route vừa thoát
+// — lặp vô hạn khi bấm back nhiều lần.
+//
+// Gốc rễ: `currentIndex` phục vụ HAI mục đích xung đột (nội dung tab tại chỗ
+// trên `/hub`, VÀ đồng bộ highlight sidebar cho route module). `AppShell`
+// nay KHÔNG còn ghi vào `currentIndex`/`expandedGroupIndex` nữa — chỉ đọc.
+// Highlight đúng cho route module (khi vào thẳng qua deep-link) được suy ra
+// tại chỗ trong `dashboard_sidebar.dart` từ `Get.currentRoute`, không qua
+// mutate state dùng chung.
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../modules/dashboard/models/dashboard_nav_config.dart';
 import '../../modules/dashboard/views/widgets/dashboard_sidebar.dart';
 import '../../modules/dashboard/views/widgets/dashboard_top_bar.dart';
 import '../../modules/dashboard/views/widgets/floating_voice_hologram.dart';
@@ -26,45 +44,17 @@ class AppShell extends StatelessWidget {
   /// Nội dung module hiện tại — view nghiệp vụ hiện có, KHÔNG bị viết lại.
   final Widget child;
 
-  /// Module đang active, dùng để đồng bộ highlight sidebar khi vào thẳng
-  /// route canonical (vd. deep-link `/work/tasks`) mà không qua tap sidebar.
-  /// Null nghĩa là chrome đang host nội dung không thuộc danh sách module đã
-  /// migrate (vd. hub đang hiển thị một mục sidebar cũ qua
-  /// `DashboardContentBody`) — khi đó không ép lại `currentIndex`.
+  /// Module đang active — hiện chỉ dùng để giữ thông tin ngữ nghĩa cho các
+  /// route module (tương lai nếu chrome cần biết module nào đang mở). Sau
+  /// fix Critical #1, `AppShell` KHÔNG dùng giá trị này để ghi vào
+  /// `DashboardController` nữa — xem `dashboard_sidebar.dart` cho cách
+  /// highlight route module được suy ra không-mutate.
   final WorkspaceModule? activeModule;
-
-  /// Tìm group chứa [legacyIndex] trong `DashboardNavConfig.coreNavGroups` —
-  /// dùng vị trí trong danh sách NGUỒN (ổn định), không dùng danh sách đã lọc
-  /// theo feature flag của `_getVisibleNavGroups()` (danh sách đó có thể bớt
-  /// item nhưng không rút gọn số group, vì không group nào rỗng hoàn toàn
-  /// chỉ vì ẩn 1 item — an toàn để tra cứu index nhóm ổn định ở đây).
-  static int? _groupIndexForLegacyIndex(int legacyIndex) {
-    final groups = DashboardNavConfig.coreNavGroups;
-    for (var i = 0; i < groups.length; i++) {
-      if (groups[i].items.any((item) => item.index == legacyIndex)) return i;
-    }
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
     AppShellController.ensureShellDependencies();
     final dashboardController = Get.find<AppShellController>().dashboardController;
-
-    final module = activeModule;
-    final legacyIndex = module == null
-        ? null
-        : (module == WorkspaceModule.hub ? 0 : legacyDashboardIndexForModule[module]);
-    if (legacyIndex != null) {
-      // Đồng bộ SAU frame hiện tại — tránh mutate Rx trong lúc build.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        dashboardController.currentIndex.value = legacyIndex;
-        final groupIndex = _groupIndexForLegacyIndex(legacyIndex);
-        if (groupIndex != null) {
-          dashboardController.expandedGroupIndex.value = groupIndex;
-        }
-      });
-    }
 
     final bool isDesktop = MediaQuery.of(context).size.width >= 800;
 

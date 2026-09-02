@@ -13,6 +13,15 @@ import 'dashboard_stage_demo_bar.dart';
 /// thật (`WorkspaceModule`): những mục đó điều hướng bằng `Get.toNamed` để
 /// có back-stack thật + guard riêng. Mục CHƯA migrate (chưa có route) vẫn
 /// giữ hành vi cũ — đổi `currentIndex` tại chỗ trong `DashboardContentBody`.
+///
+/// SỬA LỖI review (Critical #2) — trước fix, nhánh "chưa migrate" bên dưới
+/// CHỈ gọi `changePage` bất kể đang đứng ở route nào. `changePage` chỉ có
+/// tác dụng khi widget đang hiển thị là `DashboardContentBody` (tại `/hub`)
+/// — nó đọc `currentIndex` qua `Obx`. Nếu người dùng đang ở 1 route module
+/// đã migrate (vd. `/work/tasks`, hiển thị `TasksView` cố định, không đọc
+/// `currentIndex`), gọi riêng `changePage` là "dead click": state đổi nhưng
+/// KHÔNG có gì render lại. Phải điều hướng về `/hub` trước (nơi
+/// `DashboardContentBody` còn "sở hữu" các mục chưa migrate) rồi mới đổi tab.
 void _navigateOrChangePage(DashboardController controller, int index, int groupIndex) {
   final module = moduleForLegacyIndex(index);
   if (module != null) {
@@ -20,6 +29,30 @@ void _navigateOrChangePage(DashboardController controller, int index, int groupI
     return;
   }
   controller.changePage(index, groupIndex);
+  if (Get.currentRoute != AppRoutes.hub) {
+    // `offNamed` (thay stack) chứ không `toNamed` (push): đây là "nhảy sang
+    // 1 tab cũ không liên quan", không phải drill-down cần giữ lại bằng back
+    // — giữ route module vừa rời trong stack chỉ làm phình back-stack vô ích
+    // (và khiến widget của nó còn mounted phía dưới, gây nhầm lẫn khi test/
+    // debug tìm theo type).
+    Get.offNamed(AppRoutes.hub);
+  }
+}
+
+/// SỬA LỖI review (thiết kế lại Critical #1) — trước fix, `AppShell` ghi đè
+/// `controller.currentIndex` mỗi lần build cho 1 route module đã migrate, để
+/// sidebar tô sáng đúng mục. Đó chính là mutation gây vòng lặp back (xem
+/// ghi chú trong `app_shell.dart`). Highlight cho route module giờ được suy
+/// ra Ở ĐÂY, CHỈ ĐỌC (không ghi ngược vào `controller`): nếu route hiện tại
+/// khớp một `WorkspaceModule`, dùng index legacy tương ứng của nó; nếu
+/// không (đang ở `/hub`, hiển thị 1 tab chưa migrate), dùng đúng
+/// `controller.currentIndex.value` như trước.
+int _resolveActiveIndex(DashboardController controller) {
+  final route = Get.currentRoute;
+  final module = WorkspaceModule.values.firstWhereOrNull((m) => m.path == route);
+  if (module == null) return controller.currentIndex.value;
+  if (module == WorkspaceModule.hub) return controller.currentIndex.value;
+  return legacyDashboardIndexForModule[module] ?? controller.currentIndex.value;
 }
 
 class DashboardDesktopSidebar extends StatelessWidget {
@@ -171,7 +204,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
             // Grouped Accordion Submenu List
             Expanded(
               child: Obx(() {
-                final activeIndex = controller.currentIndex.value;
+                final activeIndex = _resolveActiveIndex(controller);
                 final expandedGroup = controller.expandedGroupIndex.value;
                 final navGroups = _getVisibleNavGroups();
 
@@ -459,7 +492,7 @@ class DashboardMobileDrawer extends StatelessWidget {
             }),
             Expanded(
               child: Obx(() {
-                final activeIndex = controller.currentIndex.value;
+                final activeIndex = _resolveActiveIndex(controller);
                 final expandedGroup = controller.expandedGroupIndex.value;
                 final navGroups = _getVisibleNavGroups();
 
