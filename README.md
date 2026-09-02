@@ -207,7 +207,7 @@ Tạo file `landing/.env.local` với cấu hình sau:
 ```env
 RESEND_API_KEY=re_xxxxxxxxx_khoá_api_của_bạn
 ADMIN_NOTIFICATION_EMAIL=mivacorp.vn@gmail.com
-RESEND_FROM_EMAIL="MIVA Corp <onboarding@resend.dev>"
+RESEND_FROM_EMAIL="MIVA Corp <contact@mivacorp.vn>"
 ALLOW_IN_MEMORY_FALLBACK=true
 ```
 
