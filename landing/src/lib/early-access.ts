@@ -4,21 +4,35 @@ import { z } from "zod";
 // đưa vào email template — đây là lớp validate chặt, thay cho các kiểm tra
 // truthy lỏng lẻo trước đây (chỉ check "có giá trị" chứ không giới hạn độ dài).
 const earlyAccessSchema = z.object({
-  fullName: z.string().trim().min(2).max(120),
+  fullName: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : "Khách hàng Tiềm năng")),
   email: z.string().trim().toLowerCase().email().max(254),
-  phone: z.string().trim().min(8).max(32),
-  company: z.string().trim().min(2).max(160),
+  phone: z
+    .string()
+    .trim()
+    .max(32)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : "Liên hệ qua Email")),
+  company: z
+    .string()
+    .trim()
+    .max(160)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : "Cá nhân / Doanh nghiệp")),
   role: z.string().trim().max(80).optional(),
   teamSize: z.string().trim().max(80).optional(),
-  priorityInterest: z.string().trim().max(80).optional(),
+  priorityInterest: z
+    .string()
+    .trim()
+    .max(80)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : "Đăng ký nhận thông báo phát hành sớm COSA OS 2027")),
   note: z.string().trim().max(2000).optional(),
-  // Token xác minh Cloudflare Turnstile — chỉ bắt buộc kiểm tra ở production
-  // (xem verifyTurnstileToken()); dev/test bỏ qua để không cần hạ tầng ngoài.
   turnstileToken: z.string().trim().max(4096).optional(),
-  // Honeypot chống bot: trường ẩn qua CSS trên form thật, người dùng thật
-  // không bao giờ nhìn thấy nên luôn để trống — bot crawler tự động điền
-  // form thường điền cả trường ẩn này nên có giá trị non-empty là dấu hiệu
-  // bot rõ ràng.
   website: z.string().trim().max(200).optional(),
 });
 

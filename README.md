@@ -196,3 +196,26 @@ flutter build macos --debug
 open build/macos/Build/Products/Debug/frontend.app
 ```
 
+---
+
+## 🌐 Cấu Hình Landing Page & Gửi Email Đăng Ký Sớm (Resend API)
+
+Hệ thống Landing Page (thư mục `landing/`) hỗ trợ gửi email xác nhận cho khách hàng và gửi thông báo Lead mới về cho Ban Quản trị **MIVA Corp**.
+
+Tạo file `landing/.env.local` với cấu hình sau:
+
+```env
+RESEND_API_KEY=re_xxxxxxxxx_khoá_api_của_bạn
+ADMIN_NOTIFICATION_EMAIL=mivacorp.vn@gmail.com
+RESEND_FROM_EMAIL="MIVA Corp <onboarding@resend.dev>"
+```
+
+### Chạy và Kiểm Thử Landing Page:
+```bash
+cd landing
+npm install
+npm run dev    # Chạy dev server tại http://localhost:3000
+npm run test   # Chạy 31 unit tests kiểm tra form và API
+npm run build  # Biên dịch bản production
+```
+

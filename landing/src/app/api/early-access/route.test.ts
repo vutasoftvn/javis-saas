@@ -322,4 +322,27 @@ describe("POST /api/early-access", () => {
       global.fetch = originalFetch;
     }
   });
+
+  it("accepts single email registration and applies proper defaults", async () => {
+    vi.mocked(sendEarlyAccessEmails).mockResolvedValue({
+      userEmailSent: true,
+      adminEmailSent: true,
+      providerMessageId: "email-only-msg-id",
+    });
+
+    const response = await post(JSON.stringify({ email: "intro-user@example.com" }));
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.success).toBe(true);
+    expect(typeof json.accessCode).toBe("string");
+    expect(json.accessCode.length).toBeGreaterThan(10);
+    expect(store.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "intro-user@example.com",
+        fullName: "Khách hàng Tiềm năng",
+        phone: "Liên hệ qua Email",
+        company: "Cá nhân / Doanh nghiệp",
+      })
+    );
+  });
 });

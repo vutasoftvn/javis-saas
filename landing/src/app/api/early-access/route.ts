@@ -21,9 +21,9 @@ const GENERIC_ERROR = "Đã có lỗi xảy ra trong quá trình xử lý. Vui l
 const RATE_LIMIT_ERROR = "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.";
 const SEND_FAILURE_ERROR = "Không thể gửi email xác nhận. Vui lòng thử lại sau hoặc liên hệ trực tiếp.";
 const CONCURRENT_ATTEMPT_ERROR = "Yêu cầu đang được xử lý, vui lòng thử lại sau ít phút.";
-const SUCCESS_MESSAGE = "Đăng ký quyền sử dụng sớm thành công! Email xác nhận đã được gửi.";
+const SUCCESS_MESSAGE = "Đăng ký thành công! MIVA Corp đã ghi nhận email của bạn.";
 const SIMULATED_MESSAGE =
-  "Đăng ký quyền sử dụng sớm đã được ghi nhận (môi trường thử nghiệm — chưa cấu hình gửi email thật).";
+  "Đăng ký đã được ghi nhận vào hệ thống MIVA Corp (môi trường thử nghiệm).";
 
 // Độ trễ giả lập cho nhánh "email đã đăng ký & đã gửi/simulated từ trước"
 // (idempotent-fast-path) — nhánh này vốn dĩ chỉ chạy 2 bước rẻ (rate-limit
@@ -102,7 +102,7 @@ function fakeSuccessResponse() {
   return NextResponse.json({
     success: true,
     accessCode: randomUUID(),
-    message: "Đăng ký quyền sử dụng sớm thành công! Email xác nhận đã được gửi.",
+    message: "Đăng ký thành công! MIVA Corp đã ghi nhận email của bạn.",
     emailDelivery: { simulated: false, userEmailSent: true, adminEmailSent: true },
   });
 }

@@ -19,10 +19,18 @@ export interface EarlyAccessEmailData {
 }
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const resendFromEmail = process.env.RESEND_FROM_EMAIL || "COSA OS <onboarding@resend.dev>";
-const adminNotificationEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+const resendFromEmail = process.env.RESEND_FROM_EMAIL || "MIVA Corp <onboarding@resend.dev>";
+const adminNotificationEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "mivacorp.vn@gmail.com";
 
-const resendClient = resendApiKey ? new Resend(resendApiKey) : null;
+// Kiểm tra key hợp lệ (chỉ chứa ký tự ASCII, không phải placeholder) trước khi truyền vào Resend client
+const isKeyUsable =
+  typeof resendApiKey === "string" &&
+  resendApiKey.trim().length > 0 &&
+  !resendApiKey.includes("your_api_key") &&
+  !resendApiKey.includes("khoá") &&
+  /^[\x00-\x7F]*$/.test(resendApiKey);
+
+const resendClient = isKeyUsable ? new Resend(resendApiKey) : null;
 
 /**
  * True khi chưa cấu hình RESEND_API_KEY thật (môi trường dev/thử nghiệm) —

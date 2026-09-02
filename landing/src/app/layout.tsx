@@ -34,7 +34,9 @@ export const metadata: Metadata = {
     "PostgreSQL Local Data Plane",
     "Early Access Waitlist",
   ],
-  authors: [{ name: "COSA OS Intelligence Team" }],
+  authors: [{ name: "MIVA Corp" }],
+  creator: "MIVA Corp",
+  publisher: "MIVA Corp",
   openGraph: {
     title: "COSA OS — The AI Operating System for Startups & Founders",
     description:
