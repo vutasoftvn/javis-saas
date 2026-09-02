@@ -4,7 +4,7 @@ TEST_DATABASE_URL ?=
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze frontend-coverage-check boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check encore-handler-boundary-check ts-suppression-check route-auth-allowlist-check encore-type-safety-check mvp-e2e-purity-check frontend-api-contract-check
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze frontend-coverage-check boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test e2e-cross-plane-smoke schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check encore-handler-boundary-check ts-suppression-check route-auth-allowlist-check encore-type-safety-check mvp-e2e-purity-check frontend-api-contract-check
 
 # Task 10 (audit fix, 2026-08-30) — trước đây `tests/e2e/test_ai_compliance_company_http.py`
 # dùng `httpx.MockTransport` tự viết giả lập response Company (fake snapshot
@@ -177,7 +177,11 @@ contract-freeze-check: contracts-check route-inventory-check ## M0 gate tổng h
 e2e-test:        ## Run full-stack E2E golden path test suite
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/e2e -q
 
-verify-local: lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs contract-freeze-check e2e-test
+e2e-cross-plane-smoke: ## Tier-1 E2E: 4-plane subprocess stack + disposable Postgres, model=fake
+	mkdir -p test-results
+	PYTHONPATH=. $(PYTEST) tests/e2e/test_cross_plane_smoke.py -q --junitxml=test-results/e2e-smoke.xml
+
+verify-local: lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs contract-freeze-check e2e-test e2e-cross-plane-smoke
 
 verify: lint typecheck-py boundary-check skillpacks-validate tenancy-check contract-freeze-check agent-test apps-cosa-test services-test frontend-test frontend-analyze check-docs
 
