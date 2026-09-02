@@ -119,6 +119,37 @@ Nhánh tự kích hoạt khi B5 bridge land — không phải viết lại test.
 tenant scoping ở tầng SQL (`cosa.workspace_agent_policy WHERE platform_workspace_id`)
 đã được S3 (A) phủ.
 
+## Golden path (target ngoài / compose)
+
+`tests/e2e/test_golden_path.py` chạy LẠI đúng thư viện scenario ở trên nhưng với
+một stack 4 vùng ĐANG CHẠY SẴN ở ngoài thay vì boot subprocess. Nó KHÔNG mang
+marker `cross_plane` (ngược lại với `test_cross_plane_smoke.py`) nên job
+`e2e-golden-path` (`-m "not cross_plane"`) nhặt nó; module tự `pytest.skip` nếu
+thiếu bất kỳ biến `E2E_BASE_URL_COMPANY` / `_COSA` / `_API` nào (guard hợp lệ —
+`scripts/check_mvp_e2e_purity.py` không glob file này).
+
+- **Scenario chạy:** S1 (`auth_tenant_isolation`), S4 (`outbox_relay`), S7
+  (`policy_snapshot_tenant`) — cả ba B5-independent.
+- **Không có `DisposableCluster`** với target ngoài. `test_golden_path.py` định
+  nghĩa `@dataclass ExternalClusterDsns` — bộ giữ DSN tối thiểu có đúng ba thuộc
+  tính scenario đọc: `workspace_app_url` ← `WORKSPACE_DATABASE_URL`,
+  `agent_app_url` ← `AGENT_DATABASE_URL` (hạ `postgresql+asyncpg://` → libpq),
+  `cosa_app_url` ← `COSA_DATABASE_URL`.
+- **`scripts/e2e/run-golden-path.sh`** lái nó: nếu `E2E_BASE_URL_*` đã set →
+  `pytest tests/e2e -m "not cross_plane"` thẳng vào target ngoài; ngược lại
+  `docker compose --profile e2e up --wait` rồi export
+  `E2E_BASE_URL_COMPANY=http://127.0.0.1:4000`, `_COSA=http://127.0.0.1:4001`,
+  `_API=http://127.0.0.1:8001` (port map trong `docker-compose.yml`:
+  services-company→4000, services-cosa→4001, cosa-api host 8001→container 8000)
+  + `source .env.e2e` (set -a) đưa ba `*_DATABASE_URL` vào môi trường pytest.
+- **CHƯA phủ / B5-blocked:** S2 (`dispatch_worker_result`), S3
+  (`capability_governance`) completed-branch, S5 (SSE reconnect), S8 (multi-agent)
+  và P4-live (DeepSeek thật) — cần cầu nối delegation token cosa↔company, xem
+  [`ADR-COSA-DELEGATION-002`](../architecture/adr/ADR-COSA-DELEGATION-002-agent-run-tenant-token.md).
+  S2/S3 fail-closed branch cần `DisposableCluster` scope theo `run_id` (đọc
+  `agent.runs` / `agent.run_events`) — bộ DSN dùng chung của stack ngoài không
+  cấp được — nên bị bỏ khỏi golden path.
+
 ## Cái gì CHƯA phủ và vì sao — bug B5
 
 Danh tính hợp lệ duy nhất qua biên `apps/cosa` là `local_session` (do

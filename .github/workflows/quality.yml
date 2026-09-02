@@ -938,7 +938,7 @@ jobs:
             apps/cosa/requirements.txt
       - run: |
           pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
-          pip install -r requirements-dev.txt pytest pytest-asyncio httpx pyjwt
+          pip install -r requirements-dev.txt pytest pytest-asyncio httpx pyjwt psycopg2-binary
       - name: Run E2E Golden Path test suite
         run: bash scripts/e2e/run-golden-path.sh
       - uses: actions/upload-artifact@v4

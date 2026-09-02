@@ -36,7 +36,16 @@ fi
 # The Docker profile starts Company on the host loopback port. The pytest
 # fixture must use that process rather than silently starting a second local
 # service or skipping when the Encore CLI is absent on the host.
+#
+# Ba biến E2E_BASE_URL_* dưới đây là điều kiện chạy `tests/e2e/test_golden_path.py`
+# (S1/S4/S7 vs target ngoài). `docker-compose.yml` map: services-company→4000,
+# services-cosa→4001, cosa-api→8001 (host 8001 → container 8000).
 export E2E_BASE_URL_COMPANY="${E2E_BASE_URL_COMPANY:-http://127.0.0.1:4000}"
+export E2E_BASE_URL_COSA="${E2E_BASE_URL_COSA:-http://127.0.0.1:4001}"
+export E2E_BASE_URL_API="${E2E_BASE_URL_API:-http://127.0.0.1:8001}"
+# `source .env.e2e` (set -a ở trên) đã export AGENT_DATABASE_URL /
+# COSA_DATABASE_URL / WORKSPACE_DATABASE_URL — `test_golden_path.py`
+# (`ExternalClusterDsns.from_env`) cần chúng cho assert DB của S1/S4/S7.
 export E2E_TEST_SEED_ENABLED=1
 
 docker compose --profile e2e up -d --build --wait

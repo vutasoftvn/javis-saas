@@ -2175,6 +2175,19 @@ KHÔNG nằm trong `check_mvp_e2e_purity` scope — xác nhận `run_check` khô
 **DoD:** `test_golden_path.py` chạy S1/S4/S7 xanh khi trỏ vào subprocess stack đang chạy (mô phỏng
 target ngoài bằng cách set `E2E_BASE_URL_*` tới stack boot tay); doc cập nhật; job YAML valid.
 
+**Kết quả (2026-09-03):** DONE — `tests/e2e/test_golden_path.py` (module `pytest.skip`
+khi thiếu `E2E_BASE_URL_*`; `@dataclass ExternalClusterDsns` map ba `*_DATABASE_URL`
+→ `workspace_app_url` / `agent_app_url` (hạ `+asyncpg`) / `cosa_app_url`; ba test
+`test_golden_s1/s4/s7_*` gọi lại `auth_tenant_isolation` / `outbox_relay` /
+`policy_snapshot_tenant`; S2/S3/S5/S8 để lại follow-up B5). `scripts/e2e/run-golden-path.sh`
+compose-branch nay export thêm `E2E_BASE_URL_COSA=http://127.0.0.1:4001` +
+`E2E_BASE_URL_API=http://127.0.0.1:8001` (port map đã verify trong `docker-compose.yml`).
+`.github/workflows/quality.yml` job `e2e-golden-path` thêm `psycopg2-binary` vào pip
+install (scenario S1/S4/S7 + seed kit dùng psycopg2). Doc:
+`docs/testing/cross-plane-e2e.md` thêm mục "Golden path (target ngoài / compose)".
+Verify: collection-level — `pytest tests/e2e -m "not cross_plane" --co` nhặt 3 test
+golden khi có env, module-skip sạch khi không; purity ✅; ruff ✅; `bash -n` + YAML load ✅.
+
 ### Task 18: P5 — Flutter Tier 2 (integration_test vs stack thật)
 
 **Files:** Create `frontend/integration_test/support/real_stack_config.dart`; modify 3 file
