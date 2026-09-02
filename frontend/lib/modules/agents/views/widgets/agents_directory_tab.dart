@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/ui/layout_breakpoints.dart';
 import '../../controllers/agents_controller.dart';
 import 'agent_card.dart';
 
@@ -86,14 +87,17 @@ class AgentsDirectoryTab extends StatelessWidget {
 
             return LayoutBuilder(
               builder: (ctx, constraints) {
-                int crossAxisCount = 3;
-                if (constraints.maxWidth > 1400) {
-                  crossAxisCount = 4;
-                } else if (constraints.maxWidth < 900) {
-                  crossAxisCount = 2;
-                } else if (constraints.maxWidth < 600) {
-                  crossAxisCount = 1;
-                }
+                // Task 10 — thay ngưỡng width tự chọn (900/600/1400) bằng
+                // `layoutForWidth` dùng chung toàn app. Bậc `expanded` giữ
+                // thêm một mốc phụ 1400 để tận dụng màn hình rất rộng (4
+                // cột) — không phải một bậc mới trong `AppLayout`, chỉ là
+                // tinh chỉnh trong nội bộ bậc expanded.
+                final layout = layoutForWidth(constraints.maxWidth);
+                int crossAxisCount = switch (layout) {
+                  AppLayout.compact => 1,
+                  AppLayout.medium => 2,
+                  AppLayout.expanded => constraints.maxWidth > 1400 ? 4 : 3,
+                };
 
                 return GridView.builder(
                   padding: const EdgeInsets.all(24),
