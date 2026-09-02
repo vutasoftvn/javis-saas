@@ -13,6 +13,7 @@ import {
   workspaceRuntimeNodes,
 } from "../storage/control-plane-schema";
 import { extractAuthContext } from "../middleware";
+import { listWorkspaceRuntimeNodes as listRegisteredRuntimeNodes } from "./runtime-node-registry.service";
 
 export interface MvpSourceRef {
   readonly kind: "company_db" | "agent_db" | "object_store" | "control_plane" | "external_connector";
@@ -374,6 +375,107 @@ export async function listWorkspaceAuditEventsService(
   }));
 
   return mvpList(items, [SOURCE_CONTROL_PLANE]);
+}
+
+// ─── Session Context (Task 3 — Frontend Trust and UX Hardening) ───
+//
+// Nguồn sự thật DUY NHẤT cho "workspace/role/runtimeMode/presence hiện tại
+// của phiên đăng nhập" phải nằm ở server: Flutter tuyệt đối không được coi
+// runtimeMode/role/presence do CHÍNH NÓ gửi lên là một assertion bảo mật.
+// Endpoint chỉ nhận workspaceId (path) + Authorization — không nhận
+// runtimeMode/role/presence trong body/query — mọi giá trị trả về đều được
+// tính lại từ dữ liệu server (membership row + heartbeat thật).
+export interface WorkspaceSessionContextView {
+  readonly workspaceId: string;
+  readonly role: string;
+  readonly runtimeMode: "LOCAL_ONLY" | "REMOTE_ACCESS" | "CLOUD_CONTINUITY";
+  readonly presenceStatus: "ONLINE" | "DEGRADED" | "OFFLINE";
+  readonly lastHeartbeatAt: string | null;
+  readonly asOf: string;
+  readonly capabilities: readonly string[];
+}
+
+// Bộ capability tối thiểu suy ra từ role — mọi member đọc được session context
+// của chính mình; chỉ operator (founder/co-founder/admin, cùng định nghĩa với
+// `WORKSPACE_OPERATOR_ROLES` ở trên) mới có thêm quyền quản trị workspace.
+const BASE_WORKSPACE_CAPABILITIES: readonly string[] = ["workspace.session.read"];
+const OPERATOR_WORKSPACE_CAPABILITIES: readonly string[] = [
+  "workspace.settings.manage",
+  "workspace.skill_policy.manage",
+  "workspace.runtime_node.manage",
+];
+
+function deriveWorkspaceCapabilities(roleId: string): readonly string[] {
+  if (WORKSPACE_OPERATOR_ROLES.has((roleId || "").toLowerCase())) {
+    return [...BASE_WORKSPACE_CAPABILITIES, ...OPERATOR_WORKSPACE_CAPABILITIES];
+  }
+  return BASE_WORKSPACE_CAPABILITIES;
+}
+
+// runtimeMode canonical thật sự nằm ở cột `runtime_mode` phía
+// `services/company` (identity.workspaces) — cosa control-plane CHƯA có
+// adapter cross-service đọc cột đó (đúng khoảng trống đã ghi chú tại
+// `runtime-node.handler.ts` — "adapter cross-service để phiên sau"). Trong
+// lúc chờ adapter đó, suy ra runtimeMode từ chính runtime node control-plane
+// mà cosa đang sở hữu thật (bảng `workspace_runtime_nodes`), theo ĐÚNG state
+// machine đã được test ở `runtime-router.service.ts`:
+//   - có cloud node (chưa revoke)                  → CLOUD_CONTINUITY
+//   - chỉ có local node, presence hiệu lực ONLINE   → LOCAL_ONLY
+//   - chỉ có local node, presence hiệu lực khác     → REMOTE_ACCESS (đang cố
+//     truy cập từ xa; guardrail 7 — KHÔNG được âm thầm failover cloud khi
+//     chưa có cloud node nào đăng ký)
+//   - chưa đăng ký node nào                         → LOCAL_ONLY mặc định,
+//     presence OFFLINE (chưa có runtime nào để kết nối)
+async function resolveWorkspaceRuntimeSnapshot(workspaceId: bigint): Promise<{
+  runtimeMode: WorkspaceSessionContextView["runtimeMode"];
+  presenceStatus: WorkspaceSessionContextView["presenceStatus"];
+  lastHeartbeatAt: string | null;
+}> {
+  const nodes = await listRegisteredRuntimeNodes(workspaceId);
+  const local = nodes.find((n) => n.runtimeRole === "local_workspace_runtime") ?? null;
+  const cloud = nodes.find((n) => n.runtimeRole === "cloud_workspace_runtime") ?? null;
+
+  if (cloud) {
+    // CLOUD_CONTINUITY ưu tiên local khi local còn sống, khớp
+    // `resolveRuntimeRoute` — chỉ dùng cloud khi local thật sự không online.
+    const preferLocal = local !== null && local.presence !== "OFFLINE";
+    const active = preferLocal ? (local as NonNullable<typeof local>) : cloud;
+    return {
+      runtimeMode: "CLOUD_CONTINUITY",
+      presenceStatus: active.presence,
+      lastHeartbeatAt: active.lastHeartbeatAt,
+    };
+  }
+
+  if (local) {
+    return {
+      runtimeMode: local.presence === "ONLINE" ? "LOCAL_ONLY" : "REMOTE_ACCESS",
+      presenceStatus: local.presence,
+      lastHeartbeatAt: local.lastHeartbeatAt,
+    };
+  }
+
+  return { runtimeMode: "LOCAL_ONLY", presenceStatus: "OFFLINE", lastHeartbeatAt: null };
+}
+
+export async function getWorkspaceSessionContextService(
+  workspaceId: string,
+  authorization?: string
+): Promise<WorkspaceSessionContextView> {
+  const { membership } = await verifyWorkspaceMembershipRow(authorization, workspaceId);
+  const wsIdBigInt = BigInt(workspaceId);
+
+  const { runtimeMode, presenceStatus, lastHeartbeatAt } = await resolveWorkspaceRuntimeSnapshot(wsIdBigInt);
+
+  return {
+    workspaceId,
+    role: membership.roleId,
+    runtimeMode,
+    presenceStatus,
+    lastHeartbeatAt,
+    asOf: new Date().toISOString(),
+    capabilities: deriveWorkspaceCapabilities(membership.roleId),
+  };
 }
 
 // ─── Skill Policies (Task 4 — Truthful MVP Hardening) ───

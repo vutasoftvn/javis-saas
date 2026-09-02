@@ -117,6 +117,14 @@ enum MvpEndpoint {
     path: '/platform/workspaces/:workspaceId/runtime-nodes/:nodeId/revoke',
     requiresWorkspace: true,
   ),
+  settingsSessionContextGet(
+    id: 'settings.session_context.get',
+    enabled: true,
+    plane: ApiPlane.platform,
+    method: 'GET',
+    path: '/platform/workspaces/:workspaceId/session-context',
+    requiresWorkspace: true,
+  ),
   settingsSkillList(
     id: 'settings.skill.list',
     enabled: true,

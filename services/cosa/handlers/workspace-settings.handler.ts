@@ -14,7 +14,9 @@ import {
   RuntimeNodeView,
   WorkspaceAuditEventDTO,
   WorkspaceMemberDTO,
+  WorkspaceSessionContextView,
   WorkspaceSkillPolicyView,
+  getWorkspaceSessionContextService,
 } from "../services/workspace-settings.service";
 
 export interface WorkspaceSettingsHeaderRequest {
@@ -94,6 +96,17 @@ export const listWorkspaceSkillPolicies = api(
   { expose: true, method: "GET", path: "/platform/workspaces/:workspaceId/skill-policies" },
   async ({ workspaceId, authorization }: WorkspaceSettingsHeaderRequest): Promise<MvpSuccess<readonly WorkspaceSkillPolicyView[]>> => {
     return listWorkspaceSkillPoliciesService(workspaceId, authorization);
+  }
+);
+
+// 6. Session Context (Task 3 — Frontend Trust and UX Hardening)
+//
+// Đặt cạnh runtime-nodes/settings — cùng nhóm endpoint platform đọc trạng
+// thái workspace hiện tại, cùng dùng chung membership resolver ở service.
+export const getWorkspaceSessionContext = api(
+  { expose: true, method: "GET", path: "/platform/workspaces/:workspaceId/session-context" },
+  async ({ workspaceId, authorization }: WorkspaceSettingsHeaderRequest): Promise<WorkspaceSessionContextView> => {
+    return getWorkspaceSessionContextService(workspaceId, authorization);
   }
 );
 
