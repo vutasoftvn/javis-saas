@@ -7,6 +7,7 @@ import 'api_result.dart';
 enum MvpEndpoint {
   marketingAssetList(
     id: 'marketing.asset.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/commercial/marketing/assets',
@@ -14,6 +15,7 @@ enum MvpEndpoint {
   ),
   marketingCampaignList(
     id: 'marketing.campaign.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/commercial/marketing/campaigns',
@@ -21,6 +23,7 @@ enum MvpEndpoint {
   ),
   marketingContextGet(
     id: 'marketing.context.get',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/commercial/marketing-context',
@@ -28,6 +31,7 @@ enum MvpEndpoint {
   ),
   marketingContextUpdate(
     id: 'marketing.context.update',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'PUT',
     path: '/commercial/marketing-context',
@@ -35,6 +39,7 @@ enum MvpEndpoint {
   ),
   marketingExperimentList(
     id: 'marketing.experiment.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/commercial/marketing/experiments',
@@ -42,6 +47,7 @@ enum MvpEndpoint {
   ),
   marketingMetricObserved(
     id: 'marketing.metric.observed',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/commercial/marketing/metrics/observed',
@@ -49,6 +55,7 @@ enum MvpEndpoint {
   ),
   marketingObjectiveList(
     id: 'marketing.objective.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/commercial/marketing/objectives',
@@ -56,6 +63,7 @@ enum MvpEndpoint {
   ),
   settingsAuditEventList(
     id: 'settings.audit_event.list',
+    enabled: true,
     plane: ApiPlane.platform,
     method: 'GET',
     path: '/platform/workspaces/:workspaceId/audit-events',
@@ -63,6 +71,7 @@ enum MvpEndpoint {
   ),
   settingsConnectorInstall(
     id: 'settings.connector.install',
+    enabled: true,
     plane: ApiPlane.platform,
     method: 'POST',
     path: '/platform/workspaces/:workspaceId/connectors/:connectorKey/install',
@@ -70,6 +79,7 @@ enum MvpEndpoint {
   ),
   settingsConnectorList(
     id: 'settings.connector.list',
+    enabled: true,
     plane: ApiPlane.platform,
     method: 'GET',
     path: '/platform/workspaces/:workspaceId/connectors',
@@ -77,6 +87,7 @@ enum MvpEndpoint {
   ),
   settingsConnectorRevoke(
     id: 'settings.connector.revoke',
+    enabled: true,
     plane: ApiPlane.platform,
     method: 'POST',
     path: '/platform/workspaces/:workspaceId/connectors/:connectorKey/revoke',
@@ -84,6 +95,7 @@ enum MvpEndpoint {
   ),
   settingsMemberList(
     id: 'settings.member.list',
+    enabled: true,
     plane: ApiPlane.platform,
     method: 'GET',
     path: '/platform/workspaces/:workspaceId/members',
@@ -91,6 +103,7 @@ enum MvpEndpoint {
   ),
   settingsRuntimeNodeList(
     id: 'settings.runtime_node.list',
+    enabled: true,
     plane: ApiPlane.platform,
     method: 'GET',
     path: '/platform/workspaces/:workspaceId/runtime-nodes',
@@ -98,6 +111,7 @@ enum MvpEndpoint {
   ),
   settingsRuntimeNodeRevoke(
     id: 'settings.runtime_node.revoke',
+    enabled: true,
     plane: ApiPlane.platform,
     method: 'POST',
     path: '/platform/workspaces/:workspaceId/runtime-nodes/:nodeId/revoke',
@@ -105,6 +119,7 @@ enum MvpEndpoint {
   ),
   settingsSkillList(
     id: 'settings.skill.list',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/settings/skills',
@@ -112,6 +127,7 @@ enum MvpEndpoint {
   ),
   settingsSkillUpdate(
     id: 'settings.skill.update',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'PUT',
     path: '/agent/settings/skills/:skillKey',
@@ -119,6 +135,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasCreate(
     id: 'strategy.canvas.create',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/strategy/canvases',
@@ -126,6 +143,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasDelete(
     id: 'strategy.canvas.delete',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'DELETE',
     path: '/operations/strategy/canvases/:id',
@@ -133,6 +151,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasGet(
     id: 'strategy.canvas.get',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/strategy/canvases/:id',
@@ -140,6 +159,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasList(
     id: 'strategy.canvas.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/strategy/canvases',
@@ -147,6 +167,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasRevisionApprove(
     id: 'strategy.canvas.revision.approve',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/strategy/canvas-revisions/:id/approve',
@@ -154,6 +175,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasRevisionCreate(
     id: 'strategy.canvas.revision.create',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/strategy/canvases/:id/revisions',
@@ -161,6 +183,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasRevisionGet(
     id: 'strategy.canvas.revision.get',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/strategy/canvas-revisions/:id',
@@ -168,6 +191,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasRevisionReject(
     id: 'strategy.canvas.revision.reject',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/strategy/canvas-revisions/:id/reject',
@@ -175,6 +199,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasRevisionSubmitReview(
     id: 'strategy.canvas.revision.submit_review',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/strategy/canvas-revisions/:id/submit-review',
@@ -182,6 +207,7 @@ enum MvpEndpoint {
   ),
   strategyCanvasUpdate(
     id: 'strategy.canvas.update',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'PUT',
     path: '/operations/strategy/canvases/:id',
@@ -189,6 +215,7 @@ enum MvpEndpoint {
   ),
   strategyFundingMatches(
     id: 'strategy.funding.matches',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/strategy/funding-matches',
@@ -196,6 +223,7 @@ enum MvpEndpoint {
   ),
   strategyObjectiveDelete(
     id: 'strategy.objective.delete',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'DELETE',
     path: '/operations/objectives/:id',
@@ -203,6 +231,7 @@ enum MvpEndpoint {
   ),
   strategyObjectiveList(
     id: 'strategy.objective.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/objectives',
@@ -210,6 +239,7 @@ enum MvpEndpoint {
   ),
   strategyObjectiveProgress(
     id: 'strategy.objective.progress',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/objectives/:id/progress',
@@ -217,6 +247,7 @@ enum MvpEndpoint {
   ),
   strategyOkrCycleList(
     id: 'strategy.okr_cycle.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/okr-cycles',
@@ -224,6 +255,7 @@ enum MvpEndpoint {
   ),
   strategyTwelveWeekCommitmentList(
     id: 'strategy.twelve_week.commitment.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/twelve-week-commitments',
@@ -231,6 +263,7 @@ enum MvpEndpoint {
   ),
   strategyTwelveWeekCycleList(
     id: 'strategy.twelve_week.cycle.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/twelve-week-cycles',
@@ -238,6 +271,7 @@ enum MvpEndpoint {
   ),
   strategyTwelveWeekPlanList(
     id: 'strategy.twelve_week.plan.list',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/twelve-week-plans',
@@ -245,6 +279,7 @@ enum MvpEndpoint {
   ),
   vaultDocumentConfirmUpload(
     id: 'vault.document.confirm_upload',
+    enabled: false,
     plane: ApiPlane.agent,
     method: 'POST',
     path: '/agent/vault/documents/:id/confirm',
@@ -252,6 +287,7 @@ enum MvpEndpoint {
   ),
   vaultDocumentDelete(
     id: 'vault.document.delete',
+    enabled: false,
     plane: ApiPlane.agent,
     method: 'DELETE',
     path: '/agent/vault/documents/:id',
@@ -259,6 +295,7 @@ enum MvpEndpoint {
   ),
   vaultDocumentGet(
     id: 'vault.document.get',
+    enabled: false,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/vault/documents/:id',
@@ -266,6 +303,7 @@ enum MvpEndpoint {
   ),
   vaultDocumentList(
     id: 'vault.document.list',
+    enabled: false,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/vault/documents',
@@ -273,6 +311,7 @@ enum MvpEndpoint {
   ),
   vaultDocumentUploadTicket(
     id: 'vault.document.upload_ticket',
+    enabled: false,
     plane: ApiPlane.agent,
     method: 'POST',
     path: '/agent/vault/documents/upload-ticket',
@@ -280,6 +319,7 @@ enum MvpEndpoint {
   ),
   vaultKnowledgeGraph(
     id: 'vault.knowledge.graph',
+    enabled: false,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/vault/knowledge/graph',
@@ -287,6 +327,7 @@ enum MvpEndpoint {
   ),
   vaultKnowledgeIndexedSources(
     id: 'vault.knowledge.indexed_sources',
+    enabled: false,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/vault/knowledge/sources',
@@ -294,6 +335,7 @@ enum MvpEndpoint {
   ),
   vaultKnowledgeRetrievalQuery(
     id: 'vault.knowledge.retrieval_query',
+    enabled: false,
     plane: ApiPlane.agent,
     method: 'POST',
     path: '/agent/vault/retrieval/query',
@@ -301,6 +343,7 @@ enum MvpEndpoint {
   ),
   workforceApprovalDecision(
     id: 'workforce.approval.decision',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'POST',
     path: '/agent/workforce/approvals/:approvalId/decision',
@@ -308,6 +351,7 @@ enum MvpEndpoint {
   ),
   workforceApprovalList(
     id: 'workforce.approval.list',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/approvals',
@@ -315,6 +359,7 @@ enum MvpEndpoint {
   ),
   workforceAssignmentCreate(
     id: 'workforce.assignment.create',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'POST',
     path: '/agent/workforce/assignments',
@@ -322,6 +367,7 @@ enum MvpEndpoint {
   ),
   workforceAssignmentList(
     id: 'workforce.assignment.list',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/assignments',
@@ -329,6 +375,7 @@ enum MvpEndpoint {
   ),
   workforceAssignmentRetire(
     id: 'workforce.assignment.retire',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'POST',
     path: '/agent/workforce/assignments/:id/retire',
@@ -336,6 +383,7 @@ enum MvpEndpoint {
   ),
   workforceCapabilityList(
     id: 'workforce.capability.list',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/capabilities',
@@ -343,6 +391,7 @@ enum MvpEndpoint {
   ),
   workforceCompositionGet(
     id: 'workforce.composition.get',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/composition',
@@ -350,6 +399,7 @@ enum MvpEndpoint {
   ),
   workforceCostObservationList(
     id: 'workforce.cost_observation.list',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/cost-observations',
@@ -357,6 +407,7 @@ enum MvpEndpoint {
   ),
   workforceHealthGet(
     id: 'workforce.health.get',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/health',
@@ -364,6 +415,7 @@ enum MvpEndpoint {
   ),
   workforceOrgChartGet(
     id: 'workforce.org_chart.get',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/org-chart',
@@ -371,6 +423,7 @@ enum MvpEndpoint {
   ),
   workforceRunArtifacts(
     id: 'workforce.run.artifacts',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/runs/:runId/artifacts',
@@ -378,6 +431,7 @@ enum MvpEndpoint {
   ),
   workforceRunEvents(
     id: 'workforce.run.events',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/runs/:runId/events',
@@ -385,6 +439,7 @@ enum MvpEndpoint {
   ),
   workforceRunGet(
     id: 'workforce.run.get',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/runs/:runId',
@@ -392,6 +447,7 @@ enum MvpEndpoint {
   ),
   workforceRunList(
     id: 'workforce.run.list',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/runs',
@@ -399,6 +455,7 @@ enum MvpEndpoint {
   ),
   workforceScheduleCreate(
     id: 'workforce.schedule.create',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'POST',
     path: '/agent/workforce/schedules',
@@ -406,6 +463,7 @@ enum MvpEndpoint {
   ),
   workforceScheduleList(
     id: 'workforce.schedule.list',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'GET',
     path: '/agent/workforce/schedules',
@@ -413,6 +471,7 @@ enum MvpEndpoint {
   ),
   workforceScheduleRunNow(
     id: 'workforce.schedule.run_now',
+    enabled: true,
     plane: ApiPlane.agent,
     method: 'POST',
     path: '/agent/workforce/schedules/:scheduleId/run-now',
@@ -420,6 +479,7 @@ enum MvpEndpoint {
   ),
   workspaceRuntimeBlockers(
     id: 'workspace_runtime.blockers',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/workspace-runtime/blockers',
@@ -427,6 +487,7 @@ enum MvpEndpoint {
   ),
   workspaceRuntimeItemGet(
     id: 'workspace_runtime.item_get',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/workspace-runtime/items/:sourceKind/:sourceId',
@@ -434,6 +495,7 @@ enum MvpEndpoint {
   ),
   workspaceRuntimeItemSnooze(
     id: 'workspace_runtime.item_snooze',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/workspace-runtime/items/:sourceKind/:sourceId/snooze',
@@ -441,6 +503,7 @@ enum MvpEndpoint {
   ),
   workspaceRuntimeNeedsYou(
     id: 'workspace_runtime.needs_you',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/workspace-runtime/needs-you',
@@ -448,6 +511,7 @@ enum MvpEndpoint {
   ),
   workspaceRuntimeSourceStatus(
     id: 'workspace_runtime.source_status',
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/workspace-runtime/source-status',
@@ -456,6 +520,7 @@ enum MvpEndpoint {
 
   const MvpEndpoint({
     required this.id,
+    required this.enabled,
     required this.plane,
     required this.method,
     required this.path,
@@ -463,6 +528,11 @@ enum MvpEndpoint {
   });
 
   final String id;
+  // Fix-review (2026-09-02, final review I-4) — `shared/contracts/mvp-surface.json`
+  // đánh dấu `enabled: false` cho các capability chưa có backend thật (vd. vault.*);
+  // trước đây field này không được emit ra Dart nên client Flutter không có cách
+  // nào tự chặn gọi một endpoint đã biết trước là chưa khả dụng.
+  final bool enabled;
   final ApiPlane plane;
   final String method;
   final String path;

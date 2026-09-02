@@ -46,6 +46,23 @@ class MvpRequestClient {
     required T Function(Object?) decode,
   }) async {
     try {
+      // Fix-review (2026-09-02, final review I-4) — `shared/contracts/
+      // mvp-surface.json` đánh dấu một số capability (vd. toàn bộ `vault.*`)
+      // `enabled: false` vì backend thật chưa tồn tại. Trước đây field này
+      // không tới được `MvpEndpoint` (Dart) nên không có gì chặn UI gọi một
+      // route đã biết trước là chưa khả dụng — request đi ra ngoài và chỉ
+      // thất bại (hoặc tệ hơn, một route trùng path tình cờ trả 200 giả).
+      // Chặn ngay tại đây, trước khi build request thật.
+      if (!endpoint.enabled) {
+        return ApiFailure(
+          ApiFailureDetail(
+            code: ApiFailureCode.unavailable,
+            message: 'Endpoint "${endpoint.id}" is disabled in mvp-surface.json — not yet implemented',
+            endpointId: endpoint.id,
+          ),
+        );
+      }
+
       final token = await _authResolver.tokenFor(endpoint.plane);
       final workspaceId = await _authResolver.workspaceId();
 

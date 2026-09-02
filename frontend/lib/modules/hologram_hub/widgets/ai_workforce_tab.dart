@@ -1,18 +1,52 @@
 import 'package:flutter/material.dart';
 import '../../../data/models/workforce_pack_model.dart';
+import '../controllers/founder_command_center_controller.dart' show WorkforceLoadState;
 
 class AiWorkforceTab extends StatelessWidget {
   final List<WorkforcePackModel> packs;
   final Function(String packKey, bool value) onTogglePack;
+  // Fix-review (2026-09-02, final review I-2) — `FounderCommandCenterController.
+  // workforceState` (Task 3) đã phân biệt đúng "đang tải" / "đã tải" /
+  // "không tải được", nhưng widget này trước đây chỉ nhận `packs` nên
+  // `WorkforceLoadState.unavailable` không bao giờ tới được view. Tham số
+  // này optional để không phá vỡ call site hiện có (mặc định giữ nguyên
+  // hành vi cũ khi không truyền).
+  final WorkforceLoadState? loadState;
 
   const AiWorkforceTab({
     super.key,
     required this.packs,
     required this.onTogglePack,
+    this.loadState,
   }) : super();
 
   @override
   Widget build(BuildContext context) {
+    if (loadState == WorkforceLoadState.unavailable) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A1B1B),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFF87171).withValues(alpha: 0.4),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Color(0xFFF87171), size: 20),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Không tải được danh sách AI Workforce. Vui lòng thử lại sau.',
+                style: TextStyle(color: Color(0xFFF87171), fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final coreDomains = packs.where((p) => p.isCore).toList();
     final optionalPacks = packs.where((p) => !p.isCore).toList();
 
@@ -29,9 +63,18 @@ class AiWorkforceTab extends StatelessWidget {
               children: [
                 const Icon(Icons.hub, color: Color(0xFF6366F1), size: 20),
                 const SizedBox(width: 8),
-                const Text(
-                  '5 CORE DOMAIN WORKFORCE (Luôn kích hoạt)',
-                  style: TextStyle(
+                // Fix-review (2026-09-02, final review I-3) — Task 3 đã đổi
+                // `cofounder_api_service.dart` sang hard-code `isCore: false`
+                // cho mọi entry (response `/agent/workforce/composition`
+                // không có field phân loại "core") nên `coreDomains` giờ
+                // luôn rỗng — header cũ "5 CORE DOMAIN WORKFORCE" khẳng định
+                // một con số không bao giờ đúng nữa. Đếm động theo dữ liệu
+                // thật, và nêu rõ khi dữ liệu chưa có.
+                Text(
+                  coreDomains.isEmpty
+                      ? 'CORE DOMAIN WORKFORCE (chưa có dữ liệu phân loại)'
+                      : '${coreDomains.length} CORE DOMAIN WORKFORCE (Luôn kích hoạt)',
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,

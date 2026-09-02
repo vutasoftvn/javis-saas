@@ -7,14 +7,16 @@ import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
 import '../../../data/models/workforce_pack_model.dart';
 import '../../../modules/hologram_hub/services/cofounder_api_service.dart';
-import '../../../modules/approvals/services/approvals_service.dart';
 import '../../../modules/chat/services/agent_chat_service.dart';
 import '../../../modules/chat/models/data_access_declaration.dart';
 
+import '../../../core/network/api_result.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 import '../../../modules/strategy/services/project_operating_setup_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
+import '../../../modules/workforce/models/workforce_mvp_models.dart';
+import '../../../modules/workforce/services/workforce_mvp_service.dart';
 
 /// Fix-review (2026-09-01, Task 3) — trạng thái tải Workforce Packs cần phân
 /// biệt rõ "chưa tải xong"/"đã tải, hợp lệ (có thể rỗng)"/"tải thất bại,
@@ -23,8 +25,22 @@ import '../../../modules/strategy/services/strategy_service.dart';
 enum WorkforceLoadState { idle, loading, loaded, unavailable }
 
 class FounderCommandCenterController extends GetxController {
-  final ApprovalsService _approvalsService = ApprovalsService();
+  // Fix-review (2026-09-02, final review I-1) — `/agent/approvals` (router cũ
+  // trong `apps/cosa/api/approval_routes.py`) chỉ còn là stub deprecated,
+  // KHÔNG được mount trong `app.py` ⇒ luôn 404. `ApprovalsService` trước đây
+  // nuốt lỗi đó thành `[]`, khiến "route không tồn tại" và "không có approval
+  // nào" trông giống hệt nhau trên UI. Route canonical đã mount thật là
+  // `/agent/workforce/approvals` (workforce_routes.py), có sẵn client typed
+  // `WorkforceMvpService` (dùng chung với `MissionControlController`) trả về
+  // `ApiResult` — tái dùng thẳng thay vì vá lại `ApprovalsService`.
+  final WorkforceMvpService _workforceMvpService;
   final AgentChatService _chatService = AgentChatService();
+
+  // Fix-review (2026-09-02, final review I-1) — cho phép inject
+  // `WorkforceMvpService` trong test (mirror DI pattern của
+  // `MissionControlController`) thay vì luôn tạo instance thật gọi mạng.
+  FounderCommandCenterController({WorkforceMvpService? workforceMvpService})
+      : _workforceMvpService = workforceMvpService ?? WorkforceMvpService();
 
   // Task 5 (`/agent/conversations/{id}/messages`) đòi hỏi phân loại
   // `data_access` không rỗng cho mọi tin nhắn — chat sheet này là kênh trao
@@ -61,6 +77,11 @@ class FounderCommandCenterController extends GetxController {
   // việc `workforcePacks` rỗng (rỗng có thể là hợp lệ: workspace chưa gán
   // agent nào).
   final Rx<WorkforceLoadState> workforceState = WorkforceLoadState.idle.obs;
+  // Fix-review (2026-09-02, final review I-1) — tái dùng cùng idiom
+  // `WorkforceLoadState` cho Approvals: `pendingApprovals` rỗng có thể là hợp
+  // lệ (thật sự không có gì chờ duyệt) hoặc là hệ quả của 404/5xx bị nuốt —
+  // hai trường hợp này phải phân biệt được trên UI.
+  final Rx<WorkforceLoadState> approvalsState = WorkforceLoadState.idle.obs;
   final RxInt selectedTabIndex = 0.obs; // 0: Command Center, 1: AI Workforce
 
   // Co-Founder Chat Sheet State
@@ -164,21 +185,23 @@ class FounderCommandCenterController extends GetxController {
         },
       );
 
-      // Load Approvals từ database thật
-      try {
-        final approvals = await _approvalsService.getApprovals(
-          status: 'PENDING',
-        );
-        if (approvals.isNotEmpty) {
-          pendingApprovals.assignAll(
-            approvals.map((e) => e as Map<String, dynamic>).toList(),
-          );
-        } else {
-          pendingApprovals.clear();
-        }
-      } catch (_) {
-        pendingApprovals.clear();
-      }
+      // Fix-review (2026-09-02, final review I-1) — load Approvals qua route
+      // canonical `/agent/workforce/approvals`; 404/5xx/mất mạng phản ánh
+      // thành `WorkforceLoadState.unavailable` thay vì âm thầm coi là rỗng.
+      approvalsState.value = WorkforceLoadState.loading;
+      final approvalsResult = await _workforceMvpService.listApprovals(
+        status: 'PENDING',
+      );
+      approvalsResult.when(
+        success: (data, _) {
+          pendingApprovals.assignAll(data.map(_approvalToLegacyMap).toList());
+          approvalsState.value = WorkforceLoadState.loaded;
+        },
+        failure: (failure) {
+          debugPrint('[FounderCommandCenter] listApprovals failure: ${failure.message}');
+          approvalsState.value = WorkforceLoadState.unavailable;
+        },
+      );
     } finally {
       isLoading.value = false;
     }
@@ -231,8 +254,11 @@ class FounderCommandCenterController extends GetxController {
 
   /// Phê duyệt một Task kỹ thuật (Approval)
   Future<void> approveTask(dynamic approvalId) async {
-    final success = await _approvalsService.approve(approvalId);
-    if (success) {
+    final result = await _workforceMvpService.decideApproval(
+      approvalId.toString(),
+      approved: true,
+    );
+    if (result is ApiSuccess<WorkforceApprovalDecision>) {
       pendingApprovals.removeWhere((a) => a['id'] == approvalId);
       AppToast.success(
         'Agent sẽ tiếp tục tiến trình thực thi ngay lập tức.',
@@ -248,8 +274,12 @@ class FounderCommandCenterController extends GetxController {
 
   /// Từ chối một Task kỹ thuật (Approval)
   Future<void> rejectTask(dynamic approvalId, String reason) async {
-    final success = await _approvalsService.reject(approvalId, reason: reason);
-    if (success) {
+    final result = await _workforceMvpService.decideApproval(
+      approvalId.toString(),
+      approved: false,
+      reason: reason,
+    );
+    if (result is ApiSuccess<WorkforceApprovalDecision>) {
       pendingApprovals.removeWhere((a) => a['id'] == approvalId);
       AppToast.warning(
         'Lý do từ chối đã được ghi nhận.',
@@ -262,6 +292,18 @@ class FounderCommandCenterController extends GetxController {
       );
     }
   }
+
+  /// Chuyển `WorkforceApproval` (model canonical) sang `Map` để tương thích
+  /// ngược với các widget hiện có (`WaitingForYouWidget`) — vốn được xây
+  /// trước khi có `WorkforceMvpService`, đọc field rời qua key thay vì model.
+  Map<String, dynamic> _approvalToLegacyMap(WorkforceApproval a) => {
+        'id': a.approvalId,
+        'run_id': a.runId,
+        'title': a.action,
+        'agent_name': a.subject,
+        'risk_level': a.riskLevel,
+        'status': a.status,
+      };
 
   /// Bật/Tắt một Optional Pack
   Future<void> togglePack(String packKey, bool value) async {

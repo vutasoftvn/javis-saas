@@ -464,27 +464,72 @@ class MissionControlView extends GetView<MissionControlController> {
               ),
             ),
             const Spacer(),
-            Obx(
-              () => Container(
+            Obx(() {
+              // Fix-review (2026-09-02, final review I-2) — badge số lượng
+              // không được suy diễn "0 PENDING" khi thật ra là chưa tải
+              // được (404/5xx/mất mạng); hiện rõ "LỖI TẢI" thay vì một con
+              // số 0 trông giống hệt "hàng đợi thật sự trống".
+              final hasError = controller.approvalsLoadError.value != null;
+              return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                  color: (hasError ? const Color(0xFFF87171) : const Color(0xFFF59E0B))
+                      .withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  '${controller.pendingApprovals.length} PENDING',
-                  style: const TextStyle(
-                    color: Color(0xFFF59E0B),
+                  hasError ? 'LỖI TẢI' : '${controller.pendingApprovals.length} PENDING',
+                  style: TextStyle(
+                    color: hasError ? const Color(0xFFF87171) : const Color(0xFFF59E0B),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
         ),
         const SizedBox(height: 10),
         Obx(() {
+          // Fix-review (2026-09-02, final review I-2) — `approvalsLoadError`
+          // đã được Task 3 gán đúng khi tải approvals thất bại (404/5xx/mất
+          // mạng), nhưng trước đây không nơi nào trong view đọc lại field
+          // này — UI vẫn hiện "Không có phê duyệt nào đang chờ." y hệt như
+          // khi tải thành công và thật sự rỗng. Kiểm tra lỗi TRƯỚC khi rơi
+          // vào nhánh rỗng để hai trường hợp không còn trông giống nhau.
+          final loadError = controller.approvalsLoadError.value;
+          if (loadError != null) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A1B1B),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFF87171).withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Color(0xFFF87171),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Không tải được danh sách phê duyệt: $loadError',
+                      style: const TextStyle(
+                        color: Color(0xFFF87171),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
           if (controller.pendingApprovals.isEmpty) {
             return Container(
               padding: const EdgeInsets.all(16),

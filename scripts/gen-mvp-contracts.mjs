@@ -198,6 +198,7 @@ function genDart() {
 
     out.push(`  ${member}(`);
     out.push(`    id: '${cap.id}',`);
+    out.push(`    enabled: ${Boolean(cap.enabled)},`);
     out.push(`    plane: ${planeVal},`);
     out.push(`    method: '${cap.method}',`);
     out.push(`    path: '${cap.path}',`);
@@ -208,6 +209,7 @@ function genDart() {
   out.push("");
   out.push("  const MvpEndpoint({");
   out.push("    required this.id,");
+  out.push("    required this.enabled,");
   out.push("    required this.plane,");
   out.push("    required this.method,");
   out.push("    required this.path,");
@@ -215,6 +217,11 @@ function genDart() {
   out.push("  });");
   out.push("");
   out.push("  final String id;");
+  out.push("  // Fix-review (2026-09-02, final review I-4) — `shared/contracts/mvp-surface.json`");
+  out.push("  // đánh dấu `enabled: false` cho các capability chưa có backend thật (vd. vault.*);");
+  out.push("  // trước đây field này không được emit ra Dart nên client Flutter không có cách");
+  out.push("  // nào tự chặn gọi một endpoint đã biết trước là chưa khả dụng.");
+  out.push("  final bool enabled;");
   out.push("  final ApiPlane plane;");
   out.push("  final String method;");
   out.push("  final String path;");
