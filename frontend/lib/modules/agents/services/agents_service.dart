@@ -1,9 +1,22 @@
 import 'dart:convert';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_result.dart';
 import '../../../data/models/agent_model.dart';
+import '../../workforce/models/workforce_mvp_models.dart';
+import '../../workforce/services/workforce_mvp_service.dart';
 
 class AgentsService {
+  // Task 7 — `getOrgChart`/`getRuns` từng gọi `/workforce/org-chart` và
+  // `/workforce/runs` (thiếu prefix `/agent`) qua `ApiClient` thô, rơi vào
+  // nhánh business/company runtime thay vì AgentOS thật — 404 vĩnh viễn dù
+  // `agents_controller.dart` gọi sống. Tái dùng `WorkforceMvpService` đã có
+  // sẵn envelope-unwrap cho đúng các route này thay vì tự chép lại.
+  final WorkforceMvpService _workforceMvpService;
+
+  AgentsService({WorkforceMvpService? workforceMvpService})
+      : _workforceMvpService = workforceMvpService ?? WorkforceMvpService();
+
   Future<String?> _getWorkspaceId() async {
     return SecureStorageService.read('workspace_id');
   }
@@ -49,13 +62,13 @@ class AgentsService {
     return [];
   }
 
-  /// Lấy sơ đồ cây phân cấp Org Chart
+  /// Lấy sơ đồ cây phân cấp Org Chart — canonical `/agent/workforce/org-chart`.
   Future<Map<String, dynamic>?> getOrgChart() async {
-    final response = await ApiClient.get('/workforce/org-chart');
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+    final result = await _workforceMvpService.getOrgChart();
+    if (result case ApiFailure()) {
+      return null;
     }
-    return null;
+    return (result as ApiSuccess<Map<String, dynamic>>).data;
   }
 
   /// Test run trực tiếp Agent
@@ -101,20 +114,31 @@ class AgentsService {
     }).toList();
   }
 
-  /// Lấy danh sách các lần chạy AgentRun
+  /// Lấy danh sách các lần chạy AgentRun — canonical `/agent/workforce/runs`.
+  /// Backend thật (`apps/cosa/api/workforce_routes.py:list_runs`) hiện chỉ
+  /// nhận `limit`, KHÔNG có filter theo `agent_key`/`status`/`offset` — giữ
+  /// tham số trong chữ ký để không phá call site cũ, nhưng không giả vờ gửi
+  /// filter mà server không đọc.
   Future<List<dynamic>> getRuns({String? agentKey, String? status, int limit = 20, int offset = 0}) async {
-    final params = <String>[];
-    if (agentKey != null) params.add('agent_key=$agentKey');
-    if (status != null && status != 'All') params.add('status=$status');
-    params.add('limit=$limit');
-    params.add('offset=$offset');
-    final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
-    
-    final response = await ApiClient.get('/workforce/runs$queryStr');
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as List<dynamic>;
+    final result = await _workforceMvpService.listRuns(limit: limit);
+    if (result case ApiFailure()) {
+      return [];
     }
-    return [];
+    final runs = (result as ApiSuccess<List<WorkforceRun>>).data;
+    return runs
+        .map((r) => {
+              'run_id': r.runId,
+              'workspace_id': r.workspaceId,
+              'agent_spec_id': r.agentSpecId,
+              'agent_spec_version': r.agentSpecVersion,
+              'definition_hash': r.definitionHash,
+              'status': r.status,
+              'created_at': r.createdAt.toIso8601String(),
+              'completed_at': r.completedAt?.toIso8601String(),
+              'total_tokens': r.totalTokens,
+              'error_message': r.errorMessage,
+            })
+        .toList();
   }
 
   /// Xem chi tiết phiên chạy và các bước AgentStep

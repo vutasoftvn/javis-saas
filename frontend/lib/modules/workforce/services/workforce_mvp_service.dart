@@ -72,4 +72,17 @@ class WorkforceMvpService {
       decode: (json) => _asList(json).map(WorkforceCompositionEntry.fromJson).toList(),
     );
   }
+
+  // Task 7 — org-chart chưa có typed model riêng (backend trả cây phân cấp
+  // tự do, không phải danh sách record cố định như run/approval/composition);
+  // giữ nguyên `Map<String, dynamic>` thay vì suy diễn schema chưa được xác
+  // nhận, nhưng vẫn đi qua `MvpRequestClient` để có envelope-unwrap +
+  // ApiFailure thật giống mọi endpoint workforce khác — không tự ghép URL
+  // `/workforce/org-chart` (thiếu prefix `/agent`, luôn 404 lên sai host).
+  Future<ApiResult<Map<String, dynamic>>> getOrgChart() async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.workforceOrgChartGet,
+      decode: (json) => (json as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+  }
 }

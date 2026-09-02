@@ -1,8 +1,25 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_result.dart';
+import '../../workforce/models/workforce_mvp_models.dart';
+import '../../workforce/services/workforce_mvp_service.dart';
 
 class AgentPlatformService {
+  // Task 7 — `listApprovals/approveRequest/rejectRequest/getOrgChart` từng tự
+  // gọi `/workforce/...` (thiếu prefix `/agent`) qua `ApiClient` thô: path đó
+  // rơi vào nhánh business/company runtime (Encore, port 4000) thay vì
+  // AgentOS thật (port 8001) — 404 vĩnh viễn dù `hub_control_plane_mixin.dart`
+  // (Founder Dashboard) vẫn gọi sống mỗi lần refresh. Tái dùng
+  // `WorkforceMvpService` (đã có sẵn envelope-unwrap + `ApiFailure` thật cho
+  // đúng các route này) thay vì tự chép lại logic decode — tránh nhân bản
+  // kiến trúc. Giữ nguyên type trả về (`Map`/`List<Map>`) để không phải sửa
+  // toàn bộ call site đang dùng shape cũ.
+  final WorkforceMvpService _workforceMvpService;
+
+  AgentPlatformService({WorkforceMvpService? workforceMvpService})
+      : _workforceMvpService = workforceMvpService ?? WorkforceMvpService();
+
   /// Fetch master control plane dashboard summary
   Future<Map<String, dynamic>?> getDashboardSummary() async {
     try {
@@ -220,64 +237,84 @@ class AgentPlatformService {
     return null;
   }
 
-  /// Get organization hierarchy
+  /// Get organization hierarchy — canonical `/agent/workforce/org-chart`.
   Future<Map<String, dynamic>?> getOrgChart() async {
-    try {
-      final response = await ApiClient.get('/workforce/org-chart');
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (e) {
-      debugPrint('[AgentPlatformService] getOrgChart error: $e');
+    final result = await _workforceMvpService.getOrgChart();
+    if (result case ApiFailure(failure: final f)) {
+      debugPrint('[AgentPlatformService] getOrgChart failed: $f');
+      return null;
     }
-    return null;
+    return (result as ApiSuccess<Map<String, dynamic>>).data;
   }
 
-  /// List pending approvals for human review
+  /// List pending approvals for human review — canonical
+  /// `/agent/workforce/approvals` (KHÔNG PHẢI `/agent/approvals`, stub
+  /// `deprecated=True` chưa từng được mount trong `apps/cosa/api/app.py`).
   Future<List<Map<String, dynamic>>> listApprovals({String status = 'PENDING'}) async {
-    try {
-      final response = await ApiClient.get('/workforce/approvals?status=$status');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => e as Map<String, dynamic>).toList();
-      }
-    } catch (e) {
-      debugPrint('[AgentPlatformService] listApprovals error: $e');
+    final result = await _workforceMvpService.listApprovals(status: status);
+    if (result case ApiFailure(failure: final f)) {
+      debugPrint('[AgentPlatformService] listApprovals failed: $f');
+      return [];
     }
-    return [];
+    final approvals = (result as ApiSuccess<List<WorkforceApproval>>).data;
+    return approvals.map(_approvalToMap).toList();
   }
 
-  /// Approve a pending request
+  Map<String, dynamic> _approvalToMap(WorkforceApproval a) => {
+        'id': a.approvalId,
+        'approval_id': a.approvalId,
+        'run_id': a.runId,
+        'tool_call_id': a.toolCallId,
+        'checkpoint_ref': a.checkpointRef,
+        'action': a.action,
+        'subject': a.subject,
+        'status': a.status,
+        'risk_level': a.riskLevel,
+        'required_role': a.requiredRole,
+        'policy_id': a.policyId,
+        'created_at': a.createdAt.toIso8601String(),
+      };
+
+  /// Approve a pending request — canonical decision endpoint
+  /// `/agent/workforce/approvals/{id}/decision` (`approved: true`). Backend
+  /// không còn 2 route con `/approve`/`/reject` riêng — một endpoint decision
+  /// duy nhất nhận cờ `approved`.
   Future<Map<String, dynamic>?> approveRequest(int approvalId, {String? comment}) async {
-    try {
-      final response = await ApiClient.post(
-        '/workforce/approvals/$approvalId/approve',
-        body: {'comment': comment ?? 'Approved by Founder via Control Plane UI'},
-      );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (e) {
-      debugPrint('[AgentPlatformService] approveRequest error: $e');
+    final result = await _workforceMvpService.decideApproval(
+      '$approvalId',
+      approved: true,
+      reason: comment ?? 'Approved by Founder via Control Plane UI',
+    );
+    if (result case ApiFailure(failure: final f)) {
+      debugPrint('[AgentPlatformService] approveRequest failed: $f');
+      return null;
     }
-    return null;
+    return _decisionToMap((result as ApiSuccess<WorkforceApprovalDecision>).data);
   }
 
-  /// Reject a pending request
+  /// Reject a pending request — canonical decision endpoint
+  /// `/agent/workforce/approvals/{id}/decision` (`approved: false`).
   Future<Map<String, dynamic>?> rejectRequest(int approvalId, {String? comment}) async {
-    try {
-      final response = await ApiClient.post(
-        '/workforce/approvals/$approvalId/reject',
-        body: {'comment': comment ?? 'Rejected by Founder via Control Plane UI'},
-      );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (e) {
-      debugPrint('[AgentPlatformService] rejectRequest error: $e');
+    final result = await _workforceMvpService.decideApproval(
+      '$approvalId',
+      approved: false,
+      reason: comment ?? 'Rejected by Founder via Control Plane UI',
+    );
+    if (result case ApiFailure(failure: final f)) {
+      debugPrint('[AgentPlatformService] rejectRequest failed: $f');
+      return null;
     }
-    return null;
+    return _decisionToMap((result as ApiSuccess<WorkforceApprovalDecision>).data);
   }
+
+  Map<String, dynamic> _decisionToMap(WorkforceApprovalDecision d) => {
+        'approval_id': d.approvalId,
+        'run_id': d.runId,
+        'status': d.status,
+        'reviewer': d.reviewer,
+        'reason': d.reason,
+        'decided_at': d.decidedAt.toIso8601String(),
+      };
 
   /// List work products
   Future<List<Map<String, dynamic>>> listWorkProducts({String? status}) async {

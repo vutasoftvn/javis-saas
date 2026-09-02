@@ -207,4 +207,41 @@ void main() {
     expect(success.data.single.eventType, 'started');
     expect(success.data.single.payload['foo'], 'bar');
   });
+
+  test('getOrgChart hits the canonical /agent/workforce/org-chart path', () async {
+    final mockHttp = MockClient((request) async {
+      expect(request.url.path, '/agent/workforce/org-chart');
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'root': 'founder_copilot',
+            'children': [],
+          },
+          'meta': {
+            'data_state': 'populated',
+            'observed_at': '2026-08-31T12:00:00.000Z',
+            'sources': [
+              {'kind': 'agent_db', 'ref': 'agent.workforce_assignments'},
+            ],
+          },
+        }),
+        200,
+      );
+    });
+    final service = WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp));
+
+    final result = await service.getOrgChart();
+    expect(result, isA<ApiSuccess<Map<String, dynamic>>>());
+    expect((result as ApiSuccess<Map<String, dynamic>>).data['root'], 'founder_copilot');
+  });
+
+  test('getOrgChart 404 legacy response surfaces as ApiFailure, never a fabricated empty tree', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(jsonEncode({'message': 'not found'}), 404);
+    });
+    final service = WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp));
+
+    final result = await service.getOrgChart();
+    expect(result, isA<ApiFailure<Map<String, dynamic>>>());
+  });
 }
