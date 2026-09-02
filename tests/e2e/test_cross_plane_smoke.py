@@ -15,8 +15,9 @@ from tests.e2e.scenarios import (
     capability_governance,
     dispatch_worker_result,
     outbox_relay,
+    policy_snapshot_tenant,
 )
-from tests.e2e.seed import identity
+from tests.e2e.seed import entitlement, identity
 
 # Toàn bộ file cần Encore CLI + disposable Postgres cluster + PGPASSWORD —
 # chỉ job `e2e-cross-plane-smoke` cung cấp. Loại khỏi `e2e-golden-path` /
@@ -56,3 +57,30 @@ def test_s4_outbox_relay(real_cosa_stack, disposable_cluster) -> None:
     # vào `event_inbox` (agent DB), duplicate delivery không tạo hàng thứ hai.
     seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster)
     outbox_relay.run(real_cosa_stack, seeded, disposable_cluster)
+
+
+def test_s7_policy_snapshot_tenant(real_cosa_stack, disposable_cluster) -> None:
+    # S7: cô lập tenant của policy snapshot. `register_user` + `login` mint cosa
+    # platform token THẬT (qua gateway `verifyPlatformToken`); 3 workspace company
+    # với nội dung `cosa.workspace_agent_policy` khác nhau (operations / finance /
+    # không grant). B5-independent: gateway auth gate + fail-closed tại chặng
+    # verify membership cross-plane. Nhánh 200 (cô lập `rules` theo tenant qua
+    # wire) là DORMANT tới khi cầu nối token cosa<->company landed — xem docstring
+    # `tests/e2e/scenarios/policy_snapshot_tenant.py`.
+    _uid, email, password = identity.register_user(real_cosa_stack.platform.base_url)
+    cosa_token = identity.login(real_cosa_stack.platform.base_url, email, password)
+
+    seeded_ops = identity.seed_workspace(real_cosa_stack, disposable_cluster)
+    seeded_fin = identity.seed_workspace(real_cosa_stack, disposable_cluster)
+    seeded_bare = identity.seed_workspace(real_cosa_stack, disposable_cluster)
+    entitlement.grant_entitlement(disposable_cluster, seeded_ops.workspace_id, "operations")
+    entitlement.grant_entitlement(disposable_cluster, seeded_fin.workspace_id, "finance")
+
+    policy_snapshot_tenant.run(
+        real_cosa_stack,
+        disposable_cluster,
+        cosa_token,
+        seeded_ops,
+        seeded_fin,
+        seeded_bare,
+    )
