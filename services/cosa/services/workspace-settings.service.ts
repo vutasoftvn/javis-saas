@@ -389,6 +389,20 @@ export interface WorkspaceSessionContextView {
   readonly workspaceId: string;
   readonly role: string;
   readonly runtimeMode: "LOCAL_ONLY" | "REMOTE_ACCESS" | "CLOUD_CONTINUITY";
+  // Review fix (2026-09-02, Task 3 review "Needs fixes") — `runtimeMode` ở
+  // trên KHÔNG phải lúc nào cũng đọc từ cấu hình canonical thật (xem comment
+  // dài ở `resolveWorkspaceRuntimeSnapshot` bên dưới): cosa chưa có adapter
+  // đọc `identity.workspaces.runtime_mode` bên `services/company`, nên giá
+  // trị hiện tại được SUY RA (inferred) từ node presence, và suy luận đó có
+  // thể SAI (không chỉ stale) so với mode thật đã cấu hình. Field này để
+  // consumer (vd. Task 5 `MutationGate`) biết chắc "configured" (đọc đúng
+  // cấu hình canonical) hay "inferred" (heuristic tạm, có thể sai) trước khi
+  // dùng `runtimeMode` để gate một hành động — không được coi hai trường hợp
+  // là tương đương. Đây là field bổ sung ngoài interface gốc trong brief —
+  // chấp nhận lệch literal interface để không âm thầm trình bày một giá trị
+  // suy đoán như thể là sự thật đã xác minh (đúng tinh thần "truthful" của
+  // plan này).
+  readonly runtimeModeSource: "configured" | "inferred";
   readonly presenceStatus: "ONLINE" | "DEGRADED" | "OFFLINE";
   readonly lastHeartbeatAt: string | null;
   readonly asOf: string;
@@ -412,22 +426,39 @@ function deriveWorkspaceCapabilities(roleId: string): readonly string[] {
   return BASE_WORKSPACE_CAPABILITIES;
 }
 
-// runtimeMode canonical thật sự nằm ở cột `runtime_mode` phía
-// `services/company` (identity.workspaces) — cosa control-plane CHƯA có
-// adapter cross-service đọc cột đó (đúng khoảng trống đã ghi chú tại
-// `runtime-node.handler.ts` — "adapter cross-service để phiên sau"). Trong
-// lúc chờ adapter đó, suy ra runtimeMode từ chính runtime node control-plane
-// mà cosa đang sở hữu thật (bảng `workspace_runtime_nodes`), theo ĐÚNG state
-// machine đã được test ở `runtime-router.service.ts`:
+// Review fix (2026-09-02, Task 3 review "Needs fixes") — bản trước mô tả suy
+// luận dưới đây là "khớp ĐÚNG state machine đã test ở runtime-router.service.ts".
+// SAI: `runtime-router.service.ts` giải quyết một bài toán KHÁC — nó nhận
+// `runtimeMode` như một INPUT đã biết/đã cấu hình (đọc từ cột canonical
+// `identity.workspaces.runtime_mode` bên `services/company`, xem
+// `services/company/shared/db/schema/identity.ts:12` và comment tại
+// `runtime-node.handler.ts:125-128`) rồi CHỈ quyết định route target
+// (LOCAL_DIRECT/LOCAL_RELAY/CLOUD_ISOLATED/OFFLINE) từ mode+presence đó —
+// nó không bao giờ tự suy ra mode từ presence. Hàm dưới đây làm NGƯỢC LẠI:
+// đoán `runtimeMode` từ presence, vì cosa control-plane CHƯA có adapter
+// cross-service đọc cột canonical đó (khoảng trống đã biết, KHÔNG phải mục
+// tiêu sửa của task này — xem báo cáo review).
+//
+// Hệ quả: suy luận này có thể SAI, không chỉ "cũ" (stale) — 2 kịch bản cụ
+// thể reviewer đã chỉ ra:
+//   1. Workspace cấu hình thật LOCAL_ONLY nhưng heartbeat local node vừa
+//      stale tạm thời ⇒ hàm này báo REMOTE_ACCESS, dù đó vẫn là chế độ
+//      LOCAL_ONLY, chỉ đang tạm mất kết nối.
+//   2. Workspace cấu hình thật REMOTE_ACCESS nhưng local node đang khoẻ
+//      (ONLINE) ⇒ hàm này báo LOCAL_ONLY, một chế độ triển khai khác hẳn.
+//
+// Vì vậy hàm luôn trả `runtimeModeSource: "inferred"` — KHÔNG BAO GIỜ
+// "configured" cho tới khi có adapter đọc đúng cột canonical — để caller (đặc
+// biệt `MutationGate` ở Task 5) không lỡ coi giá trị suy đoán này là sự thật
+// đã xác minh. Logic suy đoán tạm thời (chỉ dùng khi chưa có adapter):
 //   - có cloud node (chưa revoke)                  → CLOUD_CONTINUITY
 //   - chỉ có local node, presence hiệu lực ONLINE   → LOCAL_ONLY
-//   - chỉ có local node, presence hiệu lực khác     → REMOTE_ACCESS (đang cố
-//     truy cập từ xa; guardrail 7 — KHÔNG được âm thầm failover cloud khi
-//     chưa có cloud node nào đăng ký)
+//   - chỉ có local node, presence hiệu lực khác     → REMOTE_ACCESS
 //   - chưa đăng ký node nào                         → LOCAL_ONLY mặc định,
 //     presence OFFLINE (chưa có runtime nào để kết nối)
 async function resolveWorkspaceRuntimeSnapshot(workspaceId: bigint): Promise<{
   runtimeMode: WorkspaceSessionContextView["runtimeMode"];
+  runtimeModeSource: WorkspaceSessionContextView["runtimeModeSource"];
   presenceStatus: WorkspaceSessionContextView["presenceStatus"];
   lastHeartbeatAt: string | null;
 }> {
@@ -435,13 +466,20 @@ async function resolveWorkspaceRuntimeSnapshot(workspaceId: bigint): Promise<{
   const local = nodes.find((n) => n.runtimeRole === "local_workspace_runtime") ?? null;
   const cloud = nodes.find((n) => n.runtimeRole === "cloud_workspace_runtime") ?? null;
 
+  // Cosa chưa có adapter đọc cột canonical `identity.workspaces.runtime_mode`
+  // bên services/company ⇒ MỌI nhánh dưới đây đều là suy đoán, không phải
+  // đọc cấu hình thật — nguồn luôn là "inferred".
+  const runtimeModeSource: WorkspaceSessionContextView["runtimeModeSource"] = "inferred";
+
   if (cloud) {
-    // CLOUD_CONTINUITY ưu tiên local khi local còn sống, khớp
-    // `resolveRuntimeRoute` — chỉ dùng cloud khi local thật sự không online.
+    // Ưu tiên local khi local còn sống (cùng trực giác với
+    // `resolveRuntimeRoute`, nhưng ở đây vẫn chỉ là suy đoán mode, không phải
+    // route target) — chỉ coi presence cloud khi local thật sự không online.
     const preferLocal = local !== null && local.presence !== "OFFLINE";
     const active = preferLocal ? (local as NonNullable<typeof local>) : cloud;
     return {
       runtimeMode: "CLOUD_CONTINUITY",
+      runtimeModeSource,
       presenceStatus: active.presence,
       lastHeartbeatAt: active.lastHeartbeatAt,
     };
@@ -450,12 +488,18 @@ async function resolveWorkspaceRuntimeSnapshot(workspaceId: bigint): Promise<{
   if (local) {
     return {
       runtimeMode: local.presence === "ONLINE" ? "LOCAL_ONLY" : "REMOTE_ACCESS",
+      runtimeModeSource,
       presenceStatus: local.presence,
       lastHeartbeatAt: local.lastHeartbeatAt,
     };
   }
 
-  return { runtimeMode: "LOCAL_ONLY", presenceStatus: "OFFLINE", lastHeartbeatAt: null };
+  return {
+    runtimeMode: "LOCAL_ONLY",
+    runtimeModeSource,
+    presenceStatus: "OFFLINE",
+    lastHeartbeatAt: null,
+  };
 }
 
 export async function getWorkspaceSessionContextService(
@@ -465,12 +509,14 @@ export async function getWorkspaceSessionContextService(
   const { membership } = await verifyWorkspaceMembershipRow(authorization, workspaceId);
   const wsIdBigInt = BigInt(workspaceId);
 
-  const { runtimeMode, presenceStatus, lastHeartbeatAt } = await resolveWorkspaceRuntimeSnapshot(wsIdBigInt);
+  const { runtimeMode, runtimeModeSource, presenceStatus, lastHeartbeatAt } =
+    await resolveWorkspaceRuntimeSnapshot(wsIdBigInt);
 
   return {
     workspaceId,
     role: membership.roleId,
     runtimeMode,
+    runtimeModeSource,
     presenceStatus,
     lastHeartbeatAt,
     asOf: new Date().toISOString(),

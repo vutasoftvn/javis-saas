@@ -202,6 +202,12 @@ def test_session_context_returns_only_the_authenticated_member_workspace(real_co
     assert body["presenceStatus"] == "OFFLINE"
     assert body["lastHeartbeatAt"] is None
     assert "workspace.session.read" in body["capabilities"]
+    # Review fix (2026-09-02, Task 3 review "Needs fixes") — cosa chưa đọc
+    # được cột runtime_mode canonical bên services/company, nên runtimeMode ở
+    # endpoint này luôn là suy đoán (inferred) từ node presence, có thể SAI
+    # so với cấu hình thật (không chỉ stale) — client không được coi nó như
+    # sự thật đã xác minh tuyệt đối cho tới khi có adapter đọc cấu hình thật.
+    assert body["runtimeModeSource"] == "inferred"
 
 
 def test_session_context_denies_a_member_of_another_workspace(real_cosa_service) -> None:

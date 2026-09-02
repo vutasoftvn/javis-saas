@@ -229,6 +229,10 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
     expect(ctx.runtimeMode).toBe("LOCAL_ONLY");
     expect(ctx.presenceStatus).toBe("OFFLINE");
     expect(ctx.lastHeartbeatAt).toBeNull();
+    // Review fix — cosa chưa đọc được cột runtime_mode canonical bên
+    // services/company nên MỌI giá trị runtimeMode trả về ở endpoint này
+    // hiện đều là suy đoán (inferred), không phải cấu hình đã xác minh.
+    expect(ctx.runtimeModeSource).toBe("inferred");
   });
 
   it("denies a member of another workspace", async () => {
@@ -265,5 +269,47 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
     expect(ctx.runtimeMode).toBe("REMOTE_ACCESS");
     expect(ctx.runtimeMode).not.toBe("CLOUD_CONTINUITY");
     expect(ctx.lastHeartbeatAt).toBe(staleHeartbeat.toISOString());
+    // Review fix (2026-09-02, "Needs fixes") — kịch bản CỤ THỂ reviewer nêu:
+    // một workspace cấu hình THẬT LOCAL_ONLY nhưng heartbeat local node vừa
+    // stale tạm thời sẽ bị hàm suy đoán này báo nhầm thành REMOTE_ACCESS
+    // (một mode triển khai khác, không phải trạng thái degraded của cùng
+    // mode). Vì cosa chưa đọc được cấu hình canonical để biết mode thật là
+    // gì, endpoint BẮT BUỘC phải tự nhận diện đây là suy đoán
+    // (`runtimeModeSource: "inferred"`) thay vì trình bày REMOTE_ACCESS như
+    // một sự thật đã xác minh — đây là điều assertion dưới đây chứng minh.
+    expect(ctx.runtimeModeSource).toBe("inferred");
+  });
+
+  it("flags runtimeMode as inferred (not verified) when a healthy local node could mask a REMOTE_ACCESS configuration", async () => {
+    // Kịch bản CỤ THỂ thứ 2 reviewer nêu: một workspace cấu hình THẬT
+    // REMOTE_ACCESS nhưng local node đang khoẻ (ONLINE) sẽ bị hàm suy đoán
+    // này báo nhầm thành LOCAL_ONLY. Test dựng đúng tiền đề đó (node vừa
+    // đăng ký ⇒ presence ONLINE ngay) và xác nhận: dù runtimeMode suy ra là
+    // LOCAL_ONLY, endpoint không được phép trình bày nó như cấu hình đã xác
+    // minh — runtimeModeSource phải là "inferred", để consumer (vd.
+    // MutationGate) biết không nên tin tuyệt đối giá trị này.
+    const founderEmail = `session-context-founder-2-${Date.now()}@test.io`;
+    const reg = await registerPlatformUser({
+      email: founderEmail,
+      password: "SecurePassword123",
+      workspace_name: "Session Context Test Venture 2",
+    });
+    const ws2 = reg.platform_workspace_id!;
+    const token2 = reg.access_token;
+
+    await registerRuntimeNode({
+      workspaceId: BigInt(ws2),
+      deviceKeyFingerprint: `session-context-device-healthy-${Date.now()}`,
+      runtimeRole: "local_workspace_runtime",
+    });
+
+    const ctx = await getWorkspaceSessionContext({
+      workspaceId: ws2,
+      authorization: `Bearer ${token2}`,
+    });
+
+    expect(ctx.presenceStatus).toBe("ONLINE");
+    expect(ctx.runtimeMode).toBe("LOCAL_ONLY");
+    expect(ctx.runtimeModeSource).toBe("inferred");
   });
 });
