@@ -1,14 +1,21 @@
-"""Contracts for the planned cross-plane MVP E2E stack.
+"""Contracts for the cross-plane MVP E2E stack.
 
-This module deliberately does not start processes or provide a fallback
-transport. Release tests must use the real stack fixture when that broader
-program is implemented.
+`MvpStack` chỉ là bó `ServiceClient` trỏ vào các plane đang chạy thật; nó không
+tự khởi động process. Có hai chế độ boot, cả hai đều tạo ra một `MvpStack` qua
+`MvpStack.from_base_urls(...)`:
+
+- subprocess: các helper trong `tests/e2e/stack/` (`_process`, `disposable_postgres`)
+  spawn `services/*` + worker cục bộ rồi truyền base URL vào đây.
+- compose: một `docker compose` bên ngoài dựng nguyên stack, test chỉ đọc base URL
+  từ môi trường và gọi `from_base_urls`.
+
+Bất biến: dàn E2E cross-plane KHÔNG bao giờ dùng transport giả — xem `__post_init__`.
 """
 
 from __future__ import annotations
 
 import socket
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -88,11 +95,29 @@ class MvpStack:
     company: ServiceClient
     platform: ServiceClient
     agent: ServiceClient
+    apps_cosa: ServiceClient
+    worker_health_url: str
     uses_mock_transport: bool = False
-    migration_versions: dict[str, str] = field(
-        default_factory=lambda: {
-            "company": "33_mvp_strategy_canvas_runtime",
-            "agent": "022_workforce_assignments_and_runtime_outbox",
-            "control_plane": "28_workspace_settings_audit",
-        }
-    )
+
+    def __post_init__(self) -> None:
+        # Bất biến: dàn E2E cross-plane KHÔNG bao giờ dùng transport giả.
+        if self.uses_mock_transport:
+            raise ValueError("MvpStack.uses_mock_transport must stay False for the real stack")
+
+    @classmethod
+    def from_base_urls(
+        cls,
+        *,
+        company: str,
+        platform: str,
+        agent: str,
+        apps_cosa: str,
+        worker_health_url: str,
+    ) -> MvpStack:
+        return cls(
+            company=ServiceClient(base_url=company.rstrip("/")),
+            platform=ServiceClient(base_url=platform.rstrip("/")),
+            agent=ServiceClient(base_url=agent.rstrip("/")),
+            apps_cosa=ServiceClient(base_url=apps_cosa.rstrip("/")),
+            worker_health_url=worker_health_url,
+        )
