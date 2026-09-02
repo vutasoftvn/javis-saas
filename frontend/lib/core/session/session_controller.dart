@@ -73,10 +73,18 @@ class DefaultSessionRealtimeGateway implements SessionRealtimeGateway {
   const DefaultSessionRealtimeGateway();
 
   @override
-  void stop() => RealtimeService.disconnect();
+  // Task 8 — logout/rollback phải xoá checkpoint (`Last-Event-ID`) cùng lúc,
+  // không chỉ ngắt kết nối: giữ lại checkpoint sau logout là rò rỉ resume
+  // point của phiên vừa kết thúc sang phiên đăng nhập kế tiếp (có thể khác
+  // user/workspace).
+  void stop() => RealtimeService().stop(clearCheckpoint: true);
 
   @override
-  Future<void> restartFor(String workspaceId) => RealtimeService().connect();
+  // Task 8 — kết nối tường minh cho ĐÚNG workspace vừa commit, không còn suy
+  // đoán qua giá trị `workspace_id` đọc lại từ storage (race với thời điểm
+  // storage được ghi).
+  Future<void> restartFor(String workspaceId) =>
+      RealtimeService().connectForWorkspace(workspaceId);
 }
 
 class SessionController extends GetxController {
@@ -100,6 +108,22 @@ class SessionController extends GetxController {
   final void Function() _navigateToLogin;
 
   final Rxn<SessionSnapshot> active = Rxn<SessionSnapshot>();
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Task 8 — realtime (SSE) tự mình KHÔNG biết cách refresh/logout, nó chỉ
+    // biết "server vừa trả 401/403 khi mở stream". `SessionController` là
+    // nơi duy nhất giữ session authority nên nhận hook này và quyết định:
+    // hiện tại quyết định là coi như phiên đã hết hạn ⇒ logout thẳng (chưa
+    // có luồng refresh-token riêng để thử trước).
+    RealtimeService().setAuthFailureHandler(_handleRealtimeAuthFailure);
+  }
+
+  void _handleRealtimeAuthFailure() {
+    if (active.value == null) return; // đã logout rồi, không có gì để làm thêm.
+    logout();
+  }
 
   /// Chỉ dùng trong test để seed trạng thái "đã có workspace active" mà
   /// không phải chạy toàn bộ activateWorkspace thật — production code không

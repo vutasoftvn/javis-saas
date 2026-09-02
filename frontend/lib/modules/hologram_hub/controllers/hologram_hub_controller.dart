@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/network/realtime_service.dart';
+import '../../../core/session/session_controller.dart';
 import '../../../core/services/voice_service.dart';
 import '../../../core/services/wake_word_service.dart';
 import '../../../modules/auth/services/auth_service.dart';
@@ -122,12 +123,30 @@ class HologramHubController extends GetxController
   // ── Timers ───────────────────────────────────────────────────────────────
   Timer? _clockTimer;
   Timer? _refreshTimer;
+  // Task 8 — debounce cho reload do sự kiện realtime kích hoạt: nhiều sự
+  // kiện dồn dập (vd. một loạt agent event trong vài trăm ms) chỉ nên gây
+  // đúng một lần fetch lại authoritative, không phải một lần mỗi sự kiện.
+  Timer? _realtimeDebounce;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void onInit() {
     super.onInit();
+
+    // Task 8 — chỉ khởi động loading/timers/SSE khi THẬT SỰ có một
+    // `SessionSnapshot` active (đã qua `SessionController.activateWorkspace`
+    // xác minh). Trước đây controller tự chạy toàn bộ init ngay cả khi chưa
+    // có phiên nào được xác thực — lãng phí và có thể mở SSE cho một
+    // workspace rỗng/sai rồi phải dọn dẹp lại sau khi login xong.
+    final sessionController =
+        Get.isRegistered<SessionController>() ? Get.find<SessionController>() : null;
+    final activeSession = sessionController?.active.value;
+    if (activeSession == null) {
+      if (autoStartWakeWord) initWakeWord();
+      return;
+    }
+
     ensureAuthenticated().then((_) {
       loadStageContext();
       loadProjectsList();
@@ -164,7 +183,7 @@ class HologramHubController extends GetxController
       loadOpenEscalations();
     });
 
-    _realtimeService.connect();
+    _realtimeService.connectForWorkspace(activeSession.workspaceId);
     _realtimeService.addListener(_onRealtimeEvent);
 
     if (autoStartWakeWord) initWakeWord();
@@ -175,6 +194,7 @@ class HologramHubController extends GetxController
     _wakeWordService.dispose();
     _clockTimer?.cancel();
     _refreshTimer?.cancel();
+    _realtimeDebounce?.cancel();
     cancelResetTimer();
     cancelChatStream();
     _realtimeService.removeListener(_onRealtimeEvent);
@@ -188,6 +208,10 @@ class HologramHubController extends GetxController
     if (eventType == 'system.connected') return;
 
     if (eventType.startsWith('agent.')) {
+      // Đây là cue hoạt ảnh tức thời (đang nghĩ/đang chạy tool/...), KHÔNG
+      // phải state nghiệp vụ authoritative — an toàn để set trực tiếp từ
+      // payload sự kiện vì nó chỉ điều khiển UI runtime indicator, không
+      // phải dữ liệu nghiệp vụ cần load lại từ service.
       final state =
           data['state'] as String? ?? eventType.replaceFirst('agent.', '');
       switch (state) {
@@ -218,17 +242,29 @@ class HologramHubController extends GetxController
       }
     }
 
-    loadHubSummary(showLoading: false);
-    loadCommandCenterData(showLoading: false);
-    loadCeoNextActions();
-    loadNeedsYou();
-    if (eventType.startsWith('agent.')) {
-      loadPendingApprovals();
-      loadAgentRuns();
-    }
-    // Phase 6: Reload escalations on exception events
-    if (eventType.startsWith('exception.') || eventType == 'budget.overflow') {
-      loadOpenEscalations();
-    }
+    _scheduleAuthoritativeReload(eventType);
+  }
+
+  /// Task 8 — nguyên tắc cốt lõi: payload của một sự kiện realtime KHÔNG BAO
+  /// GIỜ được coi là toàn bộ state để render trực tiếp. Sự kiện chỉ là tín
+  /// hiệu "có gì đó đổi" để trigger một lần fetch lại từ service (nguồn sự
+  /// thật) — debounce 400ms để một loạt sự kiện dồn dập không gây spam gọi
+  /// lại nhiều lần.
+  void _scheduleAuthoritativeReload(String eventType) {
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(const Duration(milliseconds: 400), () {
+      loadHubSummary(showLoading: false);
+      loadCommandCenterData(showLoading: false);
+      loadCeoNextActions();
+      loadNeedsYou();
+      if (eventType.startsWith('agent.')) {
+        loadPendingApprovals();
+        loadAgentRuns();
+      }
+      // Phase 6: Reload escalations on exception events
+      if (eventType.startsWith('exception.') || eventType == 'budget.overflow') {
+        loadOpenEscalations();
+      }
+    });
   }
 }

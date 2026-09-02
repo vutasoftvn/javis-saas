@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -42,6 +44,10 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
 
   final selectedRiskFilter = 'ALL'.obs;
 
+  // Task 8 — debounce reload do sự kiện realtime kích hoạt, xem
+  // `_scheduleAuthoritativeReload`.
+  Timer? _realtimeDebounce;
+
   @override
   void onInit() {
     super.onInit();
@@ -53,6 +59,7 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
   @override
   void onClose() {
     tabController.dispose();
+    _realtimeDebounce?.cancel();
     _realtimeService.removeListener(_onRealtimeEvent);
     super.onClose();
   }
@@ -61,8 +68,18 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     if (eventType.startsWith('approval.') ||
         eventType.startsWith('workflow.') ||
         eventType == 'system.connected') {
-      loadApprovals();
+      _scheduleAuthoritativeReload();
     }
+  }
+
+  /// Task 8 — payload sự kiện realtime KHÔNG được coi là danh sách approval
+  /// đầy đủ để render trực tiếp; sự kiện chỉ trigger một lần fetch lại
+  /// authoritative qua `ApprovalsService.list()`. Debounce 400ms để nhiều sự
+  /// kiện dồn dập (vd. một batch quyết định cùng lúc) chỉ gây đúng một lần
+  /// gọi API.
+  void _scheduleAuthoritativeReload() {
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(const Duration(milliseconds: 400), loadApprovals);
   }
 
   /// Tải (hoặc làm mới) danh sách approval. Nguyên tắc cốt lõi Task 6: một
