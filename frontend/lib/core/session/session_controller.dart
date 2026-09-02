@@ -125,6 +125,24 @@ class SessionController extends GetxController {
   bool get degradedMutationAcknowledged => _degradedMutationAcknowledged;
   void acknowledgeDegradedMutation() => _degradedMutationAcknowledged = true;
 
+  // Fix (2026-09-02, epoch-guard) — reviewer độc lập phát hiện: các hàm
+  // `load*()` trong `HubControlPlaneMixin` (và `_cofounderConversationId ??=
+  // await createConversation()` trong `FounderCommandCenterController`) gọi
+  // API rồi ghi thẳng kết quả vào Rx state mà KHÔNG kiểm tra "response này có
+  // còn thuộc workspace hiện tại không". Nếu một request cho workspace CŨ
+  // đang bay (network RTT, timer 60s, realtime event debounce...) khi
+  // `_commit`/`logout` chạy, response trả về SAU khi reset sẽ ghi đè dữ liệu
+  // workspace CŨ lên state vừa xoá/vừa tải cho workspace MỚI — dữ liệu chéo
+  // tenant, không chỉ là "flicker" vô hại.
+  //
+  // `_workspaceGeneration` là bộ đếm thế hệ đơn giản: tăng đúng một lần mỗi
+  // khi `_commit` (chuyển workspace) hoặc `logout` chạy. Nơi gọi `load*()`
+  // capture giá trị này NGAY TRƯỚC await; sau khi await resolve, so sánh lại
+  // — nếu khác, nghĩa là đã có switch/logout xảy ra trong lúc chờ, discard
+  // response, không ghi vào Rx state.
+  int _workspaceGeneration = 0;
+  int get workspaceGeneration => _workspaceGeneration;
+
   @override
   void onInit() {
     super.onInit();
@@ -203,6 +221,11 @@ class SessionController extends GetxController {
   /// trạng thái "ApiClient đã đổi runtime nhưng SessionController.active
   /// chưa đổi" hay ngược lại.
   Future<void> _commit(SessionSnapshot snapshot) async {
+    // Tăng generation TRƯỚC khi gán `active.value`/gọi `resetForWorkspace` —
+    // các lệnh `reload` bên trong `resetForWorkspace()` (chạy đồng bộ ngay
+    // dưới đây) phải capture ĐÚNG generation MỚI, không phải generation của
+    // workspace vừa rời đi.
+    _workspaceGeneration++;
     active.value = snapshot;
     ApiClient.setRuntimeContext(
       mode: snapshot.runtime.mode,
@@ -246,6 +269,9 @@ class SessionController extends GetxController {
   /// route login. Route login luôn là bước CUỐI — nếu đảo lên trước, người
   /// dùng có thể thấy Login trong khi token cũ vẫn còn trong storage.
   Future<void> logout() async {
+    // Cùng lý do như `_commit` — tăng generation trước để mọi request
+    // in-flight của phiên vừa kết thúc tự nhận ra mình đã lỗi thời.
+    _workspaceGeneration++;
     _realtime.stop();
     _clearRuntime();
     active.value = null;

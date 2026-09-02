@@ -12,6 +12,7 @@ import '../../../modules/chat/models/data_access_declaration.dart';
 
 import '../../../core/network/api_result.dart';
 import '../../../core/services/secure_storage_service.dart';
+import '../../../core/session/session_controller.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 import '../../../modules/strategy/services/project_operating_setup_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
@@ -62,6 +63,16 @@ class FounderCommandCenterController extends GetxController {
 
   @visibleForTesting
   String? get cofounderConversationIdForTest => _cofounderConversationId;
+
+  // Fix (2026-09-02, epoch-guard) — xem chú thích tại
+  // `SessionController.workspaceGeneration`: `sendChatMessage` capture giá
+  // trị này trước khi await `createConversation`/`sendMessage`; nếu generation
+  // đổi trong lúc chờ (workspace switch/logout xảy ra giữa chừng), discard
+  // toàn bộ kết quả — không gán conversation-id của workspace CŨ hay ghi tin
+  // nhắn vào state của workspace MỚI.
+  int get _workspaceGeneration => Get.isRegistered<SessionController>()
+      ? Get.find<SessionController>().workspaceGeneration
+      : 0;
 
   // Task 10 — quyết định đã duyệt: `/chat` redirect sang `/hub?panel=chat`
   // (xem `app_pages.dart`); Hub phải tự mở chat sheet hiện có khi nhận
@@ -430,15 +441,25 @@ class FounderCommandCenterController extends GetxController {
     final trimmed = message.trim();
     if (trimmed.isEmpty) return;
 
+    final generationAtSend = _workspaceGeneration;
     chatMessages.add({'role': 'user', 'content': trimmed});
     chatInputController.clear();
     isChatLoading.value = true;
 
     try {
-      _cofounderConversationId ??= (await _chatService.createConversation(
-        title: 'Founder Command Center',
-        activeAgentProfile: 'operations',
-      ))?.id;
+      if (_cofounderConversationId == null) {
+        final created = await _chatService.createConversation(
+          title: 'Founder Command Center',
+          activeAgentProfile: 'operations',
+        );
+        if (_workspaceGeneration != generationAtSend) {
+          // Workspace đã đổi (switch/logout) trong lúc chờ tạo conversation —
+          // `resetForWorkspace()` đã dọn state cho workspace MỚI rồi, không
+          // được gán conversation-id của workspace CŨ đè lên đây.
+          return;
+        }
+        _cofounderConversationId = created?.id;
+      }
       final conversationId = _cofounderConversationId;
       if (conversationId == null) {
         throw Exception('Không tạo được conversation với COSA runtime.');
@@ -449,6 +470,11 @@ class FounderCommandCenterController extends GetxController {
         content: trimmed,
         dataAccess: _chatDataAccess,
       );
+      if (_workspaceGeneration != generationAtSend) {
+        // Cùng lý do — không được thêm tin nhắn assistant/subscribe SSE của
+        // request thuộc workspace CŨ vào state workspace MỚI.
+        return;
+      }
       final runId = response?['run_id']?.toString();
       if (runId == null) {
         throw Exception('COSA runtime không trả về run_id.');
@@ -458,6 +484,7 @@ class FounderCommandCenterController extends GetxController {
       chatMessages.add(assistantMsg);
       _subscribeChatSse(runId, assistantMsg);
     } catch (e) {
+      if (_workspaceGeneration != generationAtSend) return;
       chatMessages.add({
         'role': 'error',
         'content':

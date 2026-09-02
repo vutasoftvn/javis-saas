@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/network/api_result.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../modules/workforce/models/workforce_mvp_models.dart';
 import '../../../../modules/workforce/services/workforce_mvp_service.dart';
@@ -18,6 +19,16 @@ mixin HubControlPlaneMixin on GetxController {
   // ApiFailure thay vì bị nuốt thành danh sách rỗng.
   WorkforceMvpService get workforceMvpService;
   AgentPlatformService get agentPlatformService;
+
+  // Fix (2026-09-02, epoch-guard) — xem chú thích tại
+  // `SessionController.workspaceGeneration`: các hàm `load*()` dưới đây
+  // capture giá trị này NGAY TRƯỚC mỗi `await` gọi service, rồi so sánh lại
+  // NGAY SAU khi await resolve — nếu khác, nghĩa là đã có switch workspace
+  // hoặc logout xảy ra trong lúc chờ, discard response, không ghi vào Rx
+  // state (tránh dữ liệu workspace CŨ ghi đè lên state của workspace MỚI).
+  int get _workspaceGeneration => Get.isRegistered<SessionController>()
+      ? Get.find<SessionController>().workspaceGeneration
+      : 0;
 
   // ── Observables ──────────────────────────────────────────────────────────
 
@@ -47,7 +58,9 @@ mixin HubControlPlaneMixin on GetxController {
   // ── Data loading ─────────────────────────────────────────────────────────
 
   Future<void> loadPendingApprovals() async {
+    final generation = _workspaceGeneration;
     final result = await workforceMvpService.listApprovals();
+    if (_workspaceGeneration != generation) return;
     result.when(
       success: (data, _) => pendingApprovals.value = data,
       failure: (failure) =>
@@ -56,7 +69,9 @@ mixin HubControlPlaneMixin on GetxController {
   }
 
   Future<void> loadAgentRuns() async {
+    final generation = _workspaceGeneration;
     final result = await workforceMvpService.listRuns(limit: 5);
+    if (_workspaceGeneration != generation) return;
     result.when(
       success: (data, _) => agentRuns.value = data,
       failure: (failure) =>
@@ -79,8 +94,10 @@ mixin HubControlPlaneMixin on GetxController {
   }
 
   Future<void> loadControlPlaneSummary({bool showLoading = false}) async {
+    final generation = _workspaceGeneration;
     try {
       final summary = await agentPlatformService.getDashboardSummary();
+      if (_workspaceGeneration != generation) return;
       if (summary != null) controlPlaneSummary.value = summary;
     } catch (e) {
       debugPrint('[HologramHub] Error loading control plane summary: $e');
@@ -88,15 +105,20 @@ mixin HubControlPlaneMixin on GetxController {
   }
 
   Future<void> loadWorkforceAgents() async {
+    final generation = _workspaceGeneration;
     try {
-      workforceAgents.assignAll(await agentPlatformService.listAgents());
+      final agents = await agentPlatformService.listAgents();
+      if (_workspaceGeneration != generation) return;
+      workforceAgents.assignAll(agents);
     } catch (e) {
       debugPrint('[HologramHub] Error loading workforce agents: $e');
     }
   }
 
   Future<void> loadControlPlaneApprovals() async {
+    final generation = _workspaceGeneration;
     final result = await agentPlatformService.listApprovals(status: 'PENDING');
+    if (_workspaceGeneration != generation) return;
     result.when(
       success: (data, _) => activeApprovals.assignAll(data),
       failure: (failure) =>
@@ -105,8 +127,11 @@ mixin HubControlPlaneMixin on GetxController {
   }
 
   Future<void> loadWorkProducts() async {
+    final generation = _workspaceGeneration;
     try {
-      workProducts.assignAll(await agentPlatformService.listWorkProducts());
+      final products = await agentPlatformService.listWorkProducts();
+      if (_workspaceGeneration != generation) return;
+      workProducts.assignAll(products);
     } catch (e) {
       debugPrint('[HologramHub] Error loading work products: $e');
     }
@@ -118,9 +143,11 @@ mixin HubControlPlaneMixin on GetxController {
   /// [stageCode]: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | 'P5' | 'P6'
   Future<void> loadStageRoster(String stageCode) async {
     if (isStageRosterLoading.value) return;
+    final generation = _workspaceGeneration;
     isStageRosterLoading.value = true;
     try {
       final result = await agentPlatformService.getStageRoster(stageCode);
+      if (_workspaceGeneration != generation) return;
       if (result != null) {
         final roster = result['roster'] as List<dynamic>? ?? [];
         stageRoster.assignAll(
@@ -141,9 +168,11 @@ mixin HubControlPlaneMixin on GetxController {
   /// Load tất cả OPEN Exception Escalations.
   Future<void> loadOpenEscalations() async {
     if (isEscalationLoading.value) return;
+    final generation = _workspaceGeneration;
     isEscalationLoading.value = true;
     try {
       final result = await agentPlatformService.listEscalations(status: 'OPEN');
+      if (_workspaceGeneration != generation) return;
       final escalations = result['escalations'] as List<dynamic>? ?? [];
       openEscalations.assignAll(
         escalations.whereType<Map<String, dynamic>>().toList(),
