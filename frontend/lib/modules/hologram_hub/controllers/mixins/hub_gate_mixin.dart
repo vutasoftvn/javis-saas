@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../data/models/stage_gate_model.dart';
 import '../../../../modules/strategy/services/stage_gate_service.dart';
 
@@ -8,6 +9,17 @@ mixin HubGateMixin on GetxController {
   StageGateService get stageGateService;
   int? get selectedProjectIdValue;
   Future<void> loadStageContext({int? projectId});
+
+  // Fix (2026-09-02, epoch-guard full audit) — xem chú thích tại
+  // `HubControlPlaneMixin._workspaceGeneration`. `loadStageGateData` từng
+  // được `loadStageContext()` (đã guard) gọi tới nhưng guard của caller
+  // không tự bảo vệ await riêng của hàm này. `runStageGateAudit` là mutation
+  // do người dùng chủ động bấm, NHƯNG ghi thẳng kết quả audit (dữ liệu
+  // tenant-specific thật, không phải optimistic list removal) vào
+  // `latestStageAudit` sau await — vẫn cần guard riêng.
+  int get _workspaceGeneration => Get.isRegistered<SessionController>()
+      ? Get.find<SessionController>().workspaceGeneration
+      : 0;
 
   // ── Observables ──────────────────────────────────────────────────────────
   final latestStageAudit = Rxn<StageGateAuditModel>();
@@ -18,8 +30,10 @@ mixin HubGateMixin on GetxController {
 
   Future<void> loadStageGateData(int? projectId) async {
     if (projectId == null) return;
+    final generation = _workspaceGeneration;
     try {
       final alerts = await stageGateService.getGuardrailAlerts(projectId);
+      if (_workspaceGeneration != generation) return;
       prematureAlerts.value = alerts;
     } catch (e) {
       debugPrint('Error loading stage gate data: $e');
@@ -29,18 +43,20 @@ mixin HubGateMixin on GetxController {
   Future<void> runStageGateAudit({String? targetStage}) async {
     final pid = selectedProjectIdValue;
     if (pid == null) return;
+    final generation = _workspaceGeneration;
     isStageAuditLoading.value = true;
     try {
       final audit = await stageGateService.auditStageReadiness(
         projectId: pid,
         targetStage: targetStage,
       );
+      if (_workspaceGeneration != generation) return;
       latestStageAudit.value = audit;
       loadStageGateData(pid);
     } catch (e) {
       debugPrint('Error running stage gate audit: $e');
     } finally {
-      isStageAuditLoading.value = false;
+      if (_workspaceGeneration == generation) isStageAuditLoading.value = false;
     }
   }
 

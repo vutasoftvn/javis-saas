@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../data/models/evidence_model.dart';
 import '../../../../modules/vault/services/evidence_service.dart';
 
@@ -7,6 +8,18 @@ mixin HubEvidenceMixin on GetxController {
   // ── Abstract service getter ──────────────────────────────────────────────
   EvidenceService get evidenceService;
   int? get selectedProjectIdValue;
+
+  // Fix (2026-09-02, epoch-guard full audit) — cùng cơ chế đã áp dụng ở
+  // `HubControlPlaneMixin._workspaceGeneration`: `loadEvidenceData` gọi 4 API
+  // tuần tự rồi ghi thẳng kết quả vào Rx state (hypotheses/evidences/
+  // assumption matrix/decisions — dữ liệu tenant-specific thật). Trước đây
+  // hàm này được gọi từ `HubStageMixin.loadStageContext()` (đã guard) nhưng
+  // guard của caller KHÔNG tự bảo vệ các await riêng bên trong hàm được gọi —
+  // capture generation NGAY TRƯỚC mỗi await, so sánh lại NGAY SAU khi await
+  // resolve, discard nếu khác.
+  int get _workspaceGeneration => Get.isRegistered<SessionController>()
+      ? Get.find<SessionController>().workspaceGeneration
+      : 0;
 
   // ── Observables ──────────────────────────────────────────────────────────
   final hypothesesList = <HypothesisModel>[].obs;
@@ -19,24 +32,34 @@ mixin HubEvidenceMixin on GetxController {
 
   Future<void> loadEvidenceData(int? projectId) async {
     if (projectId == null) return;
+    final generation = _workspaceGeneration;
     isEvidenceLoading.value = true;
     try {
-      hypothesesList.value = await evidenceService.getHypotheses(
+      final hypotheses = await evidenceService.getHypotheses(
         projectId: projectId,
       );
-      evidencesList.value = await evidenceService.getEvidences(
+      if (_workspaceGeneration != generation) return;
+      hypothesesList.value = hypotheses;
+
+      final evidences = await evidenceService.getEvidences(
         projectId: projectId,
       );
-      assumptionMatrix.value = await evidenceService.getAssumptionMatrix(
-        projectId,
-      );
-      decisionsList.value = await evidenceService.getDecisions(
+      if (_workspaceGeneration != generation) return;
+      evidencesList.value = evidences;
+
+      final matrix = await evidenceService.getAssumptionMatrix(projectId);
+      if (_workspaceGeneration != generation) return;
+      assumptionMatrix.value = matrix;
+
+      final decisions = await evidenceService.getDecisions(
         projectId: projectId,
       );
+      if (_workspaceGeneration != generation) return;
+      decisionsList.value = decisions;
     } catch (e) {
       debugPrint('Error loading evidence data: $e');
     } finally {
-      isEvidenceLoading.value = false;
+      if (_workspaceGeneration == generation) isEvidenceLoading.value = false;
     }
   }
 

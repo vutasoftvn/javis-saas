@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../data/models/strategy_lens_model.dart';
 import '../../../../modules/strategy/services/strategy_lens_service.dart';
 import '../../../../data/models/evidence_model.dart';
@@ -13,6 +14,15 @@ mixin HubLensesMixin on GetxController {
   RxList<HypothesisModel> get hypothesesList;
   Future<void> loadEvidenceData(int? projectId);
 
+  // Fix (2026-09-02, epoch-guard full audit) — xem chú thích tại
+  // `HubControlPlaneMixin._workspaceGeneration`: `loadStageLensesData` gọi
+  // `getStageLensSummary` (từng được caller `loadStageContext()` — đã guard —
+  // gọi tới, nhưng guard của caller không tự bảo vệ await riêng của hàm này)
+  // rồi ghi thẳng vào `stageLensSummary` — dữ liệu tenant-specific thật.
+  int get _workspaceGeneration => Get.isRegistered<SessionController>()
+      ? Get.find<SessionController>().workspaceGeneration
+      : 0;
+
   // ── Observables ──────────────────────────────────────────────────────────
   final stageLensSummary = Rxn<StageLensSummaryModel>();
   final isLensLoading = false.obs;
@@ -21,14 +31,16 @@ mixin HubLensesMixin on GetxController {
 
   Future<void> loadStageLensesData(int? projectId) async {
     if (projectId == null) return;
+    final generation = _workspaceGeneration;
     isLensLoading.value = true;
     try {
       final summary = await lensService.getStageLensSummary(projectId);
+      if (_workspaceGeneration != generation) return;
       stageLensSummary.value = summary;
     } catch (e) {
       debugPrint('Error loading stage lenses data: $e');
     } finally {
-      isLensLoading.value = false;
+      if (_workspaceGeneration == generation) isLensLoading.value = false;
     }
   }
 

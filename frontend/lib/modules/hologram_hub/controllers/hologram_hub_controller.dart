@@ -262,6 +262,11 @@ class HologramHubController extends GetxController
     snoozedProposalIds.clear();
     activeCycleTimeline.value = null;
     mobileMessages.clear();
+    // Fix (2026-09-02, epoch-guard full audit) — huỷ SSE stream chat của
+    // workspace CŨ ngay lập tức (không chỉ dựa vào generation check bên
+    // trong callback) và quên session-id cũ — xem chú thích tại
+    // `HubChatMixin.resetChatSessionForWorkspace`.
+    resetChatSessionForWorkspace();
 
     // Strategy stage context (HubStageMixin).
     stageContext.value = null;

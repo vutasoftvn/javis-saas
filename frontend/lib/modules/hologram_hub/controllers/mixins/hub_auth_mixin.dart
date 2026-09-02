@@ -2,11 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/network/realtime_service.dart';
 import '../../../../core/routing/app_routes.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../modules/auth/services/auth_service.dart';
 
 mixin HubAuthMixin on GetxController {
   // ── Abstract service getter ──────────────────────────────────────────────
   AuthService get authService;
+
+  // Fix (2026-09-02, epoch-guard full audit) — `ensureAuthenticated` awaits
+  // `authService.getMe()` rồi ghi `userName`/`userRole`. Đây là identity của
+  // TÀI KHOẢN đăng nhập (không phải dữ liệu nghiệp vụ theo workspace), nhưng
+  // vì `HologramHubController` là `permanent: true` (sống xuyên suốt nhiều
+  // lần logout/login), một response `getMe()` trả về CHẬM cho user A vẫn có
+  // thể ghi đè tên/role của user B nếu B đăng nhập lại trong lúc chờ — guard
+  // để loại trừ luôn khả năng đó, dù xác suất thấp hơn race workspace thuần
+  // tuý.
+  int get _workspaceGeneration => Get.isRegistered<SessionController>()
+      ? Get.find<SessionController>().workspaceGeneration
+      : 0;
 
   // ── Observables ──────────────────────────────────────────────────────────
   final currentTime = ''.obs;
@@ -23,7 +36,9 @@ mixin HubAuthMixin on GetxController {
       Get.offAllNamed(AppRoutes.login);
       return;
     }
+    final generation = _workspaceGeneration;
     final me = await authService.getMe();
+    if (_workspaceGeneration != generation) return;
     if (me == null) {
       debugPrint(
         '[HologramHub] Token không hợp lệ hoặc đã hết hạn -> Tự động chuyển về màn Đăng nhập',
