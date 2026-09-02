@@ -211,7 +211,7 @@ def test_two_real_processes_crash_recovery_real_worker(
     delegation_token = mint_delegation_token("1001")
 
     async def setup_task():
-        """Insert test conversation, company/user fixtures, and task with delay_sec=10."""
+        """Insert test conversation và task với delay_sec=10 (workspace-only tenancy: không seed hàng company/user ở cosa)."""
         agent_engine = create_async_engine(agent_dsn)
         try:
             async with agent_engine.begin() as conn:
@@ -247,37 +247,16 @@ def test_two_real_processes_crash_recovery_real_worker(
                         "DELETE FROM control_plane.runtime_leases WHERE run_id LIKE 'run_crash_test_%'"
                     )
                 )
-                await conn.execute(
-                    text("""
-                    INSERT INTO cosa.roles (id, scope, level, description)
-                    VALUES ('user', 'member', 10, 'Regular user')
-                    ON CONFLICT (id) DO NOTHING
-                """)
-                )
-                await conn.execute(
-                    text("""
-                    INSERT INTO cosa.users (id, email, hashed_password, status, created_at, updated_at)
-                    VALUES (1001, 'crash-test@javis.vn', 'hash', 'active', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                    {"now": now},
-                )
-                await conn.execute(
-                    text("""
-                    INSERT INTO cosa.companies (id, slug, name, created_by, status, created_at, updated_at)
-                    VALUES (1, 'crash-corp', 'Crash Corp', 1001, 'active', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                    {"now": now},
-                )
-                await conn.execute(
-                    text("""
-                    INSERT INTO cosa.company_memberships (id, company_id, user_id, role_id, created_at, updated_at)
-                    VALUES (99001, 1, 1001, 'user', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                    {"now": now},
-                )
+                # KHÔNG seed hàng tenant nào ở COSA control plane: sau cutover
+                # migration 29 (`29_cleanup_legacy_companies_and_rename_workspaces.up.sql`
+                # DROP `cosa.companies` / `cosa.company_memberships`) tenancy là
+                # workspace-only. Test này chỉ cần các id dạng chuỗi mờ trong
+                # `input_payload` (`principal`, `workspace_id`, `company_id`) —
+                # `control_plane.scheduled_tasks` và `control_plane.runtime_leases`
+                # KHÔNG có FK tới bảng tenancy của cosa (leases chỉ FK
+                # `worker_id -> control_plane.workers`), và worker
+                # (`apps/cosa/worker/*`) không tra membership/entitlement/users.
+                # Delegation token verify bằng chữ ký JWT, không lookup `cosa.users`.
 
                 payload_json = json.dumps(
                     {
