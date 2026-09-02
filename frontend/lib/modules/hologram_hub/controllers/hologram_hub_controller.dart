@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/network/realtime_service.dart';
@@ -128,6 +129,16 @@ class HologramHubController extends GetxController
   // đúng một lần fetch lại authoritative, không phải một lần mỗi sự kiện.
   Timer? _realtimeDebounce;
 
+  // Task 10 — bộ đếm CHỈ dùng cho test (không đọc ở đâu trong production
+  // code): chứng minh timer THẬT SỰ bị huỷ sau `onClose()` bằng cách đếm số
+  // lần callback thực thi, thay vì suy diễn qua giá trị Rx (Rx chỉ notify
+  // khi giá trị đổi — `currentTime` không đổi trong cùng một phút nên không
+  // dùng được làm proxy tin cậy cho "timer có đang chạy hay không").
+  @visibleForTesting
+  int clockTickCountForTest = 0;
+  @visibleForTesting
+  int refreshTickCountForTest = 0;
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
@@ -165,11 +176,12 @@ class HologramHubController extends GetxController
     });
 
     updateClock();
-    _clockTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => updateClock(),
-    );
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      updateClock();
+      clockTickCountForTest++;
+    });
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      refreshTickCountForTest++;
       loadStageContext(projectId: selectedProjectId.value);
       loadHubSummary(showLoading: false);
       loadCommandCenterData();

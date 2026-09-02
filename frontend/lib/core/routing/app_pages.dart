@@ -15,8 +15,6 @@ import '../../modules/profile/views/profile_view.dart';
 import '../../modules/profile/bindings/profile_binding.dart';
 import '../../modules/workspace_picker/views/workspace_picker_view.dart';
 import '../../modules/workspace_picker/bindings/workspace_picker_binding.dart';
-import '../../modules/chat/views/chat_view.dart';
-import '../../modules/chat/bindings/chat_binding.dart';
 
 /// Task 9 — `/dashboard` và `/hub` từng trỏ tới 2 view KHÁC NHAU
 /// (`DashboardView` so với `HologramHubView`), trùng lặp vai trò "hub". Nay
@@ -27,11 +25,20 @@ class AppPages {
   static const initial = AppRoutes.login;
 
   static final routes = [
+    // Task 10 — quyết định đã duyệt (2026-09-02, Option 1): Hub sở hữu một
+    // dockable chat panel + một phiên hội thoại dùng chung; `/chat` không
+    // còn tự render `ChatView` nữa mà LUÔN redirect sang `/hub?panel=chat`.
+    // `LegacyModuleRedirectMiddleware` chấp nhận bất kỳ path nào (kể cả có
+    // query string) làm `canonicalPath` — GetX tự parse query string đó qua
+    // `Get.routeTree.matchRoute` ngay trong vòng lặp redirect
+    // (`route_middleware.dart: needRecheck()`), nạp vào `Get.parameters`
+    // đúng như `Get.toNamed` thông thường — không cần middleware/cơ chế
+    // riêng nào khác. `ChatView`/`ChatBinding` vẫn giữ nguyên trong
+    // `modules/chat/` (không xoá) nhưng không còn được route tới trực tiếp.
     GetPage(
       name: AppRoutes.chat,
-      page: () => const ChatView(),
-      binding: ChatBinding(),
-      middlewares: [AuthMiddleware()],
+      page: () => const SizedBox.shrink(),
+      middlewares: [LegacyModuleRedirectMiddleware('${AppRoutes.hub}?panel=chat')],
     ),
     GetPage(
       name: AppRoutes.login,

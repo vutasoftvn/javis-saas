@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/ui/app_copy.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/runtime_app_chrome.dart';
 import '../controllers/founder_command_center_controller.dart';
@@ -23,7 +24,22 @@ class HologramHubView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(FounderCommandCenterController());
+    // Task 10 — trước đây view này tự `Get.put` một instance MỚI của
+    // `FounderCommandCenterController`, chồng lên instance đã được
+    // `DashboardBinding` đăng ký qua `lazyPut` khi vào `/hub` — hai instance
+    // cùng tồn tại là đúng "duplicate hub controller ownership" mà Task 10
+    // phải dọn: `HologramHubView` không sở hữu binding riêng, chỉ được tìm
+    // lại controller đã có, không tạo thêm bản sao.
+    final controller = Get.find<FounderCommandCenterController>();
+
+    // Task 10 — `/chat` (route cũ) giờ redirect vào đây kèm `?panel=chat`
+    // (xem `app_pages.dart`); mở lại đúng chat sheet hiện có của Hub thay vì
+    // dựng thêm một bề mặt chat song song. `addPostFrameCallback` vì mở
+    // `showModalBottomSheet` cần build xong khung hình hiện tại trước.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      controller.maybeAutoOpenChatFromRoute(() => _openChatBottomSheet(context, controller));
+    });
 
     // Task 5 — Hub đứng độc lập (standalone shell) cũng phải có
     // RuntimeAppChrome giống Dashboard: banner offline/degraded không được
@@ -1099,7 +1115,7 @@ class HologramHubView extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   const Text(
-                    'Trao đổi cùng COSA Co-Founder',
+                    AppCopy.hubChatPanelTitle,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -1128,7 +1144,7 @@ class HologramHubView extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Hãy hỏi COSA về tiến độ kinh doanh, phản biện giả định hoặc giao Mission!',
+                            AppCopy.hubChatEmptyState,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.5),
                               fontSize: 13,
@@ -1193,7 +1209,7 @@ class HologramHubView extends StatelessWidget {
                       controller: controller.chatInputController,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Nhập tin nhắn trao đổi với Co-Founder...',
+                        hintText: AppCopy.hubChatInputHint,
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 12,

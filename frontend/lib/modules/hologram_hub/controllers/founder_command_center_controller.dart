@@ -53,6 +53,24 @@ class FounderCommandCenterController extends GetxController {
   String? _cofounderConversationId;
   StreamSubscription<Map<String, dynamic>>? _chatSseSubscription;
 
+  // Task 10 — quyết định đã duyệt: `/chat` redirect sang `/hub?panel=chat`
+  // (xem `app_pages.dart`); Hub phải tự mở chat sheet hiện có khi nhận
+  // query param này, đúng MỘT lần cho mỗi lần vào route bằng cờ này — nếu
+  // không, `HologramHubView.build()` (chạy lại mỗi khi Obx bên trong nó
+  // rebuild) sẽ mở lại bottom sheet liên tục.
+  bool _chatPanelAutoOpenHandled = false;
+
+  /// Mở chat sheet nếu route hiện tại mang `?panel=chat` VÀ chưa xử lý lần
+  /// nào trong vòng đời controller này. `openSheet` do view truyền vào vì
+  /// việc build/mở `showModalBottomSheet` cần `BuildContext` — controller
+  /// (tầng logic) không tự giữ context.
+  void maybeAutoOpenChatFromRoute(void Function() openSheet) {
+    if (_chatPanelAutoOpenHandled) return;
+    if (Get.parameters['panel'] != 'chat') return;
+    _chatPanelAutoOpenHandled = true;
+    openSheet();
+  }
+
   // Reactive state
   final RxBool isLoading = false.obs;
   final RxBool hasProjects = true.obs;
