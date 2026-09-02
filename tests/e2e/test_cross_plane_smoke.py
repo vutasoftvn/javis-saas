@@ -8,7 +8,11 @@ File này sẽ chứa S1–S4; hiện chỉ có S1 (auth + cô lập tenant).
 
 from __future__ import annotations
 
-from tests.e2e.scenarios import auth_tenant_isolation, dispatch_worker_result
+from tests.e2e.scenarios import (
+    auth_tenant_isolation,
+    capability_governance,
+    dispatch_worker_result,
+)
 from tests.e2e.seed import identity
 
 
@@ -25,3 +29,13 @@ def test_s2_dispatch_worker_result(real_cosa_stack, disposable_cluster) -> None:
     # projection idempotent sang company (workspace DB).
     seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster)
     dispatch_worker_result.run(real_cosa_stack, seeded, disposable_cluster)
+
+
+def test_s3_capability_governance(real_cosa_stack, disposable_cluster) -> None:
+    # S3: entitlement `cosa.workspace_agent_policy` ghi thật cross-plane (keyed
+    # theo workspace company); biên auth apps/cosa trước capability pipeline;
+    # governance path FAIL CLOSED khi policy snapshot không lấy được (B5) — kể
+    # cả khi đã có hàng ALLOW, run vẫn `run.failed{policy_snapshot_unavailable}`,
+    # không ngầm execute capability.
+    seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster)
+    capability_governance.run(real_cosa_stack, seeded, disposable_cluster)
