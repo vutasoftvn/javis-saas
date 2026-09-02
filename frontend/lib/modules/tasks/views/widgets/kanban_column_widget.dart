@@ -48,8 +48,23 @@ class KanbanColumnWidget extends StatelessWidget {
             if (controller.mutationPermission().isHardBlocked) return false;
             return details.data.status.value != status;
           },
-          onAcceptWithDetails: (details) {
-            controller.moveTask(details.data.id, status);
+          onAcceptWithDetails: (details) async {
+            // Task 5 review (Minor) — kéo-thả khi confirmDegraded trước đây
+            // im lặng no-op (an toàn nhưng không nhất quán với các nút
+            // pause/resume/approve, vốn hiện dialog xác nhận). Xử lý giống
+            // hệt: hỏi xác nhận rồi mới gọi `moveTask(confirmed: true)`.
+            final permission = controller.mutationPermission();
+            if (permission.isHardBlocked) return;
+            if (permission == MutationPermission.confirmDegraded) {
+              final ok = await confirmDegradedMutation(
+                context,
+                actionLabel: 'chuyển công việc sang "$title"',
+              );
+              if (!ok) return;
+              await controller.moveTask(details.data.id, status, confirmed: true);
+              return;
+            }
+            await controller.moveTask(details.data.id, status);
           },
           builder: (context, candidateData, rejectedData) {
             return Obx(() {

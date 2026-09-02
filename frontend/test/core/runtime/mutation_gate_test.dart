@@ -78,15 +78,73 @@ void main() {
     });
   });
 
-  group('LOCAL_ONLY — không áp dụng relay/offline-guard', () {
-    test('cho phép mutation dù modeSource là configured', () {
+  group('LOCAL_ONLY', () {
+    test('modeSource == configured ⇒ allowed', () {
       session.seedForTest(_snapshot(mode: 'LOCAL_ONLY', modeSource: 'configured', presence: 'ONLINE'));
       expect(gate.check(isMutation: true), MutationPermission.allowed);
     });
 
-    test('cho phép mutation dù modeSource là inferred (không có route cloud để lọt sai)', () {
+    // Fix review Task 5 (Important #1) — trước đây nhánh này trả "allowed"
+    // vô điều kiện với lý do "không có route cloud để lọt sai". Sai: nếu
+    // trạng thái THẬT SỰ là REMOTE_ACCESS+OFFLINE (relay bị chặn có chủ đích)
+    // nhưng bị suy đoán nhầm thành LOCAL_ONLY, `ApiClient.resolveUri` gửi
+    // THẲNG business request tới `baseUrl` — một địa chỉ company backend CÓ
+    // THẬT, không phải lỗi kết nối vô hại. Đây là failure mode "âm thầm gửi
+    // request lẽ ra phải bị chặn". modeSource == 'inferred' phải hạ xuống
+    // confirmDegraded, giống hệt REMOTE_ACCESS/ONLINE + inferred.
+    test('modeSource == inferred ⇒ confirmDegraded, KHÔNG âm thầm allowed '
+        '(có thể thực ra là REMOTE_ACCESS+OFFLINE bị suy đoán nhầm)', () {
       session.seedForTest(_snapshot(mode: 'LOCAL_ONLY', modeSource: 'inferred', presence: 'ONLINE'));
+      expect(gate.check(isMutation: true), MutationPermission.confirmDegraded);
+    });
+  });
+
+  // Fix review Task 5 (Important #2) — CLOUD_CONTINUITY là mode thứ ba có
+  // thật (session_snapshot.dart, workspace-settings.service.ts trả về với
+  // runtimeModeSource LUÔN LUÔN 'inferred'), có thể resolve về OFFLINE
+  // (runtime-router.service.ts). `ApiClient` không có nhánh routing/
+  // offline-guard riêng cho mode này — trước fix, gate rơi qua nhánh mặc
+  // định "allowed" vô điều kiện bất kể presence, tức KHÔNG có tầng phòng thủ
+  // nào chặn một mutation khi cả local lẫn cloud đều down.
+  group('CLOUD_CONTINUITY — cùng quy tắc với REMOTE_ACCESS (node/relay từ xa)', () {
+    test('OFFLINE ⇒ blockedOffline bất kể modeSource', () {
+      session.seedForTest(_snapshot(mode: 'CLOUD_CONTINUITY', modeSource: 'configured', presence: 'OFFLINE'));
+      expect(gate.check(isMutation: true), MutationPermission.blockedOffline);
+
+      session.seedForTest(_snapshot(mode: 'CLOUD_CONTINUITY', modeSource: 'inferred', presence: 'OFFLINE'));
+      expect(gate.check(isMutation: true), MutationPermission.blockedOffline);
+    });
+
+    test('DEGRADED ⇒ confirmDegraded', () {
+      session.seedForTest(_snapshot(mode: 'CLOUD_CONTINUITY', modeSource: 'configured', presence: 'DEGRADED'));
+      expect(gate.check(isMutation: true), MutationPermission.confirmDegraded);
+    });
+
+    test('ONLINE + modeSource == inferred (giá trị thực tế hôm nay theo Task 3) ⇒ confirmDegraded', () {
+      session.seedForTest(_snapshot(mode: 'CLOUD_CONTINUITY', modeSource: 'inferred', presence: 'ONLINE'));
+      expect(gate.check(isMutation: true), MutationPermission.confirmDegraded);
+    });
+
+    test('ONLINE + modeSource == configured ⇒ allowed', () {
+      session.seedForTest(_snapshot(mode: 'CLOUD_CONTINUITY', modeSource: 'configured', presence: 'ONLINE'));
       expect(gate.check(isMutation: true), MutationPermission.allowed);
+    });
+
+    test('read khi không ONLINE ⇒ blockedReadOnly', () {
+      session.seedForTest(_snapshot(mode: 'CLOUD_CONTINUITY', modeSource: 'configured', presence: 'OFFLINE'));
+      expect(gate.check(isMutation: false), MutationPermission.blockedReadOnly);
+    });
+  });
+
+  group('mode/presence lạ (chưa nhận diện được) — fail-closed', () {
+    test('mode lạ ⇒ blockedOffline, KHÔNG rơi qua allowed mặc định', () {
+      session.seedForTest(_snapshot(mode: 'SOME_FUTURE_MODE', modeSource: 'configured', presence: 'ONLINE'));
+      expect(gate.check(isMutation: true), MutationPermission.blockedOffline);
+    });
+
+    test('presence lạ trong REMOTE_ACCESS ⇒ blockedOffline, không allowed', () {
+      session.seedForTest(_snapshot(mode: 'REMOTE_ACCESS', modeSource: 'configured', presence: 'SOME_FUTURE_PRESENCE'));
+      expect(gate.check(isMutation: true), MutationPermission.blockedOffline);
     });
   });
 

@@ -27,7 +27,9 @@ class SessionMutationGate implements MutationGate {
   final SessionController? _injected;
   SessionController get _session => _injected ?? Get.find<SessionController>();
 
+  static const _modeLocalOnly = 'LOCAL_ONLY';
   static const _modeRemoteAccess = 'REMOTE_ACCESS';
+  static const _modeCloudContinuity = 'CLOUD_CONTINUITY';
   static const _presenceOnline = 'ONLINE';
   static const _presenceDegraded = 'DEGRADED';
   static const _presenceOffline = 'OFFLINE';
@@ -50,46 +52,103 @@ class SessionMutationGate implements MutationGate {
   }
 
   MutationPermission _checkRead(SessionRuntimeInfo runtime) {
-    if (runtime.mode == _modeRemoteAccess && runtime.presenceStatus != _presenceOnline) {
+    // REMOTE_ACCESS và CLOUD_CONTINUITY đều đi qua một node/relay có thể
+    // rớt kết nối — không ONLINE ⇒ chỉ đọc (banner "chỉ đọc" + as_of), không
+    // giả vờ dữ liệu là live. LOCAL_ONLY không có khái niệm node từ xa nên
+    // không áp dụng nhánh này.
+    if ((runtime.mode == _modeRemoteAccess || runtime.mode == _modeCloudContinuity) &&
+        runtime.presenceStatus != _presenceOnline) {
+      return MutationPermission.blockedReadOnly;
+    }
+    if (runtime.mode != _modeLocalOnly &&
+        runtime.mode != _modeRemoteAccess &&
+        runtime.mode != _modeCloudContinuity) {
+      // Giá trị mode không nhận diện được (chưa tồn tại hôm nay, hoặc lỗi
+      // parse) ⇒ fail-closed: không giả định là "chắc ổn để đọc live".
       return MutationPermission.blockedReadOnly;
     }
     return MutationPermission.allowed;
   }
 
   MutationPermission _checkMutation(SessionRuntimeInfo runtime) {
-    // (1) REMOTE_ACCESS + OFFLINE luôn chặn cứng, KHÔNG có ngoại lệ theo
-    // `modeSource`. Đây là nguyên tắc lõi của kế hoạch: dù tín hiệu là suy
-    // đoán ('inferred', xem `SessionRuntimeInfo.modeSource`) hay đã xác minh
-    // ('configured'), một khi hệ thống báo OFFLINE thì không được hạ nó
-    // xuống ngang với LOCAL_ONLY rồi cho mutation lọt qua — thà chặn nhầm
-    // còn hơn gửi nhầm business request khi node có thể thật sự offline.
-    if (runtime.mode == _modeRemoteAccess && runtime.presenceStatus == _presenceOffline) {
+    switch (runtime.mode) {
+      // REMOTE_ACCESS và CLOUD_CONTINUITY dùng CHUNG một quy tắc: cả hai đều
+      // định tuyến business traffic qua một relay/node từ xa có thể offline
+      // độc lập với địa chỉ company backend cấu hình sẵn — không có cách nào
+      // để "gửi thẳng" an toàn khi node đó không ONLINE.
+      // `services/cosa/services/workspace-settings.service.ts` (Task 3) trả
+      // `CLOUD_CONTINUITY` với `runtimeModeSource` LUÔN LUÔN là 'inferred'
+      // khi workspace có cloud node đăng ký — runtime-router.service.ts xác
+      // nhận state này có thể hợp lệ resolve về OFFLINE (cả local lẫn cloud
+      // đều down). ApiClient hiện KHÔNG có nhánh routing/offline-guard riêng
+      // cho CLOUD_CONTINUITY (chỉ check `== 'REMOTE_ACCESS'`) — nghĩa là nếu
+      // gate không tự chặn ở đây, một mutation trong trạng thái này sẽ đi
+      // thẳng KHÔNG qua bất kỳ offline-guard nào ở tầng dưới. Gate phải là
+      // tuyến phòng thủ duy nhất cho case này cho tới khi ApiClient được bổ
+      // sung nhánh riêng.
+      case _modeRemoteAccess:
+      case _modeCloudContinuity:
+        return _checkRelayedMutation(runtime);
+
+      case _modeLocalOnly:
+        // `modeSource == 'inferred'` nghĩa là giá trị LOCAL_ONLY này chỉ là
+        // suy đoán, CHƯA được xác minh bằng canonical config
+        // (`services/company`). Review Task 5 chỉ ra: nếu trạng thái THẬT
+        // sự là REMOTE_ACCESS+OFFLINE (relay bị chặn có chủ đích vì node đó
+        // không đáng tin để gửi thẳng) nhưng bị suy đoán nhầm thành
+        // LOCAL_ONLY, gate cũ sẽ cho mutation lọt qua "allowed" và
+        // `ApiClient.resolveUri` gửi THẲNG tới `baseUrl` — một địa chỉ công
+        // ty CÓ THẬT, không phải lỗi kết nối vô hại như giả định ban đầu.
+        // Đây chính là failure mode "âm thầm gửi request lẽ ra phải bị
+        // chặn" — không được để nó tồn tại. Xử lý giống hệt
+        // REMOTE_ACCESS/ONLINE + inferred: bắt xác nhận rõ ràng thay vì
+        // âm thầm "allowed".
+        if (runtime.modeSource != _sourceConfigured) {
+          return MutationPermission.confirmDegraded;
+        }
+        return MutationPermission.allowed;
+
+      default:
+        // Giá trị mode không nhận diện được (mode mới trong tương lai, hoặc
+        // lỗi parse) ⇒ fail-closed: KHÔNG rơi qua "allowed" mặc định. Một
+        // mode lạ có thể mang ngữ nghĩa routing hoàn toàn khác mà gate chưa
+        // biết cách xử lý an toàn.
+        return MutationPermission.blockedOffline;
+    }
+  }
+
+  /// Quy tắc dùng chung cho mọi mode có khái niệm "node/relay từ xa có thể
+  /// offline độc lập" (REMOTE_ACCESS, CLOUD_CONTINUITY).
+  MutationPermission _checkRelayedMutation(SessionRuntimeInfo runtime) {
+    // (1) OFFLINE luôn chặn cứng, KHÔNG có ngoại lệ theo `modeSource`. Đây
+    // là nguyên tắc lõi của kế hoạch: dù tín hiệu là suy đoán ('inferred',
+    // xem `SessionRuntimeInfo.modeSource`) hay đã xác minh ('configured'),
+    // một khi hệ thống báo OFFLINE thì không được hạ nó xuống ngang với
+    // LOCAL_ONLY rồi cho mutation lọt qua — thà chặn nhầm còn hơn gửi nhầm
+    // business request khi node có thể thật sự offline.
+    if (runtime.presenceStatus == _presenceOffline) {
       return MutationPermission.blockedOffline;
     }
 
-    if (runtime.mode == _modeRemoteAccess && runtime.presenceStatus == _presenceDegraded) {
+    if (runtime.presenceStatus == _presenceDegraded) {
       return MutationPermission.confirmDegraded;
     }
 
-    if (runtime.mode == _modeRemoteAccess && runtime.presenceStatus == _presenceOnline) {
+    if (runtime.presenceStatus == _presenceOnline) {
       // `modeSource == 'inferred'` nghĩa là `cosa` hiện CHƯA có adapter đọc
       // canonical runtime_mode thật từ `services/company` — giá trị
-      // REMOTE_ACCESS/ONLINE này chỉ là heuristic suy đoán theo presence, có
-      // thể sai. Không cho nó có cùng mức tin cậy như config đã xác minh:
-      // bắt xác nhận rõ ràng của người dùng thay vì âm thầm "allowed".
+      // ONLINE này chỉ là heuristic suy đoán theo presence, có thể sai.
+      // Không cho nó có cùng mức tin cậy như config đã xác minh: bắt xác
+      // nhận rõ ràng của người dùng thay vì âm thầm "allowed".
       if (runtime.modeSource != _sourceConfigured) {
         return MutationPermission.confirmDegraded;
       }
       return MutationPermission.allowed;
     }
 
-    // LOCAL_ONLY (hoặc mode lạ khác REMOTE_ACCESS): `ApiClient.resolveUri`
-    // không áp dụng relay routing / offline-guard cho nhánh này, nên rủi ro
-    // lớn nhất khi suy đoán sai (`modeSource == 'inferred'` nhưng thực tế là
-    // REMOTE_ACCESS+OFFLINE) là request đi thẳng ra local port thật và tự
-    // thất bại bằng lỗi kết nối mạng — KHÔNG có đường fallback cloud nào để
-    // âm thầm chạy nhầm. Vì vậy không cần hạ permission ở nhánh này.
-    return MutationPermission.allowed;
+    // Giá trị presence không nhận diện được ⇒ cũng fail-closed thay vì
+    // "allowed" mặc định.
+    return MutationPermission.blockedOffline;
   }
 }
 
