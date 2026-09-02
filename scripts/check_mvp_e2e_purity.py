@@ -29,7 +29,18 @@ REQUIRED_MVP_E2E_FILES = frozenset(
         "test_mvp_release_smoke.py",
         "test_mvp_settings_http.py",
         "test_mvp_strategy_runtime_http.py",
+        "test_cross_plane_smoke.py",
     }
+)
+
+# Cross-plane E2E harness: kịch bản, stack helper và seed kit đều phải "pure"
+# giống các test MVP HTTP. Glob phủ luôn cả file `test_*.py` bên trong các thư mục
+# này vì chúng là một phần harness và cũng chạy như pytest.
+_CROSS_PLANE_GLOBS = (
+    "test_cross_plane_smoke.py",
+    "scenarios/*.py",
+    "stack/*.py",
+    "seed/*.py",
 )
 
 
@@ -179,8 +190,13 @@ def run_check(
                 "Required MVP E2E release test is missing"
             )
 
-    for file_path in target_dir.glob("test_mvp_*.py"):
-        violations.extend(check_file(file_path, base_dir=target_dir))
+    seen: set[Path] = set()
+    for pattern in ("test_mvp_*.py", *_CROSS_PLANE_GLOBS):
+        for file_path in target_dir.glob(pattern):
+            if file_path.name == "__init__.py" or file_path in seen:
+                continue
+            seen.add(file_path)
+            violations.extend(check_file(file_path, base_dir=target_dir))
 
     return violations
 
