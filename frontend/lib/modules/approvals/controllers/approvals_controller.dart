@@ -3,14 +3,21 @@ import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/runtime/mutation_gate.dart';
 import '../../../data/models/approval_model.dart';
+import '../../../features/_shared/presentation/async_feature_state.dart';
 import '../../../modules/approvals/services/approvals_service.dart';
 import '../../../core/network/realtime_service.dart';
 
-class ApprovalsController extends GetxController with GetSingleTickerProviderStateMixin {
-  ApprovalsController({MutationGate? mutationGate})
-      : _mutationGate = mutationGate ?? SessionMutationGate();
+/// Task 6 — kiểu trạng thái truthful cho danh sách approval: thành công (kể
+/// cả rỗng thật), đang tải, hay thất bại đều là ba nhánh khác nhau của
+/// `AsyncFeatureState`, không suy diễn lẫn nhau.
+typedef ApprovalListState = AsyncFeatureState<List<ApprovalItemModel>>;
 
-  final ApprovalsService _approvalsService = ApprovalsService();
+class ApprovalsController extends GetxController with GetSingleTickerProviderStateMixin {
+  ApprovalsController({MutationGate? mutationGate, ApprovalsService? approvalsService})
+      : _mutationGate = mutationGate ?? SessionMutationGate(),
+        _approvalsService = approvalsService ?? ApprovalsService();
+
+  final ApprovalsService _approvalsService;
   final RealtimeService _realtimeService = RealtimeService();
   // Task 5 — cổng gate DUY NHẤT trước khi gọi service quyết định (approve/
   // reject/request-revision): đọc `SessionController.active.runtime`, không
@@ -21,6 +28,13 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
   MutationPermission mutationPermission() => _mutationGate.check(isMutation: true);
 
   late TabController tabController;
+
+  // Task 6 — nguồn sự thật duy nhất cho danh sách approval. `pendingApprovals`/
+  // `historyApprovals`/`filteredApprovals` bên dưới là các view CHỈ được suy
+  // ra từ `listState` khi nó là `FeatureData` — giữ lại để các widget con
+  // (ApprovalHeaderBar/ApprovalRiskFilterBar/ApprovalTicketCard) không phải
+  // sửa lại cách đọc controller.
+  final Rx<ApprovalListState> listState = Rx<ApprovalListState>(const FeatureInitial());
   final isLoading = false.obs;
   final pendingApprovals = <ApprovalItemModel>[].obs;
   final filteredApprovals = <ApprovalItemModel>[].obs;
@@ -51,18 +65,42 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     }
   }
 
+  /// Tải (hoặc làm mới) danh sách approval. Nguyên tắc cốt lõi Task 6: một
+  /// lần refresh nền thất bại (503/timeout/malformed...) KHÔNG được xoá mất
+  /// danh sách thành công gần nhất đang hiển thị — chỉ ghi đè `listState`
+  /// bằng `FeatureFailure` khi trước đó CHƯA có dữ liệu thành công nào để
+  /// giữ lại (tức lần tải đầu tiên thất bại).
   Future<void> loadApprovals() async {
+    final hadData = listState.value is FeatureData<List<ApprovalItemModel>>;
+    if (!hadData) {
+      listState.value = const FeatureLoading();
+    }
     isLoading.value = true;
     try {
-      final list = await _approvalsService.getApprovalsList();
-      pendingApprovals.value = list.where((a) => a.status == ApprovalStatus.pending).toList();
-      historyApprovals.value = list.where((a) => a.status != ApprovalStatus.pending).toList();
-      applyRiskFilter();
-    } catch (e) {
-      debugPrint('Error loading approvals: $e');
+      final result = await _approvalsService.list();
+      result.when(
+        success: (data, meta) {
+          listState.value = FeatureData(data, meta);
+          _applyList(data);
+        },
+        failure: (failure) {
+          debugPrint('[ApprovalsController] loadApprovals failure: $failure');
+          if (!hadData) {
+            listState.value = FeatureFailure(failure);
+          }
+          // hadData == true: giữ nguyên FeatureData cũ, không ghi đè — đây
+          // chính là "stale data while refresh fails" mà brief yêu cầu.
+        },
+      );
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void _applyList(List<ApprovalItemModel> list) {
+    pendingApprovals.value = list.where((a) => a.status == ApprovalStatus.pending).toList();
+    historyApprovals.value = list.where((a) => a.status != ApprovalStatus.pending).toList();
+    applyRiskFilter();
   }
 
   void setRiskFilter(String tier) {
@@ -94,19 +132,28 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     // `confirmDegradedMutation` rồi gọi lại với `confirmed: true`.
     if (permission == MutationPermission.confirmDegraded && !confirmed) return;
 
-    final success = await _approvalsService.approve(approvalId, comment: comment);
-    if (success) {
-      AppToast.success(
-        'Lệnh đã được phê duyệt và đang tiếp tục thực thi',
-        title: 'Đã chấp thuận',
-      );
-      await loadApprovals();
-    } else {
-      AppToast.error(
-        'Không thể phê duyệt yêu cầu này',
-        title: 'Lỗi',
-      );
-    }
+    final result = await _approvalsService.decide(
+      approvalId.toString(),
+      approved: true,
+      reason: comment,
+    );
+    // Task 6 — chỉ báo thành công khi thật sự nhận ApiSuccess, không suy
+    // diễn từ "không có exception".
+    result.when(
+      success: (_, _) {
+        AppToast.success(
+          'Lệnh đã được phê duyệt và đang tiếp tục thực thi',
+          title: 'Đã chấp thuận',
+        );
+        loadApprovals();
+      },
+      failure: (failure) {
+        AppToast.error(
+          'Không thể phê duyệt yêu cầu này',
+          title: 'Lỗi',
+        );
+      },
+    );
   }
 
   Future<void> rejectTicket(dynamic approvalId, {String? reason, bool confirmed = false}) async {
@@ -114,19 +161,26 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     if (permission.isHardBlocked) return;
     if (permission == MutationPermission.confirmDegraded && !confirmed) return;
 
-    final success = await _approvalsService.reject(approvalId, reason: reason);
-    if (success) {
-      AppToast.warning(
-        'Đã từ chối thực thi tác vụ rủi ro này',
-        title: 'Đã từ chối',
-      );
-      await loadApprovals();
-    } else {
-      AppToast.error(
-        'Không thể từ chối yêu cầu này',
-        title: 'Lỗi',
-      );
-    }
+    final result = await _approvalsService.decide(
+      approvalId.toString(),
+      approved: false,
+      reason: reason,
+    );
+    result.when(
+      success: (_, _) {
+        AppToast.warning(
+          'Đã từ chối thực thi tác vụ rủi ro này',
+          title: 'Đã từ chối',
+        );
+        loadApprovals();
+      },
+      failure: (failure) {
+        AppToast.error(
+          'Không thể từ chối yêu cầu này',
+          title: 'Lỗi',
+        );
+      },
+    );
   }
 
   Future<void> requestRevisionTicket(
@@ -138,18 +192,25 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     if (permission.isHardBlocked) return;
     if (permission == MutationPermission.confirmDegraded && !confirmed) return;
 
-    final success = await _approvalsService.requestRevision(approvalId, feedback: feedback);
-    if (success) {
-      AppToast.info(
-        'Agent sẽ cập nhật lại nội dung theo chỉ dẫn',
-        title: 'Đã gửi yêu cầu sửa',
-      );
-      await loadApprovals();
-    } else {
-      AppToast.error(
-        'Không thể gửi yêu cầu chỉnh sửa',
-        title: 'Lỗi',
-      );
-    }
+    final result = await _approvalsService.decide(
+      approvalId.toString(),
+      approved: false,
+      reason: 'Revision requested: $feedback',
+    );
+    result.when(
+      success: (_, _) {
+        AppToast.info(
+          'Agent sẽ cập nhật lại nội dung theo chỉ dẫn',
+          title: 'Đã gửi yêu cầu sửa',
+        );
+        loadApprovals();
+      },
+      failure: (failure) {
+        AppToast.error(
+          'Không thể gửi yêu cầu chỉnh sửa',
+          title: 'Lỗi',
+        );
+      },
+    );
   }
 }
