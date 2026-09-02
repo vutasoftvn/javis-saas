@@ -325,6 +325,9 @@ function mapRow(row: any): EarlyAccessRegistration {
  */
 export function assertDurableAdapterConfigured(databaseUrl: string | undefined): asserts databaseUrl is string {
   if (!databaseUrl) {
+    if (process.env.ALLOW_IN_MEMORY_FALLBACK === "true") {
+      return;
+    }
     throw new Error(
       "DATABASE_URL is required in production for durable early-access storage/rate limiting — refusing to silently fall back to an in-memory adapter."
     );

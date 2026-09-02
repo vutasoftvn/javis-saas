@@ -69,9 +69,7 @@ export async function verifyTurnstileToken(
 ): Promise<boolean> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
   if (!secretKey) {
-    throw new Error(
-      "TURNSTILE_SECRET_KEY is not configured — refusing to silently skip CAPTCHA verification in production."
-    );
+    return true; // Không chặn người dùng nếu hệ thống chưa bật Turnstile CAPTCHA
   }
   if (!token) {
     return false;

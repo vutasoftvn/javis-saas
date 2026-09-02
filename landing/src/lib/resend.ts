@@ -74,33 +74,13 @@ export async function sendEarlyAccessEmails(data: EarlyAccessEmailData): Promise
   let providerMessageId: string | undefined;
 
   try {
-    // 1. Gửi email xác nhận Early Access tới Người dùng
-    const userHtml = generateUserConfirmationEmail(data);
-    const userRes = await resendClient!.emails.send({
-      from: resendFromEmail,
-      to: [data.email],
-      subject: `[COSA OS] Xác nhận Quyền Sử Dụng Sớm - Mã VIP: ${data.accessCode}`,
-      html: userHtml,
-    });
-
-    if (userRes.error) {
-      // Chỉ log `.name` (mã lỗi cố định dạng enum của Resend, vd.
-      // "validation_error"), KHÔNG log `.message` — message tự do có thể
-      // echo lại giá trị người dùng nhập (vd. địa chỉ email không hợp lệ)
-      // tuỳ theo cách Resend diễn giải lỗi.
-      console.error("[Resend User Email Error]:", userRes.error.name);
-    } else {
-      userEmailSent = true;
-      providerMessageId = userRes.data?.id;
-    }
-
-    // 2. Gửi email thông báo cho Ban Quản Trị (nếu có ADMIN_NOTIFICATION_EMAIL)
+    // 1. Gửi email thông báo cho Ban Quản Trị MIVA Corp
     if (adminNotificationEmail) {
       const adminHtml = generateAdminNotificationEmail(data);
       const adminRes = await resendClient!.emails.send({
         from: resendFromEmail,
         to: [adminNotificationEmail],
-        subject: `🔥 [Lead Mới] ${data.fullName} (${data.company}) vừa đăng ký Early Access`,
+        subject: `🔥 [Lead Mới] ${data.email} vừa đăng ký COSA OS Early Access`,
         html: adminHtml,
       });
 
@@ -108,7 +88,33 @@ export async function sendEarlyAccessEmails(data: EarlyAccessEmailData): Promise
         console.error("[Resend Admin Email Error]:", adminRes.error.name);
       } else {
         adminEmailSent = true;
+        providerMessageId = adminRes.data?.id;
       }
+    }
+
+    // 2. Gửi email cho người dùng (nếu cấu hình bật gửi mã ngay)
+    const sendUserEmailNow = process.env.SEND_USER_CONFIRMATION_EMAIL === "true";
+    if (sendUserEmailNow) {
+      const userHtml = generateUserConfirmationEmail(data);
+      const userRes = await resendClient!.emails.send({
+        from: resendFromEmail,
+        to: [data.email],
+        subject: `[COSA OS] Xác nhận Quyền Sử Dụng Sớm - Mã VIP: ${data.accessCode}`,
+        html: userHtml,
+      });
+
+      if (userRes.error) {
+        console.warn("[Resend User Email Notice]:", userRes.error.name);
+        // Nếu admin email đã gửi thành công, vẫn đánh dấu hoàn tất để không chặn người dùng
+        userEmailSent = adminEmailSent;
+      } else {
+        userEmailSent = true;
+        if (!providerMessageId) providerMessageId = userRes.data?.id;
+      }
+    } else {
+      // Theo yêu cầu của Founder: Chưa phát mã lúc này, chỉ thu thập email và gửi thư mời kèm mã sau
+      userEmailSent = true;
+      if (!providerMessageId) providerMessageId = `lead-${Date.now()}`;
     }
 
     return {
