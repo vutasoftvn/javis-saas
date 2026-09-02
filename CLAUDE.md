@@ -103,6 +103,15 @@ Mỗi service theo layout: `encore.service.ts`, `api.ts` (barrel export), `db.ts
    route unknown gọi thẳng bằng string tay thay vì qua contract/`MvpEndpoint`).
 
 
+## Ngôn ngữ phản hồi
+
+Mọi agent phản hồi bằng **tiếng Việt** cho phần hội thoại, phân tích, plan và
+`docs/**/*.md`. Định danh, route, log/error message, biến môi trường và trích dẫn
+nguyên văn tiếng Anh giữ nguyên. Nguồn chuẩn:
+`.kilocode/rules/00-language-vietnamese.md` (mirror tại
+`.agents/rules/language_vietnamese.md`). Canonical prompt của agent runtime trong
+`skillpacks/` và `packages/agent/` vẫn là tiếng Anh — rule này không áp dụng ở đó.
+
 ## Comment code
 
 Viết bằng tiếng Việt cho phần giải thích ý nghĩa/lý do (why). Tên định danh, thông báo lỗi hệ thống/log, và trích dẫn nguyên văn tài liệu tiếng Anh vẫn giữ tiếng Anh. Không bắt buộc viết lại comment cũ ngay — áp dụng cho comment mới, chuyển dần khi sửa file.
