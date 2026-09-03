@@ -31,9 +31,12 @@ import uuid
 import psycopg2
 import pytest
 
-_PSYCOPG_URL = os.environ.get(
-    "AGENT_TEST_DATABASE_URL",
-    "postgresql://agent_app:change-me-agent-app@127.0.0.1:5432/agent?sslmode=disable",
+# `make agent-test` truyền AGENT_TEST_DATABASE_URL="" (chuỗi rỗng) khi dev chưa
+# export biến — `dict.get(key, default)` KHÔNG trả default cho chuỗi rỗng, nên
+# phải fallback bằng `or` để không vô tình gọi psycopg2.connect("") (→ unix
+# socket mặc định, luôn fail trên máy dev dùng TCP).
+_PSYCOPG_URL = os.environ.get("AGENT_TEST_DATABASE_URL") or (
+    "postgresql://agent_app:change-me-agent-app@127.0.0.1:5432/agent?sslmode=disable"
 )
 
 
