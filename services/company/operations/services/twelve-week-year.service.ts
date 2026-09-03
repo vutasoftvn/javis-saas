@@ -176,6 +176,70 @@ export async function createWeeklyPlanService(req: CreateWeeklyPlanRequest): Pro
   };
 }
 
+export interface UpdateWeeklyPlanRequest {
+  workspaceId: string | number;
+  authorization?: string;
+  executionScore?: number | null;
+  outcomeScore?: number | null;
+  reflection?: string | null;
+}
+
+export async function updateWeeklyPlanService(
+  planId: string,
+  req: UpdateWeeklyPlanRequest
+): Promise<WeeklyPlan> {
+  const ctx = await requireWorkspaceAccess(req.authorization, String(req.workspaceId));
+  const wsId = BigInt(ctx.workspaceId);
+  const planIdBig = BigInt(planId);
+
+  if (req.executionScore !== undefined && req.executionScore !== null) {
+    if (req.executionScore < 0 || req.executionScore > 100) {
+      throw APIError.invalidArgument("executionScore must be between 0 and 100");
+    }
+  }
+  if (req.outcomeScore !== undefined && req.outcomeScore !== null) {
+    if (req.outcomeScore < 0 || req.outcomeScore > 100) {
+      throw APIError.invalidArgument("outcomeScore must be between 0 and 100");
+    }
+  }
+
+  const [existing] = await db
+    .select()
+    .from(weeklyPlans)
+    .where(and(eq(weeklyPlans.id, planIdBig), eq(weeklyPlans.workspaceId, wsId)))
+    .limit(1);
+
+  if (!existing) {
+    throw APIError.notFound(`weekly plan ${planId} not found`);
+  }
+
+  const [updated] = await db
+    .update(weeklyPlans)
+    .set({
+      executionScore: req.executionScore !== undefined ? req.executionScore : existing.executionScore,
+      outcomeScore: req.outcomeScore !== undefined ? req.outcomeScore : existing.outcomeScore,
+      reflection: req.reflection !== undefined ? req.reflection : existing.reflection,
+      updatedAt: new Date(),
+    })
+    .where(eq(weeklyPlans.id, planIdBig))
+    .returning();
+
+  return {
+    id: updated.id.toString(),
+    workspaceId: updated.workspaceId.toString(),
+    cycleId: updated.cycleId.toString(),
+    weekNo: updated.weekNo,
+    startDate: updated.startDate ? updated.startDate.toISOString() : null,
+    endDate: updated.endDate ? updated.endDate.toISOString() : null,
+    focus: updated.focus,
+    mission: updated.mission,
+    executionScore: updated.executionScore,
+    outcomeScore: updated.outcomeScore,
+    reflection: updated.reflection,
+    createdAt: updated.createdAt.toISOString(),
+  };
+}
+
 export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentRequest): Promise<WeeklyCommitment> {
   if (!req.workspaceId || !req.weeklyPlanId || !req.title) {
     throw APIError.invalidArgument("workspaceId, weeklyPlanId, and title are required");
