@@ -22,11 +22,18 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byTooltip('Chuyển module'));
-    // `FloatingVoiceHologram` (Task 5, sống trong AppShell chrome) chạy
-    // animation vô hạn nên `pumpAndSettle()` không bao giờ settle trong toàn
-    // bộ test suite này (xem cùng pattern ở `test/core/shell/app_shell_test.dart`)
-    // — dùng `pump` tường minh đủ cho animation mở bottom sheet (~300ms mặc
-    // định của Material) thay vì chờ settle toàn bộ cây widget.
+    // KHÔNG dùng `pumpAndSettle`: test này build `HologramHubView` trực tiếp,
+    // không qua `AppShell`, nên `FloatingVoiceHologram` không nằm trong cây
+    // widget — đã verify bằng `SchedulerBinding.instance.transientCallbackCount`
+    // (== 1 sau khi pump ổn định) và `find.byType(CircularProgressIndicator)`.
+    // Nguyên nhân thật: `ApiClient` không được mock ở test này (không giống
+    // `hologram_hub_view_single_controller_test.dart`), nên request thật của
+    // `FounderCommandCenterController.loadDashboardData()` (gọi tự động từ
+    // `onInit()`) không bao giờ resolve trong khung thời gian test — `isLoading`
+    // kẹt ở `true`, `HologramHubView.build()` render `CircularProgressIndicator`
+    // (animation indeterminate vô hạn của chính Flutter) khiến `pumpAndSettle()`
+    // timeout. Dùng `pump` hữu hạn thay thế, đủ cho animation mở bottom sheet
+    // (~300ms mặc định của Material) thay vì chờ settle toàn bộ cây widget.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
