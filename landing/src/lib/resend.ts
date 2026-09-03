@@ -22,13 +22,16 @@ const resendApiKey = process.env.RESEND_API_KEY;
 const resendFromEmail = process.env.RESEND_FROM_EMAIL || "MIVA Corp <contact@mivacorp.vn>";
 const adminNotificationEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "mivacorp.vn@gmail.com";
 
-// Kiểm tra key hợp lệ (chỉ chứa ký tự ASCII, không phải placeholder) trước khi truyền vào Resend client
+// Kiểm tra key hợp lệ (chỉ chứa ký tự ASCII in được, không phải placeholder)
+// trước khi truyền vào Resend client. Dùng negation `[^\x20-\x7E]` (bất kỳ ký
+// tự nào NGOÀI dải ASCII in được) để tránh khai báo control-char trong regex
+// (eslint no-control-regex) — key Resend luôn dạng `re_...` alphanumeric.
 const isKeyUsable =
   typeof resendApiKey === "string" &&
   resendApiKey.trim().length > 0 &&
   !resendApiKey.includes("your_api_key") &&
   !resendApiKey.includes("khoá") &&
-  /^[\x00-\x7F]*$/.test(resendApiKey);
+  !/[^\x20-\x7E]/.test(resendApiKey);
 
 const resendClient = isKeyUsable ? new Resend(resendApiKey) : null;
 
