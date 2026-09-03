@@ -36,7 +36,11 @@ jobs:
         working-directory: frontend
       - run: flutter test --coverage --machine > ../test-results/frontend.json
         working-directory: frontend
-      - run: node scripts/check_frontend_coverage.mjs frontend/coverage/lcov.info --minimum=46
+      # Line-coverage floor áp cho code logic (services/controllers/models/core).
+      # File view/widget Flutter được phủ bởi tầng test riêng (widget/golden/
+      # accessibility/integration_test), không tính vào floor này — xem
+      # frontend/README.md mục "Coverage".
+      - run: node scripts/check_frontend_coverage.mjs frontend/coverage/lcov.info --minimum=46 --exclude='**/views/**,**/widgets/**'
       - run: mv coverage/lcov.info ../test-results/frontend-lcov.info
         working-directory: frontend
       - run: flutter analyze

@@ -75,7 +75,7 @@ frontend-analyze:
 
 frontend-coverage-check:
 	cd frontend && flutter test --coverage
-	node scripts/check_frontend_coverage.mjs frontend/coverage/lcov.info --minimum=46
+	node scripts/check_frontend_coverage.mjs frontend/coverage/lcov.info --minimum=46 --exclude='**/views/**,**/widgets/**'
 
 boundary-check:
 	# packages/agent phải độc lập với services/*, apps/* (chỉ apps/cosa mới
