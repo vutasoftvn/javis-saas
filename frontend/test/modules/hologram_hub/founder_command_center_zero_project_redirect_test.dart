@@ -67,4 +67,14 @@ void main() {
 
     expect(Get.currentRoute, '/login');
   });
+
+  test('resetForWorkspace hạ projectsLoadedOnce về false (chặn bounce sớm trong cửa sổ reload)',
+      () {
+    final fcc = Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    fcc.projectsLoadedOnce.value = true;
+
+    fcc.resetForWorkspace(reload: false);
+
+    expect(fcc.projectsLoadedOnce.value, isFalse);
+  });
 }

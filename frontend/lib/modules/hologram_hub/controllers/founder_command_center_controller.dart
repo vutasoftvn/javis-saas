@@ -184,6 +184,11 @@ class FounderCommandCenterController extends GetxController {
     projectsList.clear();
     activeProjectSetup.value = null;
     projectsError.value = null;
+    // Fix race (2026-09-03, Task 5) — workspace vừa đổi, danh sách project của
+    // tenant CŨ đã bị clear và `loadDashboardData()` sắp chạy lại; hạ cờ để
+    // `ProjectSetupGuardMiddleware` đồng bộ KHÔNG nhầm cửa sổ reload này là
+    // "workspace mới có 0 project" mà bounce sớm sang `/projects/new`.
+    projectsLoadedOnce.value = false;
     pulse.value = null;
     top3Actions.clear();
     pendingDecisions.clear();
