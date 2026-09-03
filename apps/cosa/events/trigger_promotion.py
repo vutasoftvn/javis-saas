@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from agent.evals.promotion import PromotionEvidence
-from agent.evals.promotion_gate import PromotionGate
+from agent.evals.promotion_gate import PromotionGate, PromotionIssueCode
 
 __all__ = ["GateResult", "can_enable_trigger"]
 
@@ -38,7 +38,7 @@ def can_enable_trigger(
 
     gate = PromotionGate(policy_version=policy_version).check(evidence, current_fingerprints)
     if not gate.approved:
-        stale = any("stale" in issue.lower() for issue in gate.blocking_issues)
+        stale = PromotionIssueCode.EVIDENCE_STALE in gate.blocking_issue_codes
         return GateResult(False, "stale_evidence" if stale else "checks_failed")
 
     ev_schema = evidence.check_details.get("event_schema_version")

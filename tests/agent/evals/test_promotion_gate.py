@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from agent.evals.promotion import PromotionEvidence
-from agent.evals.promotion_gate import PromotionGate
+from agent.evals.promotion_gate import PromotionGate, PromotionIssueCode
 from agent.governance.contracts import PinnedSpecIdentity
 
 
@@ -35,6 +35,7 @@ def test_promotion_gate_rejects_stale_evidence():
 
     assert result.approved is False
     assert any("stale" in issue.lower() for issue in result.blocking_issues)
+    assert PromotionIssueCode.EVIDENCE_STALE in result.blocking_issue_codes
 
 
 def test_promotion_gate_rejects_when_policy_checks_not_passed():
@@ -45,6 +46,7 @@ def test_promotion_gate_rejects_when_policy_checks_not_passed():
 
     assert result.approved is False
     assert any("chưa pass" in issue for issue in result.blocking_issues)
+    assert PromotionIssueCode.CHECKS_NOT_PASSED in result.blocking_issue_codes
 
 
 def test_promotion_gate_rejects_when_no_eval_run_ids():
@@ -54,6 +56,7 @@ def test_promotion_gate_rejects_when_no_eval_run_ids():
     result = gate.check(evidence, current_fingerprints={"cofounder": "a" * 64})
 
     assert result.approved is False
+    assert PromotionIssueCode.NO_EVAL_RUN in result.blocking_issue_codes
 
 
 def test_promotion_gate_rejects_when_policy_version_mismatches():
@@ -63,6 +66,7 @@ def test_promotion_gate_rejects_when_policy_version_mismatches():
 
     assert result.approved is False
     assert any("policy_version" in issue for issue in result.blocking_issues)
+    assert PromotionIssueCode.POLICY_VERSION_MISMATCH in result.blocking_issue_codes
 
 
 def test_promotion_gate_result_carries_target_ref_and_evidence_id():
