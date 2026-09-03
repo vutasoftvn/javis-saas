@@ -28,7 +28,7 @@
 - Consumes: `FounderCommandCenterController` (`chatMessages`, `chatInputController`, `isChatLoading`, `sendChatMessage`).
 - Produces: `ChatPanelContent({required FounderCommandCenterController controller, required VoidCallback onClose})` — dùng ở Task 3.
 
-- [ ] **Step 1: Viết test trước — hiển thị tin nhắn, gửi tin nhắn qua input, nút đóng gọi callback**
+- [x] **Step 1: Viết test trước — hiển thị tin nhắn, gửi tin nhắn qua input, nút đóng gọi callback**
 
 ```dart
 // frontend/test/modules/hologram_hub/widgets/chat_panel_content_test.dart
@@ -97,12 +97,12 @@ void main() {
 — mọi tham số đều optional, `FounderCommandCenterController()` dùng thẳng
 được trong test như trên, không cần fake service.
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/widgets/chat_panel_content_test.dart`
 Expected: FAIL — `ChatPanelContent` chưa tồn tại.
 
-- [ ] **Step 3: Viết `ChatPanelContent` — copy nguyên nội dung chat đã có**
+- [x] **Step 3: Viết `ChatPanelContent` — copy nguyên nội dung chat đã có**
 
 ```dart
 // frontend/lib/modules/hologram_hub/widgets/chat_panel_content.dart
@@ -224,17 +224,17 @@ class ChatPanelContent extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/widgets/chat_panel_content_test.dart`
 Expected: PASS.
 
-- [ ] **Step 5: `dart analyze` sạch**
+- [x] **Step 5: `dart analyze` sạch**
 
 Run: `cd frontend && dart analyze lib/modules/hologram_hub/widgets/chat_panel_content.dart`
 Expected: No issues found.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -257,7 +257,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `ChatPanelController` — `isOpen` (`RxBool`), `position` (`Rxn<Offset>`), `void open()`, `void close()`, `void toggle()`, `void updatePosition(Offset offset)`. Đăng ký qua `AppShellController.ensureShellDependencies()` — dùng ở Task 3-6.
 
-- [ ] **Step 1: Viết test trước**
+- [x] **Step 1: Viết test trước**
 
 ```dart
 // frontend/test/core/shell/chat_panel_controller_test.dart
@@ -293,12 +293,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/core/shell/chat_panel_controller_test.dart`
 Expected: FAIL — file chưa tồn tại.
 
-- [ ] **Step 3: Viết `ChatPanelController`**
+- [x] **Step 3: Viết `ChatPanelController`**
 
 ```dart
 // frontend/lib/core/shell/chat_panel_controller.dart
@@ -321,12 +321,12 @@ class ChatPanelController extends GetxController {
 }
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/core/shell/chat_panel_controller_test.dart`
 Expected: PASS.
 
-- [ ] **Step 5: Đăng ký trong `AppShellController.ensureShellDependencies()`**
+- [x] **Step 5: Đăng ký trong `AppShellController.ensureShellDependencies()`**
 
 Sửa `frontend/lib/core/shell/app_shell_controller.dart`, thêm import và 1
 khối đăng ký mới vào `ensureShellDependencies()` (dòng 27-44):
@@ -340,7 +340,7 @@ import 'chat_panel_controller.dart';
     }
 ```
 
-- [ ] **Step 6: Viết test xác nhận `ensureShellDependencies()` đăng ký đủ `ChatPanelController`**
+- [x] **Step 6: Viết test xác nhận `ensureShellDependencies()` đăng ký đủ `ChatPanelController`**
 
 ```dart
 // thêm vào frontend/test/core/shell/chat_panel_controller_test.dart (hoặc file test app_shell_controller nếu đã có — kiểm tra trước khi tạo file mới)
@@ -355,12 +355,12 @@ test('ensureShellDependencies registers ChatPanelController', () {
 });
 ```
 
-- [ ] **Step 7: Chạy lại toàn bộ test, `dart analyze` sạch**
+- [x] **Step 7: Chạy lại toàn bộ test, `dart analyze` sạch**
 
 Run: `cd frontend && flutter test test/core/shell/ && dart analyze lib/core/shell/`
 Expected: Tất cả PASS; No issues found.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -384,7 +384,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: `ChatPanelController` (Task 2), `ChatPanelContent` (Task 1), `FounderCommandCenterController`.
 - Produces: `DraggableChatPanel()` (không tham số, tự `Get.find` 2 controller trên) — dùng ở Task 4, 6.
 
-- [ ] **Step 1: Viết test trước — ẩn khi đóng, hiện khi mở, kéo đổi vị trí**
+- [x] **Step 1: Viết test trước — ẩn khi đóng, hiện khi mở, kéo đổi vị trí**
 
 ```dart
 // frontend/test/modules/hologram_hub/widgets/draggable_chat_panel_test.dart
@@ -444,12 +444,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/widgets/draggable_chat_panel_test.dart`
 Expected: FAIL — `DraggableChatPanel` chưa tồn tại.
 
-- [ ] **Step 3: Viết `DraggableChatPanel`**
+- [x] **Step 3: Viết `DraggableChatPanel`**
 
 ```dart
 // frontend/lib/modules/hologram_hub/widgets/draggable_chat_panel.dart
@@ -528,17 +528,17 @@ class DraggableChatPanel extends StatelessWidget {
 đầu tiên, khớp đúng mức độ đơn giản mà spec yêu cầu; không cần vùng "tay cầm"
 kéo riêng ở phiên bản này.
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/widgets/draggable_chat_panel_test.dart`
 Expected: PASS.
 
-- [ ] **Step 5: `dart analyze` sạch**
+- [x] **Step 5: `dart analyze` sạch**
 
 Run: `cd frontend && dart analyze lib/modules/hologram_hub/widgets/`
 Expected: No issues found.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -560,12 +560,12 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `DraggableChatPanel` (Task 3).
 
-- [ ] **Step 1: Đọc test hiện có trước khi sửa**
+- [x] **Step 1: Đọc test hiện có trước khi sửa**
 
 `frontend/test/core/shell/app_shell_test.dart` đã tồn tại — đọc trước để
 không phá cấu trúc test hiện có, chỉ thêm assertion mới.
 
-- [ ] **Step 2: Viết test trước — `AppShell` render `DraggableChatPanel`**
+- [x] **Step 2: Viết test trước — `AppShell` render `DraggableChatPanel`**
 
 Thêm vào `frontend/test/core/shell/app_shell_test.dart` (theo đúng pattern
 setup đã có trong file — dùng lại harness dựng `AppShell` sẵn có, không viết
@@ -580,12 +580,12 @@ testWidgets('AppShell includes DraggableChatPanel alongside the voice orb', (
 });
 ```
 
-- [ ] **Step 3: Chạy test, xác nhận FAIL**
+- [x] **Step 3: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/core/shell/app_shell_test.dart`
 Expected: FAIL — `AppShell` chưa render `DraggableChatPanel`.
 
-- [ ] **Step 4: Thêm `DraggableChatPanel` vào `AppShell`**
+- [x] **Step 4: Thêm `DraggableChatPanel` vào `AppShell`**
 
 Sửa `frontend/lib/core/shell/app_shell.dart`, thêm import:
 
@@ -596,17 +596,17 @@ import '../../modules/hologram_hub/widgets/draggable_chat_panel.dart';
 Thêm `const DraggableChatPanel(),` ngay sau MỖI dòng `const FloatingVoiceHologram(),`
 (2 chỗ: dòng 80 và dòng 105).
 
-- [ ] **Step 5: Chạy lại test, xác nhận PASS**
+- [x] **Step 5: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/core/shell/app_shell_test.dart`
 Expected: PASS (kể cả các test cũ trong file — không regression).
 
-- [ ] **Step 6: `dart analyze` sạch**
+- [x] **Step 6: `dart analyze` sạch**
 
 Run: `cd frontend && dart analyze lib/core/shell/`
 Expected: No issues found.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -629,7 +629,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: `ChatPanelController` (Task 2).
 - Produces: giữ nguyên tên class `FloatingVoiceHologram` và constructor `const FloatingVoiceHologram()` — không đổi call site ở `AppShell`/`HologramHubView`.
 
-- [ ] **Step 1: Viết test trước — tap mở `ChatPanelController`, hiển thị icon robot**
+- [x] **Step 1: Viết test trước — tap mở `ChatPanelController`, hiển thị icon robot**
 
 ```dart
 // frontend/test/modules/dashboard/views/widgets/floating_voice_hologram_test.dart
@@ -669,12 +669,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/modules/dashboard/views/widgets/floating_voice_hologram_test.dart`
 Expected: FAIL — widget hiện chưa có `Icons.smart_toy_rounded`, tap hiện gọi `_toggleVoice`.
 
-- [ ] **Step 3: Viết lại `FloatingVoiceHologram`**
+- [x] **Step 3: Viết lại `FloatingVoiceHologram`**
 
 Thay TOÀN BỘ nội dung `frontend/lib/modules/dashboard/views/widgets/floating_voice_hologram.dart`
 bằng (giữ nguyên cơ chế `_position`/`onPanUpdate`/clamp từ bản cũ, xoá phần
@@ -772,12 +772,12 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram> {
 }
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/modules/dashboard/views/widgets/floating_voice_hologram_test.dart`
 Expected: PASS.
 
-- [ ] **Step 5: `dart analyze` sạch, chạy lại toàn bộ test liên quan (dashboard, hologram_hub, shell)**
+- [x] **Step 5: `dart analyze` sạch, chạy lại toàn bộ test liên quan (dashboard, hologram_hub, shell)**
 
 Run: `cd frontend && dart analyze lib/modules/dashboard/ lib/core/shell/ && flutter test test/modules/dashboard/ test/core/shell/ test/modules/hologram_hub/`
 Expected: No issues found; tất cả PASS. Nếu 1 test cũ nào đó (vd
@@ -785,7 +785,7 @@ Expected: No issues found; tất cả PASS. Nếu 1 test cũ nào đó (vd
 qua UI thật (không phải gọi thẳng `HologramHubController`), dừng lại và báo
 cáo — không tự sửa test theo hướng che giấu behavior thay đổi.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -815,7 +815,7 @@ nếu file không còn tồn tại, plan kia đã xong, tiếp tục Task này b
 Nếu file vẫn còn, DỪNG LẠI — Task này sẽ tạo icon robot trùng lặp (1 từ
 `AppShell` bọc ngoài, 1 từ chính task này) — báo cáo, không tự chạy tiếp.
 
-- [ ] **Step 1: Viết test trước — `HologramHubView` tự có icon robot + panel, không dùng `showModalBottomSheet` nữa**
+- [x] **Step 1: Viết test trước — `HologramHubView` tự có icon robot + panel, không dùng `showModalBottomSheet` nữa**
 
 ```dart
 // frontend/test/modules/hologram_hub/hologram_hub_view_chat_panel_test.dart
@@ -870,12 +870,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/hologram_hub_view_chat_panel_test.dart`
 Expected: FAIL — `HologramHubView` chưa có `FloatingVoiceHologram`/`DraggableChatPanel` trong cây widget.
 
-- [ ] **Step 3: Sửa `HologramHubView`**
+- [x] **Step 3: Sửa `HologramHubView`**
 
 Thêm import vào đầu `frontend/lib/modules/hologram_hub/views/hologram_hub_view.dart`:
 
@@ -967,19 +967,19 @@ decision), KHÔNG liên quan chat, để nguyên không đụng:
 - Dòng 898 (fallback cuối cùng của cùng method): `_openChatBottomSheet(context, controller);`
   → `Get.find<ChatPanelController>().open();`
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/hologram_hub_view_chat_panel_test.dart`
 Expected: PASS.
 
-- [ ] **Step 5: `dart analyze` sạch, chạy lại toàn bộ test hologram_hub**
+- [x] **Step 5: `dart analyze` sạch, chạy lại toàn bộ test hologram_hub**
 
 Run: `cd frontend && dart analyze lib/modules/hologram_hub/ && flutter test test/modules/hologram_hub/`
 Expected: No issues found; tất cả PASS — đặc biệt các test liên quan
 `maybeAutoOpenChatFromRoute`/auto-open từ route `/chat` (nếu có) vẫn phải
 pass với hành vi mới (mở `ChatPanelController` thay vì bottom sheet).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas

@@ -12,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/shell/app_shell_controller.dart';
-import 'package:frontend/core/shell/chat_panel_controller.dart';
 import 'package:frontend/core/ui/app_copy.dart';
 import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:frontend/modules/hologram_hub/controllers/founder_command_center_controller.dart';
