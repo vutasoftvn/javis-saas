@@ -18,6 +18,8 @@ import '../../../shared/widgets/stage_badge.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
 import '../controllers/hologram_hub_controller.dart';
 import '../presentation/widgets/cyber_circuit_background.dart';
+import '../../dashboard/models/dashboard_nav_config.dart';
+import '../../../core/routing/module_routes.dart';
 
 class HologramHubView extends StatelessWidget {
   const HologramHubView({super.key});
@@ -243,6 +245,23 @@ class HologramHubView extends StatelessWidget {
                         const CompanyScopeSwitcher(),
                         const SizedBox(width: 8),
                       ],
+
+                      // Module Switcher — thay cho sidebar không còn ở Hub
+                      IconButton(
+                        onPressed: () => _openModuleSwitcher(context),
+                        icon: const Icon(
+                          Icons.apps_rounded,
+                          color: Colors.white70,
+                          size: 20,
+                        ),
+                        tooltip: 'Chuyển module',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
 
                       // Dashboard Button — vào màn hình quản trị (Dashboard)
                       IconButton(
@@ -1072,6 +1091,65 @@ class HologramHubView extends StatelessWidget {
                 ],
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Task 4 (hub-no-sidebar) — Hub không còn sidebar riêng, icon menu ở header
+  // mở overlay này thay thế vai trò điều hướng module cũ. Tái dùng
+  // `DashboardNavConfig.coreNavGroups` (nguồn sự thật danh sách module) và
+  // `moduleForLegacyIndex` (Task 9) để lấy route canonical thật — không tự
+  // định nghĩa lại danh sách module ở đây.
+  void _openModuleSwitcher(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Material(
+            color: Colors.transparent,
+            child: ListView(
+              children: DashboardNavConfig.coreNavGroups.expand((group) {
+                return [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 6),
+                    child: Text(
+                      group.title,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  ...group.items.map((item) {
+                    final module = moduleForLegacyIndex(item.index);
+                    return ListTile(
+                      leading: Icon(item.icon, color: Colors.white70),
+                      title: Text(
+                        item.label,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      onTap: module == null
+                          ? null
+                          : () {
+                              Navigator.pop(ctx);
+                              Get.toNamed(module.path);
+                            },
+                    );
+                  }),
+                ];
+              }).toList(),
+            ),
           ),
         );
       },
