@@ -18,6 +18,7 @@ import '../../modules/workspace_picker/views/workspace_picker_view.dart';
 import '../../modules/workspace_picker/bindings/workspace_picker_binding.dart';
 import '../../modules/strategy/views/project_setup_view.dart';
 import '../../modules/strategy/controllers/project_setup_controller.dart';
+import '../../modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import '../shell/app_shell_controller.dart';
 
 /// Task 9 — `/dashboard` và `/hub` từng trỏ tới 2 view KHÁC NHAU
@@ -61,6 +62,15 @@ class AppPages {
         // FCC do shell sở hữu; route này có thể vào thẳng qua guard trước khi
         // AppShell mount, nên tự đảm bảo nó tồn tại.
         AppShellController.ensureShellDependencies();
+        // Guard redirect từ `/hub` bằng `offAllNamed`: FCC non-permanent của
+        // `DashboardBinding` vẫn còn sống lúc binding này chạy nên
+        // `ensureShellDependencies()` (guard `isRegistered`) KHÔNG nâng cấp nó;
+        // ngay sau đó `/hub` bị pop -> instance đó bị dispose -> `/projects/new`
+        // mất FCC. Ép instance hiện có (hoặc tạo mới) thành permanent.
+        final fcc = Get.isRegistered<FounderCommandCenterController>()
+            ? Get.find<FounderCommandCenterController>()
+            : FounderCommandCenterController();
+        Get.put<FounderCommandCenterController>(fcc, permanent: true);
         Get.lazyPut<ProjectSetupController>(() => ProjectSetupController());
       }),
       middlewares: [AuthMiddleware()],

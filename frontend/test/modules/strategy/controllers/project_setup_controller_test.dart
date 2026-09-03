@@ -108,4 +108,26 @@ void main() {
     expect(c.createdProjectId.value, 'proj-new');
     expect(c.phase.value, ProjectSetupPhase.kickoff);
   });
+
+  // Regression: guard redirect từ `/hub` bằng `offAllNamed` có thể dispose FCC
+  // non-permanent NGAY SAU khi `/projects/new` đã mount. `submitForm` gọi
+  // `_fcc.loadDashboardData()` -> trước fix thì `Get.find<FCC>()` ném
+  // "FounderCommandCenterController not found".
+  test('FCC bị dispose sau khi controller mount -> _fcc tự tạo lại, submitForm không ném',
+      () async {
+    Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    final c = Get.put<ProjectSetupController>(ProjectSetupController());
+    c.onInit();
+
+    // Mô phỏng `/hub` pop dọn FCC non-permanent của DashboardBinding.
+    Get.delete<FounderCommandCenterController>(force: true);
+    expect(Get.isRegistered<FounderCommandCenterController>(), isFalse);
+
+    await c.submitForm(title: 'COSA');
+
+    expect(Get.isRegistered<FounderCommandCenterController>(), isTrue);
+    expect(c.formError.value, isNull);
+    expect(c.createdProjectId.value, 'proj-new');
+    expect(c.phase.value, ProjectSetupPhase.kickoff);
+  });
 }

@@ -22,8 +22,19 @@ class ProjectSetupController extends GetxController {
   /// trong lúc `loadDashboardData()` còn chạy (cold entry). Dispose ở `onClose`.
   Worker? _resumeWorker;
 
-  FounderCommandCenterController get _fcc =>
-      Get.find<FounderCommandCenterController>();
+  /// FCC do shell sở hữu (`permanent: true`). Nhưng khi guard redirect từ
+  /// `/hub` bằng `offAllNamed`, FCC non-permanent của `DashboardBinding` có
+  /// thể bị dispose ngay sau khi `/projects/new` đã mount — để controller này
+  /// mất chỗ dựa. Tự tạo lại (permanent) nếu thiếu thay vì để `Get.find` ném.
+  FounderCommandCenterController get _fcc {
+    if (!Get.isRegistered<FounderCommandCenterController>()) {
+      Get.put<FounderCommandCenterController>(
+        FounderCommandCenterController(),
+        permanent: true,
+      );
+    }
+    return Get.find<FounderCommandCenterController>();
+  }
 
   bool get isOnboarding => _fcc.projectsList.isEmpty;
 
