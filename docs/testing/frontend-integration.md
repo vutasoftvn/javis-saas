@@ -205,3 +205,16 @@ trình là rủi ro vỡ cao hơn giá trị mang lại ở đây) — nó chỉ
 `flutter test <file> -d macos --dart-define=E2E_MODE=real ...` (từng file một
 — lý do ở mục 8 vẫn áp dụng y hệt cho `real` mode). Override URL qua
 `E2E_COMPANY_URL`/`E2E_COSA_URL`/`E2E_API_URL`/`E2E_FLUTTER_DEVICE`.
+
+## 11. Known issues
+
+- **B6** — `HologramHubController.resetForWorkspace` gọi `.clear()` trên các
+  `RxList` `ceoNextActions`/`projectsList` SAU KHI `hub_command_mixin.dart:118`
+  và `hub_stage_mixin.dart:74` đã gán thẳng list fallback `const []` (immutable)
+  của `StrategyListResult` vào chính hai field `RxList` đó. Gọi `.clear()` trên
+  một `RxList` đang trỏ vào literal `const []` ném
+  `UnsupportedError: Cannot change the length of an unmodifiable list`. Hệ quả:
+  `session_workspace_flow_test.dart` fail ở fixture mode trên `main` sạch (clean
+  main), **độc lập với nhánh làm việc này** — bug có sẵn từ trước (pre-existing),
+  không phải do slice P4–P5 (Tasks 16–19) gây ra hay sửa. Được ghi nhận là
+  follow-up, KHÔNG sửa code trong đợt fix wave này (ngoài phạm vi/scope).

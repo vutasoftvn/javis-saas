@@ -48,11 +48,23 @@ from tests.e2e.scenarios import (
 from tests.e2e.seed import entitlement, identity
 
 _URLS = {k: os.environ.get(f"E2E_BASE_URL_{k}", "").strip() for k in ("COMPANY", "COSA", "API")}
+_URLS_SET_COUNT = sum(1 for v in _URLS.values() if v)
 
-if not all(_URLS.values()):
+# Cả BA biến hoặc KHÔNG biến nào — đây là guard hợp lệ duy nhất. Set thiếu (1
+# hoặc 2 trong 3) là lỗi cấu hình của caller (`run-golden-path.sh` đã đổi trigger
+# external-branch để yêu cầu đủ cả ba — xem I-2 review round), không phải điều
+# kiện skip hợp lệ: skip im lặng ở đây từng khiến job báo xanh dù 3 test golden
+# path chưa chạy gì cả ("a skipped test is not a green release gate").
+if _URLS_SET_COUNT == 0:
     pytest.skip(
         "golden-path needs E2E_BASE_URL_COMPANY/_COSA/_API",
         allow_module_level=True,
+    )
+elif _URLS_SET_COUNT < 3:
+    pytest.fail(
+        "partial E2E_BASE_URL_* set (need all 3 or none): "
+        f"COMPANY={_URLS['COMPANY'] or '<unset>'} COSA={_URLS['COSA'] or '<unset>'} API={_URLS['API'] or '<unset>'}",
+        pytrace=False,
     )
 
 

@@ -14,8 +14,20 @@ if [ -z "$PYTEST_BIN" ]; then
   fi
 fi
 
-# Check if targeting external environment (staging / prod smoke)
-if [ -n "${E2E_BASE_URL_API:-}" ] || [ -n "${E2E_BASE_URL_COSA:-}" ] || [ -n "${E2E_BASE_URL_COMPANY:-}" ]; then
+# Check if targeting external environment (staging / prod smoke). Yêu cầu CẢ
+# BA biến E2E_BASE_URL_* — set thiếu (1 hoặc 2 trong 3) là lỗi cấu hình, phải
+# fail loud tại đây thay vì rơi xuống nhánh docker compose (rồi để
+# tests/e2e/test_golden_path.py âm thầm skip — "a skipped test is not a green
+# release gate", xem I-2 review round).
+_e2e_ext_count=0
+for _v in "${E2E_BASE_URL_API:-}" "${E2E_BASE_URL_COSA:-}" "${E2E_BASE_URL_COMPANY:-}"; do
+  [ -n "$_v" ] && _e2e_ext_count=$((_e2e_ext_count + 1))
+done
+if [ "$_e2e_ext_count" -gt 0 ] && [ "$_e2e_ext_count" -lt 3 ]; then
+  echo "ERROR: partial E2E_BASE_URL_* set (need all 3 or none): E2E_BASE_URL_API=${E2E_BASE_URL_API:-<unset>} E2E_BASE_URL_COSA=${E2E_BASE_URL_COSA:-<unset>} E2E_BASE_URL_COMPANY=${E2E_BASE_URL_COMPANY:-<unset>}" >&2
+  exit 1
+fi
+if [ "$_e2e_ext_count" -eq 3 ]; then
   echo "🚀 Running E2E Golden Path against external target:"
   echo "   E2E_BASE_URL_API:     ${E2E_BASE_URL_API:-default}"
   echo "   E2E_BASE_URL_COSA:    ${E2E_BASE_URL_COSA:-default}"

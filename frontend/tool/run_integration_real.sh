@@ -12,7 +12,7 @@
 #
 # Tiền đề: `make dev-stack` đã chạy VÀ được khởi động với
 # `E2E_TEST_SEED_ENABLED=1` (seed đi qua `POST /identity/_e2e/session`, handler
-# trả 404 nếu thiếu biến này). Ví dụ:
+# trả 403 permissionDenied — KHÔNG phải 404 — nếu thiếu biến này). Ví dụ:
 #   E2E_TEST_SEED_ENABLED=1 make dev-stack
 #
 # Override URL qua env: E2E_COMPANY_URL / E2E_COSA_URL / E2E_API_URL.
@@ -52,9 +52,15 @@ fi
 # Cảnh báo mềm nếu seed endpoint không bật — vẫn chạy để lỗi hiện rõ trong test.
 # Handler (`e2e-session.handler.ts`) ném `APIError.permissionDenied` (HTTP 403,
 # KHÔNG phải 404) khi thiếu `E2E_TEST_SEED_ENABLED=1` — xem review round 1.
-if curl -fsS -o /dev/null -w '%{http_code}' -X POST \
+# LƯU Ý (review round 2, M-1): KHÔNG dùng `curl -f` ở đây — `-f` làm curl exit
+# non-zero (22) ngay khi HTTP status >=400, trước khi `-w '%{http_code}'` kịp in
+# ra để grep đọc, nên nhánh `| grep -q '^403$'` phía sau không bao giờ khớp
+# (dead code dưới `set -euo pipefail`). Bắt status qua `-w`/`-o /dev/null` không
+# kèm `-f`, rồi so sánh chuỗi trực tiếp.
+_e2e_probe_code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
      -H 'content-type: application/json' -d '{}' \
-     "${COMPANY_URL}/identity/_e2e/session" 2>/dev/null | grep -q '^403$'; then
+     "${COMPANY_URL}/identity/_e2e/session" 2>/dev/null || true)
+if [ "$_e2e_probe_code" = "403" ]; then
   echo "  ⚠ POST ${COMPANY_URL}/identity/_e2e/session → 403: stack có vẻ KHÔNG"
   echo "    được khởi động với E2E_TEST_SEED_ENABLED=1 — seed sẽ fail."
 fi

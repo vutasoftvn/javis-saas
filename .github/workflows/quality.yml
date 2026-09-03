@@ -184,6 +184,9 @@ jobs:
         run: |
           (cd services/company && npm ci)
           (cd services/cosa && npm ci)
+      - name: Install Python deps (apps/cosa, packages/agent)
+        run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
       - name: Start Postgres (Homebrew, preinstalled on macos-latest runner image)
         run: |
           brew services start postgresql@14 || brew services start postgresql
@@ -198,8 +201,12 @@ jobs:
       - name: Run migrations
         run: node scripts/migrate.mjs
       - name: Boot dev stack in background
+        # `dev-stack-no-infra` (không phải `dev-stack`): job này KHÔNG có Docker
+        # (`dev-infra` cần docker compose, không hỗ trợ trên macos-latest runner
+        # của GitHub Actions) — Postgres đã được boot qua Homebrew + migrate ở 2
+        # step trên, nên bỏ qua `dev-infra`/`dev-migrate` và chỉ launch 4 process.
         run: |
-          nohup env E2E_TEST_SEED_ENABLED=1 make dev-stack > dev-stack.log 2>&1 &
+          nohup env E2E_TEST_SEED_ENABLED=1 make dev-stack-no-infra > dev-stack.log 2>&1 &
           echo $! > dev-stack.pid
       - name: Run integration_test files against real stack
         working-directory: frontend
@@ -1025,6 +1032,8 @@ jobs:
       - run: |
           pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
           pip install -r requirements-dev.txt pytest pytest-asyncio httpx pyjwt psycopg2-binary
+      - name: Materialize .env.e2e
+        run: cp .env.e2e.example .env.e2e
       - name: Run E2E Golden Path test suite
         run: bash scripts/e2e/run-golden-path.sh
       - uses: actions/upload-artifact@v4
