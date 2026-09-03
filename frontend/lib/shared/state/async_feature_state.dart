@@ -18,8 +18,8 @@ final class FeatureLoading<T> extends AsyncFeatureState<T> {
 /// khác nhau và đã được `AsyncFeatureState` phân biệt rạch ròi bằng loại biến
 /// thể (`FeatureData` vs `FeatureFailure`/`FeatureLoading`), không phải bằng
 /// nội dung của `value`. Thêm `FeatureEmpty` sẽ tạo một model song song không
-/// cần thiết — xem `FeatureStateView` (features/_shared/presentation) nơi
-/// UI tự quyết định hiển thị "rỗng" dựa trên `value.isEmpty` bên trong nhánh
+/// cần thiết — xem `FeatureStateView` (`shared/widgets/feature_state_view.dart`)
+/// nơi UI tự quyết định hiển thị "rỗng" dựa trên `value.isEmpty` bên trong nhánh
 /// `FeatureData`.
 final class FeatureData<T> extends AsyncFeatureState<T> {
   const FeatureData(this.value, this.meta);
