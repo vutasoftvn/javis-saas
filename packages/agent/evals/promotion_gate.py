@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -10,7 +10,7 @@ from agent.governance.contracts import PinnedSpecIdentity
 __all__ = ["PromotionGate", "PromotionGateResult", "PromotionIssueCode"]
 
 
-class PromotionIssueCode(str, Enum):
+class PromotionIssueCode(StrEnum):
     """Reason code có cấu trúc cho từng lý do reject — dùng để caller (vd.
     apps/cosa/events/trigger_promotion.py) rẽ nhánh theo code thay vì
     string-match trên `blocking_issues` (message tiếng Việt tự do, chỉ để
