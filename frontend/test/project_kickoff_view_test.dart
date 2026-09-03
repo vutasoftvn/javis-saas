@@ -107,7 +107,7 @@ void main() {
     evidenceLevel: KickoffEvidenceLevel.none,
   );
 
-  // roundStartDate cố định 2026-09-07 (Chủ Nhật) để lịch review deterministic:
+  // roundStartDate cố định 2026-09-07 (Thứ Hai) để lịch review deterministic:
   // weekday 5 (Thứ Sáu) + minGap 3 -> 11/09; 2 tuần -> 11/09 & 18/09.
   final completeP0Draft = ProjectOperatingSetup(
     projectId: 'p-1',

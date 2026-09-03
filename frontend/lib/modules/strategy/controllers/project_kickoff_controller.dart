@@ -124,20 +124,30 @@ class ProjectKickoffController extends GetxController {
     }
   }
 
-  // Mặc định vòng bắt đầu Thứ Hai kế tiếp (khớp backend nextMondayOnOrAfter:
-  // input là Thứ Hai -> trả về cùng ngày).
+  // Mặc định vòng bắt đầu Thứ Hai kế tiếp theo lịch LOCAL của founder (khớp
+  // backend nextMondayOnOrAfter: input là Thứ Hai -> trả về cùng ngày). Trả về
+  // dạng UTC date-only để `.toUtc()` trong model là no-op và giữ nguyên ngày
+  // lịch — nếu dùng local midnight, ở GMT+7 nó serialize lùi 1 ngày (Chủ Nhật
+  // 17:00Z) và backend (`startOfUtcDay`) lưu sai ngày.
   DateTime defaultRoundStart() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final add = today.weekday == DateTime.monday ? 0 : 8 - today.weekday;
-    return today.add(Duration(days: add));
+    final monday = today.add(Duration(days: add));
+    return DateTime.utc(monday.year, monday.month, monday.day);
   }
 
-  DateTime get effectiveRoundStart =>
-      roundStartDate.value ?? defaultRoundStart();
+  // Luôn UTC date-only: chuẩn hoá cả giá trị hydrate từ server lẫn giá trị
+  // founder chọn, để `roundStartDate!.toUtc().toIso8601String()` giữ nguyên
+  // ngày lịch.
+  DateTime get effectiveRoundStart {
+    final v = roundStartDate.value;
+    if (v == null) return defaultRoundStart();
+    return DateTime.utc(v.year, v.month, v.day);
+  }
 
   void setRoundStart(DateTime d) {
-    roundStartDate.value = DateTime(d.year, d.month, d.day);
+    roundStartDate.value = DateTime.utc(d.year, d.month, d.day);
   }
 
   // Lưu ngay khi danh sách đổi — trước fix, việc #3 (hoặc bất kỳ thay đổi nào

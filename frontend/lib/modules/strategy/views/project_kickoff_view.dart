@@ -1111,8 +1111,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppTheme.borderDark),
       ),
-      // `Wrap` thay cho `Row`: ở bậc layout hẹp (mobile / tablet 6/12) nhãn và
-      // hai dropdown xuống dòng thay vì tràn ngang (RenderFlex overflow).
+      // `Column`: hàng chọn ngày/giờ review + dòng lịch review đã resolve bên
+      // dưới. Hàng chọn dùng `Wrap` (thay `Row`) để ở bậc layout hẹp (mobile /
+      // tablet 6/12) nhãn và hai dropdown xuống dòng thay vì tràn ngang
+      // (RenderFlex overflow).
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1196,32 +1198,36 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             ],
           ),
           const SizedBox(height: 8),
-          Builder(
-            builder: (_) {
-              final sched = ReviewSchedule.resolve(
-                roundStart: controller.effectiveRoundStart,
-                weekday: controller.weeklyReviewWeekday.value,
-                time: controller.weeklyReviewTime.value,
-                durationWeeks: controller.stageDurationWeeks.value,
-              );
-              final dd = sched.occurrences
-                  .map(
-                    (d) =>
-                        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}',
-                  )
-                  .join(' & ');
-              final hh = controller.weeklyReviewTime.value;
-              return Text(
-                'Buổi review: $dd lúc $hh (giờ workspace) · lặp hằng tuần trong vòng.',
-                style: const TextStyle(
-                  color: AppTheme.textMutedDark,
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              );
-            },
-          ),
+          _reviewScheduleLine(),
         ],
+      ),
+    );
+  }
+
+  // Dòng lịch review đã resolve. Là method (không phải `Builder`) để các
+  // `controller.*.value` được đọc trong phạm vi theo dõi đồng bộ của `Obx` cha
+  // — `Builder.builder` chạy ngoài cửa sổ đó (cùng cơ chế lỗi với regression
+  // LayoutBuilder/Obx ghi ở đầu file).
+  Widget _reviewScheduleLine() {
+    final sched = ReviewSchedule.resolve(
+      roundStart: controller.effectiveRoundStart,
+      weekday: controller.weeklyReviewWeekday.value,
+      time: controller.weeklyReviewTime.value,
+      durationWeeks: controller.stageDurationWeeks.value,
+    );
+    final dd = sched.occurrences
+        .map(
+          (d) =>
+              '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}',
+        )
+        .join(' & ');
+    final hh = controller.weeklyReviewTime.value;
+    return Text(
+      'Buổi review: $dd lúc $hh (giờ workspace) · lặp hằng tuần trong vòng.',
+      style: const TextStyle(
+        color: AppTheme.textMutedDark,
+        fontSize: 12,
+        height: 1.4,
       ),
     );
   }
@@ -1241,15 +1247,19 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
         OutlinedButton.icon(
           onPressed: () async {
             final now = DateTime.now();
+            final firstDate = DateTime(now.year, now.month, now.day);
+            final lastDate = firstDate.add(const Duration(days: 60));
+            // Kẹp `initialDate` vào [firstDate, lastDate]: setup RESUME có thể
+            // mang `roundStartDate` đã ở quá khứ -> `showDatePicker` assert
+            // (`!initialDate.isBefore(firstDate)`) và văng màn đỏ.
+            final initialDate = d.isBefore(firstDate)
+                ? firstDate
+                : (d.isAfter(lastDate) ? lastDate : d);
             final picked = await showDatePicker(
               context: context,
-              initialDate: d,
-              firstDate: DateTime(now.year, now.month, now.day),
-              lastDate: DateTime(
-                now.year,
-                now.month,
-                now.day,
-              ).add(const Duration(days: 60)),
+              initialDate: initialDate,
+              firstDate: firstDate,
+              lastDate: lastDate,
             );
             if (picked != null) controller.setRoundStart(picked);
           },
