@@ -4,13 +4,9 @@ import { db, schema } from "../models/db";
 import { createProject } from "../handlers/project.handler";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import { materializeFirstWeekPlan } from "../strategy/services/project-kickoff-materialize.service";
-import { TenantContext } from "../../shared/types/tenant_context";
+import { makeTenantContext } from "./tenant-context.fixture";
 
 const { twelveWeekCycles, weeklyPlans, weeklyCommitments, tasks, taskProjects } = schema;
-
-async function makeCtx(ws: { workspaceId: string; userId: string }): Promise<TenantContext> {
-  return { workspaceId: ws.workspaceId, userId: ws.userId, membershipRole: "admin" };
-}
 
 const testTaskIds = [
   BigInt("1001"), BigInt("1002"),
@@ -35,7 +31,7 @@ describe("materializeFirstWeekPlan", () => {
       workspaceId: ws.workspaceId,
       title: "Materialize test project",
     });
-    const ctx = await makeCtx(ws);
+    const ctx = makeTenantContext({ workspaceId: ws.workspaceId, userId: ws.userId }, { membershipRole: "admin" });
 
     const actions = [
       { id: "1001", title: "Interview lead #1" },
@@ -84,7 +80,7 @@ describe("materializeFirstWeekPlan", () => {
       workspaceId: ws.workspaceId,
       title: "Reuse cycle test",
     });
-    const ctx = await makeCtx(ws);
+    const ctx = makeTenantContext({ workspaceId: ws.workspaceId, userId: ws.userId }, { membershipRole: "admin" });
 
     const firstTwo = [
       { id: "2001", title: "Action A" },
@@ -136,7 +132,7 @@ describe("materializeFirstWeekPlan", () => {
       workspaceId: ws.workspaceId,
       title: "Remove action test",
     });
-    const ctx = await makeCtx(ws);
+    const ctx = makeTenantContext({ workspaceId: ws.workspaceId, userId: ws.userId }, { membershipRole: "admin" });
 
     const threeActions = [
       { id: "3001", title: "Keep A" },

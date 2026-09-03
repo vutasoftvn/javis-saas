@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "../../models/db";
 import {
   twelveWeekCycles,
@@ -47,7 +47,7 @@ export async function materializeFirstWeekPlan(
   let [cycle] = await tx
     .select()
     .from(twelveWeekCycles)
-    .where(and(eq(twelveWeekCycles.projectId, pId), eq(twelveWeekCycles.workspaceId, wsId)))
+    .where(and(eq(twelveWeekCycles.projectId, pId), eq(twelveWeekCycles.workspaceId, wsId), isNull(twelveWeekCycles.deletedAt)))
     .orderBy(desc(twelveWeekCycles.createdAt))
     .limit(1);
 
@@ -104,23 +104,13 @@ export async function materializeFirstWeekPlan(
 
     const taskId = BigInt(action.id);
 
-    await tx
-      .insert(tasks)
-      .values({
-        id: taskId,
-        workspaceId: wsId,
-        title: action.title,
-        source: "project_kickoff",
-        weeklyCommitmentId: commitment!.id,
-      })
-      .onConflictDoUpdate({
-        target: tasks.id,
-        set: {
-          title: action.title,
-          weeklyCommitmentId: commitment!.id,
-          updatedAt: new Date(),
-        },
-      });
+    await tx.insert(tasks).values({
+      id: taskId,
+      workspaceId: wsId,
+      title: action.title,
+      source: "project_kickoff",
+      weeklyCommitmentId: commitment!.id,
+    });
 
     await tx
       .insert(taskProjects)
