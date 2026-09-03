@@ -15,6 +15,9 @@ import '../../modules/profile/views/profile_view.dart';
 import '../../modules/profile/bindings/profile_binding.dart';
 import '../../modules/workspace_picker/views/workspace_picker_view.dart';
 import '../../modules/workspace_picker/bindings/workspace_picker_binding.dart';
+import '../../modules/strategy/views/project_setup_view.dart';
+import '../../modules/strategy/controllers/project_setup_controller.dart';
+import '../shell/app_shell_controller.dart';
 
 /// Task 9 — `/dashboard` và `/hub` từng trỏ tới 2 view KHÁC NHAU
 /// (`DashboardView` so với `HologramHubView`), trùng lặp vai trò "hub". Nay
@@ -49,6 +52,17 @@ class AppPages {
       name: AppRoutes.register,
       page: () => const RegisterView(),
       binding: AuthBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.projectsNew,
+      page: () => const ProjectSetupView(),
+      binding: BindingsBuilder(() {
+        // FCC do shell sở hữu; route này có thể vào thẳng qua guard trước khi
+        // AppShell mount, nên tự đảm bảo nó tồn tại.
+        AppShellController.ensureShellDependencies();
+        Get.lazyPut<ProjectSetupController>(() => ProjectSetupController());
+      }),
+      middlewares: [AuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.workspacePicker,

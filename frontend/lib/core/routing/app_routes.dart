@@ -2,6 +2,7 @@ abstract class AppRoutes {
   static const initial = '/';
   static const login = '/login';
   static const register = '/register';
+  static const projectsNew = '/projects/new';
   static const companyPicker = '/company-picker'; // Deprecated, kept for compatibility
   static const workspacePicker = '/workspace-picker';
   
