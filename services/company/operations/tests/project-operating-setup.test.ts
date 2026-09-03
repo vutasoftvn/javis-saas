@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../models/db";
 import * as schema from "../../shared/db/schema/strategy";
+import { projects } from "../../shared/db/schema/operations";
 import { eventOutbox } from "../../shared/db/schema/integration";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { createProject, getProject } from "../handlers/project.handler";
@@ -479,6 +480,71 @@ describe("roundStartDate + stageTargetDate", () => {
         roundStartDate: "2020-01-01T00:00:00.000Z",
       })
     ).rejects.toThrow(/roundStartDate/);
+  });
+});
+
+describe("activate populates projects.start_date", () => {
+  it("set start_date = roundStartDate khi project chưa có start_date", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Start date backfill",
+    });
+
+    const res = await activateProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "CFOs",
+      problemStatement: "pain",
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      weeklyReviewWeekday: 5,
+      weeklyReviewTime: "16:00",
+      firstWeekOutcome: "Talk to 5 CFOs",
+      firstWeekActions: [{ title: "List 10 prospects" }],
+    });
+
+    expect(res.project.startDate).toBe(res.setup.roundStartDate);
+  });
+
+  it("không ghi đè start_date đã có", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Start date preserved",
+    });
+
+    // createProject không nhận start_date; preset trực tiếp cho fixture.
+    await db
+      .update(projects)
+      .set({ startDate: new Date("2026-01-01T00:00:00.000Z") })
+      .where(
+        and(
+          eq(projects.id, BigInt(project.id)),
+          eq(projects.workspaceId, BigInt(ws.workspaceId))
+        )
+      );
+
+    const res = await activateProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "CFOs",
+      problemStatement: "pain",
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      weeklyReviewWeekday: 5,
+      weeklyReviewTime: "16:00",
+      firstWeekOutcome: "Talk to 5 CFOs",
+      firstWeekActions: [{ title: "List 10 prospects" }],
+    });
+
+    expect(res.project.startDate).toBe("2026-01-01T00:00:00.000Z");
   });
 });
 

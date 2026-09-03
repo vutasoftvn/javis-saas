@@ -474,6 +474,14 @@ export async function activateProjectOperatingSetup(
       throw APIError.notFound("Project không tồn tại trong workspace này");
     }
 
+    // Mốc "đã triển khai bao lâu" cho Founder — chỉ set lần đầu, không ghi đè.
+    if (!proj.startDate) {
+      await tx
+        .update(projects)
+        .set({ startDate: roundStartDate })
+        .where(and(eq(projects.id, pId), eq(projects.workspaceId, wsId)));
+    }
+
     const [existing] = await tx
       .select({ firstWeekActions: projectOperatingSetups.firstWeekActions })
       .from(projectOperatingSetups)
