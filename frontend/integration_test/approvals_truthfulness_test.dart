@@ -5,6 +5,14 @@
 // có gì" (`FeatureData([])`) — hai trạng thái này khác nhau về BẢN CHẤT
 // (server có lỗi thật vs. server xác nhận không có approval nào) và UI không
 // được phép nhầm lẫn chúng.
+//
+// Task 18 — dual-mode. `E2E_MODE=fixture` (mặc định): y hệt hôm nay, fault
+// injection 503 qua `FixtureServer`. `E2E_MODE=real`: trỏ vào `apps/cosa` API
+// thật; fault 503 KHÔNG tái tạo được trên stack khoẻ, nên assertion
+// 503→`FeatureFailure` giữ nguyên là fixture-only (guard bên dưới) — phần real
+// chỉ khẳng định endpoint approval thật resolve về một trạng thái TERMINAL
+// (không kẹt loading, không bịa danh sách rỗng). Xem
+// `docs/testing/frontend-integration.md` §Dual-mode.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -21,16 +29,30 @@ import 'package:frontend/modules/approvals/views/approvals_view.dart';
 
 import 'support/fake_secret_store.dart';
 import 'support/fixture_server.dart';
+import 'support/real_stack_config.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  late FixtureServer fixture;
+  FixtureServer? fixture;
 
   setUp(() async {
     Get.testMode = true;
     SharedPreferences.setMockInitialValues({});
     SecureStorageService.configureForTest(FakeSecretStore());
+
+    if (RealStackConfig.isReal) {
+      // Chế độ real — seed danh tính THẬT (role founder) rồi cấp local token
+      // + workspace vào secure storage. `DefaultApiAuthResolver` đọc đúng hai
+      // key này (như nhánh fixture bên dưới), khác biệt duy nhất là giá trị
+      // đến từ `POST /identity/_e2e/session` thay vì hằng số.
+      final seeded = await seedRealCompanySession();
+      await SecureStorageService.write('local_session_token', seeded.accessToken);
+      await SecureStorageService.write('workspace_id', seeded.workspaceId);
+      RealStackConfig.pointApiClientAtRealStack();
+      return;
+    }
+
     // `DefaultApiAuthResolver` (dùng bởi `MvpRequestClient`) đọc
     // `local_session_token`/`workspace_id` từ đây — PHẢI seed đủ hai giá trị
     // này, nếu không request bị `MvpRequestClient` tự chặn TRƯỚC KHI chạm
@@ -39,21 +61,23 @@ void main() {
     await SecureStorageService.write('local_session_token', 'seed-token');
     await SecureStorageService.write('workspace_id', 'workspace-a');
 
-    fixture = FixtureServer(
+    final f = FixtureServer(
       platformToken: 'unused',
       localSessionToken: 'unused',
       workspaces: const [
         FixtureWorkspace(workspaceId: 'workspace-a', name: 'Workspace A'),
       ],
     )..approvalsUnavailable = true; // Fault injection §3 của brief.
-    await fixture.start();
+    await f.start();
+    fixture = f;
 
-    ApiClient.setAgentOsBaseUrl(fixture.origin);
+    ApiClient.setAgentOsBaseUrl(f.origin);
     ApiClient.clearRuntimeContext();
   });
 
   tearDown(() async {
-    await fixture.stop();
+    await fixture?.stop();
+    fixture = null;
     Get.reset();
     SecureStorageService.resetForTest();
   });
@@ -69,6 +93,23 @@ void main() {
 
       await tester.pumpWidget(GetMaterialApp(home: ApprovalsView()));
       await tester.pumpAndSettle();
+
+      if (RealStackConfig.isReal) {
+        // Fault 503 không tái tạo được trên stack khoẻ. Điều real mode CHỨNG
+        // MINH được B5-independent: gọi endpoint approval THẬT của `apps/cosa`
+        // → UI đạt một trạng thái TERMINAL thật (data HOẶC failure), KHÔNG
+        // kẹt `FeatureLoading`/`FeatureInitial` và KHÔNG có nhánh "bịa rỗng".
+        // Việc map chính xác 503→`FeatureFailure` vẫn do fixture mode phủ.
+        final stateName = controller.listState.value.runtimeType.toString();
+        expect(
+          stateName.startsWith('FeatureLoading') ||
+              stateName.startsWith('FeatureInitial'),
+          isFalse,
+          reason: 'real approval endpoint phải resolve về trạng thái terminal, '
+              'đang ở: $stateName',
+        );
+        return;
+      }
 
       // Structural — không suy diễn qua text: state thật sự PHẢI là
       // `FeatureFailure`, không phải `FeatureData` với `value` rỗng. So
