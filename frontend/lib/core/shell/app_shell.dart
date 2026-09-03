@@ -19,6 +19,7 @@ import 'package:get/get.dart';
 import '../../modules/dashboard/views/widgets/dashboard_sidebar.dart';
 import '../../modules/dashboard/views/widgets/dashboard_top_bar.dart';
 import '../../modules/dashboard/views/widgets/floating_voice_hologram.dart';
+import '../../modules/hologram_hub/widgets/draggable_chat_panel.dart';
 import '../routing/module_routes.dart';
 import '../theme/app_theme.dart';
 import '../widgets/runtime_app_chrome.dart';
@@ -64,6 +65,7 @@ class AppShell extends StatelessWidget {
                   ),
                 ),
                 const FloatingVoiceHologram(),
+                const DraggableChatPanel(),
               ],
             ),
           ),
@@ -89,6 +91,7 @@ class AppShell extends StatelessWidget {
               child: child,
             ),
             const FloatingVoiceHologram(),
+            const DraggableChatPanel(),
           ],
         ),
       ),

@@ -40,6 +40,7 @@ import 'package:frontend/modules/approvals/views/approvals_view.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
+import 'package:frontend/modules/hologram_hub/widgets/draggable_chat_panel.dart';
 import 'package:frontend/modules/settings/bindings/settings_binding.dart';
 import 'package:frontend/modules/settings/views/settings_view.dart';
 import 'package:frontend/modules/tasks/bindings/tasks_binding.dart';
@@ -311,4 +312,13 @@ void main() {
       expect(find.byType(SettingsView), findsNothing);
     },
   );
+
+  testWidgets('AppShell includes DraggableChatPanel alongside the voice orb', (
+    tester,
+  ) async {
+    await pumpShellAt(tester, WorkspaceModule.tasks.path);
+    expect(find.byType(TasksView), findsOneWidget);
+
+    expect(find.byType(DraggableChatPanel), findsOneWidget);
+  });
 }
