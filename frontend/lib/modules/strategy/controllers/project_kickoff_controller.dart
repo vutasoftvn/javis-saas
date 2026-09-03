@@ -198,6 +198,11 @@ class ProjectKickoffController extends GetxController {
     try {
       final updated = await _service.saveDraft(projectId.value, buildDraft());
       setup.value = updated;
+      // Adopt server-assigned IDs từ response để tránh churn task ở backend.
+      // Backend luôn gán id ổn định cho mỗi action; nếu id không được sync lại
+      // vào firstWeekActions RxList, lần save tiếp theo sẽ gửi lên action cũ
+      // mà id: null → backend sinh id MỚI → materialize churn task/commitment
+      firstWeekActions.assignAll(updated.firstWeekActions);
       return true;
     } catch (e) {
       errorMessage.value = e.toString();

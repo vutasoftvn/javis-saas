@@ -29,6 +29,15 @@ class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
     ProjectOperatingSetupDraft draft,
   ) async {
     saveDraftCallCount++;
+    // Mô phỏng hành vi backend: gán id ổn định cho mỗi action nếu chưa có
+    final actionWithIds = draft.firstWeekActions
+        .map(
+          (a) => FirstWeekActionDraft(
+            id: a.id ?? 'id-action-${saveDraftCallCount}-${draft.firstWeekActions.indexOf(a)}',
+            title: a.title,
+          ),
+        )
+        .toList();
     _setup = ProjectOperatingSetup(
       projectId: projectId,
       workspaceId: 'w-1',
@@ -41,7 +50,7 @@ class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
       weeklyReviewWeekday: draft.weeklyReviewWeekday,
       weeklyReviewTime: draft.weeklyReviewTime,
       firstWeekOutcome: draft.firstWeekOutcome,
-      firstWeekActions: draft.firstWeekActions,
+      firstWeekActions: actionWithIds,
     );
     return _setup;
   }
@@ -245,4 +254,56 @@ void main() {
     expect(fakeService.activateCallCount, 1);
     expect(controller.setup.value?.status, OperatingSetupStatus.active);
   });
+
+  test(
+    'saveCurrentStep adopts server-assigned action IDs to prevent task churn',
+    () async {
+      // Hồi quy: sau fix sơ bộ auto-save, mỗi lần addAction() hay updateWeeklyReviewCadence()
+      // gọi saveCurrentStep(), nhưng id từ server không bao giờ được copy lại vào
+      // firstWeekActions RxList → list cục bộ vẫn có id: null → lần save tiếp theo
+      // backend sinh id MỚI cho mọi action → hệ thống materialize churn task mỗi lần
+      final fakeService = FakeProjectOperatingSetupService();
+      final controller = ProjectKickoffController(service: fakeService);
+      await controller.load('p-1');
+
+      // Thêm action đầu tiên
+      await controller.addAction('Interview lead #1');
+      expect(fakeService.saveDraftCallCount, 1);
+      final firstActionId = controller.firstWeekActions.first.id;
+      expect(
+        firstActionId,
+        isNotNull,
+        reason:
+            'Sau saveCurrentStep(), action phải có id từ server, không null',
+      );
+
+      // Thêm action thứ hai — nếu bug vẫn tồn tại, lần save này sẽ sinh id MỚI
+      // cho action #1 cũ vì action #1 vẫn có id: null
+      await controller.addAction('Interview lead #2');
+      expect(fakeService.saveDraftCallCount, 2);
+
+      // Kiểm tra action #1 giữ nguyên id (không bị tạo lại)
+      final firstActionIdAfterSecondSave =
+          controller.firstWeekActions[0].id;
+      expect(
+        firstActionIdAfterSecondSave,
+        equals(firstActionId),
+        reason:
+            'Action #1 phải giữ nguyên id, không được tạo id mới mỗi lần save',
+      );
+
+      // Kiểm tra action #2 có id gán từ lần save thứ 2
+      final secondActionId = controller.firstWeekActions[1].id;
+      expect(
+        secondActionId,
+        isNotNull,
+        reason: 'Action #2 phải có id từ server',
+      );
+      expect(
+        secondActionId,
+        isNot(equals(firstActionId)),
+        reason: 'Action #2 phải có id khác action #1',
+      );
+    },
+  );
 }
