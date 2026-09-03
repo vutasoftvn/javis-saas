@@ -28,7 +28,7 @@ export const tasks = operatingSchema.table("tasks", {
   source: text("source"),
   completionPolicy: text("completion_policy"),
   initiativeId: bigint("initiative_id", { mode: "bigint" }).references(() => initiatives.id, { onDelete: "set null" }),
-  weeklyCommitmentId: bigint("weekly_commitment_id", { mode: "bigint" }),
+  weeklyCommitmentId: bigint("weekly_commitment_id", { mode: "bigint" }).references(() => weeklyCommitments.id, { onDelete: "set null" }),
   sortKey: doublePrecision("sort_key"),
   assigneeMemberId: bigint("assignee_member_id", { mode: "bigint" }),
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
@@ -114,7 +114,7 @@ export const keyResults = strategySchema.table("key_results", {
 export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }),
+  projectId: bigint("project_id", { mode: "bigint" }).references(() => projects.id, { onDelete: "set null" }),
   theme: varchar("theme", { length: 255 }),
   visionStatement: text("vision_statement").default("").notNull(),
   stageAtStart: varchar("stage_at_start", { length: 50 }).default("S1_PROBLEM_VALIDATION").notNull(),
