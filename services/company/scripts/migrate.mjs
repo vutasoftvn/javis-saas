@@ -36,6 +36,7 @@ const MIGRATION_DIRS = [
   { service: "finance-legal", dir: join(__dirname, "../finance-legal/migrations") },
   { service: "identity", dir: join(__dirname, "../identity/migrations") },
   { service: "operations", dir: join(__dirname, "../operations/migrations") },
+  { service: "academy", dir: join(__dirname, "../academy/migrations") },
 ];
 
 function sortByNumericPrefix(files) {
