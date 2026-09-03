@@ -34,6 +34,8 @@ class WorkOverviewController extends GetxController {
   /// Điểm thực thi tuần hiện tại của chu kỳ 12WY, null khi chưa tải hoặc
   /// chưa có chu kỳ active.
   final twelveWyExecutionScore = RxnDouble();
+  final isOkrSummaryLoading = false.obs;
+  final okrSummaryError = RxnString();
 
   /// Project đang được chọn trong dropdown "Thông tin quản trị project".
   final selectedProjectId = RxnString();
@@ -95,19 +97,27 @@ class WorkOverviewController extends GetxController {
   /// Tính tỉ lệ hoàn thành OKR trung bình từ các key result (current/target,
   /// clamp 0-1) và đọc điểm thực thi tuần 12WY của project đang chọn.
   Future<void> loadOkrAndTwelveWySummary() async {
-    final krResult = await _okrService.getKeyResults();
-    if (!krResult.isFailure && krResult.items.isNotEmpty) {
-      final ratios = krResult.items.map((kr) {
-        final current = (kr['current_value'] as num?)?.toDouble() ?? 0.0;
-        final target = (kr['target_value'] as num?)?.toDouble() ?? 0.0;
-        if (target <= 0) return 0.0;
-        return (current / target).clamp(0.0, 1.0);
-      });
-      okrCompletionRatio.value = ratios.reduce((a, b) => a + b) / ratios.length;
-    }
+    isOkrSummaryLoading.value = true;
+    okrSummaryError.value = null;
+    try {
+      final krResult = await _okrService.getKeyResults();
+      if (!krResult.isFailure && krResult.items.isNotEmpty) {
+        final ratios = krResult.items.map((kr) {
+          final current = (kr['current_value'] as num?)?.toDouble() ?? 0.0;
+          final target = (kr['target_value'] as num?)?.toDouble() ?? 0.0;
+          if (target <= 0) return 0.0;
+          return (current / target).clamp(0.0, 1.0);
+        });
+        okrCompletionRatio.value = ratios.reduce((a, b) => a + b) / ratios.length;
+      }
 
-    final dashboard = await _twelveWyService.getDashboard(selectedProjectId.value);
-    twelveWyExecutionScore.value = dashboard?.currentWeekExecutionScore;
+      final dashboard = await _twelveWyService.getDashboard(selectedProjectId.value);
+      twelveWyExecutionScore.value = dashboard?.currentWeekExecutionScore;
+    } catch (e) {
+      okrSummaryError.value = e.toString();
+    } finally {
+      isOkrSummaryLoading.value = false;
+    }
   }
 
   /// Đếm số task theo từng trạng thái, luôn có đủ tất cả status (mặc định 0).

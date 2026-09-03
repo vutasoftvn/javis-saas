@@ -23,6 +23,16 @@ class FakeOkrService extends OkrService {
   }
 }
 
+/// Fake ném lỗi để tái hiện đúng finding 1: `getKeyResults()` fail (vd lỗi
+/// secure-storage khi đọc workspace id) không được phép trở thành unhandled
+/// async exception — phải bị bắt và phản ánh qua `okrSummaryError`.
+class ThrowingOkrService extends OkrService {
+  @override
+  Future<StrategyListResult<Map<String, dynamic>>> getKeyResults({String? objectiveId}) async {
+    throw Exception('secure-storage fail-closed: không đọc được workspace id');
+  }
+}
+
 class FakeTwelveWyService extends TwelveWyService {
   @override
   Future<TwelveWyDashboardModel?> getDashboard(dynamic projectId) async {
@@ -185,5 +195,41 @@ void main() {
 
     expect(controller.okrCompletionRatio.value, 0.75); // avg(50/100, 100/100)
     expect(controller.twelveWyExecutionScore.value, 0.75);
+    expect(controller.isOkrSummaryLoading.value, isFalse);
+    expect(controller.okrSummaryError.value, isNull);
   });
+
+  test('loadOkrAndTwelveWySummary sets isOkrSummaryLoading while pending', () async {
+    final controller = WorkOverviewController(
+      tasksController: TasksController(),
+      okrService: FakeOkrService(),
+      twelveWyService: FakeTwelveWyService(),
+    );
+
+    final future = controller.loadOkrAndTwelveWySummary();
+    expect(controller.isOkrSummaryLoading.value, isTrue);
+
+    await future;
+    expect(controller.isOkrSummaryLoading.value, isFalse);
+  });
+
+  test(
+    'loadOkrAndTwelveWySummary catches a thrown exception (vd lỗi secure-storage) '
+    'into okrSummaryError thay vì ném ra ngoài unhandled',
+    () async {
+      final controller = WorkOverviewController(
+        tasksController: TasksController(),
+        okrService: ThrowingOkrService(),
+        twelveWyService: FakeTwelveWyService(),
+      );
+
+      // Không được throw ra khỏi hàm — lỗi phải được bắt lại và phản ánh qua
+      // `okrSummaryError`.
+      await controller.loadOkrAndTwelveWySummary();
+
+      expect(controller.okrSummaryError.value, isNotNull);
+      expect(controller.isOkrSummaryLoading.value, isFalse);
+      expect(controller.okrCompletionRatio.value, isNull);
+    },
+  );
 }

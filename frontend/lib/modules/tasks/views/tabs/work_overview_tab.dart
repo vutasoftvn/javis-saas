@@ -97,8 +97,21 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
   /// vào điều hướng sang tab Chiến lược (`WorkspaceModule.strategy.path`).
   Widget _buildOkrTwelveWySummary() {
     return Obx(() {
+      final isLoading = controller.isOkrSummaryLoading.value;
+      final error = controller.okrSummaryError.value;
       final okr = controller.okrCompletionRatio.value;
       final wy = controller.twelveWyExecutionScore.value;
+
+      if (isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (error != null) {
+        return Text(
+          'Không tải được OKR/12WY: $error',
+          style: const TextStyle(color: AppTheme.error, fontSize: 13),
+        );
+      }
+
       return Row(
         children: [
           Expanded(
