@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 import 'package:frontend/core/routing/app_pages.dart';
 import 'package:frontend/core/routing/app_routes.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';

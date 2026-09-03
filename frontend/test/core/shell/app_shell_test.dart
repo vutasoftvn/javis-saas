@@ -3,13 +3,19 @@
 // đúng route trước đó (Tasks) thay vì "reset index" như hành vi cũ của
 // `DashboardContentBody`/`changePage`.
 //
-// SỬA LỖI review (Critical #1 + #2, root-cause fix) — file này bổ sung 2 test
-// theo đúng đường đi mà review chỉ ra bug: (a) Hub → module đã migrate →
-// back → phải VỀ ĐÚNG Hub, không lặp lại vào chính module vừa rời (Critical
-// #1 — do `AppShell` từng ghi đè `DashboardController.currentIndex`, khiến
-// `DashboardContentBody` ở `/hub` "nhớ nhầm" và tự redirect lại). (b) Từ 1
-// route module đã migrate, bấm 1 mục sidebar CHƯA migrate phải điều hướng về
-// Hub và hiển thị đúng tab cũ đó, không phải "dead click" (Critical #2).
+// SỬA LỖI review (Critical #1, root-cause fix) — file này chứng minh: Hub →
+// module đã migrate → back → phải VỀ ĐÚNG Hub, không lặp lại vào chính
+// module vừa rời (do `AppShell` từng ghi đè `DashboardController.
+// currentIndex`, khiến `DashboardContentBody` ở `/hub` "nhớ nhầm" và tự
+// redirect lại — cơ chế đó đã bị xoá hẳn ở Task 6 của plan "Hub không
+// sidebar", `/hub` giờ luôn là `HologramHubView` cố định).
+//
+// Critical #2 (dead-click khi bấm 1 mục sidebar CHƯA migrate) đã bị XOÁ khỏi
+// file này — sau khi Task 2 của plan "Hub không sidebar" migrate nốt 10 module
+// còn lại (OKRs, 12WY, Dự án...), không còn mục sidebar nào "chưa migrate"
+// để tái hiện kịch bản này nữa (`moduleForLegacyIndex` trả về route thật cho
+// MỌI index trong `DashboardNavConfig`) — bug này không còn khả năng tái
+// hiện được bởi chính kiến trúc mới, không phải do thiếu test.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -33,12 +39,9 @@ import 'package:frontend/modules/approvals/services/approvals_service.dart';
 import 'package:frontend/modules/approvals/views/approvals_view.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
-import 'package:frontend/modules/dashboard/views/dashboard_view.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
 import 'package:frontend/modules/settings/bindings/settings_binding.dart';
 import 'package:frontend/modules/settings/views/settings_view.dart';
-import 'package:frontend/modules/strategy/controllers/strategy_controller.dart';
-import 'package:frontend/modules/strategy/views/okrs_view.dart';
 import 'package:frontend/modules/tasks/bindings/tasks_binding.dart';
 import 'package:frontend/modules/tasks/views/tasks_view.dart';
 
@@ -70,17 +73,15 @@ class _NoopApprovalsService implements ApprovalsService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// `/hub` thật dùng `DashboardBinding` (đăng ký ~10 controller cho các mục
-/// sidebar chưa migrate — Organization/WorkspaceRuntime/SkillRegistry/...).
-/// Test này chỉ cần đúng phần liên quan tới kịch bản đang chứng minh: chrome
-/// (qua `AppShellController.ensureShellDependencies`, đã bao gồm
-/// `DashboardController`/`HologramHubController`) + `StrategyController` cho
-/// case OKRs (mục sidebar chưa migrate dùng trong test (b)).
+/// `/hub` thật giờ render `HologramHubView` trực tiếp (không còn `AppShell`/
+/// `DashboardBinding`) — dùng đúng binding thật của route đó
+/// (`app_pages.dart`): chỉ cần `AppShellController.ensureShellDependencies()`
+/// để có `FounderCommandCenterController`/`DashboardController`/
+/// `HologramHubController` mà `HologramHubView` cần.
 class _TestHubBinding extends Bindings {
   @override
   void dependencies() {
     AppShellController.ensureShellDependencies();
-    Get.lazyPut<StrategyController>(() => StrategyController());
   }
 }
 
@@ -132,7 +133,7 @@ Future<void> pumpShellAt(WidgetTester tester, String initialRoute) async {
     getPages: [
       GetPage(
         name: AppRoutes.hub,
-        page: () => const DashboardView(),
+        page: () => const HologramHubView(),
         binding: _TestHubBinding(),
         middlewares: [AuthMiddleware()],
       ),
@@ -265,35 +266,6 @@ void main() {
 
       expect(Get.currentRoute, AppRoutes.hub);
       expect(find.byType(HologramHubView), findsOneWidget);
-      expect(find.byType(TasksView), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'tapping an unmigrated sidebar entry from a migrated module route navigates to Hub and renders that tab (Critical #2 regression)',
-    (tester) async {
-      await pumpShellAt(tester, WorkspaceModule.tasks.path);
-      expect(find.byType(TasksView), findsOneWidget);
-
-      // "OKRs" (index 27, chưa migrate) nằm trong nhóm "Chu kỳ & Chiến lược"
-      // (index 1) — mở nhóm trước khi tap, giống hành vi người dùng thật.
-      _expandSidebarGroup(1);
-      await tester.pump();
-
-      await tester.tap(find.text('OKRs'));
-      await tester.pump();
-      // `Get.offNamed` thay stack qua 1 animation transition (mặc định
-      // ~300ms) — route cũ (`/work/tasks`) vẫn còn mounted trong lúc chuyển
-      // cảnh; bơm đủ lâu để transition xong và nó thực sự bị dispose trước
-      // khi assert `findsNothing`.
-      await tester.pump(const Duration(milliseconds: 400));
-      _drainCosmeticOverflowExceptions(tester);
-
-      // Bug cũ: chỉ `changePage` được gọi, không điều hướng — màn hình vẫn
-      // là `TasksView` cố định (không đọc `currentIndex`) nên không có gì
-      // đổi: "dead click".
-      expect(Get.currentRoute, AppRoutes.hub);
-      expect(find.byType(OkrsView), findsOneWidget);
       expect(find.byType(TasksView), findsNothing);
     },
   );

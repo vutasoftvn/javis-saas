@@ -8,9 +8,13 @@ import '../../controllers/dashboard_controller.dart';
 import '../../models/dashboard_nav_config.dart';
 import 'dashboard_stage_demo_bar.dart';
 
-/// Điều hướng mục sidebar — với các mục ĐÃ migrate, dùng route canonical
-/// thật; với mục chưa migrate (chưa có route), fallback đổi tab trong
-/// `DashboardContentBody` tại `/hub`.
+/// Điều hướng mục sidebar bằng route canonical thật — mọi mục trong
+/// `DashboardNavConfig` giờ đều có route (`moduleForLegacyIndex` không còn
+/// trả về null cho bất kỳ index nào sau khi migrate xong toàn bộ 21 module).
+/// `controller.changePage(...)` ở nhánh dưới chỉ còn là fallback phòng thủ
+/// cho index lạ không nằm trong `DashboardNavConfig` — không còn ảnh hưởng gì
+/// tới nội dung hiển thị (`DashboardContentBody` đã bị xoá), chỉ còn tác
+/// dụng phụ với highlight sidebar nếu có.
 void _goToHubLanding(DashboardController controller) {
   controller.changePage(0, 0);
   if (Get.currentRoute != AppRoutes.hub) {

@@ -20,11 +20,9 @@ import '../../modules/strategy/controllers/project_setup_controller.dart';
 import '../../modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import '../shell/app_shell_controller.dart';
 
-/// Task 9 — `/dashboard` và `/hub` từng trỏ tới 2 view KHÁC NHAU
-/// (`DashboardView` so với `HologramHubView`), trùng lặp vai trò "hub". Nay
-/// `/hub` là route canonical DUY NHẤT host `DashboardView` (chrome
-/// `AppShell` + `DashboardContentBody` cho các mục sidebar chưa migrate);
-/// `/dashboard` chỉ còn là alias redirect sang `/hub`.
+/// Task 9-6 — `/dashboard` và `/hub` từng trỏ tới 2 view khác (lặp vai trò).
+/// Nay `/hub` render `HologramHubView` trực tiếp (không `AppShell`/sidebar);
+/// `/dashboard` là alias redirect sang `/hub`.
 class AppPages {
   static const initial = AppRoutes.login;
 
