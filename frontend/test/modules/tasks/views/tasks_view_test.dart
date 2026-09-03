@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:frontend/core/runtime/mutation_gate.dart';
 import 'package:frontend/modules/tasks/controllers/tasks_controller.dart';
+import 'package:frontend/modules/tasks/controllers/work_overview_controller.dart';
 import 'package:frontend/modules/tasks/views/tasks_view.dart';
 import 'package:frontend/modules/tasks/views/tabs/work_overview_tab.dart';
 
@@ -25,6 +26,9 @@ void main() {
     final controller = TestTasksController(mutationGate: MockMutationGate());
     controller.isLoading.value = false;
     Get.put<TasksController>(controller);
+    Get.put<WorkOverviewController>(
+      WorkOverviewController(tasksController: controller),
+    );
 
     await tester.pumpWidget(
       const GetMaterialApp(home: Scaffold(body: TasksView())),
