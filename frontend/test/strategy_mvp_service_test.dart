@@ -93,4 +93,49 @@ void main() {
     expect(success.data.first.name, 'Lean Canvas');
     expect(success.meta.dataState, ApiDataState.populated);
   });
+
+  test('updateWeeklyPlan sends PATCH with review fields and decodes response', () async {
+    final mockHttp = MockClient((request) async {
+      expect(request.method, 'PATCH');
+      expect(request.url.path, '/operations/twelve-week-plans/plan-1');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['executionScore'], 90);
+      expect(body['outcomeScore'], 80);
+      expect(body['reflection'], 'Tốt');
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'id': 'plan-1',
+            'workspaceId': 'ws_1001',
+            'cycleId': 'cycle-1',
+            'weekNo': 1,
+            'executionScore': 90,
+            'outcomeScore': 80,
+            'reflection': 'Tốt',
+            'createdAt': '2026-08-31T12:00:00.000Z',
+          },
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-08-31T12:00:00.000Z',
+            'sources': [{'kind': 'company_db', 'ref': 'operations.weekly_plans'}],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final service = StrategyMvpClient(client: requestClient);
+
+    final result = await service.updateWeeklyPlan(
+      id: 'plan-1',
+      executionScore: 90,
+      outcomeScore: 80,
+      reflection: 'Tốt',
+    );
+
+    expect(result, isA<ApiSuccess<MvpWeeklyPlan>>());
+    expect((result as ApiSuccess<MvpWeeklyPlan>).data.executionScore, 90);
+  });
 }

@@ -112,4 +112,18 @@ class TwelveWyService {
   Future<ApiResult<List<MvpWeeklyCommitment>>> getWeeklyCommitments() async {
     return _client.listTwelveWeekCommitments();
   }
+
+  Future<ApiResult<MvpWeeklyPlan>> updateWeeklyPlan({
+    required String id,
+    double? executionScore,
+    double? outcomeScore,
+    String? reflection,
+  }) async {
+    return _client.updateWeeklyPlan(
+      id: id,
+      executionScore: executionScore,
+      outcomeScore: outcomeScore,
+      reflection: reflection,
+    );
+  }
 }

@@ -215,4 +215,22 @@ class StrategyMvpClient {
       },
     );
   }
+
+  Future<ApiResult<MvpWeeklyPlan>> updateWeeklyPlan({
+    required String id,
+    double? executionScore,
+    double? outcomeScore,
+    String? reflection,
+  }) async {
+    return _client.request<MvpWeeklyPlan>(
+      MvpEndpoint.strategyTwelveWeekPlanUpdate,
+      pathParams: {'id': id},
+      body: {
+        'executionScore': ?executionScore,
+        'outcomeScore': ?outcomeScore,
+        'reflection': ?reflection,
+      },
+      decode: (json) => MvpWeeklyPlan.fromJson(json as Map<String, dynamic>),
+    );
+  }
 }

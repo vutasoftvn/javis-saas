@@ -19,6 +19,7 @@ class MockStrategyMvpClient implements StrategyMvpClient {
   Future<ApiResult<List<MvpTwelveWeekCycle>>> Function()? _listTwelveWeekCyclesImpl;
   Future<ApiResult<List<MvpWeeklyPlan>>> Function()? _listTwelveWeekPlansImpl;
   Future<ApiResult<List<MvpWeeklyCommitment>>> Function()? _listTwelveWeekCommitmentsImpl;
+  Future<ApiResult<MvpWeeklyPlan>> Function()? _updateWeeklyPlanImpl;
 
   void setListTwelveWeekCyclesResult(Future<ApiResult<List<MvpTwelveWeekCycle>>> result) {
     _listTwelveWeekCyclesImpl = () => result;
@@ -30,6 +31,10 @@ class MockStrategyMvpClient implements StrategyMvpClient {
 
   void setListTwelveWeekCommitmentsResult(Future<ApiResult<List<MvpWeeklyCommitment>>> result) {
     _listTwelveWeekCommitmentsImpl = () => result;
+  }
+
+  void setUpdateWeeklyPlanResult(Future<ApiResult<MvpWeeklyPlan>> result) {
+    _updateWeeklyPlanImpl = () => result;
   }
 
   @override
@@ -58,6 +63,21 @@ class MockStrategyMvpClient implements StrategyMvpClient {
       return _listTwelveWeekCommitmentsImpl!();
     }
     return ApiFailure<List<MvpWeeklyCommitment>>(
+      _failureDetail(ApiFailureCode.unknown),
+    );
+  }
+
+  @override
+  Future<ApiResult<MvpWeeklyPlan>> updateWeeklyPlan({
+    required String id,
+    double? executionScore,
+    double? outcomeScore,
+    String? reflection,
+  }) async {
+    if (_updateWeeklyPlanImpl != null) {
+      return _updateWeeklyPlanImpl!();
+    }
+    return ApiFailure<MvpWeeklyPlan>(
       _failureDetail(ApiFailureCode.unknown),
     );
   }
@@ -442,6 +462,27 @@ void main() {
       final result = await service.getWeeklyPlans();
 
       expect(result, isA<ApiFailure>());
+    });
+
+    test('updateWeeklyPlan forwards to StrategyMvpClient.updateWeeklyPlan', () async {
+      final mockClient = MockStrategyMvpClient();
+      final updatedPlan = MvpWeeklyPlan(
+        id: 'plan-1',
+        workspaceId: '123',
+        cycleId: '1',
+        weekNo: 1,
+        executionScore: 60,
+        createdAt: '2026-01-01T00:00:00Z',
+      );
+      mockClient.setUpdateWeeklyPlanResult(Future.value(_success(updatedPlan)));
+
+      final service = TwelveWyService(client: mockClient);
+      final result = await service.updateWeeklyPlan(id: 'plan-1', executionScore: 60);
+
+      expect(result, isA<ApiSuccess>());
+      if (result is ApiSuccess) {
+        expect(result.dataOrNull!.executionScore, 60);
+      }
     });
   });
 }
