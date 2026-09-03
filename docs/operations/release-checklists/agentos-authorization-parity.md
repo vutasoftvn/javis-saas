@@ -1,7 +1,7 @@
 # AgentOS Authorization & Frontend Parity — Release Checklist
 
 **Nguồn:** Task 11 của
-[`docs/superpowers/plans/2026-08-31-agentos-auth-contract-frontend-parity.md`](../../superpowers/plans/2026-08-31-agentos-auth-contract-frontend-parity.md),
+`docs/superpowers/plans/2026-08-31-agentos-auth-contract-frontend-parity.md` (đã gỡ khỏi repo tại commit `3c0234ec`),
 đóng lại các finding trong
 [`docs/architecture/reports/2026-08-31-agentos-auth-contract-parity-audit.md`](../../architecture/reports/2026-08-31-agentos-auth-contract-parity-audit.md).
 

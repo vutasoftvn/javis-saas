@@ -16,7 +16,7 @@ Nhưng:
 - [packages/agent/knowledge/providers/postgres.py:186-252](../../../../packages/agent/knowledge/providers/postgres.py#L186-L252) —
   `get_document(doc_id)` query `WHERE id = :id`, **không** workspace context.
 - Vault frontend còn nhét `brain_id` vào mọi path
-  ([frontend/lib/modules/vault/services/vault_service.dart](../../../../frontend/lib/modules/vault/services/vault_service.dart)),
+  ([frontend/lib/modules/vault/services/evidence_service.dart](../../../../frontend/lib/modules/vault/services/evidence_service.dart)),
   trong khi backend đã drop ghost brain fields.
 - Chưa có per-workspace encryption key / backup manifest / sync cursor / conflict area
   (per-workspace *quota* đã có một phần trong `budget_gate.py`).
@@ -118,7 +118,7 @@ SopVersion      { id(Snowflake), workspace_id, sop_id, content_object_ref, norma
   key + chấp nhận giới hạn background automation (ghi rõ, không tự bật).
 
 ### 7. Bỏ `brain_id` khỏi frontend (audit §3.12, §9.3.8)
-- [frontend/lib/modules/vault/services/vault_service.dart](../../../../frontend/lib/modules/vault/services/vault_service.dart) —
+- [frontend/lib/modules/vault/services/evidence_service.dart](../../../../frontend/lib/modules/vault/services/evidence_service.dart) —
   bỏ `brain_id` khỏi mọi endpoint path (lines ~8-152); Workspace là knowledge/vault scope duy nhất.
 - Rà `auth`, `chat`, `marketing` compatibility paths còn tham chiếu `brain_id` — xóa.
 - Không thêm alias thay thế (guardrail 1).

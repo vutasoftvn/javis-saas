@@ -1333,7 +1333,7 @@ Thêm 1 dòng ngay dưới heading `## Recipes`:
 
 **Trạng thái:** 1/6 recipe đã hoàn thành, 5 recipe còn lại đang xây dựng.
 
-1. [How to add a Native Tool](./ADD_NATIVE_TOOL.md)
+1. [How to add a Native Tool](../../architecture/cookbook/ADD_NATIVE_TOOL.md)
 2. How to add a Skill (coming soon)
 3. How to add a Workflow Node & UI Renderer (coming soon)
 4. How to add an MCP Connector (coming soon)

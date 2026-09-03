@@ -55,7 +55,7 @@ quality gates on the working tree dated 2026-08-31.
 ## Remediation status (added 2026-08-31, Task 11)
 
 Tasks 1–10 of
-[`docs/superpowers/plans/2026-08-31-agentos-auth-contract-frontend-parity.md`](../../superpowers/plans/2026-08-31-agentos-auth-contract-frontend-parity.md)
+`docs/superpowers/plans/2026-08-31-agentos-auth-contract-frontend-parity.md` (đã gỡ khỏi repo tại commit `3c0234ec`)
 implemented this audit's "Decisions required by the implementation plan".
 This section only appends closure status — the findings and decisions above
 are the historical record of what was found and are left unedited.

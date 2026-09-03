@@ -69,7 +69,7 @@
 ## 3. Các Nhóm Chưa Có Parity (Ghi nhận, Ngoài phạm vi Phần 3)
 
 Theo quy định §6 và Non-goals. **Cập nhật 2026-08-31 (Task 11 của
-[`2026-08-31-agentos-auth-contract-frontend-parity.md`](../superpowers/plans/2026-08-31-agentos-auth-contract-frontend-parity.md)):**
+`2026-08-31-agentos-auth-contract-frontend-parity.md` — đã gỡ khỏi repo tại commit `3c0234ec`):**
 đối chiếu với route inventory sinh tự động
 ([`docs/architecture/generated/route-inventory.md`](../architecture/generated/route-inventory.md),
 mục "2. Frontend company-bound call sites — trạng thái resolve") xác nhận
