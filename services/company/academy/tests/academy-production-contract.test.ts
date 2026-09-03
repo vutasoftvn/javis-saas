@@ -12,7 +12,7 @@ import { assertNotAcademyReference, assertNotAcademyTemplateDraft, isAcademyRefe
 import { createTestWorkspaceWithMember } from "../../operations/tests/_helpers";
 import { createProject } from "../../operations/handlers/project.handler";
 import { recordEvidence } from "../../operations/strategy/handlers/evidence.handler";
-import { exportTemplate, _resetTemplateExportStore } from "../handlers/template-export.handler";
+import { exportTemplate } from "../handlers/template-export.handler";
 
 describe("Academy Production Contract: full firewall (Task 6)", () => {
   it("assertNotAcademyReference rejects all academy-artifact:// variants", () => {
@@ -86,27 +86,25 @@ describe("Academy Production Contract: full firewall (Task 6)", () => {
     ).rejects.toThrow(/academy_template_draft|real source/i);
   });
 
-  it("exportTemplate requires explicit human confirmation and always labels the draft (Task 4)", () => {
-    _resetTemplateExportStore();
-
-    expect(() =>
+  it("exportTemplate requires explicit human confirmation and always labels the draft (Task 4)", async () => {
+    await expect(
       exportTemplate({
-        workspaceId: "ws-1",
-        accountId: "acc-1",
+        workspaceId: "1",
+        accountId: "1",
         academyAttemptId: "att-1",
         templateKind: "interview-script",
         body: { question: "What is the biggest problem?" },
         confirmedByAccountId: "",
       })
-    ).toThrow(/confirmation/i);
+    ).rejects.toThrow(/confirmation/i);
 
-    const record = exportTemplate({
-      workspaceId: "ws-1",
-      accountId: "acc-1",
+    const record = await exportTemplate({
+      workspaceId: "1",
+      accountId: "1",
       academyAttemptId: "att-1",
       templateKind: "interview-script",
       body: { question: "What is the biggest problem?", score: 0.9, synthetic: true },
-      confirmedByAccountId: "acc-1",
+      confirmedByAccountId: "1",
     });
 
     expect(record.liveArtifactKind).toBe(ACADEMY_TEMPLATE_DRAFT_KIND);
