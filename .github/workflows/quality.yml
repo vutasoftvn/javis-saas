@@ -128,6 +128,92 @@ jobs:
           path: test-results/frontend-integration-summary.txt
           if-no-files-found: error
 
+  # Task 18 — leg `E2E_MODE=real` của `frontend-integration`: 3 file
+  # `integration_test/*_test.dart` chạy chống lại stack 4 plane THẬT (Postgres
+  # disposable + `services/company` + `services/cosa` + `apps/cosa`), thay vì
+  # `FixtureServer` in-process. Xem `docs/testing/frontend-integration.md`
+  # §Dual-mode + `frontend/tool/run_integration_real.sh`.
+  #
+  # TRUNG THỰC: job này MỚI, boot 4 tiến trình + Postgres disposable trên
+  # runner `macos-latest` (khác `e2e-cross-plane-smoke` vốn chạy Ubuntu với
+  # Postgres dưới dạng docker `services:` — `macos-latest` KHÔNG hỗ trợ docker
+  # service containers, nên ở đây dùng Postgres cài sẵn qua Homebrew của
+  # runner image). Đường boot-stack-trên-macOS-runner này CHƯA được xác nhận
+  # chạy xanh trong một lần chạy CI thật (chỉ verify local: `flutter analyze`
+  # sạch + `run_integration_real.sh` đúng cú pháp + wiring dart-define đã test
+  # bằng cổng không tồn tại, xem task-18-report.md). `continue-on-error: true`
+  # NÊN giữ nguyên cho tới khi có ít nhất một lần chạy nightly xanh thật — sau
+  # đó có thể gỡ để leg này thật sự chặn (blocking).
+  frontend-integration-real:
+    runs-on: macos-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    timeout-minutes: 30
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      AGENT_APP_PASSWORD: change-me-agent-app
+      AGENT_MIGRATOR_PASSWORD: change-me-agent-migrator
+      COSA_APP_PASSWORD: change-me-cosa-app
+      COSA_MIGRATOR_PASSWORD: change-me-cosa-migrator
+      WORKSPACE_APP_PASSWORD: change-me-workspace-app
+      WORKSPACE_MIGRATOR_PASSWORD: change-me-workspace-migrator
+      PYTHON: python3
+      E2E_TEST_SEED_ENABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: frontend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Encore CLI
+        run: |
+          curl -L https://encore.dev/install.sh | bash
+          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
+      - name: Install Node deps (both Encore services)
+        run: |
+          (cd services/company && npm ci)
+          (cd services/cosa && npm ci)
+      - name: Start Postgres (Homebrew, preinstalled on macos-latest runner image)
+        run: |
+          brew services start postgresql@14 || brew services start postgresql
+          for i in $(seq 1 30); do
+            pg_isready -h 127.0.0.1 -p 5432 -U "$(whoami)" && break
+            sleep 2
+          done
+          psql -h 127.0.0.1 -U "$(whoami)" -d postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';" 2>/dev/null || \
+            psql -h 127.0.0.1 -U "$(whoami)" -d postgres -c "CREATE ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'postgres';"
+      - name: Bootstrap canonical Postgres cluster roles
+        run: bash scripts/bootstrap-postgres-cluster.sh
+      - name: Run migrations
+        run: node scripts/migrate.mjs
+      - name: Boot dev stack in background
+        run: |
+          nohup env E2E_TEST_SEED_ENABLED=1 make dev-stack > dev-stack.log 2>&1 &
+          echo $! > dev-stack.pid
+      - name: Run integration_test files against real stack
+        working-directory: frontend
+        run: bash tool/run_integration_real.sh
+      - name: Stop dev stack
+        if: always()
+        run: kill "$(cat dev-stack.pid)" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-integration-real-dev-stack-log
+          path: dev-stack.log
+          if-no-files-found: ignore
+
   landing:
     runs-on: ubuntu-latest
     steps:

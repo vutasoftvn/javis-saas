@@ -2213,6 +2213,22 @@ golden khi có env, module-skip sạch khi không; purity ✅; ruff ✅; `bash -
 `E2E_MODE=real` vs stack thật (chạy tay); `flutter analyze` sạch; doc cập nhật. `remote_access_flow`
 phần `configured` ghi rõ blocker.
 
+**DONE — 2026-09-03.** Implement theo sát brief, deviation nhỏ so với "matrix
+`mode: [fixture, real]`": thay vì matrix trên job `frontend-integration` hiện
+có, thêm job RIÊNG `frontend-integration-real` (nightly, `continue-on-error:
+true`) — vì leg `real` cần boot thêm Postgres + 2 Encore service + `apps/cosa`
+trên runner `macos-latest` (không có docker `services:` như Ubuntu runner),
+tách job giữ job `frontend-integration` (fixture, blocking) không bị ảnh hưởng
+nếu leg mới flaky. `session_workspace_flow_test.dart` +
+`approvals_truthfulness_test.dart`: verify được `flutter analyze` sạch +
+fixture mode xanh (từng file riêng lẻ) + wiring `real` mode xác nhận qua cổng
+không tồn tại (SocketException, không phải lỗi biên dịch) — KHÔNG có stack
+thật trong phiên làm việc này nên DoD "xanh ở `E2E_MODE=real` vs stack thật"
+chưa verify hết bằng chạy tay, xem
+`.superpowers/sdd/2026-09-02-cross-plane-e2e-harness/task-18-report.md`. Job
+CI `frontend-integration-real` cũng chưa có bằng chứng chạy xanh thật (comment
+rõ trong `quality.yml`).
+
 ### Task 19: B5 — ADR + design cho cầu identity apps/cosa ↔ services/cosa (KHÔNG code fix)
 
 **Files:** Create `docs/architecture/adr/ADR-COSA-DELEGATION-002-agent-run-tenant-token.md` (hoặc số

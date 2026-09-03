@@ -177,3 +177,27 @@ nhánh dormant ở S2/S3/S7 tự kích hoạt — không phải viết lại tes
 phương án (A: cosa platform token + workspace liên kết; B: secret thứ tư
 `COSA_CONTROL_DELEGATION_SECRET` cho hop policy-snapshot — khuyến nghị; C:
 `services/cosa` nhận local_session token cho đúng route này), và những gì mở khoá.
+
+## Flutter Tier 2 — `frontend/integration_test` chống lại stack thật (Task 18)
+
+Ngoài dàn Python `tests/e2e/` ở trên, `frontend/integration_test/*_test.dart`
+(macOS UI thật qua `flutter test -d macos`) nay chạy được ở 2 chế độ chọn qua
+`--dart-define=E2E_MODE=fixture|real` — chi tiết đầy đủ (bảng so sánh, lý do
+từng test bị B5 chặn phần nào, cách chạy tay) ở
+[`docs/testing/frontend-integration.md` §10](frontend-integration.md).
+
+Tóm tắt quan hệ với B5: `E2E_MODE=real` seed danh tính qua
+`POST /identity/_e2e/session` (đúng endpoint seed HTTP mà
+`tests/e2e/seed/identity.py` dùng), nhưng KHÔNG mint được platform token
+`aud="cosa"` — cùng điểm hỏng B5 mô tả ở trên. Vì vậy `session_workspace_flow`
+và `remote_access_flow` ở `real` mode né hop
+`GET services/cosa /platform/workspaces/:id/session-context` và chỉ chứng minh
+phần B5-independent (tenant-header isolation ở transport, enforcement chỉ-đọc
+client-side); `approvals_truthfulness` chỉ khẳng định trạng thái terminal thay
+vì fault 503 chính xác. Khi B5 được vá, các phần này mở khoá cùng lúc với
+S2/S3/S7 — không phải viết lại test Flutter.
+
+CI: job `frontend-integration-real` trong `quality.yml`, nightly-only,
+`continue-on-error: true` — chưa xác nhận xanh trong một lần chạy CI thật (boot
+4 tiến trình trên runner `macos-latest` là đường mới, chỉ verify local tính
+đến thời điểm viết mục này).

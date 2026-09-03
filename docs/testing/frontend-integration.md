@@ -147,3 +147,61 @@ done
 
 Không cần Postgres/Encore/apps-cosa chạy trước — `FixtureServer` tự đủ cho cả
 3 test hiện tại (Tier 1).
+
+## 10. Dual-mode — `E2E_MODE=fixture|real` (Task 18, P5)
+
+Tầng 2 mô tả ở mục 1 nay đã dựng một phần: cả 3 file
+`integration_test/*_test.dart` chạy được ở 2 chế độ, chọn qua
+`--dart-define=E2E_MODE`, đọc bởi
+`integration_test/support/real_stack_config.dart` (`RealStackConfig`).
+
+| | `E2E_MODE=fixture` (mặc định) | `E2E_MODE=real` |
+|---|---|---|
+| Backend | `FixtureServer` in-process, HTTP loopback | 4-plane thật: `services/company` (`:4000`) + `services/cosa` (`:4001`) + `apps/cosa` API (`:8000`) qua `make dev-stack` |
+| Seed danh tính | Hằng số cố định (`member-a`, `workspace-a`...) | `POST /identity/_e2e/session` trên `services/company` (yêu cầu stack chạy với `E2E_TEST_SEED_ENABLED=1`, ném lỗi rõ nếu thiếu) |
+| `SecureStorageService` | `FakeSecretStore` (không chạm Keychain) | Y hệt — `FakeSecretStore` giữ nguyên ở CẢ HAI chế độ |
+| CI | Job `frontend-integration`, nightly, blocking | Job `frontend-integration-real`, nightly, `continue-on-error: true` (chưa xác nhận xanh trong CI thật — xem comment trong `quality.yml`) |
+
+Override 3 base URL qua `--dart-define=E2E_COMPANY_URL/E2E_COSA_URL/E2E_API_URL`
+(default khớp `make dev-stack`).
+
+**Vì sao không phải cả 3 test đều exercise đầy đủ đường controller/widget ở
+`real`:** hop `GET services/cosa /platform/workspaces/:id/session-context`
+(nguồn `runtimeMode`/`modeSource`) đòi platform token mà seed `_e2e/session`
+không cấp — đây là bug B5, xem
+`docs/architecture/adr/ADR-COSA-DELEGATION-002-agent-run-tenant-token.md`
+(PROPOSED) và `docs/testing/cross-plane-e2e.md` §"Cái gì CHƯA phủ". Vì vậy:
+
+- `session_workspace_flow_test.dart`: nhánh `real` bỏ qua
+  `SessionController.activateWorkspace` (bị B5 chặn), gọi thẳng `ApiClient`
+  chống lại `services/company` thật với 2 danh tính seed riêng biệt — vẫn
+  chứng minh đúng tuyên bố wire-level cốt lõi ("không request nào sau khi
+  chuyển context còn mang `X-Workspace-Id` cũ"), B5-independent.
+- `approvals_truthfulness_test.dart`: nhánh `real` không tái tạo được fault
+  503 (stack khoẻ không tự lỗi) — chỉ khẳng định endpoint approval thật
+  resolve về một `AsyncFeatureState` TERMINAL (không kẹt loading, không bịa
+  danh sách rỗng). Việc map chính xác 503→`FeatureFailure` vẫn do fixture mode
+  phủ.
+- `remote_access_flow_test.dart`: phần `configured` (mode đến từ
+  session-context server-authoritative, không phải suy đoán) CHỈ chạy được ở
+  `fixture` — nhánh `real` bơm thẳng cặp field
+  `ApiClient.setRuntimeContext` + `RemoteAccessController.applyStatus` set,
+  với `modeSource: 'inferred'` (không phải `'configured'` thật) và một
+  `// TODO(modeSource-adapter)` tại chỗ bơm, rồi khẳng định phần
+  B5-independent: enforcement chỉ-đọc + zero mutation là logic client thuần
+  (`ApiClient._offlineGuard` + `MutationGate`), không cần backend. KHÔNG mock
+  để giả `configured` thật.
+
+**Chạy tay `real` mode:**
+
+```bash
+E2E_TEST_SEED_ENABLED=1 make dev-stack   # terminal riêng, để chạy nền
+cd frontend && ./tool/run_integration_real.sh
+```
+
+`run_integration_real.sh` KHÔNG tự boot stack (script wrapper boot 4 tiến
+trình là rủi ro vỡ cao hơn giá trị mang lại ở đây) — nó chỉ health-check 3
+`/healthz`, rồi lặp qua từng file `integration_test/*_test.dart` với
+`flutter test <file> -d macos --dart-define=E2E_MODE=real ...` (từng file một
+— lý do ở mục 8 vẫn áp dụng y hệt cho `real` mode). Override URL qua
+`E2E_COMPANY_URL`/`E2E_COSA_URL`/`E2E_API_URL`/`E2E_FLUTTER_DEVICE`.
