@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/routing/module_routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/task_kanban_model.dart';
 import '../../../hologram_hub/controllers/founder_command_center_controller.dart';
 import '../../controllers/work_overview_controller.dart';
 
-class WorkOverviewTab extends GetView<WorkOverviewController> {
+class WorkOverviewTab extends StatefulWidget {
   const WorkOverviewTab({super.key});
+
+  @override
+  State<WorkOverviewTab> createState() => _WorkOverviewTabState();
+}
+
+class _WorkOverviewTabState extends State<WorkOverviewTab> {
+  final WorkOverviewController controller = Get.find<WorkOverviewController>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.loadOkrAndTwelveWySummary();
+    });
+  }
 
   static const _statusColors = {
     TaskKanbanStatus.todo: Color(0xFF38BDF8),
@@ -25,6 +41,8 @@ class WorkOverviewTab extends GetView<WorkOverviewController> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildStatusCounts(),
+          const SizedBox(height: 20),
+          _buildOkrTwelveWySummary(),
           const SizedBox(height: 20),
           _buildProjectAdminInfo(),
           const SizedBox(height: 20),
@@ -71,6 +89,68 @@ class WorkOverviewTab extends GetView<WorkOverviewController> {
             ),
           );
         }).toList(),
+      );
+    });
+  }
+
+  /// Khối rút gọn "OKR chu kỳ hiện tại" + "Điểm thực thi tuần (12WY)", bấm
+  /// vào điều hướng sang tab Chiến lược (`WorkspaceModule.strategy.path`).
+  Widget _buildOkrTwelveWySummary() {
+    return Obx(() {
+      final okr = controller.okrCompletionRatio.value;
+      final wy = controller.twelveWyExecutionScore.value;
+      return Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () => Get.toNamed(WorkspaceModule.strategy.path),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.borderDark),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('OKR chu kỳ hiện tại', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Text(
+                      okr != null ? '${(okr * 100).round()}%' : '—',
+                      style: const TextStyle(color: AppTheme.primary, fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: InkWell(
+              onTap: () => Get.toNamed(WorkspaceModule.strategy.path),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.borderDark),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Điểm thực thi tuần (12WY)', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Text(
+                      wy != null ? '${(wy * 100).round()}%' : '—',
+                      style: const TextStyle(color: AppTheme.primary, fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       );
     });
   }

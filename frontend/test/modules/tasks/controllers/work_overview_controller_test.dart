@@ -5,9 +5,47 @@ import 'package:get/get.dart';
 import 'package:frontend/core/contracts/enums.generated.dart';
 import 'package:frontend/data/models/task_kanban_model.dart';
 import 'package:frontend/data/models/project_operating_setup_model.dart';
+import 'package:frontend/modules/strategy/models/strategy_list_result.dart';
+import 'package:frontend/modules/strategy/services/okr_service.dart';
 import 'package:frontend/modules/strategy/services/project_operating_setup_service.dart';
+import 'package:frontend/modules/strategy/services/twelve_wy_service.dart';
+import 'package:frontend/data/models/twelve_wy_model.dart';
 import 'package:frontend/modules/tasks/controllers/tasks_controller.dart';
 import 'package:frontend/modules/tasks/controllers/work_overview_controller.dart';
+
+class FakeOkrService extends OkrService {
+  @override
+  Future<StrategyListResult<Map<String, dynamic>>> getKeyResults({String? objectiveId}) async {
+    return StrategyListResult.success([
+      {'current_value': 50.0, 'target_value': 100.0},
+      {'current_value': 100.0, 'target_value': 100.0},
+    ]);
+  }
+}
+
+class FakeTwelveWyService extends TwelveWyService {
+  @override
+  Future<TwelveWyDashboardModel?> getDashboard(dynamic projectId) async {
+    return TwelveWyDashboardModel(
+      cycle: TwelveWeekCycleModel(
+        id: 1,
+        workspaceId: 1,
+        title: 'Cycle 1',
+        visionStatement: '',
+        stageAtStart: 'P0_DISCOVERY',
+        currentWeek: 2,
+        totalWeeks: 12,
+        overallExecutionScore: 0.75,
+        status: 'ACTIVE',
+        createdAt: DateTime.now(),
+      ),
+      currentWeek: 2,
+      currentWeekExecutionScore: 0.75,
+      tacticsByWeek: const {},
+      weeklyScores: const {},
+    );
+  }
+}
 
 class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
   FakeProjectOperatingSetupService(this._setup);
@@ -134,5 +172,18 @@ void main() {
     expect(controller.selectedProjectId.value, 'p-b');
     expect(controller.projectSetup.value?.projectId, 'p-b');
     expect(controller.isProjectInfoLoading.value, isFalse);
+  });
+
+  test('loadOkrAndTwelveWySummary computes average KR completion and reads execution score', () async {
+    final controller = WorkOverviewController(
+      tasksController: TasksController(),
+      okrService: FakeOkrService(),
+      twelveWyService: FakeTwelveWyService(),
+    );
+
+    await controller.loadOkrAndTwelveWySummary();
+
+    expect(controller.okrCompletionRatio.value, 0.75); // avg(50/100, 100/100)
+    expect(controller.twelveWyExecutionScore.value, 0.75);
   });
 }
