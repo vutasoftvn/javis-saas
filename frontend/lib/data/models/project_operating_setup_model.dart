@@ -80,6 +80,7 @@ class ProjectOperatingSetupDraft {
     this.weeklyReviewWeekday,
     this.weeklyReviewTime,
     this.firstWeekOutcome,
+    this.roundStartDate,
     this.firstWeekActions = const [],
   });
 
@@ -91,6 +92,7 @@ class ProjectOperatingSetupDraft {
   final int? weeklyReviewWeekday;
   final String? weeklyReviewTime;
   final String? firstWeekOutcome;
+  final DateTime? roundStartDate;
   final List<FirstWeekActionDraft> firstWeekActions;
 
   Map<String, dynamic> toJson() => {
@@ -102,6 +104,8 @@ class ProjectOperatingSetupDraft {
     if (weeklyReviewWeekday != null) 'weeklyReviewWeekday': weeklyReviewWeekday,
     if (weeklyReviewTime != null) 'weeklyReviewTime': weeklyReviewTime,
     if (firstWeekOutcome != null) 'firstWeekOutcome': firstWeekOutcome,
+    if (roundStartDate != null)
+      'roundStartDate': roundStartDate!.toUtc().toIso8601String(),
     'firstWeekActions': firstWeekActions.map((a) => a.toJson()).toList(),
   };
 }
@@ -118,6 +122,7 @@ class ProjectOperatingSetup {
     this.selectedStage,
     this.stageDurationWeeks,
     this.stageTargetDate,
+    this.roundStartDate,
     this.weeklyReviewWeekday,
     this.weeklyReviewTime,
     this.firstWeekOutcome,
@@ -135,6 +140,7 @@ class ProjectOperatingSetup {
   final ProjectLifecycleStage? selectedStage;
   final int? stageDurationWeeks;
   final DateTime? stageTargetDate;
+  final DateTime? roundStartDate;
   final int? weeklyReviewWeekday;
   final String? weeklyReviewTime;
   final String? firstWeekOutcome;
@@ -167,6 +173,9 @@ class ProjectOperatingSetup {
           : null,
       stageTargetDate: json['stageTargetDate'] != null
           ? DateTime.tryParse(json['stageTargetDate'].toString())
+          : null,
+      roundStartDate: json['roundStartDate'] != null
+          ? DateTime.tryParse(json['roundStartDate'].toString())
           : null,
       weeklyReviewWeekday: json['weeklyReviewWeekday'] is num
           ? (json['weeklyReviewWeekday'] as num).toInt()
