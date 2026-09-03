@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:frontend/core/contracts/enums.generated.dart';
@@ -13,6 +15,20 @@ class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
 
   @override
   Future<ProjectOperatingSetup> get(String projectId) async => _setup;
+}
+
+/// Fake cho phép test kiểm soát thời điểm resolve của TỪNG project riêng
+/// biệt (mỗi `projectId` có 1 `Completer` riêng) — dùng để mô phỏng race
+/// condition: request của project A hoàn tất SAU request của project B dù
+/// A được gọi trước.
+class FakeDelayedProjectOperatingSetupService extends ProjectOperatingSetupService {
+  final Map<String, Completer<ProjectOperatingSetup>> _completers = {};
+
+  Completer<ProjectOperatingSetup> completerFor(String projectId) =>
+      _completers.putIfAbsent(projectId, () => Completer<ProjectOperatingSetup>());
+
+  @override
+  Future<ProjectOperatingSetup> get(String projectId) => completerFor(projectId).future;
 }
 
 void main() {
@@ -77,5 +93,46 @@ void main() {
     expect(controller.projectSetup.value?.status, OperatingSetupStatus.active);
     expect(controller.isProjectInfoLoading.value, isFalse);
     expect(controller.projectInfoError.value, isNull);
+  });
+
+  test('selectProject ignores a stale response after switching to another project', () async {
+    final tasksController = TasksController();
+    final fakeService = FakeDelayedProjectOperatingSetupService();
+    final controller = WorkOverviewController(
+      tasksController: tasksController,
+      projectOperatingSetupService: fakeService,
+    );
+
+    // Bắt đầu chọn A, request của A CHƯA resolve.
+    final futureA = controller.selectProject('p-a');
+    // Đổi ngay sang B trong lúc A còn đang chờ.
+    final futureB = controller.selectProject('p-b');
+
+    // B (request mới hơn) resolve TRƯỚC.
+    fakeService.completerFor('p-b').complete(
+      const ProjectOperatingSetup(
+        projectId: 'p-b',
+        workspaceId: 'w-1',
+        status: OperatingSetupStatus.active,
+      ),
+    );
+    await futureB;
+
+    expect(controller.selectedProjectId.value, 'p-b');
+    expect(controller.projectSetup.value?.projectId, 'p-b');
+
+    // A (request cũ, chậm) resolve SAU — không được phép ghi đè state của B.
+    fakeService.completerFor('p-a').complete(
+      const ProjectOperatingSetup(
+        projectId: 'p-a',
+        workspaceId: 'w-1',
+        status: OperatingSetupStatus.notStarted,
+      ),
+    );
+    await futureA;
+
+    expect(controller.selectedProjectId.value, 'p-b');
+    expect(controller.projectSetup.value?.projectId, 'p-b');
+    expect(controller.isProjectInfoLoading.value, isFalse);
   });
 }

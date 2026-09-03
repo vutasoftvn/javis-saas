@@ -27,16 +27,26 @@ class WorkOverviewController extends GetxController {
   final projectInfoError = RxnString();
 
   /// Chọn 1 project và tải thông tin quản trị (operating setup) tương ứng.
+  ///
+  /// Guard theo `selectedProjectId.value != projectId` sau mỗi `await`: nếu
+  /// Founder đổi project A → B nhanh và response của A (chậm) về SAU response
+  /// của B, response cũ (A) không được phép ghi đè state của B — chỉ request
+  /// khớp với project đang chọn tại thời điểm HIỆN TẠI mới được áp dụng.
   Future<void> selectProject(String projectId) async {
     selectedProjectId.value = projectId;
     isProjectInfoLoading.value = true;
     projectInfoError.value = null;
     try {
-      projectSetup.value = await _projectOperatingSetupService.get(projectId);
+      final setup = await _projectOperatingSetupService.get(projectId);
+      if (selectedProjectId.value != projectId) return;
+      projectSetup.value = setup;
     } catch (e) {
+      if (selectedProjectId.value != projectId) return;
       projectInfoError.value = e.toString();
     } finally {
-      isProjectInfoLoading.value = false;
+      if (selectedProjectId.value == projectId) {
+        isProjectInfoLoading.value = false;
+      }
     }
   }
 

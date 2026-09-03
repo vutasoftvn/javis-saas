@@ -84,9 +84,21 @@ class WorkOverviewTab extends GetView<WorkOverviewController> {
       final projects = fcc.projectsList;
       if (projects.isEmpty) return const SizedBox.shrink();
 
-      final selectedId =
-          controller.selectedProjectId.value ?? projects.first['id']?.toString();
-      if (controller.selectedProjectId.value == null && selectedId != null) {
+      // Guard: `selectedProjectId` có thể trỏ tới 1 project không còn nằm
+      // trong `projectsList` hiện tại (vd `projectsList` bị `assignAll` lại
+      // ở nơi khác trong lúc đang chọn project đó) — `DropdownButton.value`
+      // bắt buộc phải khớp 1 `item.value` trong `items`, nếu không sẽ
+      // assert/throw. Khi lệch, coi như chưa chọn gì và rơi về project đầu.
+      final projectIds = projects.map((p) => p['id']?.toString()).toSet();
+      final currentSelection = controller.selectedProjectId.value;
+      final selectedId = (currentSelection != null && projectIds.contains(currentSelection))
+          ? currentSelection
+          : projects.first['id']?.toString();
+
+      // Chỉ gọi lại selectProject khi thật sự cần (chưa chọn gì, hoặc lựa
+      // chọn hiện tại đã lệch khỏi danh sách) — tránh gọi lại API mỗi lần
+      // Obx rebuild dù project đang chọn vẫn hợp lệ.
+      if (selectedId != null && selectedId != currentSelection) {
         WidgetsBinding.instance
             .addPostFrameCallback((_) => controller.selectProject(selectedId));
       }
