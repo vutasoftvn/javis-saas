@@ -1,55 +1,91 @@
 /**
- * Academy progress tests — Task 2 Step 1
+ * Academy progress tests — DB-backed (Task 4, kế tục Task 2 cũ).
  *
  * Verifies:
- * - Enrollment creation is isolated from live projects
- * - Lesson completion increments completedLessons
- * - Lesson completion does NOT mutate live project stage
- * - Lesson completion does NOT create live evidence
- * - Attempt payloads with forbidden production fields are rejected
+ * - Enrollment creation là cô lập với live project (không có field lifecycle)
+ * - Lesson completion tăng completedLessons
+ * - Lesson completion KHÔNG đổi project stage, KHÔNG tạo evidence
+ * - Attempt payload chứa field production bị reject
  */
 import { describe, it, expect, beforeEach } from "vitest";
+import { db, schema } from "../models/db";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 import {
   enrollLearner,
   getEnrollment,
   completeLesson,
   assertAttemptPayloadIsolated,
-  _resetAcademyStores,
-} from "../handlers/program.handler";
+} from "../services/program.service";
 
-describe("Academy Progress: enrollment and lesson completion (Task 2)", () => {
-  beforeEach(() => {
-    _resetAcademyStores();
+const { academyPrograms, academyModules, academyLessons } = schema;
+
+async function seedProgram(): Promise<string> {
+  const id = generateSnowflake();
+  await db.insert(academyPrograms).values({
+    id,
+    slug: `test-program-${id}`,
+    title: "Test Program",
+    version: "1.0.0",
+  });
+  return id.toString();
+}
+
+// LƯU Ý: `lesson_attempts.lesson_id` là FK NOT NULL tới `academy.lessons(id)`
+// (xem migration 001_academy_programs.up.sql) — completeLesson() không thể
+// nhận một snowflake ngẫu nhiên làm lessonId, phải seed lesson thật qua module.
+async function seedLesson(programId: string): Promise<string> {
+  const moduleId = generateSnowflake();
+  await db.insert(academyModules).values({
+    id: moduleId,
+    programId: BigInt(programId),
+    slug: `test-module-${moduleId}`,
+    title: "Test Module",
   });
 
-  it("enrolls a learner and returns an enrollment with no lifecycle fields", () => {
-    const enrollment = enrollLearner({
-      workspaceId: "ws-learn-1",
-      accountId: "acc-founder-1",
-      programId: "prog-lifecycle-101",
+  const lessonId = generateSnowflake();
+  await db.insert(academyLessons).values({
+    id: lessonId,
+    moduleId,
+    slug: `test-lesson-${lessonId}`,
+    title: "Test Lesson",
+  });
+  return lessonId.toString();
+}
+
+describe("Academy Progress: enrollment and lesson completion (DB-backed)", () => {
+  let programId: string;
+
+  beforeEach(async () => {
+    programId = await seedProgram();
+  });
+
+  it("enrolls a learner and returns an enrollment with no lifecycle fields", async () => {
+    const enrollment = await enrollLearner({
+      workspaceId: generateSnowflake().toString(),
+      accountId: generateSnowflake().toString(),
+      programId,
     });
 
     expect(enrollment.id).toBeDefined();
     expect(enrollment.status).toBe("NOT_STARTED");
     expect(enrollment.completedLessons).toBe(0);
 
-    // INVARIANT: no lifecycle/project/evidence fields
     expect(enrollment).not.toHaveProperty("lifecycleStage");
     expect(enrollment).not.toHaveProperty("projectId");
     expect(enrollment).not.toHaveProperty("evidenceId");
     expect(enrollment).not.toHaveProperty("gateEvaluationId");
   });
 
-  it("completing a lesson increments completedLessons and preserves isolation", () => {
-    const enrollment = enrollLearner({
-      workspaceId: "ws-learn-1",
-      accountId: "acc-founder-1",
-      programId: "prog-lifecycle-101",
+  it("completing a lesson increments completedLessons and preserves isolation", async () => {
+    const enrollment = await enrollLearner({
+      workspaceId: generateSnowflake().toString(),
+      accountId: generateSnowflake().toString(),
+      programId,
     });
 
-    const result = completeLesson({
+    const result = await completeLesson({
       enrollmentId: enrollment.id,
-      lessonId: "lesson-p0-01",
+      lessonId: await seedLesson(programId),
       reflection: "Tôi hiểu rõ hơn về giai đoạn Discovery",
     });
 
@@ -57,25 +93,22 @@ describe("Academy Progress: enrollment and lesson completion (Task 2)", () => {
     expect(result.attempt.completedAt).toBeDefined();
     expect(result.enrollment.completedLessons).toBe(1);
     expect(result.enrollment.status).toBe("IN_PROGRESS");
-
-    // INVARIANT: live project stage is never mutated
     expect(result.projectStageChanged).toBe(false);
-    // INVARIANT: no live evidence was created
     expect(result.evidenceCreated).toBe(false);
   });
 
-  it("getEnrollment reflects updated completedLessons after two lesson completions", () => {
-    const enrollment = enrollLearner({
-      workspaceId: "ws-learn-2",
-      accountId: "acc-leader-2",
-      programId: "prog-lifecycle-101",
+  it("getEnrollment reflects updated completedLessons after two lesson completions", async () => {
+    const enrollment = await enrollLearner({
+      workspaceId: generateSnowflake().toString(),
+      accountId: generateSnowflake().toString(),
+      programId,
     });
 
-    completeLesson({ enrollmentId: enrollment.id, lessonId: "lesson-p0-01" });
-    completeLesson({ enrollmentId: enrollment.id, lessonId: "lesson-p0-02" });
+    await completeLesson({ enrollmentId: enrollment.id, lessonId: await seedLesson(programId) });
+    await completeLesson({ enrollmentId: enrollment.id, lessonId: await seedLesson(programId) });
 
-    const updated = getEnrollment(enrollment.id);
-    expect(updated?.completedLessons).toBe(2);
+    const updated = await getEnrollment(enrollment.id);
+    expect(updated.completedLessons).toBe(2);
   });
 
   it("rejects attempt payload containing gateEvaluationId (forbidden production field)", () => {
