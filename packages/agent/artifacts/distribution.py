@@ -5,8 +5,8 @@ from typing import Protocol
 __all__ = [
     "ArtifactDistributionRouter",
     "ArtifactStorageBackend",
+    "FakeS3ArtifactBackend",
     "LocalArtifactBackend",
-    "S3ArtifactBackend",
 ]
 
 
@@ -36,8 +36,13 @@ class LocalArtifactBackend:
         return key in self._store
 
 
-class S3ArtifactBackend:
-    """S3-compatible mock / storage backend cho multi-region artifact distribution."""
+class FakeS3ArtifactBackend:
+    """Test double mô phỏng S3 (in-memory, KHÔNG gọi SDK S3/boto3 nào) — dùng
+    để test `ArtifactDistributionRouter` với nhiều backend/scheme (vd
+    `s3://bucket/key`) mà không cần dependency S3 thật. Tên cũ
+    `S3ArtifactBackend` (trước P1.3) gây hiểu nhầm là backend S3 production
+    thật dù nhận `bucket`/`region` như thể vậy — đây thuần là fake, nếu cần
+    S3 thật hãy implement 1 class riêng dùng `boto3`/`aioboto3`."""
 
     def __init__(self, bucket: str = "cosa-artifacts-prod", region: str = "ap-southeast-1") -> None:
         self.bucket = bucket

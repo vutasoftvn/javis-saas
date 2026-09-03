@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -16,6 +17,7 @@ from agent.workforce.models import (
     RunCostObservationRecord,
     RuntimeSignalOutboxRecord,
     WorkforceAssignmentRecord,
+    WorkforceScheduleRecord,
 )
 
 __all__ = [
@@ -50,6 +52,25 @@ class WorkforceRepository(Protocol):
     async def retire_assignment(
         self, workspace_id: str, assignment_id: UUID | str
     ) -> WorkforceAssignmentRecord | None: ...
+
+    async def create_schedule(
+        self,
+        workspace_id: str,
+        name: str,
+        functional_key: str,
+        cron_expression: str,
+        input_payload: dict,
+        configured_by: str,
+        schedule_id: UUID | str | None = None,
+    ) -> WorkforceScheduleRecord: ...
+
+    async def get_schedule(
+        self, workspace_id: str, schedule_id: UUID | str
+    ) -> WorkforceScheduleRecord | None: ...
+
+    async def list_schedules(
+        self, workspace_id: str, status: str | None = None
+    ) -> list[WorkforceScheduleRecord]: ...
 
     async def list_cost_observations(
         self, workspace_id: str, run_id: str | None = None, limit: int = 100
@@ -256,6 +277,112 @@ class PostgresWorkforceRepository:
             await session.commit()
             row = res.mappings().first()
             return self._row_to_assignment(row) if row else None
+
+    async def create_schedule(
+        self,
+        workspace_id: str,
+        name: str,
+        functional_key: str,
+        cron_expression: str,
+        input_payload: dict,
+        configured_by: str,
+        schedule_id: UUID | str | None = None,
+    ) -> WorkforceScheduleRecord:
+        sid = UUID(str(schedule_id)) if schedule_id else uuid4()
+        now = datetime.now(UTC)
+        async with self._session_factory() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent.workforce_schedules (
+                        schedule_id, workspace_id, name, functional_key, cron_expression,
+                        input_payload, configured_by, status, created_at, retired_at
+                    ) VALUES (
+                        :schedule_id, :workspace_id, :name, :functional_key, :cron_expression,
+                        :input_payload, :configured_by, 'ACTIVE', :created_at, NULL
+                    )
+                    """
+                ),
+                {
+                    "schedule_id": str(sid),
+                    "workspace_id": workspace_id,
+                    "name": name,
+                    "functional_key": functional_key,
+                    "cron_expression": cron_expression,
+                    "input_payload": json.dumps(input_payload),
+                    "configured_by": configured_by,
+                    "created_at": now,
+                },
+            )
+            await session.commit()
+            return WorkforceScheduleRecord(
+                schedule_id=sid,
+                workspace_id=workspace_id,
+                name=name,
+                functional_key=functional_key,
+                cron_expression=cron_expression,
+                input_payload=input_payload,
+                configured_by=configured_by,
+                status="ACTIVE",
+                created_at=now,
+                retired_at=None,
+            )
+
+    async def get_schedule(
+        self, workspace_id: str, schedule_id: UUID | str
+    ) -> WorkforceScheduleRecord | None:
+        try:
+            sid = UUID(str(schedule_id))
+        except ValueError:
+            # Không phải UUID hợp lệ => chắc chắn không tồn tại, coi như
+            # not-found thay vì để ValueError thô lọt lên client (500).
+            return None
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT schedule_id, workspace_id, name, functional_key, cron_expression,
+                           input_payload, configured_by, status, created_at, retired_at
+                    FROM agent.workforce_schedules
+                    WHERE workspace_id = :workspace_id AND schedule_id = :schedule_id
+                    """
+                ),
+                {"workspace_id": workspace_id, "schedule_id": str(sid)},
+            )
+            row = res.mappings().first()
+            return self._row_to_schedule(row) if row else None
+
+    async def list_schedules(
+        self, workspace_id: str, status: str | None = None
+    ) -> list[WorkforceScheduleRecord]:
+        async with self._session_factory() as session:
+            if status:
+                res = await session.execute(
+                    text(
+                        """
+                        SELECT schedule_id, workspace_id, name, functional_key, cron_expression,
+                               input_payload, configured_by, status, created_at, retired_at
+                        FROM agent.workforce_schedules
+                        WHERE workspace_id = :workspace_id AND status = :status
+                        ORDER BY created_at ASC
+                        """
+                    ),
+                    {"workspace_id": workspace_id, "status": status},
+                )
+            else:
+                res = await session.execute(
+                    text(
+                        """
+                        SELECT schedule_id, workspace_id, name, functional_key, cron_expression,
+                               input_payload, configured_by, status, created_at, retired_at
+                        FROM agent.workforce_schedules
+                        WHERE workspace_id = :workspace_id
+                        ORDER BY created_at ASC
+                        """
+                    ),
+                    {"workspace_id": workspace_id},
+                )
+            return [self._row_to_schedule(r) for r in res.mappings().all()]
 
     async def list_cost_observations(
         self, workspace_id: str, run_id: str | None = None, limit: int = 100
@@ -527,6 +654,34 @@ class PostgresWorkforceRepository:
         )
 
     @staticmethod
+    def _parse_json(val: Any) -> Any:
+        if val is None:
+            return None
+        if isinstance(val, (dict, list)):
+            return val
+        if isinstance(val, str):
+            try:
+                return json.loads(val)
+            except Exception:
+                return val
+        return val
+
+    @classmethod
+    def _row_to_schedule(cls, row: Any) -> WorkforceScheduleRecord:
+        return WorkforceScheduleRecord(
+            schedule_id=UUID(str(row["schedule_id"])),
+            workspace_id=row["workspace_id"],
+            name=row["name"],
+            functional_key=row["functional_key"],
+            cron_expression=row["cron_expression"],
+            input_payload=cls._parse_json(row["input_payload"]) or {},
+            configured_by=row["configured_by"],
+            status=row["status"],
+            created_at=row["created_at"],
+            retired_at=row["retired_at"],
+        )
+
+    @staticmethod
     def _row_to_cost_observation(row: Any) -> RunCostObservationRecord:
         return RunCostObservationRecord(
             observation_id=UUID(str(row["observation_id"])),
@@ -563,8 +718,56 @@ class PostgresWorkforceRepository:
 class InMemoryWorkforceRepository:
     def __init__(self) -> None:
         self.assignments: dict[UUID, WorkforceAssignmentRecord] = {}
+        self.schedules: dict[UUID, WorkforceScheduleRecord] = {}
         self.cost_observations: list[RunCostObservationRecord] = []
         self.outbox: dict[UUID, RuntimeSignalOutboxRecord] = {}
+
+    async def create_schedule(
+        self,
+        workspace_id: str,
+        name: str,
+        functional_key: str,
+        cron_expression: str,
+        input_payload: dict,
+        configured_by: str,
+        schedule_id: UUID | str | None = None,
+    ) -> WorkforceScheduleRecord:
+        sid = UUID(str(schedule_id)) if schedule_id else uuid4()
+        record = WorkforceScheduleRecord(
+            schedule_id=sid,
+            workspace_id=workspace_id,
+            name=name,
+            functional_key=functional_key,
+            cron_expression=cron_expression,
+            input_payload=input_payload,
+            configured_by=configured_by,
+            status="ACTIVE",
+            created_at=datetime.now(UTC),
+            retired_at=None,
+        )
+        self.schedules[sid] = record
+        return record
+
+    async def get_schedule(
+        self, workspace_id: str, schedule_id: UUID | str
+    ) -> WorkforceScheduleRecord | None:
+        try:
+            sid = UUID(str(schedule_id))
+        except ValueError:
+            return None
+        rec = self.schedules.get(sid)
+        if rec and rec.workspace_id == workspace_id:
+            return rec
+        return None
+
+    async def list_schedules(
+        self, workspace_id: str, status: str | None = None
+    ) -> list[WorkforceScheduleRecord]:
+        return [
+            s
+            for s in self.schedules.values()
+            if s.workspace_id == workspace_id and (status is None or s.status == status)
+        ]
 
     async def create_assignment(
         self,

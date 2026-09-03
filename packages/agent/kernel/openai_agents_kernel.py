@@ -794,4 +794,19 @@ class ManualToolLoopKernel:
                 else:
                     res = self._capability_executor(req)
                 return res.output_payload if hasattr(res, "output_payload") else res
-        return {"status": "success", "executed_tool": tool_name, "params": args}
+
+        # Production KHÔNG được silently trả "success" giả khi thiếu
+        # capability_executor — cùng nguyên tắc chống-mock đã áp dụng cho
+        # model_client ở _call_model() phía trên (COSA_PRODUCTION_RUNTIME_
+        # CLOSURE_ADJUSTMENT_2026-08-25.md §3.2). Trước fix này, 1 kernel
+        # thiếu wiring capability_executor sẽ âm thầm báo mọi tool call
+        # THÀNH CÔNG mà không thực thi gì — cùng lớp lỗi correctness với bug
+        # model_client giả đã sửa. Test phải tự inject capability_executor
+        # tường minh (mock/fake), không dựa vào fallback ngầm.
+        raise AgentRuntimeError(
+            RuntimeErrorCode.CAPABILITY_NOT_READY,
+            f"ManualToolLoopKernel requires an explicit capability_executor "
+            f"to execute tool {tool_name!r} — no implicit success fallback "
+            "in production.",
+            retryable=False,
+        )

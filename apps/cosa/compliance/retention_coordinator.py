@@ -45,13 +45,19 @@ class RetentionCoordinator:
                 reasons=["LEGAL_HOLD_ACTIVE"],
             )
 
-        if targets.object_refs and hasattr(self._object_store, "delete_many"):
+        # P1.2 — trước đây các bước xoá này bị hasattr-guard: 1 backend thiếu
+        # đúng method (chưa implement, refactor, wiring sai) sẽ ÂM THẦM bỏ
+        # qua bước xoá đó mà result vẫn trả status="PURGED" — báo cáo SAI cho
+        # 1 yêu cầu xoá dữ liệu chủ thể (right-to-erasure). Không hasattr-
+        # guard optional interface cho dependency BẮT BUỘC (constructor
+        # param, không phải `| None`): nếu backend không hỗ trợ, để
+        # AttributeError raise thẳng thay vì báo "đã xoá" trong khi chưa xoá.
+        if targets.object_refs:
             await self._object_store.delete_many(targets.object_refs)
 
-        if hasattr(self._memory_service, "delete_subject_scope"):
-            await self._memory_service.delete_subject_scope(subject_hash)
+        await self._memory_service.delete_subject_scope(subject_hash)
 
-        if targets.document_ids and hasattr(self._knowledge_index, "delete_documents"):
+        if targets.document_ids:
             await self._knowledge_index.delete_documents(targets.document_ids)
 
         tombstone_ref = f"tombstone_purged_{request_id}"

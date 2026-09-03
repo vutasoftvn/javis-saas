@@ -73,6 +73,43 @@ async def test_retire_assignment_updates_status(kind: str) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+async def test_schedule_is_scoped_and_persists(kind: str) -> None:
+    """P0.2 — trước fix, /agent/workforce/schedules* không hề ghi DB (response
+    in-memory giả). Test này chạy cả với PostgresWorkforceRepository thật
+    (không chỉ in-memory) để chứng minh dữ liệu thật sự tồn tại sau khi
+    tạo, đúng bảng agent.workforce_schedules (migration 025)."""
+    workforce_repo = get_workforce_repo(kind)
+    ws = f"ws_{uuid4().hex[:8]}"
+    other_ws = f"ws_{uuid4().hex[:8]}"
+
+    schedule = await workforce_repo.create_schedule(
+        workspace_id=ws,
+        name="Weekly cashflow review",
+        functional_key="cashflow_planner",
+        cron_expression="0 9 * * 1",
+        input_payload={"note": "test"},
+        configured_by="user:1",
+    )
+    assert schedule.functional_key == "cashflow_planner"
+    assert schedule.status == "ACTIVE"
+
+    fetched = await workforce_repo.get_schedule(ws, schedule.schedule_id)
+    assert fetched is not None
+    assert fetched.cron_expression == "0 9 * * 1"
+    assert fetched.input_payload == {"note": "test"}
+
+    listed = await workforce_repo.list_schedules(ws)
+    assert any(s.schedule_id == schedule.schedule_id for s in listed)
+
+    scoped_out = await workforce_repo.list_schedules(other_ws)
+    assert not any(s.schedule_id == schedule.schedule_id for s in scoped_out)
+
+    assert await workforce_repo.get_schedule(other_ws, schedule.schedule_id) is None
+    assert await workforce_repo.get_schedule(ws, "not-a-uuid") is None
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["in_memory"])
 async def test_signal_retry_does_not_create_two_outbox_rows(kind: str) -> None:
     workforce_repo = get_workforce_repo(kind)

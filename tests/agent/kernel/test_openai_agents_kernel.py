@@ -97,7 +97,16 @@ async def test_kernel_approval_pause_and_resume():
 @pytest.mark.asyncio
 async def test_kernel_cancellation():
     repo = InMemoryRunRepository()
-    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
+    # Prompt "Start task" khớp keyword "task" trong MockToolLoopModelClient
+    # -> phát sinh 1 tool_call thật (operations.task.list). Kernel không còn
+    # fallback "success" giả khi thiếu capability_executor (P0.3) nên test
+    # này — vốn chỉ quan tâm cancel() sau khi run hoàn tất, không quan tâm
+    # nội dung tool call — phải tự inject 1 executor giả tường minh.
+    kernel = ManualToolLoopKernel(
+        repository=repo,
+        model_client=MockToolLoopModelClient(),
+        capability_executor=lambda name, args: {"status": "success", "executed_tool": name},
+    )
 
     spec = AgentSpec(
         id="long_agent",

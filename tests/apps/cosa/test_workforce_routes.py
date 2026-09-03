@@ -216,3 +216,121 @@ async def test_workspace_b_cannot_decide_workspace_a_approval(test_app) -> None:
             json={"approved": True, "reason": "not allowed"},
         )
         assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_empty_schedule_list_is_honest(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/schedules")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["meta"]["data_state"] == "empty"
+        assert data["data"] == []
+
+
+@pytest.mark.asyncio
+async def test_create_schedule_persists_and_lists(test_app) -> None:
+    """P0.2 — trước fix, create_schedule dựng response in-memory không ghi
+    DB: GET sau đó vẫn trả rỗng. Test này chứng minh dữ liệu còn tồn tại sau
+    khi tạo, không chỉ response ban đầu hợp lệ schema."""
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        create_res = await client.post(
+            "/agent/workforce/schedules",
+            json={
+                "name": "Weekly cashflow review",
+                "functional_key": "cashflow_planner",
+                "cron_expression": "0 9 * * 1",
+            },
+        )
+        assert create_res.status_code == 200
+        created = create_res.json()["data"]
+        assert created["functional_key"] == "cashflow_planner"
+        assert created["status"] == "ACTIVE"
+        assert created["workspace_id"] == "ws_1001"
+
+        list_res = await client.get("/agent/workforce/schedules")
+        assert list_res.status_code == 200
+        items = list_res.json()["data"]
+        assert len(items) == 1
+        assert items[0]["schedule_id"] == created["schedule_id"]
+
+
+@pytest.mark.asyncio
+async def test_create_schedule_rejects_unknown_functional_key(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.post(
+            "/agent/workforce/schedules",
+            json={
+                "name": "Bogus",
+                "functional_key": "does_not_exist_in_catalog",
+                "cron_expression": "0 9 * * 1",
+            },
+        )
+        assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_schedule_tenant_isolation(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_A", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client_a:
+        await client_a.post(
+            "/agent/workforce/schedules",
+            json={
+                "name": "A's schedule",
+                "functional_key": "cashflow_planner",
+                "cron_expression": "0 9 * * 1",
+            },
+        )
+
+    override_authenticated_identity(test_app, workspace_id="ws_B", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client_b:
+        res = await client_b.get("/agent/workforce/schedules")
+        assert res.json()["data"] == []
+
+
+@pytest.mark.asyncio
+async def test_run_schedule_now_reports_not_implemented_instead_of_fake_success(
+    test_app,
+) -> None:
+    """P0.2 — trước fix, run-now luôn trả status=QUEUED giả cho bất kỳ
+    schedule_id nào (kể cả không tồn tại), không dispatch gì thật. Sau fix:
+    404 nếu schedule không tồn tại trong workspace, 501 rõ ràng nếu tồn tại
+    nhưng chưa hỗ trợ thực thi — không còn giả vờ thành công."""
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        missing_res = await client.post("/agent/workforce/schedules/does-not-exist/run-now")
+        assert missing_res.status_code == 404
+
+        create_res = await client.post(
+            "/agent/workforce/schedules",
+            json={
+                "name": "Weekly cashflow review",
+                "functional_key": "cashflow_planner",
+                "cron_expression": "0 9 * * 1",
+            },
+        )
+        schedule_id = create_res.json()["data"]["schedule_id"]
+
+        run_now_res = await client.post(f"/agent/workforce/schedules/{schedule_id}/run-now")
+        assert run_now_res.status_code == 501

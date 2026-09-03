@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
-from uuid import uuid4
 
 from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_spec
 from agent.workforce.repository import WorkforceRepository
@@ -33,7 +33,10 @@ from apps.cosa.auth.dependency import (
     get_authenticated_identity,
     require_workspace_operator,
 )
+from apps.cosa.auth.jwt import MissingPlatformIdentityError
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent/workforce", tags=["workforce"])
 
@@ -491,6 +494,28 @@ async def get_run_artifacts(
 
 
 # ─── Schedules ───
+#
+# functional_key + cron_expression: lịch chạy định kỳ cho 1 AI worker trong
+# Workforce org-chart — KHÔNG cùng mô hình với /agent/schedules* (đọc
+# apps/cosa/api/schedule_routes.py — model agent_profile + hour/minute/
+# weekdays, proxy sang services/cosa control-plane, đã có cron dispatcher
+# thật). Persist thật từ migration 025_workforce_schedules.sql, nhưng
+# thực thi (run-now / cron trigger tự động) CHƯA được hỗ trợ: functional_key
+# chưa nối vào execution runtime thật (packages/agent/workforce/catalog.py —
+# xem ghi chú "Không đưa vào phạm vi" trong spec điều chỉnh Agent Platform).
+
+
+def _to_schedule_out(rec) -> ScheduleOut:
+    return ScheduleOut(
+        schedule_id=str(rec.schedule_id),
+        workspace_id=rec.workspace_id,
+        name=rec.name,
+        functional_key=rec.functional_key,
+        cron_expression=rec.cron_expression,
+        status=rec.status,
+        next_run_at=None,
+        created_at=rec.created_at.isoformat(),
+    )
 
 
 @router.get("/schedules")
@@ -498,9 +523,10 @@ async def list_schedules(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ) -> MvpSuccess[list[ScheduleOut]]:
-    # Schedules from workspace scheduler
-    items: list[ScheduleOut] = []
-    return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent.schedules")])
+    repo = _get_workforce_repo(request)
+    records = await repo.list_schedules(identity.workspace_id)
+    items = [_to_schedule_out(r) for r in records]
+    return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent.workforce_schedules")])
 
 
 @router.post("/schedules")
@@ -510,18 +536,25 @@ async def create_schedule(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ) -> MvpSuccess[ScheduleOut]:
     require_workspace_operator(identity)
-    schedule_id = f"sched_{uuid4().hex[:12]}"
-    out = ScheduleOut(
-        schedule_id=schedule_id,
+
+    if req.functional_key not in FUNCTIONAL_AGENT_CATALOG:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Functional key '{req.functional_key}' not found in catalog",
+        )
+
+    repo = _get_workforce_repo(request)
+    rec = await repo.create_schedule(
         workspace_id=identity.workspace_id,
         name=req.name,
         functional_key=req.functional_key,
         cron_expression=req.cron_expression,
-        status="ACTIVE",
-        next_run_at=None,
-        created_at=datetime.now(UTC).isoformat(),
+        input_payload=req.input_payload,
+        configured_by=identity.principal_id,
     )
-    return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.schedules")])
+    return mvp_item(
+        _to_schedule_out(rec), [MvpSourceRef(kind="agent_db", ref="agent.workforce_schedules")]
+    )
 
 
 @router.post("/schedules/{schedule_id}/run-now")
@@ -531,13 +564,26 @@ async def run_schedule_now(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ) -> MvpSuccess[RunScheduleNowOut]:
     require_workspace_operator(identity)
-    run_id = f"run_{uuid4().hex[:12]}"
-    out = RunScheduleNowOut(
-        schedule_id=schedule_id,
-        triggered_run_id=run_id,
-        status="QUEUED",
+    repo = _get_workforce_repo(request)
+
+    rec = await repo.get_schedule(identity.workspace_id, schedule_id)
+    if rec is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Schedule '{schedule_id}' not found in workspace",
+        )
+
+    # Thực thi thật (dispatch 1 run cho functional_key) chưa được hỗ trợ —
+    # functional_key chưa nối vào execution runtime (không có AgentSpec nào
+    # được resolve/dispatch cho catalog entry này). Trả lỗi rõ ràng thay vì
+    # giả vờ đã QUEUED một run không hề tồn tại.
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail=(
+            "Workforce schedule execution chưa được hỗ trợ: functional_key "
+            f"'{rec.functional_key}' chưa nối vào execution runtime thật."
+        ),
     )
-    return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.schedules")])
 
 
 # ─── Approvals (Consolidated Canonical Endpoints) ───
@@ -677,19 +723,30 @@ async def decide_approval(
         },
     )
 
-    # Resume kernel if approved
+    # Resume kernel if approved. Quyết định approval ĐÃ được ghi nhận hợp lệ ở
+    # trên (submit_decision) dù bước schedule dưới đây có thất bại — không để
+    # 1 principal chưa từng sync qua platform (thiếu platform identity thật)
+    # làm mất luôn bản ghi quyết định đã hợp lệ chỉ vì không mint được
+    # delegation để tự động resume.
     if approved_flag and decided.checkpoint_ref:
-        await plane.scheduler.schedule(
-            target_spec_id="cosa.resume",
-            input_payload={
-                "task_type": "resume",
-                "run_id": run_id,
-                "checkpoint_ref": decided.checkpoint_ref,
-                "conversation_id": resume_conversation_id,
-                "workspace_id": run_record.workspace_id if run_record else None,
-                "delegation_token": identity.mint_delegation(),
-            },
-        )
+        try:
+            control_plane_delegation_token = identity.mint_control_plane_delegation()
+        except MissingPlatformIdentityError:
+            logger.exception(
+                "cannot auto-resume run %s: principal has no platform identity", run_id
+            )
+        else:
+            await plane.scheduler.schedule(
+                target_spec_id="cosa.resume",
+                input_payload={
+                    "task_type": "resume",
+                    "run_id": run_id,
+                    "checkpoint_ref": decided.checkpoint_ref,
+                    "conversation_id": resume_conversation_id,
+                    "workspace_id": run_record.workspace_id if run_record else None,
+                    "delegation_token": control_plane_delegation_token,
+                },
+            )
 
     # Cùng lý do với list_approvals — bọc qua mvp_item để consumer dùng chung
     # MvpRequestClient (đòi hỏi envelope {data, meta}) decode được.

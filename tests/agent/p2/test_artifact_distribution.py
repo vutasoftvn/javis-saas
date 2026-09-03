@@ -4,8 +4,8 @@ import pytest
 
 from agent.artifacts.distribution import (
     ArtifactDistributionRouter,
+    FakeS3ArtifactBackend,
     LocalArtifactBackend,
-    S3ArtifactBackend,
 )
 
 
@@ -13,7 +13,7 @@ from agent.artifacts.distribution import (
 async def test_artifact_distribution_multi_backend():
     """Kiểm thử Multi-Backend Artifact Distribution."""
     router = ArtifactDistributionRouter(default_backend=LocalArtifactBackend())
-    s3_backend = S3ArtifactBackend(bucket="my-company-artifacts")
+    s3_backend = FakeS3ArtifactBackend(bucket="my-company-artifacts")
     router.register_backend("s3", s3_backend)
 
     data = b"id,name,score\n1,Alpha,95\n2,Beta,88\n"

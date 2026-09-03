@@ -51,7 +51,16 @@ class CosaDataModelGate:
         if is_personal and not subject_ref:
             raise ComplianceDenied("PROCESSING_AUTHORIZATION_MISSING")
 
-        if self._client and hasattr(self._client, "resolve_data_use"):
+        if self._client is not None:
+            # P1.2 — trước đây `hasattr(self._client, "resolve_data_use")` gác
+            # cả nhánh này: 1 client thật thiếu đúng method đó (typo, refactor,
+            # hoặc client type khác) sẽ ÂM THẦM rơi về `redactor.sanitize()`
+            # không kiểm tra category/provider/authorization nào — đúng lớp
+            # lỗi đã gây dead-code enforcement thật trước Task 7 (xem comment
+            # `apps/cosa/capabilities/client.py::resolve_data_use`). `self._client
+            # is not None` đã đủ điều kiện gọi enforcement thật; nếu client
+            # thiếu method, để AttributeError raise thẳng (fail-loud) thay vì
+            # hasattr nuốt lỗi thành fail-open.
             delegation_token = run_context.get("_company_delegation_token") or run_context.get(
                 "delegation_token"
             )
@@ -67,7 +76,11 @@ class CosaDataModelGate:
                 subject_reference=subject_ref,
                 delegation_token=delegation_token,
             )
-            if hasattr(decision, "allowed") and not decision.allowed:
+            # Hợp đồng resolve_data_use() luôn trả object có `.allowed` (xem
+            # CompanyServiceClient.resolve_data_use — SimpleNamespace với
+            # default False) — không hasattr-guard thuộc tính bắt buộc theo
+            # hợp đồng, để vi phạm hợp đồng lộ ra thành lỗi thay vì fail-open.
+            if not decision.allowed:
                 raise ComplianceDenied(getattr(decision, "denial_code", "DATA_USE_DENIED"))
 
             return self._redactor.minimize(raw_input, decision)

@@ -14,7 +14,11 @@ from agent.conversations.models import ConversationRecord, MessageRecord
 from agent.registry.repository import SpecDependencyMissingError
 from agent.registry.resolver import SpecResolver
 
-from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
+from apps.cosa.agents.specs import (
+    COSA_FINANCE_AGENT_SPEC,
+    COSA_MARKETING_AGENT_SPEC,
+    COSA_OPERATIONS_AGENT_SPEC,
+)
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.compliance.contracts import ComplianceDenied
 from apps.cosa.composition.agent_plane import CosaAgentPlane
@@ -30,6 +34,19 @@ from apps.cosa.worker.autopilot_run import (
 from apps.cosa.worker.copilot_run import run_customer_support_copilot
 
 logger = logging.getLogger(__name__)
+
+# Ánh xạ agent_profile -> AgentSpec cho nhánh dispatch thường (không bao gồm
+# customer_support/customer_support_autopilot — 2 profile đó rẽ nhánh riêng
+# ở execute_run_task trước khi tới đây). "founder_assistant" là default thật
+# đang được Flutter gửi cho MỌI conversation mới (chat_controller.dart
+# createNewConversation() không truyền agentProfile) — alias sang Operations
+# để giữ đúng hành vi hiện tại, không phải bug cần sửa.
+_AGENT_PROFILE_SPECS: dict[str, AgentSpec] = {
+    "operations": COSA_OPERATIONS_AGENT_SPEC,
+    "founder_assistant": COSA_OPERATIONS_AGENT_SPEC,
+    "finance": COSA_FINANCE_AGENT_SPEC,
+    "marketing": COSA_MARKETING_AGENT_SPEC,
+}
 
 
 __all__ = [
@@ -121,9 +138,19 @@ async def _execute_run_task_inner(
         )
         return
 
-    local_spec = (
-        COSA_FINANCE_AGENT_SPEC if "finance" in agent_profile else COSA_OPERATIONS_AGENT_SPEC
-    )
+    local_spec = _AGENT_PROFILE_SPECS.get(agent_profile)
+    if local_spec is None:
+        # Trước đây mọi agent_profile lạ (kể cả "marketing") âm thầm rơi vào
+        # Operations qua so khớp chuỗi "finance" in agent_profile — sửa dead
+        # dispatch branch: log rõ ràng để phát hiện được profile chưa được
+        # ánh xạ, vẫn fallback Operations (không hard-fail run của người dùng
+        # vì 1 giá trị agent_profile chưa biết).
+        logger.warning(
+            "unmapped agent_profile %r, falling back to operations spec",
+            agent_profile,
+            extra={"run_id": run_id},
+        )
+        local_spec = COSA_OPERATIONS_AGENT_SPEC
 
     # Resolve PolicySnapshot TRƯỚC khi tạo run — §10.5 freshness invariant:
     # không xác nhận được current gate/tenant policy thật KHÔNG được coi là

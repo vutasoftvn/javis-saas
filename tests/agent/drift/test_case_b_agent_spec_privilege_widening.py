@@ -33,7 +33,16 @@ async def test_case_b_agent_spec_privilege_widening():
         model_input_capability_ref="model.input.direct-user-message",
     )
 
-    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
+    # Prompt "Transfer $1,000..." khớp keyword "transfer" trong
+    # MockToolLoopModelClient -> phát sinh tool_call finance.payout.execute
+    # sau khi approve. Kernel không còn fallback "success" giả khi thiếu
+    # capability_executor (P0.3); test này quan tâm semantics resume/approval,
+    # không quan tâm nội dung tool call, nên tự inject 1 executor giả.
+    kernel = ManualToolLoopKernel(
+        repository=repo,
+        model_client=MockToolLoopModelClient(),
+        capability_executor=lambda name, args: {"status": "success", "executed_tool": name},
+    )
 
     req = RunRequest(
         principal="operator_1",

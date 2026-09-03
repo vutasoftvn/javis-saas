@@ -86,6 +86,45 @@ async def test_execute_run_task_resolves_exact_spec_after_seeding():
     assert any(m.role == "assistant" and m.status == "completed" for m in messages)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("agent_profile", "expected_spec_id"),
+    [
+        ("operations", "cosa.agents.operations"),
+        ("finance", "cosa.agents.finance"),
+        ("marketing", "cosa.agents.marketing"),
+        # Default thật hiện tại của Flutter (chat_controller.dart
+        # createNewConversation() không truyền agentProfile) — phải tiếp tục
+        # map sang Operations, không được coi là "unknown".
+        ("founder_assistant", "cosa.agents.operations"),
+        # Profile lạ chưa từng dùng — fallback an toàn về Operations thay vì
+        # âm thầm rơi vào đó qua so khớp chuỗi "finance" in agent_profile như
+        # trước đây (bug: "marketing" cũng rơi vào Operations do "finance"
+        # not in "marketing").
+        ("some_never_used_profile", "cosa.agents.operations"),
+    ],
+)
+async def test_execute_run_task_dispatches_correct_spec_per_agent_profile(
+    agent_profile: str, expected_spec_id: str
+) -> None:
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    stream_mgr = CosaEventStreamManager()
+
+    await execute_run_task(
+        plane,
+        stream_mgr,
+        _payload(agent_profile=agent_profile),
+    )
+
+    run = await plane.run_repository.get_run("run_handler_test_1")
+    assert run is not None
+    assert run.root_executable_id == expected_spec_id
+
+
 class _SpyComplianceResolver:
     """Ghi lại `RunRequest` thật đã được truyền vào
     `ComplianceResolver.resolve_for_run` (Task 4) — dùng để chứng minh Task 5
