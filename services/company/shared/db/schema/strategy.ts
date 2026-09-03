@@ -285,6 +285,7 @@ export const projectOperatingSetups = strategySchema.table("project_operating_se
   selectedStage: varchar("selected_stage", { length: 50 }),
   stageDurationWeeks: integer("stage_duration_weeks"),
   stageTargetDate: timestamp("stage_target_date", { withTimezone: true }),
+  roundStartDate: timestamp("round_start_date", { withTimezone: true }),
   weeklyReviewWeekday: integer("weekly_review_weekday"),
   weeklyReviewTime: varchar("weekly_review_time", { length: 5 }),
   firstWeekOutcome: text("first_week_outcome"),

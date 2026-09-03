@@ -396,3 +396,98 @@ describe("Project Operating Setup Endpoints and Lifecycle", () => {
     expect(afterOutbox.length).toBe(initialOutboxCount);
   });
 });
+
+describe("roundStartDate + stageTargetDate", () => {
+  it("activate không có roundStartDate -> mặc định Thứ Hai kế tiếp, target = start + weeks*7d", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Round start default",
+    });
+
+    const res = await activateProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "CFOs",
+      problemStatement: "Reconciliation pain",
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      weeklyReviewWeekday: 5,
+      weeklyReviewTime: "16:00",
+      firstWeekOutcome: "Talk to 5 CFOs",
+      firstWeekActions: [{ title: "List 10 prospects" }],
+    });
+
+    const start = new Date(res.setup.roundStartDate!);
+    expect(start.getUTCDay()).toBe(1); // Monday
+    const target = new Date(res.setup.stageTargetDate!);
+    expect(target.getTime() - start.getTime()).toBe(2 * 7 * 24 * 60 * 60 * 1000);
+  });
+
+  it("activate với roundStartDate rõ ràng -> giữ nguyên (đầu ngày UTC)", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Round start explicit",
+    });
+
+    const res = await activateProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "CFOs",
+      problemStatement: "Reconciliation pain",
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 1,
+      weeklyReviewWeekday: 5,
+      weeklyReviewTime: "16:00",
+      firstWeekOutcome: "Talk to 5 CFOs",
+      firstWeekActions: [{ title: "List 10 prospects" }],
+      roundStartDate: futureIsoDate(21, "09:30:00.000"),
+    });
+
+    expect(res.setup.roundStartDate).toBe(futureIsoDate(21, "00:00:00.000"));
+  });
+
+  it("roundStartDate ngoài cửa sổ [hôm nay-1d, hôm nay+60d] -> invalidArgument", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Round start out of window",
+    });
+
+    await expect(
+      activateProjectOperatingSetupEndpoint({
+        authorization: ws.bearerToken,
+        workspaceId: ws.workspaceId,
+        id: project.id,
+        targetCustomer: "CFOs",
+        problemStatement: "x",
+        evidenceLevel: "NONE",
+        selectedStage: "P0_DISCOVERY",
+        stageDurationWeeks: 2,
+        weeklyReviewWeekday: 5,
+        weeklyReviewTime: "16:00",
+        firstWeekOutcome: "y",
+        firstWeekActions: [{ title: "z" }],
+        roundStartDate: "2020-01-01T00:00:00.000Z",
+      })
+    ).rejects.toThrow(/roundStartDate/);
+  });
+});
+
+// Tạo ISO string ở đầu ngày UTC + `offsetDays` ngày so với hôm nay, gắn giờ tuỳ ý.
+// Dùng offset động để test không phụ thuộc ngày chạy (cửa sổ hợp lệ là +60 ngày).
+function futureIsoDate(offsetDays: number, time: string): string {
+  const now = new Date();
+  const day = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offsetDays)
+  );
+  return `${day.toISOString().slice(0, 10)}T${time}Z`;
+}

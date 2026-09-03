@@ -42,6 +42,7 @@ export interface ProjectOperatingSetupView {
   selectedStage: BasicKickoffStage | null;
   stageDurationWeeks: number | null;
   stageTargetDate: string | null;
+  roundStartDate: string | null;
   weeklyReviewWeekday: number | null;
   weeklyReviewTime: string | null;
   firstWeekOutcome: string | null;
@@ -55,6 +56,7 @@ export interface SaveProjectOperatingSetupRequest {
   evidenceLevel?: EvidenceLevel | null;
   selectedStage?: BasicKickoffStage | null;
   stageDurationWeeks?: number | null;
+  roundStartDate?: string | null;
   weeklyReviewWeekday?: number | null;
   weeklyReviewTime?: string | null;
   firstWeekOutcome?: string | null;
@@ -67,6 +69,7 @@ export interface ActivateProjectOperatingSetupRequest {
   evidenceLevel: EvidenceLevel;
   selectedStage: BasicKickoffStage;
   stageDurationWeeks: number;
+  roundStartDate?: string | null;
   weeklyReviewWeekday: number;
   weeklyReviewTime: string;
   firstWeekOutcome: string;
@@ -77,6 +80,39 @@ export const DURATION_LIMITS: Record<BasicKickoffStage, readonly [number, number
   P0_DISCOVERY: [1, 2],
   P1_PROBLEM_VALIDATION: [2, 4],
 };
+
+export function startOfUtcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+// Mặc định vòng bắt đầu Thứ Hai (chuẩn ISO-8601: tuần làm việc bắt đầu T2)
+// vào/đúng sau `from`. Nếu `from` đã là Thứ Hai thì bắt đầu luôn hôm đó.
+export function nextMondayOnOrAfter(from: Date): Date {
+  const base = startOfUtcDay(from);
+  const iso = base.getUTCDay() === 0 ? 7 : base.getUTCDay(); // 1=Mon..7=Sun
+  const add = iso === 1 ? 0 : 8 - iso;
+  base.setUTCDate(base.getUTCDate() + add);
+  return base;
+}
+
+// Chuẩn hoá mốc bắt đầu vòng: rỗng -> Thứ Hai kế tiếp; có giá trị -> ép về
+// đầu ngày UTC và bắt buộc nằm trong cửa sổ [hôm nay-1d, hôm nay+60d].
+function resolveRoundStart(raw: string | null | undefined, now: Date): Date {
+  if (raw === undefined || raw === null || !raw.trim()) {
+    return nextMondayOnOrAfter(now);
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    throw APIError.invalidArgument("roundStartDate không phải ISO date hợp lệ");
+  }
+  const day = startOfUtcDay(parsed);
+  const lo = startOfUtcDay(new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000));
+  const hi = startOfUtcDay(new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000));
+  if (day.getTime() < lo.getTime() || day.getTime() > hi.getTime()) {
+    throw APIError.invalidArgument("roundStartDate phải nằm trong 60 ngày tới");
+  }
+  return day;
+}
 
 const VALID_EVIDENCE_LEVELS: readonly EvidenceLevel[] = [
   "NONE",
@@ -127,6 +163,7 @@ function toView(row: typeof projectOperatingSetups.$inferSelect): ProjectOperati
     selectedStage: row.selectedStage as BasicKickoffStage | null,
     stageDurationWeeks: row.stageDurationWeeks,
     stageTargetDate: row.stageTargetDate ? row.stageTargetDate.toISOString() : null,
+    roundStartDate: row.roundStartDate ? row.roundStartDate.toISOString() : null,
     weeklyReviewWeekday: row.weeklyReviewWeekday,
     weeklyReviewTime: row.weeklyReviewTime,
     firstWeekOutcome: row.firstWeekOutcome,
@@ -189,6 +226,7 @@ export async function getProjectOperatingSetup(
       selectedStage: "P0_DISCOVERY",
       stageDurationWeeks: 2,
       stageTargetDate: null,
+      roundStartDate: null,
       weeklyReviewWeekday: 5,
       weeklyReviewTime: "16:00",
       firstWeekOutcome: null,
@@ -277,11 +315,19 @@ export async function saveProjectOperatingSetup(
     const durationWeeks = req.stageDurationWeeks === undefined
       ? existing?.stageDurationWeeks ?? null
       : req.stageDurationWeeks;
-    const stageTargetDate = req.stageDurationWeeks === undefined
-      ? existing?.stageTargetDate ?? null
-      : durationWeeks === null
-        ? null
-        : new Date(Date.now() + durationWeeks * 7 * 24 * 60 * 60 * 1000);
+
+    const now = new Date();
+    // Mốc bắt đầu vòng: request gửi rõ -> resolve/validate; không gửi -> giữ mốc cũ.
+    const resolvedRoundStart =
+      req.roundStartDate !== undefined
+        ? resolveRoundStart(req.roundStartDate, now)
+        : existing?.roundStartDate ?? null;
+    // stageTargetDate luôn neo vào mốc vòng (fallback `now` khi chưa có mốc).
+    const anchorForTarget = resolvedRoundStart ?? now;
+    const stageTargetDate =
+      durationWeeks === null
+        ? (req.stageDurationWeeks === undefined ? existing?.stageTargetDate ?? null : null)
+        : new Date(anchorForTarget.getTime() + durationWeeks * 7 * 24 * 60 * 60 * 1000);
 
     const previousActions = (existing?.firstWeekActions as FirstWeekAction[]) || [];
 
@@ -296,8 +342,6 @@ export async function saveProjectOperatingSetup(
       ? recommendKickoffStage(req.evidenceLevel)
       : existing?.recommendedStage ?? (evidenceLevel ? recommendKickoffStage(evidenceLevel) : null);
 
-    const now = new Date();
-
     const [saved] = await tx
       .insert(projectOperatingSetups)
       .values({
@@ -311,6 +355,7 @@ export async function saveProjectOperatingSetup(
         selectedStage: req.selectedStage !== undefined ? req.selectedStage : existing?.selectedStage ?? null,
         stageDurationWeeks: durationWeeks,
         stageTargetDate,
+        roundStartDate: resolvedRoundStart,
         weeklyReviewWeekday: req.weeklyReviewWeekday !== undefined ? req.weeklyReviewWeekday : existing?.weeklyReviewWeekday ?? null,
         weeklyReviewTime: req.weeklyReviewTime !== undefined ? req.weeklyReviewTime : existing?.weeklyReviewTime ?? null,
         firstWeekOutcome: resolvedOutcome,
@@ -329,6 +374,7 @@ export async function saveProjectOperatingSetup(
           selectedStage: req.selectedStage !== undefined ? req.selectedStage : existing?.selectedStage ?? null,
           stageDurationWeeks: durationWeeks,
           stageTargetDate,
+          roundStartDate: resolvedRoundStart,
           weeklyReviewWeekday: req.weeklyReviewWeekday !== undefined ? req.weeklyReviewWeekday : existing?.weeklyReviewWeekday ?? null,
           weeklyReviewTime: req.weeklyReviewTime !== undefined ? req.weeklyReviewTime : existing?.weeklyReviewTime ?? null,
           firstWeekOutcome: resolvedOutcome,
@@ -410,7 +456,11 @@ export async function activateProjectOperatingSetup(
   const wsId = BigInt(ctx.workspaceId);
   const pId = BigInt(projectId);
   const now = new Date();
-  const stageTargetDate = new Date(Date.now() + req.stageDurationWeeks * 7 * 24 * 60 * 60 * 1000);
+  // stageTargetDate neo vào mốc bắt đầu vòng (mặc định Thứ Hai kế tiếp).
+  const roundStartDate = resolveRoundStart(req.roundStartDate, now);
+  const stageTargetDate = new Date(
+    roundStartDate.getTime() + req.stageDurationWeeks * 7 * 24 * 60 * 60 * 1000
+  );
   const recommendedStage = recommendKickoffStage(req.evidenceLevel);
 
   return db.transaction(async (tx) => {
@@ -462,6 +512,7 @@ export async function activateProjectOperatingSetup(
         selectedStage: req.selectedStage,
         stageDurationWeeks: req.stageDurationWeeks,
         stageTargetDate,
+        roundStartDate,
         weeklyReviewWeekday: req.weeklyReviewWeekday,
         weeklyReviewTime: req.weeklyReviewTime,
         firstWeekOutcome: req.firstWeekOutcome.trim(),
@@ -480,6 +531,7 @@ export async function activateProjectOperatingSetup(
           selectedStage: req.selectedStage,
           stageDurationWeeks: req.stageDurationWeeks,
           stageTargetDate,
+          roundStartDate,
           weeklyReviewWeekday: req.weeklyReviewWeekday,
           weeklyReviewTime: req.weeklyReviewTime,
           firstWeekOutcome: req.firstWeekOutcome.trim(),

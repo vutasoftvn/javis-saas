@@ -39,6 +39,7 @@ export interface PutProjectOperatingSetupParams {
   evidenceLevel?: EvidenceLevel | null;
   selectedStage?: BasicKickoffStage | null;
   stageDurationWeeks?: number | null;
+  roundStartDate?: string | null;
   weeklyReviewWeekday?: number | null;
   weeklyReviewTime?: string | null;
   firstWeekOutcome?: string | null;
@@ -54,6 +55,7 @@ export interface ActivateProjectOperatingSetupParams {
   evidenceLevel: EvidenceLevel;
   selectedStage: BasicKickoffStage;
   stageDurationWeeks: number;
+  roundStartDate?: string | null;
   weeklyReviewWeekday: number;
   weeklyReviewTime: string;
   firstWeekOutcome: string;
@@ -85,6 +87,7 @@ export const putProjectOperatingSetupEndpoint = api(
       evidenceLevel: params.evidenceLevel,
       selectedStage: params.selectedStage,
       stageDurationWeeks: params.stageDurationWeeks,
+      roundStartDate: params.roundStartDate,
       weeklyReviewWeekday: params.weeklyReviewWeekday,
       weeklyReviewTime: params.weeklyReviewTime,
       firstWeekOutcome: params.firstWeekOutcome,
@@ -104,6 +107,7 @@ export const activateProjectOperatingSetupEndpoint = api(
       evidenceLevel: params.evidenceLevel,
       selectedStage: params.selectedStage,
       stageDurationWeeks: params.stageDurationWeeks,
+      roundStartDate: params.roundStartDate,
       weeklyReviewWeekday: params.weeklyReviewWeekday,
       weeklyReviewTime: params.weeklyReviewTime,
       firstWeekOutcome: params.firstWeekOutcome,
