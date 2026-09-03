@@ -14,6 +14,7 @@ import {
   ProjectLifecycleStage,
 } from "./project-stage-lifecycle.service";
 import { Project } from "../../services/project.service";
+import { materializeFirstWeekPlan } from "./project-kickoff-materialize.service";
 
 export type OperatingSetupStatus = "NOT_STARTED" | "IN_PROGRESS" | "ACTIVE";
 
@@ -201,113 +202,100 @@ export async function saveProjectOperatingSetup(
   const wsId = BigInt(ctx.workspaceId);
   const pId = BigInt(projectId);
 
-  const [proj] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(and(eq(projects.id, pId), eq(projects.workspaceId, wsId)))
-    .limit(1);
+  return db.transaction(async (tx) => {
+    const [proj] = await tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, pId), eq(projects.workspaceId, wsId)))
+      .limit(1);
 
-  if (!proj) {
-    throw APIError.notFound("Project không tồn tại trong workspace này");
-  }
-
-  const [existing] = await db
-    .select()
-    .from(projectOperatingSetups)
-    .where(and(eq(projectOperatingSetups.projectId, pId), eq(projectOperatingSetups.workspaceId, wsId)))
-    .limit(1);
-
-  if (existing && existing.status === "ACTIVE") {
-    throw APIError.failedPrecondition("Operating setup đã được kích hoạt (ACTIVE), không thể lưu draft");
-  }
-
-  if (req.evidenceLevel && !VALID_EVIDENCE_LEVELS.includes(req.evidenceLevel)) {
-    throw APIError.invalidArgument(`evidenceLevel không hợp lệ: ${req.evidenceLevel}`);
-  }
-
-  if (req.selectedStage && !VALID_STAGES.includes(req.selectedStage)) {
-    throw APIError.invalidArgument(`selectedStage không hợp lệ: ${req.selectedStage}`);
-  }
-
-  if (req.firstWeekActions && req.firstWeekActions.length > 3) {
-    throw APIError.invalidArgument("firstWeekActions cannot exceed 3 items");
-  }
-
-  const selectedStage = req.selectedStage ?? (existing?.selectedStage as BasicKickoffStage | null);
-  const evidenceLevel = req.evidenceLevel ?? (existing?.evidenceLevel as EvidenceLevel | null);
-
-  if (
-    selectedStage === "P1_PROBLEM_VALIDATION" &&
-    evidenceLevel &&
-    !["FIVE_PLUS_INTERVIEWS", "PROTOTYPE_OR_REVENUE"].includes(evidenceLevel)
-  ) {
-    throw APIError.invalidArgument("P1 requires founder-confirmed qualifying evidence");
-  }
-
-  if (req.stageDurationWeeks !== undefined && req.stageDurationWeeks !== null) {
-    const stageForDuration = selectedStage ?? "P0_DISCOVERY";
-    const [min, max] = DURATION_LIMITS[stageForDuration] ?? [1, 2];
-    if (req.stageDurationWeeks < min || req.stageDurationWeeks > max) {
-      throw APIError.invalidArgument(
-        `stageDurationWeeks must be between ${min} and ${max} for ${stageForDuration}`
-      );
+    if (!proj) {
+      throw APIError.notFound("Project không tồn tại trong workspace này");
     }
-  }
 
-  if (req.weeklyReviewWeekday !== undefined && req.weeklyReviewWeekday !== null) {
-    if (req.weeklyReviewWeekday < 1 || req.weeklyReviewWeekday > 7) {
-      throw APIError.invalidArgument("weeklyReviewWeekday must be between 1 and 7");
+    const [existing] = await tx
+      .select()
+      .from(projectOperatingSetups)
+      .where(and(eq(projectOperatingSetups.projectId, pId), eq(projectOperatingSetups.workspaceId, wsId)))
+      .limit(1);
+
+    if (existing && existing.status === "ACTIVE") {
+      throw APIError.failedPrecondition("Operating setup đã được kích hoạt (ACTIVE), không thể lưu draft");
     }
-  }
 
-  if (req.weeklyReviewTime !== undefined && req.weeklyReviewTime !== null) {
-    if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(req.weeklyReviewTime)) {
-      throw APIError.invalidArgument("weeklyReviewTime must use HH:mm");
+    if (req.evidenceLevel && !VALID_EVIDENCE_LEVELS.includes(req.evidenceLevel)) {
+      throw APIError.invalidArgument(`evidenceLevel không hợp lệ: ${req.evidenceLevel}`);
     }
-  }
 
-  const durationWeeks = req.stageDurationWeeks === undefined
-    ? existing?.stageDurationWeeks ?? null
-    : req.stageDurationWeeks;
-  const stageTargetDate = req.stageDurationWeeks === undefined
-    ? existing?.stageTargetDate ?? null
-    : durationWeeks === null
-      ? null
-      : new Date(Date.now() + durationWeeks * 7 * 24 * 60 * 60 * 1000);
+    if (req.selectedStage && !VALID_STAGES.includes(req.selectedStage)) {
+      throw APIError.invalidArgument(`selectedStage không hợp lệ: ${req.selectedStage}`);
+    }
 
-  const actions = req.firstWeekActions !== undefined
-    ? normalizeFirstWeekActions(req.firstWeekActions)
-    : ((existing?.firstWeekActions as FirstWeekAction[]) || []);
+    if (req.firstWeekActions && req.firstWeekActions.length > 3) {
+      throw APIError.invalidArgument("firstWeekActions cannot exceed 3 items");
+    }
 
-  const recommendedStage = req.evidenceLevel !== undefined
-    ? recommendKickoffStage(req.evidenceLevel)
-    : existing?.recommendedStage ?? (evidenceLevel ? recommendKickoffStage(evidenceLevel) : null);
+    const selectedStage = req.selectedStage ?? (existing?.selectedStage as BasicKickoffStage | null);
+    const evidenceLevel = req.evidenceLevel ?? (existing?.evidenceLevel as EvidenceLevel | null);
 
-  const now = new Date();
+    if (
+      selectedStage === "P1_PROBLEM_VALIDATION" &&
+      evidenceLevel &&
+      !["FIVE_PLUS_INTERVIEWS", "PROTOTYPE_OR_REVENUE"].includes(evidenceLevel)
+    ) {
+      throw APIError.invalidArgument("P1 requires founder-confirmed qualifying evidence");
+    }
 
-  const [saved] = await db
-    .insert(projectOperatingSetups)
-    .values({
-      projectId: pId,
-      workspaceId: wsId,
-      status: "IN_PROGRESS",
-      targetCustomer: req.targetCustomer !== undefined ? req.targetCustomer : existing?.targetCustomer ?? null,
-      problemStatement: req.problemStatement !== undefined ? req.problemStatement : existing?.problemStatement ?? null,
-      evidenceLevel: req.evidenceLevel !== undefined ? req.evidenceLevel : existing?.evidenceLevel ?? null,
-      recommendedStage: recommendedStage as string | null,
-      selectedStage: req.selectedStage !== undefined ? req.selectedStage : existing?.selectedStage ?? null,
-      stageDurationWeeks: durationWeeks,
-      stageTargetDate,
-      weeklyReviewWeekday: req.weeklyReviewWeekday !== undefined ? req.weeklyReviewWeekday : existing?.weeklyReviewWeekday ?? null,
-      weeklyReviewTime: req.weeklyReviewTime !== undefined ? req.weeklyReviewTime : existing?.weeklyReviewTime ?? null,
-      firstWeekOutcome: req.firstWeekOutcome !== undefined ? req.firstWeekOutcome : existing?.firstWeekOutcome ?? null,
-      firstWeekActions: actions,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: projectOperatingSetups.projectId,
-      set: {
+    if (req.stageDurationWeeks !== undefined && req.stageDurationWeeks !== null) {
+      const stageForDuration = selectedStage ?? "P0_DISCOVERY";
+      const [min, max] = DURATION_LIMITS[stageForDuration] ?? [1, 2];
+      if (req.stageDurationWeeks < min || req.stageDurationWeeks > max) {
+        throw APIError.invalidArgument(
+          `stageDurationWeeks must be between ${min} and ${max} for ${stageForDuration}`
+        );
+      }
+    }
+
+    if (req.weeklyReviewWeekday !== undefined && req.weeklyReviewWeekday !== null) {
+      if (req.weeklyReviewWeekday < 1 || req.weeklyReviewWeekday > 7) {
+        throw APIError.invalidArgument("weeklyReviewWeekday must be between 1 and 7");
+      }
+    }
+
+    if (req.weeklyReviewTime !== undefined && req.weeklyReviewTime !== null) {
+      if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(req.weeklyReviewTime)) {
+        throw APIError.invalidArgument("weeklyReviewTime must use HH:mm");
+      }
+    }
+
+    const durationWeeks = req.stageDurationWeeks === undefined
+      ? existing?.stageDurationWeeks ?? null
+      : req.stageDurationWeeks;
+    const stageTargetDate = req.stageDurationWeeks === undefined
+      ? existing?.stageTargetDate ?? null
+      : durationWeeks === null
+        ? null
+        : new Date(Date.now() + durationWeeks * 7 * 24 * 60 * 60 * 1000);
+
+    const actions = req.firstWeekActions !== undefined
+      ? normalizeFirstWeekActions(req.firstWeekActions)
+      : ((existing?.firstWeekActions as FirstWeekAction[]) || []);
+
+    const previousActions = (existing?.firstWeekActions as FirstWeekAction[]) || [];
+
+    const resolvedOutcome = req.firstWeekOutcome !== undefined ? req.firstWeekOutcome : existing?.firstWeekOutcome ?? null;
+
+    const recommendedStage = req.evidenceLevel !== undefined
+      ? recommendKickoffStage(req.evidenceLevel)
+      : existing?.recommendedStage ?? (evidenceLevel ? recommendKickoffStage(evidenceLevel) : null);
+
+    const now = new Date();
+
+    const [saved] = await tx
+      .insert(projectOperatingSetups)
+      .values({
+        projectId: pId,
+        workspaceId: wsId,
         status: "IN_PROGRESS",
         targetCustomer: req.targetCustomer !== undefined ? req.targetCustomer : existing?.targetCustomer ?? null,
         problemStatement: req.problemStatement !== undefined ? req.problemStatement : existing?.problemStatement ?? null,
@@ -318,14 +306,42 @@ export async function saveProjectOperatingSetup(
         stageTargetDate,
         weeklyReviewWeekday: req.weeklyReviewWeekday !== undefined ? req.weeklyReviewWeekday : existing?.weeklyReviewWeekday ?? null,
         weeklyReviewTime: req.weeklyReviewTime !== undefined ? req.weeklyReviewTime : existing?.weeklyReviewTime ?? null,
-        firstWeekOutcome: req.firstWeekOutcome !== undefined ? req.firstWeekOutcome : existing?.firstWeekOutcome ?? null,
+        firstWeekOutcome: resolvedOutcome,
         firstWeekActions: actions,
+        createdAt: existing?.createdAt ?? now,
         updatedAt: now,
-      },
-    })
-    .returning();
+      })
+      .onConflictDoUpdate({
+        target: projectOperatingSetups.projectId,
+        set: {
+          status: "IN_PROGRESS",
+          targetCustomer: req.targetCustomer !== undefined ? req.targetCustomer : existing?.targetCustomer ?? null,
+          problemStatement: req.problemStatement !== undefined ? req.problemStatement : existing?.problemStatement ?? null,
+          evidenceLevel: req.evidenceLevel !== undefined ? req.evidenceLevel : existing?.evidenceLevel ?? null,
+          recommendedStage: recommendedStage as string | null,
+          selectedStage: req.selectedStage !== undefined ? req.selectedStage : existing?.selectedStage ?? null,
+          stageDurationWeeks: durationWeeks,
+          stageTargetDate,
+          weeklyReviewWeekday: req.weeklyReviewWeekday !== undefined ? req.weeklyReviewWeekday : existing?.weeklyReviewWeekday ?? null,
+          weeklyReviewTime: req.weeklyReviewTime !== undefined ? req.weeklyReviewTime : existing?.weeklyReviewTime ?? null,
+          firstWeekOutcome: resolvedOutcome,
+          firstWeekActions: actions,
+          updatedAt: now,
+        },
+      })
+      .returning();
 
-  return toView(saved);
+    await materializeFirstWeekPlan(tx, ctx, {
+      projectId,
+      previousActions,
+      actions,
+      firstWeekOutcome: resolvedOutcome,
+      selectedStage: (saved.selectedStage as BasicKickoffStage | null),
+      stageDurationWeeks: saved.stageDurationWeeks,
+    });
+
+    return toView(saved);
+  });
 }
 
 export async function activateProjectOperatingSetup(
@@ -406,6 +422,13 @@ export async function activateProjectOperatingSetup(
       throw APIError.notFound("Project không tồn tại trong workspace này");
     }
 
+    const [existing] = await tx
+      .select({ firstWeekActions: projectOperatingSetups.firstWeekActions })
+      .from(projectOperatingSetups)
+      .where(and(eq(projectOperatingSetups.projectId, pId), eq(projectOperatingSetups.workspaceId, wsId)))
+      .limit(1);
+    const previousActions = (existing?.firstWeekActions as FirstWeekAction[]) || [];
+
     if (req.selectedStage === "P1_PROBLEM_VALIDATION" && proj.lifecycleStage === "P0_DISCOVERY") {
       await transitionProjectStageInTransaction(tx, {
         workspaceId: wsId,
@@ -481,6 +504,15 @@ export async function activateProjectOperatingSetup(
     });
 
     await appendOutboxEvent(tx, event);
+
+    await materializeFirstWeekPlan(tx, ctx, {
+      projectId,
+      previousActions,
+      actions: normalizedActions,
+      firstWeekOutcome: req.firstWeekOutcome.trim(),
+      selectedStage: req.selectedStage,
+      stageDurationWeeks: req.stageDurationWeeks,
+    });
 
     const [refreshedProject] = await tx
       .select()
