@@ -11,6 +11,7 @@ import '../../../modules/chat/services/agent_chat_service.dart';
 import '../../../modules/chat/models/data_access_declaration.dart';
 
 import '../../../core/network/api_result.dart';
+import '../../../core/routing/app_routes.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../data/models/project_operating_setup_model.dart';
@@ -104,6 +105,15 @@ class FounderCommandCenterController extends GetxController {
   /// đẩy Founder vào lại flow onboarding dù họ đã có dự án. Field này expose
   /// lỗi thật để UI hiển thị banner/thử lại thay vì trạng thái rỗng giả.
   final RxnString projectsError = RxnString();
+
+  /// Fix race (2026-09-03, Task 5) — `ProjectSetupGuardMiddleware` đồng bộ
+  /// không phân biệt được "workspace thật sự 0 project" với "FCC đã đăng ký
+  /// nhưng `loadDashboardData()` còn đang chạy" — cả hai đều là `projectsList`
+  /// rỗng + `projectsError` null. Cờ này bật `true` sau khi `loadDashboardData()`
+  /// xử lý xong danh sách project (kể cả khi fetch lỗi) để middleware chỉ
+  /// quyết định khi state đã biết; khoảng trước lúc tải xong do backstop async
+  /// `_enforceZeroProjectRedirect()` lo.
+  final RxBool projectsLoadedOnce = false.obs;
   final Rx<CompanyPulseModel?> pulse = Rx<CompanyPulseModel?>(null);
   final RxList<NextBestActionModel> top3Actions = <NextBestActionModel>[].obs;
   final RxList<FounderDecisionModel> pendingDecisions =
@@ -224,6 +234,10 @@ class FounderCommandCenterController extends GetxController {
 
       projectsList.assignAll(projects);
       hasProjects.value = projects.isNotEmpty || projectsError.value != null;
+      // Fix race (2026-09-03, Task 5) — đã xử lý xong danh sách project (dù
+      // thành công hay lỗi) ⇒ state đủ để `ProjectSetupGuardMiddleware` đồng
+      // bộ quyết định.
+      projectsLoadedOnce.value = true;
 
       final activeProjectId = projects.isNotEmpty
           ? projects.first['id']?.toString()
@@ -297,9 +311,24 @@ class FounderCommandCenterController extends GetxController {
           approvalsState.value = WorkforceLoadState.unavailable;
         },
       );
+
+      _enforceZeroProjectRedirect();
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// Backstop cho `ProjectSetupGuardMiddleware`: khi Founder đã điều hướng
+  /// vào `/hub` (hoặc `/work/*`) trước lúc danh sách project tải xong,
+  /// middleware đồng bộ chưa quyết định được. Sau khi `loadDashboardData()`
+  /// hoàn tất, tự đẩy sang `/projects/new` nếu vẫn `needsProjectSetup`.
+  /// Chỉ tác động đúng hai bề mặt được guard — không đụng `/login`,
+  /// `/workspace-picker`, `/projects/new`, v.v.
+  void _enforceZeroProjectRedirect() {
+    if (!needsProjectSetup) return;
+    final route = Get.currentRoute;
+    if (route != AppRoutes.hub && !route.startsWith('/work/')) return;
+    Get.offAllNamed(AppRoutes.projectsNew);
   }
 
   /// Khởi tạo dự án đầu tiên theo flow cơ bản và trả về ID dự án để chuyển tiếp sang Kickoff

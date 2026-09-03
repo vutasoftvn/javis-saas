@@ -25,6 +25,7 @@ void main() {
 
   test('needsProjectSetup == true -> redirect sang /projects/new', () {
     final fcc = Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    fcc.projectsLoadedOnce.value = true;
     fcc.projectsError.value = null;
     fcc.projectsList.clear();
     expect(
@@ -35,13 +36,24 @@ void main() {
 
   test('needsProjectSetup == false -> không redirect', () {
     final fcc = Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    fcc.projectsLoadedOnce.value = true;
     fcc.projectsError.value = null;
     fcc.projectsList.assignAll([{'id': 'p1'}, {'id': 'p2'}]);
     expect(ProjectSetupGuardMiddleware().redirect('/work/tasks'), isNull);
   });
 
+  test('FCC đăng ký nhưng loadDashboardData chưa xong (projectsLoadedOnce == false) '
+      '-> không redirect sớm', () {
+    final fcc = Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    fcc.projectsError.value = null;
+    fcc.projectsList.clear();
+    expect(fcc.projectsLoadedOnce.value, isFalse);
+    expect(ProjectSetupGuardMiddleware().redirect('/hub'), isNull);
+  });
+
   test('đang ở /projects/new -> không tự redirect vào chính nó', () {
     final fcc = Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    fcc.projectsLoadedOnce.value = true;
     fcc.projectsError.value = null;
     fcc.projectsList.clear();
     expect(ProjectSetupGuardMiddleware().redirect(AppRoutes.projectsNew), isNull);
