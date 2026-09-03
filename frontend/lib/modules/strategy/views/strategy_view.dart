@@ -7,6 +7,7 @@ import 'tabs/decision_log_tab.dart';
 import 'tabs/stage_gate_audit_tab.dart';
 import 'tabs/twelve_wy_loop_tab.dart';
 import 'tabs/validation_studio_tab.dart';
+import 'tabs/weekly_review_tab.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -23,7 +24,7 @@ class StrategyView extends GetView<StrategyController> {
 
     return DefaultTabController(
       initialIndex: initialTabIndex,
-      length: 6,
+      length: 7,
       child: Container(
         color: Colors.transparent,
         child: Column(
@@ -140,6 +141,17 @@ class StrategyView extends GetView<StrategyController> {
                             ],
                           ),
                         ),
+                        Tab(
+                          height: 34,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.rate_review_outlined, size: 15),
+                              SizedBox(width: 6),
+                              Text('Review tuần'),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -157,6 +169,7 @@ class StrategyView extends GetView<StrategyController> {
                   DecisionLogTab(),
                   StageGateAuditTab(),
                   TwelveWyLoopTab(),
+                  WeeklyReviewTab(),
                 ],
               ),
             ),
