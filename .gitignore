@@ -89,3 +89,5 @@ encore.gen.*
 
 # Local documents / data
 vb-ai/
+
+.envrc

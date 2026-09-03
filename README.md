@@ -60,28 +60,48 @@ FastAPI Server (port 8000)     ←→    PostgreSQL (port 5432 - db: agent)
 Worker Daemon (background)     ←→    MinIO (port 9000/9001) & LiveKit (port 7880/7885)
 ```
 
-**Khởi động development stack:**
+### Thiết lập môi trường một lần (direnv — khuyến nghị)
+
+Encore.ts **không tự nạp** `.env`; các `*_DATABASE_URL` phải có sẵn trong shell
+trước khi chạy `encore run`. Thiếu → service crash ngay lúc khởi động
+(`COSA_DATABASE_URL is required...`), cổng 4000/4001 không lên, và Flutter báo
+`Connection refused` khi gọi `/platform/auth/register`.
+
+Dùng [direnv](https://direnv.net) để mọi terminal mở trong repo tự có env:
 
 ```bash
-# Step 1: Chuẩn bị file cấu hình môi trường
-cp .env.example .env
-source scripts/load-dev-env.sh  # Nạp biến môi trường
-
-# Step 2: Khởi động container hạ tầng (PostgreSQL, MinIO, LiveKit)
-make dev-infra
-
-# Step 3: Chạy migrations cho 3 CSDL theo thứ tự canonical (Agent -> COSA -> Company)
-make dev-migrate
-
-# Step 4: Kiểm tra tiền điều kiện cấu hình và sức khỏe service
-make dev-preflight
-
-# Step 5: Khởi động toàn bộ stack hoặc từng service
-make dev-stack   # hoặc chạy riêng: encore run, uvicorn, worker
-
-# Step 6: Kiểm tra trạng thái toàn bộ dịch vụ
-make dev-status
+cp .env.example .env                         # nếu chưa có
+brew install direnv                          # macOS
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc # rồi MỞ TERMINAL MỚI
+cd <repo> && echo 'dotenv' > .envrc && direnv allow
+echo '.envrc' >> .gitignore                  # nếu chưa ignore
 ```
+
+Từ đó, `cd` vào repo sẽ in `direnv: loading .envrc` và nạp toàn bộ biến. Không
+dùng direnv thì phải `source scripts/load-dev-env.sh` ở **mỗi** terminal trước
+khi chạy `make`.
+
+### Khởi động development stack (một lệnh)
+
+Mở terminal mới trong repo (env đã nạp), rồi:
+
+```bash
+make dev-stack
+```
+
+Lệnh này tự chạy tuần tự: `dev-infra` (docker compose up -d postgres/minio/livekit)
+→ `dev-migrate` (Agent → COSA → Company) → khởi động song song **Company:4000 +
+COSA:4001 + FastAPI:8000/8001 + Worker**, đợi health, giữ foreground. `Ctrl+C` =
+trap dọn sạch cả 4 tiến trình (container docker vẫn chạy nền).
+
+```bash
+make dev-status   # tab khác: trạng thái cổng/tiến trình
+# dừng: Ctrl+C ở tab dev-stack; nếu còn sót:
+pkill -f "encore run"; pkill -f "apps.cosa"
+```
+
+Nếu Postgres/MinIO/LiveKit đã chạy sẵn, dùng `make dev-stack-no-infra` để bỏ qua
+bước docker + migrate.
 
 **Lệnh riêng lẻ thường dùng:**
 
@@ -184,6 +204,11 @@ make services-test
 
 ## 🖥️ Khởi Động Ứng Dụng Frontend Desktop (Flutter macOS)
 
+**Yêu cầu trước:** dev stack phải đang chạy (`make dev-stack`). App macOS mặc định
+gọi Company Encore ở `127.0.0.1:4000` và COSA Control Plane ở `127.0.0.1:4001`
+(prefix `/platform/*` → 4001; xem `frontend/lib/core/network/api_client.dart`).
+Nếu COSA chưa lên, đăng ký/đăng nhập sẽ báo `Connection refused` ở port 4001.
+
 ```bash
 cd frontend
 flutter run -d macos
@@ -194,6 +219,14 @@ Hoặc build bản đóng gói:
 cd frontend
 flutter build macos --debug
 open build/macos/Build/Products/Debug/frontend.app
+```
+
+Trỏ sang control plane đã deploy (không cần stack local) bằng dart-define:
+
+```bash
+flutter run -d macos \
+  --dart-define=API_BASE_URL=https://company.example.com \
+  --dart-define=PLATFORM_BASE_URL=https://cosa-control-plane.example.com
 ```
 
 ---
