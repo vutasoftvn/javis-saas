@@ -318,10 +318,26 @@ export async function saveProjectOperatingSetup(
 
     const now = new Date();
     // Mốc bắt đầu vòng: request gửi rõ -> resolve/validate; không gửi -> giữ mốc cũ.
-    const resolvedRoundStart =
-      req.roundStartDate !== undefined
-        ? resolveRoundStart(req.roundStartDate, now)
-        : existing?.roundStartDate ?? null;
+    // Ngoại lệ: nếu giá trị gửi lên TRÙNG mốc đã lưu (cùng đầu ngày UTC) thì chấp
+    // nhận nguyên trạng và bỏ qua kiểm tra cửa sổ 60 ngày — nếu không, Founder
+    // resume một setup dở dang sau >60 ngày sẽ khiến mọi `saveCurrentStep()` /
+    // "Quay lại" ném `invalidArgument`. `activate` vẫn giữ nguyên (strict).
+    const resolvedRoundStart = ((): Date | null => {
+      if (req.roundStartDate === undefined) {
+        return existing?.roundStartDate ?? null;
+      }
+      if (req.roundStartDate !== null && req.roundStartDate.trim() && existing?.roundStartDate) {
+        const parsed = new Date(req.roundStartDate);
+        // NaN rơi xuống resolveRoundStart để ném lỗi invalid-date như cũ.
+        if (
+          !Number.isNaN(parsed.getTime()) &&
+          startOfUtcDay(parsed).getTime() === startOfUtcDay(existing.roundStartDate).getTime()
+        ) {
+          return startOfUtcDay(existing.roundStartDate);
+        }
+      }
+      return resolveRoundStart(req.roundStartDate, now);
+    })();
     // stageTargetDate luôn neo vào mốc vòng (fallback `now` khi chưa có mốc).
     const anchorForTarget = resolvedRoundStart ?? now;
     const stageTargetDate =

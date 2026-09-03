@@ -13,6 +13,12 @@ class ReviewSchedule {
     required int durationWeeks,
     int minGapDays = 3,
   }) {
+    // Chặn vòng lặp vô hạn khi weekday nằm ngoài 1..7 (DateTime.weekday) — nếu
+    // không, `while (firstDay.weekday != weekday)` không bao giờ khớp.
+    assert(
+      weekday >= 1 && weekday <= 7,
+      'weekday must be 1..7 (DateTime.weekday)',
+    );
     final (h, m) = _parseTime(time);
     final startDay = DateTime(
       roundStart.year,
@@ -29,10 +35,23 @@ class ReviewSchedule {
 
     final targetDay = startDay.add(Duration(days: durationWeeks * 7));
     final out = <DateTime>[];
-    var cursor = firstDay;
-    while (out.isEmpty || !cursor.isAfter(targetDay)) {
-      out.add(DateTime(cursor.year, cursor.month, cursor.day, h, m));
-      cursor = cursor.add(const Duration(days: 7));
+    // Dựng từng buổi theo lịch (firstDay.day + 7*k) thay vì cộng dồn
+    // Duration(days: 7) trên DateTime local — qua mốc lùi giờ DST, 7 ngày tuyệt
+    // đối là 168 giờ chứ không phải một tuần lịch, khiến `.day` lệch. Dart tự
+    // chuẩn hoá phần ngày bị tràn tháng.
+    for (var k = 0; ; k++) {
+      final occ = DateTime(
+        firstDay.year,
+        firstDay.month,
+        firstDay.day + 7 * k,
+        h,
+        m,
+      );
+      final occDay = DateTime(occ.year, occ.month, occ.day);
+      // Luôn phát buổi k = 0 (đảm bảo tối thiểu 1 buổi); các buổi sau chỉ nhận
+      // khi phần ngày còn <= targetDay.
+      if (k > 0 && occDay.isAfter(targetDay)) break;
+      out.add(occ);
     }
     return ReviewSchedule(out);
   }

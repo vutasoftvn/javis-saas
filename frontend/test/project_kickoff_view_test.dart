@@ -349,6 +349,22 @@ void main() {
   });
 
   testWidgets(
+    'buildDraft gửi roundStart mặc định client đã resolve khi Founder chưa mở '
+    'picker (preview bước 2/3 và giá trị activate lưu không lệch nhau)',
+    (tester) async {
+      final controller = ProjectKickoffController();
+      expect(controller.roundStartDate.value, isNull);
+
+      final draft = controller.buildDraft();
+
+      expect(draft.roundStartDate, isNotNull);
+      expect(draft.roundStartDate, controller.effectiveRoundStart);
+      // effectiveRoundStart luôn UTC date-only -> serialize giữ nguyên ngày lịch.
+      expect(draft.roundStartDate!.isUtc, isTrue);
+    },
+  );
+
+  testWidgets(
     'P1 selected with NONE evidence is disallowed and shows explanation',
     (tester) async {
       final controller = ProjectKickoffController();

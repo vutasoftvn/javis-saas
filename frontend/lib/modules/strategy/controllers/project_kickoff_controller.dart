@@ -217,7 +217,11 @@ class ProjectKickoffController extends GetxController {
       stageDurationWeeks: stageDurationWeeks.value,
       weeklyReviewWeekday: weeklyReviewWeekday.value,
       weeklyReviewTime: weeklyReviewTime.value,
-      roundStartDate: roundStartDate.value,
+      // Founder chưa mở picker -> gửi luôn mặc định client đã resolve
+      // (`effectiveRoundStart`, UTC date-only). Nếu gửi null, backend tự tính
+      // mặc định theo UTC và ở GMT+7 (00:00–07:00 local) có thể ra Thứ Hai
+      // TRƯỚC đó -> preview bước 2/3 lệch với giá trị `activate` lưu xuống.
+      roundStartDate: roundStartDate.value ?? effectiveRoundStart,
       firstWeekOutcome: firstWeekOutcomeCtrl.text.trim().isNotEmpty
           ? firstWeekOutcomeCtrl.text.trim()
           : null,

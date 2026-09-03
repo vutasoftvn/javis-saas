@@ -548,6 +548,111 @@ describe("activate populates projects.start_date", () => {
   });
 });
 
+describe("saveProjectOperatingSetup roundStartDate (PUT save path)", () => {
+  it("bỏ qua roundStartDate -> giữ mốc đã lưu và tính lại stageTargetDate từ mốc đó", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "PUT keep round start",
+    });
+
+    const anchorIso = futureIsoDate(14, "00:00:00.000");
+    const first = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      roundStartDate: anchorIso,
+    });
+    expect(first.roundStartDate).toBe(anchorIso);
+
+    // Lần lưu sau không gửi roundStartDate -> mốc giữ nguyên; target neo lại
+    // vào chính mốc đó (mốc + 1 tuần cho durationWeeks = 1).
+    const next = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      stageDurationWeeks: 1,
+    });
+    expect(next.roundStartDate).toBe(anchorIso);
+    const start = new Date(next.roundStartDate!);
+    const target = new Date(next.stageTargetDate!);
+    expect(target.getTime() - start.getTime()).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+
+  it("gửi lại đúng mốc đã lưu vẫn được chấp nhận kể cả khi mốc nằm ngoài cửa sổ 60 ngày", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "PUT resume out of window",
+    });
+
+    await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      roundStartDate: futureIsoDate(10, "00:00:00.000"),
+    });
+
+    // Giả lập setup dở dang được resume sau >60 ngày: đẩy mốc đã lưu về quá khứ xa.
+    const staleAnchor = new Date("2020-01-06T00:00:00.000Z");
+    await db
+      .update(schema.projectOperatingSetups)
+      .set({ roundStartDate: staleAnchor })
+      .where(
+        and(
+          eq(schema.projectOperatingSetups.projectId, BigInt(project.id)),
+          eq(schema.projectOperatingSetups.workspaceId, BigInt(ws.workspaceId))
+        )
+      );
+
+    // Gửi lại ĐÚNG mốc đã lưu (cùng đầu ngày UTC) -> không ném, giá trị giữ nguyên.
+    const resumed = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      roundStartDate: "2020-01-06T09:30:00.000Z",
+      stageDurationWeeks: 2,
+    });
+    expect(resumed.roundStartDate).toBe("2020-01-06T00:00:00.000Z");
+  });
+
+  it("mốc mới thực sự nằm ngoài cửa sổ 60 ngày -> vẫn invalidArgument", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "PUT new out of window rejects",
+    });
+
+    await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      roundStartDate: futureIsoDate(10, "00:00:00.000"),
+    });
+
+    await expect(
+      putProjectOperatingSetupEndpoint({
+        authorization: ws.bearerToken,
+        workspaceId: ws.workspaceId,
+        id: project.id,
+        roundStartDate: "2020-01-01T00:00:00.000Z",
+      })
+    ).rejects.toThrow(/roundStartDate/);
+  });
+});
+
 // Tạo ISO string ở đầu ngày UTC + `offsetDays` ngày so với hôm nay, gắn giờ tuỳ ý.
 // Dùng offset động để test không phụ thuộc ngày chạy (cửa sổ hợp lệ là +60 ngày).
 function futureIsoDate(offsetDays: number, time: string): string {
