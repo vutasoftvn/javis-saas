@@ -377,262 +377,93 @@ class HologramHubView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // A. Hero Co-Founder Card + Company Pulse
-          CoFounderCardWidget(
-            pulse: controller.pulse.value,
-            onAskCosa: () => _openChatBottomSheet(context, controller),
-          ),
-          const SizedBox(height: 24),
-
-          // Hiển thị Banner gợi ý khởi tạo dự án đầu tiên khi chưa có Project nào
-          Obx(() {
-            if (!controller.hasProjects.value) {
-              return _buildFirstProjectBanner(context, controller);
-            }
-            final setup = controller.activeProjectSetup.value;
-            final activeProjectId = controller.projectsList.isNotEmpty
-                ? controller.projectsList.first['id']?.toString()
-                : null;
-            if (activeProjectId != null &&
-                (setup == null ||
-                    setup.status != OperatingSetupStatus.active)) {
-              return _buildSetupIncompleteCard(context, activeProjectId);
-            }
-            if (setup != null && setup.status == OperatingSetupStatus.active) {
-              return _buildActiveOperatingSetupCard(context, setup);
-            }
-            return const SizedBox.shrink();
-          }),
-
-          // B & C: Responsive Grid (Side-by-Side on Desktop, Stacked on Mobile)
-          if (isWide)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // B. Top 3 Focus (12-Week Year) - Left Column
-                Expanded(
-                  flex: 6,
-                  child: Top3FocusWidget(
-                    actions: controller.top3Actions.toList(),
-                    onActionTap: (action) =>
-                        _handleActionTap(context, controller, action),
-                  ),
-                ),
-                const SizedBox(width: 24),
-
-                // C. Waiting for You (Decisions & Approvals) - Right Column
-                Expanded(
-                  flex: 5,
-                  child: WaitingForYouWidget(
-                    decisions: controller.pendingDecisions.toList(),
-                    approvals: controller.pendingApprovals.toList(),
-                    onResolveDecision: (decId, optKey, notes) =>
-                        controller.resolveDecision(
-                          decisionId: decId,
-                          optionKey: optKey,
-                          founderNotes: notes,
-                        ),
-                    onApproveTask: (appId) => controller.approveTask(appId),
-                    onRejectTask: (appId, reason) =>
-                        controller.rejectTask(appId, reason),
-                  ),
-                ),
-              ],
-            )
-          else ...[
-            // Mobile Stacked layout
-            Top3FocusWidget(
-              actions: controller.top3Actions.toList(),
-              onActionTap: (action) =>
-                  _handleActionTap(context, controller, action),
+          // Lưới an toàn: guard/backstop (Task 1-5) đảm bảo Hub không còn render
+          // ở trạng thái 0 project; nhưng nếu có race khiến nó render tạm thời,
+          // ẩn toàn bộ widget phụ thuộc project để không hiện số liệu giả.
+          if (controller.hasProjects.value) ...[
+            // A. Hero Co-Founder Card + Company Pulse
+            CoFounderCardWidget(
+              pulse: controller.pulse.value,
+              onAskCosa: () => _openChatBottomSheet(context, controller),
             ),
             const SizedBox(height: 24),
-            WaitingForYouWidget(
-              decisions: controller.pendingDecisions.toList(),
-              approvals: controller.pendingApprovals.toList(),
-              onResolveDecision: (decId, optKey, notes) =>
-                  controller.resolveDecision(
-                    decisionId: decId,
-                    optionKey: optKey,
-                    founderNotes: notes,
-                  ),
-              onApproveTask: (appId) => controller.approveTask(appId),
-              onRejectTask: (appId, reason) =>
-                  controller.rejectTask(appId, reason),
-            ),
-          ],
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildFirstProjectBanner(
-    BuildContext context,
-    FounderCommandCenterController controller,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E1B4B), Color(0xFF312E81)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF818CF8).withValues(alpha: 0.4),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.12),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 650;
-          if (isNarrow) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.25),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.rocket_launch,
-                        color: Color(0xFF818CF8),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Khởi tạo Dự án Đầu tiên',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Workspace hiện chưa có dự án nào. Hãy thiết lập dự án để AI Co-Founder đề xuất Top 3 trọng tâm và kích hoạt chu trình 12-Week Year!',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.75),
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () =>
-                        _showCreateProjectDialog(context, controller),
-                    icon: const Icon(Icons.add, size: 18, color: Colors.white),
-                    label: const Text(
-                      'Khởi tạo dự án ngay',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
-                      ),
-                      elevation: 4,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }
+            Obx(() {
+              final setup = controller.activeProjectSetup.value;
+              final activeProjectId = controller.projectsList.isNotEmpty
+                  ? controller.projectsList.first['id']?.toString()
+                  : null;
+              if (activeProjectId != null &&
+                  (setup == null ||
+                      setup.status != OperatingSetupStatus.active)) {
+                return _buildSetupIncompleteCard(context, activeProjectId);
+              }
+              if (setup != null && setup.status == OperatingSetupStatus.active) {
+                return _buildActiveOperatingSetupCard(context, setup);
+              }
+              return const SizedBox.shrink();
+            }),
 
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.25),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.rocket_launch,
-                  color: Color(0xFF818CF8),
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Khởi tạo Dự án & Lộ trình Đầu tiên',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+            // B & C: Responsive Grid (Side-by-Side on Desktop, Stacked on Mobile)
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // B. Top 3 Focus (12-Week Year) - Left Column
+                  Expanded(
+                    flex: 6,
+                    child: Top3FocusWidget(
+                      actions: controller.top3Actions.toList(),
+                      onActionTap: (action) =>
+                          _handleActionTap(context, controller, action),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Workspace hiện chưa có dự án nào. Hãy thiết lập dự án để AI Co-Founder đề xuất Top 3 trọng tâm và kích hoạt chu trình 12-Week Year!',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.75),
-                        height: 1.35,
-                      ),
+                  ),
+                  const SizedBox(width: 24),
+
+                  // C. Waiting for You (Decisions & Approvals) - Right Column
+                  Expanded(
+                    flex: 5,
+                    child: WaitingForYouWidget(
+                      decisions: controller.pendingDecisions.toList(),
+                      approvals: controller.pendingApprovals.toList(),
+                      onResolveDecision: (decId, optKey, notes) =>
+                          controller.resolveDecision(
+                            decisionId: decId,
+                            optionKey: optKey,
+                            founderNotes: notes,
+                          ),
+                      onApproveTask: (appId) => controller.approveTask(appId),
+                      onRejectTask: (appId, reason) =>
+                          controller.rejectTask(appId, reason),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              )
+            else ...[
+              // Mobile Stacked layout
+              Top3FocusWidget(
+                actions: controller.top3Actions.toList(),
+                onActionTap: (action) =>
+                    _handleActionTap(context, controller, action),
               ),
-              const SizedBox(width: 16),
-              ElevatedButton.icon(
-                onPressed: () => _showCreateProjectDialog(context, controller),
-                icon: const Icon(Icons.add, size: 18, color: Colors.white),
-                label: const Text(
-                  'Khởi tạo dự án',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
-                  ),
-                  elevation: 4,
-                ),
+              const SizedBox(height: 24),
+              WaitingForYouWidget(
+                decisions: controller.pendingDecisions.toList(),
+                approvals: controller.pendingApprovals.toList(),
+                onResolveDecision: (decId, optKey, notes) =>
+                    controller.resolveDecision(
+                      decisionId: decId,
+                      optionKey: optKey,
+                      founderNotes: notes,
+                    ),
+                onApproveTask: (appId) => controller.approveTask(appId),
+                onRejectTask: (appId, reason) =>
+                    controller.rejectTask(appId, reason),
               ),
             ],
-          );
-        },
+            const SizedBox(height: 24),
+          ],
+        ],
       ),
     );
   }
@@ -862,6 +693,9 @@ class HologramHubView extends StatelessWidget {
     );
   }
 
+  // Giữ lại cho spec follow-up (tạo dự án đầu tiên) — first-project banner đã
+  // gỡ nên tạm thời không còn call-site trong file này.
+  // ignore: unused_element
   void _showCreateProjectDialog(
     BuildContext context,
     FounderCommandCenterController controller,
