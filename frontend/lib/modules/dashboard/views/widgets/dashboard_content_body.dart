@@ -5,16 +5,6 @@ import '../../../../core/services/feature_flags_controller.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/feature_not_enabled_view.dart';
 import '../../../hologram_hub/views/hologram_hub_view.dart';
-import '../../../organization/views/organization_view.dart';
-import '../../../skills/views/skill_registry_view.dart';
-import '../../../strategy/views/okrs_view.dart';
-import '../../../strategy/views/project_funding_view.dart';
-import '../../../strategy/views/project_roadmap_view.dart';
-import '../../../strategy/views/template_library_view.dart';
-import '../../../strategy/views/twelve_week_year_view.dart';
-import '../../../workspace_runtime/views/blocked_work_view.dart';
-import '../../../workspace_runtime/views/needs_you_view.dart';
-import '../../../workspace_runtime/views/work_inspector_view.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../models/dashboard_nav_config.dart';
 
@@ -25,11 +15,10 @@ import '../../models/dashboard_nav_config.dart';
 /// build view tại đây nữa: `_buildFeatureView` trở thành một "redirect
 /// adapter" tạm thời, điều hướng sang route thật thay vì render inline.
 ///
-/// Switch chỉ được XOÁ HẲN khi mọi mục sidebar đều có route canonical — hiện
-/// tại còn ~10 mục (OKRs, 12WY, roadmap, template library, project funding,
-/// needs-you, blocked-work, work-inspector, organization, skill registry)
-/// chưa có route riêng, nên adapter này còn cần thiết (đúng tinh thần "retain
-/// feature pages initially" của Task 9).
+/// Switch giờ chỉ còn case 0 (hub) — mọi module khác đã có route canonical
+/// riêng, redirect adapter phía trên (`moduleForLegacyIndex`) xử lý hết. Toàn
+/// bộ switch này (và `DashboardContentBody`) sẽ được xoá hẳn cùng lúc ở
+/// Task 6.
 class DashboardContentBody extends StatelessWidget {
   final DashboardController controller;
 
@@ -86,26 +75,6 @@ class DashboardContentBody extends StatelessWidget {
     switch (index) {
       case 0:
         return const HologramHubView();
-      case 19:
-        return const OrganizationView();
-      case 24:
-        return const NeedsYouView();
-      case 25:
-        return const BlockedWorkView();
-      case 26:
-        return const WorkInspectorView();
-      case 27:
-        return const OkrsView();
-      case 28:
-        return const TwelveWeekYearView();
-      case 29:
-        return const ProjectRoadmapView();
-      case 30:
-        return const TemplateLibraryView();
-      case 32:
-        return const ProjectFundingView();
-      case 33:
-        return const SkillRegistryView();
       default:
         return const HologramHubView();
     }
