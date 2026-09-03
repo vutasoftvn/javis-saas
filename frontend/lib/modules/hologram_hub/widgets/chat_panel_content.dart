@@ -25,11 +25,16 @@ class ChatPanelContent extends StatelessWidget {
           children: [
             const Icon(Icons.psychology, color: Color(0xFF8B5CF6), size: 24),
             const SizedBox(width: 10),
-            const Text(
-              AppCopy.hubChatPanelTitle,
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            // Expanded + ellipsis: panel nổi (`DraggableChatPanel`) hẹp hơn
+            // nhiều so với bottom sheet cũ, tránh RenderFlex overflow khi tiêu
+            // đề dài hơn bề rộng khả dụng.
+            const Expanded(
+              child: Text(
+                AppCopy.hubChatPanelTitle,
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const Spacer(),
             IconButton(
               onPressed: onClose,
               icon: const Icon(Icons.close, color: Colors.white70),
