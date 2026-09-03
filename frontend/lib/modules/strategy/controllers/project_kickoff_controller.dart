@@ -27,6 +27,7 @@ class ProjectKickoffController extends GetxController {
   final stageDurationWeeks = 2.obs;
   final weeklyReviewWeekday = 5.obs;
   final weeklyReviewTime = '16:00'.obs;
+  final roundStartDate = Rxn<DateTime>();
   final firstWeekOutcomeCtrl = TextEditingController();
   final firstWeekActions = <FirstWeekActionDraft>[].obs;
   final newActionCtrl = TextEditingController();
@@ -65,6 +66,7 @@ class ProjectKickoffController extends GetxController {
 
       weeklyReviewWeekday.value = loaded.weeklyReviewWeekday ?? 5;
       weeklyReviewTime.value = loaded.weeklyReviewTime ?? '16:00';
+      roundStartDate.value = loaded.roundStartDate;
       firstWeekOutcomeCtrl.text = loaded.firstWeekOutcome ?? '';
 
       firstWeekActions.assignAll(loaded.firstWeekActions);
@@ -120,6 +122,22 @@ class ProjectKickoffController extends GetxController {
     if (KickoffStagePolicy.allows(selectedStage.value, weeks)) {
       stageDurationWeeks.value = weeks;
     }
+  }
+
+  // Mặc định vòng bắt đầu Thứ Hai kế tiếp (khớp backend nextMondayOnOrAfter:
+  // input là Thứ Hai -> trả về cùng ngày).
+  DateTime defaultRoundStart() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final add = today.weekday == DateTime.monday ? 0 : 8 - today.weekday;
+    return today.add(Duration(days: add));
+  }
+
+  DateTime get effectiveRoundStart =>
+      roundStartDate.value ?? defaultRoundStart();
+
+  void setRoundStart(DateTime d) {
+    roundStartDate.value = DateTime(d.year, d.month, d.day);
   }
 
   // Lưu ngay khi danh sách đổi — trước fix, việc #3 (hoặc bất kỳ thay đổi nào
@@ -189,6 +207,7 @@ class ProjectKickoffController extends GetxController {
       stageDurationWeeks: stageDurationWeeks.value,
       weeklyReviewWeekday: weeklyReviewWeekday.value,
       weeklyReviewTime: weeklyReviewTime.value,
+      roundStartDate: roundStartDate.value,
       firstWeekOutcome: firstWeekOutcomeCtrl.text.trim().isNotEmpty
           ? firstWeekOutcomeCtrl.text.trim()
           : null,

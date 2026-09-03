@@ -6,6 +6,7 @@ import '../../../core/ui/layout_breakpoints.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 import '../controllers/project_kickoff_controller.dart';
+import '../domain/review_schedule.dart';
 
 class ProjectKickoffView extends StatefulWidget {
   final String projectId;
@@ -684,6 +685,18 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
 
           Wrap(spacing: 8, children: _buildDurationChips()),
 
+          const SizedBox(height: 20),
+          const Text(
+            'Vòng bắt đầu từ:',
+            style: TextStyle(
+              color: AppTheme.textDark,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _roundStartPicker(),
+
           const SizedBox(height: 24),
 
           // Actions
@@ -798,6 +811,17 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
     );
   }
 
+  String _step3ContextLine() {
+    final weeks = controller.stageDurationWeeks.value;
+    final stageLabel =
+        controller.selectedStage.value ==
+            ProjectLifecycleStage.p1ProblemValidation
+        ? 'Xác thực vấn đề (P1)'
+        : 'Khám phá (P0)';
+    return 'Vòng $stageLabel · $weeks tuần — giờ chỉ chốt chi tiết tuần 1. '
+        'Các tuần sau sẽ lên kế hoạch trong buổi review hằng tuần.';
+  }
+
   // ── Step 3: Chốt việc tuần đầu ──
   Widget _buildStep3FirstWeek() {
     return Container(
@@ -820,6 +844,16 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           ),
           const SizedBox(height: 16),
 
+          Text(
+            _step3ContextLine(),
+            style: const TextStyle(
+              color: AppTheme.textMutedDark,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Outcome
           const Text(
             'Kết quả của tuần 1',
@@ -828,6 +862,11 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Tuần 2 trở đi chốt ở buổi review, không nhập ở đây.',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
           ),
           const SizedBox(height: 6),
           TextField(
@@ -1074,60 +1113,36 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
       ),
       // `Wrap` thay cho `Row`: ở bậc layout hẹp (mobile / tablet 6/12) nhãn và
       // hai dropdown xuống dòng thay vì tràn ngang (RenderFlex overflow).
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 10,
-        runSpacing: 6,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(
-                Icons.calendar_today_rounded,
-                size: 16,
-                color: AppTheme.primary,
-              ),
-              SizedBox(width: 10),
-              Text(
-                'Ngày review tuần:',
-                style: TextStyle(
-                  color: AppTheme.textDark,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          DropdownButton<int>(
-            value: controller.weeklyReviewWeekday.value,
-            dropdownColor: AppTheme.surfaceDark,
-            underline: const SizedBox.shrink(),
-            style: const TextStyle(
-              color: AppTheme.textDark,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-            items: _weekdayLabels.entries
-                .map(
-                  (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
-                )
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                controller.updateWeeklyReviewCadence(weekday: value);
-              }
-            },
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 6,
             children: [
-              const Text(
-                '·',
-                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    size: 16,
+                    color: AppTheme.primary,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Ngày review tuần:',
+                    style: TextStyle(
+                      color: AppTheme.textDark,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              DropdownButton<String>(
-                value: currentTime,
+              DropdownButton<int>(
+                value: controller.weeklyReviewWeekday.value,
                 dropdownColor: AppTheme.surfaceDark,
                 underline: const SizedBox.shrink(),
                 style: const TextStyle(
@@ -1135,19 +1150,118 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
-                items: timeOptions
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                items: _weekdayLabels.entries
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.value)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value != null) {
-                    controller.updateWeeklyReviewCadence(time: value);
+                    controller.updateWeeklyReviewCadence(weekday: value);
                   }
                 },
               ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '·',
+                    style: TextStyle(
+                      color: AppTheme.textMutedDark,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  DropdownButton<String>(
+                    value: currentTime,
+                    dropdownColor: AppTheme.surfaceDark,
+                    underline: const SizedBox.shrink(),
+                    style: const TextStyle(
+                      color: AppTheme.textDark,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    items: timeOptions
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        controller.updateWeeklyReviewCadence(time: value);
+                      }
+                    },
+                  ),
+                ],
+              ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Builder(
+            builder: (_) {
+              final sched = ReviewSchedule.resolve(
+                roundStart: controller.effectiveRoundStart,
+                weekday: controller.weeklyReviewWeekday.value,
+                time: controller.weeklyReviewTime.value,
+                durationWeeks: controller.stageDurationWeeks.value,
+              );
+              final dd = sched.occurrences
+                  .map(
+                    (d) =>
+                        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}',
+                  )
+                  .join(' & ');
+              final hh = controller.weeklyReviewTime.value;
+              return Text(
+                'Buổi review: $dd lúc $hh (giờ workspace) · lặp hằng tuần trong vòng.',
+                style: const TextStyle(
+                  color: AppTheme.textMutedDark,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              );
+            },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _roundStartPicker() {
+    final d = controller.effectiveRoundStart;
+    final label =
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    final isDefault = controller.roundStartDate.value == null;
+    // `Wrap` thay cho `Row`: ở bậc layout hẹp nhãn "mặc định" xuống dòng thay
+    // vì tràn ngang (RenderFlex overflow) — cùng lý do với cadence widget.
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 10,
+      runSpacing: 6,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () async {
+            final now = DateTime.now();
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: d,
+              firstDate: DateTime(now.year, now.month, now.day),
+              lastDate: DateTime(
+                now.year,
+                now.month,
+                now.day,
+              ).add(const Duration(days: 60)),
+            );
+            if (picked != null) controller.setRoundStart(picked);
+          },
+          icon: const Icon(Icons.event_rounded, size: 16),
+          label: Text(label),
+        ),
+        if (isDefault)
+          const Text(
+            'mặc định: Thứ Hai kế tiếp',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
+          ),
+      ],
     );
   }
 }

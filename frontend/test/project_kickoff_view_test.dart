@@ -107,7 +107,9 @@ void main() {
     evidenceLevel: KickoffEvidenceLevel.none,
   );
 
-  final completeP0Draft = const ProjectOperatingSetup(
+  // roundStartDate cố định 2026-09-07 (Chủ Nhật) để lịch review deterministic:
+  // weekday 5 (Thứ Sáu) + minGap 3 -> 11/09; 2 tuần -> 11/09 & 18/09.
+  final completeP0Draft = ProjectOperatingSetup(
     projectId: 'p-1',
     workspaceId: 'w-1',
     status: OperatingSetupStatus.inProgress,
@@ -118,8 +120,11 @@ void main() {
     stageDurationWeeks: 2,
     weeklyReviewWeekday: 5,
     weeklyReviewTime: '16:00',
+    roundStartDate: DateTime.utc(2026, 9, 7),
     firstWeekOutcome: 'Talk to 5 CFOs',
-    firstWeekActions: [FirstWeekActionDraft(title: 'List 10 target CFOs')],
+    firstWeekActions: const [
+      FirstWeekActionDraft(title: 'List 10 target CFOs'),
+    ],
   );
 
   testWidgets(
@@ -213,37 +218,34 @@ void main() {
     expect(find.textContaining('12 tuần'), findsNothing);
   });
 
-  testWidgets(
-    'selecting an evidence radio updates the UI reactively '
-    '(regression: content wrapped in LayoutBuilder escaped Obx tracking so '
-    'radios/steps stopped rebuilding)',
-    (tester) async {
-      final draftNoEvidence = const ProjectOperatingSetup(
-        projectId: 'p-1',
-        workspaceId: 'w-1',
-        status: OperatingSetupStatus.inProgress,
-        targetCustomer: 'Fintech CFOs',
-        problemStatement: 'Manual reconciliation takes 3 days',
-        // evidenceLevel null -> resume ở bước 0, nút "Tiếp tục" bị disable.
-      );
-      await tester.pumpWidget(kickoffHarness(setup: draftNoEvidence));
-      await tester.pumpAndSettle();
+  testWidgets('selecting an evidence radio updates the UI reactively '
+      '(regression: content wrapped in LayoutBuilder escaped Obx tracking so '
+      'radios/steps stopped rebuilding)', (tester) async {
+    final draftNoEvidence = const ProjectOperatingSetup(
+      projectId: 'p-1',
+      workspaceId: 'w-1',
+      status: OperatingSetupStatus.inProgress,
+      targetCustomer: 'Fintech CFOs',
+      problemStatement: 'Manual reconciliation takes 3 days',
+      // evidenceLevel null -> resume ở bước 0, nút "Tiếp tục" bị disable.
+    );
+    await tester.pumpWidget(kickoffHarness(setup: draftNoEvidence));
+    await tester.pumpAndSettle();
 
-      ElevatedButton continueBtn() => tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Tiếp tục'),
-      );
-      expect(continueBtn().onPressed, isNull);
+    ElevatedButton continueBtn() => tester.widget<ElevatedButton>(
+      find.widgetWithText(ElevatedButton, 'Tiếp tục'),
+    );
+    expect(continueBtn().onPressed, isNull);
 
-      final radioFinder = find.text('Có từ 5 cuộc trao đổi');
-      await tester.ensureVisible(radioFinder);
-      await tester.pumpAndSettle();
-      await tester.tap(radioFinder);
-      await tester.pumpAndSettle();
+    final radioFinder = find.text('Có từ 5 cuộc trao đổi');
+    await tester.ensureVisible(radioFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(radioFinder);
+    await tester.pumpAndSettle();
 
-      // Nếu Obx không rebuild, nút vẫn disable -> test fail.
-      expect(continueBtn().onPressed, isNotNull);
-    },
-  );
+    // Nếu Obx không rebuild, nút vẫn disable -> test fail.
+    expect(continueBtn().onPressed, isNotNull);
+  });
 
   testWidgets('tapping a completed step tab navigates back to that step', (
     tester,
@@ -280,6 +282,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(activated, ['p-1']);
+  });
+
+  testWidgets('bước 3 hiển thị copy "chỉ chốt tuần 1" theo thời lượng vòng', (
+    tester,
+  ) async {
+    await tester.pumpWidget(kickoffHarness(setup: completeP0Draft));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('chỉ chốt chi tiết tuần 1'), findsOneWidget);
+    expect(find.textContaining('2 tuần'), findsWidgets);
+  });
+
+  testWidgets('bước 3 hiển thị ngày buổi review cụ thể', (tester) async {
+    await tester.pumpWidget(kickoffHarness(setup: completeP0Draft));
+    await tester.pumpAndSettle();
+    // completeP0Draft: weekday 5 (Thứ Sáu), 16:00, 2 tuần -> 2 buổi review.
+    expect(find.textContaining('Buổi review'), findsOneWidget);
+    expect(find.textContaining('16:00'), findsWidgets);
   });
 
   testWidgets('activation disabled when target customer is empty', (
