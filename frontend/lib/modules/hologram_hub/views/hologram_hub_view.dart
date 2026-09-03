@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/ui/app_copy.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/runtime_app_chrome.dart';
 import '../controllers/founder_command_center_controller.dart';
@@ -20,6 +19,9 @@ import '../controllers/hologram_hub_controller.dart';
 import '../presentation/widgets/cyber_circuit_background.dart';
 import '../../dashboard/models/dashboard_nav_config.dart';
 import '../../../core/routing/module_routes.dart';
+import '../../dashboard/views/widgets/floating_voice_hologram.dart';
+import '../widgets/draggable_chat_panel.dart';
+import '../../../core/shell/chat_panel_controller.dart';
 
 class HologramHubView extends StatelessWidget {
   const HologramHubView({super.key});
@@ -40,7 +42,7 @@ class HologramHubView extends StatelessWidget {
     // `showModalBottomSheet` cần build xong khung hình hiện tại trước.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) return;
-      controller.maybeAutoOpenChatFromRoute(() => _openChatBottomSheet(context, controller));
+      controller.maybeAutoOpenChatFromRoute(() => Get.find<ChatPanelController>().open());
     });
 
     // Task 5 — Hub đứng độc lập (standalone shell) cũng phải có
@@ -49,54 +51,60 @@ class HologramHubView extends StatelessWidget {
     return RuntimeAppChrome(
       child: Scaffold(
         backgroundColor: const Color(0xFF040712),
-        body: CyberCircuitBackground(
-          child: SafeArea(
-            child: Column(
-              children: [
-                // 1. Top Header & Navigation Bar
-                _buildHeader(context, controller),
+        body: Stack(
+          children: [
+            CyberCircuitBackground(
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    // 1. Top Header & Navigation Bar
+                    _buildHeader(context, controller),
 
-                // 2. Main Tab Content Area
-                Expanded(
-                  child: Obx(() {
-                    if (controller.isLoading.value) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF6366F1),
-                        ),
-                      );
-                    }
-
-                    return LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWide = constraints.maxWidth >= 950;
-
-                        return Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1360),
-                            child: IndexedStack(
-                              index: controller.selectedTabIndex.value,
-                              children: [
-                                // Tab 0: Founder Command Center (Co-Founder, Pulse, Top 3, Waiting for You)
-                                _buildCommandCenterTab(
-                                  context,
-                                  controller,
-                                  isWide,
-                                ),
-
-                                // Tab 1: AI Workforce & Optional Packs Store
-                                _buildWorkforceTab(context, controller, isWide),
-                              ],
+                    // 2. Main Tab Content Area
+                    Expanded(
+                      child: Obx(() {
+                        if (controller.isLoading.value) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF6366F1),
                             ),
-                          ),
+                          );
+                        }
+
+                        return LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isWide = constraints.maxWidth >= 950;
+
+                            return Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 1360),
+                                child: IndexedStack(
+                                  index: controller.selectedTabIndex.value,
+                                  children: [
+                                    // Tab 0: Founder Command Center (Co-Founder, Pulse, Top 3, Waiting for You)
+                                    _buildCommandCenterTab(
+                                      context,
+                                      controller,
+                                      isWide,
+                                    ),
+
+                                    // Tab 1: AI Workforce & Optional Packs Store
+                                    _buildWorkforceTab(context, controller, isWide),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         );
-                      },
-                    );
-                  }),
+                      }),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            const FloatingVoiceHologram(),
+            const DraggableChatPanel(),
+          ],
         ),
       ),
     );
@@ -403,7 +411,7 @@ class HologramHubView extends StatelessWidget {
             // A. Hero Co-Founder Card + Company Pulse
             CoFounderCardWidget(
               pulse: controller.pulse.value,
-              onAskCosa: () => _openChatBottomSheet(context, controller),
+              onAskCosa: () => Get.find<ChatPanelController>().open(),
             ),
             const SizedBox(height: 24),
 
@@ -897,24 +905,18 @@ class HologramHubView extends StatelessWidget {
       controller.selectedTabIndex.value = 1;
       return;
     } else if (action.id == 'act_genesis_profile') {
-      _openChatBottomSheet(
-        context,
-        controller,
-        initialMessage:
-            'Tôi muốn thiết lập hồ sơ doanh nghiệp mới. Hãy hướng dẫn tôi định hình Vision, Problem và Target Market!',
-      );
+      controller.chatInputController.text =
+          'Tôi muốn thiết lập hồ sơ doanh nghiệp mới. Hãy hướng dẫn tôi định hình Vision, Problem và Target Market!';
+      Get.find<ChatPanelController>().open();
       return;
     } else if (action.id == 'act_genesis_12wy') {
-      _openChatBottomSheet(
-        context,
-        controller,
-        initialMessage:
-            'Hãy hướng dẫn tôi thiết lập Mục tiêu 12-Week Year cho Quý đầu tiên.',
-      );
+      controller.chatInputController.text =
+          'Hãy hướng dẫn tôi thiết lập Mục tiêu 12-Week Year cho Quý đầu tiên.';
+      Get.find<ChatPanelController>().open();
       return;
     }
 
-    _openChatBottomSheet(context, controller);
+    Get.find<ChatPanelController>().open();
   }
 
   Widget _buildWorkforceTab(
@@ -928,172 +930,6 @@ class HologramHubView extends StatelessWidget {
         packs: controller.workforcePacks.toList(),
         onTogglePack: (key, val) => controller.togglePack(key, val),
       ),
-    );
-  }
-
-  void _openChatBottomSheet(
-    BuildContext context,
-    FounderCommandCenterController controller, {
-    String? initialMessage,
-  }) {
-    if (initialMessage != null && initialMessage.isNotEmpty) {
-      controller.chatInputController.text = initialMessage;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: const BoxDecoration(
-            color: Color(0xFF0F172A),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: EdgeInsets.only(
-            top: 20,
-            left: 20,
-            right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.psychology,
-                    color: Color(0xFF8B5CF6),
-                    size: 24,
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    AppCopy.hubChatPanelTitle,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                  ),
-                ],
-              ),
-              const Divider(color: Color(0x336366F1)),
-              Expanded(
-                child: Obx(() {
-                  if (controller.chatMessages.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            size: 48,
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            AppCopy.hubChatEmptyState,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              fontSize: 13,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: controller.chatMessages.length,
-                    itemBuilder: (c, idx) {
-                      final msg = controller.chatMessages[idx];
-                      final isUser = msg['role'] == 'user';
-                      final isError = msg['role'] == 'error';
-                      return Align(
-                        alignment: isUser
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isUser
-                                ? const Color(0xFF6366F1)
-                                : (isError
-                                      ? const Color(0x33EF4444)
-                                      : const Color(0xFF1E293B)),
-                            borderRadius: BorderRadius.circular(12),
-                            border: isError
-                                ? Border.all(
-                                    color: const Color(0xFFEF4444),
-                                    width: 1,
-                                  )
-                                : null,
-                          ),
-                          child: Text(
-                            msg['content'] ?? '',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                }),
-              ),
-              if (controller.isChatLoading.value)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: LinearProgressIndicator(color: Color(0xFF6366F1)),
-                ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: controller.chatInputController,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: AppCopy.hubChatInputHint,
-                        hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          fontSize: 12,
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xFF1E293B),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      onSubmitted: (text) => controller.sendChatMessage(text),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () => controller.sendChatMessage(
-                      controller.chatInputController.text,
-                    ),
-                    icon: const Icon(Icons.send, color: Color(0xFF6366F1)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 

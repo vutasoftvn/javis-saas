@@ -15,6 +15,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/shell/app_shell_controller.dart';
 import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:frontend/modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
@@ -29,6 +30,10 @@ void main() {
     Get.testMode = true;
     originalClient = ApiClient.client;
     ApiClient.client = MockClient((request) async => http.Response('{}', 200));
+    // Task 6 (robot-icon-draggable-chat) — HologramHubView giờ tự vẽ
+    // FloatingVoiceHologram + DraggableChatPanel, cả 2 đều Get.find
+    // ChatPanelController ngay trong build() — phải đăng ký trước khi pump.
+    AppShellController.ensureShellDependencies();
   });
 
   tearDown(() {
