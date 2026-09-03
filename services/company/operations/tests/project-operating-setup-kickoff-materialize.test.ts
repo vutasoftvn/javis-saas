@@ -121,3 +121,136 @@ describe("saveProjectOperatingSetup materializes first-week actions immediately"
     expect(liveCommitments).toHaveLength(2);
   });
 });
+
+describe("normalizeFirstWeekActions is server-authoritative about client-supplied ids", () => {
+  it("ignores a client-supplied id that does not belong to this project's known actions, without 500ing", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Untrusted id project",
+    });
+
+    const saved = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      firstWeekOutcome: "Outcome",
+      firstWeekActions: [{ id: "not-a-real-id-999999", title: "Injected" }],
+    });
+
+    expect(saved.firstWeekActions).toHaveLength(1);
+    expect(saved.firstWeekActions[0]!.id).not.toBe("not-a-real-id-999999");
+
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, BigInt(saved.firstWeekActions[0]!.id)));
+    expect(task).toBeDefined();
+    expect(task!.deletedAt).toBeNull();
+  });
+
+  it("does not throw a raw SyntaxError on a malformed (non-numeric) client id", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Malformed id project",
+    });
+
+    const saved = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      firstWeekOutcome: "Outcome",
+      firstWeekActions: [{ id: "abc-not-a-number", title: "Malformed" }],
+    });
+
+    expect(saved.firstWeekActions).toHaveLength(1);
+    expect(saved.firstWeekActions[0]!.id).not.toBe("abc-not-a-number");
+    expect(() => BigInt(saved.firstWeekActions[0]!.id)).not.toThrow();
+  });
+});
+
+describe("kickoff materialize round-trips ids without churn end-to-end", () => {
+  it("round-trips ids across draft → add → remove → activate without churning tasks", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "End-to-end round-trip project",
+    });
+
+    // 1. First draft: 1 action
+    const first = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      firstWeekOutcome: "Outcome v1",
+      firstWeekActions: [{ title: "Action A" }],
+    });
+    const actionAId = first.firstWeekActions[0]!.id;
+
+    // 2. Second draft: echo action A's real id (as the frontend now correctly does), add action B
+    const second = await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      firstWeekActions: [
+        { id: actionAId, title: "Action A" },
+        { title: "Action B" },
+      ],
+    });
+    const actionBId = second.firstWeekActions.find((a) => a.title === "Action B")!.id;
+
+    // Task A must NOT have been re-created (still the same id, still alive)
+    const [taskAAfterSecond] = await db.select().from(tasks).where(eq(tasks.id, BigInt(actionAId)));
+    expect(taskAAfterSecond!.deletedAt).toBeNull();
+
+    // 3. Third draft: remove action A, keep only B
+    await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      firstWeekActions: [{ id: actionBId, title: "Action B" }],
+    });
+
+    const [taskAAfterRemove] = await db.select().from(tasks).where(eq(tasks.id, BigInt(actionAId)));
+    expect(taskAAfterRemove!.deletedAt).not.toBeNull();
+
+    // 4. Activate with only B remaining — must not re-churn B's task
+    const activated = await activateProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "Cust",
+      problemStatement: "Prob",
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      weeklyReviewWeekday: 5,
+      weeklyReviewTime: "16:00",
+      firstWeekOutcome: "Outcome v2",
+      firstWeekActions: [{ id: actionBId, title: "Action B" }],
+    });
+
+    expect(activated.setup.firstWeekActions).toHaveLength(1);
+    expect(activated.setup.firstWeekActions[0]!.id).toBe(actionBId);
+
+    const [taskBFinal] = await db.select().from(tasks).where(eq(tasks.id, BigInt(actionBId)));
+    expect(taskBFinal!.deletedAt).toBeNull();
+
+    // Exactly 1 cycle and 1 plan for this project — no duplicates from any of the 4 calls
+    const cycles = await db.select().from(twelveWeekCycles).where(eq(twelveWeekCycles.projectId, BigInt(project.id)));
+    expect(cycles).toHaveLength(1);
+    const plans = await db.select().from(weeklyPlans).where(eq(weeklyPlans.cycleId, cycles[0]!.id));
+    expect(plans).toHaveLength(1);
+    expect(plans[0]!.focus).toBe("Outcome v2");
+  });
+});

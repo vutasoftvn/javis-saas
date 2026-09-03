@@ -815,7 +815,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                       size: 16,
                       color: AppTheme.textMutedDark,
                     ),
-                    onPressed: () => controller.removeAction(i),
+                    onPressed: controller.isSaving.value
+                        ? null
+                        : () => controller.removeAction(i),
                     tooltip: 'Xóa việc này',
                   ),
                 ],
@@ -829,6 +831,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                 Expanded(
                   child: TextField(
                     controller: controller.newActionCtrl,
+                    enabled: !controller.isSaving.value,
                     style: const TextStyle(
                       color: AppTheme.textDark,
                       fontSize: 13,
@@ -857,8 +860,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
-                  onPressed: () =>
-                      controller.addAction(controller.newActionCtrl.text),
+                  onPressed: controller.isSaving.value
+                      ? null
+                      : () =>
+                          controller.addAction(controller.newActionCtrl.text),
                   icon: const Icon(Icons.add_rounded, size: 16),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.surfaceDarkLighter,

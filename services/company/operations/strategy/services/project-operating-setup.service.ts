@@ -97,14 +97,20 @@ export function recommendKickoffStage(level: EvidenceLevel | null): BasicKickoff
 }
 
 function normalizeFirstWeekActions(
-  actions?: Array<{ id?: string; title: string }>
+  actions: Array<{ id?: string; title: string }> | undefined,
+  knownIds: ReadonlySet<string>
 ): FirstWeekAction[] {
   if (!actions || !Array.isArray(actions)) return [];
   return actions
-    .map((a) => ({
-      id: a.id && a.id.trim() ? a.id.trim() : generateSnowflake().toString(),
-      title: (a.title || "").trim(),
-    }))
+    .map((a) => {
+      // Chỉ tin id do client gửi lên nếu nó khớp id server đã từng mint cho
+      // chính project này (đã tồn tại trong firstWeekActions đã lưu trước đó).
+      // Không tin mù id tuỳ ý từ client — tránh BigInt() ném lỗi trần trên chuỗi
+      // sai định dạng và tránh phụ thuộc id client cho việc ghi task.
+      const candidate = a.id && a.id.trim() ? a.id.trim() : null;
+      const id = candidate && knownIds.has(candidate) ? candidate : generateSnowflake().toString();
+      return { id, title: (a.title || "").trim() };
+    })
     .filter((a) => a.title.length > 0)
     .slice(0, 3);
 }
@@ -277,11 +283,12 @@ export async function saveProjectOperatingSetup(
         ? null
         : new Date(Date.now() + durationWeeks * 7 * 24 * 60 * 60 * 1000);
 
-    const actions = req.firstWeekActions !== undefined
-      ? normalizeFirstWeekActions(req.firstWeekActions)
-      : ((existing?.firstWeekActions as FirstWeekAction[]) || []);
-
     const previousActions = (existing?.firstWeekActions as FirstWeekAction[]) || [];
+
+    const knownActionIds = new Set(previousActions.map((a) => a.id));
+    const actions = req.firstWeekActions !== undefined
+      ? normalizeFirstWeekActions(req.firstWeekActions, knownActionIds)
+      : previousActions;
 
     const resolvedOutcome = req.firstWeekOutcome !== undefined ? req.firstWeekOutcome : existing?.firstWeekOutcome ?? null;
 
@@ -400,11 +407,6 @@ export async function activateProjectOperatingSetup(
     throw APIError.invalidArgument("firstWeekActions must be an array");
   }
 
-  const normalizedActions = normalizeFirstWeekActions(req.firstWeekActions);
-  if (normalizedActions.length < 1 || normalizedActions.length > 3 || req.firstWeekActions.length > 3 || req.firstWeekActions.length < 1) {
-    throw APIError.invalidArgument("firstWeekActions must contain 1 to 3 non-empty items");
-  }
-
   const wsId = BigInt(ctx.workspaceId);
   const pId = BigInt(projectId);
   const now = new Date();
@@ -428,6 +430,12 @@ export async function activateProjectOperatingSetup(
       .where(and(eq(projectOperatingSetups.projectId, pId), eq(projectOperatingSetups.workspaceId, wsId)))
       .limit(1);
     const previousActions = (existing?.firstWeekActions as FirstWeekAction[]) || [];
+
+    const knownActionIds = new Set(previousActions.map((a) => a.id));
+    const normalizedActions = normalizeFirstWeekActions(req.firstWeekActions, knownActionIds);
+    if (normalizedActions.length < 1 || normalizedActions.length > 3 || req.firstWeekActions.length > 3 || req.firstWeekActions.length < 1) {
+      throw APIError.invalidArgument("firstWeekActions must contain 1 to 3 non-empty items");
+    }
 
     if (req.selectedStage === "P1_PROBLEM_VALIDATION" && proj.lifecycleStage === "P0_DISCOVERY") {
       await transitionProjectStageInTransaction(tx, {

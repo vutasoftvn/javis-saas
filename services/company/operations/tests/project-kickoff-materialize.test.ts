@@ -1,26 +1,29 @@
-import { describe, it, expect, beforeAll, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { createProject } from "../handlers/project.handler";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import { materializeFirstWeekPlan } from "../strategy/services/project-kickoff-materialize.service";
 import { makeTenantContext } from "./tenant-context.fixture";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { twelveWeekCycles, weeklyPlans, weeklyCommitments, tasks, taskProjects } = schema;
 
-const testTaskIds = [
-  BigInt("1001"), BigInt("1002"),
-  BigInt("2001"), BigInt("2002"), BigInt("2003"),
-  BigInt("3001"), BigInt("3002"), BigInt("3003"),
-];
+// Id do từng test tự sinh trong lượt chạy đó — tránh xoá theo id cứng không
+// giới hạn workspaceId (nguy hiểm trên DB dev dùng chung nếu id trùng dữ liệu thật).
+let generatedTaskIds: bigint[] = [];
 
-// Clean up test tasks before and after tests to avoid primary key conflicts
-beforeAll(async () => {
-  await db.delete(tasks).where(inArray(tasks.id, testTaskIds));
-});
+function mintId(): string {
+  const id = generateSnowflake();
+  generatedTaskIds.push(id);
+  return id.toString();
+}
 
 afterEach(async () => {
-  await db.delete(tasks).where(inArray(tasks.id, testTaskIds));
+  if (generatedTaskIds.length > 0) {
+    await db.delete(tasks).where(inArray(tasks.id, generatedTaskIds));
+  }
+  generatedTaskIds = [];
 });
 
 describe("materializeFirstWeekPlan", () => {
@@ -33,9 +36,11 @@ describe("materializeFirstWeekPlan", () => {
     });
     const ctx = makeTenantContext({ workspaceId: ws.workspaceId, userId: ws.userId }, { membershipRole: "admin" });
 
+    const id1 = mintId();
+    const id2 = mintId();
     const actions = [
-      { id: "1001", title: "Interview lead #1" },
-      { id: "1002", title: "Interview lead #2" },
+      { id: id1, title: "Interview lead #1" },
+      { id: id2, title: "Interview lead #2" },
     ];
 
     await db.transaction(async (tx) => {
@@ -62,13 +67,13 @@ describe("materializeFirstWeekPlan", () => {
     expect(commitments).toHaveLength(2);
     expect(commitments.every((c) => c.initiativeId === null)).toBe(true);
 
-    const taskRows = await db.select().from(tasks).where(eq(tasks.id, BigInt("1001")));
+    const taskRows = await db.select().from(tasks).where(eq(tasks.id, BigInt(id1)));
     expect(taskRows).toHaveLength(1);
     expect(taskRows[0]!.title).toBe("Interview lead #1");
     expect(taskRows[0]!.weeklyCommitmentId).not.toBeNull();
 
     const links = await db.select().from(taskProjects).where(
-      and(eq(taskProjects.taskId, BigInt("1001")), eq(taskProjects.projectId, BigInt(project.id)))
+      and(eq(taskProjects.taskId, BigInt(id1)), eq(taskProjects.projectId, BigInt(project.id)))
     );
     expect(links).toHaveLength(1);
   });
@@ -82,9 +87,12 @@ describe("materializeFirstWeekPlan", () => {
     });
     const ctx = makeTenantContext({ workspaceId: ws.workspaceId, userId: ws.userId }, { membershipRole: "admin" });
 
+    const idA = mintId();
+    const idB = mintId();
+    const idC = mintId();
     const firstTwo = [
-      { id: "2001", title: "Action A" },
-      { id: "2002", title: "Action B" },
+      { id: idA, title: "Action A" },
+      { id: idB, title: "Action B" },
     ];
 
     await db.transaction((tx) =>
@@ -98,7 +106,7 @@ describe("materializeFirstWeekPlan", () => {
       })
     );
 
-    const allThree = [...firstTwo, { id: "2003", title: "Action C" }];
+    const allThree = [...firstTwo, { id: idC, title: "Action C" }];
 
     await db.transaction((tx) =>
       materializeFirstWeekPlan(tx, ctx, {
@@ -121,7 +129,7 @@ describe("materializeFirstWeekPlan", () => {
     const commitments = await db.select().from(weeklyCommitments).where(eq(weeklyCommitments.weeklyPlanId, plans[0]!.id));
     expect(commitments).toHaveLength(3);
 
-    const thirdTask = await db.select().from(tasks).where(eq(tasks.id, BigInt("2003")));
+    const thirdTask = await db.select().from(tasks).where(eq(tasks.id, BigInt(idC)));
     expect(thirdTask).toHaveLength(1);
   });
 
@@ -134,10 +142,13 @@ describe("materializeFirstWeekPlan", () => {
     });
     const ctx = makeTenantContext({ workspaceId: ws.workspaceId, userId: ws.userId }, { membershipRole: "admin" });
 
+    const idKeepA = mintId();
+    const idRemove = mintId();
+    const idKeepC = mintId();
     const threeActions = [
-      { id: "3001", title: "Keep A" },
-      { id: "3002", title: "Remove me" },
-      { id: "3003", title: "Keep C" },
+      { id: idKeepA, title: "Keep A" },
+      { id: idRemove, title: "Remove me" },
+      { id: idKeepC, title: "Keep C" },
     ];
 
     await db.transaction((tx) =>
@@ -151,7 +162,7 @@ describe("materializeFirstWeekPlan", () => {
       })
     );
 
-    const twoActions = threeActions.filter((a) => a.id !== "3002");
+    const twoActions = threeActions.filter((a) => a.id !== idRemove);
 
     await db.transaction((tx) =>
       materializeFirstWeekPlan(tx, ctx, {
@@ -164,7 +175,7 @@ describe("materializeFirstWeekPlan", () => {
       })
     );
 
-    const [removedTask] = await db.select().from(tasks).where(eq(tasks.id, BigInt("3002")));
+    const [removedTask] = await db.select().from(tasks).where(eq(tasks.id, BigInt(idRemove)));
     expect(removedTask!.deletedAt).not.toBeNull();
     expect(removedTask!.status).toBe("cancelled");
 
@@ -174,7 +185,7 @@ describe("materializeFirstWeekPlan", () => {
       .where(eq(weeklyCommitments.id, removedTask!.weeklyCommitmentId!));
     expect(removedCommitment!.deletedAt).not.toBeNull();
 
-    const [keptTask] = await db.select().from(tasks).where(eq(tasks.id, BigInt("3001")));
+    const [keptTask] = await db.select().from(tasks).where(eq(tasks.id, BigInt(idKeepA)));
     expect(keptTask!.deletedAt).toBeNull();
   });
 });

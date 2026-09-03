@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { getWorkforceMember } from "../../identity/handlers/workforce.handler";
@@ -176,7 +176,7 @@ export async function listTasksService(
   const rows = await db
     .select()
     .from(tasks)
-    .where(eq(tasks.workspaceId, BigInt(workspaceId)))
+    .where(and(eq(tasks.workspaceId, BigInt(workspaceId)), isNull(tasks.deletedAt)))
     .orderBy(desc(tasks.createdAt));
 
   return rows.map((row) => toTask(row));

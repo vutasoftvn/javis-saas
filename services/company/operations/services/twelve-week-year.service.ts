@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
@@ -280,7 +280,7 @@ export async function listWeeklyCommitmentsService(
   const rows = await db
     .select()
     .from(weeklyCommitments)
-    .where(eq(weeklyCommitments.workspaceId, wsId))
+    .where(and(eq(weeklyCommitments.workspaceId, wsId), isNull(weeklyCommitments.deletedAt)))
     .orderBy(desc(weeklyCommitments.createdAt));
 
   const commitments: WeeklyCommitment[] = rows.map((row) => ({

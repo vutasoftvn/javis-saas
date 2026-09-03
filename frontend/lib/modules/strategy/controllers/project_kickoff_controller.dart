@@ -127,6 +127,9 @@ class ProjectKickoffController extends GetxController {
   // nếu Founder rời màn/reload trước đó (kể cả bấm "Quay lại"), dữ liệu mất
   // vì `load()` sau đó ghi đè bằng bản trên server chưa có thay đổi này.
   Future<void> addAction(String title) async {
+    // Chặn double-save khi Founder gõ nhanh 2 hành động liên tiếp trước khi
+    // response đầu về — nếu không, response cũ về sau ghi đè mất action mới hơn.
+    if (isSaving.value) return;
     final trimmed = title.trim();
     if (trimmed.isEmpty) return;
     if (firstWeekActions.length >= 3) return;
@@ -136,12 +139,14 @@ class ProjectKickoffController extends GetxController {
   }
 
   Future<void> removeAction(int index) async {
+    if (isSaving.value) return;
     if (index < 0 || index >= firstWeekActions.length) return;
     firstWeekActions.removeAt(index);
     await saveCurrentStep();
   }
 
   Future<void> updateWeeklyReviewCadence({int? weekday, String? time}) async {
+    if (isSaving.value) return;
     if (weekday != null) weeklyReviewWeekday.value = weekday;
     if (time != null) weeklyReviewTime.value = time;
     await saveCurrentStep();
