@@ -54,8 +54,41 @@ void main() {
       firstWeekActions: const [],
       updatedAt: DateTime.now(),
     );
+    // FIX 4 (final review) — `onInit` chỉ quyết định pha ngay khi FCC đã tải
+    // xong; seed cờ để mô phỏng trạng thái "đã load" cho nhánh đồng bộ.
+    fcc.projectsLoadedOnce.value = true;
     final c = Get.put<ProjectSetupController>(ProjectSetupController());
     c.onInit();
+    expect(c.phase.value, ProjectSetupPhase.kickoff);
+    expect(c.createdProjectId.value, 'p1');
+  });
+
+  test('FIX 4: resume bị hoãn khi projectsLoadedOnce=false lúc tạo, chạy khi flip true',
+      () async {
+    ApiClient.client = MockClient((request) async {
+      if (request.method == 'GET' && request.url.path == '/operations/projects') {
+        return http.Response(jsonEncode({'projects': [{'id': 'p1'}]}), 200);
+      }
+      return http.Response('{}', 200);
+    });
+    final fcc = Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    // Để `loadDashboardData()` do onInit kích hoạt chạy xong trước.
+    await fcc.loadDashboardData();
+    // Mô phỏng "FCC còn đang tải" tại thời điểm ProjectSetupController khởi tạo.
+    fcc.projectsLoadedOnce.value = false;
+    fcc.projectsList.assignAll([{'id': 'p1'}]);
+    fcc.activeProjectSetup.value = ProjectOperatingSetup(
+      projectId: 'p1', workspaceId: 'ws_1',
+      status: OperatingSetupStatus.inProgress,
+      firstWeekActions: const [],
+      updatedAt: DateTime.now(),
+    );
+    final c = Get.put<ProjectSetupController>(ProjectSetupController());
+    expect(c.phase.value, ProjectSetupPhase.form, reason: 'hoãn: chưa tải xong');
+
+    fcc.projectsLoadedOnce.value = true;
+    await Future.delayed(Duration.zero);
+
     expect(c.phase.value, ProjectSetupPhase.kickoff);
     expect(c.createdProjectId.value, 'p1');
   });

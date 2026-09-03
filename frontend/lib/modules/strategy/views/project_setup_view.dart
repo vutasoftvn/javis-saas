@@ -26,12 +26,21 @@ class ProjectSetupView extends StatelessWidget {
           child: Obx(() {
             if (controller.phase.value == ProjectSetupPhase.kickoff) {
               final id = controller.createdProjectId.value ?? '';
-              return ProjectKickoffView(
-                key: ValueKey('setup_kickoff_$id'),
-                projectId: id,
-                onBack: controller.onKickoffBack,
-                onActivated: controller.onKickoffActivated,
-                onOpenAdvancedRoadmap: controller.onOpenAdvancedRoadmap,
+              // FIX 2 (final review) — `ProjectKickoffView` không có nút đăng
+              // xuất; thêm header mỏng chứa lối thoát để Founder không bị kẹt.
+              return Column(
+                children: [
+                  _EscapeHatchRow(controller: controller),
+                  Expanded(
+                    child: ProjectKickoffView(
+                      key: ValueKey('setup_kickoff_$id'),
+                      projectId: id,
+                      onBack: controller.onKickoffBack,
+                      onActivated: controller.onKickoffActivated,
+                      onOpenAdvancedRoadmap: controller.onOpenAdvancedRoadmap,
+                    ),
+                  ),
+                ],
               );
             }
             return _ProjectSetupForm(controller: controller);
@@ -117,19 +126,59 @@ class _ProjectSetupFormState extends State<_ProjectSetupForm> {
                             ),
                     child: Text(c.isSubmitting.value ? 'Đang tạo...' : 'Tạo dự án'),
                   )),
-              if (!c.isOnboarding)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: TextButton(
-                    key: const ValueKey('project_setup_cancel_button'),
-                    onPressed: c.cancel,
-                    child: const Text('Huỷ'),
-                  ),
-                ),
+              // FIX 4 (final review) — `isOnboarding` phụ thuộc `projectsList`
+              // vốn rỗng cho tới khi FCC tải xong; bọc `Obx` để nút Huỷ xuất
+              // hiện ngay khi danh sách project load về (không còn cần rebuild
+              // thủ công).
+              Obx(() => c.isOnboarding
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: TextButton(
+                        key: const ValueKey('project_setup_cancel_button'),
+                        onPressed: c.cancel,
+                        child: const Text('Huỷ'),
+                      ),
+                    )),
+              // FIX 2 (final review) — lối thoát LUÔN hiển thị (kể cả
+              // onboarding): Founder tạo project lỗi liên tục vẫn đăng xuất /
+              // đổi workspace được.
+              _EscapeHatchRow(controller: c),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// FIX 2 (final review) — hàng lối thoát dùng chung cho pha `form` và header
+/// pha `kickoff` của `/projects/new`. Mọi route guard đều bounce về đây khi
+/// `needsProjectSetup`, nên đây phải là nơi Founder rời được nếu bị kẹt.
+class _EscapeHatchRow extends StatelessWidget {
+  const _EscapeHatchRow({required this.controller});
+
+  final ProjectSetupController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    // `Wrap` thay vì `Row` để hai nút xuống dòng khi viewport hẹp thay vì
+    // tràn ngang (RenderFlex overflow).
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      children: [
+        TextButton(
+          key: const ValueKey('project_setup_logout_button'),
+          onPressed: controller.logout,
+          child: const Text('Đăng xuất'),
+        ),
+        TextButton(
+          key: const ValueKey('project_setup_switch_workspace_button'),
+          onPressed: controller.switchWorkspace,
+          child: const Text('Đổi workspace'),
+        ),
+      ],
     );
   }
 }

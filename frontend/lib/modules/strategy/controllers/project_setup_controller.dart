@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../../../core/routing/app_routes.dart';
 import '../../../core/routing/module_routes.dart';
+import '../../../core/session/session_controller.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 import '../../hologram_hub/controllers/founder_command_center_controller.dart';
 import '../services/strategy_service.dart';
@@ -17,6 +18,10 @@ class ProjectSetupController extends GetxController {
   final RxBool isSubmitting = false.obs;
   final RxnString formError = RxnString();
 
+  /// FIX 4 (final review) — worker chờ FCC tải xong khi controller được tạo
+  /// trong lúc `loadDashboardData()` còn chạy (cold entry). Dispose ở `onClose`.
+  Worker? _resumeWorker;
+
   FounderCommandCenterController get _fcc =>
       Get.find<FounderCommandCenterController>();
 
@@ -25,14 +30,50 @@ class ProjectSetupController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Resume: đúng 1 project và setup chưa ACTIVE -> vào thẳng kickoff của nó.
+    if (_fcc.projectsLoadedOnce.value) {
+      _decidePhaseFromLoadedState();
+    } else {
+      // FIX 4 (final review) — cold entry (browser refresh, bookmark, hoặc
+      // luồng post-activate của FIX 1): `_fcc.loadDashboardData()` còn đang
+      // chạy nên `projectsList` chưa phản ánh state thật. Nếu quyết định pha
+      // ngay, Founder thấy form tạo và có thể tạo project thứ 2 trùng
+      // (→ `needsProjectSetup` false vĩnh viễn, guard bị vô hiệu). Hoãn quyết
+      // định tới khi FCC tải xong.
+      // KHÔNG dispose worker ngay trong callback: GetX hoãn việc gỡ
+      // subscription bằng `Timer(Duration.zero)` khi đang ở giữa chu kỳ
+      // notify, để lại pending timer. `_decidePhaseFromLoadedState()` đã
+      // guard idempotent nên cứ để worker sống tới `onClose`.
+      _resumeWorker = ever<bool>(_fcc.projectsLoadedOnce, (loaded) {
+        // Guard: một continuation async của FCU có thể set cờ sau khi
+        // controller đã bị huỷ (test/hot-restart) — bỏ qua nếu FCC không còn.
+        if (loaded == true &&
+            Get.isRegistered<FounderCommandCenterController>()) {
+          _decidePhaseFromLoadedState();
+        }
+      });
+    }
+  }
+
+  /// Resume: đúng 1 project và setup của nó chưa ACTIVE -> vào thẳng kickoff.
+  /// Chỉ áp dụng khi vẫn ở pha `form` và chưa có `createdProjectId` — không ghi
+  /// đè form Founder đang nhập dở hay project vừa tạo qua `submitForm`.
+  void _decidePhaseFromLoadedState() {
+    if (phase.value != ProjectSetupPhase.form) return;
+    if ((createdProjectId.value ?? '').isNotEmpty) return;
     if (_fcc.projectsList.length == 1 &&
         _fcc.activeProjectSetup.value?.status != OperatingSetupStatus.active) {
-      createdProjectId.value = _fcc.projectsList.first['id']?.toString();
-      if ((createdProjectId.value ?? '').isNotEmpty) {
+      final id = _fcc.projectsList.first['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        createdProjectId.value = id;
         phase.value = ProjectSetupPhase.kickoff;
       }
     }
+  }
+
+  @override
+  void onClose() {
+    _resumeWorker?.dispose();
+    super.onClose();
   }
 
   Future<void> submitForm({required String title, String? description}) async {
@@ -61,7 +102,14 @@ class ProjectSetupController extends GetxController {
     }
   }
 
-  void onKickoffActivated(String projectId) => Get.offAllNamed(AppRoutes.hub);
+  Future<void> onKickoffActivated(String projectId) async {
+    // FIX 1 (final review) — guard /hub đọc `activeProjectSetup` của FCC; phải
+    // refresh trước khi rời màn, nếu không middleware thấy setup CŨ (chưa
+    // ACTIVE) và đẩy ngược lại đây (bounce loop vô hạn). `loadDashboardData()`
+    // chạy khi currentRoute vẫn là `/projects/new` nên backstop của nó no-op.
+    await _fcc.loadDashboardData();
+    Get.offAllNamed(AppRoutes.hub);
+  }
 
   void onKickoffBack() {
     if (isOnboarding) return;
@@ -71,4 +119,15 @@ class ProjectSetupController extends GetxController {
   void onOpenAdvancedRoadmap() => Get.toNamed(WorkspaceModule.strategy.path);
 
   void cancel() => Get.offAllNamed(AppRoutes.hub);
+
+  /// FIX 2 (final review) — lối thoát bắt buộc trong onboarding: nếu
+  /// `createBasicProject` liên tục lỗi và mọi route guard bounce về đây,
+  /// Founder vẫn phải đăng xuất được. Tái dùng teardown phiên chuẩn của
+  /// `SessionController` (Task 4: stop realtime → clear runtime → xoá token →
+  /// route `/login`) — không dựng cơ chế đăng xuất riêng cho màn này.
+  void logout() => Get.find<SessionController>().logout();
+
+  /// FIX 2 (final review) — đổi workspace là lối thoát thứ hai khi bị kẹt ở
+  /// onboarding của workspace hiện tại.
+  void switchWorkspace() => Get.offAllNamed(AppRoutes.workspacePicker);
 }

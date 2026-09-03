@@ -44,6 +44,21 @@ void main() {
     expect(find.byKey(const ValueKey('project_setup_cancel_button')), findsNothing);
   });
 
+  testWidgets('onboarding (0 project): có lối thoát Đăng xuất + Đổi workspace', (tester) async {
+    final fcc = Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    fcc.projectsList.clear();
+    Get.put<ProjectSetupController>(ProjectSetupController());
+
+    await pumpView(tester);
+
+    // FIX 2 (final review) — dù không có nút Huỷ, Founder vẫn phải rời được.
+    expect(find.byKey(const ValueKey('project_setup_logout_button')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('project_setup_switch_workspace_button')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('project thứ N (>=1 project): form có nút Huỷ', (tester) async {
     // FCC.onInit chạy `loadDashboardData()` async và ghi đè `projectsList`
     // bằng kết quả GET; cho mock trả về đúng 2 project để trạng thái

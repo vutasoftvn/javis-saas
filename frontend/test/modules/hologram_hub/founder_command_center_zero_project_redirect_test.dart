@@ -50,6 +50,26 @@ void main() {
     expect(Get.currentRoute, AppRoutes.projectsNew);
   });
 
+  testWidgets('FIX 5 (D1): backstop fire trên route có query param /hub?panel=chat',
+      (tester) async {
+    await tester.pumpWidget(GetMaterialApp(
+      initialRoute: '${AppRoutes.hub}?panel=chat',
+      getPages: [
+        GetPage(name: AppRoutes.hub, page: () => const Scaffold(body: Text('hub'))),
+        GetPage(name: AppRoutes.projectsNew, page: () => const Scaffold(body: Text('setup'))),
+      ],
+    ));
+    await tester.pump();
+    expect(Uri.parse(Get.currentRoute).path, AppRoutes.hub);
+
+    final fcc = Get.put<FounderCommandCenterController>(FounderCommandCenterController());
+    await fcc.loadDashboardData();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(Get.currentRoute, AppRoutes.projectsNew);
+  });
+
   testWidgets('không redirect khi route hiện tại KHÔNG phải /hub hay /work/*',
       (tester) async {
     await tester.pumpWidget(GetMaterialApp(

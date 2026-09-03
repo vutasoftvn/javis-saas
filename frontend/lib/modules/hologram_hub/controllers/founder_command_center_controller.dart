@@ -317,9 +317,13 @@ class FounderCommandCenterController extends GetxController {
         },
       );
 
-      _enforceZeroProjectRedirect();
     } finally {
       isLoading.value = false;
+      // FIX 3 (final review) — backstop phải chạy KỂ CẢ khi một trong các
+      // await ở trên ném lỗi (block `try` này không có `catch`, chỉ `finally`).
+      // `projectsList` + `projectsError` + `projectsLoadedOnce` đều đã settled
+      // quanh dòng ~245 nên predicate `needsProjectSetup` hợp lệ trong `finally`.
+      _enforceZeroProjectRedirect();
     }
   }
 
@@ -331,7 +335,10 @@ class FounderCommandCenterController extends GetxController {
   /// `/workspace-picker`, `/projects/new`, v.v.
   void _enforceZeroProjectRedirect() {
     if (!needsProjectSetup) return;
-    final route = Get.currentRoute;
+    // FIX 5 (final review, ledger D1) — `Get.currentRoute` có thể mang query
+    // string (`/hub?panel=chat`); so khớp trên `path` đã tách query, nếu không
+    // backstop bỏ sót mọi route có tham số.
+    final route = Uri.parse(Get.currentRoute).path;
     if (route != AppRoutes.hub && !route.startsWith('/work/')) return;
     Get.offAllNamed(AppRoutes.projectsNew);
   }
