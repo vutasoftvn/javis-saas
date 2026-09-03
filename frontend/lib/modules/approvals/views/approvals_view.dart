@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/models/approval_model.dart';
-import '../../../features/_shared/presentation/feature_state_view.dart';
+import '../../../shared/widgets/feature_state_view.dart';
 import '../controllers/approvals_controller.dart';
 import 'widgets/approval_header_bar.dart';
 import 'widgets/approval_risk_filter_bar.dart';

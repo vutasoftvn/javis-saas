@@ -9,7 +9,7 @@ import 'package:get/get.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/runtime/mutation_gate.dart';
 import 'package:frontend/data/models/approval_model.dart';
-import 'package:frontend/features/_shared/presentation/async_feature_state.dart';
+import 'package:frontend/shared/state/async_feature_state.dart';
 import 'package:frontend/modules/approvals/controllers/approvals_controller.dart';
 import 'package:frontend/modules/approvals/services/approvals_service.dart';
 

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/features/_shared/public.dart';
+import 'package:frontend/core/network/api_result.dart';
+import 'package:frontend/shared/state/async_feature_state.dart';
 
 void main() {
   group('AsyncFeatureState Tests', () {

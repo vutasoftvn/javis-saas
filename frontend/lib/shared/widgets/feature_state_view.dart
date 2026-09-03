@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/network/api_result.dart';
-import 'async_feature_state.dart';
+import '../../core/network/api_result.dart';
+import '../state/async_feature_state.dart';
 
 /// Task 6 — widget dùng chung cho lát dọc "truthful async state": mọi feature
 /// muốn hiển thị [AsyncFeatureState] đều đi qua đây thay vì tự viết lại

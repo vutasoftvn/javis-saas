@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/runtime/mutation_gate.dart';
 import '../../../data/models/approval_model.dart';
-import '../../../features/_shared/presentation/async_feature_state.dart';
+import '../../../shared/state/async_feature_state.dart';
 import '../../../modules/approvals/services/approvals_service.dart';
 import '../../../core/network/realtime_service.dart';
 
