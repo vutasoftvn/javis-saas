@@ -527,6 +527,21 @@
       "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
+      "id": "strategy.twelve_week.plan.update",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "PATCH",
+      "path": "/operations/twelve-week-plans/:id",
+      "schema": "strategy.twelve_week.plan.update.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "frontend_symbol": "StrategyMvpClient.updateWeeklyPlan",
+      "backend_test": "services/company/operations/tests/mvp-okr-twelve-week.test.ts",
+      "flutter_test": "frontend/test/strategy_mvp_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
+    },
+    {
       "id": "vault.document.confirm_upload",
       "enabled": false,
       "owner": "agent-platform",

@@ -44,6 +44,34 @@ export const createWeeklyPlan = api(
   }
 );
 
+export const updateWeeklyPlan = api(
+  { expose: true, method: "PATCH", path: "/operations/twelve-week-plans/:id" },
+  async ({
+    id,
+    authorization,
+    workspaceId,
+    executionScore,
+    outcomeScore,
+    reflection,
+  }: {
+    id: string;
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+    executionScore?: number | null;
+    outcomeScore?: number | null;
+    reflection?: string | null;
+  }): Promise<WeeklyPlan> => {
+    const { updateWeeklyPlanService } = await import("../services/twelve-week-year.service");
+    return updateWeeklyPlanService(id, {
+      workspaceId,
+      authorization,
+      executionScore,
+      outcomeScore,
+      reflection,
+    });
+  }
+);
+
 // ─── Weekly Commitments Endpoints ───
 
 export const createWeeklyCommitment = api(

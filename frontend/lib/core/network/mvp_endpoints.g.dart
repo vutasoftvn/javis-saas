@@ -285,6 +285,14 @@ enum MvpEndpoint {
     path: '/operations/twelve-week-plans',
     requiresWorkspace: true,
   ),
+  strategyTwelveWeekPlanUpdate(
+    id: 'strategy.twelve_week.plan.update',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'PATCH',
+    path: '/operations/twelve-week-plans/:id',
+    requiresWorkspace: true,
+  ),
   vaultDocumentConfirmUpload(
     id: 'vault.document.confirm_upload',
     enabled: false,

@@ -15,6 +15,7 @@ import {
   listTwelveWeekCycles,
   listTwelveWeekPlans,
   listTwelveWeekCommitments,
+  updateWeeklyPlan,
 } from "../handlers/twelve-week-year.handler";
 
 async function makeAuthedWorkspace(displayName: string) {
@@ -108,5 +109,25 @@ describe("MVP OKR & 12-Week Contracts", () => {
     const commitments = await listTwelveWeekCommitments({ workspaceId, authorization });
     expect(commitments.data.length).toBe(1);
     expect(commitments.data[0].title).toBe("Ship Truth-Only Frontend Integration");
+  });
+
+  it("updates a weekly plan's review fields via the MVP endpoint", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Weekly Review MVP Test");
+
+    const cycle = await createCycle({ workspaceId, authorization, theme: "Blitz", visionStatement: "MVP", durationWeeks: 2 });
+    const plan = await createWeeklyPlan({ workspaceId, authorization, cycleId: cycle.id, weekNo: 1, focus: "Tuần 1" });
+
+    const updated = await updateWeeklyPlan({
+      id: plan.id,
+      workspaceId,
+      authorization,
+      executionScore: 90,
+      outcomeScore: 80,
+      reflection: "Tốt",
+    });
+
+    expect(updated.executionScore).toBe(90);
+    expect(updated.outcomeScore).toBe(80);
+    expect(updated.reflection).toBe("Tốt");
   });
 });
