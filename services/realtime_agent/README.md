@@ -27,6 +27,14 @@ realtime-agent (this dir, local)     realtime-agent-cloud (this dir, cloud)
 row, minting a LiveKit join token, and recording session status/events. It
 never touches the audio stream itself.
 
+> **STALE (2026-09-04):** a repo-wide search found no `RealtimeSession` model,
+> table, or LiveKit join-token minting code anywhere in `apps/cosa`,
+> `services/cosa`, `services/company`, `frontend/lib`, or `desktop_worker` —
+> this paragraph describes a mechanism that either was never built or lived in
+> the deleted `backend/` (see CLAUDE.md, `legacy/backend` removed 2026-08-25).
+> Before relying on this description, verify by grep where the Flutter client
+> actually obtains its LiveKit join token today.
+
 ## Why a separate venv
 
 This directory has its own `.venv`/`requirements.txt`, deliberately isolated
