@@ -12,6 +12,46 @@ import '../project_kickoff_view.dart';
 import '../project_roadmap_advanced_view.dart';
 import '../project_stage_workspace_view.dart';
 
+/// Tính chuỗi badge ngày cho project card: khoảng thời gian dự án (nếu có
+/// end date) cộng số ngày đã triển khai kể từ start date.
+///
+/// Trả `null` khi project chưa có start date hợp lệ.
+///
+/// `GET /operations/projects` (Encore) serialize key camelCase `startDate` /
+/// `endDate`; ta đọc key đó trước, giữ fallback snake_case `start_date` /
+/// `end_date` để không vỡ nếu caller truyền shape cũ. `now` inject được để
+/// unit test, mặc định `DateTime.now()`.
+String? projectDateBadge(Map<String, dynamic> project, {DateTime? now}) {
+  final startDateStr = (project['startDate'] ?? project['start_date'])
+      ?.toString();
+  final endDateStr = (project['endDate'] ?? project['end_date'])?.toString();
+  if (startDateStr == null || startDateStr.isEmpty) return null;
+
+  final effectiveNow = now ?? DateTime.now();
+  String? dateBadge;
+  try {
+    final startDt = DateTime.parse(startDateStr);
+    final startFmt =
+        '${startDt.day.toString().padLeft(2, '0')}/${startDt.month.toString().padLeft(2, '0')}';
+    if (endDateStr != null && endDateStr.isNotEmpty) {
+      final endDt = DateTime.parse(endDateStr);
+      final endFmt =
+          '${endDt.day.toString().padLeft(2, '0')}/${endDt.month.toString().padLeft(2, '0')}/${endDt.year}';
+      final weeks = ((endDt.difference(startDt).inDays + 1) / 7).ceil();
+      dateBadge = '$startFmt – $endFmt ($weeks tuần)';
+    } else {
+      dateBadge = 'Từ $startFmt/${startDt.year}';
+    }
+    // Tới đây `dateBadge` luôn được gán ở nhánh if/else phía trên nên non-null;
+    // base fallback trong brief là dead code trong cấu trúc tách hàm này.
+    final elapsedDays = effectiveNow.difference(startDt).inDays;
+    if (elapsedDays >= 0) {
+      dateBadge = '$dateBadge · đã triển khai $elapsedDays ngày';
+    }
+  } catch (_) {}
+  return dateBadge;
+}
+
 /// Điểm vào cho SaaS Project Stage & Agent Orchestration: chọn hoặc tạo một
 /// Dự án rồi mở MVP roadmap cho dự án đó (design §"Primary workflow" bước
 /// 1-2). Mô tả dự án chính là brief mà AI dùng kết hợp Foundation (vision/
@@ -251,26 +291,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
     final projectId = project['id']?.toString() ?? '';
     final description = project['description']?.toString();
     final phase = project['phase']?.toString();
-    final startDateStr = project['start_date']?.toString();
-    final endDateStr = project['end_date']?.toString();
-
-    String? dateBadge;
-    if (startDateStr != null && startDateStr.isNotEmpty) {
-      try {
-        final startDt = DateTime.parse(startDateStr);
-        final startFmt =
-            '${startDt.day.toString().padLeft(2, '0')}/${startDt.month.toString().padLeft(2, '0')}';
-        if (endDateStr != null && endDateStr.isNotEmpty) {
-          final endDt = DateTime.parse(endDateStr);
-          final endFmt =
-              '${endDt.day.toString().padLeft(2, '0')}/${endDt.month.toString().padLeft(2, '0')}/${endDt.year}';
-          final weeks = ((endDt.difference(startDt).inDays + 1) / 7).ceil();
-          dateBadge = '$startFmt – $endFmt ($weeks tuần)';
-        } else {
-          dateBadge = 'Từ $startFmt/${startDt.year}';
-        }
-      } catch (_) {}
-    }
+    final dateBadge = projectDateBadge(project);
 
     return Material(
       color: Colors.transparent,
@@ -400,9 +421,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                                     projectId,
                                   );
                                 }
-                                Get.toNamed(
-                                  WorkspaceModule.marketing.path,
-                                );
+                                Get.toNamed(WorkspaceModule.marketing.path);
                               },
                         icon: const Icon(Icons.campaign_outlined, size: 16),
                         padding: EdgeInsets.zero,
