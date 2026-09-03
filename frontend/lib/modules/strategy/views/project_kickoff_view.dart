@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/contracts/enums.generated.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/ui/layout_breakpoints.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 import '../controllers/project_kickoff_controller.dart';
@@ -28,6 +29,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
   late final ProjectKickoffController controller;
   late final String _tag;
   bool _isLocalController = false;
+
+  // Bước hiển thị ở frame trước — dùng để suy ra chiều chuyển cảnh của
+  // `AnimatedSwitcher` (tiến: trượt từ phải; lùi: trượt từ trái).
+  int _prevStep = 0;
 
   // Tag theo `projectId`: hai `ProjectKickoffView` cho hai project khác nhau
   // (vd. một cái còn sống dưới Navigator stack khi cái kia mở `/projects/new`)
@@ -112,53 +117,81 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(child: CircularProgressIndicator());
-              }
+            // `LayoutBuilder` PHẢI ở ngoài `Obx`: builder của nó chạy ở pha
+            // layout, ngoài phạm vi theo dõi đồng bộ của `Obx`. Nếu bọc nội
+            // dung bước bên trong `LayoutBuilder`, `Obx` không "nhìn thấy" các
+            // observable đọc trong đó (evidenceLevel, currentStep...) nên bấm
+            // radio / "Tiếp tục" cập nhật state mà không rebuild.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Bề rộng nội dung theo 3 bậc layout (layout_breakpoints là
+                // nguồn sự thật duy nhất): desktop 4/12, tablet 6/12, mobile
+                // full trừ 16px padding mỗi bên. Nội dung luôn căn giữa.
+                final double contentWidth = switch (layoutForWidth(
+                  constraints.maxWidth,
+                )) {
+                  AppLayout.expanded => constraints.maxWidth * 4 / 12,
+                  AppLayout.medium => constraints.maxWidth * 6 / 12,
+                  AppLayout.compact => constraints.maxWidth - 32,
+                };
+                return Obx(() {
+                  if (controller.isLoading.value) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              final error = controller.errorMessage.value;
+                  final error = controller.errorMessage.value;
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (error != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.error.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppTheme.error.withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Row(
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Center(
+                      child: SizedBox(
+                        width: contentWidth,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Icon(
-                              Icons.error_outline_rounded,
-                              color: AppTheme.error,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                error,
-                                style: const TextStyle(color: AppTheme.error),
+                            if (error != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.error.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: AppTheme.error.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline_rounded,
+                                      color: AppTheme.error,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        error,
+                                        style: const TextStyle(
+                                          color: AppTheme.error,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                            _buildStepProgress(),
+                            const SizedBox(height: 16),
+                            _buildAnimatedStepContent(),
                           ],
                         ),
                       ),
-                    _buildStepProgress(),
-                    const SizedBox(height: 16),
-                    _buildStepContent(),
-                  ],
-                ),
-              );
-            }),
+                    ),
+                  );
+                });
+              },
+            ),
           ),
         ],
       ),
@@ -166,82 +199,116 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
   }
 
   Widget _buildStepProgress() {
-    final steps = ['Hiểu dự án', 'Chọn vòng đầu', 'Chốt tuần đầu'];
+    const steps = ['Hiểu dự án', 'Chọn vòng đầu', 'Chốt tuần đầu'];
+    final current = controller.currentStep.value;
+    // Thanh "track" của tab: nền tối nhất để pill active (nền primary) nổi bật.
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceDark,
+        color: AppTheme.backgroundDarker,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.borderDark),
       ),
       child: Row(
-        children: List.generate(steps.length, (index) {
-          final isCurrent = controller.currentStep.value == index;
-          final isPast = controller.currentStep.value > index;
-          return Expanded(
+        children: [
+          for (int i = 0; i < steps.length; i++)
+            Expanded(
+              child: _stepTab(
+                index: i,
+                label: steps[i],
+                isActive: current == i,
+                isDone: current > i,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Một tab bước. 3 trạng thái rõ ràng:
+  // - active  : pill nền primary, chữ đậm màu nền tối, có đổ bóng.
+  // - done    : nền trong suốt, icon check xanh, chữ trắng — bấm để quay lại.
+  // - upcoming: nền trong suốt, badge số mờ, chữ mờ — không bấm được.
+  Widget _stepTab({
+    required int index,
+    required String label,
+    required bool isActive,
+    required bool isDone,
+  }) {
+    final canTap = isDone && !isActive;
+    final Color fg = isActive
+        ? AppTheme.backgroundDarker
+        : (isDone ? AppTheme.textDark : AppTheme.textMutedDark);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: isActive ? AppTheme.primary : Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: AppTheme.primary.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: canTap ? () => _goToStep(index) : null,
+          borderRadius: BorderRadius.circular(9),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: isCurrent
-                        ? AppTheme.primary
-                        : (isPast
-                              ? AppTheme.success
-                              : AppTheme.surfaceDarkLighter),
-                    shape: BoxShape.circle,
+                if (isDone && !isActive)
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 18,
+                    color: AppTheme.success,
+                  )
+                else
+                  Container(
+                    width: 20,
+                    height: 20,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isActive
+                          ? Colors.white.withValues(alpha: 0.25)
+                          : AppTheme.surfaceDarkLighter,
+                    ),
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        color: fg,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  child: Center(
-                    child: isPast
-                        ? const Icon(
-                            Icons.check_rounded,
-                            size: 16,
-                            color: Colors.white,
-                          )
-                        : Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              color: isCurrent
-                                  ? AppTheme.backgroundDarker
-                                  : AppTheme.textMutedDark,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ),
                 const SizedBox(width: 8),
-                Expanded(
+                Flexible(
                   child: Text(
-                    steps[index],
-                    style: TextStyle(
-                      color: isCurrent
-                          ? AppTheme.textDark
-                          : (isPast
-                                ? AppTheme.textDark
-                                : AppTheme.textMutedDark),
-                      fontSize: 13,
-                      fontWeight: isCurrent
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
+                    label,
+                    textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 13,
+                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                    ),
                   ),
                 ),
-                if (index < steps.length - 1)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 16,
-                      color: AppTheme.textMutedDark,
-                    ),
-                  ),
               ],
             ),
-          );
-        }),
+          ),
+        ),
       ),
     );
   }
@@ -251,6 +318,44 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
     if (step == 0) return _buildStep1Understand();
     if (step == 1) return _buildStep2Stage();
     return _buildStep3FirstWeek();
+  }
+
+  // Chuyển cảnh mượt giữa các bước: fade + trượt ngang nhẹ theo chiều di
+  // chuyển. Phải được gọi trong closure của `Obx` để `currentStep.value`
+  // được theo dõi.
+  Widget _buildAnimatedStepContent() {
+    final step = controller.currentStep.value;
+    final forward = step >= _prevStep;
+    _prevStep = step;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previousChildren, ?currentChild],
+      ),
+      transitionBuilder: (child, animation) {
+        final slide = Tween<Offset>(
+          begin: Offset(forward ? 0.06 : -0.06, 0),
+          end: Offset.zero,
+        ).animate(animation);
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(position: slide, child: child),
+        );
+      },
+      child: KeyedSubtree(key: ValueKey<int>(step), child: _buildStepContent()),
+    );
+  }
+
+  // Tab điều hướng: chỉ cho quay lại bước đã hoàn thành (giống nút "Quay
+  // lại" — lưu nháp không chặn rồi đổi bước). Tiến tới vẫn phải qua nút
+  // "Tiếp tục" của từng bước để chạy validate trước khi cho đi tiếp.
+  void _goToStep(int index) {
+    if (index >= controller.currentStep.value) return;
+    controller.saveCurrentStep();
+    controller.currentStep.value = index;
   }
 
   // ── Step 1: Hiểu dự án ──
@@ -582,8 +687,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           const SizedBox(height: 24),
 
           // Actions
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               OutlinedButton(
                 onPressed: () {
@@ -749,16 +856,18 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
 
           // Actions List (1 to 3 items)
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '1–3 việc cần làm trong tuần đầu:',
-                style: TextStyle(
-                  color: AppTheme.textDark,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+              const Expanded(
+                child: Text(
+                  '1–3 việc cần làm trong tuần đầu:',
+                  style: TextStyle(
+                    color: AppTheme.textDark,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${controller.firstWeekActions.length}/3 việc',
                 style: const TextStyle(
@@ -863,7 +972,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                   onPressed: controller.isSaving.value
                       ? null
                       : () =>
-                          controller.addAction(controller.newActionCtrl.text),
+                            controller.addAction(controller.newActionCtrl.text),
                   icon: const Icon(Icons.add_rounded, size: 16),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.surfaceDarkLighter,
@@ -884,8 +993,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           const SizedBox(height: 24),
 
           // Actions
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               OutlinedButton(
                 onPressed: () {
@@ -936,7 +1047,14 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
     7: 'Chủ Nhật',
   };
 
-  static const _timeOptions = ['09:00', '10:00', '14:00', '15:00', '16:00', '17:00'];
+  static const _timeOptions = [
+    '09:00',
+    '10:00',
+    '14:00',
+    '15:00',
+    '16:00',
+    '17:00',
+  ];
 
   // Trước fix, "Ngày review tuần" là 1 dòng Text tĩnh — Founder không có cách
   // nào đổi lịch review dù `weeklyReviewWeekday`/`weeklyReviewTime` đã sẵn
@@ -954,23 +1072,32 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppTheme.borderDark),
       ),
-      child: Row(
+      // `Wrap` thay cho `Row`: ở bậc layout hẹp (mobile / tablet 6/12) nhãn và
+      // hai dropdown xuống dòng thay vì tràn ngang (RenderFlex overflow).
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 6,
         children: [
-          const Icon(
-            Icons.calendar_today_rounded,
-            size: 16,
-            color: AppTheme.primary,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(
+                Icons.calendar_today_rounded,
+                size: 16,
+                color: AppTheme.primary,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'Ngày review tuần:',
+                style: TextStyle(
+                  color: AppTheme.textDark,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          const Text(
-            'Ngày review tuần:',
-            style: TextStyle(
-              color: AppTheme.textDark,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 10),
           DropdownButton<int>(
             value: controller.weeklyReviewWeekday.value,
             dropdownColor: AppTheme.surfaceDark,
@@ -991,29 +1118,33 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
               }
             },
           ),
-          const SizedBox(width: 4),
-          const Text(
-            '·',
-            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-          ),
-          const SizedBox(width: 4),
-          DropdownButton<String>(
-            value: currentTime,
-            dropdownColor: AppTheme.surfaceDark,
-            underline: const SizedBox.shrink(),
-            style: const TextStyle(
-              color: AppTheme.textDark,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-            items: timeOptions
-                .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                controller.updateWeeklyReviewCadence(time: value);
-              }
-            },
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '·',
+                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+              ),
+              const SizedBox(width: 4),
+              DropdownButton<String>(
+                value: currentTime,
+                dropdownColor: AppTheme.surfaceDark,
+                underline: const SizedBox.shrink(),
+                style: const TextStyle(
+                  color: AppTheme.textDark,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                items: timeOptions
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    controller.updateWeeklyReviewCadence(time: value);
+                  }
+                },
+              ),
+            ],
           ),
         ],
       ),
