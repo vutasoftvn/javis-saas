@@ -50,10 +50,12 @@ EOF
 fi
 
 # Cảnh báo mềm nếu seed endpoint không bật — vẫn chạy để lỗi hiện rõ trong test.
+# Handler (`e2e-session.handler.ts`) ném `APIError.permissionDenied` (HTTP 403,
+# KHÔNG phải 404) khi thiếu `E2E_TEST_SEED_ENABLED=1` — xem review round 1.
 if curl -fsS -o /dev/null -w '%{http_code}' -X POST \
      -H 'content-type: application/json' -d '{}' \
-     "${COMPANY_URL}/identity/_e2e/session" 2>/dev/null | grep -q '^404$'; then
-  echo "  ⚠ POST ${COMPANY_URL}/identity/_e2e/session → 404: stack có vẻ KHÔNG"
+     "${COMPANY_URL}/identity/_e2e/session" 2>/dev/null | grep -q '^403$'; then
+  echo "  ⚠ POST ${COMPANY_URL}/identity/_e2e/session → 403: stack có vẻ KHÔNG"
   echo "    được khởi động với E2E_TEST_SEED_ENABLED=1 — seed sẽ fail."
 fi
 

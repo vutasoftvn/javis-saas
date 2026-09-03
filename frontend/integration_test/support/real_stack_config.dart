@@ -111,7 +111,7 @@ Future<RealSeededSession> seedRealCompanySession({
         'POST $companyUrl/identity/_e2e/session lỗi (${resp.statusCode}): '
         '${resp.body}\n'
         'Kiểm tra: (1) `make dev-stack` đang chạy, (2) stack được khởi động '
-        'với `E2E_TEST_SEED_ENABLED=1` (handler trả 404 nếu thiếu biến này).',
+        'với `E2E_TEST_SEED_ENABLED=1` (handler trả 403 nếu thiếu biến này).',
       );
     }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
