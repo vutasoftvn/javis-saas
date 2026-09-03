@@ -2,10 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:frontend/core/runtime/mutation_gate.dart';
+import 'package:frontend/modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import 'package:frontend/modules/tasks/controllers/tasks_controller.dart';
 import 'package:frontend/modules/tasks/controllers/work_overview_controller.dart';
 import 'package:frontend/modules/tasks/views/tasks_view.dart';
 import 'package:frontend/modules/tasks/views/tabs/work_overview_tab.dart';
+
+/// `WorkOverviewTab` (Task 3) đọc `FounderCommandCenterController.projectsList`
+/// qua `Get.find` — override `loadDashboardData()` để tránh gọi network thật
+/// trong test (tương tự `TestTasksController.loadTasks()` bên dưới).
+class TestFounderCommandCenterController extends FounderCommandCenterController {
+  @override
+  Future<void> loadDashboardData() async {}
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +37,9 @@ void main() {
     Get.put<TasksController>(controller);
     Get.put<WorkOverviewController>(
       WorkOverviewController(tasksController: controller),
+    );
+    Get.put<FounderCommandCenterController>(
+      TestFounderCommandCenterController(),
     );
 
     await tester.pumpWidget(
