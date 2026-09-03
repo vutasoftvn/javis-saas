@@ -145,6 +145,15 @@ WorkspaceModule? moduleForLegacyIndex(int index) {
   return null;
 }
 
+/// Trả về path canonical cho 1 "target tab" kiểu cũ — dùng bởi
+/// `HubCommandMixin.openDashboard()` sau khi mọi module sidebar đã có route
+/// riêng (Task "Hub không sidebar"). `targetTab` không map được (0 = hub, hoặc
+/// bất kỳ giá trị lạ nào) trả về `AppRoutes.hub` — Hub chính là "index 0".
+String resolveLegacyDashboardTarget(int targetTab) {
+  final module = moduleForLegacyIndex(targetTab);
+  return module?.path ?? AppRoutes.hub;
+}
+
 /// Route thật cho từng module (trừ `hub` — hub dùng route `/hub` sẵn có,
 /// lắp ráp trực tiếp trong `app_pages.dart` vì nó còn phải host
 /// `DashboardContentBody` cho các mục sidebar chưa migrate).

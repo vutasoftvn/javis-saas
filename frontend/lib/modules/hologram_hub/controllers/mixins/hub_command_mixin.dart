@@ -7,9 +7,8 @@ import '../../../../modules/auth/services/auth_service.dart';
 import '../../../../modules/dashboard/services/hub_service.dart';
 import '../../../../modules/strategy/services/strategy_service.dart';
 import '../../../../modules/workspace_runtime/services/workspace_runtime_service.dart';
-import '../../../dashboard/controllers/dashboard_controller.dart';
 import '../../views/widgets/mission_inspector_dialog.dart';
-import '../../../../core/routing/app_routes.dart';
+import '../../../../core/routing/module_routes.dart';
 
 mixin HubCommandMixin on GetxController {
   // ── Abstract service getters ─────────────────────────────────────────────
@@ -354,11 +353,12 @@ mixin HubCommandMixin on GetxController {
   void onThemeToggle() {}
 
   void openDashboard([int targetTab = 0, int groupIndex = 0, int strategySubTab = 0]) {
-    if (Get.isRegistered<DashboardController>()) {
-      final dashCtrl = Get.find<DashboardController>();
-      dashCtrl.changePage(targetTab, groupIndex, strategySubTab);
-    }
-    Get.toNamed(AppRoutes.dashboard);
+    // `groupIndex`/`strategySubTab` không còn dùng sau khi mọi module có
+    // route canonical riêng (trước đây truyền cho `DashboardController.
+    // changePage` để chọn đúng tab/group hiển thị trong `DashboardContentBody`
+    // — nay điều hướng thẳng bằng route, không qua state `currentIndex` nữa).
+    // Giữ nguyên chữ ký hàm để không phải sửa 6+ call site đang gọi nó.
+    Get.toNamed(resolveLegacyDashboardTarget(targetTab));
   }
 
   // ── Contextual panel state ───────────────────────────────────────────────

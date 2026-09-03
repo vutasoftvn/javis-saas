@@ -58,4 +58,11 @@ void main() {
     // đang chứa danh sách sidebar này.
     expect(moduleForLegacyIndex(0), isNull);
   });
+
+  test('resolveLegacyDashboardTarget maps legacy index to canonical path, falls back to hub', () {
+    expect(resolveLegacyDashboardTarget(27), '/work/okrs');
+    expect(resolveLegacyDashboardTarget(28), '/work/twelveWy');
+    expect(resolveLegacyDashboardTarget(1), '/work/tasks');
+    expect(resolveLegacyDashboardTarget(0), '/hub');
+  });
 }
