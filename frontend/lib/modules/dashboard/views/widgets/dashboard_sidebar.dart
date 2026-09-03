@@ -22,6 +22,19 @@ import 'dashboard_stage_demo_bar.dart';
 /// `currentIndex`), gọi riêng `changePage` là "dead click": state đổi nhưng
 /// KHÔNG có gì render lại. Phải điều hướng về `/hub` trước (nơi
 /// `DashboardContentBody` còn "sở hữu" các mục chưa migrate) rồi mới đổi tab.
+/// "Về Hub" luôn phải đưa Founder tới `COSA Command Center` (index 0) — kể cả
+/// khi đang đứng ở 1 tab "chưa migrate" khác (vd. `Dự án` index 29) mà vẫn
+/// còn nguyên route `/hub`. SỬA LỖI: các nút "Về Hub" trước đây chỉ gọi
+/// `Get.offNamed(AppRoutes.hub)`; GetX coi điều hướng tới route hiện tại là
+/// no-op nên khi đang ở `/hub` (chỉ khác tab), bấm nút không có phản ứng gì —
+/// Founder bị kẹt ở tab đang xem.
+void _goToHubLanding(DashboardController controller) {
+  controller.changePage(0, 0);
+  if (Get.currentRoute != AppRoutes.hub) {
+    Get.offNamed(AppRoutes.hub);
+  }
+}
+
 void _navigateOrChangePage(DashboardController controller, int index, int groupIndex) {
   final module = moduleForLegacyIndex(index);
   if (module != null) {
@@ -106,7 +119,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 12, top: 20, left: 16, right: 16),
               child: InkWell(
-                onTap: () => Get.offNamed(AppRoutes.hub),
+                onTap: () => _goToHubLanding(controller),
                 borderRadius: BorderRadius.circular(10),
                 child: Padding(
                   padding: const EdgeInsets.all(4.0),
@@ -157,7 +170,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => Get.offNamed(AppRoutes.hub),
+                  onTap: () => _goToHubLanding(controller),
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -447,7 +460,7 @@ class DashboardMobileDrawer extends StatelessWidget {
                 child: InkWell(
                   onTap: () {
                     Get.back();
-                    Get.offNamed(AppRoutes.hub);
+                    _goToHubLanding(controller);
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(

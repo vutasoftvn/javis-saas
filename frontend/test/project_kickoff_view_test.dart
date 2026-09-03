@@ -75,6 +75,7 @@ Widget kickoffHarness({
   Get.reset();
   Get.put(
     ProjectKickoffController(service: FakeKickoffService(initialSetup: setup)),
+    tag: setup.projectId,
   );
 
   return GetMaterialApp(
@@ -119,6 +120,83 @@ void main() {
     weeklyReviewTime: '16:00',
     firstWeekOutcome: 'Talk to 5 CFOs',
     firstWeekActions: [FirstWeekActionDraft(title: 'List 10 target CFOs')],
+  );
+
+  testWidgets(
+    'disposing kickoff view for one project does not break a still-mounted '
+    'view for a different project (regression: shared untagged controller '
+    'used to dispose TextEditingControllers out from under a sibling view)',
+    (tester) async {
+      Get.reset();
+      Get.put(
+        ProjectKickoffController(
+          service: FakeKickoffService(initialSetup: draftP0Setup),
+        ),
+        tag: 'p-1',
+      );
+      final draftP0SetupOtherProject = const ProjectOperatingSetup(
+        projectId: 'p-2',
+        workspaceId: 'w-1',
+        status: OperatingSetupStatus.inProgress,
+        targetCustomer: 'Fintech CFOs',
+        problemStatement: 'Manual reconciliation takes 3 days',
+        evidenceLevel: KickoffEvidenceLevel.none,
+      );
+      Get.put(
+        ProjectKickoffController(
+          service: FakeKickoffService(initialSetup: draftP0SetupOtherProject),
+        ),
+        tag: 'p-2',
+      );
+
+      final showFirst = ValueNotifier<bool>(true);
+
+      await tester.pumpWidget(
+        GetMaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: showFirst,
+              builder: (context, show, _) {
+                return Column(
+                  children: [
+                    if (show)
+                      Expanded(
+                        child: ProjectKickoffView(
+                          projectId: 'p-1',
+                          onBack: () {},
+                          onActivated: (_) {},
+                          onOpenAdvancedRoadmap: () {},
+                        ),
+                      ),
+                    Expanded(
+                      child: ProjectKickoffView(
+                        projectId: 'p-2',
+                        onBack: () {},
+                        onActivated: (_) {},
+                        onOpenAdvancedRoadmap: () {},
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Simulate the `p-1` view being popped off the Navigator stack (its
+      // dispose() deletes its own tagged controller) while `p-2`'s view
+      // stays mounted and keeps rendering.
+      showFirst.value = false;
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text('COSA đề xuất: Khám phá (P0) trong 2 tuần'),
+        findsOneWidget,
+      );
+    },
   );
 
   testWidgets('P0 proposes two weeks and does not show 12-Week Year', (

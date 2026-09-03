@@ -183,6 +183,48 @@ void main() {
     },
   );
 
+  test(
+    'addAction and removeAction persist immediately instead of waiting for '
+    'activate (regression: 3rd first-week action used to be lost if the '
+    'founder navigated away before hitting "Xác nhận vòng đầu")',
+    () async {
+      final fakeService = FakeProjectOperatingSetupService();
+      final controller = ProjectKickoffController(service: fakeService);
+      await controller.load('p-1');
+
+      await controller.addAction('Interview lead #1');
+      expect(fakeService.saveDraftCallCount, 1);
+      expect(controller.setup.value?.firstWeekActions.length, 1);
+
+      await controller.addAction('Interview lead #2');
+      await controller.addAction('Interview lead #3');
+      expect(fakeService.saveDraftCallCount, 3);
+      expect(controller.setup.value?.firstWeekActions.length, 3);
+      expect(
+        controller.setup.value?.firstWeekActions.last.title,
+        'Interview lead #3',
+      );
+
+      await controller.removeAction(0);
+      expect(fakeService.saveDraftCallCount, 4);
+      expect(controller.setup.value?.firstWeekActions.length, 2);
+    },
+  );
+
+  test('updateWeeklyReviewCadence persists the new weekday/time', () async {
+    final fakeService = FakeProjectOperatingSetupService();
+    final controller = ProjectKickoffController(service: fakeService);
+    await controller.load('p-1');
+
+    await controller.updateWeeklyReviewCadence(weekday: 3, time: '10:00');
+
+    expect(controller.weeklyReviewWeekday.value, 3);
+    expect(controller.weeklyReviewTime.value, '10:00');
+    expect(fakeService.saveDraftCallCount, 1);
+    expect(controller.setup.value?.weeklyReviewWeekday, 3);
+    expect(controller.setup.value?.weeklyReviewTime, '10:00');
+  });
+
   test('activate invokes service and updates setup to ACTIVE', () async {
     final fakeService = FakeProjectOperatingSetupService();
     final controller = ProjectKickoffController(service: fakeService);

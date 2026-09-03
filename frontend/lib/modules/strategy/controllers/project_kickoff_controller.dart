@@ -122,18 +122,29 @@ class ProjectKickoffController extends GetxController {
     }
   }
 
-  void addAction(String title) {
+  // Lưu ngay khi danh sách đổi — trước fix, việc #3 (hoặc bất kỳ thay đổi nào
+  // ở bước 3) chỉ tồn tại trong state cục bộ tới khi bấm "Xác nhận vòng đầu";
+  // nếu Founder rời màn/reload trước đó (kể cả bấm "Quay lại"), dữ liệu mất
+  // vì `load()` sau đó ghi đè bằng bản trên server chưa có thay đổi này.
+  Future<void> addAction(String title) async {
     final trimmed = title.trim();
     if (trimmed.isEmpty) return;
     if (firstWeekActions.length >= 3) return;
     firstWeekActions.add(FirstWeekActionDraft(title: trimmed));
     newActionCtrl.clear();
+    await saveCurrentStep();
   }
 
-  void removeAction(int index) {
-    if (index >= 0 && index < firstWeekActions.length) {
-      firstWeekActions.removeAt(index);
-    }
+  Future<void> removeAction(int index) async {
+    if (index < 0 || index >= firstWeekActions.length) return;
+    firstWeekActions.removeAt(index);
+    await saveCurrentStep();
+  }
+
+  Future<void> updateWeeklyReviewCadence({int? weekday, String? time}) async {
+    if (weekday != null) weeklyReviewWeekday.value = weekday;
+    if (time != null) weeklyReviewTime.value = time;
+    await saveCurrentStep();
   }
 
   bool get isP1Allowed =>

@@ -26,15 +26,22 @@ class ProjectKickoffView extends StatefulWidget {
 
 class _ProjectKickoffViewState extends State<ProjectKickoffView> {
   late final ProjectKickoffController controller;
+  late final String _tag;
   bool _isLocalController = false;
 
+  // Tag theo `projectId`: hai `ProjectKickoffView` cho hai project khác nhau
+  // (vd. một cái còn sống dưới Navigator stack khi cái kia mở `/projects/new`)
+  // KHÔNG được share chung 1 controller — nếu không, dispose() của bên này sẽ
+  // huỷ luôn TextEditingController mà bên kia đang render, gây crash "used
+  // after disposed".
   @override
   void initState() {
     super.initState();
-    if (Get.isRegistered<ProjectKickoffController>()) {
-      controller = Get.find<ProjectKickoffController>();
+    _tag = widget.projectId;
+    if (Get.isRegistered<ProjectKickoffController>(tag: _tag)) {
+      controller = Get.find<ProjectKickoffController>(tag: _tag);
     } else {
-      controller = Get.put(ProjectKickoffController());
+      controller = Get.put(ProjectKickoffController(), tag: _tag);
       _isLocalController = true;
     }
 
@@ -56,8 +63,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
 
   @override
   void dispose() {
-    if (_isLocalController && Get.isRegistered<ProjectKickoffController>()) {
-      Get.delete<ProjectKickoffController>();
+    if (_isLocalController &&
+        Get.isRegistered<ProjectKickoffController>(tag: _tag)) {
+      Get.delete<ProjectKickoffController>(tag: _tag);
     }
     super.dispose();
   }
@@ -158,7 +166,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
   }
 
   Widget _buildStepProgress() {
-    final steps = ['1. Hiểu dự án', '2. Chọn vòng đầu', '3. Chốt tuần đầu'];
+    final steps = ['Hiểu dự án', 'Chọn vòng đầu', 'Chốt tuần đầu'];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -578,7 +586,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               OutlinedButton(
-                onPressed: () => controller.currentStep.value = 0,
+                onPressed: () {
+                  controller.saveCurrentStep();
+                  controller.currentStep.value = 0;
+                },
                 child: const Text('Quay lại'),
               ),
               ElevatedButton.icon(
@@ -863,32 +874,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           const SizedBox(height: 20),
 
           // Cadence info
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceDarkLighter,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderDark),
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_rounded,
-                  size: 16,
-                  color: AppTheme.primary,
-                ),
-                SizedBox(width: 10),
-                Text(
-                  'Ngày review tuần: Thứ Sáu · 16:00',
-                  style: TextStyle(
-                    color: AppTheme.textDark,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildWeeklyReviewCadence(),
 
           const SizedBox(height: 24),
 
@@ -897,7 +883,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               OutlinedButton(
-                onPressed: () => controller.currentStep.value = 1,
+                onPressed: () {
+                  controller.saveCurrentStep();
+                  controller.currentStep.value = 1;
+                },
                 child: const Text('Quay lại'),
               ),
               ElevatedButton.icon(
@@ -926,6 +915,100 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const _weekdayLabels = {
+    1: 'Thứ Hai',
+    2: 'Thứ Ba',
+    3: 'Thứ Tư',
+    4: 'Thứ Năm',
+    5: 'Thứ Sáu',
+    6: 'Thứ Bảy',
+    7: 'Chủ Nhật',
+  };
+
+  static const _timeOptions = ['09:00', '10:00', '14:00', '15:00', '16:00', '17:00'];
+
+  // Trước fix, "Ngày review tuần" là 1 dòng Text tĩnh — Founder không có cách
+  // nào đổi lịch review dù `weeklyReviewWeekday`/`weeklyReviewTime` đã sẵn
+  // trong controller và được gửi lên backend khi activate.
+  Widget _buildWeeklyReviewCadence() {
+    final currentTime = controller.weeklyReviewTime.value;
+    final timeOptions = _timeOptions.contains(currentTime)
+        ? _timeOptions
+        : ([..._timeOptions, currentTime]..sort());
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceDarkLighter,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.calendar_today_rounded,
+            size: 16,
+            color: AppTheme.primary,
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            'Ngày review tuần:',
+            style: TextStyle(
+              color: AppTheme.textDark,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 10),
+          DropdownButton<int>(
+            value: controller.weeklyReviewWeekday.value,
+            dropdownColor: AppTheme.surfaceDark,
+            underline: const SizedBox.shrink(),
+            style: const TextStyle(
+              color: AppTheme.textDark,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            items: _weekdayLabels.entries
+                .map(
+                  (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                controller.updateWeeklyReviewCadence(weekday: value);
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            '·',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+          ),
+          const SizedBox(width: 4),
+          DropdownButton<String>(
+            value: currentTime,
+            dropdownColor: AppTheme.surfaceDark,
+            underline: const SizedBox.shrink(),
+            style: const TextStyle(
+              color: AppTheme.textDark,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            items: timeOptions
+                .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                controller.updateWeeklyReviewCadence(time: value);
+              }
+            },
           ),
         ],
       ),

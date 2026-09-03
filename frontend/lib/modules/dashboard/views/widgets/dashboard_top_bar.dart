@@ -36,7 +36,12 @@ class DashboardMobileAppBar extends StatelessWidget implements PreferredSizeWidg
       }),
       actions: [
         TextButton.icon(
-          onPressed: () => Get.offNamed(AppRoutes.hub),
+          onPressed: () {
+            controller.changePage(0, 0);
+            if (Get.currentRoute != AppRoutes.hub) {
+              Get.offNamed(AppRoutes.hub);
+            }
+          },
           icon: const Icon(Icons.psychology, size: 20, color: Color(0xFF14B8A6)),
           label: const Text(
             'Hologram',
