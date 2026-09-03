@@ -44,7 +44,18 @@ void main() {
   test('moduleForLegacyIndex trả về đúng module cho các index sidebar đã migrate', () {
     expect(moduleForLegacyIndex(1), WorkspaceModule.tasks);
     expect(moduleForLegacyIndex(6), WorkspaceModule.approvals);
-    // Index chưa migrate (vd. OKRs = 27) không có module canonical.
-    expect(moduleForLegacyIndex(27), isNull);
+    expect(moduleForLegacyIndex(19), WorkspaceModule.organization);
+    expect(moduleForLegacyIndex(24), WorkspaceModule.needsYou);
+    expect(moduleForLegacyIndex(25), WorkspaceModule.blockedWork);
+    expect(moduleForLegacyIndex(26), WorkspaceModule.workInspector);
+    expect(moduleForLegacyIndex(27), WorkspaceModule.okrs);
+    expect(moduleForLegacyIndex(28), WorkspaceModule.twelveWy);
+    expect(moduleForLegacyIndex(29), WorkspaceModule.projectRoadmap);
+    expect(moduleForLegacyIndex(30), WorkspaceModule.templateLibrary);
+    expect(moduleForLegacyIndex(32), WorkspaceModule.projectFunding);
+    expect(moduleForLegacyIndex(33), WorkspaceModule.skillRegistry);
+    // Index 0 (hub) không có module canonical riêng — hub CHÍNH LÀ route
+    // đang chứa danh sách sidebar này.
+    expect(moduleForLegacyIndex(0), isNull);
   });
 }

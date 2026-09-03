@@ -24,18 +24,31 @@ import '../../modules/legal/bindings/legal_binding.dart';
 import '../../modules/legal/views/legal_view.dart';
 import '../../modules/marketing/bindings/marketing_binding.dart';
 import '../../modules/marketing/views/marketing_cockpit_view.dart';
+import '../../modules/organization/bindings/organization_binding.dart';
+import '../../modules/organization/views/organization_view.dart';
 import '../../modules/sales/bindings/sales_binding.dart';
 import '../../modules/sales/views/sales_view.dart';
 import '../../modules/settings/bindings/settings_binding.dart';
 import '../../modules/settings/views/settings_view.dart';
+import '../../modules/skills/bindings/skill_registry_binding.dart';
+import '../../modules/skills/views/skill_registry_view.dart';
 import '../../modules/strategy/bindings/strategy_binding.dart';
+import '../../modules/strategy/views/okrs_view.dart';
+import '../../modules/strategy/views/project_funding_view.dart';
+import '../../modules/strategy/views/project_roadmap_view.dart';
 import '../../modules/strategy/views/strategy_view.dart';
+import '../../modules/strategy/views/template_library_view.dart';
+import '../../modules/strategy/views/twelve_week_year_view.dart';
 import '../../modules/tasks/bindings/tasks_binding.dart';
 import '../../modules/tasks/views/tasks_view.dart';
 import '../../modules/vault/bindings/vault_binding.dart';
 import '../../modules/vault/views/vault_view.dart';
 import '../../modules/workflows/bindings/workflows_binding.dart';
 import '../../modules/workflows/views/workflows_view.dart';
+import '../../modules/workspace_runtime/bindings/workspace_runtime_binding.dart';
+import '../../modules/workspace_runtime/views/blocked_work_view.dart';
+import '../../modules/workspace_runtime/views/needs_you_view.dart';
+import '../../modules/workspace_runtime/views/work_inspector_view.dart';
 
 /// 12 module có mặt trong sidebar workspace hiện tại (khớp với các nhóm
 /// trong `DashboardNavConfig`). `hub` là entrypoint COSA 5+1 core, giữ
@@ -55,6 +68,16 @@ enum WorkspaceModule {
   legal,
   workflows,
   settings,
+  organization,
+  needsYou,
+  blockedWork,
+  workInspector,
+  okrs,
+  twelveWy,
+  projectRoadmap,
+  templateLibrary,
+  projectFunding,
+  skillRegistry,
 }
 
 extension WorkspaceModuleRoute on WorkspaceModule {
@@ -101,6 +124,16 @@ const Map<WorkspaceModule, int> legacyDashboardIndexForModule = {
   WorkspaceModule.finance: 21,
   WorkspaceModule.legal: 22,
   WorkspaceModule.sales: 23,
+  WorkspaceModule.organization: 19,
+  WorkspaceModule.needsYou: 24,
+  WorkspaceModule.blockedWork: 25,
+  WorkspaceModule.workInspector: 26,
+  WorkspaceModule.okrs: 27,
+  WorkspaceModule.twelveWy: 28,
+  WorkspaceModule.projectRoadmap: 29,
+  WorkspaceModule.templateLibrary: 30,
+  WorkspaceModule.projectFunding: 32,
+  WorkspaceModule.skillRegistry: 33,
 };
 
 /// Tra ngược: index sidebar cũ → module canonical (null nếu mục đó chưa
@@ -212,6 +245,66 @@ final List<GetPage> moduleRoutes = [
     name: WorkspaceModule.settings.path,
     page: () => const AppShell(activeModule: WorkspaceModule.settings, child: SettingsView()),
     binding: SettingsBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.organization.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.organization, child: OrganizationView()),
+    binding: OrganizationBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.needsYou.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.needsYou, child: NeedsYouView()),
+    binding: WorkspaceRuntimeBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.blockedWork.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.blockedWork, child: BlockedWorkView()),
+    binding: WorkspaceRuntimeBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.workInspector.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.workInspector, child: WorkInspectorView()),
+    binding: WorkspaceRuntimeBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.okrs.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.okrs, child: OkrsView()),
+    binding: StrategyBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.twelveWy.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.twelveWy, child: TwelveWeekYearView()),
+    binding: StrategyBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.projectRoadmap.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.projectRoadmap, child: ProjectRoadmapView()),
+    binding: StrategyBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.templateLibrary.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.templateLibrary, child: TemplateLibraryView()),
+    binding: StrategyBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.projectFunding.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.projectFunding, child: ProjectFundingView()),
+    binding: StrategyBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  GetPage(
+    name: WorkspaceModule.skillRegistry.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.skillRegistry, child: SkillRegistryView()),
+    binding: SkillRegistryBinding(),
     middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
 ];
