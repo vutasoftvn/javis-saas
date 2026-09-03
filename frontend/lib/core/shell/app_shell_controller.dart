@@ -13,6 +13,7 @@ import '../../modules/dashboard/controllers/dashboard_controller.dart';
 import '../../modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import '../../modules/hologram_hub/controllers/hologram_hub_controller.dart';
 import '../services/feature_flags_controller.dart';
+import 'chat_panel_controller.dart';
 
 class AppShellController extends GetxController {
   /// Đăng ký (nếu chưa có) các dependency thuộc về CHROME — không thuộc bất
@@ -40,6 +41,9 @@ class AppShellController extends GetxController {
     }
     if (!Get.isRegistered<FounderCommandCenterController>()) {
       Get.put<FounderCommandCenterController>(FounderCommandCenterController(), permanent: true);
+    }
+    if (!Get.isRegistered<ChatPanelController>()) {
+      Get.put<ChatPanelController>(ChatPanelController(), permanent: true);
     }
     if (!Get.isRegistered<AppShellController>()) {
       Get.put<AppShellController>(AppShellController(), permanent: true);
