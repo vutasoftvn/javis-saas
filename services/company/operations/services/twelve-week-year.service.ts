@@ -221,7 +221,7 @@ export async function updateWeeklyPlanService(
       reflection: req.reflection !== undefined ? req.reflection : existing.reflection,
       updatedAt: new Date(),
     })
-    .where(eq(weeklyPlans.id, planIdBig))
+    .where(and(eq(weeklyPlans.id, planIdBig), eq(weeklyPlans.workspaceId, wsId)))
     .returning();
 
   return {

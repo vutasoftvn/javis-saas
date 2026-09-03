@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/network/api_result.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../models/mvp_strategy_models.dart';
 import '../../services/twelve_wy_service.dart';
 
@@ -84,14 +85,61 @@ class _WeeklyReviewTabState extends State<WeeklyReviewTab> {
     return _commitments.where((c) => c.weeklyPlanId == planId).toList();
   }
 
+  /// Validate 1 ô điểm (0-100) phía client trước khi gọi API — không đợi
+  /// round-trip lên backend (backend đã validate lại ở
+  /// `updateWeeklyPlanService`, đây chỉ là UX nhanh hơn).
+  /// - Rỗng → `(null, null)`: hợp lệ, field này sẽ không gửi lên server.
+  /// - Không parse được số (vd. "9O" gõ nhầm) → `(null, thông báo lỗi)`.
+  /// - Ngoài khoảng 0-100 → `(null, thông báo lỗi)`.
+  /// - Hợp lệ → `(giá trị, null)`.
+  (double?, String?) _validateScore(String raw, String label) {
+    final text = raw.trim();
+    if (text.isEmpty) return (null, null);
+    final value = double.tryParse(text);
+    if (value == null) {
+      return (null, '$label phải là một số hợp lệ');
+    }
+    if (value < 0 || value > 100) {
+      return (null, '$label phải trong khoảng 0-100');
+    }
+    return (value, null);
+  }
+
   Future<void> _save() async {
     final plan = _selectedPlan;
     if (plan == null) return;
+
+    final (executionScore, executionError) = _validateScore(
+      _executionCtrl.text,
+      'Điểm thực thi',
+    );
+    if (executionError != null) {
+      AppToast.error(executionError);
+      return;
+    }
+    final (outcomeScore, outcomeError) = _validateScore(
+      _outcomeCtrl.text,
+      'Điểm kết quả',
+    );
+    if (outcomeError != null) {
+      AppToast.error(outcomeError);
+      return;
+    }
+
     setState(() => _isSaving = true);
     final result = await _service.updateWeeklyPlan(
       id: plan.id,
-      executionScore: double.tryParse(_executionCtrl.text),
-      outcomeScore: double.tryParse(_outcomeCtrl.text),
+      // Lưu ý hạn chế đã biết: khi field rỗng, `executionScore`/`outcomeScore`
+      // là `null` và bị OMIT hoàn toàn khỏi request body (cú pháp null-aware
+      // map element `'executionScore': ?executionScore` trong
+      // `StrategyMvpClient.updateWeeklyPlan`), còn backend coi field vắng mặt
+      // trong request là "giữ nguyên giá trị cũ" (`twelve-week-year.service.ts`
+      // `updateWeeklyPlanService`) chứ không phải "xoá về rỗng". Vì vậy UI này
+      // hiện KHÔNG có cách xoá một điểm đã chấm — đây là hạn chế kiến trúc sâu
+      // hơn (cần đổi cả backend lẫn frontend), cố tình để ngoài phạm vi fix
+      // wave hiện tại, không phải bug chưa phát hiện.
+      executionScore: executionScore,
+      outcomeScore: outcomeScore,
       reflection: _reflectionCtrl.text.trim().isEmpty
           ? null
           : _reflectionCtrl.text.trim(),
@@ -104,6 +152,13 @@ class _WeeklyReviewTabState extends State<WeeklyReviewTab> {
         if (idx != -1) _plans[idx] = result.data;
         _selectedPlan = result.data;
       });
+      AppToast.success('Đã lưu review tuần');
+    } else if (result is ApiFailure<MvpWeeklyPlan>) {
+      AppToast.error(
+        result.failure.message.isNotEmpty
+            ? result.failure.message
+            : 'Không lưu được review tuần. Vui lòng thử lại.',
+      );
     }
   }
 

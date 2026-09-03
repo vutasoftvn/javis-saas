@@ -37,7 +37,7 @@
 - Consumes: `WeeklyPlan` (interface đã tồn tại, dòng 39-52), `weeklyPlans` (Drizzle schema, đã import), `requireWorkspaceAccess` (đã dùng ở các hàm khác trong cùng file).
 - Produces: `UpdateWeeklyPlanRequest` (interface mới), `updateWeeklyPlanService(planId: string, req: UpdateWeeklyPlanRequest): Promise<WeeklyPlan>` — dùng ở Task 2.
 
-- [ ] **Step 1: Viết test trước**
+- [x] **Step 1: Viết test trước**
 
 ```ts
 // services/company/operations/tests/twelve-week-plan-update.test.ts
@@ -96,12 +96,12 @@ describe("updateWeeklyPlanService", () => {
 });
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd services/company && npx vitest run operations/tests/twelve-week-plan-update.test.ts`
 Expected: FAIL — `updateWeeklyPlanService` chưa tồn tại.
 
-- [ ] **Step 3: Viết `updateWeeklyPlanService`**
+- [x] **Step 3: Viết `updateWeeklyPlanService`**
 
 Thêm vào `services/company/operations/services/twelve-week-year.service.ts`,
 ngay sau `createWeeklyPlanService` (sau dòng 177):
@@ -176,17 +176,17 @@ Cần thêm `APIError` vào import đầu file nếu chưa có
 (`import { APIError } from "encore.dev/api";`) — kiểm tra import hiện có của
 file trước khi thêm trùng.
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd services/company && npx vitest run operations/tests/twelve-week-plan-update.test.ts`
 Expected: PASS (cả 3 test).
 
-- [ ] **Step 5: `npx tsc --noEmit` sạch**
+- [x] **Step 5: `npx tsc --noEmit` sạch**
 
 Run: `cd services/company && npx tsc --noEmit -p tsconfig.json`
 Expected: Không lỗi.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -211,7 +211,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: `updateWeeklyPlanService` (Task 1).
 - Produces: endpoint Encore `PATCH /operations/twelve-week-plans/:id`, entry `MvpEndpoint.strategyTwelveWeekPlanUpdate` (Dart, tự sinh) — dùng ở Task 3.
 
-- [ ] **Step 1: Thêm entry vào `shared/contracts/mvp-surface.json`**
+- [x] **Step 1: Thêm entry vào `shared/contracts/mvp-surface.json`**
 
 Tìm object có `"id": "strategy.twelve_week.plan.list"` trong mảng
 `capabilities`, thêm 1 object MỚI ngay sau nó (giữ định dạng JSON hợp lệ,
@@ -235,7 +235,7 @@ dấu phẩy đúng chỗ):
 }
 ```
 
-- [ ] **Step 2: Thêm handler Encore**
+- [x] **Step 2: Thêm handler Encore**
 
 Thêm vào `services/company/operations/handlers/twelve-week-year.handler.ts`,
 ngay sau `createWeeklyPlan` (sau dòng 44):
@@ -270,19 +270,19 @@ export const updateWeeklyPlan = api(
 );
 ```
 
-- [ ] **Step 3: Regenerate contract code**
+- [x] **Step 3: Regenerate contract code**
 
 Run: `cd /Volumes/SSD/javis-saas && node scripts/gen-mvp-contracts.mjs`
 Expected: Log xác nhận đã ghi lại
 `services/company/shared/contracts/mvp-surface.generated.ts` và
 `frontend/lib/core/network/mvp_endpoints.g.dart`, không lỗi parse JSON.
 
-- [ ] **Step 4: Xác nhận `strategyTwelveWeekPlanUpdate` đã xuất hiện trong file sinh ra**
+- [x] **Step 4: Xác nhận `strategyTwelveWeekPlanUpdate` đã xuất hiện trong file sinh ra**
 
 Run: `grep -n "strategyTwelveWeekPlanUpdate" frontend/lib/core/network/mvp_endpoints.g.dart`
 Expected: thấy đúng 1 entry với `method: 'PATCH'`, `path: '/operations/twelve-week-plans/:id'`.
 
-- [ ] **Step 5: Thêm test tích hợp mới vào `mvp-okr-twelve-week.test.ts`**
+- [x] **Step 5: Thêm test tích hợp mới vào `mvp-okr-twelve-week.test.ts`**
 
 Thêm import `updateWeeklyPlan` vào khối import đã có
 (`from "../handlers/twelve-week-year.handler"`), thêm 1 `it()` mới vào
@@ -310,23 +310,23 @@ Thêm import `updateWeeklyPlan` vào khối import đã có
   });
 ```
 
-- [ ] **Step 6: Chạy test, xác nhận PASS**
+- [x] **Step 6: Chạy test, xác nhận PASS**
 
 Run: `cd services/company && npx vitest run operations/tests/mvp-okr-twelve-week.test.ts`
 Expected: PASS (kể cả các test cũ trong file — không regression).
 
-- [ ] **Step 7: `npx tsc --noEmit` sạch cả 2 phía**
+- [x] **Step 7: `npx tsc --noEmit` sạch cả 2 phía**
 
 Run: `cd services/company && npx tsc --noEmit -p tsconfig.json`
 Run: `cd frontend && dart analyze lib/core/network/`
 Expected: Không lỗi ở cả 2.
 
-- [ ] **Step 8: Chạy `make frontend-api-contract-check`**
+- [x] **Step 8: Chạy `make frontend-api-contract-check`**
 
 Run: `cd /Volumes/SSD/javis-saas && make frontend-api-contract-check`
 Expected: `✅` — route mới khớp contract, không có route lạ/lệch.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -353,7 +353,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: `MvpEndpoint.strategyTwelveWeekPlanUpdate` (Task 2, tự sinh), `MvpWeeklyPlan` (đã tồn tại, `frontend/lib/modules/strategy/models/mvp_strategy_models.dart:273-`).
 - Produces: `StrategyMvpClient.updateWeeklyPlan({required String id, double? executionScore, double? outcomeScore, String? reflection}) → Future<ApiResult<MvpWeeklyPlan>>`, `TwelveWyService.updateWeeklyPlan(...) → Future<ApiResult<MvpWeeklyPlan>>` (chữ ký giống hệt, chỉ forward) — dùng ở Task 4.
 
-- [ ] **Step 1: Viết test trước — đọc `test/strategy_mvp_service_test.dart` để bám đúng pattern mock hiện có, rồi thêm case mới**
+- [x] **Step 1: Viết test trước — đọc `test/strategy_mvp_service_test.dart` để bám đúng pattern mock hiện có, rồi thêm case mới**
 
 ```dart
 // thêm vào frontend/test/strategy_mvp_service_test.dart, theo đúng pattern
@@ -397,12 +397,12 @@ test('updateWeeklyPlan sends PATCH with review fields and decodes response', () 
 `ApiClient.client`) trước khi thêm — dùng ĐÚNG helper/setup đã có trong file,
 không tạo bộ setup thứ 2.
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/strategy_mvp_service_test.dart --plain-name "updateWeeklyPlan"`
 Expected: FAIL — `updateWeeklyPlan` chưa tồn tại trên `StrategyMvpClient`.
 
-- [ ] **Step 3: Viết `StrategyMvpClient.updateWeeklyPlan`**
+- [x] **Step 3: Viết `StrategyMvpClient.updateWeeklyPlan`**
 
 Thêm vào `frontend/lib/modules/strategy/services/strategy_mvp_client.dart`,
 ngay sau `listTwelveWeekPlans` (dòng 193-203):
@@ -431,12 +431,12 @@ Cú pháp `'key': ?value` (null-aware spread trong map literal) đã được d�
 `updateCanvas` (dòng 58-59) trong cùng file — dùng đúng cú pháp đó, không đổi
 cách khác.
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/strategy_mvp_service_test.dart --plain-name "updateWeeklyPlan"`
 Expected: PASS.
 
-- [ ] **Step 5: Thêm `TwelveWyService.updateWeeklyPlan` (forward mỏng)**
+- [x] **Step 5: Thêm `TwelveWyService.updateWeeklyPlan` (forward mỏng)**
 
 Thêm vào `frontend/lib/modules/strategy/services/twelve_wy_service.dart`,
 ngay sau `getWeeklyCommitments` (cuối file, trước dấu `}` đóng class):
@@ -460,7 +460,7 @@ ngay sau `getWeeklyCommitments` (cuối file, trước dấu `}` đóng class):
 Kiểm tra `MvpWeeklyPlan` đã được import trong file này (dùng bởi
 `getWeeklyPlans()` sẵn) — không cần thêm import mới.
 
-- [ ] **Step 6: Viết test cho forward method**
+- [x] **Step 6: Viết test cho forward method**
 
 ```dart
 // frontend/test/modules/strategy/services/twelve_wy_service_test.dart — thêm test mới vào file đã có
@@ -488,12 +488,12 @@ test('updateWeeklyPlan forwards to StrategyMvpClient.updateWeeklyPlan', () async
 Đọc file `twelve_wy_service_test.dart` trước để dùng đúng `setUp`/import
 `ApiClient` đã có trong file (theo đúng pattern các test khác trong đó).
 
-- [ ] **Step 7: Chạy lại toàn bộ 2 file test, `dart analyze` sạch**
+- [x] **Step 7: Chạy lại toàn bộ 2 file test, `dart analyze` sạch**
 
 Run: `cd frontend && flutter test test/strategy_mvp_service_test.dart test/modules/strategy/services/twelve_wy_service_test.dart && dart analyze lib/modules/strategy/services/`
 Expected: Tất cả PASS; No issues found.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -518,7 +518,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `TwelveWyService.getWeeklyPlans()`, `getWeeklyCommitments()`, `updateWeeklyPlan(...)` (Task 3), `MvpWeeklyPlan`, `MvpWeeklyCommitment`.
 
-- [ ] **Step 1: Viết test trước — chọn plan, hiển thị commitment, lưu review gọi đúng service**
+- [x] **Step 1: Viết test trước — chọn plan, hiển thị commitment, lưu review gọi đúng service**
 
 ```dart
 // frontend/test/modules/strategy/views/tabs/weekly_review_tab_test.dart
@@ -617,12 +617,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/modules/strategy/views/tabs/weekly_review_tab_test.dart`
 Expected: FAIL — `WeeklyReviewTab` chưa tồn tại.
 
-- [ ] **Step 3: Viết `WeeklyReviewTab`**
+- [x] **Step 3: Viết `WeeklyReviewTab`**
 
 ```dart
 // frontend/lib/modules/strategy/views/tabs/weekly_review_tab.dart
@@ -815,12 +815,12 @@ class _WeeklyReviewTabState extends State<WeeklyReviewTab> {
 }
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/modules/strategy/views/tabs/weekly_review_tab_test.dart`
 Expected: PASS.
 
-- [ ] **Step 5: Thêm tab thứ 7 vào `StrategyView`**
+- [x] **Step 5: Thêm tab thứ 7 vào `StrategyView`**
 
 Sửa `frontend/lib/modules/strategy/views/strategy_view.dart`: thêm import
 `weekly_review_tab.dart`, đổi `DefaultTabController(length: 6, ...)` (dòng
@@ -847,14 +847,14 @@ Tab(
 WeeklyReviewTab(),
 ```
 
-- [ ] **Step 6: `dart analyze` sạch, chạy lại toàn bộ test module strategy**
+- [x] **Step 6: `dart analyze` sạch, chạy lại toàn bộ test module strategy**
 
 Run: `cd frontend && dart analyze lib/modules/strategy/ && flutter test test/modules/strategy/`
 Expected: No issues found; tất cả PASS — đặc biệt các test hiện có của
 `StrategyView` (nếu có assert số lượng tab cố định) vẫn phải pass với 7 tab
 thay vì 6.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /Volumes/SSD/javis-saas
