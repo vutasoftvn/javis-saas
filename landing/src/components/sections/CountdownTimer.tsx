@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Clock, Sparkles } from "lucide-react";
+import { Clock } from "lucide-react";
 
 interface TimeLeft {
   days: number;
