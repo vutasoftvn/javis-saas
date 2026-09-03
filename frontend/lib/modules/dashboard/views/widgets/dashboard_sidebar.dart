@@ -8,26 +8,9 @@ import '../../controllers/dashboard_controller.dart';
 import '../../models/dashboard_nav_config.dart';
 import 'dashboard_stage_demo_bar.dart';
 
-/// Task 9 — sidebar không còn tự quyết định nội dung bằng
-/// `controller.changePage(index, ...)` cho các mục ĐÃ có route canonical
-/// thật (`WorkspaceModule`): những mục đó điều hướng bằng `Get.toNamed` để
-/// có back-stack thật + guard riêng. Mục CHƯA migrate (chưa có route) vẫn
-/// giữ hành vi cũ — đổi `currentIndex` tại chỗ trong `DashboardContentBody`.
-///
-/// SỬA LỖI review (Critical #2) — trước fix, nhánh "chưa migrate" bên dưới
-/// CHỈ gọi `changePage` bất kể đang đứng ở route nào. `changePage` chỉ có
-/// tác dụng khi widget đang hiển thị là `DashboardContentBody` (tại `/hub`)
-/// — nó đọc `currentIndex` qua `Obx`. Nếu người dùng đang ở 1 route module
-/// đã migrate (vd. `/work/tasks`, hiển thị `TasksView` cố định, không đọc
-/// `currentIndex`), gọi riêng `changePage` là "dead click": state đổi nhưng
-/// KHÔNG có gì render lại. Phải điều hướng về `/hub` trước (nơi
-/// `DashboardContentBody` còn "sở hữu" các mục chưa migrate) rồi mới đổi tab.
-/// "Về Hub" luôn phải đưa Founder tới `COSA Command Center` (index 0) — kể cả
-/// khi đang đứng ở 1 tab "chưa migrate" khác (vd. `Dự án` index 29) mà vẫn
-/// còn nguyên route `/hub`. SỬA LỖI: các nút "Về Hub" trước đây chỉ gọi
-/// `Get.offNamed(AppRoutes.hub)`; GetX coi điều hướng tới route hiện tại là
-/// no-op nên khi đang ở `/hub` (chỉ khác tab), bấm nút không có phản ứng gì —
-/// Founder bị kẹt ở tab đang xem.
+/// Điều hướng mục sidebar — với các mục ĐÃ migrate, dùng route canonical
+/// thật; với mục chưa migrate (chưa có route), fallback đổi tab trong
+/// `DashboardContentBody` tại `/hub`.
 void _goToHubLanding(DashboardController controller) {
   controller.changePage(0, 0);
   if (Get.currentRoute != AppRoutes.hub) {
@@ -41,15 +24,9 @@ void _navigateOrChangePage(DashboardController controller, int index, int groupI
     Get.toNamed(module.path);
     return;
   }
+  // Không còn index nào thiếu route sau khi migrate xong — nhánh này chỉ
+  // còn là fallback phòng thủ (index lạ không có trong DashboardNavConfig).
   controller.changePage(index, groupIndex);
-  if (Get.currentRoute != AppRoutes.hub) {
-    // `offNamed` (thay stack) chứ không `toNamed` (push): đây là "nhảy sang
-    // 1 tab cũ không liên quan", không phải drill-down cần giữ lại bằng back
-    // — giữ route module vừa rời trong stack chỉ làm phình back-stack vô ích
-    // (và khiến widget của nó còn mounted phía dưới, gây nhầm lẫn khi test/
-    // debug tìm theo type).
-    Get.offNamed(AppRoutes.hub);
-  }
 }
 
 /// SỬA LỖI review (thiết kế lại Critical #1) — trước fix, `AppShell` ghi đè

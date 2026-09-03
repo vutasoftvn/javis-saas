@@ -8,8 +8,7 @@ import 'project_setup_guard_middleware.dart';
 import '../../modules/auth/views/login_view.dart';
 import '../../modules/auth/views/register_view.dart';
 import '../../modules/auth/bindings/auth_binding.dart';
-import '../../modules/dashboard/views/dashboard_view.dart';
-import '../../modules/dashboard/bindings/dashboard_binding.dart';
+import '../../modules/hologram_hub/views/hologram_hub_view.dart';
 import '../../modules/mission_control/views/mission_control_view.dart';
 import '../../modules/mission_control/bindings/mission_control_binding.dart';
 import '../../modules/profile/views/profile_view.dart';
@@ -94,8 +93,10 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.hub,
-      page: () => const DashboardView(),
-      binding: DashboardBinding(),
+      page: () => const HologramHubView(),
+      binding: BindingsBuilder(() {
+        AppShellController.ensureShellDependencies();
+      }),
       middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
     ),
     GetPage(
