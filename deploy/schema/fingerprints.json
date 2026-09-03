@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-01T08:00:40.661Z",
+  "generated_at": "2026-09-03T15:07:34.475Z",
   "groups": {
     "agent": {
       "fingerprint": "11b06ec63ed89a885e84d1b24e40bf2e58be2e7c3fac4163bc72089290a27f62",
@@ -4879,12 +4879,12 @@
       }
     },
     "cosa": {
-      "fingerprint": "9b07bf43b048c66311fdfa50698f54085634e8d66e40958e7c304d5efac355cd",
+      "fingerprint": "d7c1db62744c6a44288a43038eb17dd20cd404105fa1990adc8c3c8e93382945",
       "schemas": [
         "control_plane",
         "cosa"
       ],
-      "tables_count": 33,
+      "tables_count": 34,
       "enums": [],
       "tables": {
         "control_plane.assignments": {
@@ -8195,6 +8195,113 @@
             }
           ]
         },
+        "control_plane.workspace_skill_policies": {
+          "schema": "control_plane",
+          "name": "workspace_skill_policies",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "skill_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "enabled",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "true",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "config",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "updated_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_skill_policies_pkey",
+            "columns": [
+              "workspace_id",
+              "skill_key"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_workspace_skill_policies_ws_updated",
+              "definition": "CREATE INDEX idx_workspace_skill_policies_ws_updated ON control_plane.workspace_skill_policies USING btree (workspace_id, updated_at DESC)"
+            },
+            {
+              "name": "workspace_skill_policies_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_skill_policies_pkey ON control_plane.workspace_skill_policies USING btree (workspace_id, skill_key)"
+            }
+          ]
+        },
         "cosa.plans": {
           "schema": "cosa",
           "name": "plans",
@@ -9470,7 +9577,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "af3c483a5b462b79ae1b5feb938a91e5f66cf1fdb7851506621b70fb018d1bc1",
+      "fingerprint": "2c20d418df436882d63ea6045cde6713879563eff472df9650bf2721ad714fd7",
       "schemas": [
         "commercial",
         "core",
@@ -9482,7 +9589,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 145,
+      "tables_count": 146,
       "enums": [],
       "tables": {
         "commercial.campaign_assets": {
@@ -26450,6 +26557,18 @@
               ],
               "on_update": "NO ACTION",
               "on_delete": "SET NULL"
+            },
+            {
+              "name": "fk_tasks_weekly_commitment_id",
+              "columns": [
+                "weekly_commitment_id"
+              ],
+              "foreign_table": "operating.weekly_commitments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
             }
           ],
           "check_constraints": [],
@@ -26649,7 +26768,20 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "fk_twelve_week_cycles_project_id",
+              "columns": [
+                "project_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            }
+          ],
           "check_constraints": [],
           "indexes": [
             {
@@ -32834,6 +32966,246 @@
             {
               "name": "uix_portfolios_id_workspace",
               "definition": "CREATE UNIQUE INDEX uix_portfolios_id_workspace ON strategy.portfolios USING btree (id, workspace_id)"
+            }
+          ]
+        },
+        "strategy.project_operating_setups": {
+          "schema": "strategy",
+          "name": "project_operating_setups",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'NOT_STARTED'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "target_customer",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "problem_statement",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "evidence_level",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "recommended_stage",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "selected_stage",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "stage_duration_weeks",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "stage_target_date",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "weekly_review_weekday",
+              "type": "smallint",
+              "udt": "int2",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 16,
+              "scale": 0
+            },
+            {
+              "name": "weekly_review_time",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "first_week_outcome",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "first_week_actions",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "round_start_date",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_operating_setups_pkey",
+            "columns": [
+              "project_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "project_operating_setups_project_id_workspace_id_fkey",
+              "columns": [
+                "project_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "project_operating_setups_evidence_level_check",
+              "clause": "((evidence_level = ANY (ARRAY['NONE'::text, 'ONE_TO_FOUR_INTERVIEWS'::text, 'FIVE_PLUS_INTERVIEWS'::text, 'PROTOTYPE_OR_REVENUE'::text])))"
+            },
+            {
+              "name": "project_operating_setups_recommended_stage_check",
+              "clause": "((recommended_stage = ANY (ARRAY['P0_DISCOVERY'::text, 'P1_PROBLEM_VALIDATION'::text])))"
+            },
+            {
+              "name": "project_operating_setups_selected_stage_check",
+              "clause": "((selected_stage = ANY (ARRAY['P0_DISCOVERY'::text, 'P1_PROBLEM_VALIDATION'::text])))"
+            },
+            {
+              "name": "project_operating_setups_stage_duration_weeks_check",
+              "clause": "(((stage_duration_weeks >= 1) AND (stage_duration_weeks <= 4)))"
+            },
+            {
+              "name": "project_operating_setups_status_check",
+              "clause": "((status = ANY (ARRAY['NOT_STARTED'::text, 'IN_PROGRESS'::text, 'ACTIVE'::text])))"
+            },
+            {
+              "name": "project_operating_setups_weekly_review_time_check",
+              "clause": "((weekly_review_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'::text))"
+            },
+            {
+              "name": "project_operating_setups_weekly_review_weekday_check",
+              "clause": "(((weekly_review_weekday >= 1) AND (weekly_review_weekday <= 7)))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_project_operating_setups_workspace_status",
+              "definition": "CREATE INDEX idx_project_operating_setups_workspace_status ON strategy.project_operating_setups USING btree (workspace_id, status, updated_at DESC)"
+            },
+            {
+              "name": "project_operating_setups_pkey",
+              "definition": "CREATE UNIQUE INDEX project_operating_setups_pkey ON strategy.project_operating_setups USING btree (project_id)"
             }
           ]
         },
