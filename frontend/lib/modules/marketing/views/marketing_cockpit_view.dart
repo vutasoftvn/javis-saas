@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/routing/module_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
-import '../../dashboard/controllers/dashboard_controller.dart';
 import '../controllers/marketing_controller.dart';
 import 'tabs/marketing_node1_objectives_tab.dart';
 import 'tabs/marketing_node2_context_tab.dart';
@@ -175,7 +175,7 @@ class MarketingCockpitView extends GetView<MarketingController> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () => Get.find<DashboardController>().changePage(29, 0),
+              onPressed: () => Get.toNamed(WorkspaceModule.projectRoadmap.path),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Tạo Dự án mới'),
               style: ElevatedButton.styleFrom(

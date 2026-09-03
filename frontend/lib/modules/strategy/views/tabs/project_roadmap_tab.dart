@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/routing/module_routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
 import '../../../../core/widgets/floating_app_bar.dart';
@@ -115,7 +116,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
             actions: [
               TextButton.icon(
                 onPressed: () =>
-                    Get.find<DashboardController>().changePage(30, 6),
+                    Get.toNamed(WorkspaceModule.templateLibrary.path),
                 icon: const Icon(
                   Icons.tune_rounded,
                   size: 16,
@@ -399,9 +400,8 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                                     projectId,
                                   );
                                 }
-                                Get.find<DashboardController>().changePage(
-                                  17,
-                                  0,
+                                Get.toNamed(
+                                  WorkspaceModule.marketing.path,
                                 );
                               },
                         icon: const Icon(Icons.campaign_outlined, size: 16),

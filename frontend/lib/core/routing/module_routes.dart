@@ -103,12 +103,14 @@ class LegacyModuleRedirectMiddleware extends GetMiddleware {
   RouteSettings? redirect(String? route) => RouteSettings(name: canonicalPath);
 }
 
-/// Ánh xạ TẠM THỜI giữa index cũ trong `DashboardNavConfig` và module canonical
-/// mới — chỉ tồn tại trong giai đoạn chuyển tiếp (Task 9). Các index KHÔNG có
-/// mặt ở đây (OKRs, 12WY, roadmap, template library, project funding,
-/// needs-you, blocked-work, work-inspector, organization, skill registry)
-/// vẫn hiển thị tại chỗ qua `DashboardContentBody` — chưa có route riêng,
-/// đúng tinh thần "retain feature pages initially" của Task 9.
+/// Ánh xạ giữa index cũ trong `DashboardNavConfig` và module canonical mới.
+/// Ban đầu (Task 9) chỉ phủ một phần module, phần còn lại (OKRs, 12WY,
+/// roadmap, template library, project funding, needs-you, blocked-work,
+/// work-inspector, organization, skill registry) tạm hiển thị qua
+/// `DashboardContentBody`. Từ Task 6 (hub-no-sidebar) `DashboardContentBody`
+/// đã bị xoá hẳn — MỌI module trong `DashboardNavConfig` đều có route
+/// canonical thật ở dưới đây; map này giờ chỉ còn phục vụ tra cứu
+/// index-cũ → module cho các call site còn giữ tham số index kiểu cũ.
 ///
 /// `hub` (index 0) KHÔNG có trong map này: hub chính là route ĐANG chứa
 /// danh sách sidebar này, tự điều hướng vào chính nó là vô nghĩa.
@@ -155,8 +157,8 @@ String resolveLegacyDashboardTarget(int targetTab) {
 }
 
 /// Route thật cho từng module (trừ `hub` — hub dùng route `/hub` sẵn có,
-/// lắp ráp trực tiếp trong `app_pages.dart` vì nó còn phải host
-/// `DashboardContentBody` cho các mục sidebar chưa migrate).
+/// lắp ráp trực tiếp trong `app_pages.dart` với `HologramHubView`, không
+/// còn `DashboardContentBody` nào để host nữa kể từ Task 6 hub-no-sidebar).
 ///
 /// Mỗi route bọc view HIỆN CÓ (không sửa nội dung/visual) bằng `AppShell`
 /// (sidebar/topbar/floating voice/banner) — đúng nguyên tắc Task 9: chỉ

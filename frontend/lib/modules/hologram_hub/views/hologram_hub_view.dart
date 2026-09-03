@@ -1119,6 +1119,13 @@ class HologramHubView extends StatelessWidget {
             color: Colors.transparent,
             child: ListView(
               children: DashboardNavConfig.coreNavGroups.expand((group) {
+                // Bỏ mục "Hub" (index 0) khỏi danh sách switcher — đang
+                // đứng ở Hub rồi thì hiện lại chính nó là dead-click vô
+                // nghĩa (index 0 không map tới `WorkspaceModule` nào).
+                final items = group.items
+                    .where((item) => moduleForLegacyIndex(item.index) != null)
+                    .toList();
+                if (items.isEmpty) return const <Widget>[];
                 return [
                   Padding(
                     padding: const EdgeInsets.only(top: 12, bottom: 6),
@@ -1131,20 +1138,18 @@ class HologramHubView extends StatelessWidget {
                       ),
                     ),
                   ),
-                  ...group.items.map((item) {
-                    final module = moduleForLegacyIndex(item.index);
+                  ...items.map((item) {
+                    final module = moduleForLegacyIndex(item.index)!;
                     return ListTile(
                       leading: Icon(item.icon, color: Colors.white70),
                       title: Text(
                         item.label,
                         style: const TextStyle(color: Colors.white),
                       ),
-                      onTap: module == null
-                          ? null
-                          : () {
-                              Navigator.pop(ctx);
-                              Get.toNamed(module.path);
-                            },
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Get.toNamed(module.path);
+                      },
                     );
                   }),
                 ];

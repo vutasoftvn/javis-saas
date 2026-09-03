@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../core/routing/app_routes.dart';
-import '../../../dashboard/controllers/dashboard_controller.dart';
-import '../../controllers/hologram_hub_controller.dart';
+import '../../../../core/routing/module_routes.dart';
 import '../../presentation/widgets/glass_card.dart';
 
 class FundingReadinessCard extends StatelessWidget {
@@ -147,16 +145,16 @@ class FundingReadinessCard extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () {
-                // Nếu chưa có dự án thì chuyển sang tab Dự án (index 29, group 1), ngược lại sang Nguồn lực & Chính sách (index 32, group 1)
-                final targetTab = hasEvaluation ? 32 : 29;
-                if (Get.isRegistered<HologramHubController>()) {
-                  Get.find<HologramHubController>().openDashboard(targetTab, 1);
-                } else if (Get.isRegistered<DashboardController>()) {
-                  Get.find<DashboardController>().changePage(targetTab, 1);
-                  Get.toNamed(AppRoutes.dashboard);
-                } else {
-                  Get.toNamed(AppRoutes.dashboard);
-                }
+                // Nếu chưa có dự án thì chuyển sang module Dự án, ngược lại
+                // sang module Nguồn lực & Chính sách (Project Funding).
+                // Điều hướng route canonical trực tiếp — không còn cần qua
+                // `DashboardController.changePage`/`AppRoutes.dashboard` vì
+                // `/dashboard` giờ chỉ redirect vào `/hub`, không đọc
+                // `currentIndex` nữa (xem module_routes.dart).
+                final targetModule = hasEvaluation
+                    ? WorkspaceModule.projectFunding
+                    : WorkspaceModule.projectRoadmap;
+                Get.toNamed(targetModule.path);
               },
               icon: Icon(
                 hasEvaluation ? Icons.arrow_forward_rounded : Icons.add_circle_outline_rounded,
