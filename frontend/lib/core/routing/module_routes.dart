@@ -12,6 +12,7 @@ import '../shell/app_shell.dart';
 import '../widgets/capability_gated_view.dart';
 import 'app_routes.dart';
 import 'auth_middleware.dart';
+import 'project_setup_guard_middleware.dart';
 
 import '../../modules/agents/bindings/agents_binding.dart';
 import '../../modules/agents/views/agents_view.dart';
@@ -123,25 +124,25 @@ final List<GetPage> moduleRoutes = [
     name: WorkspaceModule.tasks.path,
     page: () => const AppShell(activeModule: WorkspaceModule.tasks, child: TasksView()),
     binding: TasksBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.approvals.path,
     page: () => const AppShell(activeModule: WorkspaceModule.approvals, child: ApprovalsView()),
     binding: ApprovalsBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.strategy.path,
     page: () => const AppShell(activeModule: WorkspaceModule.strategy, child: StrategyView()),
     binding: StrategyBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.agents.path,
     page: () => const AppShell(activeModule: WorkspaceModule.agents, child: AgentsView()),
     binding: AgentsBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.vault.path,
@@ -154,7 +155,7 @@ final List<GetPage> moduleRoutes = [
       ),
     ),
     binding: VaultBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.sales.path,
@@ -167,7 +168,7 @@ final List<GetPage> moduleRoutes = [
       ),
     ),
     binding: SalesBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.marketing.path,
@@ -180,19 +181,19 @@ final List<GetPage> moduleRoutes = [
       ),
     ),
     binding: MarketingBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.finance.path,
     page: () => const AppShell(activeModule: WorkspaceModule.finance, child: FinanceView()),
     binding: FinanceBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.legal.path,
     page: () => const AppShell(activeModule: WorkspaceModule.legal, child: LegalView()),
     binding: LegalBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.workflows.path,
@@ -205,13 +206,13 @@ final List<GetPage> moduleRoutes = [
       ),
     ),
     binding: WorkflowsBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.settings.path,
     page: () => const AppShell(activeModule: WorkspaceModule.settings, child: SettingsView()),
     binding: SettingsBinding(),
-    middlewares: [AuthMiddleware()],
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
 ];
 

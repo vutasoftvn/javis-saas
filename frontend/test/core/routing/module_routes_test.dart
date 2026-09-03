@@ -7,11 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:frontend/core/routing/auth_middleware.dart';
 import 'package:frontend/core/routing/module_routes.dart';
+import 'package:frontend/core/routing/project_setup_guard_middleware.dart';
 
 void main() {
   test('every sidebar module has one canonical guarded path', () {
     expect(WorkspaceModule.tasks.path, '/work/tasks');
     expect(routesFor('/work/tasks').single.middlewares, contains(isA<AuthMiddleware>()));
+    expect(routesFor('/work/tasks').single.middlewares,
+        contains(isA<ProjectSetupGuardMiddleware>()));
   });
 
   test('hub keeps its existing top-level path, not namespaced under /work', () {

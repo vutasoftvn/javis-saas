@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'app_routes.dart';
 import 'auth_middleware.dart';
 import 'module_routes.dart';
+import 'project_setup_guard_middleware.dart';
 
 import '../../modules/auth/views/login_view.dart';
 import '../../modules/auth/views/register_view.dart';
@@ -85,7 +86,7 @@ class AppPages {
       name: AppRoutes.hub,
       page: () => const DashboardView(),
       binding: DashboardBinding(),
-      middlewares: [AuthMiddleware()],
+      middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
     ),
     GetPage(
       name: AppRoutes.missionControl,
