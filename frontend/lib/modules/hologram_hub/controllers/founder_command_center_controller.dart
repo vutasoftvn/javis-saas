@@ -128,6 +128,20 @@ class FounderCommandCenterController extends GetxController {
   final TextEditingController chatInputController = TextEditingController();
   final RxBool isChatLoading = false.obs;
 
+  /// Founder cần vào luồng thiết lập project khi: chưa có project nào, HOẶC
+  /// đúng một project và setup của nó chưa `ACTIVE` (tạo project rồi bỏ dở
+  /// kickoff — cần resume). Lỗi tải danh sách project KHÔNG kích hoạt điều
+  /// này: giữ nguyên hành vi "lỗi tạm thời không đẩy Founder ra onboarding".
+  /// Nhiều hơn một project ⇒ không can thiệp (workspace đã vận hành).
+  bool get needsProjectSetup {
+    if (projectsError.value != null) return false;
+    if (projectsList.isEmpty) return true;
+    if (projectsList.length == 1) {
+      return activeProjectSetup.value?.status != OperatingSetupStatus.active;
+    }
+    return false;
+  }
+
   @override
   void onInit() {
     super.onInit();
