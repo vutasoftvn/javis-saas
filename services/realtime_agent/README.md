@@ -1,27 +1,31 @@
 # mCOSA Realtime Voice Agent
 
 LiveKit Agents worker that carries the actual realtime voice loop for mCOSA's
-Hologram Hub (mCOSA V12.1/V12.2 §7 Voice Agent Runtime). This is a
-**standalone process**, not part of `backend/app`/`brain-api` — long-lived
-audio handling must never run inside a FastAPI request handler (spec §90.3).
+Hologram Hub. This is a **standalone process**, not part of `apps/cosa` —
+long-lived audio handling must never run inside a FastAPI request handler.
+
+Runs as TWO containers in `docker-compose.yml` (see there for exact env):
+`realtime-agent` registers against the self-hosted local LiveKit server
+(desktop voice rooms), `realtime-agent-cloud` registers against LiveKit
+Cloud (mobile/web voice rooms) — both must run concurrently, each only
+receives dispatch from the LiveKit server it registered with.
 
 ```
-Flutter (livekit_client)
-      │
-      ▼
-LiveKit (Cloud today; Local later, see DEPLOYMENT.md)
-      │
-      ▼
-services/realtime_agent  ◄── this process
-      │
-      ├── Gemini Live (livekit-plugins-google)
-      └── Tool Bridge ──► backend/app (direct SessionLocal(), no HTTP hop)
+Flutter (livekit_client, desktop)         Flutter (livekit_client, mobile/web)
+      │                                          │
+      ▼                                          ▼
+LiveKit local (docker-compose: livekit:7880)   LiveKit Cloud
+      │                                          │
+      ▼                                          ▼
+realtime-agent (this dir, local)     realtime-agent-cloud (this dir, cloud)
+      │                                          │
+      ├── Gemini Live (livekit-plugins-google) ──┘
+      └── Tool Bridge ──► apps/cosa/api (HTTP, see services_client.py)
 ```
 
-`backend/app/modules/realtime` (`/api/v1/realtime`) only handles the Control
-Plane side: creating a `RealtimeSession` row, minting a LiveKit join token,
-and recording session status/events. It never touches the audio stream
-itself.
+`apps/cosa/api` handles the Control Plane side: creating a `RealtimeSession`
+row, minting a LiveKit join token, and recording session status/events. It
+never touches the audio stream itself.
 
 ## Why a separate venv
 

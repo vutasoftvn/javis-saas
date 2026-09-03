@@ -4,6 +4,8 @@ This cookbook provides canonical recipes for extending the COSA ecosystem withou
 
 ## Recipes
 
+**Trạng thái:** 1/6 recipe đã hoàn thành, 5 recipe còn lại đang xây dựng.
+
 1. [How to add a Native Tool](./ADD_NATIVE_TOOL.md)
 2. How to add a Skill (coming soon)
 3. How to add a Workflow Node & UI Renderer (coming soon)
