@@ -1,7 +1,7 @@
-import { api, Header, APIError } from "encore.dev/api";
+import { api, Header } from "encore.dev/api";
 import * as scheduleSvc from "../services/workspace-schedule.service";
-import * as connectorSvc from "../services/workspace-connector.service";
-import { verifyPlatformToken, requireWorkerServiceAuth } from "../services/token.service";
+import { resolveCallerAuthorizedForWorkspace } from "../services/workspace-connector.service";
+import { requireWorkerServiceAuth } from "../services/token.service";
 
 export interface CreateScheduleParams {
   authorization?: Header<"Authorization">;
@@ -40,16 +40,15 @@ export interface CompleteExecutionParams {
 export const createScheduleEndpoint = api(
   { method: "POST", path: "/cosa/schedules", expose: true },
   async (params: CreateScheduleParams) => {
-    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = verifyPlatformToken(token);
-
-    // Verify caller is a member of the workspace
-    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    // B5 fix — resolveCallerAuthorizedForWorkspace ưu tiên control-plane
+    // delegation (apps/cosa đã cross-check membership thật), fallback
+    // platform token + verifyWorkspaceMembership (hành vi cũ) — xem
+    // workspace-connector.service.ts.
+    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
 
     const res = await scheduleSvc.createWorkspaceSchedule({
       workspaceId: params.workspaceId,
-      createdBy: claims.sub,
+      createdBy: caller.sub,
       scheduleKind: params.scheduleKind,
       timezone: params.timezone,
       runAt: params.runAt ? new Date(params.runAt) : null,
@@ -67,13 +66,7 @@ export const createScheduleEndpoint = api(
 export const listSchedulesEndpoint = api(
   { method: "GET", path: "/cosa/schedules", expose: true },
   async (params: ListSchedulesParams) => {
-    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    verifyPlatformToken(token);
-
-    // Verify caller is a member of the workspace
-    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
-
+    await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
     return scheduleSvc.listWorkspaceSchedules(params.workspaceId);
   }
 );
@@ -81,17 +74,12 @@ export const listSchedulesEndpoint = api(
 export const runScheduleNowEndpoint = api(
   { method: "POST", path: "/cosa/schedules/:scheduleId/run-now", expose: true },
   async (params: RunScheduleNowParams) => {
-    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = verifyPlatformToken(token);
-
-    // Verify caller is a member of the workspace
-    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
 
     const execution = await scheduleSvc.runScheduleNow({
       scheduleId: params.scheduleId,
       workspaceId: params.workspaceId,
-      principalId: claims.sub,
+      principalId: caller.sub,
     });
     return execution;
   }

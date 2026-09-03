@@ -1,12 +1,12 @@
 import { api, Header } from "encore.dev/api";
-import { resolveAuthData } from "./auth.handler";
+import { resolveCallerAuthorizedForWorkspace } from "../services/workspace-connector.service";
 import {
   GetTenantPolicyParams,
   GetTenantPolicyResult,
   UpsertTenantPolicyParams,
   TenantPolicySnapshotResult,
+  buildTenantPolicySnapshot,
   getTenantPolicyForTool,
-  getTenantPolicySnapshotForCaller,
   upsertTenantPolicy,
 } from "../services/agent-policy.service";
 
@@ -48,11 +48,21 @@ export interface GetMyTenantPolicySnapshotParams {
  * thường — khác `getTenantPolicy` (expose:false, chỉ RPC nội bộ
  * Encore-to-Encore). Verify caller thực sự thuộc workspace trước khi trả
  * policy. Resolve workspace → platform_company via services/company endpoint.
+ *
+ * B5 fix (2026-09-04) — trước đây dùng `auth: true` (Encore Gateway, chỉ
+ * chấp nhận PLATFORM_JWT_SECRET) rồi verify membership bằng cách forward
+ * Authorization sang services/company (chỉ hiểu JWT_SECRET local-session) —
+ * 2 secret khác nhau nên KHÔNG token nào qua được cả 2 chặng, mọi request từ
+ * apps/cosa đều fail 403 permission_denied vô điều kiện. Giờ tự verify thủ
+ * công qua `resolveCallerAuthorizedForWorkspace` (dùng chung với
+ * workspace-schedule.handler.ts) — ưu tiên control-plane delegation, fallback
+ * platform token gốc + verifyWorkspaceMembership (giữ nguyên hành vi cũ cho
+ * caller nào không dùng delegation).
  */
 export const getMyTenantPolicySnapshot = api(
-  { method: "GET", path: "/platform/auth/me/agent-policy-snapshot", expose: true, auth: true },
+  { method: "GET", path: "/platform/auth/me/agent-policy-snapshot", expose: true, auth: false },
   async (params: GetMyTenantPolicySnapshotParams): Promise<TenantPolicySnapshotResult> => {
-    const authData = await resolveAuthData();
-    return getTenantPolicySnapshotForCaller(authData.userID, params.workspaceId, params.authorization);
+    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
+    return buildTenantPolicySnapshot(caller.sub, params.workspaceId);
   }
 );

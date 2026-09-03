@@ -87,7 +87,12 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
     #    `founder` thật cho test qua đúng helper seed kit.
     _ensure_core_workspace(cluster.workspace_app_url, workspace_id)
     _user_id, token = identity.add_member(
-        company_url, cluster, workspace_id, display_name="E2E S2 Founder", role="founder"
+        company_url,
+        cluster,
+        workspace_id,
+        platform_base_url=stack.platform.base_url,
+        display_name="E2E S2 Founder",
+        role="founder",
     )
 
     apps_cosa = stack.apps_cosa

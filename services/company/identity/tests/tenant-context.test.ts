@@ -6,7 +6,7 @@ import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { eq } from "drizzle-orm";
 
-const { identityWorkspaceMemberships, identityWorkforceMembers } = schema;
+const { identityWorkspaceMemberships, identityWorkforceMembers, identityUserProjections } = schema;
 
 describe("resolveTenantContext", () => {
   it("generates a new unique correlationId if none is provided", async () => {
@@ -257,5 +257,45 @@ describe("resolveTenantContext", () => {
 
     expect(ctx.workforceMemberId).toBe(workforceB.toString());
     expect(ctx.workforceMemberId).not.toBe(workforceA.toString());
+  });
+
+  // B5 fix (2026-09-04) — apps/cosa cần platformUserId thật của local user để
+  // mint control-plane delegation (services/cosa) — xem
+  // apps/cosa/auth/jwt.py::mint_control_plane_delegation.
+  it("trả platformUserId null khi local user chưa từng sync qua platform", async () => {
+    const user = await createTestSession({
+      email: `no-platform-link-${Date.now()}@example.com`,
+      displayName: "No Platform Link Test",
+    });
+
+    const ctx = await resolveTenantContext({
+      authorization: `Bearer ${user.accessToken}`,
+      workspaceId: user.workspaceId,
+    });
+
+    expect(ctx.platformUserId).toBeNull();
+  });
+
+  it("trả đúng platformUserId khi local user đã link qua sync-from-platform", async () => {
+    const user = await createTestSession({
+      email: `platform-linked-${Date.now()}@example.com`,
+      displayName: "Platform Linked Test",
+    });
+
+    // `platform_user_id` có UNIQUE constraint — dùng giá trị duy nhất mỗi lần
+    // chạy test (không hardcode literal) để tránh đụng độ với lần chạy trước
+    // trong cùng DB test.
+    const platformUserId = `platform_user_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    await db
+      .update(identityUserProjections)
+      .set({ platformUserId })
+      .where(eq(identityUserProjections.id, BigInt(user.userId)));
+
+    const ctx = await resolveTenantContext({
+      authorization: `Bearer ${user.accessToken}`,
+      workspaceId: user.workspaceId,
+    });
+
+    expect(ctx.platformUserId).toBe(platformUserId);
   });
 });

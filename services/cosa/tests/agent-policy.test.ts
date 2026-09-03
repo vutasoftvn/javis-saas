@@ -1,8 +1,21 @@
+import jwt from "jsonwebtoken";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { registerPlatform } from "../handlers/auth.handler";
-import { getTenantPolicy, setTenantPolicy } from "../handlers/agent-policy.handler";
+import { getMyTenantPolicySnapshot, getTenantPolicy, setTenantPolicy } from "../handlers/agent-policy.handler";
 import { getTenantPolicySnapshotForCaller } from "../services/agent-policy.service";
 import { verifyPlatformToken } from "../services/token.service";
+
+const TEST_CONTROL_DELEGATION_SECRET = "test-control-delegation-secret-min-32-chars";
+
+function signControlDelegation(opts: { sub: string; workspaceId: string; role?: string }): string {
+  // Claim JWT thô là workspace_id (snake_case) — cùng convention với
+  // mint_control_plane_delegation (apps/cosa/auth/jwt.py) qua wire thật.
+  return jwt.sign(
+    { sub: opts.sub, workspace_id: opts.workspaceId, role: opts.role ?? "member" },
+    process.env.COSA_CONTROL_DELEGATION_SECRET || TEST_CONTROL_DELEGATION_SECRET,
+    { audience: "cosa_control", issuer: "cosa_apps", expiresIn: "10m" }
+  );
+}
 
 describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
   it("returns no decision when a workspace has not configured any policy", async () => {
@@ -215,6 +228,89 @@ describe("getTenantPolicySnapshotForCaller", () => {
     const after = await getTenantPolicySnapshotForCaller(userId, workspaceId);
 
     expect(before.snapshotHash).not.toBe(after.snapshotHash);
+  });
+});
+
+describe("getMyTenantPolicySnapshot handler — B5 control-plane delegation", () => {
+  const originalSecret = process.env.COSA_CONTROL_DELEGATION_SECRET;
+
+  beforeEach(() => {
+    process.env.COSA_CONTROL_DELEGATION_SECRET = TEST_CONTROL_DELEGATION_SECRET;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    process.env.COSA_CONTROL_DELEGATION_SECRET = originalSecret;
+  });
+
+  it("trả snapshot đúng qua delegation, KHÔNG round-trip sang services/company (B5 fix)", async () => {
+    const res = await registerPlatform({
+      email: `policy_delegation_ok_${Date.now()}@example.com`,
+      password: "password1234",
+      full_name: "Delegation Founder",
+      workspace_name: "Delegation WS",
+    });
+    const userId = verifyPlatformToken(res.access_token).sub;
+    const workspaceId = res.platform_workspace_id!;
+    await setTenantPolicy({ workspaceId, toolPattern: "finance.*", decision: "REQUIRE_APPROVAL" });
+
+    // Bằng chứng KHÔNG round-trip: fetch bị stub để throw nếu gọi tới — trước
+    // B5 fix, đường verifyWorkspaceMembership LUÔN gọi fetch sang
+    // services/company (và luôn fail vì khác secret). Đường delegation phải
+    // build snapshot mà không đụng tới fetch.
+    const fetchSpy = vi.fn(() => {
+      throw new Error("must not call services/company when using control-plane delegation");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const delegation = signControlDelegation({ sub: userId, workspaceId });
+    const snapshot = await getMyTenantPolicySnapshot({
+      workspaceId,
+      authorization: `Bearer ${delegation}`,
+    });
+
+    expect(snapshot.workspaceId).toBe(workspaceId);
+    expect(snapshot.rules).toHaveLength(1);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("từ chối delegation token scoped cho workspace khác (permission_denied)", async () => {
+    const res = await registerPlatform({
+      email: `policy_delegation_scope_${Date.now()}@example.com`,
+      password: "password1234",
+      full_name: "Delegation Scope Founder",
+      workspace_name: "Delegation Scope WS",
+    });
+    const userId = verifyPlatformToken(res.access_token).sub;
+    const workspaceId = res.platform_workspace_id!;
+
+    const delegation = signControlDelegation({ sub: userId, workspaceId: "some_other_workspace" });
+
+    await expect(
+      getMyTenantPolicySnapshot({ workspaceId, authorization: `Bearer ${delegation}` })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+  });
+
+  it("delegation ký sai secret KHÔNG được chấp nhận (fallback platform token vẫn phải qua verify thật)", async () => {
+    const res = await registerPlatform({
+      email: `policy_delegation_badsig_${Date.now()}@example.com`,
+      password: "password1234",
+      full_name: "Bad Sig Founder",
+      workspace_name: "Bad Sig WS",
+    });
+    const workspaceId = res.platform_workspace_id!;
+
+    const forged = jwt.sign(
+      { sub: verifyPlatformToken(res.access_token).sub, workspace_id: workspaceId, role: "founder" },
+      "wrong-secret-not-the-real-one-min-32-chars",
+      { audience: "cosa_control", issuer: "cosa_apps", expiresIn: "10m" }
+    );
+
+    // Sai secret -> verifyControlDelegationToken fail -> fallback sang
+    // verifyPlatformToken(token thô, KHÔNG phải platform token thật) -> 401.
+    await expect(
+      getMyTenantPolicySnapshot({ workspaceId, authorization: `Bearer ${forged}` })
+    ).rejects.toMatchObject({ code: "unauthenticated" });
   });
 });
 

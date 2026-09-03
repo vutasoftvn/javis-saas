@@ -95,15 +95,34 @@ export async function getTenantPolicySnapshotForCaller(
   workspaceId: string,
   authorizationHeader?: string
 ): Promise<TenantPolicySnapshotResult> {
+  // Verify workspace membership (throws if not a member) — đường xác thực gốc,
+  // forward Authorization sang services/company. B5: đường này chỉ hoạt động
+  // đúng với token mà services/company hiểu được (local-session, JWT_SECRET);
+  // 1 platform token hợp lệ (PLATFORM_JWT_SECRET) sẽ luôn fail ở đây (khác
+  // secret) — xem `buildTenantPolicySnapshot` bên dưới cho đường B5 fix
+  // (control-plane delegation, KHÔNG round-trip sang company).
+  await verifyWorkspaceMembership(workspaceId, authorizationHeader);
+  return buildTenantPolicySnapshot(userIdStr, workspaceId);
+}
+
+/**
+ * B5 fix — dùng cho caller đã chứng minh workspace membership qua
+ * control-plane delegation (verifyControlDelegationToken), KHÔNG cần
+ * round-trip sang services/company nữa (apps/cosa đã cross-check membership
+ * thật với services/company trước khi mint delegation). Tách khỏi
+ * `getTenantPolicySnapshotForCaller` để không lặp code, không phải vì logic
+ * khác nhau — phần build snapshot dưới đây giống hệt cho cả 2 đường.
+ */
+export async function buildTenantPolicySnapshot(
+  userIdStr: string,
+  workspaceId: string
+): Promise<TenantPolicySnapshotResult> {
   const userId = BigInt(userIdStr);
 
   const [userRow] = await db.select({ status: users.status }).from(users).where(eq(users.id, userId)).limit(1);
   if (!userRow) {
     throw APIError.notFound("platform user không tồn tại");
   }
-
-  // Verify workspace membership (throws if not a member)
-  await verifyWorkspaceMembership(workspaceId, authorizationHeader);
 
   const workspaceIdBig = BigInt(workspaceId);
   const policyRows = await db

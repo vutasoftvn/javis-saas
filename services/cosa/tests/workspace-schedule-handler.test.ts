@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   createScheduleEndpoint,
@@ -10,6 +11,18 @@ import { db, schema } from "../models/db";
 import * as scheduleSvc from "../services/workspace-schedule.service";
 
 const { workspaceScheduleDefinitions, workspaceScheduleExecutions } = schema;
+
+const TEST_CONTROL_DELEGATION_SECRET = "test-control-delegation-secret-min-32-chars";
+
+function signControlDelegation(opts: { sub: string; workspaceId: string; role?: string }): string {
+  // Claim JWT thô là workspace_id (snake_case) — cùng convention với
+  // mint_control_plane_delegation (apps/cosa/auth/jwt.py) qua wire thật.
+  return jwt.sign(
+    { sub: opts.sub, workspace_id: opts.workspaceId, role: opts.role ?? "member" },
+    TEST_CONTROL_DELEGATION_SECRET,
+    { audience: "cosa_control", issuer: "cosa_apps", expiresIn: "10m" }
+  );
+}
 
 describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
   beforeEach(async () => {
@@ -342,5 +355,67 @@ describe("Workspace Schedule Service", () => {
     await expect(
       scheduleSvc.getScheduleExecution("nonexistent_exec_999")
     ).rejects.toMatchObject({ code: "not_found" });
+  });
+});
+
+describe("Workspace Schedule Handler — B5 control-plane delegation", () => {
+  const originalSecret = process.env.COSA_CONTROL_DELEGATION_SECRET;
+
+  beforeEach(async () => {
+    process.env.COSA_CONTROL_DELEGATION_SECRET = TEST_CONTROL_DELEGATION_SECRET;
+    await db.delete(workspaceScheduleExecutions);
+    await db.delete(workspaceScheduleDefinitions);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    process.env.COSA_CONTROL_DELEGATION_SECRET = originalSecret;
+  });
+
+  it("create/list/run-now qua delegation KHÔNG round-trip sang services/company", async () => {
+    const fetchSpy = vi.fn(() => {
+      throw new Error("must not call services/company when using control-plane delegation");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const delegation = signControlDelegation({ sub: "user_a", workspaceId: "ws_a" });
+    const authHeader = `Bearer ${delegation}`;
+
+    const created = await createScheduleEndpoint({
+      authorization: authHeader,
+      workspaceId: "ws_a",
+      scheduleKind: "daily",
+      hour: 9,
+      minute: 0,
+      promptTemplate: "Daily report",
+    });
+    expect(created.workspaceId).toBe("ws_a");
+
+    const listed = await listSchedulesEndpoint({ authorization: authHeader, workspaceId: "ws_a" });
+    expect(listed.total).toBe(1);
+
+    const ran = await runScheduleNowEndpoint({
+      authorization: authHeader,
+      scheduleId: created.id,
+      workspaceId: "ws_a",
+    });
+    expect(ran.state).toBe("queued");
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("từ chối delegation scoped cho workspace khác", async () => {
+    const delegation = signControlDelegation({ sub: "user_a", workspaceId: "ws_b" });
+
+    await expect(
+      createScheduleEndpoint({
+        authorization: `Bearer ${delegation}`,
+        workspaceId: "ws_a",
+        scheduleKind: "daily",
+        hour: 9,
+        minute: 0,
+        promptTemplate: "Daily report",
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 });

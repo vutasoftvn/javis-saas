@@ -84,6 +84,34 @@ async def test_message_without_data_access_is_rejected_before_dispatch(test_app)
 
 
 @pytest.mark.asyncio
+async def test_message_from_identity_without_platform_link_is_rejected_cleanly(test_app) -> None:
+    """B5 fix — principal chưa từng sync qua platform (thiếu platform_user_id
+    thật) không thể mint control-plane delegation. Trước fix, lỗi này raise
+    thẳng ở bước schedule (SAU KHI message đã lưu DB) -> 500 thô + message mồ
+    côi không bao giờ có run. Giờ chặn TRƯỚC khi lưu message, trả 403 rõ ràng."""
+    app, plane, _ = test_app
+    override_authenticated_identity(app, resolved_platform_user_id=None)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        conv_id = await _create_conversation(ac)
+        response = await ac.post(
+            f"/agent/conversations/{conv_id}/messages",
+            json={
+                "content": "plan next quarter",
+                "data_access": {"categories": ["NON_PERSONAL"]},
+            },
+        )
+        assert response.status_code == 403
+
+        # Không lưu message mồ côi, không schedule task nào.
+        messages = await plane.conversation_repository.list_messages(conv_id)
+        assert messages == []
+        tasks = await plane.scheduler.poll_due_tasks()
+        assert tasks == []
+
+
+@pytest.mark.asyncio
 async def test_message_with_empty_categories_is_rejected(test_app) -> None:
     app, _, _ = test_app
     async with httpx.AsyncClient(

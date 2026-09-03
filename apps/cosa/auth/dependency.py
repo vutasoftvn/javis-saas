@@ -11,7 +11,9 @@ from pydantic import BaseModel
 
 from apps.cosa.auth.jwt import (
     InvalidPlatformTokenError,
+    MissingPlatformIdentityError,
     mint_company_delegation,
+    mint_control_plane_delegation,
     mint_delegation_token,
     mint_local_delegation_token,
     verify_local_session_token,
@@ -57,6 +59,41 @@ class AuthenticatedIdentity(BaseModel):
     # M1 §1 — token gốc là local session (services/company) hay platform (control-plane).
     # Quyết định delegation token forward xuống services/company phải cùng shape.
     token_kind: Literal["local_session", "platform"] = "platform"
+    # B5 fix — platform_user_id THẬT (hàng `identityUserProjections.platformUserId`
+    # phía services/company), khác `platform_user_id` ở trên khi `token_kind ==
+    # "local_session"` (trường đó khi đó thực ra là local user id, giữ nguyên vì
+    # mint_company_delegation/mint_delegation cố tình cần đúng "sub gốc của
+    # token", không phải platform id thật). None nếu user local này chưa từng
+    # sync qua platform (`sync-from-platform`) — không có identity platform thật.
+    resolved_platform_user_id: str | None = None
+
+    def mint_control_plane_delegation(
+        self, *, ttl_seconds: int = 600
+    ) -> str:
+        """Mint delegation JWT để apps/cosa gọi các endpoint control-plane
+        (services/cosa) yêu cầu vừa qua gateway platform vừa chứng minh
+        workspace membership — ví dụ `/platform/auth/me/agent-policy-snapshot`,
+        `/cosa/schedules*` (xem B5: `verifyWorkspaceMembership` phía
+        services/cosa trước đây forward nhầm token sang services/company,
+        không verify được vì khác secret). Khác `mint_delegation()` — hàm đó
+        chỉ re-sign lại đúng shape token gốc (không mang workspace/role), còn
+        hàm này mint delegation CÓ CẤU TRÚC (giống mint_company_delegation)
+        mà services/cosa verify trực tiếp KHÔNG cần round-trip sang company.
+
+        Bắt buộc có `resolved_platform_user_id` thật (fail-closed, raise rõ
+        ràng nếu thiếu — KHÔNG fallback về local id, vì bên verify phân biệt
+        rất rõ 2 ID space này)."""
+        if not self.resolved_platform_user_id:
+            raise MissingPlatformIdentityError(
+                f"principal '{self.principal_id}' chưa từng sync qua platform "
+                "(thiếu platformUserId) — không thể mint control-plane delegation"
+            )
+        return mint_control_plane_delegation(
+            sub=self.resolved_platform_user_id,
+            workspace_id=self.workspace_id,
+            role=self.role_id,
+            ttl_seconds=ttl_seconds,
+        )
 
     def mint_delegation(self, *, ttl_seconds: int = 600) -> str:
         """Delegation token ngắn hạn cùng shape với token gốc — để lệnh forward
@@ -268,6 +305,14 @@ async def get_authenticated_identity(
     if resolved.workspace_id != x_workspace_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="tenant_scope_mismatch")
 
+    # B5 fix — với token_kind "platform", sub của chính token gốc ĐÃ LÀ
+    # platform_user_id thật. Với "local_session", platform_user_id thật (nếu
+    # có) chỉ biết được sau khi cross-check với services/company —
+    # `resolved.platform_user_id` (None nếu local user này chưa từng sync).
+    resolved_platform_user_id = (
+        principal_id if token_kind == "platform" else resolved.platform_user_id
+    )
+
     return AuthenticatedIdentity(
         principal_id=f"user:{principal_id}",
         platform_user_id=principal_id,
@@ -275,4 +320,5 @@ async def get_authenticated_identity(
         role_id=resolved.membership_role,
         bearer_token=token,
         token_kind=token_kind,
+        resolved_platform_user_id=resolved_platform_user_id,
     )

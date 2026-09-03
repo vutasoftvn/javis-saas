@@ -30,6 +30,7 @@ from apps.cosa.api.schemas import (
     WorkspaceArtifactResponse,
 )
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
+from apps.cosa.auth.jwt import MissingPlatformIdentityError
 from apps.cosa.compliance.data_egress_context import DirectMessageDataAccess
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 
@@ -200,6 +201,18 @@ async def create_message(
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
+    # Mint delegation TRƯỚC side effect (cùng nguyên tắc với validate data
+    # access ngay dưới đây) — principal chưa từng sync qua platform (thiếu
+    # platformUserId thật) phải bị chặn rõ ràng ở đây, không để message đã lưu
+    # DB rồi mới fail 500 khi tạo delegation lúc schedule task.
+    try:
+        control_plane_delegation_token = identity.mint_control_plane_delegation()
+    except MissingPlatformIdentityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản chưa liên kết với platform identity — không thể tạo run",
+        ) from exc
+
     # Validate phân loại dữ liệu TRƯỚC side effect
     try:
         DirectMessageDataAccess(
@@ -260,7 +273,7 @@ async def create_message(
             "agent_profile": agent_profile,
             "principal": identity.principal_id,
             "workspace_id": identity.workspace_id,
-            "delegation_token": identity.mint_delegation(),
+            "delegation_token": control_plane_delegation_token,
             "direct_message_data_access": direct_message_data_access.model_dump(mode="json"),
         },
     )

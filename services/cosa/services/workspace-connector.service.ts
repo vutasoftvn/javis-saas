@@ -2,6 +2,7 @@ import { APIError } from "encore.dev/api";
 import { eq, and, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { isStagingOrProd } from "../shared/env";
+import { verifyControlDelegationToken, verifyPlatformToken } from "./token.service";
 
 const DEV_COMPANY_SERVICE_URL = "http://localhost:4002";
 
@@ -107,6 +108,49 @@ export async function verifyWorkspaceMembership(
     }
     throw APIError.unavailable(`failed to verify workspace membership: ${err instanceof Error ? err.message : String(err)}`);
   }
+}
+
+/**
+ * B5 fix (2026-09-04) — điểm vào DÙNG CHUNG cho mọi endpoint cần "caller đã
+ * chứng minh thuộc workspace này" (agent-policy-snapshot, /cosa/schedules*).
+ * Trước đây mỗi endpoint tự verifyPlatformToken() + verifyWorkspaceMembership()
+ * (forward Authorization sang services/company) — luôn fail vì
+ * services/company chỉ hiểu local-session token (JWT_SECRET), không hiểu
+ * platform token (PLATFORM_JWT_SECRET) mà caller thật (apps/cosa) có.
+ *
+ * Ưu tiên control-plane delegation (apps/cosa tự mint sau khi ĐÃ cross-check
+ * membership thật với services/company — xem
+ * apps/cosa/auth/jwt.py::mint_control_plane_delegation) — TIN claim
+ * workspaceId/sub trong đó, KHÔNG round-trip lại. Nếu token không phải
+ * delegation hợp lệ, fallback nguyên trạng: verifyPlatformToken +
+ * verifyWorkspaceMembership (giữ đúng hành vi cũ cho caller nào không dùng
+ * delegation — vẫn phụ thuộc services/company hiểu được token đó).
+ */
+export async function resolveCallerAuthorizedForWorkspace(
+  authorizationHeader: string | undefined,
+  workspaceId: string
+): Promise<{ sub: string }> {
+  if (!authorizationHeader) {
+    throw APIError.unauthenticated("missing authorization header");
+  }
+  const token = authorizationHeader.replace(/^Bearer\s+/i, "");
+
+  try {
+    const delegation = verifyControlDelegationToken(token);
+    if (delegation.workspaceId !== workspaceId) {
+      throw APIError.permissionDenied("control-plane delegation token scoped cho workspace khác");
+    }
+    return { sub: delegation.sub };
+  } catch (err) {
+    if (err instanceof APIError && err.code === "permission_denied") {
+      throw err;
+    }
+    // Không phải delegation token hợp lệ -> fallback đường platform token gốc.
+  }
+
+  const claims = verifyPlatformToken(token);
+  await verifyWorkspaceMembership(workspaceId, authorizationHeader);
+  return { sub: claims.sub };
 }
 
 export async function installWorkspaceConnector(input: {

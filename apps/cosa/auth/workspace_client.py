@@ -21,6 +21,10 @@ class ResolvedWorkspaceTenantContext(BaseModel):
     membership_role: str
     permissions: list[str]
     correlation_id: str
+    # B5 fix — platform_user_id thật của user local này (None nếu chưa từng
+    # sync qua platform) — dùng để mint control-plane delegation khi identity
+    # gốc là local_session. Xem apps/cosa/auth/jwt.py::mint_control_plane_delegation.
+    platform_user_id: str | None = None
 
 
 class WorkspaceTenantContextError(Exception):
@@ -77,6 +81,7 @@ class WorkspaceTenantContextClient:
                 membership_role=data["membershipRole"],
                 permissions=data.get("permissions", []),
                 correlation_id=data["correlationId"],
+                platform_user_id=data.get("platformUserId"),
             )
         except KeyError as exc:
             raise WorkspaceTenantContextError(f"response thiếu field bắt buộc: {exc}") from exc

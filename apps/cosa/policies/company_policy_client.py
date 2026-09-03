@@ -16,15 +16,18 @@ class CosaTenantPolicyError(Exception):
 
 class CosaTenantPolicyClient:
     """Client mỏng gọi `GET /platform/auth/me/agent-policy-snapshot`
-    (services/cosa, expose:true auth:true — mới thêm trong phiên này, xem
+    (services/cosa, expose:true, tự verify thủ công — xem
     services/cosa/handlers/agent-policy.handler.ts::getMyTenantPolicySnapshot)
     để lấy toàn bộ `cosa.company_agent_policy` rows của company đang xác thực
     + trạng thái company/user hiện tại, resolve 1 lần tại boundary (run-start
     hoặc trước resume), không gọi lại mỗi tool call.
 
-    CHƯA runtime-verify bằng Encore CLI thật (môi trường phiên này không có
-    Docker/Encore CLI) — chỉ verify tĩnh (type-check thủ công, đối chiếu
-    pattern với `getTenantPolicy`/`listMyCompanies` đã có sẵn và đang chạy).
+    `bearer_token` PHẢI là control-plane delegation mint bởi
+    `AuthenticatedIdentity.mint_control_plane_delegation()` (B5 fix,
+    2026-09-04) — không còn forward/re-sign token gốc của người dùng
+    (`mint_delegation()`), vì endpoint phía services/cosa cần verify được
+    trực tiếp KHÔNG round-trip sang services/company (khác secret, luôn fail
+    — xem apps/cosa/auth/jwt.py::mint_control_plane_delegation).
     """
 
     def __init__(

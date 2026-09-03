@@ -109,6 +109,7 @@ def add_member(
     cluster: DisposableCluster,
     owner_workspace_id: str,
     *,
+    platform_base_url: str,
     display_name: str = "E2E Member",
     role: str = "member",
 ) -> tuple[str, str]:
@@ -118,6 +119,12 @@ def add_member(
 
     Không tự ký JWT trong Python: token do service phát để tránh phụ thuộc vào
     reproduce đúng thuật toán/secret. Chỉ hàng membership là SQL trực tiếp.
+
+    B5 fix — `platform_base_url` BẮT BUỘC: link user này sang 1 platform user
+    thật (`register_user`) rồi ghi `platform_user_id`, nếu không apps/cosa sẽ
+    từ chối tạo run cho user này (thiếu platform identity thật — xem
+    `_link_platform_user`).
+
     Trả `(member_user_id, member_token)`.
     """
     import psycopg2  # import cục bộ — psycopg2 chỉ có ở job e2e-cross-plane-smoke
@@ -125,6 +132,8 @@ def add_member(
     member_user_id, _throwaway_ws, member_token = create_company_session(
         company_base_url, display_name=display_name
     )
+    member_platform_user_id, _email, _pw = register_user(platform_base_url)
+    _link_platform_user(cluster, member_user_id, member_platform_user_id)
 
     conn = psycopg2.connect(cluster.workspace_app_url, connect_timeout=10)
     try:
@@ -142,6 +151,28 @@ def add_member(
     return member_user_id, member_token
 
 
+def _link_platform_user(cluster: DisposableCluster, local_user_id: str, platform_user_id: str) -> None:
+    """B5 fix — `_e2e/session` tạo user company-local KHÔNG đi qua platform
+    (docstring module: 2 plane danh tính tách biệt), nên `platform_user_id`
+    (cột `core.user_projections.platform_user_id`) mặc định rỗng. apps/cosa
+    cần cột này để mint control-plane delegation (`AuthenticatedIdentity.
+    mint_control_plane_delegation`) — không có nó, mọi call cross-plane thật
+    (agent-policy-snapshot, /cosa/schedules*) bị chặn ở B5 dù apps/cosa đã
+    fix, giống hệt user thật chưa từng `sync-from-platform`. Set trực tiếp
+    bằng SQL (không mock) để mô phỏng đúng 1 user THẬT đã sync."""
+    import psycopg2  # import cục bộ — psycopg2 chỉ có ở job e2e-cross-plane-smoke
+
+    conn = psycopg2.connect(cluster.workspace_app_url, connect_timeout=10)
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE core.user_projections SET platform_user_id = %s WHERE id = %s",
+                (platform_user_id, int(local_user_id)),
+            )
+    finally:
+        conn.close()
+
+
 def seed_workspace(
     stack, cluster: DisposableCluster, *, with_member: bool = False
 ) -> SeededWorkspace:
@@ -152,16 +183,27 @@ def seed_workspace(
     `POST /identity/_e2e/session` thay vì `provision_workspace` trên cosa — vì
     tenant-context của business API là company-local, không tra cosa (xem
     docstring module).
+
+    B5 fix (2026-09-04) — owner (và member nếu có) được LINK thêm sang 1
+    platform user thật (`register_user` trên `services/cosa`) rồi ghi
+    `platform_user_id` — nếu không, mọi seeded identity đều rơi vào đúng
+    trường hợp "chưa sync qua platform" và apps/cosa sẽ từ chối mint
+    control-plane delegation (đúng — nhưng làm scenario cross-plane thật
+    (S2/S3) không thể verify được nhánh đã fix).
     """
     company_url = stack.company.base_url
     owner_user_id, workspace_id, owner_token = create_company_session(
         company_url, display_name="E2E Owner"
     )
+    owner_platform_user_id, _owner_email, _owner_pw = register_user(stack.platform.base_url)
+    _link_platform_user(cluster, owner_user_id, owner_platform_user_id)
 
     member_user_id: str | None = None
     member_token: str | None = None
     if with_member:
-        member_user_id, member_token = add_member(company_url, cluster, workspace_id)
+        member_user_id, member_token = add_member(
+            company_url, cluster, workspace_id, platform_base_url=stack.platform.base_url
+        )
 
     return SeededWorkspace(
         workspace_id=workspace_id,

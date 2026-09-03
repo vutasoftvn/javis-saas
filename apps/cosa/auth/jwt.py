@@ -8,7 +8,9 @@ import jwt
 
 __all__ = [
     "InvalidPlatformTokenError",
+    "MissingPlatformIdentityError",
     "mint_company_delegation",
+    "mint_control_plane_delegation",
     "mint_delegation_token",
     "mint_local_delegation_token",
     "verify_local_session_token",
@@ -37,6 +39,28 @@ _LOCAL_SESSION_DEV_DEFAULT_SECRET = "cosa-dev-jwt-secret-do-not-use-in-prod"
 _COMPANY_DELEGATION_DEV_DEFAULT_SECRET = "cosa-company-delegation-dev-secret-change-in-prod"
 _COMPANY_DELEGATION_MAX_TTL_SECONDS = 600
 
+# B5 fix (2026-09-04) — secret RIÊNG cho delegation có cấu trúc (scoped) chiều
+# apps/cosa -> services/cosa (verify tại services/cosa/services/token.service.ts
+# ::verifyControlDelegationToken). Trước bug này, verifyWorkspaceMembership phía
+# services/cosa forward nguyên Authorization header (PLATFORM_JWT_SECRET, hoặc
+# JWT_SECRET local session) sang services/company để re-verify — nhưng
+# services/company chỉ hiểu JWT_SECRET local-session, nên mọi token platform
+# hợp lệ đều fail ở đó (khác secret) => 403 permission_denied vô điều kiện.
+# Cùng pattern với _COMPANY_DELEGATION_DEV_DEFAULT_SECRET (apps/cosa KÝ,
+# services/cosa VERIFY) nhưng KHÁC mục đích: mint_company_delegation phục vụ
+# apps/cosa -> services/company; secret này phục vụ apps/cosa -> services/cosa
+# — không dùng lẫn giữa 2 chiều.
+_CONTROL_DELEGATION_DEV_DEFAULT_SECRET = "cosa-control-delegation-dev-secret-change-in-prod"
+_CONTROL_DELEGATION_MAX_TTL_SECONDS = 600
+
+
+class MissingPlatformIdentityError(Exception):
+    """Principal hiện tại (thường là local_session chưa từng sync qua
+    platform) không có platform_user_id thật — không thể mint control-plane
+    delegation. Call site PHẢI coi đây là DENY, không silently fallback sang
+    local id (2 ID space khác nhau, verify phía services/cosa sẽ reject hoặc
+    tệ hơn là match nhầm sang user khác nếu ID trùng ngẫu nhiên)."""
+
 
 def _get_jwt_secret() -> str:
     env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
@@ -60,6 +84,18 @@ def _get_company_delegation_secret() -> str:
             f"COSA_COMPANY_DELEGATION_SECRET must be explicitly set with >= 32 characters and not use default key in {env_name} environment"
         )
     return secret or _COMPANY_DELEGATION_DEV_DEFAULT_SECRET
+
+
+def _get_control_delegation_secret() -> str:
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    secret = os.environ.get("COSA_CONTROL_DELEGATION_SECRET")
+    if env_name in ("production", "staging", "prod") and (
+        not secret or secret == _CONTROL_DELEGATION_DEV_DEFAULT_SECRET or len(secret) < 32
+    ):
+        raise RuntimeError(
+            f"COSA_CONTROL_DELEGATION_SECRET must be explicitly set with >= 32 characters and not use default key in {env_name} environment"
+        )
+    return secret or _CONTROL_DELEGATION_DEV_DEFAULT_SECRET
 
 
 def _get_local_session_secret() -> str:
@@ -182,6 +218,53 @@ def mint_company_delegation(
         "workspace_id": workspace_id,
         "run_id": run_id,
         "capability_ids": list(capability_ids),
+        "jti": str(uuid.uuid4()),
+        "exp": int(time.time()) + ttl,
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def mint_control_plane_delegation(
+    *,
+    sub: str,
+    workspace_id: str,
+    role: str,
+    ttl_seconds: int = _CONTROL_DELEGATION_MAX_TTL_SECONDS,
+) -> str:
+    """Mint delegation JWT CÓ CẤU TRÚC (scoped) để apps/cosa gọi các endpoint
+    control-plane (services/cosa) đòi hỏi vừa qua platform gateway vừa chứng
+    minh workspace membership trong 1 lần gọi — verify bằng
+    verifyControlDelegationToken (services/cosa/services/token.service.ts).
+
+    B5 fix — trước hàm này, endpoint như `GET /platform/auth/me/agent-policy-
+    snapshot` và `/cosa/schedules*` verify membership bằng cách forward
+    Authorization header sang services/company, nhưng services/company chỉ
+    hiểu local-session token (JWT_SECRET) — token platform hợp lệ (aud=cosa,
+    PLATFORM_JWT_SECRET) luôn fail ở đó vì khác secret, dẫn tới 403
+    permission_denied VÔ ĐIỀU KIỆN bất kể workspace nào (bug B5).
+
+    - `sub` PHẢI là platform_user_id THẬT (không phải local company user id —
+      caller dùng `AuthenticatedIdentity.mint_control_plane_delegation()`,
+      hàm đó tự raise `MissingPlatformIdentityError` nếu thiếu, không tự ý
+      dùng local id thay thế).
+    - `workspace_id`/`role` LUÔN lấy từ identity đã cross-check thật (không
+      nhận làm tham số tự do từ request) — xem lời gọi trong
+      `AuthenticatedIdentity.mint_control_plane_delegation()`.
+
+    TTL tối đa CỨNG 600 giây, cùng lý do giảm cửa sổ rủi ro với
+    mint_company_delegation."""
+    secret = _get_control_delegation_secret()
+    ttl = min(ttl_seconds, _CONTROL_DELEGATION_MAX_TTL_SECONDS)
+    payload = {
+        "iss": "cosa_apps",
+        "aud": "cosa_control",
+        "sub": sub,
+        # snake_case — cùng convention với mint_company_delegation (JWT claim
+        # do Python mint luôn snake_case, TS verify destructure nguyên văn
+        # field này, KHÔNG map sang camelCase — xem cosa-delegation.service.ts
+        # phía services/company làm y hệt cho workspace_id/run_id/capability_ids).
+        "workspace_id": workspace_id,
+        "role": role,
         "jti": str(uuid.uuid4()),
         "exp": int(time.time()) + ttl,
     }

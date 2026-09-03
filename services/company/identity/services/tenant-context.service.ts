@@ -71,6 +71,7 @@ export async function resolveTenantContext(
   const [userRow] = await db
     .select({
       id: identityUserProjections.id,
+      platformUserId: identityUserProjections.platformUserId,
     })
     .from(identityUserProjections)
     .where(eq(identityUserProjections.id, localUserId))
@@ -126,6 +127,7 @@ export async function resolveTenantContext(
     membershipRole: membership.role,
     permissions: getRolePermissions(membership.role),
     correlationId,
+    platformUserId: userRow.platformUserId ?? null,
   });
 
   return context;
