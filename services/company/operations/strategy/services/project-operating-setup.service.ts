@@ -54,6 +54,9 @@ export interface ProjectOperatingSetupView {
   weeklyReviewTime: string | null;
   firstWeekOutcome: string | null;
   firstWeekActions: FirstWeekActionView[];
+  aiSuggestionStatus: "dispatched" | "completed" | "failed" | null;
+  aiSuggestedOutcome: string | null;
+  aiSuggestedActions: string[] | null;
   updatedAt: string | null;
 }
 
@@ -234,6 +237,9 @@ async function toView(
     weeklyReviewTime: row.weeklyReviewTime,
     firstWeekOutcome: row.firstWeekOutcome,
     firstWeekActions: await enrichFirstWeekActions(actions, dbOrTx, row.workspaceId),
+    aiSuggestionStatus: (row.aiSuggestionStatus as "dispatched" | "completed" | "failed" | null) ?? null,
+    aiSuggestedOutcome: row.aiSuggestedOutcome ?? null,
+    aiSuggestedActions: (row.aiSuggestedActions as string[] | null) ?? null,
     updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
   };
 }
@@ -297,6 +303,9 @@ export async function getProjectOperatingSetup(
       weeklyReviewTime: "16:00",
       firstWeekOutcome: null,
       firstWeekActions: [],
+      aiSuggestionStatus: null,
+      aiSuggestedOutcome: null,
+      aiSuggestedActions: null,
       updatedAt: null,
     };
   }

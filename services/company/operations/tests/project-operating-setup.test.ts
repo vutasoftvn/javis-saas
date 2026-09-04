@@ -653,6 +653,27 @@ describe("saveProjectOperatingSetup roundStartDate (PUT save path)", () => {
   });
 });
 
+describe("aiSuggestion fields on ProjectOperatingSetupView", () => {
+  it("trả về null cho aiSuggestionStatus/aiSuggestedOutcome/aiSuggestedActions khi chưa từng gọi AI suggestion", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Discovery",
+    });
+
+    const view = await getProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+    });
+
+    expect(view.aiSuggestionStatus).toBeNull();
+    expect(view.aiSuggestedOutcome).toBeNull();
+    expect(view.aiSuggestedActions).toBeNull();
+  });
+});
+
 // Tạo ISO string ở đầu ngày UTC + `offsetDays` ngày so với hôm nay, gắn giờ tuỳ ý.
 // Dùng offset động để test không phụ thuộc ngày chạy (cửa sổ hợp lệ là +60 ngày).
 function futureIsoDate(offsetDays: number, time: string): string {
