@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/contracts/enums.generated.dart';
@@ -31,9 +33,15 @@ class ProjectKickoffController extends GetxController {
   final firstWeekOutcomeCtrl = TextEditingController();
   final firstWeekActions = <FirstWeekActionDraft>[].obs;
   final newActionCtrl = TextEditingController();
+  final aiSuggestionLoading = false.obs;
+  Timer? _suggestionPollTimer;
+  int _suggestionPollElapsedMs = 0;
+  static const _suggestionPollIntervalMs = 2000;
+  static const _suggestionPollTimeoutMs = 30000;
 
   @override
   void onClose() {
+    _suggestionPollTimer?.cancel();
     targetCustomerCtrl.dispose();
     problemStatementCtrl.dispose();
     firstWeekOutcomeCtrl.dispose();
@@ -186,6 +194,61 @@ class ProjectKickoffController extends GetxController {
     if (weekday != null) weeklyReviewWeekday.value = weekday;
     if (time != null) weeklyReviewTime.value = time;
     await saveCurrentStep();
+  }
+
+  // Bước 2 "Tiếp tục" gọi với overwrite:false (không đụng nội dung Founder đã
+  // có sẵn); icon "✨" ở Bước 3 gọi với overwrite:true (luôn ghi đè — đã chốt
+  // ở spec §2). Không await ở FE — gọi fire-and-forget, wizard chuyển bước
+  // ngay, loading hiện cạnh tiêu đề Bước 3 trong lúc chờ.
+  Future<void> requestKickoffSuggestion({required bool overwrite}) async {
+    if (projectId.value.isEmpty || aiSuggestionLoading.value) return;
+    if (!overwrite &&
+        (firstWeekOutcomeCtrl.text.trim().isNotEmpty || firstWeekActions.isNotEmpty)) {
+      return;
+    }
+    aiSuggestionLoading.value = true;
+    _suggestionPollElapsedMs = 0;
+    try {
+      await _service.requestKickoffSuggestion(projectId.value);
+    } catch (_) {
+      aiSuggestionLoading.value = false;
+      return;
+    }
+    _pollSuggestion();
+  }
+
+  void _pollSuggestion() {
+    _suggestionPollTimer?.cancel();
+    _suggestionPollTimer = Timer.periodic(
+      const Duration(milliseconds: _suggestionPollIntervalMs),
+      (timer) async {
+        _suggestionPollElapsedMs += _suggestionPollIntervalMs;
+        if (_suggestionPollElapsedMs >= _suggestionPollTimeoutMs) {
+          timer.cancel();
+          aiSuggestionLoading.value = false;
+          return;
+        }
+        final ProjectOperatingSetup latest;
+        try {
+          latest = await _service.get(projectId.value);
+        } catch (_) {
+          return; // lỗi mạng tạm thời — thử lại ở tick sau, không dừng poll
+        }
+        if (latest.aiSuggestionStatus == 'completed') {
+          timer.cancel();
+          aiSuggestionLoading.value = false;
+          firstWeekOutcomeCtrl.text = latest.aiSuggestedOutcome ?? '';
+          firstWeekActions.assignAll(
+            (latest.aiSuggestedActions ?? [])
+                .map((t) => FirstWeekActionDraft(title: t)),
+          );
+          await saveCurrentStep();
+        } else if (latest.aiSuggestionStatus == 'failed') {
+          timer.cancel();
+          aiSuggestionLoading.value = false;
+        }
+      },
+    );
   }
 
   bool get isP1Allowed =>

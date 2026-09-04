@@ -3,6 +3,7 @@ import 'package:frontend/core/contracts/enums.generated.dart';
 import 'package:frontend/data/models/project_operating_setup_model.dart';
 import 'package:frontend/modules/strategy/controllers/project_kickoff_controller.dart';
 import 'package:frontend/modules/strategy/services/project_operating_setup_service.dart';
+import 'package:frontend/modules/strategy/services/strategy_service_base.dart';
 
 class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
   FakeProjectOperatingSetupService({ProjectOperatingSetup? initialSetup})
@@ -17,10 +18,21 @@ class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
   ProjectOperatingSetup _setup;
   int saveDraftCallCount = 0;
   int activateCallCount = 0;
+  int requestKickoffSuggestionCallCount = 0;
+  bool throwOnRequestKickoffSuggestion = false;
+  ProjectOperatingSetup? getOverride;
 
   @override
   Future<ProjectOperatingSetup> get(String projectId) async {
-    return _setup;
+    return getOverride ?? _setup;
+  }
+
+  @override
+  Future<void> requestKickoffSuggestion(String projectId) async {
+    requestKickoffSuggestionCallCount++;
+    if (throwOnRequestKickoffSuggestion) {
+      throw StrategyApiException(500, 'cosa down');
+    }
   }
 
   @override
@@ -346,4 +358,91 @@ void main() {
       );
     },
   );
+
+  // Lưu ý: `group()` của flutter_test (test_compat.dart) không nhận tham số
+  // `timeout` như `group()` gốc của package:test — chỉ `test()` mới nhận. Đặt
+  // timeout 10s ở từng test riêng lẻ (dư so với 1 tick poll 2.1s trong test)
+  // thay vì ở group.
+  group('requestKickoffSuggestion', () {
+    test(
+      'không gọi service khi overwrite=false và outcome đã có nội dung',
+      () async {
+        final service = FakeProjectOperatingSetupService();
+        final controller = ProjectKickoffController(service: service);
+        await controller.load('p1');
+        controller.firstWeekOutcomeCtrl.text = 'Đã tự gõ rồi';
+
+        await controller.requestKickoffSuggestion(overwrite: false);
+
+        expect(service.requestKickoffSuggestionCallCount, 0);
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
+    );
+
+    test(
+      'gọi service khi overwrite=true dù outcome đã có nội dung',
+      () async {
+        final service = FakeProjectOperatingSetupService();
+        final controller = ProjectKickoffController(service: service);
+        await controller.load('p1');
+        controller.firstWeekOutcomeCtrl.text = 'Đã tự gõ rồi';
+        service.getOverride = const ProjectOperatingSetup(
+          projectId: 'p1',
+          workspaceId: 'w1',
+          status: OperatingSetupStatus.inProgress,
+          aiSuggestionStatus: 'completed',
+          aiSuggestedOutcome: 'Gợi ý AI mới',
+          aiSuggestedActions: ['Việc AI gợi ý'],
+        );
+
+        await controller.requestKickoffSuggestion(overwrite: true);
+        await Future.delayed(const Duration(milliseconds: 2100));
+
+        expect(service.requestKickoffSuggestionCallCount, 1);
+        expect(controller.firstWeekOutcomeCtrl.text, 'Gợi ý AI mới');
+        expect(controller.firstWeekActions.map((a) => a.title).toList(), [
+          'Việc AI gợi ý',
+        ]);
+        expect(controller.aiSuggestionLoading.value, false);
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
+    );
+
+    test(
+      'dừng loading ngay khi service throw (không poll)',
+      () async {
+        final service = FakeProjectOperatingSetupService()
+          ..throwOnRequestKickoffSuggestion = true;
+        final controller = ProjectKickoffController(service: service);
+        await controller.load('p1');
+
+        await controller.requestKickoffSuggestion(overwrite: true);
+
+        expect(controller.aiSuggestionLoading.value, false);
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
+    );
+
+    test(
+      'dừng poll và tắt loading khi status=failed',
+      () async {
+        final service = FakeProjectOperatingSetupService();
+        final controller = ProjectKickoffController(service: service);
+        await controller.load('p1');
+        service.getOverride = const ProjectOperatingSetup(
+          projectId: 'p1',
+          workspaceId: 'w1',
+          status: OperatingSetupStatus.inProgress,
+          aiSuggestionStatus: 'failed',
+        );
+
+        await controller.requestKickoffSuggestion(overwrite: true);
+        await Future.delayed(const Duration(milliseconds: 2100));
+
+        expect(controller.aiSuggestionLoading.value, false);
+        expect(controller.firstWeekOutcomeCtrl.text, isEmpty);
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
+    );
+  });
 }
