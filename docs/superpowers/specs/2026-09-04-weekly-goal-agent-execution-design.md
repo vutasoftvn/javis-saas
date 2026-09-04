@@ -468,14 +468,19 @@ Spec §7.3 giả định sai. Thực tế phát hiện khi code:
 `weekly-goal` endpoint (`triggerDecomposition`) → outbox `operating.weekly_goal.set.v1` → relay → `handle_event` self-trigger → schedule `goal_decomposition` → worker → agent run → `parse_plan_output` → POST `/operations/execution-plans` (delegation, cap `operations.execution_plan.create`) → plan `draft`.
 Founder accept (Phase 3 UI, hoặc gọi API trực tiếp) → outbox `operating.execution_plan.accepted.v1` → self-trigger → `workspace_task_sweep` → `GET agent-claimable` → mỗi task AUTO: advance `in_progress` → agent run → advance `done`/`blocked` → re-schedule nếu batch đầy.
 
-**v1 boundary (follow-up, chưa làm):**
-- sweep chỉ chạy `autonomy_class == AUTO`. Task `NEEDS_APPROVAL` materialize rồi sweep đánh dấu `blocked` (founder thấy ở "Việc của bạn") — **đường approval-resume cho headless task** (int. point #4: `execute_resume_task` + `operations.task.advance` sau resume, emit `approval.required` ra 1 surface founder thấy) chưa wire.
-- Per-workspace kill-switch qua tenant policy `execution.autopilot` — hiện chỉ env `WGA_SWEEP_ENABLED`.
-- Per-workspace tenant-policy lookup lúc decomposition (classifier nhận `tenantPolicyDecision=null`) — classifier company vẫn áp `FORBIDDEN_RE` + risk default nên vẫn an toàn, chỉ chưa tôn trọng ALLOW override.
-- Chống loop = `sweep_depth` cap 20, chưa có DB counter `WGA_MAX_RUNS_PER_WORKSPACE_PER_DAY`.
-- goal-intent là pre-filter đa tín hiệu (không phải classify LLM) — nâng cấp theo spec §7.2.
-- "Việc của bạn" (list task `execution_mode='HUMAN'` + `status='blocked'`) chưa có widget riêng — task FOUNDER_ONLY hiện ở module Nhiệm vụ chung.
-- SSE reload `draftPlans` khi nhận `operating.execution_plan.created.v1` — hiện `loadDraftPlans` chạy khi `loadDashboardData` (founder mở lại tab); chưa push real-time.
+### 15.4 Addendum 2026-09-04 (chiều) — đóng toàn bộ giới hạn v1 (Tier 1-3)
+
+| # | Giới hạn v1 | Đã đóng — cách làm |
+|---|---|---|
+| **#1** | Task `NEEDS_APPROVAL` bị `blocked` oan, không có approval-resume cho headless | `operations.task.advance` nhận `waiting_approval`; sweep set task `waiting_approval` (bản ghi approval do kernel tạo, hiện ở `WaitingForYouWidget`); sweep run_id mã hoá task_id (`wga_task_<id>_<hex>`); `execute_resume_task` sau COMPLETED gọi `advance_wga_task_after_resume(done)`. |
+| **#2** | Kill-switch chỉ env toàn cục | `operating.workspace_execution_settings` (migration 38) + `GET/POST /operations/execution-settings {sweepEnabled}`. `agent-claimable` trả `[]` khi tắt. (Company-side vì task nền không mint được control-plane delegation cho services/cosa.) |
+| **#3** | Không tôn trọng ALLOW override per-workspace | `operating.workspace_capability_policy` (migration 39) + `GET/POST /operations/capability-policy {capabilityId, decision}`. `createExecutionPlanService` đọc bảng làm `tenant_policy_decision` lúc classify (ALLOW→AUTO, REQUIRE_APPROVAL/DENY hạ cấp; `FORBIDDEN_RE` vẫn thắng ALLOW; `null` xoá override). |
+| **#4** | Chống loop chỉ `sweep_depth` | `agent-claimable` trả `[]` khi số distinct agent run_id trong `task_execution_records` / 24h ≥ `WGA_MAX_TASK_RUNS_PER_WORKSPACE_PER_DAY` (default 50). |
+| **#5** | goal-intent chỉ heuristic | `classify_weekly_goal_llm` — 1 lượt Agents-SDK turn (không tool) trả `{is_weekly_goal_statement, normalized_goal, confidence}`. Pre-filter rẻ gate việc gọi LLM; verdict LLM (≥ `WGA_GOAL_INTENT_CONFIDENCE`, default 0.75) là quyết định; thiếu model / parse lỗi → fallback heuristic. |
+| **#6a** | Không có widget "Việc của bạn" | `GET /operations/tasks/founder-inbox` (FOUNDER_ONLY + blocked ai_agent_proposal) → `YourTasksWidget` trong Command Center. |
+| **#6b** | `draftPlans` chỉ reload khi mở lại tab | Controller poll `loadDraftPlans` + `loadFounderInbox` mỗi 20s khi ở tab Command Center (bỏ qua trong `Get.testMode`). |
+
+Còn lại (không chặn, để sau): SSE push real-time thay poll 20s; UI toggle cho `execution-settings`/`capability-policy` (hiện chỉ API-level); circular-dep giữa item của 2 plan khác nhau.
 
 Gate xanh: `make services-test-company` 1116 pass · `make apps-cosa-test` 774 pass (coverage 85% / gate 78%) · `make lint` · `cd frontend && flutter test` 1421 pass · `make frontend-api-contract-check` · company typecheck · boundary checks.
 Lỗi có sẵn KHÔNG liên quan (fail trên `main` trước WGA): `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`), `make frontend-analyze` 1 info trong `project_kickoff_controller_test.dart:36` (file đang dở dang từ trước session, không thuộc WGA).
