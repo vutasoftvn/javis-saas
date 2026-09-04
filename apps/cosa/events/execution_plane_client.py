@@ -55,5 +55,25 @@ class LocalExecutionPlaneScheduleClient:
         )
         return record.task_id
 
+    async def schedule_platform_task(
+        self,
+        *,
+        target_spec_id: str,
+        task_type: str,
+        input_payload: dict[str, Any],
+        coalescing_key: str | None = None,
+    ) -> str:
+        """Schedule a first-party WGA task (goal_decomposition / task_execution)
+        directly, bypassing the operator-provisioned EventTriggerRule flow.
+        These are founder-initiated, not autopilot."""
+        payload = {"task_type": task_type, **input_payload}
+        record = await self._sched.schedule(
+            target_spec_id=target_spec_id,
+            target_spec_kind="agent",
+            coalescing_key=coalescing_key,
+            input_payload=payload,
+        )
+        return record.task_id
+
     async def aclose(self) -> None:
         await self._sched.aclose()
