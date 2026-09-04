@@ -357,10 +357,6 @@
       "resolved": false,
       "owner": "M7"
     },
-    "GET /workforce/approvals": {
-      "resolved": false,
-      "owner": null
-    },
     "GET /workforce/budgets": {
       "resolved": false,
       "owner": null
@@ -384,10 +380,6 @@
     "GET /workforce/heartbeats": {
       "resolved": false,
       "owner": null
-    },
-    "GET /workforce/org-chart": {
-      "resolved": false,
-      "owner": "M7"
     },
     "GET /workforce/prompts": {
       "resolved": false,
@@ -551,6 +543,10 @@
     },
     "POST /marketing/recommendations": {
       "resolved": false,
+      "owner": null
+    },
+    "POST /operations/execution-plans": {
+      "resolved": true,
       "owner": null
     },
     "POST /operations/strategy/assumptions": {

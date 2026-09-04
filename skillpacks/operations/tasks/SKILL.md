@@ -48,7 +48,8 @@ Chia nhỏ một mục tiêu lớn thành các đơn vị công việc cụ th�
 
 ## Fallback & Handoff
 - Khi thiếu `decision_reason` hoặc `evidence_refs`, tạo Handoff yêu cầu người dùng bổ sung căn cứ trước khi đề xuất task.
-- Khi cần đổi trạng thái một task đã tồn tại (`in_progress`, `waiting_approval`, `done`, huỷ...), tạo Handoff đề xuất Founder/Admin thực hiện trực tiếp qua giao diện quản lý tác vụ — agent không có capability cập nhật trạng thái task.
+- Khi cần đổi trạng thái một task đã tồn tại (`in_progress`, `waiting_approval`, `done`, huỷ...), tạo Handoff đề xuất Founder/Admin thực hiện trực tiếp qua giao diện quản lý tác vụ — skillpack này không có tool đổi trạng thái task.
+  - Ngoại lệ hạ tầng (KHÔNG thuộc toolset skillpack này): với task do một AI member đảm nhận (materialize từ Execution Plan, WGA), worker `workspace_task_sweep` gọi capability `operations.task.advance` (`in_progress`/`done`/`blocked`) trực tiếp qua HTTP delegation — không qua kernel/skillpack. Agent trong skillpack này vẫn không tự đổi trạng thái.
 
 ## Eval Notes
 - Suite: `evals/operations/tasks.yaml`
