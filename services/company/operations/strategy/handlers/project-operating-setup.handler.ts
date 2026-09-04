@@ -1,10 +1,11 @@
-import { api, Header } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import {
   getProjectOperatingSetup,
   saveProjectOperatingSetup,
   activateProjectOperatingSetup,
   requestKickoffSuggestion,
+  applyKickoffSuggestionResult,
   ProjectOperatingSetupView,
   SaveProjectOperatingSetupRequest,
   ActivateProjectOperatingSetupRequest,
@@ -131,5 +132,35 @@ export const requestKickoffSuggestionEndpoint = api(
   async (params: RequestKickoffSuggestionParams): Promise<KickoffSuggestionDispatchResult> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return requestKickoffSuggestion(ctx, params.id);
+  }
+);
+
+export interface ApplyKickoffSuggestionResultParams {
+  id: string;
+  runId: string;
+  status: string;
+  outcome?: string;
+  actions?: string[];
+  serviceToken?: Header<"X-Cosa-Service-Token">;
+}
+
+// ── POST /operations/projects/:id/kickoff-suggestion/result (Internal callback from COSA) ──
+export const applyKickoffSuggestionResultEndpoint = api(
+  { method: "POST", path: "/operations/projects/:id/kickoff-suggestion/result", expose: true },
+  async (params: ApplyKickoffSuggestionResultParams): Promise<{ applied: boolean }> => {
+    const expectedToken = process.env.COSA_SERVICE_TOKEN || "local-dev-service-token";
+    if (!params.serviceToken || params.serviceToken !== expectedToken) {
+      throw APIError.unauthenticated("invalid or missing service token");
+    }
+    if (params.status !== "completed" && params.status !== "failed") {
+      throw APIError.invalidArgument("status must be 'completed' or 'failed'");
+    }
+    return applyKickoffSuggestionResult({
+      projectId: params.id,
+      runId: params.runId,
+      status: params.status,
+      outcome: params.outcome,
+      actions: params.actions,
+    });
   }
 );

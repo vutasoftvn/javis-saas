@@ -764,3 +764,51 @@ export async function requestKickoffSuggestion(
     return { runId, status: "failed" };
   }
 }
+
+export interface ApplyKickoffSuggestionResultInput {
+  projectId: string;
+  runId: string;
+  status: "completed" | "failed";
+  outcome?: string | null;
+  actions?: string[] | null;
+}
+
+export async function applyKickoffSuggestionResult(
+  input: ApplyKickoffSuggestionResultInput
+): Promise<{ applied: boolean }> {
+  const pId = BigInt(input.projectId);
+
+  const [existing] = await db
+    .select({
+      workspaceId: projectOperatingSetups.workspaceId,
+      aiSuggestionRunId: projectOperatingSetups.aiSuggestionRunId,
+    })
+    .from(projectOperatingSetups)
+    .where(eq(projectOperatingSetups.projectId, pId))
+    .limit(1);
+
+  if (!existing || existing.aiSuggestionRunId !== input.runId) {
+    return { applied: false };
+  }
+
+  const cleanActions = (input.actions ?? [])
+    .map((a) => (typeof a === "string" ? a.trim() : ""))
+    .filter((a) => a.length > 0)
+    .slice(0, 3);
+
+  await db
+    .update(projectOperatingSetups)
+    .set({
+      aiSuggestionStatus: input.status,
+      aiSuggestedOutcome: input.status === "completed" ? (input.outcome?.trim() || null) : null,
+      aiSuggestedActions: input.status === "completed" ? cleanActions : null,
+    })
+    .where(
+      and(
+        eq(projectOperatingSetups.projectId, pId),
+        eq(projectOperatingSetups.workspaceId, existing.workspaceId)
+      )
+    );
+
+  return { applied: true };
+}

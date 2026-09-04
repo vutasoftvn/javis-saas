@@ -1,13 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { and, eq } from "drizzle-orm";
-import { db } from "../models/db";
-import * as schema from "../../shared/db/schema/strategy";
+import { describe, it, expect, afterEach } from "vitest";
 import { createProject } from "../handlers/project.handler";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import {
   getProjectOperatingSetupEndpoint,
   putProjectOperatingSetupEndpoint,
   requestKickoffSuggestionEndpoint,
+  applyKickoffSuggestionResultEndpoint,
 } from "../strategy/handlers/project-operating-setup.handler";
 import {
   dispatchKickoffSuggestionRun,
@@ -162,5 +160,119 @@ describe("requestKickoffSuggestionEndpoint", () => {
       id: project.id,
     });
     expect(view.aiSuggestionStatus).toBe("failed");
+  });
+});
+
+describe("applyKickoffSuggestionResultEndpoint", () => {
+  afterEach(() => {
+    setCustomKickoffSuggestionRunner(null);
+  });
+
+  async function dispatchedProject() {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Discovery",
+    });
+    await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "x",
+      problemStatement: "y",
+      evidenceLevel: "NONE",
+    });
+    setCustomKickoffSuggestionRunner(async () => {});
+    const { runId } = await requestKickoffSuggestionEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+    });
+    return { ws, project, runId };
+  }
+
+  it("cập nhật outcome/actions khi runId khớp và status=completed", async () => {
+    const { ws, project, runId } = await dispatchedProject();
+
+    const result = await applyKickoffSuggestionResultEndpoint({
+      id: project.id,
+      runId,
+      status: "completed",
+      outcome: "Hoàn thành 5 cuộc phỏng vấn khách hàng mục tiêu",
+      actions: ["Phỏng vấn 5 khách hàng mục tiêu", "Ghi chép pain point vào bảng theo dõi"],
+      serviceToken: "local-dev-service-token",
+    });
+
+    expect(result.applied).toBe(true);
+    const view = await getProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+    });
+    expect(view.aiSuggestionStatus).toBe("completed");
+    expect(view.aiSuggestedOutcome).toBe("Hoàn thành 5 cuộc phỏng vấn khách hàng mục tiêu");
+    expect(view.aiSuggestedActions).toEqual([
+      "Phỏng vấn 5 khách hàng mục tiêu",
+      "Ghi chép pain point vào bảng theo dõi",
+    ]);
+  });
+
+  it("no-op (applied=false) khi runId không khớp (đã bị request mới hơn ghi đè)", async () => {
+    const { project } = await dispatchedProject();
+
+    const result = await applyKickoffSuggestionResultEndpoint({
+      id: project.id,
+      runId: "run-khong-ton-tai",
+      status: "completed",
+      outcome: "x",
+      actions: ["y"],
+      serviceToken: "local-dev-service-token",
+    });
+
+    expect(result.applied).toBe(false);
+  });
+
+  it("cắt actions còn tối đa 3 và lọc action rỗng", async () => {
+    const { ws, project, runId } = await dispatchedProject();
+
+    await applyKickoffSuggestionResultEndpoint({
+      id: project.id,
+      runId,
+      status: "completed",
+      outcome: "x",
+      actions: ["a", "  ", "b", "c", "d"],
+      serviceToken: "local-dev-service-token",
+    });
+
+    const view = await getProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+    });
+    expect(view.aiSuggestedActions).toEqual(["a", "b", "c"]);
+  });
+
+  it("throw unauthenticated khi thiếu serviceToken", async () => {
+    const { project, runId } = await dispatchedProject();
+    await expect(
+      applyKickoffSuggestionResultEndpoint({
+        id: project.id,
+        runId,
+        status: "completed",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("throw unauthenticated khi serviceToken sai", async () => {
+    const { project, runId } = await dispatchedProject();
+    await expect(
+      applyKickoffSuggestionResultEndpoint({
+        id: project.id,
+        runId,
+        status: "completed",
+        serviceToken: "wrong-token",
+      })
+    ).rejects.toThrow();
   });
 });
