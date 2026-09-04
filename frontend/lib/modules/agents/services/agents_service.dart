@@ -44,25 +44,36 @@ class AgentsService {
     }).toList();
   }
 
-  /// Lấy danh sách Agents trong Workspace/Company
+  /// Lấy danh sách Agents trong Workspace/Company — canonical
+  /// `/agent/workforce/roster` (functional agent catalog thật + trạng thái
+  /// assignment thật theo workspace, xem
+  /// `apps/cosa/api/workforce_routes.py::get_roster`).
+  ///
+  /// Follow-up (2026-09-04) — trước đây gọi `/workforce/agents` (thiếu
+  /// prefix `/agent`, luôn 404) rồi fallback `/agents/?workspace_id=` (cũng
+  /// không tồn tại) — cả hai route chưa từng có backend thật (xem
+  /// docs/architecture/frontend-api-migration-register.md dòng
+  /// `AgentsService.getAgents`, cùng gap với `AgentPlatformService.listAgents`
+  /// đã đóng trước đó). Không fallback về dữ liệu giả khi lỗi — trả rỗng để
+  /// UI hiển thị trạng thái lỗi/rỗng tường minh (rule 7: không dữ liệu giả).
   Future<List<dynamic>> getAgents({String? department}) async {
-    final deptQuery = department != null && department != 'All' ? '?department=$department' : '';
-    final response = await ApiClient.get('/workforce/agents$deptQuery');
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data is List ? data : (data['agents'] ?? []);
-    }
-    
-    // Fallback legacy endpoint
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId != null) {
-      final fallbackResp = await ApiClient.get('/agents/?workspace_id=$workspaceId');
-      if (fallbackResp.statusCode == 200) {
-        final data = jsonDecode(fallbackResp.body) as Map<String, dynamic>;
-        return data['agents'] ?? [];
-      }
-    }
-    return [];
+    final result = await _workforceMvpService.listRoster();
+    return result.when(
+      success: (data, _) {
+        final filtered = department == null || department == 'All'
+            ? data
+            : data.where((e) => e.department == department).toList();
+        return filtered
+            .map((e) => {
+                  'id': e.id, 'key': e.key, 'name': e.name, 'role_title': e.roleTitle,
+                  'department': e.department, 'agent_type': e.agentType,
+                  'default_model_profile': e.defaultModelProfile, 'risk_level': e.riskLevel,
+                  'status': e.status, 'enabled': e.enabled,
+                })
+            .toList();
+      },
+      failure: (_) => const [],
+    );
   }
 
   /// Lấy sơ đồ cây phân cấp Org Chart — canonical `/agent/workforce/org-chart`.

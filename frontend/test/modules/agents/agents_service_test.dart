@@ -125,4 +125,85 @@ void main() {
     expect(result, isA<ApiFailure<List<Map<String, dynamic>>>>());
     expect((result as ApiFailure<List<Map<String, dynamic>>>).failure.statusCode, 500);
   });
+
+  // Follow-up (2026-09-04) — `getAgents` từng gọi `/workforce/agents` (thiếu
+  // prefix `/agent`, luôn 404) rồi fallback `/agents/?workspace_id=` (cũng
+  // không tồn tại) — cả hai route chưa từng có backend thật (xem
+  // docs/architecture/frontend-api-migration-register.md dòng
+  // `AgentsService.getAgents`). Route thật đã mount từ trước:
+  // `/agent/workforce/roster` (`apps/cosa/api/workforce_routes.py`).
+  test('getAgents calls the canonical /agent/workforce/roster path, not /workforce/agents', () async {
+    final mockHttp = MockClient((request) async {
+      expect(request.url.path, '/agent/workforce/roster');
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {
+              'id': 1, 'key': 'cashflow_planner', 'name': 'Cashflow Planner',
+              'role_title': 'x', 'department': 'Finance', 'agent_type': 'specialist',
+              'default_model_profile': 'reasoning', 'risk_level': 2,
+              'status': 'available', 'enabled': true,
+            },
+          ],
+          'meta': {'data_state': 'populated', 'observed_at': '2026-09-04T12:00:00.000Z', 'sources': []},
+        }),
+        200,
+      );
+    });
+    final service = AgentsService(
+      workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+    );
+
+    final agents = await service.getAgents();
+
+    expect(agents, hasLength(1));
+    expect(agents.single['key'], 'cashflow_planner');
+    expect(agents.single['department'], 'Finance');
+  });
+
+  test('getAgents filters by department client-side', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': [
+            {
+              'id': 1, 'key': 'cashflow_planner', 'name': 'Cashflow Planner',
+              'role_title': 'x', 'department': 'Finance', 'agent_type': 'specialist',
+              'default_model_profile': 'reasoning', 'risk_level': 2,
+              'status': 'available', 'enabled': true,
+            },
+            {
+              'id': 2, 'key': 'campaign_planner', 'name': 'Campaign Planner',
+              'role_title': 'y', 'department': 'Marketing', 'agent_type': 'specialist',
+              'default_model_profile': 'reasoning', 'risk_level': 2,
+              'status': 'available', 'enabled': true,
+            },
+          ],
+          'meta': {'data_state': 'populated', 'observed_at': '2026-09-04T12:00:00.000Z', 'sources': []},
+        }),
+        200,
+      );
+    });
+    final service = AgentsService(
+      workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+    );
+
+    final agents = await service.getAgents(department: 'Marketing');
+
+    expect(agents, hasLength(1));
+    expect(agents.single['key'], 'campaign_planner');
+  });
+
+  test('getAgents returns an empty list on failure, never a fabricated agent list', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(jsonEncode({'detail': 'boom'}), 500);
+    });
+    final service = AgentsService(
+      workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+    );
+
+    final agents = await service.getAgents();
+
+    expect(agents, isEmpty);
+  });
 }
