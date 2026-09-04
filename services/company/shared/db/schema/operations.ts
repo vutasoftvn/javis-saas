@@ -256,6 +256,47 @@ export const taskExecutionRecords = operatingSchema.table("task_execution_record
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 17b. Execution Plans (WGA — Weekly Goal → Agent Execution)
+// Bản nháp "kế hoạch triển khai" agent đề xuất từ mục tiêu tuần; founder duyệt
+// theo lô rồi mới materialize thành operating.tasks. autonomy_class ở item là
+// single source of truth cho worker task-executor.
+export const executionPlans = operatingSchema.table("execution_plans", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  weeklyPlanId: bigint("weekly_plan_id", { mode: "bigint" }).references(() => weeklyPlans.id, { onDelete: "set null" }),
+  goalText: text("goal_text").notNull(),
+  status: text("status").default("draft").notNull(), // 'draft' | 'accepted' | 'superseded' | 'rejected'
+  origin: text("origin").notNull(), // 'command_center' | 'chat'
+  originRef: text("origin_ref"),
+  runId: text("run_id"),
+  acceptedByMemberId: bigint("accepted_by_member_id", { mode: "bigint" }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const executionPlanItems = operatingSchema.table("execution_plan_items", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  planId: bigint("plan_id", { mode: "bigint" }).notNull().references(() => executionPlans.id, { onDelete: "cascade" }),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  title: text("title").notNull(),
+  decisionReason: text("decision_reason").notNull(),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  ownerAgentProfile: text("owner_agent_profile"), // 'operations' | 'finance' | 'marketing' | null (=founder)
+  expectedCapability: text("expected_capability"),
+  autonomyClass: text("autonomy_class").notNull(), // 'AUTO' | 'NEEDS_APPROVAL' | 'FOUNDER_ONLY'
+  autonomyClassSource: text("autonomy_class_source").notNull(), // 'classifier_default' | 'tenant_policy' | 'founder_override'
+  priority: text("priority").default("medium"),
+  dependsOnItemIds: jsonb("depends_on_item_ids").default([]),
+  sortKey: doublePrecision("sort_key"),
+  materializedTaskId: bigint("materialized_task_id", { mode: "bigint" }).references(() => tasks.id, { onDelete: "set null" }),
+  status: text("status").default("proposed").notNull(), // 'proposed' | 'accepted' | 'dropped'
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // 18. Runtime Source Signals (Full MVP - Immutable upstream agent signals projection)
 export const runtimeSourceSignals = operatingSchema.table("runtime_source_signals", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
