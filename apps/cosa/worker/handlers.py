@@ -13,7 +13,12 @@ from agent.contracts.run import RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.conversations.models import ConversationRecord, MessageRecord
 
-from apps.cosa.agents.goal_intent import detect_weekly_goal_suggestion
+from apps.cosa.agents.goal_intent import (
+    GoalIntentSuggestion,
+    classify_weekly_goal_llm,
+    detect_weekly_goal_suggestion,
+    looks_like_weekly_goal,
+)
 from apps.cosa.agents.specs import (
     COSA_FINANCE_AGENT_SPEC,
     COSA_MARKETING_AGENT_SPEC,
@@ -60,6 +65,29 @@ __all__ = [
     "execute_run_task",
     "execute_scheduled_session_task",
 ]
+
+
+async def _weekly_goal_suggestion(plane: CosaAgentPlane, user_prompt: str) -> GoalIntentSuggestion:
+    """WGA #5 — quyết định có chèn goal_confirm không. Pre-filter rẻ gate việc
+    gọi LLM; LLM classify (structured, có ngưỡng confidence) là quyết định
+    chính; lỗi/không có model -> heuristic."""
+    if not looks_like_weekly_goal(user_prompt):
+        return GoalIntentSuggestion(should_suggest=False, normalized_goal="")
+
+    model = getattr(getattr(plane, "kernel", None), "_model", None)
+    if model is not None:
+        try:
+            threshold = float(os.environ.get("WGA_GOAL_INTENT_CONFIDENCE", "0.75"))
+            res = await classify_weekly_goal_llm(model, user_prompt)
+            if res.is_weekly_goal_statement and res.confidence >= threshold:
+                return GoalIntentSuggestion(
+                    should_suggest=True, normalized_goal=res.normalized_goal
+                )
+            return GoalIntentSuggestion(should_suggest=False, normalized_goal="")
+        except Exception:
+            logger.debug("goal-intent LLM classify failed, falling back to heuristic")
+
+    return detect_weekly_goal_suggestion(user_prompt)
 
 
 async def _append_message(
@@ -370,7 +398,7 @@ async def _execute_run_task_inner(
             # chạy phân rã (không tự động, chống nhận nhầm).
             if agent_profile in ("operations", "founder_assistant"):
                 with contextlib.suppress(Exception):
-                    suggestion = detect_weekly_goal_suggestion(user_prompt)
+                    suggestion = await _weekly_goal_suggestion(plane, user_prompt)
                     if suggestion.should_suggest:
                         await _append_message(
                             plane,
