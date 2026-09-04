@@ -4,11 +4,15 @@ import {
   TaskStatus,
   TASK_STATUSES,
   CreateTaskParams as BaseCreateTaskParams,
+  AgentAdvanceStatus,
   createTaskService,
   getTaskService,
   listTasksService,
   updateTaskStatusService,
   updateTaskScheduleService,
+  advanceTaskByAgentService,
+  listAgentClaimableTasksService,
+  AgentClaimableTask,
 } from "../services/task.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { linkTaskProjects, listTaskProjects, unlinkTaskProject } from "../services/project-link.service";
@@ -91,6 +95,45 @@ export const updateTaskSchedule = api(
   }): Promise<Task> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     return updateTaskScheduleService(id, plannedStartAt, ctx);
+  }
+);
+
+export const advanceTask = api(
+  { method: "POST", path: "/operations/tasks/:id/advance", expose: true },
+  async ({
+    id,
+    toStatus,
+    runId,
+    note,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    toStatus: AgentAdvanceStatus;
+    runId: string;
+    note?: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<Task> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return advanceTaskByAgentService({ taskId: id, toStatus, runId, note }, ctx);
+  }
+);
+
+// expose:false — chỉ worker task-executor (apps/cosa) gọi qua service token.
+export const listAgentClaimableTasks = api(
+  { method: "GET", path: "/operations/tasks/agent-claimable", expose: false },
+  async ({
+    workspaceId,
+    limit,
+    authorization,
+  }: {
+    workspaceId: Header<"X-Workspace-Id">;
+    limit?: number;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ tasks: AgentClaimableTask[] }> => {
+    const tasks = await listAgentClaimableTasksService(workspaceId, limit ?? 5, authorization);
+    return { tasks };
   }
 );
 

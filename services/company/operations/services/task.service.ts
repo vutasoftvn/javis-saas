@@ -8,6 +8,13 @@ import { buildTaskCompletedEvent, buildTaskCreatedEvent, EventContext } from "./
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { identityWorkforceMembers } from "../../shared/db/schema/identity";
+import {
+  taskExecutionRecords,
+  executionPlans,
+  executionPlanItems,
+} from "../../shared/db/schema/operations";
+import { sql, inArray } from "drizzle-orm";
 
 const { tasks } = schema;
 
@@ -241,4 +248,180 @@ export async function updateTaskScheduleService(
 
   if (!row) throw APIError.notFound(`task ${id} not found`);
   return toTask(row);
+}
+
+export type AgentAdvanceStatus = "in_progress" | "done" | "blocked";
+const AGENT_ADVANCE_STATUSES: readonly AgentAdvanceStatus[] = ["in_progress", "done", "blocked"];
+
+export interface AdvanceTaskByAgentParams {
+  taskId: string;
+  toStatus: AgentAdvanceStatus;
+  runId: string;
+  note?: string;
+}
+
+/**
+ * Đường DUY NHẤT cho agent đổi trạng thái task — chỉ áp dụng cho task do một
+ * AI_AGENT member đảm nhận. Không cho phép 'cancelled'/'todo'/'waiting_approval'
+ * (huỷ là việc người). 'done' chỉ hợp lệ khi task đang 'in_progress' hoặc
+ * 'waiting_approval'. Mọi lần gọi ghi 1 task_execution_records.
+ */
+export async function advanceTaskByAgentService(
+  params: AdvanceTaskByAgentParams,
+  ctx: TenantContext
+): Promise<Task> {
+  if (!AGENT_ADVANCE_STATUSES.includes(params.toStatus)) {
+    throw APIError.invalidArgument(
+      `toStatus phải là một trong ${AGENT_ADVANCE_STATUSES.join(", ")}`
+    );
+  }
+  if (!params.runId || !params.runId.trim()) {
+    throw APIError.invalidArgument("runId là bắt buộc");
+  }
+
+  const wsId = BigInt(ctx.workspaceId);
+  const taskIdBig = BigInt(params.taskId);
+
+  return await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.id, taskIdBig), eq(tasks.workspaceId, wsId)))
+      .limit(1);
+    if (!row) throw APIError.notFound(`task ${params.taskId} not found`);
+
+    if (!row.assigneeMemberId) {
+      throw APIError.permissionDenied("task không được gán cho AI member");
+    }
+    const [member] = await tx
+      .select({ memberType: identityWorkforceMembers.memberType })
+      .from(identityWorkforceMembers)
+      .where(
+        and(
+          eq(identityWorkforceMembers.id, row.assigneeMemberId),
+          eq(identityWorkforceMembers.workspaceId, wsId)
+        )
+      )
+      .limit(1);
+    if (!member || member.memberType !== "AI_AGENT") {
+      throw APIError.permissionDenied("task không được gán cho AI member");
+    }
+
+    if (params.toStatus === "done" && row.status !== "in_progress" && row.status !== "waiting_approval") {
+      throw APIError.invalidArgument(
+        `không thể hoàn thành task từ trạng thái ${row.status}`
+      );
+    }
+
+    const [updated] = await tx
+      .update(tasks)
+      .set({ status: params.toStatus, updatedAt: new Date() })
+      .where(and(eq(tasks.id, taskIdBig), eq(tasks.workspaceId, wsId)))
+      .returning();
+
+    await tx.insert(taskExecutionRecords).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      taskId: taskIdBig,
+      runId: params.runId,
+      capabilityId: "operations.task.advance",
+      triggeredByKind: "agent",
+      status: params.toStatus === "blocked" ? "FAILED" : "SUCCESS",
+      errorDetails: params.note ? { note: params.note } : null,
+    });
+
+    const t = toTask(updated!);
+    if (params.toStatus === "done") {
+      await appendOutboxEvent(
+        tx,
+        buildTaskCompletedEvent(t, { actor: { kind: "agent", id: params.runId } })
+      );
+    }
+    return t;
+  });
+}
+
+export interface AgentClaimableTask {
+  taskId: string;
+  workspaceId: string;
+  title: string;
+  priority: string;
+  autonomyClass: "AUTO" | "NEEDS_APPROVAL";
+  ownerAgentProfile: string | null;
+  expectedCapability: string | null;
+  decisionReason: string;
+  evidenceRefs: string[];
+  planItemId: string;
+  planId: string;
+}
+
+/**
+ * Tập task để worker task-executor nhận (kind=goal_decomposition không đụng vào
+ * đây). JOIN ngược execution_plan_items để lấy autonomy_class chính xác. Loại
+ * task còn dependency chưa 'done'. KHÔNG lọc kill-switch / hạn mức runs/ngày —
+ * executor tự lọc 2 điều kiện đó (cần RPC sang services/cosa).
+ */
+export async function listAgentClaimableTasksService(
+  workspaceId: string,
+  limit: number,
+  authorization: string | undefined
+): Promise<AgentClaimableTask[]> {
+  await requireWorkspaceAccess(authorization, workspaceId);
+  const wsId = BigInt(workspaceId);
+  const cap = Math.max(1, Math.min(limit || 5, 50));
+
+  const rows = await db
+    .select({
+      taskId: tasks.id,
+      workspaceId: tasks.workspaceId,
+      title: tasks.title,
+      priority: tasks.priority,
+      autonomyClass: executionPlanItems.autonomyClass,
+      ownerAgentProfile: executionPlanItems.ownerAgentProfile,
+      expectedCapability: executionPlanItems.expectedCapability,
+      decisionReason: executionPlanItems.decisionReason,
+      evidenceRefs: executionPlanItems.evidenceRefs,
+      planItemId: executionPlanItems.id,
+      planId: executionPlanItems.planId,
+      sortKey: executionPlanItems.sortKey,
+    })
+    .from(tasks)
+    .innerJoin(executionPlanItems, eq(executionPlanItems.materializedTaskId, tasks.id))
+    .innerJoin(executionPlans, eq(executionPlans.id, executionPlanItems.planId))
+    .where(
+      and(
+        eq(tasks.workspaceId, wsId),
+        isNull(tasks.deletedAt),
+        eq(tasks.status, "todo"),
+        eq(tasks.source, "ai_agent_proposal"),
+        eq(executionPlanItems.status, "accepted"),
+        eq(executionPlans.status, "accepted"),
+        inArray(executionPlanItems.autonomyClass, ["AUTO", "NEEDS_APPROVAL"]),
+        sql`${tasks.assigneeMemberId} IN (
+          SELECT id FROM core.workforce_members
+          WHERE member_type = 'AI_AGENT' AND workspace_id = ${wsId}
+        )`,
+        sql`NOT EXISTS (
+          SELECT 1 FROM operating.task_dependencies d
+          JOIN operating.tasks dep ON dep.id = d.depends_on_task_id
+          WHERE d.task_id = ${tasks.id} AND dep.status <> 'done' AND dep.deleted_at IS NULL
+        )`
+      )
+    )
+    .orderBy(tasks.priority, executionPlanItems.sortKey)
+    .limit(cap);
+
+  return rows.map((r) => ({
+    taskId: r.taskId.toString(),
+    workspaceId: r.workspaceId.toString(),
+    title: r.title,
+    priority: r.priority,
+    autonomyClass: r.autonomyClass as "AUTO" | "NEEDS_APPROVAL",
+    ownerAgentProfile: r.ownerAgentProfile,
+    expectedCapability: r.expectedCapability,
+    decisionReason: r.decisionReason,
+    evidenceRefs: Array.isArray(r.evidenceRefs) ? (r.evidenceRefs as string[]) : [],
+    planItemId: r.planItemId.toString(),
+    planId: r.planId.toString(),
+  }));
 }
