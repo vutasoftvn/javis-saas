@@ -24,13 +24,28 @@ class AgentsService {
     return SecureStorageService.read('workspace_id');
   }
 
-  /// Lấy tổng hợp chỉ số Dashboard Master Control Plane
+  /// Lấy tổng hợp chỉ số Dashboard Master Control Plane — canonical
+  /// `/agent/workforce/dashboard-summary`
+  /// (`apps/cosa/api/workforce_routes.py::get_dashboard_summary`).
+  ///
+  /// Follow-up (2026-09-04) — method này RIÊNG BIỆT với
+  /// `AgentPlatformService.getDashboardSummary` (đã migrate trước đó) —
+  /// trước đây vẫn gọi `/workforce/dashboard-summary` chết (thiếu prefix
+  /// `/agent`) dù `AgentPlatformService` đã đóng cùng gap. Xem
+  /// docs/architecture/frontend-api-migration-register.md dòng
+  /// `AgentsService.getDashboardSummary`.
   Future<Map<String, dynamic>?> getDashboardSummary() async {
-    final response = await ApiClient.get('/workforce/dashboard-summary');
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-    return null;
+    final result = await _workforceMvpService.getDashboardSummary();
+    return result.when(
+      success: (data, _) => {
+        'roster_total': data.rosterTotal,
+        'roster_active': data.rosterActive,
+        'open_exceptions': data.openExceptions,
+        'pending_approvals': data.pendingApprovals,
+        'work_products_total': data.workProductsTotal,
+      },
+      failure: (_) => null,
+    );
   }
 
   /// Lấy danh sách typed AgentModel

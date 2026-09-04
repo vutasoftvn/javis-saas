@@ -7,15 +7,14 @@ tiếp với các router thật sự được `include_router()` trong
 
 **Cập nhật 2026-09-04** — plan
 `docs/superpowers/plans/2026-09-04-workforce-dashboard-backend-gaps.md` +
-follow-up ngay sau đó đã đóng 5 route `unknown — BLOCKS RELEASE` bên dưới
-(agents roster list, dashboard-summary — riêng `AgentPlatformService`, work
-products list, stage roster get, escalations list read-only). Các dòng liên
-quan đã cập nhật trạng thái `canonical` kèm ngày đóng; phần mutation
-(`resolveEscalation`, `acceptWorkProduct`, `requestWorkProductRevision`,
-`checkAgentStageFit`) và `AgentsService.getDashboardSummary` (method riêng
-biệt, khác `AgentPlatformService.getDashboardSummary` — KHÔNG được migrate
-trong đợt này) vẫn `unknown`, được tách thành dòng riêng để không lẫn với
-phần đã đóng.
+2 đợt follow-up ngay sau đó đã đóng 6 route `unknown — BLOCKS RELEASE` bên
+dưới (agents roster list — cả `AgentPlatformService` lẫn `AgentsService`,
+dashboard-summary — cả 2 class, work products list, stage roster get,
+escalations list read-only). Các dòng liên quan đã cập nhật trạng thái
+`canonical` kèm ngày đóng; phần mutation (`resolveEscalation`,
+`acceptWorkProduct`, `requestWorkProductRevision`, `checkAgentStageFit`)
+vẫn `unknown`/`intentionally-unsupported`, tách thành dòng riêng để không
+lẫn với phần đã đóng.
 
 Phạm vi: các route ACTIVE (đang được một consumer sống — controller/mixin
 thực sự gọi từ UI, không phải chỉ tồn tại trong file service) trong domain
@@ -57,7 +56,7 @@ Phân loại:
 | `AgentPlatformService.listAgents` / `getAgents` / `AgentsService.getAgents` | `GET /workforce/agents` (+ `AgentsService` có thêm fallback `GET /agents/?workspace_id=`, cũng không tồn tại) | `GET /agent/workforce/roster` (`apps/cosa/api/workforce_routes.py::get_roster`) | **canonical (đã đóng 2026-09-04)** | `hub_control_plane_mixin.dart:92` (Founder Dashboard, hiển thị roster); `agents_controller.dart:57` (`AgentsView`) | Nguồn dữ liệu = `FUNCTIONAL_AGENT_CATALOG` (6 entry thật) + trạng thái assignment thật theo workspace — KHÔNG phải 12 agent hư cấu `default12Agents` từng fallback khi lỗi (đã xoá hẳn constant đó). Cả 2 class (`AgentPlatformService`, `AgentsService`) đều migrate sang `WorkforceMvpService.listRoster()`. |
 | `AgentsService.getRuntimes` | `GET /workforce/runtimes` | Không tìm thấy | `unknown` | `agents_controller.dart:90` | Read-only, không phải mutation — không chặn release nhưng cần theo dõi. Ngoài phạm vi đợt đóng 2026-09-04. |
 | `AgentPlatformService.getDashboardSummary` | `GET /workforce/dashboard-summary` | `GET /agent/workforce/dashboard-summary` (`apps/cosa/api/workforce_routes.py::get_dashboard_summary`) | **canonical (đã đóng 2026-09-04)** | `hub_control_plane_mixin.dart:83` (Founder Dashboard, tóm tắt số liệu) | Aggregator in-process thuần (roster/work-products/exceptions/approvals đã có sẵn) — không route mới nào tự thân, không migration DB. |
-| `AgentsService.getDashboardSummary` | `GET /workforce/dashboard-summary` | Không tìm thấy | **unknown — BLOCKS RELEASE (chưa đóng)** | `agents_controller.dart:45` (`loadDashboardSummary`) | **Method riêng biệt** với `AgentPlatformService.getDashboardSummary` ở trên — KHÔNG nằm trong phạm vi đợt migrate 2026-09-04, vẫn gọi thẳng route chết qua `ApiClient.get` thô. Phát hiện khi rà `AgentsService` cho dòng phía trên; ghi nhận riêng để không lẫn với dòng đã đóng. |
+| `AgentsService.getDashboardSummary` | `GET /workforce/dashboard-summary` | `GET /agent/workforce/dashboard-summary` (`apps/cosa/api/workforce_routes.py::get_dashboard_summary`) | **canonical (đã đóng 2026-09-04, follow-up thứ 5)** | `agents_controller.dart:45` (`loadDashboardSummary`) | **Method riêng biệt** với `AgentPlatformService.getDashboardSummary` ở trên — phát hiện khi rà `AgentsService` cho dòng phía trên, giờ đã migrate sang cùng `WorkforceMvpService.getDashboardSummary()`. |
 | `AgentPlatformService.listWorkProducts` | `GET /workforce/work-products` | `GET /agent/workforce/artifacts` (`apps/cosa/api/workforce_routes.py::list_work_products`) | **canonical (đã đóng 2026-09-04)** | `hub_control_plane_mixin.dart:110`, `work_product_viewer_dialog.dart` | MVP: "work product" = artifact workspace-wide có sẵn, không phải workflow DRAFT/REVIEW riêng. `content_markdown` chưa fetch được (known gap, xem spec Phase 2) — FE cần fallback hiển thị link `object_ref`. |
 | `AgentPlatformService.acceptWorkProduct` / `requestWorkProductRevision` | `POST /workforce/work-products/{id}/accept` / `.../revise` | Không tìm thấy | **unknown — BLOCKS RELEASE (mutation, chưa đóng)** | `work_product_viewer_dialog.dart` | Mutation người dùng chạm tới, ngoài phạm vi đợt 2026-09-04 (chỉ đóng phần list read-only). Chưa xác nhận domain accept/revise thật. |
 | `AgentPlatformService.getStageRoster` | `GET /workforce/stage-roster` | `GET /agent/workforce/stage-roster/{stage_code}` (`apps/cosa/api/workforce_routes.py::get_stage_roster`, proxy sang `services/company` `GET /operations/tasks/stage-roster/:stageCode`) | **canonical (đã đóng 2026-09-04)** | `hub_control_plane_mixin.dart:124` | ⚠️ `stage_code` chỉ có 2 giá trị thật trả roster non-empty hôm nay — `P0_DISCOVERY`/`P1_PROBLEM_VALIDATION` (CHECK constraint `strategy.project_operating_setups.selected_stage`, migration `34_project_operating_setups.up.sql`) — không phải dải P0-P6 UI từng ghi. Mã khác không lỗi, chỉ trả roster rỗng. |
@@ -96,8 +95,7 @@ only after its backend contract is verified... Do not map arbitrary
   `requestWorkProductRevision`) được xây trong đợt này — vẫn `unknown` hoặc
   `intentionally-unsupported`, xem bảng phía trên.
 - **Vẫn `unknown`, chưa đóng, ngoài phạm vi 2 đợt trên**:
-  `AgentsService.getDashboardSummary` (method riêng biệt, dễ nhầm với dòng
-  đã đóng), `getRuntimes`, `checkAgentStageFit`, `acceptWorkProduct`/
+  `getRuntimes`, `checkAgentStageFit`, `acceptWorkProduct`/
   `requestWorkProductRevision`, `reportStageMismatch`/`runExceptionWatchdog`,
   decisions, heartbeats/routines, budgets/cost-ledger, agent/tool/skill CRUD
   — không có route backend nào khớp sau khi grep toàn bộ

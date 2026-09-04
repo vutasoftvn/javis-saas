@@ -206,4 +206,57 @@ void main() {
 
     expect(agents, isEmpty);
   });
+
+  // Follow-up (2026-09-04) — `getDashboardSummary` từng gọi `/workforce/
+  // dashboard-summary` (thiếu prefix `/agent`, luôn 404) — method RIÊNG BIỆT
+  // với `AgentPlatformService.getDashboardSummary` (đã migrate trước đó),
+  // dễ bị nhầm là đã đóng cùng lúc. Route thật đã mount:
+  // `/agent/workforce/dashboard-summary` (`apps/cosa/api/workforce_routes.py`).
+  test(
+    'getDashboardSummary calls the canonical /agent/workforce/dashboard-summary path',
+    () async {
+      final mockHttp = MockClient((request) async {
+        expect(request.url.path, '/agent/workforce/dashboard-summary');
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'roster_total': 6,
+              'roster_active': 1,
+              'open_exceptions': 0,
+              'pending_approvals': 0,
+              'work_products_total': 0,
+            },
+            'meta': {
+              'data_state': 'populated',
+              'observed_at': '2026-09-04T12:00:00.000Z',
+              'sources': [],
+            },
+          }),
+          200,
+        );
+      });
+      final service = AgentsService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
+
+      final result = await service.getDashboardSummary();
+
+      expect(result, isNotNull);
+      expect(result!['roster_total'], 6);
+      expect(result['roster_active'], 1);
+    },
+  );
+
+  test('getDashboardSummary returns null on failure, never a fabricated summary', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(jsonEncode({'detail': 'boom'}), 500);
+    });
+    final service = AgentsService(
+      workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+    );
+
+    final result = await service.getDashboardSummary();
+
+    expect(result, isNull);
+  });
 }
