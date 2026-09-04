@@ -20,18 +20,18 @@ void main() {
   });
 
   group('ApiClient Endpoint Normalization for Skill Registry', () {
-    test('normalizes /skills to /agent/skills and resolves to agentOsBaseUrl (:8001)', () {
+    test('normalizes /skills to /agent/skills and resolves to agentOsBaseUrl (:8000)', () {
       final uri1 = ApiClient.resolveUri('/skills');
       expect(uri1.path, '/agent/skills');
-      expect(uri1.port, 8001);
+      expect(uri1.port, 8000);
 
       final uri2 = ApiClient.resolveUri('/skills/sync-built-in');
       expect(uri2.path, '/agent/skills/sync-built-in');
-      expect(uri2.port, 8001);
+      expect(uri2.port, 8000);
 
       final uri3 = ApiClient.resolveUri('/agent/skills/marketing-positioning/promote');
       expect(uri3.path, '/agent/skills/marketing-positioning/promote');
-      expect(uri3.port, 8001);
+      expect(uri3.port, 8000);
     });
   });
 

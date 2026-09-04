@@ -226,8 +226,14 @@ Trỏ sang control plane đã deploy (không cần stack local) bằng dart-defi
 ```bash
 flutter run -d macos \
   --dart-define=API_BASE_URL=https://company.example.com \
-  --dart-define=PLATFORM_BASE_URL=https://cosa-control-plane.example.com
+  --dart-define=PLATFORM_BASE_URL=https://cosa-control-plane.example.com \
+  --dart-define=AGENTOS_BASE_URL=https://cosa-api.example.com
 ```
+
+`AGENTOS_BASE_URL` mặc định `http://127.0.0.1:8000` (khớp `make dev-stack` bind
+thẳng port cho `apps/cosa` API, không qua Docker) — chỉ cần truyền tay khi trỏ
+sang VPS/docker-compose (ở đó `cosa-api` được remap host `8001` → container
+`8000`).
 
 ---
 

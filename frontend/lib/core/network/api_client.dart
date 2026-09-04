@@ -110,13 +110,25 @@ class ApiClient {
     return 'http://127.0.0.1:4001';
   }
 
-  /// Base API URL for AgentOS (AI Multi-Agent Plane). Defaults to `http://127.0.0.1:8001`
-  /// (service `cosa-api`, `apps/cosa/api/routes.py` — không phải `brain-api` :8000, service
-  /// đó đang hỏng và bị đóng băng theo ADR-012).
+  /// Base API URL cho COSA FastAPI — "AgentOS" (AI Multi-Agent Plane), service
+  /// `cosa-api` (`apps/cosa/api/routes.py`). Mặc định `http://127.0.0.1:8000`
+  /// KHỚP topology dev local thật (`make dev-stack` chạy
+  /// `uvicorn apps.cosa.api.main:app --port 8000` trực tiếp trên host — xem
+  /// `Makefile` target `dev-stack-no-infra`). `:8001` chỉ đúng khi build trỏ
+  /// vào VPS/docker-compose (`docker-compose.yml` remap host `8001:8000` cho
+  /// container `cosa-api`) — môi trường đó PHẢI tự truyền
+  /// `--dart-define=AGENTOS_BASE_URL=...` lúc build, không dựa vào default ở
+  /// đây (giống cách README hướng dẫn truyền `API_BASE_URL`/`PLATFORM_BASE_URL`
+  /// khi trỏ sang control plane đã deploy).
+  ///
+  /// Fix (2026-09-04) — default cũ `:8001` không khớp bất kỳ topology dev nào
+  /// đang chạy thật (không docker, không remap cổng) → mọi `/agent/workforce/...`
+  /// (Founder Command Center, HologramHub) luôn "Connection refused" trên máy
+  /// dev mặc định, chỉ tự hoạt động nếu ai đó tình cờ tự thêm dart-define.
   static String get agentOsBaseUrl {
     if (_customAgentOsUrl != null && _customAgentOsUrl!.isNotEmpty) return _customAgentOsUrl!;
     if (_configuredAgentOsUrl.isNotEmpty) return _configuredAgentOsUrl;
-    return 'http://127.0.0.1:8001';
+    return 'http://127.0.0.1:8000';
   }
 
   /// Base API URL for Desktop Worker (Loopback Execution Plane). Defaults to `http://127.0.0.1:8765`.
@@ -214,7 +226,7 @@ class ApiClient {
     return normalized;
   }
 
-  /// Resolves the absolute URI based on gateway target (ControlPlane :4001, AgentOS :8001, DesktopWorker :8765, or Company Encore :4000).
+  /// Resolves the absolute URI based on gateway target (ControlPlane :4001, AgentOS :8000, DesktopWorker :8765, or Company Encore :4000).
   static Uri resolveUri(String endpoint) {
     String path = endpoint.trim();
     final normalized = normalizeEndpoint(path);

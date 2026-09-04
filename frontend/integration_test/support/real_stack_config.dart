@@ -48,9 +48,9 @@ class RealStackConfig {
 
   /// `apps/cosa` API (uvicorn) — AgentOS plane, phục vụ `/agent/*`. Map tới
   /// `ApiClient.setAgentOsBaseUrl`. Mặc định `:8000` khớp `make dev-stack`
-  /// (`python -m apps.cosa.api.main`) — LƯU Ý khác default `:8001` của
-  /// `ApiClient.agentOsBaseUrl` (docker-compose map host 8001→container 8000;
-  /// `make dev-stack` bind thẳng 8000).
+  /// (`python -m apps.cosa.api.main`) VÀ khớp default `:8000` của
+  /// `ApiClient.agentOsBaseUrl` (fix 2026-09-04) — chỉ lệch khi trỏ vào
+  /// docker-compose/VPS (remap host `8001` → container `8000`).
   static const String apiUrl = String.fromEnvironment(
     'E2E_API_URL',
     defaultValue: 'http://127.0.0.1:8000',
