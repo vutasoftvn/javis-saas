@@ -41,6 +41,19 @@ class WorkforceCompositionEntry(BaseModel):
     eligibility_reasons: list[str] = Field(default_factory=list)
 
 
+class WorkforceRosterEntryOut(BaseModel):
+    id: int
+    key: str
+    name: str
+    role_title: str
+    department: str
+    agent_type: str
+    default_model_profile: str
+    risk_level: int
+    status: str
+    enabled: bool
+
+
 class WorkforceOrgChartNode(BaseModel):
     assignment_id: str
     functional_key: str

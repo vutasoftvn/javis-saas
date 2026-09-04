@@ -334,3 +334,40 @@ async def test_run_schedule_now_reports_not_implemented_instead_of_fake_success(
 
         run_now_res = await client.post(f"/agent/workforce/schedules/{schedule_id}/run-now")
         assert run_now_res.status_code == 501
+
+
+@pytest.mark.asyncio
+async def test_roster_lists_functional_catalog_with_default_available_status(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/roster")
+        assert res.status_code == 200
+        data = res.json()["data"]
+        assert len(data) == 6  # FUNCTIONAL_AGENT_CATALOG has 6 entries today
+        cashflow = next(e for e in data if e["key"] == "cashflow_planner")
+        assert cashflow["name"] == "Cashflow Planner"
+        assert cashflow["department"] == "Finance"
+        assert cashflow["status"] == "available"
+        assert cashflow["enabled"] is True
+
+
+@pytest.mark.asyncio
+async def test_roster_marks_assigned_entries_active(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        create_res = await client.post(
+            "/agent/workforce/assignments",
+            json={"functional_key": "campaign_planner"},
+        )
+        assert create_res.status_code == 200
+
+        res = await client.get("/agent/workforce/roster")
+        assert res.status_code == 200
+        entry = next(e for e in res.json()["data"] if e["key"] == "campaign_planner")
+        assert entry["status"] == "active"

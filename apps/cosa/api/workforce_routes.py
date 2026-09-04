@@ -23,6 +23,7 @@ from apps.cosa.api.workforce_schemas import (
     WorkforceHealthOut,
     WorkforceOrgChartNode,
     WorkforceOrgChartOut,
+    WorkforceRosterEntryOut,
     WorkforceRunArtifactOut,
     WorkforceRunDetailOut,
     WorkforceRunEventOut,
@@ -213,6 +214,39 @@ async def get_composition(
                 eligibility_reasons=["eligible" if not assigned else "already_assigned"],
             )
         )
+    return mvp_list(entries, [MvpSourceRef(kind="agent_db", ref="agent.workforce_assignments")])
+
+
+@router.get("/roster")
+async def get_roster(
+    request: Request,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[list[WorkforceRosterEntryOut]]:
+    """Danh sách functional agent thật (không phải `default12Agents` hard-code
+    ở FE) — nguồn = FUNCTIONAL_AGENT_CATALOG + trạng thái assignment thật theo
+    workspace. Xem docs/superpowers/specs/2026-09-04-workforce-dashboard-backend-gaps-design.md
+    Phase 1 cho lý do dùng catalog này thay vì AgentSpec thô."""
+    repo = _get_workforce_repo(request)
+    assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
+    assigned_keys = {a.functional_key for a in assignments}
+
+    entries = [
+        WorkforceRosterEntryOut(
+            id=idx,
+            key=entry.functional_key,
+            name=entry.title,
+            role_title=entry.description,
+            department=entry.default_department,
+            agent_type="specialist",
+            default_model_profile="reasoning",
+            # Hằng số — FunctionalAgentEntry chưa có autonomy_level; mọi entry
+            # catalog hiện tại đều dạng "đề xuất, không tự thực thi" (medium).
+            risk_level=2,
+            status="active" if entry.functional_key in assigned_keys else "available",
+            enabled=True,
+        )
+        for idx, entry in enumerate(FUNCTIONAL_AGENT_CATALOG.values(), start=1)
+    ]
     return mvp_list(entries, [MvpSourceRef(kind="agent_db", ref="agent.workforce_assignments")])
 
 
