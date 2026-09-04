@@ -110,6 +110,32 @@ class PostgresArtifactRepository:
             rows = res.mappings().all()
             return [self._row_to_artifact(r) for r in rows]
 
+    async def list_for_workspace(
+        self,
+        workspace_id: str,
+        limit: int = 50,
+        include_archived: bool = False,
+    ) -> list[WorkspaceArtifact]:
+        query = """
+            SELECT artifact_id, workspace_id, conversation_id, run_id,
+                   source_message_id, artifact_kind, display_name, media_type,
+                   object_ref, checksum, size_bytes, status, input_artifact_ids,
+                   created_at, archived_at
+            FROM agent_artifact.workspace_artifacts
+            WHERE workspace_id = :workspace_id
+        """
+        if not include_archived:
+            query += " AND status != 'archived'"
+        query += " ORDER BY created_at DESC LIMIT :limit"
+
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(query),
+                {"workspace_id": workspace_id, "limit": limit},
+            )
+            rows = res.mappings().all()
+            return [self._row_to_artifact(r) for r in rows]
+
     async def archive(self, workspace_id: str, artifact_id: str) -> WorkspaceArtifact | None:
         now = datetime.now(UTC)
         async with self._session_factory() as session:

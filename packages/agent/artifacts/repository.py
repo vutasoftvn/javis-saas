@@ -25,6 +25,13 @@ class ArtifactRepository(Protocol):
         include_archived: bool = False,
     ) -> list[WorkspaceArtifact]: ...
 
+    async def list_for_workspace(
+        self,
+        workspace_id: str,
+        limit: int = 50,
+        include_archived: bool = False,
+    ) -> list[WorkspaceArtifact]: ...
+
     async def archive(self, workspace_id: str, artifact_id: str) -> WorkspaceArtifact | None: ...
 
 
@@ -64,6 +71,22 @@ class InMemoryArtifactRepository:
             ]
             results.sort(key=lambda x: x.created_at, reverse=True)
             return results
+
+    async def list_for_workspace(
+        self,
+        workspace_id: str,
+        limit: int = 50,
+        include_archived: bool = False,
+    ) -> list[WorkspaceArtifact]:
+        async with self._lock:
+            results = [
+                a.model_copy(deep=True)
+                for a in self._artifacts.values()
+                if a.workspace_id == workspace_id
+                and (include_archived or a.status != "archived")
+            ]
+            results.sort(key=lambda x: x.created_at, reverse=True)
+            return results[:limit]
 
     async def archive(self, workspace_id: str, artifact_id: str) -> WorkspaceArtifact | None:
         async with self._lock:

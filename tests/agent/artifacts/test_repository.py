@@ -90,3 +90,54 @@ async def test_in_memory_artifact_repository_crud_and_tenancy():
     # List with include_archived=True includes it
     all_artifacts = await repo.list_for_conversation("ws_A", "conv_1", include_archived=True)
     assert len(all_artifacts) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_for_workspace_returns_artifacts_across_conversations_newest_first() -> None:
+    repo = InMemoryArtifactRepository()
+    older = WorkspaceArtifact(
+        workspace_id="ws_1",
+        conversation_id="conv_a",
+        display_name="Older report",
+        media_type="text/markdown",
+        object_ref="object://a",
+    )
+    newer = WorkspaceArtifact(
+        workspace_id="ws_1",
+        conversation_id="conv_b",
+        display_name="Newer report",
+        media_type="text/markdown",
+        object_ref="object://b",
+    )
+    other_workspace = WorkspaceArtifact(
+        workspace_id="ws_2",
+        conversation_id="conv_c",
+        display_name="Other workspace",
+        media_type="text/markdown",
+        object_ref="object://c",
+    )
+    await repo.create(older)
+    await repo.create(newer)
+    await repo.create(other_workspace)
+
+    result = await repo.list_for_workspace("ws_1", limit=50)
+
+    assert [a.artifact_id for a in result] == [newer.artifact_id, older.artifact_id]
+
+
+@pytest.mark.asyncio
+async def test_list_for_workspace_excludes_archived_by_default() -> None:
+    repo = InMemoryArtifactRepository()
+    art = WorkspaceArtifact(
+        workspace_id="ws_1",
+        conversation_id="conv_a",
+        display_name="Archived report",
+        media_type="text/markdown",
+        object_ref="object://a",
+    )
+    await repo.create(art)
+    await repo.archive("ws_1", art.artifact_id)
+
+    result = await repo.list_for_workspace("ws_1", limit=50)
+
+    assert result == []
