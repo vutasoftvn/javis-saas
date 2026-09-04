@@ -13,6 +13,8 @@ import {
   advanceTaskByAgentService,
   listAgentClaimableTasksService,
   AgentClaimableTask,
+  listStageRosterService,
+  StageRosterView,
   getWorkspaceExecutionSettingsService,
   setWorkspaceExecutionSettingsService,
   WorkspaceExecutionSettingsView,
@@ -161,6 +163,28 @@ export const listAgentClaimableTasks = api(
       ctx
     );
     return { tasks };
+  }
+);
+
+// Gọi bởi apps/cosa (GET /agent/workforce/stage-roster/{stage_code}) — cosa
+// delegation, tái dùng đúng capability WGA_CAP_TASK_LIST (read-only, không
+// cần capability riêng).
+export const getStageRoster = api(
+  { method: "GET", path: "/operations/tasks/stage-roster/:stageCode", expose: true },
+  async ({
+    stageCode,
+    workspaceId,
+    authorization,
+  }: {
+    stageCode: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<StageRosterView> => {
+    resolveCosaTaskContext(authorization, {
+      workspaceId,
+      capabilityId: WGA_CAP_TASK_LIST,
+    });
+    return listStageRosterService(workspaceId, stageCode);
   }
 );
 

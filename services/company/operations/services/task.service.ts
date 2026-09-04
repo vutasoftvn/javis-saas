@@ -461,6 +461,97 @@ export async function listAgentClaimableTasksService(
   }));
 }
 
+export interface StageRosterEntry {
+  taskId: string;
+  title: string;
+  priority: string;
+  status: string;
+  projectId: string;
+}
+
+export interface StageRosterView {
+  stage: { stageCode: string; taskCount: number };
+  roster: StageRosterEntry[];
+  summary: { total: number; highPriority: number; medium: number; locked: number };
+}
+
+/**
+ * Roster của 1 stage tăng trưởng (vd "P0_DISCOVERY"): toàn bộ task thuộc các project
+ * đang chọn stage đó trong workspace (project_operating_setups.selected_stage).
+ * Dùng cho workforce dashboard bên apps/cosa
+ * (GET /agent/workforce/stage-roster/{stage_code}).
+ */
+export async function listStageRosterService(
+  workspaceId: string,
+  stageCode: string
+): Promise<StageRosterView> {
+  const wsId = BigInt(workspaceId);
+
+  const projects = await db
+    .select({
+      projectId: schema.projectOperatingSetups.projectId,
+      status: schema.projectOperatingSetups.status,
+    })
+    .from(schema.projectOperatingSetups)
+    .where(
+      and(
+        eq(schema.projectOperatingSetups.workspaceId, wsId),
+        eq(schema.projectOperatingSetups.selectedStage, stageCode)
+      )
+    );
+
+  if (projects.length === 0) {
+    return {
+      stage: { stageCode, taskCount: 0 },
+      roster: [],
+      summary: { total: 0, highPriority: 0, medium: 0, locked: 0 },
+    };
+  }
+
+  // "locked" = task thuộc project chưa IN_PROGRESS — định nghĩa MVP tạm, xem
+  // spec Phase 3 (workforce dashboard).
+  const lockedProjectIds = new Set(
+    projects.filter((p) => p.status !== "IN_PROGRESS").map((p) => p.projectId.toString())
+  );
+  const projectIds = projects.map((p) => p.projectId);
+
+  const rows = await db
+    .select({
+      taskId: tasks.id,
+      title: tasks.title,
+      priority: tasks.priority,
+      status: tasks.status,
+      projectId: schema.taskProjects.projectId,
+    })
+    .from(schema.taskProjects)
+    .innerJoin(tasks, eq(tasks.id, schema.taskProjects.taskId))
+    .where(
+      and(
+        eq(schema.taskProjects.workspaceId, wsId),
+        inArray(schema.taskProjects.projectId, projectIds)
+      )
+    );
+
+  const roster: StageRosterEntry[] = rows.map((r) => ({
+    taskId: r.taskId.toString(),
+    title: r.title,
+    priority: r.priority,
+    status: r.status,
+    projectId: r.projectId.toString(),
+  }));
+
+  return {
+    stage: { stageCode, taskCount: roster.length },
+    roster,
+    summary: {
+      total: roster.length,
+      highPriority: roster.filter((r) => r.priority === "high").length,
+      medium: roster.filter((r) => r.priority === "medium").length,
+      locked: roster.filter((r) => lockedProjectIds.has(r.projectId)).length,
+    },
+  };
+}
+
 export interface FounderInboxTask {
   taskId: string;
   title: string;
