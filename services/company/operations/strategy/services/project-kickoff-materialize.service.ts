@@ -18,6 +18,7 @@ export interface MaterializeFirstWeekPlanParams {
   firstWeekOutcome: string | null;
   selectedStage: BasicKickoffStage | null;
   stageDurationWeeks: number | null;
+  roundStartDate: Date | null;
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -35,11 +36,17 @@ export async function materializeFirstWeekPlan(
   ctx: TenantContext,
   params: MaterializeFirstWeekPlanParams
 ): Promise<void> {
-  const { projectId, previousActions, actions, firstWeekOutcome, selectedStage, stageDurationWeeks } = params;
+  const { projectId, previousActions, actions, firstWeekOutcome, selectedStage, stageDurationWeeks, roundStartDate } = params;
 
   if (actions.length === 0 && previousActions.length === 0) {
     return;
   }
+
+  // Tuần 1 luôn kéo dài đúng 7 ngày kể từ mốc bắt đầu vòng — không dùng
+  // stageDurationWeeks (đó là độ dài cả stage, dùng cho stageTargetDate).
+  const weekEndDate = roundStartDate
+    ? new Date(roundStartDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+    : null;
 
   const wsId = BigInt(ctx.workspaceId);
   const pId = BigInt(projectId);
@@ -73,12 +80,16 @@ export async function materializeFirstWeekPlan(
       weekNo: 1,
       focus: firstWeekOutcome,
       mission: firstWeekOutcome,
+      startDate: roundStartDate,
+      endDate: weekEndDate,
     })
     .onConflictDoUpdate({
       target: [weeklyPlans.cycleId, weeklyPlans.weekNo],
       set: {
         focus: firstWeekOutcome,
         mission: firstWeekOutcome,
+        startDate: roundStartDate,
+        endDate: weekEndDate,
         updatedAt: new Date(),
       },
     })

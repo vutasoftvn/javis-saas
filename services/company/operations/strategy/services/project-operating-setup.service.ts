@@ -407,6 +407,7 @@ export async function saveProjectOperatingSetup(
       firstWeekOutcome: resolvedOutcome,
       selectedStage: (saved.selectedStage as BasicKickoffStage | null),
       stageDurationWeeks: saved.stageDurationWeeks,
+      roundStartDate: saved.roundStartDate,
     });
 
     return toView(saved);
@@ -596,6 +597,7 @@ export async function activateProjectOperatingSetup(
       firstWeekOutcome: req.firstWeekOutcome.trim(),
       selectedStage: req.selectedStage,
       stageDurationWeeks: req.stageDurationWeeks,
+      roundStartDate,
     });
 
     const [refreshedProject] = await tx

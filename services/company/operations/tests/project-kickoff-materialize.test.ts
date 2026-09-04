@@ -51,6 +51,7 @@ describe("materializeFirstWeekPlan", () => {
         firstWeekOutcome: "Talk to 2 leads",
         selectedStage: "P0_DISCOVERY",
         stageDurationWeeks: 2,
+        roundStartDate: null,
       });
     });
 
@@ -103,6 +104,7 @@ describe("materializeFirstWeekPlan", () => {
         firstWeekOutcome: "Outcome v1",
         selectedStage: "P0_DISCOVERY",
         stageDurationWeeks: 2,
+        roundStartDate: null,
       })
     );
 
@@ -116,6 +118,7 @@ describe("materializeFirstWeekPlan", () => {
         firstWeekOutcome: "Outcome v2",
         selectedStage: "P0_DISCOVERY",
         stageDurationWeeks: 2,
+        roundStartDate: null,
       })
     );
 
@@ -159,6 +162,7 @@ describe("materializeFirstWeekPlan", () => {
         firstWeekOutcome: "Outcome",
         selectedStage: "P0_DISCOVERY",
         stageDurationWeeks: 2,
+        roundStartDate: null,
       })
     );
 
@@ -172,6 +176,7 @@ describe("materializeFirstWeekPlan", () => {
         firstWeekOutcome: "Outcome",
         selectedStage: "P0_DISCOVERY",
         stageDurationWeeks: 2,
+        roundStartDate: null,
       })
     );
 

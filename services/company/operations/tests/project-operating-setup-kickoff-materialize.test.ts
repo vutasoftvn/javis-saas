@@ -120,6 +120,40 @@ describe("saveProjectOperatingSetup materializes first-week actions immediately"
       .where(and(eq(weeklyCommitments.weeklyPlanId, plan!.id), isNull(weeklyCommitments.deletedAt)));
     expect(liveCommitments).toHaveLength(2);
   });
+
+  it("sets weekly_plans.startDate/endDate from the resolved round start on activate", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Week-1 plan dates project",
+    });
+
+    const result = await activateProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "Finance leads",
+      problemStatement: "Slow close",
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      weeklyReviewWeekday: 5,
+      weeklyReviewTime: "16:00",
+      firstWeekOutcome: "Talk to 3 leads",
+      firstWeekActions: [{ title: "List prospects" }],
+    });
+
+    expect(result.setup.roundStartDate).not.toBeNull();
+
+    const [cycle] = await db.select().from(twelveWeekCycles).where(eq(twelveWeekCycles.projectId, BigInt(project.id)));
+    const [plan] = await db.select().from(weeklyPlans).where(eq(weeklyPlans.cycleId, cycle!.id));
+
+    expect(plan!.startDate).not.toBeNull();
+    expect(plan!.endDate).not.toBeNull();
+    expect(plan!.startDate!.getTime()).toBe(new Date(result.setup.roundStartDate!).getTime());
+    expect(plan!.endDate!.getTime()).toBe(plan!.startDate!.getTime() + 7 * 24 * 60 * 60 * 1000);
+  });
 });
 
 describe("normalizeFirstWeekActions is server-authoritative about client-supplied ids", () => {
