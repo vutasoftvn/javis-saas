@@ -4,28 +4,60 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/network/mvp_request_client.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/modules/agents/services/agent_platform_service.dart';
+import 'package:frontend/modules/workforce/services/workforce_mvp_service.dart';
 
 void main() {
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({'workspace_id': 'ws_1001'});
+    await SecureStorageService.write('auth_token', 'test-token');
   });
 
   group('AgentPlatformService Tests', () {
+    // Task 13 — `getAgents` từng gọi thẳng `/workforce/agents` qua
+    // `ApiClient` thô (mock ở trên). Task 12 (commit 3172fc42) migrate
+    // `getAgents`/`listAgents` sang gọi `WorkforceMvpService.listRoster()`
+    // (canonical `/agent/workforce/roster`) — test cũ mock sai path/transport
+    // nên lúc nào cũng fail sau migrate. Coverage tương đương (đúng path,
+    // đúng shape response) đã có ở
+    // `test/modules/agents/agent_platform_service_test.dart` — test dưới đây
+    // cập nhật theo cùng cách inject `WorkforceMvpService` để khớp hành vi
+    // thật, không revert lại hành vi mới để test cũ pass.
     test('getAgents returns list of agents', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/workforce/agents');
+      final mockHttp = MockClient((request) async {
+        expect(request.url.path, '/agent/workforce/roster');
         return http.Response(
-          jsonEncode([
-            {'id': '101', 'key': 'founder', 'name': 'Founder Agent'},
-            {'id': '102', 'key': 'sales', 'name': 'Sales Agent'},
-          ]),
+          jsonEncode({
+            'data': [
+              {
+                'id': 101, 'key': 'founder', 'name': 'Founder Agent',
+                'role_title': 'x', 'department': 'Operations', 'agent_type': 'specialist',
+                'default_model_profile': 'reasoning', 'risk_level': 0,
+                'status': 'available', 'enabled': true,
+              },
+              {
+                'id': 102, 'key': 'sales', 'name': 'Sales Agent',
+                'role_title': 'x', 'department': 'Commercial', 'agent_type': 'specialist',
+                'default_model_profile': 'reasoning', 'risk_level': 0,
+                'status': 'available', 'enabled': true,
+              },
+            ],
+            'meta': {
+              'data_state': 'populated',
+              'observed_at': '2026-09-04T12:00:00.000Z',
+              'sources': [],
+            },
+          }),
           200,
           headers: {'content-type': 'application/json'},
         );
       });
 
-      final service = AgentPlatformService();
+      final service = AgentPlatformService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
       final agents = await service.getAgents();
 
       expect(agents.length, 2);
