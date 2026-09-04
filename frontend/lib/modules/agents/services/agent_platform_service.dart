@@ -28,35 +28,48 @@ class AgentPlatformService {
   AgentPlatformService({WorkforceMvpService? workforceMvpService})
       : _workforceMvpService = workforceMvpService ?? WorkforceMvpService();
 
-  /// Fetch master control plane dashboard summary
+  /// Fetch master control plane dashboard summary — canonical
+  /// `/agent/workforce/dashboard-summary` qua `WorkforceMvpService`.
   Future<Map<String, dynamic>?> getDashboardSummary() async {
-    try {
-      final response = await ApiClient.get('/workforce/dashboard-summary');
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-      debugPrint('[AgentPlatformService] getDashboardSummary failed: ${response.statusCode}');
-    } catch (e) {
-      debugPrint('[AgentPlatformService] getDashboardSummary error: $e');
-    }
-    return null;
+    final result = await _workforceMvpService.getDashboardSummary();
+    return result.when(
+      success: (data, _) => {
+        'roster_total': data.rosterTotal,
+        'roster_active': data.rosterActive,
+        'open_exceptions': data.openExceptions,
+        'pending_approvals': data.pendingApprovals,
+        'work_products_total': data.workProductsTotal,
+      },
+      failure: (failure) {
+        debugPrint('[AgentPlatformService] getDashboardSummary failed: ${failure.message}');
+        return null;
+      },
+    );
   }
 
-  /// List all agents in the registry with optional department filter
+  /// List all agents in the registry with optional department filter —
+  /// canonical `/agent/workforce/roster` qua `WorkforceMvpService`.
   Future<List<Map<String, dynamic>>> listAgents({String? department}) async {
-    try {
-      final query = department != null ? '?department=$department' : '';
-      final response = await ApiClient.get('/workforce/agents$query');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          return data.map((e) => e as Map<String, dynamic>).toList();
-        }
-      }
-    } catch (e) {
-      debugPrint('[AgentPlatformService] listAgents error: $e');
-    }
-    return default12Agents;
+    final result = await _workforceMvpService.listRoster();
+    return result.when(
+      success: (data, _) {
+        final filtered = department == null
+            ? data
+            : data.where((e) => e.department == department).toList();
+        return filtered
+            .map((e) => {
+                  'id': e.id, 'key': e.key, 'name': e.name, 'role_title': e.roleTitle,
+                  'department': e.department, 'agent_type': e.agentType,
+                  'default_model_profile': e.defaultModelProfile, 'risk_level': e.riskLevel,
+                  'status': e.status, 'enabled': e.enabled,
+                })
+            .toList();
+      },
+      failure: (failure) {
+        debugPrint('[AgentPlatformService] listAgents error: ${failure.message}');
+        return default12Agents;
+      },
+    );
   }
 
   static const List<Map<String, dynamic>> default12Agents = [
@@ -318,19 +331,25 @@ class AgentPlatformService {
         'decided_at': d.decidedAt.toIso8601String(),
       };
 
-  /// List work products
-  Future<List<Map<String, dynamic>>> listWorkProducts({String? status}) async {
-    try {
-      final query = status != null ? '?status=$status' : '';
-      final response = await ApiClient.get('/workforce/work-products$query');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => e as Map<String, dynamic>).toList();
-      }
-    } catch (e) {
-      debugPrint('[AgentPlatformService] listWorkProducts error: $e');
-    }
-    return [];
+  /// List work products — canonical `/agent/workforce/work-products` qua
+  /// `WorkforceMvpService`. Backend chưa có filter `status` cho route này
+  /// (pre-flight decision, 2026-09-04) nên tham số cũ bị bỏ — không call site
+  /// nào trong app truyền `status:` vào method này (đã grep xác nhận).
+  Future<List<Map<String, dynamic>>> listWorkProducts() async {
+    final result = await _workforceMvpService.listWorkProducts();
+    return result.when(
+      success: (data, _) => data
+          .map((p) => {
+                'id': p.id, 'title': p.title, 'product_type': p.productType,
+                'status': p.status, 'author_agent_key': p.authorAgentKey,
+                'object_ref': p.objectRef,
+              })
+          .toList(),
+      failure: (failure) {
+        debugPrint('[AgentPlatformService] Error loading work products: ${failure.message}');
+        return [];
+      },
+    );
   }
 
   /// Accept a work product
@@ -626,16 +645,26 @@ class AgentPlatformService {
   /// Lấy Agent Roster được lọc và xếp hạng theo Stage Policy.
   /// Returns: { stage: {...}, roster: [...], summary: {...} }
   Future<Map<String, dynamic>?> getStageRoster(String stageCode) async {
-    try {
-      final response = await ApiClient.get('/workforce/stage-roster?stage=$stageCode');
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-      debugPrint('[AgentPlatformService] getStageRoster failed: ${response.statusCode}');
-    } catch (e) {
-      debugPrint('[AgentPlatformService] getStageRoster error: $e');
-    }
-    return null;
+    final result = await _workforceMvpService.getStageRoster(stageCode);
+    return result.when(
+      success: (data, _) => {
+        'stage': {'stage_code': data.stage.stageCode, 'task_count': data.stage.taskCount},
+        'roster': data.roster
+            .map((t) => {
+                  'task_id': t.taskId, 'title': t.title, 'priority': t.priority,
+                  'status': t.status, 'project_id': t.projectId,
+                })
+            .toList(),
+        'summary': {
+          'total': data.summary.total, 'high_priority': data.summary.highPriority,
+          'medium': data.summary.medium, 'locked': data.summary.locked,
+        },
+      },
+      failure: (failure) {
+        debugPrint('[AgentPlatformService] Error loading stage roster: ${failure.message}');
+        return null;
+      },
+    );
   }
 
   /// Kiểm tra mức độ phù hợp của một agent với stage cụ thể.
@@ -655,37 +684,41 @@ class AgentPlatformService {
 
   /// Danh sách Exception Escalation Records.
   /// [status]: 'OPEN' | 'RESOLVED' | 'DISMISSED' | null (all)
+  // `status`/`exceptionType`/`tier`/`limit` kept on this method's own
+  // signature (call sites in hub_control_plane_mixin.dart pass `status:
+  // 'OPEN'` và must keep compiling) but NOT forwarded to
+  // `_workforceMvpService.listExceptions()` anymore — the backend route has
+  // no filter to honor yet (pre-flight decision, 2026-09-04; see spec Phase
+  // 5 / Global Constraints). Every returned item is always effectively
+  // "OPEN" today.
   Future<Map<String, dynamic>> listEscalations({
     String? status = 'OPEN',
     String? exceptionType,
     String? tier,
     int limit = 50,
   }) async {
-    try {
-      final params = <String, String>{
-        'status': ?status,
-        'exception_type': ?exceptionType,
-        'tier': ?tier,
-        'limit': '$limit',
-      };
-      final query = params.isNotEmpty
-          ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}'
-          : '';
-      final response = await ApiClient.get('/workforce/exceptions$query');
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-      debugPrint('[AgentPlatformService] listEscalations failed: ${response.statusCode}');
-    } catch (e) {
-      debugPrint('[AgentPlatformService] listEscalations error: $e');
-    }
-    return {
-      'total': 0,
-      'founder_gate_count': 0,
-      'lead_notify_count': 0,
-      'has_critical': false,
-      'escalations': [],
-    };
+    final result = await _workforceMvpService.listExceptions();
+    return result.when(
+      success: (data, _) => {
+        'total': data.total,
+        'founder_gate_count': data.founderGateCount,
+        'lead_notify_count': data.leadNotifyCount,
+        'has_critical': data.hasCritical,
+        'escalations': data.escalations
+            .map((e) => {
+                  'id': e.id, 'exception_type': e.exceptionType, 'tier': e.tier,
+                  'status': e.status, 'agent_key': e.agentKey,
+                })
+            .toList(),
+      },
+      failure: (failure) {
+        debugPrint('[AgentPlatformService] listEscalations failed: ${failure.message}');
+        return {
+          'total': 0, 'founder_gate_count': 0, 'lead_notify_count': 0,
+          'has_critical': false, 'escalations': [],
+        };
+      },
+    );
   }
 
   /// Resolve một escalation với action cụ thể.

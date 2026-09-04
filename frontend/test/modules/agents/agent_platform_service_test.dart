@@ -236,4 +236,82 @@ void main() {
       expect(result, isA<ApiFailure<Map<String, dynamic>>>());
     });
   });
+
+  group('AgentPlatformService — canonical workforce dashboard gaps (2026-09-04)', () {
+    test('getDashboardSummary calls the canonical /agent/workforce/dashboard-summary path', () async {
+      final mockHttp = MockClient((request) async {
+        expect(request.url.path, '/agent/workforce/dashboard-summary');
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'roster_total': 6, 'roster_active': 1, 'open_exceptions': 0,
+              'pending_approvals': 0, 'work_products_total': 0,
+            },
+            'meta': {'data_state': 'populated', 'observed_at': '2026-09-04T12:00:00.000Z', 'sources': []},
+          }),
+          200,
+        );
+      });
+      final service = AgentPlatformService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
+
+      final result = await service.getDashboardSummary();
+
+      expect(result, isNotNull);
+      expect(result!['roster_total'], 6);
+    });
+
+    test('listAgents calls the canonical /agent/workforce/roster path, not /workforce/agents', () async {
+      final mockHttp = MockClient((request) async {
+        expect(request.url.path, '/agent/workforce/roster');
+        return http.Response(
+          jsonEncode({
+            'data': [
+              {
+                'id': 1, 'key': 'cashflow_planner', 'name': 'Cashflow Planner',
+                'role_title': 'x', 'department': 'Finance', 'agent_type': 'specialist',
+                'default_model_profile': 'reasoning', 'risk_level': 2,
+                'status': 'available', 'enabled': true,
+              },
+            ],
+            'meta': {'data_state': 'populated', 'observed_at': '2026-09-04T12:00:00.000Z', 'sources': []},
+          }),
+          200,
+        );
+      });
+      final service = AgentPlatformService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
+
+      final result = await service.listAgents();
+
+      expect(result.single['key'], 'cashflow_planner');
+      expect(result.single['department'], 'Finance');
+    });
+
+    test('listEscalations calls the canonical /agent/workforce/exceptions path', () async {
+      final mockHttp = MockClient((request) async {
+        expect(request.url.path, '/agent/workforce/exceptions');
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'total': 0, 'founder_gate_count': 0, 'lead_notify_count': 0,
+              'has_critical': false, 'escalations': [],
+            },
+            'meta': {'data_state': 'empty', 'observed_at': '2026-09-04T12:00:00.000Z', 'sources': []},
+          }),
+          200,
+        );
+      });
+      final service = AgentPlatformService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
+
+      final result = await service.listEscalations();
+
+      expect(result['total'], 0);
+      expect(result['escalations'], isEmpty);
+    });
+  });
 }
