@@ -85,4 +85,40 @@ class WorkforceMvpService {
       decode: (json) => (json as Map?)?.cast<String, dynamic>() ?? const {},
     );
   }
+
+  Future<ApiResult<List<WorkforceRosterEntry>>> listRoster() async {
+    return _client.request<List<WorkforceRosterEntry>>(
+      MvpEndpoint.workforceRosterList,
+      decode: (json) => _asList(json).map(WorkforceRosterEntry.fromJson).toList(),
+    );
+  }
+
+  Future<ApiResult<List<WorkforceWorkProduct>>> listWorkProducts() async {
+    return _client.request<List<WorkforceWorkProduct>>(
+      MvpEndpoint.workforceWorkProductList,
+      decode: (json) => _asList(json).map(WorkforceWorkProduct.fromJson).toList(),
+    );
+  }
+
+  Future<ApiResult<WorkforceExceptionSummary>> listExceptions() async {
+    return _client.request<WorkforceExceptionSummary>(
+      MvpEndpoint.workforceExceptionList,
+      decode: (json) => WorkforceExceptionSummary.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
+  Future<ApiResult<WorkforceStageRoster>> getStageRoster(String stageCode) async {
+    return _client.request<WorkforceStageRoster>(
+      MvpEndpoint.workforceStageRosterGet,
+      pathParams: {'stageCode': stageCode},
+      decode: (json) => WorkforceStageRoster.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
+  Future<ApiResult<WorkforceDashboardSummary>> getDashboardSummary() async {
+    return _client.request<WorkforceDashboardSummary>(
+      MvpEndpoint.workforceDashboardSummaryGet,
+      decode: (json) => WorkforceDashboardSummary.fromJson(json as Map<String, dynamic>),
+    );
+  }
 }
