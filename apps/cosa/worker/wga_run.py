@@ -193,8 +193,9 @@ async def execute_goal_decomposition_task(
                 "suggestedDomain": it.suggested_domain,
                 "expectedCapability": it.expected_capability,
                 "capabilityRisk": capability_risk(it.expected_capability),
-                # v1: chưa lookup per-workspace tenant policy — classifier phía
-                # company vẫn áp FORBIDDEN_RE + risk default (an toàn).
+                # tenant policy override do company đọc từ
+                # operating.workspace_capability_policy khi classify (WGA #3) —
+                # worker không cần lookup.
                 "tenantPolicyDecision": None,
                 "dependsOnTitles": it.depends_on_titles,
                 "priority": it.priority,

@@ -5,6 +5,7 @@ import '../../../core/widgets/runtime_app_chrome.dart';
 import '../controllers/founder_command_center_controller.dart';
 import '../widgets/cofounder_card_widget.dart';
 import '../widgets/execution_plan_card_widget.dart';
+import '../widgets/your_tasks_widget.dart';
 import '../widgets/pulse_stat_bar_widget.dart';
 import '../widgets/top3_focus_widget.dart';
 import '../widgets/waiting_for_you_widget.dart';
@@ -440,6 +441,9 @@ class HologramHubView extends StatelessWidget {
                     .toList(),
               ),
             ),
+
+            // A2. WGA — "Việc của bạn" (FOUNDER_ONLY + blocked)
+            Obx(() => YourTasksWidget(tasks: controller.founderInboxTasks.toList())),
 
             Obx(() {
               final setup = controller.activeProjectSetup.value;

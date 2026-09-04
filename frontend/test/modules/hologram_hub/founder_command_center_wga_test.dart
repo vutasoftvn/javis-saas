@@ -148,6 +148,25 @@ void main() {
     expect(c.draftPlans, hasLength(1));
   });
 
+  test('loadFounderInbox populates FOUNDER_ONLY + blocked tasks', () async {
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'GET' && req.url.path == '/operations/tasks/founder-inbox') {
+        return _ok({
+          'tasks': [
+            {'taskId': '1', 'title': 'Phỏng vấn 3 khách hàng', 'status': 'todo', 'priority': 'high', 'reason': 'founder_only'},
+            {'taskId': '2', 'title': 'Gửi email chào mừng', 'status': 'blocked', 'priority': 'medium', 'reason': 'blocked'},
+          ]
+        });
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    await c.loadFounderInbox();
+    expect(c.founderInboxTasks, hasLength(2));
+    expect(c.founderInboxTasks.firstWhere((t) => t.taskId == '2').isBlocked, isTrue);
+  });
+
   test('loadDraftPlans populates from backend', () async {
     ApiClient.client = MockClient((req) async {
       if (req.method == 'GET' && req.url.path == '/operations/execution-plans') {

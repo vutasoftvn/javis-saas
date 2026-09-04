@@ -305,6 +305,21 @@ export const workspaceExecutionSettings = operatingSchema.table("workspace_execu
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 17d. Workspace Capability Policy (WGA #3 — override lớp quyền hạn per-capability)
+export const workspaceCapabilityPolicy = operatingSchema.table(
+  "workspace_capability_policy",
+  {
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    capabilityId: text("capability_id").notNull(),
+    decision: text("decision").notNull(), // 'ALLOW' | 'REQUIRE_APPROVAL' | 'DENY'
+    updatedBy: bigint("updated_by", { mode: "bigint" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.workspaceId, t.capabilityId] }),
+  })
+);
+
 // 18. Runtime Source Signals (Full MVP - Immutable upstream agent signals projection)
 export const runtimeSourceSignals = operatingSchema.table("runtime_source_signals", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),

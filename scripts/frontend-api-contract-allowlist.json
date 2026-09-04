@@ -2012,6 +2012,13 @@
       "expires_on": "2026-12-31"
     },
     {
+      "path": "/operations/tasks/founder-inbox",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "WGA #6a (2026-09-04): 'Việc của bạn' card — FOUNDER_ONLY + blocked ai_agent_proposal tasks.",
+      "expires_on": "2026-12-31"
+    },
+    {
       "path": "/platform/prompts/:domain/:name",
       "method": "POST",
       "owner": "control-plane",

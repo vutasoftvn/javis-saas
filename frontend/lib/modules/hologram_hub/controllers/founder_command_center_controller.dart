@@ -128,6 +128,12 @@ class FounderCommandCenterController extends GetxController {
   final RxList<ExecutionPlan> draftPlans = <ExecutionPlan>[].obs;
   final RxBool isDecomposing = false.obs;
   final ExecutionPlanService _executionPlanService = ExecutionPlanService();
+
+  /// WGA #6a — "Việc của bạn": task FOUNDER_ONLY + task AI bị chặn.
+  final RxList<FounderInboxTask> founderInboxTasks = <FounderInboxTask>[].obs;
+
+  /// WGA #6b — poll draftPlans + inbox khi đang ở tab Command Center.
+  Timer? _wgaPollTimer;
   final RxList<FounderDecisionModel> pendingDecisions =
       <FounderDecisionModel>[].obs;
   final RxList<Map<String, dynamic>> pendingApprovals =
@@ -168,11 +174,24 @@ class FounderCommandCenterController extends GetxController {
   void onInit() {
     super.onInit();
     loadDashboardData();
+    // WGA #6b — poll nhẹ 20s khi đang ở tab Command Center (0) và có project.
+    // Bỏ qua trong widget test (Get.testMode) để không giữ timer treo.
+    if (!Get.testMode) {
+      _wgaPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+        if (selectedTabIndex.value == 0 &&
+            hasProjects.value &&
+            (activeProjectId.value?.isNotEmpty ?? false)) {
+          loadDraftPlans();
+          loadFounderInbox();
+        }
+      });
+    }
   }
 
   @override
   void onClose() {
     _chatSseSubscription?.cancel();
+    _wgaPollTimer?.cancel();
     chatInputController.dispose();
     super.onClose();
   }
@@ -203,6 +222,9 @@ class FounderCommandCenterController extends GetxController {
     projectsLoadedOnce.value = false;
     pulse.value = null;
     top3Actions.clear();
+    draftPlans.clear();
+    founderInboxTasks.clear();
+    activeProjectId.value = null;
     pendingDecisions.clear();
     pendingApprovals.clear();
     workforcePacks.clear();
@@ -276,9 +298,11 @@ class FounderCommandCenterController extends GetxController {
           activeProjectSetup.value = null;
         }
         unawaited(loadDraftPlans());
+        unawaited(loadFounderInbox());
       } else {
         activeProjectSetup.value = null;
         draftPlans.clear();
+        founderInboxTasks.clear();
       }
 
       final pulseRes = await CoFounderApiService.getCompanyPulse(
@@ -585,6 +609,19 @@ class FounderCommandCenterController extends GetxController {
       draftPlans.assignAll(plans);
     } catch (e) {
       debugPrint('[FounderCommandCenter] loadDraftPlans error: $e');
+    }
+  }
+
+  Future<void> loadFounderInbox() async {
+    final pid = activeProjectId.value;
+    if (pid == null || pid.isEmpty) {
+      founderInboxTasks.clear();
+      return;
+    }
+    try {
+      founderInboxTasks.assignAll(await _executionPlanService.listFounderInbox());
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] loadFounderInbox error: $e');
     }
   }
 

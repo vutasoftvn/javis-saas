@@ -54,6 +54,20 @@ class ExecutionPlanService extends WorkspaceScopedService {
         .toList();
   }
 
+  Future<List<FounderInboxTask>> listFounderInbox() async {
+    await _requireWorkspaceId();
+    final res = await ApiClient.get('/operations/tasks/founder-inbox');
+    if (res.statusCode != 200) {
+      if (res.statusCode == 404) return const [];
+      throw StateError('Failed to list founder inbox: ${res.statusCode}');
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final list = (data['tasks'] as List<dynamic>?) ?? const [];
+    return list
+        .map((e) => FounderInboxTask.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> acceptPlan(String planId) async {
     await _requireWorkspaceId();
     final res = await ApiClient.post('/operations/execution-plans/$planId/accept');

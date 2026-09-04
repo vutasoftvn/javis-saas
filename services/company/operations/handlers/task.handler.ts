@@ -16,6 +16,8 @@ import {
   getWorkspaceExecutionSettingsService,
   setWorkspaceExecutionSettingsService,
   WorkspaceExecutionSettingsView,
+  listFounderInboxTasksService,
+  FounderInboxTask,
 } from "../services/task.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import {
@@ -158,6 +160,21 @@ export const listAgentClaimableTasks = api(
       authorization,
       ctx
     );
+    return { tasks };
+  }
+);
+
+// WGA #6a — "Việc của bạn": FOUNDER_ONLY + blocked task từ ai_agent_proposal.
+export const getFounderInbox = api(
+  { method: "GET", path: "/operations/tasks/founder-inbox", expose: true },
+  async ({
+    workspaceId,
+    authorization,
+  }: {
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ tasks: FounderInboxTask[] }> => {
+    const tasks = await listFounderInboxTasksService(workspaceId, authorization);
     return { tasks };
   }
 );

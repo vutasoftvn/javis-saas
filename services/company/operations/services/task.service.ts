@@ -461,6 +461,48 @@ export async function listAgentClaimableTasksService(
   }));
 }
 
+export interface FounderInboxTask {
+  taskId: string;
+  title: string;
+  status: TaskStatus;
+  priority: string;
+  reason: "founder_only" | "blocked";
+  updatedAt: string;
+}
+
+/**
+ * WGA #6a — "Việc của bạn": task founder cần tự làm (FOUNDER_ONLY, execution_mode
+ * 'HUMAN') + task AI bị chặn (status 'blocked'), đều từ nguồn ai_agent_proposal.
+ */
+export async function listFounderInboxTasksService(
+  workspaceId: string,
+  authorization: string | undefined
+): Promise<FounderInboxTask[]> {
+  await requireWorkspaceAccess(authorization, workspaceId);
+  const rows = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.workspaceId, BigInt(workspaceId)),
+        isNull(tasks.deletedAt),
+        eq(tasks.source, "ai_agent_proposal"),
+        sql`(${tasks.executionMode} = 'HUMAN' OR ${tasks.status} = 'blocked')`,
+        sql`${tasks.status} NOT IN ('done', 'cancelled')`
+      )
+    )
+    .orderBy(desc(tasks.updatedAt))
+    .limit(50);
+  return rows.map((r) => ({
+    taskId: r.id.toString(),
+    title: r.title,
+    status: r.status as TaskStatus,
+    priority: r.priority,
+    reason: r.status === "blocked" ? ("blocked" as const) : ("founder_only" as const),
+    updatedAt: r.updatedAt.toISOString(),
+  }));
+}
+
 export interface WorkspaceExecutionSettingsView {
   workspaceId: string;
   sweepEnabled: boolean;

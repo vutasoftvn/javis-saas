@@ -6,11 +6,16 @@ import {
   patchExecutionPlanItemService,
   acceptExecutionPlanService,
   rejectExecutionPlanService,
+  listCapabilityPolicyService,
+  setCapabilityPolicyService,
   CreatePlanItemInput,
   ExecutionPlanView,
   ExecutionPlanItemView,
   AcceptExecutionPlanResult,
+  CapabilityPolicyEntry,
 } from "../services/execution-plan.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { TenantPolicyDecision } from "../services/autonomy-classifier";
 import { AutonomyClass } from "../services/autonomy-classifier";
 import {
   resolveCosaTaskContext,
@@ -163,5 +168,42 @@ export const rejectExecutionPlan = api(
     if (!p.workspaceId) throw APIError.invalidArgument("X-Workspace-Id header required");
     await rejectExecutionPlanService(p.id, p.workspaceId, p.authorization);
     return { ok: true };
+  }
+);
+
+// WGA #3 — override lớp quyền hạn per-capability (founder).
+export const listCapabilityPolicy = api(
+  { method: "GET", path: "/operations/capability-policy", expose: true },
+  async ({
+    workspaceId,
+    authorization,
+  }: {
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ entries: CapabilityPolicyEntry[] }> => {
+    const entries = await listCapabilityPolicyService(workspaceId, authorization);
+    return { entries };
+  }
+);
+
+export const setCapabilityPolicy = api(
+  { method: "POST", path: "/operations/capability-policy", expose: true },
+  async ({
+    capabilityId,
+    decision,
+    workspaceId,
+    authorization,
+  }: {
+    capabilityId: string;
+    decision: TenantPolicyDecision | null;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ entries: CapabilityPolicyEntry[] }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const entries = await setCapabilityPolicyService(
+      { workspaceId, capabilityId, decision: decision ?? null },
+      ctx
+    );
+    return { entries };
   }
 );

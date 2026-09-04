@@ -89,6 +89,33 @@ class ExecutionPlanItem {
   }
 }
 
+/// WGA #6a — "Việc của bạn": task founder tự làm hoặc AI bị chặn.
+class FounderInboxTask {
+  final String taskId;
+  final String title;
+  final String status;
+  final String priority;
+  final String reason; // 'founder_only' | 'blocked'
+
+  const FounderInboxTask({
+    required this.taskId,
+    required this.title,
+    required this.status,
+    required this.priority,
+    required this.reason,
+  });
+
+  bool get isBlocked => reason == 'blocked';
+
+  factory FounderInboxTask.fromJson(Map<String, dynamic> j) => FounderInboxTask(
+        taskId: '${j['taskId']}',
+        title: (j['title'] ?? '') as String,
+        status: (j['status'] ?? '') as String,
+        priority: (j['priority'] ?? 'medium') as String,
+        reason: (j['reason'] ?? 'founder_only') as String,
+      );
+}
+
 class ExecutionPlan {
   final String id;
   final String projectId;

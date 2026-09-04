@@ -10,6 +10,7 @@ import {
   taskProjects,
   taskDependencies,
   weeklyCommitments,
+  workspaceCapabilityPolicy,
 } from "../../shared/db/schema/operations";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import type { TenantContext } from "../../shared/types/tenant_context";
@@ -192,6 +193,20 @@ export async function createExecutionPlanService(
       })
       .returning();
 
+    // WGA #3 — override per-workspace: đọc workspace_capability_policy để đưa
+    // vào classifier làm tenant_policy_decision (đè lên default theo risk;
+    // FORBIDDEN_RE vẫn thắng ALLOW).
+    const policyRows = await tx
+      .select({
+        capabilityId: workspaceCapabilityPolicy.capabilityId,
+        decision: workspaceCapabilityPolicy.decision,
+      })
+      .from(workspaceCapabilityPolicy)
+      .where(eq(workspaceCapabilityPolicy.workspaceId, wsId));
+    const policyByCapability = new Map<string, TenantPolicyDecision>(
+      policyRows.map((r) => [r.capabilityId, r.decision as TenantPolicyDecision])
+    );
+
     // Pass 1 — tạo item + classify.
     const titleToId = new Map<string, string>();
     const inserted: ItemRow[] = [];
@@ -204,10 +219,13 @@ export async function createExecutionPlanService(
         throw APIError.invalidArgument(`item "${title}": decisionReason tối thiểu 5 ký tự`);
       }
 
+      const effectivePolicyDecision: TenantPolicyDecision | null = it.expectedCapability
+        ? policyByCapability.get(it.expectedCapability) ?? it.tenantPolicyDecision
+        : it.tenantPolicyDecision;
       const { autonomyClass, source } = classifyItem({
         expectedCapability: it.expectedCapability,
         capabilityRisk: it.capabilityRisk,
-        tenantPolicyDecision: it.tenantPolicyDecision,
+        tenantPolicyDecision: effectivePolicyDecision,
       });
       // FOUNDER_ONLY ⟺ không agent nào đảm nhận — luôn để owner_agent_profile = null.
       const ownerAgentProfile =
@@ -602,6 +620,81 @@ export async function acceptExecutionPlanService(
 
     return { planId: plan.id.toString(), taskIds, founderOnlyTaskIds };
   });
+}
+
+export interface CapabilityPolicyEntry {
+  capabilityId: string;
+  decision: TenantPolicyDecision;
+}
+
+export async function listCapabilityPolicyService(
+  workspaceId: string,
+  authorization: string | undefined
+): Promise<CapabilityPolicyEntry[]> {
+  await requireWorkspaceAccess(authorization, workspaceId);
+  const rows = await db
+    .select({
+      capabilityId: workspaceCapabilityPolicy.capabilityId,
+      decision: workspaceCapabilityPolicy.decision,
+    })
+    .from(workspaceCapabilityPolicy)
+    .where(eq(workspaceCapabilityPolicy.workspaceId, BigInt(workspaceId)));
+  return rows.map((r) => ({
+    capabilityId: r.capabilityId,
+    decision: r.decision as TenantPolicyDecision,
+  }));
+}
+
+export async function setCapabilityPolicyService(
+  p: { workspaceId: string; capabilityId: string; decision: TenantPolicyDecision | null },
+  ctx: TenantContext
+): Promise<CapabilityPolicyEntry[]> {
+  const wsId = BigInt(p.workspaceId);
+  const cap = p.capabilityId?.trim();
+  if (!cap) throw APIError.invalidArgument("capabilityId không được rỗng");
+
+  if (p.decision === null) {
+    await db
+      .delete(workspaceCapabilityPolicy)
+      .where(
+        and(
+          eq(workspaceCapabilityPolicy.workspaceId, wsId),
+          eq(workspaceCapabilityPolicy.capabilityId, cap)
+        )
+      );
+  } else {
+    if (!["ALLOW", "REQUIRE_APPROVAL", "DENY"].includes(p.decision)) {
+      throw APIError.invalidArgument("decision phải là ALLOW | REQUIRE_APPROVAL | DENY | null");
+    }
+    await db
+      .insert(workspaceCapabilityPolicy)
+      .values({
+        workspaceId: wsId,
+        capabilityId: cap,
+        decision: p.decision,
+        updatedBy: ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [workspaceCapabilityPolicy.workspaceId, workspaceCapabilityPolicy.capabilityId],
+        set: {
+          decision: p.decision,
+          updatedBy: ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null,
+          updatedAt: new Date(),
+        },
+      });
+  }
+  const rows = await db
+    .select({
+      capabilityId: workspaceCapabilityPolicy.capabilityId,
+      decision: workspaceCapabilityPolicy.decision,
+    })
+    .from(workspaceCapabilityPolicy)
+    .where(eq(workspaceCapabilityPolicy.workspaceId, wsId));
+  return rows.map((r) => ({
+    capabilityId: r.capabilityId,
+    decision: r.decision as TenantPolicyDecision,
+  }));
 }
 
 export async function rejectExecutionPlanService(

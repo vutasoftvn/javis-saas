@@ -3,8 +3,10 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { createProject } from "../handlers/project.handler";
 import { createTestWorkspaceWithMember } from "./_helpers";
+import type { TenantContext } from "../../shared/types/tenant_context";
 import {
   createExecutionPlanService,
+  setCapabilityPolicyService,
   listExecutionPlansService,
   getExecutionPlanService,
   patchExecutionPlanItemService,
@@ -235,5 +237,78 @@ describe("patchExecutionPlanItemService", () => {
     );
     expect(r.autonomyClass).toBe("FOUNDER_ONLY");
     expect(r.autonomyClassSource).toBe("founder_override");
+  });
+});
+
+describe("WGA #3 — workspace_capability_policy override at classification", () => {
+  function tctx(workspaceId: string): TenantContext {
+    return Object.freeze({
+      workspaceId, userId: "1", workforceMemberId: undefined,
+      membershipRole: "admin", permissions: [], correlationId: "t", platformUserId: null,
+    }) as unknown as TenantContext;
+  }
+
+  it("REQUIRE_APPROVAL policy downgrades a would-be AUTO item to NEEDS_APPROVAL", async () => {
+    const ctx = await seedProject();
+    // baseline: LOW + safe suffix -> AUTO
+    const before = await createExecutionPlanService(
+      { ...base(ctx), items: [item({ expectedCapability: "operations.sop.draft" })] },
+      ctx.auth
+    );
+    expect(before.items[0]!.autonomyClass).toBe("AUTO");
+
+    await setCapabilityPolicyService(
+      { workspaceId: ctx.workspaceId, capabilityId: "operations.sop.draft", decision: "REQUIRE_APPROVAL" },
+      tctx(ctx.workspaceId)
+    );
+
+    const after = await createExecutionPlanService(
+      { ...base(ctx), items: [item({ expectedCapability: "operations.sop.draft" })] },
+      ctx.auth
+    );
+    expect(after.items[0]!.autonomyClass).toBe("NEEDS_APPROVAL");
+    expect(after.items[0]!.autonomyClassSource).toBe("tenant_policy");
+  });
+
+  it("ALLOW policy promotes a MEDIUM item to AUTO; DENY makes it FOUNDER_ONLY; null clears", async () => {
+    const ctx = await seedProject();
+    const cap = "operations.task.reassign"; // MEDIUM risk, no safe suffix -> default NEEDS_APPROVAL
+    const it = () => item({ expectedCapability: cap, capabilityRisk: "MEDIUM" });
+
+    await setCapabilityPolicyService(
+      { workspaceId: ctx.workspaceId, capabilityId: cap, decision: "ALLOW" },
+      tctx(ctx.workspaceId)
+    );
+    let p = await createExecutionPlanService({ ...base(ctx), items: [it()] }, ctx.auth);
+    expect(p.items[0]!.autonomyClass).toBe("AUTO");
+
+    await setCapabilityPolicyService(
+      { workspaceId: ctx.workspaceId, capabilityId: cap, decision: "DENY" },
+      tctx(ctx.workspaceId)
+    );
+    p = await createExecutionPlanService({ ...base(ctx), items: [it()] }, ctx.auth);
+    expect(p.items[0]!.autonomyClass).toBe("FOUNDER_ONLY");
+
+    const cleared = await setCapabilityPolicyService(
+      { workspaceId: ctx.workspaceId, capabilityId: cap, decision: null },
+      tctx(ctx.workspaceId)
+    );
+    expect(cleared.find((e) => e.capabilityId === cap)).toBeUndefined();
+    p = await createExecutionPlanService({ ...base(ctx), items: [it()] }, ctx.auth);
+    expect(p.items[0]!.autonomyClass).toBe("NEEDS_APPROVAL"); // back to risk default
+  });
+
+  it("ALLOW policy does NOT lift a FORBIDDEN_RE capability to AUTO", async () => {
+    const ctx = await seedProject();
+    const cap = "engagement.message.send";
+    await setCapabilityPolicyService(
+      { workspaceId: ctx.workspaceId, capabilityId: cap, decision: "ALLOW" },
+      tctx(ctx.workspaceId)
+    );
+    const p = await createExecutionPlanService(
+      { ...base(ctx), items: [item({ expectedCapability: cap, capabilityRisk: "MEDIUM" })] },
+      ctx.auth
+    );
+    expect(p.items[0]!.autonomyClass).toBe("NEEDS_APPROVAL"); // FORBIDDEN_RE wins
   });
 });
