@@ -1,9 +1,26 @@
+import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
 import { db } from "../models/db";
-import { executionPlans, executionPlanItems, projects } from "../../shared/db/schema/operations";
+import {
+  executionPlans,
+  executionPlanItems,
+  projects,
+  tasks,
+  taskProjects,
+  taskDependencies,
+  weeklyCommitments,
+} from "../../shared/db/schema/operations";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { appendOutboxEvent } from "../../shared/events/outbox.repository";
+import { makeBusinessEvent } from "../../shared/events/envelope";
+import { EXECUTION_PLAN_ACCEPTED } from "../../shared/events";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import {
+  ensureAiWorkforceMember,
+  resolveFounderMemberId,
+  OwnerAgentProfile,
+} from "./ai-member.service";
 import {
   classifyItem,
   routeOwnerProfile,
@@ -370,4 +387,240 @@ export async function patchExecutionPlanItemService(
       .returning();
     return toItemView(updated!);
   });
+}
+
+export interface AcceptExecutionPlanResult {
+  planId: string;
+  taskIds: string[];
+  founderOnlyTaskIds: string[];
+}
+
+const EXECUTION_MODE_BY_CLASS: Record<AutonomyClass, "AGENT" | "HUMAN"> = {
+  AUTO: "AGENT",
+  NEEDS_APPROVAL: "AGENT",
+  FOUNDER_ONLY: "HUMAN",
+};
+
+/** DFS phát hiện chu trình trong depends_on giữa các item chưa dropped. */
+function assertNoCycles(items: { id: string; deps: string[] }[]): void {
+  const graph = new Map<string, string[]>();
+  for (const it of items) graph.set(it.id, it.deps);
+  const WHITE = 0;
+  const GRAY = 1;
+  const BLACK = 2;
+  const color = new Map<string, number>();
+  for (const id of graph.keys()) color.set(id, WHITE);
+
+  const visit = (node: string, path: string[]): void => {
+    color.set(node, GRAY);
+    for (const next of graph.get(node) ?? []) {
+      if (!graph.has(next)) continue; // dep trỏ item đã dropped — bỏ qua
+      const c = color.get(next);
+      if (c === GRAY) {
+        throw APIError.invalidArgument(
+          `circular dependency: ${[...path, node, next].join(" -> ")}`
+        );
+      }
+      if (c === WHITE) visit(next, [...path, node]);
+    }
+    color.set(node, BLACK);
+  };
+
+  for (const id of graph.keys()) {
+    if (color.get(id) === WHITE) visit(id, []);
+  }
+}
+
+/**
+ * Duyệt cả lô: chuyển plan 'draft' -> 'accepted' và materialize từng item chưa
+ * dropped thành weekly_commitments + operating.tasks + task_projects. Item AUTO/
+ * NEEDS_APPROVAL gán cho AI member của owner_agent_profile (execution_mode AGENT);
+ * FOUNDER_ONLY gán founder member (execution_mode HUMAN). autonomy_class chính xác
+ * vẫn nằm ở execution_plan_items — worker task-executor JOIN ngược để đọc.
+ */
+export async function acceptExecutionPlanService(
+  planId: string,
+  p: { workspaceId: string; acceptedByMemberId?: string | null },
+  authorization: string | undefined
+): Promise<AcceptExecutionPlanResult> {
+  const ctx = await requireWorkspaceAccess(authorization, p.workspaceId);
+  const wsId = BigInt(ctx.workspaceId);
+
+  return await db.transaction(async (tx) => {
+    const [plan] = await tx
+      .select()
+      .from(executionPlans)
+      .where(and(eq(executionPlans.id, BigInt(planId)), eq(executionPlans.workspaceId, wsId)))
+      .limit(1);
+    if (!plan) throw APIError.notFound(`execution plan ${planId} not found`);
+    if (plan.status !== "draft") {
+      throw APIError.failedPrecondition(`plan không ở trạng thái draft (hiện: ${plan.status})`);
+    }
+    if (!plan.weeklyPlanId) {
+      throw APIError.failedPrecondition(
+        "plan chưa gắn weekly_plan — đặt mục tiêu tuần trước khi duyệt kế hoạch"
+      );
+    }
+
+    const allItems = await tx
+      .select()
+      .from(executionPlanItems)
+      .where(eq(executionPlanItems.planId, plan.id));
+    const liveItems = allItems.filter((it) => it.status !== "dropped");
+    if (liveItems.length === 0) {
+      throw APIError.invalidArgument("plan không còn item nào để duyệt (tất cả đã bỏ)");
+    }
+
+    assertNoCycles(
+      liveItems.map((it) => ({
+        id: it.id.toString(),
+        deps: Array.isArray(it.dependsOnItemIds)
+          ? (it.dependsOnItemIds as unknown[]).map((v) => String(v))
+          : [],
+      }))
+    );
+
+    const founderMemberId = await resolveFounderMemberId(
+      tx,
+      ctx.workspaceId,
+      p.acceptedByMemberId ?? ctx.workforceMemberId ?? null
+    );
+    const aiMemberByProfile = new Map<OwnerAgentProfile, string>();
+    const ensureAi = async (profile: OwnerAgentProfile): Promise<string> => {
+      const cached = aiMemberByProfile.get(profile);
+      if (cached) return cached;
+      const id = await ensureAiWorkforceMember(tx, ctx.workspaceId, profile);
+      aiMemberByProfile.set(profile, id);
+      return id;
+    };
+
+    const itemIdToTaskId = new Map<string, string>();
+    const taskIds: string[] = [];
+    const founderOnlyTaskIds: string[] = [];
+
+    for (const it of liveItems) {
+      const klass = it.autonomyClass as AutonomyClass;
+      const executionMode = EXECUTION_MODE_BY_CLASS[klass];
+
+      let assigneeMemberId: bigint | null = null;
+      if (klass === "FOUNDER_ONLY") {
+        assigneeMemberId = founderMemberId ? BigInt(founderMemberId) : null;
+      } else {
+        const profile = (it.ownerAgentProfile as OwnerAgentProfile | null) ?? "operations";
+        assigneeMemberId = BigInt(await ensureAi(profile));
+      }
+
+      const [commitment] = await tx
+        .insert(weeklyCommitments)
+        .values({
+          id: generateSnowflake(),
+          workspaceId: wsId,
+          weeklyPlanId: plan.weeklyPlanId,
+          initiativeId: null,
+          title: it.title.slice(0, 255),
+          commitmentOwnerType: klass === "FOUNDER_ONLY" ? "FOUNDER" : "AGENT",
+          executionMode,
+        })
+        .returning();
+
+      const taskId = generateSnowflake();
+      await tx.insert(tasks).values({
+        id: taskId,
+        workspaceId: wsId,
+        title: it.title,
+        status: "todo",
+        priority: it.priority ?? "medium",
+        source: "ai_agent_proposal",
+        weeklyCommitmentId: commitment!.id,
+        assigneeMemberId,
+        executionMode,
+      });
+
+      await tx
+        .insert(taskProjects)
+        .values({ workspaceId: wsId, taskId, projectId: plan.projectId })
+        .onConflictDoNothing();
+
+      await tx
+        .update(executionPlanItems)
+        .set({ materializedTaskId: taskId, status: "accepted", updatedAt: new Date() })
+        .where(eq(executionPlanItems.id, it.id));
+
+      itemIdToTaskId.set(it.id.toString(), taskId.toString());
+      taskIds.push(taskId.toString());
+      if (klass === "FOUNDER_ONLY") founderOnlyTaskIds.push(taskId.toString());
+    }
+
+    // Pass 2 — dựng task_dependencies từ depends_on_item_ids.
+    for (const it of liveItems) {
+      const deps = Array.isArray(it.dependsOnItemIds)
+        ? (it.dependsOnItemIds as unknown[]).map((v) => String(v))
+        : [];
+      const taskId = itemIdToTaskId.get(it.id.toString());
+      if (!taskId) continue;
+      for (const depItemId of deps) {
+        const depTaskId = itemIdToTaskId.get(depItemId);
+        if (!depTaskId) continue; // dep trỏ item đã dropped
+        await tx.insert(taskDependencies).values({
+          id: generateSnowflake(),
+          taskId: BigInt(taskId),
+          dependsOnTaskId: BigInt(depTaskId),
+          dependencyType: "BLOCKS",
+          status: "PENDING",
+        });
+      }
+    }
+
+    await tx
+      .update(executionPlans)
+      .set({
+        status: "accepted",
+        acceptedByMemberId: founderMemberId ? BigInt(founderMemberId) : null,
+        acceptedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(executionPlans.id, plan.id));
+
+    const event = makeBusinessEvent({
+      eventType: EXECUTION_PLAN_ACCEPTED,
+      workspaceId: ctx.workspaceId,
+      aggregateType: "execution_plan",
+      aggregateId: plan.id.toString(),
+      correlationId: randomUUID(),
+      actor: { kind: "user", id: ctx.userId || "0" },
+      classification: "internal",
+      payload: {
+        workspaceId: ctx.workspaceId,
+        projectId: plan.projectId.toString(),
+        planId: plan.id.toString(),
+        taskIds,
+      },
+    });
+    await appendOutboxEvent(tx, event);
+
+    return { planId: plan.id.toString(), taskIds, founderOnlyTaskIds };
+  });
+}
+
+export async function rejectExecutionPlanService(
+  planId: string,
+  workspaceId: string,
+  authorization: string | undefined
+): Promise<void> {
+  const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+  const wsId = BigInt(ctx.workspaceId);
+  const res = await db
+    .update(executionPlans)
+    .set({ status: "rejected", updatedAt: new Date() })
+    .where(
+      and(
+        eq(executionPlans.id, BigInt(planId)),
+        eq(executionPlans.workspaceId, wsId),
+        eq(executionPlans.status, "draft")
+      )
+    )
+    .returning({ id: executionPlans.id });
+  if (res.length === 0) {
+    throw APIError.failedPrecondition("plan không tồn tại hoặc không ở trạng thái draft");
+  }
 }
