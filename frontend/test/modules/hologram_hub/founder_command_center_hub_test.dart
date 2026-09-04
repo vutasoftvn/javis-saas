@@ -199,8 +199,10 @@ void main() {
       );
       expect(find.text('Ngày review: Thứ Sáu · 16:00'), findsOneWidget);
       expect(find.text('Kết quả tuần 1: 5 Founder interviews'), findsOneWidget);
-      expect(find.text('1. Draft interview questions'), findsOneWidget);
-      expect(find.text('2. Book calls with 10 prospects'), findsOneWidget);
+      // Checklist tuần đầu giờ render bên trong Top3FocusWidget (không còn
+      // chip tĩnh trong banner "Vòng hiện tại"), và không đánh số thứ tự.
+      expect(find.text('Draft interview questions'), findsOneWidget);
+      expect(find.text('Book calls with 10 prospects'), findsOneWidget);
     },
   );
 }

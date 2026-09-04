@@ -444,18 +444,31 @@ class HologramHubView extends StatelessWidget {
                 children: [
                   // B. Top 3 Focus (12-Week Year) - Left Column
                   Expanded(
-                    flex: 6,
+                    flex: 7,
                     child: Top3FocusWidget(
                       actions: controller.top3Actions.toList(),
                       onActionTap: (action) =>
                           _handleActionTap(context, controller, action),
+                      firstWeekActions:
+                          controller
+                              .activeProjectSetup
+                              .value
+                              ?.firstWeekActions ??
+                          const [],
+                      onToggleActionStatus: (action) =>
+                          controller.toggleFirstWeekActionStatus(action),
+                      onScheduleAction: (action, plannedStartAt) =>
+                          controller.updateFirstWeekActionSchedule(
+                            action,
+                            plannedStartAt,
+                          ),
                     ),
                   ),
                   const SizedBox(width: 24),
 
                   // C. Waiting for You (Decisions & Approvals) - Right Column
                   Expanded(
-                    flex: 5,
+                    flex: 3,
                     child: WaitingForYouWidget(
                       decisions: controller.pendingDecisions.toList(),
                       approvals: controller.pendingApprovals.toList(),
@@ -478,6 +491,13 @@ class HologramHubView extends StatelessWidget {
                 actions: controller.top3Actions.toList(),
                 onActionTap: (action) =>
                     _handleActionTap(context, controller, action),
+                firstWeekActions:
+                    controller.activeProjectSetup.value?.firstWeekActions ??
+                    const [],
+                onToggleActionStatus: (action) =>
+                    controller.toggleFirstWeekActionStatus(action),
+                onScheduleAction: (action, plannedStartAt) => controller
+                    .updateFirstWeekActionSchedule(action, plannedStartAt),
               ),
               const SizedBox(height: 24),
               WaitingForYouWidget(
@@ -686,39 +706,6 @@ class HologramHubView extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
-            ),
-          ],
-          if (setup.firstWeekActions.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            const Text(
-              'Hành động tuần đầu:',
-              style: TextStyle(
-                color: Color(0xFF94A3B8),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: setup.firstWeekActions.asMap().entries.map((entry) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
-                  child: Text(
-                    '${entry.key + 1}. ${entry.value.title}',
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                  ),
-                );
-              }).toList(),
             ),
           ],
         ],
