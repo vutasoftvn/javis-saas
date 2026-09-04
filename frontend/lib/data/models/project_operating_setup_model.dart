@@ -158,6 +158,9 @@ class ProjectOperatingSetup {
     this.weeklyReviewTime,
     this.firstWeekOutcome,
     this.firstWeekActions = const [],
+    this.aiSuggestionStatus,
+    this.aiSuggestedOutcome,
+    this.aiSuggestedActions,
     this.updatedAt,
   });
 
@@ -176,6 +179,9 @@ class ProjectOperatingSetup {
   final String? weeklyReviewTime;
   final String? firstWeekOutcome;
   final List<FirstWeekActionDraft> firstWeekActions;
+  final String? aiSuggestionStatus;
+  final String? aiSuggestedOutcome;
+  final List<String>? aiSuggestedActions;
   final DateTime? updatedAt;
 
   bool get isInitialLoop =>
@@ -230,6 +236,11 @@ class ProjectOperatingSetup {
               )
               .toList() ??
           const [],
+      aiSuggestionStatus: json['aiSuggestionStatus'] as String?,
+      aiSuggestedOutcome: json['aiSuggestedOutcome'] as String?,
+      aiSuggestedActions: (json['aiSuggestedActions'] as List?)
+          ?.map((e) => e.toString())
+          .toList(),
       updatedAt: json['updatedAt'] != null
           ? DateTime.tryParse(json['updatedAt'].toString())
           : null,
@@ -256,6 +267,9 @@ class ProjectOperatingSetup {
       weeklyReviewTime: weeklyReviewTime,
       firstWeekOutcome: firstWeekOutcome,
       firstWeekActions: firstWeekActions ?? this.firstWeekActions,
+      aiSuggestionStatus: aiSuggestionStatus,
+      aiSuggestedOutcome: aiSuggestedOutcome,
+      aiSuggestedActions: aiSuggestedActions,
       updatedAt: updatedAt,
     );
   }

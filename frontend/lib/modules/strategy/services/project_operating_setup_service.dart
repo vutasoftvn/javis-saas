@@ -67,4 +67,11 @@ class ProjectOperatingSetupService extends StrategyServiceBase {
       'Invalid operating setup response format',
     );
   }
+
+  Future<void> requestKickoffSuggestion(String projectId) async {
+    final response = await ApiClient.post(
+      '/operations/projects/$projectId/kickoff-suggestion',
+    );
+    decode(response); // throws StrategyApiException nếu không phải 2xx
+  }
 }

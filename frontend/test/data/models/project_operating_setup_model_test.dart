@@ -69,4 +69,31 @@ void main() {
     expect(action.status, TaskKanbanStatus.todo);
     expect(action.plannedStartAt, isNull);
   });
+
+  test('fromJson đọc đúng field aiSuggestion', () {
+    final setup = ProjectOperatingSetup.fromJson({
+      'projectId': 'p1',
+      'workspaceId': 'w1',
+      'status': 'IN_PROGRESS',
+      'aiSuggestionStatus': 'completed',
+      'aiSuggestedOutcome': 'Hoàn thành 5 cuộc phỏng vấn',
+      'aiSuggestedActions': ['Phỏng vấn 5 khách hàng', 'Ghi chép pain point'],
+    });
+
+    expect(setup.aiSuggestionStatus, 'completed');
+    expect(setup.aiSuggestedOutcome, 'Hoàn thành 5 cuộc phỏng vấn');
+    expect(setup.aiSuggestedActions, ['Phỏng vấn 5 khách hàng', 'Ghi chép pain point']);
+  });
+
+  test('fromJson trả null cho aiSuggestion khi thiếu field', () {
+    final setup = ProjectOperatingSetup.fromJson({
+      'projectId': 'p1',
+      'workspaceId': 'w1',
+      'status': 'NOT_STARTED',
+    });
+
+    expect(setup.aiSuggestionStatus, isNull);
+    expect(setup.aiSuggestedOutcome, isNull);
+    expect(setup.aiSuggestedActions, isNull);
+  });
 }

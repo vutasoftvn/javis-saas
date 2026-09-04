@@ -145,4 +145,35 @@ void main() {
       );
     },
   );
+
+  test('requestKickoffSuggestion posts to correct endpoint', () async {
+    ApiClient.client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(
+        request.url.path,
+        '/operations/projects/p-1/kickoff-suggestion',
+      );
+      return http.Response(
+        jsonEncode({'runId': 'run-1', 'status': 'dispatched'}),
+        202,
+      );
+    });
+
+    await ProjectOperatingSetupService().requestKickoffSuggestion('p-1');
+  });
+
+  test('requestKickoffSuggestion throws StrategyApiException on non-2xx', () async {
+    ApiClient.client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({'detail': 'Hoàn thành Bước 1 trước khi tạo gợi ý AI'}),
+        412,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    expect(
+      () => ProjectOperatingSetupService().requestKickoffSuggestion('p-1'),
+      throwsA(isA<StrategyApiException>()),
+    );
+  });
 }
