@@ -151,8 +151,9 @@ Partial unique index: **1 plan `draft` / `weekly_plan_id`** (`WHERE status='draf
 
 - `operating.tasks`: **không đổi cấu trúc**. Dùng cột sẵn có:
   - `source = 'ai_agent_proposal'`
-  - `execution_mode ∈ { 'agent_auto', 'agent_approval', 'founder' }` (cột `text` tự do, hiện chưa có enum)
+  - `execution_mode` — TS layer (`task.service.ts`) đã cố định enum `'HUMAN' | 'AGENT' | 'HYBRID' | null`. Đặt `'AGENT'` cho item `AUTO`/`NEEDS_APPROVAL`, `'HUMAN'` cho `FOUNDER_ONLY`. **Không overload cột này với `autonomy_class`.**
   - `assignee_member_id`, `weekly_commitment_id`
+- **`autonomy_class` là single source of truth trên `execution_plan_items`**, không copy sang `tasks`. Worker `task-executor` JOIN `execution_plan_items ON materialized_task_id = tasks.id` để đọc class + `owner_agent_profile` + `expected_capability`.
 - FK duy nhất thêm hướng tasks: `execution_plan_items.materialized_task_id`.
 - Migration: 2 `CREATE TABLE` + index, không `ALTER` phá huỷ (Encore Guardrail #4).
 
@@ -255,7 +256,7 @@ Bọc `db.transaction()` (như `activateProjectOperatingSetup`):
 2. Mỗi item `status != 'dropped'`:
    - `weekly_commitments` (title, `weekly_plan_id`, `initiative_id=null`, `commitment_owner_type` theo class, `execution_mode`) — tái dùng helper materialize.
    - `operating.tasks`: `source='ai_agent_proposal'`, `weekly_commitment_id`, `priority`, `status='todo'`,
-     `execution_mode = { AUTO:'agent_auto', NEEDS_APPROVAL:'agent_approval', FOUNDER_ONLY:'founder' }`,
+     `execution_mode = { AUTO:'AGENT', NEEDS_APPROVAL:'AGENT', FOUNDER_ONLY:'HUMAN' }` (class chính xác đọc từ `execution_plan_items.autonomy_class`),
      `assignee_member_id = FOUNDER_ONLY ? founderMemberId : aiMemberFor(owner_agent_profile)`.
    - `task_projects(task_id, project_id)`.
    - `execution_plan_items.materialized_task_id`, `status='accepted'`.
@@ -282,17 +283,25 @@ Founder sửa goal lần nữa → plan `draft` cũ → `superseded`; task đã 
 - Chu kỳ default 30s (env `WGA_EXECUTOR_POLL_SECONDS`).
 - Claim query:
   ```
-  tasks WHERE deleted_at IS NULL
-    AND status = 'todo'
-    AND source = 'ai_agent_proposal'
-    AND execution_mode IN ('agent_auto','agent_approval')
-    AND assignee_member_id ∈ (SELECT id FROM workforce_members WHERE member_type='ai' AND workspace_id=?)
-    AND NOT EXISTS (task_dependencies chưa done)
-    AND workspace không có workspace_agent_policy 'execution.autopilot' = DENY
-    AND runs_today(workspace) < WGA_MAX_RUNS_PER_WORKSPACE_PER_DAY   (default 50; đếm run kind=task_execution trong 24h qua theo metadata.workspace_id, không tính goal_decomposition)
-  ORDER BY priority, sort_key
-  LIMIT WGA_EXECUTOR_BATCH   (default 5)
+  SELECT t.*, i.autonomy_class, i.owner_agent_profile, i.expected_capability, i.id AS plan_item_id
+  FROM operating.tasks t
+  JOIN operating.execution_plan_items i ON i.materialized_task_id = t.id AND i.status = 'accepted'
+  JOIN operating.execution_plans p ON p.id = i.plan_id AND p.status = 'accepted'
+  WHERE t.deleted_at IS NULL
+    AND t.status = 'todo'
+    AND t.source = 'ai_agent_proposal'
+    AND i.autonomy_class IN ('AUTO','NEEDS_APPROVAL')
+    AND t.assignee_member_id IN (SELECT id FROM core.workforce_members WHERE member_type='ai' AND workspace_id = t.workspace_id)
+    AND NOT EXISTS (SELECT 1 FROM operating.task_dependencies d
+                    JOIN operating.tasks dep ON dep.id = d.depends_on_task_id
+                    WHERE d.task_id = t.id AND dep.status <> 'done' AND dep.deleted_at IS NULL)
+    AND NOT EXISTS (SELECT 1 FROM cosa.workspace_agent_policy wap    -- kill-switch (services/cosa DB, tra qua RPC agent-policy)
+                    WHERE wap.workspace_id = t.workspace_id AND wap.tool_pattern = 'execution.autopilot' AND wap.decision = 'DENY')
+    AND runs_today(t.workspace_id) < WGA_MAX_RUNS_PER_WORKSPACE_PER_DAY   -- default 50; đếm run kind=task_execution trong 24h qua, không tính goal_decomposition
+  ORDER BY t.priority, t.sort_key
+  LIMIT WGA_EXECUTOR_BATCH   -- default 5
   ```
+  *(kill-switch check thực tế gọi `getTenantPolicyForTool({workspaceId, toolName:'execution.autopilot'})` qua RPC sang `services/cosa` — `workspace_agent_policy` không nằm trong DB `services/company`. Executor cache kết quả theo workspace trong 1 chu kỳ poll.)*
 - Lease durable per task (`idempotency_key = task_id`) — chống 2 worker cùng chạy (CLAUDE.md #6).
 - Set `status='in_progress'` bằng optimistic lock trên `updated_at` trước khi dispatch.
 

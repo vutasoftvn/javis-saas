@@ -256,6 +256,46 @@ void main() {
   });
 
   test(
+    'activate() flushes pending text left in the "Thêm việc" input '
+    '(regression: task typed but not yet confirmed via "Thêm việc"/Enter '
+    'was silently dropped when the founder pressed "Xác nhận vòng đầu" '
+    'directly)',
+    () async {
+      final fakeService = FakeProjectOperatingSetupService();
+      final controller = ProjectKickoffController(service: fakeService);
+      await controller.load('p-1');
+
+      controller.targetCustomerCtrl.text = 'B2B Finance';
+      controller.problemStatementCtrl.text =
+          'Invoicing reconciliation is painful';
+      controller.selectEvidence(KickoffEvidenceLevel.none);
+      controller.firstWeekOutcomeCtrl.text = 'Talk to 5 controllers';
+
+      await controller.addAction('Interview lead #1');
+      // Founder gõ task 2 nhưng KHÔNG bấm "Thêm việc"/Enter, bấm thẳng
+      // "Xác nhận vòng đầu" luôn.
+      controller.newActionCtrl.text = 'Interview lead #2';
+
+      expect(controller.canActivate, isTrue);
+      final ok = await controller.activate();
+      expect(ok, isTrue);
+      expect(controller.firstWeekActions.length, 2);
+      expect(controller.firstWeekActions.last.title, 'Interview lead #2');
+      expect(
+        controller.newActionCtrl.text,
+        isEmpty,
+        reason: 'Input phải được clear sau khi flush vào list',
+      );
+      expect(
+        controller.setup.value?.firstWeekActions
+            .map((a) => a.title)
+            .toList(),
+        equals(['Interview lead #1', 'Interview lead #2']),
+      );
+    },
+  );
+
+  test(
     'saveCurrentStep adopts server-assigned action IDs to prevent task churn',
     () async {
       // Hồi quy: sau fix sơ bộ auto-save, mỗi lần addAction() hay updateWeeklyReviewCadence()

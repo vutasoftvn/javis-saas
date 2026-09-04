@@ -150,6 +150,18 @@ class ProjectKickoffController extends GetxController {
     roundStartDate.value = DateTime.utc(d.year, d.month, d.day);
   }
 
+  // Đưa text đang gõ dở trong ô "Thêm việc" vào `firstWeekActions` mà không
+  // save — dùng để flush trước khi activate(), tránh mất việc cuối cùng nếu
+  // Founder gõ xong rồi bấm thẳng "Xác nhận vòng đầu" mà quên bấm "Thêm việc".
+  bool _stageAction(String title) {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) return false;
+    if (firstWeekActions.length >= 3) return false;
+    firstWeekActions.add(FirstWeekActionDraft(title: trimmed));
+    newActionCtrl.clear();
+    return true;
+  }
+
   // Lưu ngay khi danh sách đổi — trước fix, việc #3 (hoặc bất kỳ thay đổi nào
   // ở bước 3) chỉ tồn tại trong state cục bộ tới khi bấm "Xác nhận vòng đầu";
   // nếu Founder rời màn/reload trước đó (kể cả bấm "Quay lại"), dữ liệu mất
@@ -158,11 +170,7 @@ class ProjectKickoffController extends GetxController {
     // Chặn double-save khi Founder gõ nhanh 2 hành động liên tiếp trước khi
     // response đầu về — nếu không, response cũ về sau ghi đè mất action mới hơn.
     if (isSaving.value) return;
-    final trimmed = title.trim();
-    if (trimmed.isEmpty) return;
-    if (firstWeekActions.length >= 3) return;
-    firstWeekActions.add(FirstWeekActionDraft(title: trimmed));
-    newActionCtrl.clear();
+    if (!_stageAction(title)) return;
     await saveCurrentStep();
   }
 
@@ -251,6 +259,9 @@ class ProjectKickoffController extends GetxController {
   }
 
   Future<bool> activate() async {
+    // Flush việc đang gõ dở (nếu có) trước khi kiểm tra canActivate/build
+    // draft — nếu không, việc này bị âm thầm rơi khỏi payload activate.
+    _stageAction(newActionCtrl.text);
     if (!canActivate || projectId.value.isEmpty) return false;
     isActivating.value = true;
     errorMessage.value = null;
