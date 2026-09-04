@@ -290,6 +290,23 @@ void main() {
       expect(result.single['department'], 'Finance');
     });
 
+    // Follow-up (2026-09-04) — trước đây nhánh failure trả `default12Agents`
+    // (12 agent hư cấu hard-code), mâu thuẫn với chính lý do Phase 1 tồn tại
+    // (thay dữ liệu giả bằng registry thật). Lỗi mạng/backend không còn
+    // được nguỵ trang thành "vẫn có 12 agent" — UI phải thấy rõ rỗng/lỗi.
+    test('listAgents returns an empty list on failure, never the fabricated default12Agents', () async {
+      final mockHttp = MockClient((request) async {
+        return http.Response(jsonEncode({'detail': 'boom'}), 500);
+      });
+      final service = AgentPlatformService(
+        workforceMvpService: WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp)),
+      );
+
+      final result = await service.listAgents();
+
+      expect(result, isEmpty);
+    });
+
     test('listEscalations calls the canonical /agent/workforce/exceptions path', () async {
       final mockHttp = MockClient((request) async {
         expect(request.url.path, '/agent/workforce/exceptions');
