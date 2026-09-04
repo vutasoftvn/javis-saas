@@ -432,10 +432,33 @@ Spec §7.3 giả định sai. Thực tế phát hiện khi code:
 4. **`execute_resume_task` mở rộng.** Sau resume completed, nếu payload có `execution_plan_item_id` → gọi `operations.task.advance(done)`.
 5. **Dispatch branches** trong `apps/cosa/worker/main.py::dispatch_one_task` cho `task_type ∈ {goal_decomposition, workspace_task_sweep}` (giống nhánh `run`/`resume`, có lease theo `run_id` sinh nội bộ).
 
-### 15.3 Trạng thái triển khai (2026-09-04)
+### 15.2b Integration point #1 — ĐÃ XONG (commit sau `9cffb11b`)
 
-- **Phase 1 (company backend): HOÀN TẤT.** 8 task, 47 test mới, `make services-test-company` 1110 pass, migration 37 rollback verified, boundary checks pass.
-- **Phase 2 (apps/cosa): 4/8.** `capability_risk_map` ✓, `goal_decomposition` parser ✓, `operations.task.advance` capability ✓, event self-trigger routing ✓ (20 test). Còn: `execute_goal_decomposition_task`, `execute_workspace_task_sweep_task`, dispatch wiring, resume extension — chặn ở §15.2 (auth + core refactor).
-- **Phase 3 (goal-intent + Flutter): CHƯA.**
+`services/company/shared/auth/cosa-task-delegation.ts` — `resolveCosaTaskContext()`:
+- `POST /operations/execution-plans` — khi request có `runId` → verify cosa company-delegation token (cap `operations.execution_plan.create`, khớp `run_id`); không có `runId` → session (test/founder).
+- `POST /operations/tasks/:id/advance` — delegation-only (cap `operations.task.advance`, khớp `run_id`).
+- `GET /operations/tasks/agent-claimable` — chuyển `expose:true`, delegation (cap `operations.task.list`, chỉ workspace + cap).
+- KHÔNG `consumeCosaDelegation` (1 sweep advance nhiều task / 1 token) — dựa TTL 600s + guard state-machine. 6 test; company suite 1116 pass.
 
-Lỗi có sẵn không liên quan: `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`) — cả 2 fail sẵn trên `main` trước WGA.
+`apps/cosa` mint token bằng `apps/cosa/auth/jwt.py::mint_company_delegation(sub, workspace_id, run_id, capability_ids=[...])` — gọi trực tiếp, KHÔNG qua `compliance_resolver` (vì cap-list WGA khai tường minh, không suy từ spec).
+
+### 15.2c Integration point #3 (MỚI phát hiện) — AgentSpec `capability_refs`
+
+`COSA_OPERATIONS_AGENT_SPEC.capability_refs` hiện chỉ `["operations.task.list", "operations.task.read"]`. Gateway chặn kernel gọi capability ngoài danh sách này. Nên:
+- `execute_goal_decomposition_task`: OK — chỉ cần kernel reasoning ra JSON, KHÔNG gọi capability (pre-fetch context vào prompt, POST plan từ worker qua HTTP delegation).
+- `execute_workspace_task_sweep_task`: agent chỉ "làm" được task có `expected_capability ∈ {operations.task.list, operations.task.read}` (read-only). Task cần capability khác (SOP draft, automation-design, ...) → phải **mở rộng `capability_refs` của operations spec + re-seed registry** (ADR-AGENT-REG-001: đổi = sửa code + redeploy). `operations.task.advance` gọi TRỰC TIẾP từ worker (không qua kernel) nên không cần trong refs.
+
+→ Sweep executor v1 thực chất chỉ chạy được subset nhỏ; muốn đủ phải làm thêm bước mở rộng spec (chưa scope).
+
+### 15.3 Trạng thái triển khai (2026-09-04, cuối session)
+
+| Phase | Trạng thái | Test mới |
+|---|---|---|
+| **1 — company backend** | ✅ HOÀN TẤT, shippable độc lập | 53 (bao gồm 6 delegation-auth) |
+| **2 — apps/cosa** | 🟡 5/8: `capability_risk_map`, `goal_decomposition` parser, `operations.task.advance` capability, event self-trigger routing, **cross-plane delegation auth** (int. point #1) | 23 |
+| **2 — còn lại** | `execute_goal_decomposition_task`, `execute_workspace_task_sweep_task`, dispatch branches `worker/main.py`, `execute_resume_task` mở rộng | — |
+| **2 — chặn** | int. point #2 (reuse run-core / kernel.run wiring), #3 (operations spec `capability_refs` cho sweep) | — |
+| **3 — goal-intent + Flutter** | ❌ CHƯA | — |
+
+Gate xanh: `make services-test-company` 1116 pass, `apps/cosa` 756 pass, typecheck (company), boundary checks.
+Lỗi có sẵn KHÔNG liên quan (fail sẵn trên `main` trước WGA): `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`).
