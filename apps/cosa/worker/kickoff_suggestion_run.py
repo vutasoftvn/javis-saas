@@ -16,7 +16,6 @@ import logging
 from typing import Any
 
 import httpx
-
 from agent.contracts.run import RunStatus
 
 from apps.cosa.agents.kickoff_suggestion import (
@@ -49,9 +48,13 @@ async def callback_kickoff_result(
     actions: list[str] | None = None,
 ) -> None:
     company_base_url = require_internal_url(
-        "COMPANY_SERVICE_URL", purpose="kickoff suggestion callback", default_dev="http://127.0.0.1:4000"
+        "COMPANY_SERVICE_URL",
+        purpose="kickoff suggestion callback",
+        default_dev="http://127.0.0.1:4000",
     )
-    service_token = require_service_token("COSA_SERVICE_TOKEN", purpose="kickoff suggestion callback")
+    service_token = require_service_token(
+        "COSA_SERVICE_TOKEN", purpose="kickoff suggestion callback"
+    )
 
     url = f"{company_base_url}/operations/projects/{project_id}/kickoff-suggestion/result"
     headers = {
