@@ -529,3 +529,22 @@ async def test_stage_roster_proxies_company_and_reshapes(test_app, monkeypatch) 
         assert data["stage"]["stage_code"] == "P2"
         assert data["roster"][0]["task_id"] == "t1"
         assert data["summary"]["high_priority"] == 1
+
+
+@pytest.mark.asyncio
+async def test_dashboard_summary_aggregates_existing_counts(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        await client.post("/agent/workforce/assignments", json={"functional_key": "campaign_planner"})
+
+        res = await client.get("/agent/workforce/dashboard-summary")
+        assert res.status_code == 200
+        data = res.json()["data"]
+        assert data["roster_total"] == 6
+        assert data["roster_active"] == 1
+        assert data["open_exceptions"] == 0
+        assert data["pending_approvals"] == 0
+        assert data["work_products_total"] == 0

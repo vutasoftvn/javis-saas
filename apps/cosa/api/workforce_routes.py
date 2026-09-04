@@ -20,6 +20,7 @@ from apps.cosa.api.workforce_schemas import (
     WorkforceCapabilityOut,
     WorkforceCompositionEntry,
     WorkforceCostObservationOut,
+    WorkforceDashboardSummaryOut,
     WorkforceExceptionListOut,
     WorkforceExceptionOut,
     WorkforceHealthOut,
@@ -388,6 +389,44 @@ async def get_stage_roster(
         ),
     )
     return mvp_item(out, [MvpSourceRef(kind="company_db", ref="operating.tasks")])
+
+
+@router.get("/dashboard-summary")
+async def get_dashboard_summary(
+    request: Request,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[WorkforceDashboardSummaryOut]:
+    """Aggregator mỏng — không logic nghiệp vụ mới, chỉ gộp số đã có ở
+    /roster, /artifacts, /exceptions, /approvals."""
+    plane = _get_plane(request)
+    repo = _get_workforce_repo(request)
+
+    assignments = await repo.list_assignments(identity.workspace_id, status="ACTIVE")
+    roster_active = len({a.functional_key for a in assignments})
+
+    pending = await plane.approval_service.list_pending_approvals(
+        workspace_id=identity.workspace_id,
+    )
+
+    from agent.contracts.run import RunStatus
+
+    runs = await plane.repository.list_runs(identity.workspace_id, limit=200)
+    open_exceptions = len([r for r in runs if r.status == RunStatus.FAILED])
+
+    work_products_total = 0
+    if plane.artifact_repository is not None:
+        work_products_total = len(
+            await plane.artifact_repository.list_for_workspace(identity.workspace_id, limit=200)
+        )
+
+    out = WorkforceDashboardSummaryOut(
+        roster_total=len(FUNCTIONAL_AGENT_CATALOG),
+        roster_active=roster_active,
+        open_exceptions=open_exceptions,
+        pending_approvals=len(pending),
+        work_products_total=work_products_total,
+    )
+    return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.workforce_assignments")])
 
 
 # ─── Org Chart ───

@@ -110,6 +110,14 @@ class WorkforceStageRosterOut(BaseModel):
     summary: WorkforceStageRosterSummaryOut
 
 
+class WorkforceDashboardSummaryOut(BaseModel):
+    roster_total: int
+    roster_active: int
+    open_exceptions: int
+    pending_approvals: int
+    work_products_total: int
+
+
 class WorkforceOrgChartNode(BaseModel):
     assignment_id: str
     functional_key: str
