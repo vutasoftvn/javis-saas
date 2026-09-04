@@ -2,8 +2,43 @@
 
 ## Status
 
-PROPOSED — 2026-09-03. Chưa chọn phương án; tài liệu này khoá lại điều tra và các
-lựa chọn để review kiến trúc + bảo mật.
+**ACCEPTED & IMPLEMENTED — 2026-09-04.** Đã chọn **Option B** đúng như khuyến
+nghị và triển khai thật (không phải chỉ chốt trên giấy):
+
+- Secret mới `COSA_CONTROL_DELEGATION_SECRET` — `apps/cosa/auth/jwt.py::
+  mint_control_plane_delegation()` ký, `services/cosa/services/token.service.ts::
+  verifyControlDelegationToken()` verify. Payload thật:
+  `{iss:"cosa_apps", aud:"cosa_control", sub, workspace_id, role, jti, exp}`
+  (thêm `role` so với payload phác thảo ban đầu trong ADR).
+- Áp dụng cho `GET /platform/auth/me/agent-policy-snapshot` **và** cả 3 endpoint
+  `/cosa/schedules*` (`services/cosa/handlers/workspace-schedule.handler.ts`) —
+  cùng root cause, mở rộng nhất quán ngoài phạm vi ADR mô tả ban đầu (chỉ nhắc
+  hop policy-snapshot). Điểm vào dùng chung:
+  `services/cosa/services/workspace-connector.service.ts::
+  resolveCallerAuthorizedForWorkspace()`.
+- Đường cũ (platform token + `verifyWorkspaceMembership` forward sang company)
+  **giữ nguyên làm fallback**, không xoá — additive, không phải thay thế.
+- 3/4 mục "Review bảo mật cần trước khi ACCEPTED" đã xác nhận qua test thật:
+  cross-tenant read bị chặn (`delegation.workspaceId !== params.workspaceId` →
+  `permission_denied`, có test), TTL ≤600s + scope theo `workspace_id` (không
+  leo quyền), constraint cũ không mất (đường fallback giữ nguyên). Mục 1 (Option
+  A provisioning double-write) không áp dụng vì đã chọn B.
+- **Xác minh bằng E2E thật** (không chỉ unit test): `tests/e2e/
+  test_cross_plane_smoke.py::test_s2_dispatch_worker_result` và
+  `::test_s3_capability_governance` — trước fix fail đúng ở
+  `run.failed{policy_snapshot_unavailable}`; sau fix vượt qua hẳn hop đó, tiến
+  tới gọi capability thật (lộ ra 1 bug khác — company service 500 khi gọi
+  `operations.task.list` — KHÔNG liên quan B5, ghi nhận riêng cho phiên sau).
+- Cần thêm 1 field `platformUserId` vào `TenantContext`
+  (`services/company/shared/types/tenant_context.ts` +
+  `identity/services/tenant-context.service.ts`) mà ADR gốc chưa lường tới:
+  mint delegation cần `platform_user_id` THẬT (khác local company user id) —
+  chỉ có nếu user đã từng `sync-from-platform`. Seed E2E
+  (`tests/e2e/seed/identity.py`) đã cập nhật để link seeded user sang 1
+  platform user thật, nếu không toàn bộ seed rơi vào đúng case "chưa sync".
+
+Nội dung "Decision"/3 Option bên dưới giữ nguyên làm hồ sơ quyết định (đã đúng),
+không cần đọc lại để biết Option nào được chọn — đọc mục Status này là đủ.
 
 **Đánh số:** Chuỗi `COSA-DELEGATION` chưa từng có ADR nào. `-001` ngầm định là cơ
 chế đã tồn tại trong code trước mọi ADR — delegation CÓ CẤU TRÚC (scoped)

@@ -1,6 +1,98 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 COSA là **Founder / Company Operating System với Agent Platform composable**. Không coi COSA là tập hợp các AI agent độc lập.
+
+## Lệnh thường dùng (Commands)
+
+### Cài đặt & dev stack
+
+```bash
+cp .env.example .env && ./install.sh   # lần đầu (macOS/Linux/WSL); Windows: .\install.ps1
+make dev-stack             # docker infra + migrate (Agent→COSA→Company) + Company:4000 + COSA:4001 + FastAPI:8000 + Worker, foreground, Ctrl+C dọn sạch cả 4 tiến trình
+make dev-stack-no-infra    # bỏ qua docker+migrate nếu Postgres/MinIO/LiveKit đã chạy sẵn
+make dev-status            # kiểm tra port/tiến trình đang chạy
+make dev-preflight         # kiểm tra config/migration/health trước khi chạy
+```
+
+Encore.ts **không tự nạp** `.env` — dùng direnv (xem README.md) hoặc chạy
+`source scripts/load-dev-env.sh` ở mỗi terminal mới trước khi gọi `make`.
+
+### Lint & type-check
+
+```bash
+make lint                                    # ruff check + format check (packages/agent, apps/cosa, packages/agent_integrations)
+make lint-fix                                # tự sửa
+make typecheck-py                            # mypy
+cd services/company && npm run typecheck     # tsc --noEmit (tương tự cho services/cosa)
+```
+
+### Test theo từng vùng
+
+```bash
+# Python — packages/agent (coverage gate 80%)
+make agent-test
+# 1 test riêng lẻ (kích hoạt venv trước — repo dùng .venv/bin/python, không phải python hệ thống):
+source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/kernel/test_openai_agents_kernel.py::test_name -q
+
+# Python — apps/cosa (coverage gate 78%; target tự set AGENT_DATABASE_URL/
+# COSA_DATABASE_URL/DATABASE_URL="" để cô lập khỏi Postgres dev thật — test
+# dùng InMemory*/fixture riêng)
+make apps-cosa-test
+
+# Encore.ts — services/company và services/cosa là 2 Encore app độc lập,
+# mỗi app "encore test" riêng (`encore test` không gộp được cả 2 app)
+make services-test            # cả 2, tuần tự
+make services-test-company    # = cd services/company && encore test
+make services-test-cosa       # = cd services/cosa && encore test
+# 1 file/test riêng (vitest chạy dưới encore test):
+cd services/cosa && npx vitest run tests/agent-policy.test.ts
+
+# Flutter frontend
+make frontend-test                                    # toàn bộ
+cd frontend && flutter test test/path/to/test.dart     # 1 file riêng
+make frontend-analyze                                  # flutter analyze
+
+# E2E
+make e2e-test               # golden path, không cần Encore CLI/Postgres disposable
+make e2e-cross-plane-smoke  # 4 plane thật + Postgres disposable — cần `encore` CLI cài
+                             # sẵn và PGPASSWORD khớp POSTGRES_PASSWORD thật trong .env
+                             # (KHÔNG phải mặc định "postgres" của thư viện test)
+```
+
+### Gate tổng hợp trước khi báo cáo "xong"
+
+```bash
+make verify         # gate CI đầy đủ: lint + typecheck + boundary + skillpacks + tenancy
+                     # + contract-freeze + agent-test + apps-cosa-test + services-test
+                     # + frontend-test/analyze
+make verify-local    # biến thể máy dev: thêm e2e-test + e2e-cross-plane-smoke
+```
+
+Còn nhiều gate hẹp hơn theo đúng vùng vừa sửa — chạy gate tương ứng thay vì luôn
+chạy `make verify` đầy đủ: `make boundary-check`, `make company-boundary-check`,
+`make encore-handler-boundary-check`, `make ts-suppression-check`,
+`make frontend-api-contract-check`, `make route-auth-allowlist-check`,
+`make skillpacks-validate`, `make contract-freeze-check`. Xem đầu file
+`Makefile` (dòng `.PHONY`) để biết toàn bộ target sẵn có.
+
+### Migration
+
+```bash
+make dev-migrate               # dev: Agent Core → COSA → Company (thứ tự bắt buộc)
+make migrate-all                # production/VPS: tương tự, dùng *_MIGRATOR_DATABASE_URL
+make services-migrate-company   # chỉ 1 service (node scripts/migrate.mjs)
+make services-migrate-cosa
+make migrate-agent-platform     # chỉ packages/agent (Python, schema Postgres riêng)
+```
+
+### Deploy (VPS)
+
+```bash
+make deploy-preflight   # kiểm tra env/health/backup policy trước
+make deploy              # preflight → migrate-all → deploy-app (tuần tự bắt buộc)
+```
 
 ## Quy tắc Git & Workspace (BẮT BUỘC)
 
@@ -21,10 +113,11 @@ tự trong `docs/archive/` chỉ là lưu trữ lịch sử, KHÔNG phải ngu�
 **Document index hiện tại** (chỉ đọc các file TỒN TẠI trong cây):
 
 - `docs/architecture/adr/` — ADR đang hoạt động: `ADR-AGENT-REG-001`,
-  `ADR-AI-COMPLIANCE-RUNTIME-001`, `ADR-CONV-001`, `ADR-CUTOVER-001`,
-  `ADR-DEPLOY-001`, `ADR-ID-MODEL-001`, `ADR-LOCAL-EVENT-BACKBONE-001`,
-  `ADR-LOCAL-FIRST-001`, `ADR-SLUG-001`. Trước khi hành động, kiểm tra ADR
-  liên quan tại đây.
+  `ADR-AI-COMPLIANCE-RUNTIME-001`, `ADR-CONV-001`, `ADR-COSA-DELEGATION-002`,
+  `ADR-CUTOVER-001`, `ADR-DEPLOY-001`, `ADR-ID-MODEL-001`,
+  `ADR-LOCAL-EVENT-BACKBONE-001`, `ADR-LOCAL-FIRST-001`, `ADR-SLUG-001`. Trước
+  khi hành động, kiểm tra ADR liên quan tại đây. Danh sách này tự nó có thể lỗi
+  thời — `ls docs/architecture/adr/` để chắc chắn không bỏ sót ADR mới hơn.
 - `docs/superpowers/specs/` — design đã duyệt (vd.
   `2026-08-31-maintainable-modular-truthful-mvp-design.md`).
 - `docs/superpowers/plans/` — plan triển khai đã duyệt.
@@ -40,6 +133,19 @@ TypeScript đã tồn tại; claim "zero production consumer" (tính đến 2026
 `services/cosa` (`identity/services/platform.client.ts` xác thực workspace
 membership; `shared/auth/cosa-delegation.service.ts` bridge token cho
 `apps/cosa`). Luôn kiểm tra lại bằng grep thay vì tin ngày trong ghi chú này.
+
+**3 secret cross-plane, mỗi secret đúng 1 chiều ký→verify — không tái dùng
+chéo** (xem `ADR-COSA-DELEGATION-002` cho bối cảnh đầy đủ):
+`PLATFORM_JWT_SECRET` (`services/cosa` ký, `services/cosa` gateway + `apps/cosa`
+verify — danh tính platform), `JWT_SECRET` (`services/company` ký, `apps/cosa`
+verify — local business session), `COSA_COMPANY_DELEGATION_SECRET`
+(`apps/cosa` ký → `services/company` verify, scoped `{workspace_id, run_id,
+capability_ids}`), `COSA_CONTROL_DELEGATION_SECRET` (`apps/cosa` ký →
+`services/cosa` verify, scoped `{workspace_id, role}` — dùng cho
+`agent-policy-snapshot` + `/cosa/schedules*`). Không dùng đè secret này cho
+secret khác dù "có vẻ tiện" — đúng thứ từng gây bug B5 (agent run thật fail
+`policy_snapshot_unavailable` vì forward nhầm token platform sang endpoint chỉ
+hiểu local-session, đã vá).
 
 Trạng thái ACCEPTED chỉ xác nhận quyết định kiến trúc; không mặc định có
 nghĩa implementation, migration cutover, runtime wiring hoặc production
@@ -58,6 +164,29 @@ Agent Platform        packages/agent (Python, reusable) + apps/cosa (Python, com
 
 - `packages/agent/` **không được import** bất cứ gì từ `services/company/*`. Chỉ `apps/cosa/` được compose cả hai phía.
 - `legacy/` đã xoá hẳn 2026-08-25 (bao gồm `agentos/` archive cũ, `legacy/backend`, `legacy/agent_runtime`, và các thư mục split-out khác). Mọi tính năng runtime hiện hoạt đều nằm tại `packages/agent/` và `apps/cosa/`.
+
+**AgentSpec — authoring hard-code, resolution qua registry (hybrid, có chủ
+đích):** agent hiện có (`operations`, `finance`, `marketing`,
+`customer_support`, `customer_support_autopilot`) khai báo dạng Python
+constant trong `apps/cosa/agents/specs.py` (đổi = sửa code + redeploy — theo
+`ADR-AGENT-REG-001`, registration API runtime là post-launch). Nhưng lúc chạy,
+`apps/cosa/worker/handlers.py` **không tin object Python đang import** — luôn
+`SpecResolver(repository=plane.spec_registry).resolve_agent_spec_dependencies()`
+theo exact-hash (chống drift khi rolling-deploy nhiều worker chạy code khác
+nhau cùng lúc). Chọn spec nào cho 1 `agent_profile` là bảng ánh xạ tường minh
+(`_AGENT_PROFILE_SPECS`) — thêm agent_profile mới PHẢI thêm vào bảng này,
+không dựa vào so khớp chuỗi/fallback ngầm (bug thật đã xảy ra: agent
+`marketing` từng luôn âm thầm chạy nhầm bằng spec `operations`).
+
+**Skill (`skillpacks/`) tách khỏi Agent (`AgentSpec`):** `skillpacks/<domain>/<name>/`
+(`manifest.yaml` + `SKILL.md`) là nội dung khai báo tĩnh, có API lifecycle
+runtime riêng (`pending → adapted → published → pinned`/`retired`, xem
+`apps/cosa/api/skill_registry_routes.py`) — trưởng thành hơn Agent registry.
+`packages/agent/skills/` là hạ tầng generic validate/publish/registry (không
+biết gì về COSA); `apps/cosa/agents/skillpack_seed.py` là composition layer
+seed built-in skillpack vào registry lúc khởi động. Mỗi `AgentSpec` pin skill
+qua `PinnedSkillRef{skill_id, version, definition_hash}` — resolve sai hash
+raise lỗi, không tự dùng version mới hơn.
 
 
 ## Quy tắc bắt buộc
