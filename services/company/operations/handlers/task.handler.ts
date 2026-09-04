@@ -1,4 +1,4 @@
-import { api, Header } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import {
   Task,
   TaskStatus,
@@ -15,6 +15,11 @@ import {
   AgentClaimableTask,
 } from "../services/task.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import {
+  resolveCosaTaskContext,
+  WGA_CAP_TASK_ADVANCE,
+  WGA_CAP_TASK_LIST,
+} from "../../shared/auth/cosa-task-delegation";
 import { linkTaskProjects, listTaskProjects, unlinkTaskProject } from "../services/project-link.service";
 
 export { Task, TaskStatus, TASK_STATUSES };
@@ -98,6 +103,8 @@ export const updateTaskSchedule = api(
   }
 );
 
+// Gọi bởi background run của apps/cosa (workspace_task_sweep / task_execution) —
+// xác thực bằng cosa company-delegation token khớp run_id + capability.
 export const advanceTask = api(
   { method: "POST", path: "/operations/tasks/:id/advance", expose: true },
   async ({
@@ -115,14 +122,20 @@ export const advanceTask = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<Task> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    if (!runId || !runId.trim()) throw APIError.invalidArgument("runId required");
+    const ctx = resolveCosaTaskContext(authorization, {
+      workspaceId,
+      capabilityId: WGA_CAP_TASK_ADVANCE,
+      runId,
+    });
     return advanceTaskByAgentService({ taskId: id, toStatus, runId, note }, ctx);
   }
 );
 
-// expose:false — chỉ worker task-executor (apps/cosa) gọi qua service token.
+// Gọi bởi workspace_task_sweep của apps/cosa — cosa delegation (workspace + cap,
+// không khớp run_id vì sweep không phải 1 run cụ thể).
 export const listAgentClaimableTasks = api(
-  { method: "GET", path: "/operations/tasks/agent-claimable", expose: false },
+  { method: "GET", path: "/operations/tasks/agent-claimable", expose: true },
   async ({
     workspaceId,
     limit,
@@ -132,7 +145,16 @@ export const listAgentClaimableTasks = api(
     limit?: number;
     authorization?: Header<"Authorization">;
   }): Promise<{ tasks: AgentClaimableTask[] }> => {
-    const tasks = await listAgentClaimableTasksService(workspaceId, limit ?? 5, authorization);
+    const ctx = resolveCosaTaskContext(authorization, {
+      workspaceId,
+      capabilityId: WGA_CAP_TASK_LIST,
+    });
+    const tasks = await listAgentClaimableTasksService(
+      workspaceId,
+      limit ?? 5,
+      authorization,
+      ctx
+    );
     return { tasks };
   }
 );

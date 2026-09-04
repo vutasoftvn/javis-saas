@@ -364,10 +364,13 @@ export interface AgentClaimableTask {
 export async function listAgentClaimableTasksService(
   workspaceId: string,
   limit: number,
-  authorization: string | undefined
+  authorization: string | undefined,
+  ctxOverride?: TenantContext
 ): Promise<AgentClaimableTask[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
-  const wsId = BigInt(workspaceId);
+  if (!ctxOverride) {
+    await requireWorkspaceAccess(authorization, workspaceId);
+  }
+  const wsId = BigInt(ctxOverride?.workspaceId ?? workspaceId);
   const cap = Math.max(1, Math.min(limit || 5, 50));
 
   const rows = await db

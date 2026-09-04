@@ -12,6 +12,7 @@ import {
   weeklyCommitments,
 } from "../../shared/db/schema/operations";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import type { TenantContext } from "../../shared/types/tenant_context";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../shared/events/envelope";
 import { EXECUTION_PLAN_ACCEPTED } from "../../shared/events";
@@ -141,9 +142,10 @@ function toPlanView(plan: PlanRow, items: ItemRow[]): ExecutionPlanView {
  */
 export async function createExecutionPlanService(
   input: CreateExecutionPlanInput,
-  authorization: string | undefined
+  authorization: string | undefined,
+  ctxOverride?: TenantContext
 ): Promise<ExecutionPlanView> {
-  const ctx = await requireWorkspaceAccess(authorization, input.workspaceId);
+  const ctx = ctxOverride ?? (await requireWorkspaceAccess(authorization, input.workspaceId));
   const wsId = BigInt(ctx.workspaceId);
   const pId = BigInt(input.projectId);
   const goalText = input.goalText?.trim();

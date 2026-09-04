@@ -12,6 +12,10 @@ import {
   AcceptExecutionPlanResult,
 } from "../services/execution-plan.service";
 import { AutonomyClass } from "../services/autonomy-classifier";
+import {
+  resolveCosaTaskContext,
+  WGA_CAP_EXECUTION_PLAN_CREATE,
+} from "../../shared/auth/cosa-task-delegation";
 
 interface ListParams {
   authorization?: Header<"Authorization">;
@@ -68,6 +72,15 @@ export const createExecutionPlan = api(
     if (!Array.isArray(p.items) || p.items.length === 0) {
       throw APIError.invalidArgument("items required (at least 1)");
     }
+    // runId present -> gọi bởi background task goal_decomposition của apps/cosa:
+    // xác thực bằng cosa company-delegation token, không phải user session.
+    const ctxOverride = p.runId
+      ? resolveCosaTaskContext(p.authorization, {
+          workspaceId: p.workspaceId,
+          capabilityId: WGA_CAP_EXECUTION_PLAN_CREATE,
+          runId: p.runId,
+        })
+      : undefined;
     return createExecutionPlanService(
       {
         workspaceId: p.workspaceId,
@@ -79,7 +92,8 @@ export const createExecutionPlan = api(
         runId: p.runId ?? null,
         items: p.items,
       },
-      p.authorization
+      p.authorization,
+      ctxOverride
     );
   }
 );
