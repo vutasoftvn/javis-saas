@@ -14,8 +14,10 @@ import '../../../core/network/api_result.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/session/session_controller.dart';
+import '../../../data/models/execution_plan_model.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 import '../../../data/models/task_kanban_model.dart';
+import '../../../modules/strategy/services/execution_plan_service.dart';
 import '../../../modules/strategy/services/project_operating_setup_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
 import '../../../modules/tasks/services/task_service.dart';
@@ -118,6 +120,14 @@ class FounderCommandCenterController extends GetxController {
   final RxBool projectsLoadedOnce = false.obs;
   final Rx<CompanyPulseModel?> pulse = Rx<CompanyPulseModel?>(null);
   final RxList<NextBestActionModel> top3Actions = <NextBestActionModel>[].obs;
+
+  /// WGA — id dự án đang active (để gọi weekly-goal / execution-plans).
+  final RxnString activeProjectId = RxnString();
+
+  /// WGA — kế hoạch triển khai (draft) agent đề xuất từ mục tiêu tuần.
+  final RxList<ExecutionPlan> draftPlans = <ExecutionPlan>[].obs;
+  final RxBool isDecomposing = false.obs;
+  final ExecutionPlanService _executionPlanService = ExecutionPlanService();
   final RxList<FounderDecisionModel> pendingDecisions =
       <FounderDecisionModel>[].obs;
   final RxList<Map<String, dynamic>> pendingApprovals =
@@ -255,6 +265,8 @@ class FounderCommandCenterController extends GetxController {
                 projects.first['lifecycle_stage'])
           : null;
 
+      this.activeProjectId.value = activeProjectId;
+
       if (activeProjectId != null) {
         try {
           final setupService = ProjectOperatingSetupService();
@@ -263,8 +275,10 @@ class FounderCommandCenterController extends GetxController {
           debugPrint('[FounderCommandCenter] get setup error: $e');
           activeProjectSetup.value = null;
         }
+        unawaited(loadDraftPlans());
       } else {
         activeProjectSetup.value = null;
+        draftPlans.clear();
       }
 
       final pulseRes = await CoFounderApiService.getCompanyPulse(
@@ -554,6 +568,105 @@ class FounderCommandCenterController extends GetxController {
           await ProjectOperatingSetupService().get(activeProjectId);
     } catch (e) {
       debugPrint('[FounderCommandCenter] refresh setup error: $e');
+    }
+  }
+
+  // ── WGA: Weekly Goal → Agent Execution ──────────────────────────────────
+
+  /// Tải danh sách kế hoạch triển khai (draft) của dự án active.
+  Future<void> loadDraftPlans() async {
+    final pid = activeProjectId.value;
+    if (pid == null || pid.isEmpty) {
+      draftPlans.clear();
+      return;
+    }
+    try {
+      final plans = await _executionPlanService.listDraftPlans(pid);
+      draftPlans.assignAll(plans);
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] loadDraftPlans error: $e');
+    }
+  }
+
+  /// Founder đặt/sửa mục tiêu tuần và nhờ agent lập kế hoạch triển khai.
+  Future<void> requestDecomposition(
+    String focus, {
+    String origin = 'command_center',
+    String? originRef,
+  }) async {
+    final pid = activeProjectId.value;
+    if (pid == null || pid.isEmpty) {
+      AppToast.warning('Chưa có dự án active để đặt mục tiêu.');
+      return;
+    }
+    if (focus.trim().isEmpty) {
+      AppToast.warning('Mục tiêu tuần không được để trống.');
+      return;
+    }
+    isDecomposing.value = true;
+    try {
+      await _executionPlanService.setWeeklyGoal(
+        pid,
+        focus.trim(),
+        triggerDecomposition: true,
+        origin: origin,
+        originRef: originRef,
+      );
+      AppToast.info(
+        'Đã ghi mục tiêu tuần. AI đang lập kế hoạch triển khai — kế hoạch sẽ hiện ở đây trong giây lát.',
+      );
+    } catch (e) {
+      AppToast.error('Không thể đặt mục tiêu: $e');
+    } finally {
+      isDecomposing.value = false;
+    }
+  }
+
+  Future<void> acceptPlan(String planId) async {
+    final snapshot = List<ExecutionPlan>.from(draftPlans);
+    draftPlans.removeWhere((p) => p.id == planId); // optimistic
+    try {
+      await _executionPlanService.acceptPlan(planId);
+      AppToast.success('Đã duyệt kế hoạch. Các việc đã được tạo cho AI và cho bạn.');
+      await loadDraftPlans();
+    } catch (e) {
+      draftPlans.assignAll(snapshot); // rollback
+      AppToast.error('Không thể duyệt kế hoạch: $e');
+    }
+  }
+
+  Future<void> rejectPlan(String planId) async {
+    final snapshot = List<ExecutionPlan>.from(draftPlans);
+    draftPlans.removeWhere((p) => p.id == planId);
+    try {
+      await _executionPlanService.rejectPlan(planId);
+      AppToast.info('Đã bỏ kế hoạch đề xuất.');
+    } catch (e) {
+      draftPlans.assignAll(snapshot);
+      AppToast.error('Không thể bỏ kế hoạch: $e');
+    }
+  }
+
+  /// Sửa 1 item của kế hoạch (đổi class / bỏ). Reload để phản ánh guard phía backend.
+  Future<void> updatePlanItem(
+    String planId,
+    String itemId, {
+    AutonomyClass? autonomyClass,
+    bool? drop,
+    String? title,
+  }) async {
+    try {
+      await _executionPlanService.updateItem(
+        planId,
+        itemId,
+        autonomyClass: autonomyClass,
+        drop: drop,
+        title: title,
+      );
+      await loadDraftPlans();
+    } catch (e) {
+      AppToast.error('Không cập nhật được: $e');
+      await loadDraftPlans();
     }
   }
 

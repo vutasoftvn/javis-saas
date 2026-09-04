@@ -4,6 +4,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/runtime_app_chrome.dart';
 import '../controllers/founder_command_center_controller.dart';
 import '../widgets/cofounder_card_widget.dart';
+import '../widgets/execution_plan_card_widget.dart';
 import '../widgets/pulse_stat_bar_widget.dart';
 import '../widgets/top3_focus_widget.dart';
 import '../widgets/waiting_for_you_widget.dart';
@@ -420,6 +421,25 @@ class HologramHubView extends StatelessWidget {
               onAskCosa: () => Get.find<ChatPanelController>().open(),
             ),
             const SizedBox(height: 24),
+
+            // A1. WGA — "Kế hoạch đề xuất" (agent phân rã mục tiêu tuần)
+            Obx(
+              () => Column(
+                children: controller.draftPlans
+                    .map(
+                      (plan) => ExecutionPlanCardWidget(
+                        plan: plan,
+                        onAccept: controller.acceptPlan,
+                        onReject: controller.rejectPlan,
+                        onChangeItemClass: (itemId, klass) => controller
+                            .updatePlanItem(plan.id, itemId, autonomyClass: klass),
+                        onDropItem: (itemId) =>
+                            controller.updatePlanItem(plan.id, itemId, drop: true),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
 
             Obx(() {
               final setup = controller.activeProjectSetup.value;

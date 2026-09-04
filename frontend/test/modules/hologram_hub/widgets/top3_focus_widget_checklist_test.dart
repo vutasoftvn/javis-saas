@@ -82,7 +82,7 @@ void main() {
             firstWeekActions: [
               FirstWeekActionDraft(id: 'a1', title: 'Scheduled action', plannedStartAt: notToday),
             ],
-            onScheduleAction: (_, __) {},
+            onScheduleAction: (_, _) {},
           ),
         ),
       ),
@@ -136,7 +136,7 @@ void main() {
             firstWeekActions: const [
               FirstWeekActionDraft(id: 'a1', title: 'Unscheduled action'),
             ],
-            onScheduleAction: (_, __) {},
+            onScheduleAction: (_, _) {},
           ),
         ),
       ),
@@ -157,7 +157,7 @@ void main() {
             firstWeekActions: [
               FirstWeekActionDraft(id: 'a1', title: 'Stale scheduled action', plannedStartAt: stale),
             ],
-            onScheduleAction: (_, __) {},
+            onScheduleAction: (_, _) {},
           ),
         ),
       ),

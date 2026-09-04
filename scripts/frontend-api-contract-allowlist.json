@@ -1977,6 +1977,41 @@
       "expires_on": "2026-12-31"
     },
     {
+      "path": "/operations/strategy/projects/:id/weekly-goal",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "WGA (Weekly Goal -> Agent Execution, 2026-09-04): founder sets/edits the weekly goal from Command Center; triggerDecomposition emits operating.weekly_goal.set.v1. Not yet in the curated MVP manifest.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/execution-plans",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "WGA (2026-09-04): Command Center 'Kế hoạch đề xuất' card lists draft execution plans the operations agent proposed from the weekly goal.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/execution-plans/:id/accept",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "WGA (2026-09-04): founder accepts an execution plan as a batch -> materialises weekly_commitments + tasks.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/execution-plans/:id/reject",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "WGA (2026-09-04): founder rejects a draft execution plan.",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/execution-plans/:id/items/:itemId",
+      "method": "PATCH",
+      "owner": "company-operations",
+      "reason": "WGA (2026-09-04): founder edits a plan item (title / autonomy_class / owner / drop) before accepting.",
+      "expires_on": "2026-12-31"
+    },
+    {
       "path": "/platform/prompts/:domain/:name",
       "method": "POST",
       "owner": "control-plane",
