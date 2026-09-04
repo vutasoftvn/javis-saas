@@ -203,3 +203,253 @@ class WorkforceCompositionEntry {
     );
   }
 }
+
+@immutable
+class WorkforceRosterEntry {
+  final int id;
+  final String key;
+  final String name;
+  final String roleTitle;
+  final String department;
+  final String agentType;
+  final String defaultModelProfile;
+  final int riskLevel;
+  final String status;
+  final bool enabled;
+
+  const WorkforceRosterEntry({
+    required this.id,
+    required this.key,
+    required this.name,
+    required this.roleTitle,
+    required this.department,
+    required this.agentType,
+    required this.defaultModelProfile,
+    required this.riskLevel,
+    required this.status,
+    required this.enabled,
+  });
+
+  factory WorkforceRosterEntry.fromJson(Map<String, dynamic> json) {
+    return WorkforceRosterEntry(
+      id: json['id'] as int? ?? 0,
+      key: json['key'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      roleTitle: json['role_title'] as String? ?? '',
+      department: json['department'] as String? ?? '',
+      agentType: json['agent_type'] as String? ?? '',
+      defaultModelProfile: json['default_model_profile'] as String? ?? '',
+      riskLevel: json['risk_level'] as int? ?? 0,
+      status: json['status'] as String? ?? '',
+      enabled: json['enabled'] as bool? ?? false,
+    );
+  }
+}
+
+@immutable
+class WorkforceWorkProduct {
+  final String id;
+  final String title;
+  final String productType;
+  final String status;
+  final String authorAgentKey;
+  final String objectRef;
+  final DateTime createdAt;
+
+  const WorkforceWorkProduct({
+    required this.id,
+    required this.title,
+    required this.productType,
+    required this.status,
+    required this.authorAgentKey,
+    required this.objectRef,
+    required this.createdAt,
+  });
+
+  factory WorkforceWorkProduct.fromJson(Map<String, dynamic> json) {
+    return WorkforceWorkProduct(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      productType: json['product_type'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      authorAgentKey: json['author_agent_key'] as String? ?? '',
+      objectRef: json['object_ref'] as String? ?? '',
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+@immutable
+class WorkforceException {
+  final String id;
+  final String exceptionType;
+  final String tier;
+  final String status;
+  final String agentKey;
+  final DateTime createdAt;
+
+  const WorkforceException({
+    required this.id,
+    required this.exceptionType,
+    required this.tier,
+    required this.status,
+    required this.agentKey,
+    required this.createdAt,
+  });
+
+  factory WorkforceException.fromJson(Map<String, dynamic> json) {
+    return WorkforceException(
+      id: json['id'] as String? ?? '',
+      exceptionType: json['exception_type'] as String? ?? '',
+      tier: json['tier'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      agentKey: json['agent_key'] as String? ?? '',
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+@immutable
+class WorkforceExceptionSummary {
+  final int total;
+  final int founderGateCount;
+  final int leadNotifyCount;
+  final bool hasCritical;
+  final List<WorkforceException> escalations;
+
+  const WorkforceExceptionSummary({
+    required this.total,
+    required this.founderGateCount,
+    required this.leadNotifyCount,
+    required this.hasCritical,
+    required this.escalations,
+  });
+
+  factory WorkforceExceptionSummary.fromJson(Map<String, dynamic> json) {
+    final rawList = json['escalations'] as List? ?? const [];
+    return WorkforceExceptionSummary(
+      total: json['total'] as int? ?? 0,
+      founderGateCount: json['founder_gate_count'] as int? ?? 0,
+      leadNotifyCount: json['lead_notify_count'] as int? ?? 0,
+      hasCritical: json['has_critical'] as bool? ?? false,
+      escalations: rawList
+          .whereType<Map<String, dynamic>>()
+          .map(WorkforceException.fromJson)
+          .toList(),
+    );
+  }
+}
+
+@immutable
+class WorkforceStageRosterTask {
+  final String taskId;
+  final String title;
+  final String priority;
+  final String status;
+  final String projectId;
+
+  const WorkforceStageRosterTask({
+    required this.taskId,
+    required this.title,
+    required this.priority,
+    required this.status,
+    required this.projectId,
+  });
+
+  factory WorkforceStageRosterTask.fromJson(Map<String, dynamic> json) {
+    return WorkforceStageRosterTask(
+      taskId: json['task_id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      priority: json['priority'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      projectId: json['project_id'] as String? ?? '',
+    );
+  }
+}
+
+@immutable
+class WorkforceStageRosterSummary {
+  final int total;
+  final int highPriority;
+  final int medium;
+  final int locked;
+
+  const WorkforceStageRosterSummary({
+    required this.total,
+    required this.highPriority,
+    required this.medium,
+    required this.locked,
+  });
+
+  factory WorkforceStageRosterSummary.fromJson(Map<String, dynamic> json) {
+    return WorkforceStageRosterSummary(
+      total: json['total'] as int? ?? 0,
+      highPriority: json['high_priority'] as int? ?? 0,
+      medium: json['medium'] as int? ?? 0,
+      locked: json['locked'] as int? ?? 0,
+    );
+  }
+}
+
+@immutable
+class WorkforceStageRosterStage {
+  final String stageCode;
+  final int taskCount;
+
+  const WorkforceStageRosterStage({required this.stageCode, required this.taskCount});
+
+  factory WorkforceStageRosterStage.fromJson(Map<String, dynamic> json) {
+    return WorkforceStageRosterStage(
+      stageCode: json['stage_code'] as String? ?? '',
+      taskCount: json['task_count'] as int? ?? 0,
+    );
+  }
+}
+
+@immutable
+class WorkforceStageRoster {
+  final WorkforceStageRosterStage stage;
+  final List<WorkforceStageRosterTask> roster;
+  final WorkforceStageRosterSummary summary;
+
+  const WorkforceStageRoster({required this.stage, required this.roster, required this.summary});
+
+  factory WorkforceStageRoster.fromJson(Map<String, dynamic> json) {
+    final rawRoster = json['roster'] as List? ?? const [];
+    return WorkforceStageRoster(
+      stage: WorkforceStageRosterStage.fromJson(json['stage'] as Map<String, dynamic>? ?? const {}),
+      roster: rawRoster
+          .whereType<Map<String, dynamic>>()
+          .map(WorkforceStageRosterTask.fromJson)
+          .toList(),
+      summary: WorkforceStageRosterSummary.fromJson(json['summary'] as Map<String, dynamic>? ?? const {}),
+    );
+  }
+}
+
+@immutable
+class WorkforceDashboardSummary {
+  final int rosterTotal;
+  final int rosterActive;
+  final int openExceptions;
+  final int pendingApprovals;
+  final int workProductsTotal;
+
+  const WorkforceDashboardSummary({
+    required this.rosterTotal,
+    required this.rosterActive,
+    required this.openExceptions,
+    required this.pendingApprovals,
+    required this.workProductsTotal,
+  });
+
+  factory WorkforceDashboardSummary.fromJson(Map<String, dynamic> json) {
+    return WorkforceDashboardSummary(
+      rosterTotal: json['roster_total'] as int? ?? 0,
+      rosterActive: json['roster_active'] as int? ?? 0,
+      openExceptions: json['open_exceptions'] as int? ?? 0,
+      pendingApprovals: json['pending_approvals'] as int? ?? 0,
+      workProductsTotal: json['work_products_total'] as int? ?? 0,
+    );
+  }
+}
