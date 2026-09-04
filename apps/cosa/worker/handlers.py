@@ -8,11 +8,9 @@ from typing import Any
 
 import httpx
 from agent.artifacts import WorkspaceArtifact
-from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.run import RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.conversations.models import ConversationRecord, MessageRecord
-from agent.registry.repository import SpecDependencyMissingError
-from agent.registry.resolver import SpecResolver
 
 from apps.cosa.agents.specs import (
     COSA_FINANCE_AGENT_SPEC,
@@ -20,7 +18,6 @@ from apps.cosa.agents.specs import (
     COSA_OPERATIONS_AGENT_SPEC,
 )
 from apps.cosa.api.event_stream import CosaEventStreamManager
-from apps.cosa.compliance.contracts import ComplianceDenied
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.observability.logging import log_context
@@ -32,6 +29,12 @@ from apps.cosa.worker.autopilot_run import (
     run_customer_support_autopilot,
 )
 from apps.cosa.worker.copilot_run import run_customer_support_copilot
+from apps.cosa.worker.run_core import (
+    RunCoreError,
+    prepare_request,
+    resolve_spec,
+    run_kernel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -180,20 +183,14 @@ async def _execute_run_task_inner(
         )
         return
 
-    # Resolve exact spec (đúng version + fingerprint) từ registry TRƯỚC khi
-    # tạo Run — không tin tưởng mù quáng object Python đang import (có thể
-    # đã drift so với bản đã publish, vd nhiều worker chạy code khác nhau
-    # cùng lúc trong lúc rolling deploy). Wave M2b, đúng §15.1 của
-    # COSA_MARIN_PATTERNS_INTEGRATION_AND_ADJUSTMENT_PLAN_2026-08-26.md.
-    resolver = SpecResolver(repository=plane.spec_registry)
+    # Resolve exact spec + dựng request + compliance qua apps/cosa/worker/
+    # run_core.py (WGA int. point #2) — lõi dùng chung với headless task
+    # goal_decomposition / workspace_task_sweep. Hành vi client-facing của
+    # nhánh lỗi giữ nguyên: map RunCoreError.reason_code -> đúng message/event
+    # cũ.
     try:
-        resolution = await resolver.resolve_agent_spec_dependencies(local_spec)
-    except SpecDependencyMissingError:
-        # Task 6 — exception thô ở đây có thể chứa chi tiết pinned-skill nội
-        # bộ (đúng ví dụ constraint nêu) — không interpolate vào client-facing
-        # message/event. Log đầy đủ server-side kèm run_id, client chỉ nhận
-        # mã lỗi ổn định.
-        logger.exception("agent spec resolution unavailable", extra={"run_id": run_id})
+        spec = await resolve_spec(plane, run_id=run_id, local_spec=local_spec)
+    except RunCoreError:
         await _append_message(
             plane,
             conversation_id=conversation_id,
@@ -210,8 +207,6 @@ async def _execute_run_task_inner(
             payload={"error": "spec_resolution_unavailable"},
         )
         return
-
-    spec = AgentSpec(**resolution.agent_content)
 
     await stream_mgr.emit(
         stream_repo,
@@ -235,107 +230,67 @@ async def _execute_run_task_inner(
         payload={"role": "assistant"},
     )
 
-    run_metadata: dict[str, Any] = {"policy_snapshot": snapshot.model_dump()}
-    # Task 5 — forward context egress đã hash (source_ref/source_hash/
-    # categories/subject_reference) từ payload đã schedule (Task 5 HTTP
-    # layer) vào RunRequest.metadata["direct_message_data_access"] để
-    # ComplianceResolver.resolve_for_run (Task 4) đọc được và dựng
-    # DataAccessClaim thật. Payload này CHỈ chứa context đã hash — không có
-    # nội dung message thô (constraint bắt buộc của Task 5), nên forward
-    # nguyên trạng là an toàn cho audit/event downstream.
+    # Task 5 — forward context egress đã hash vào metadata để
+    # ComplianceResolver.resolve_for_run dựng DataAccessClaim thật. Chỉ chứa
+    # context đã hash, không có nội dung message thô.
+    extra_md: dict[str, Any] = {}
     direct_message_data_access = payload.get("direct_message_data_access")
     if direct_message_data_access is not None:
-        run_metadata["direct_message_data_access"] = direct_message_data_access
-
-    req = RunRequest(
-        run_id=run_id,
-        principal=principal,
-        root_executable_ref=spec.to_pinned_identity(),
-        input={"prompt": user_prompt},
-        workspace_id=workspace_id,
-        conversation_id=conversation_id,
-        metadata=run_metadata,
-    )
-
-    # Task 5 — resolve compliance (mint company delegation + AI compliance
-    # snapshot) TRƯỚC khi vào kernel, đúng vị trí "sau khi run_id + AgentSpec
-    # capability_ids đã resolve" (spec ở trên đã qua SpecResolver, run_id đã
-    # có sẵn từ payload). Trước đây bước này nằm ẩn bên trong
-    # RealOpenAIAgentsSDKKernel.run() — SAU KHI worker đã handoff, không có
-    # cách nào chặn run trước khi tốn 1 lệnh gọi kernel. Fail-closed: run
-    # không có compliance_resolver cấu hình, hoặc resolver từ chối
-    # (ComplianceDenied), đều KHÔNG được gọi plane.kernel.run() — không có
-    # đường fallback dùng scheduled_worker_service_token cho Company calls.
-    compliance_resolver = getattr(plane, "compliance_resolver", None)
-    if compliance_resolver is None:
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content="AI compliance resolver not configured — run rejected",
-            run_id=run_id,
-            status_="failed",
-        )
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": "compliance_resolver_unavailable"},
-        )
-        return
+        extra_md["direct_message_data_access"] = direct_message_data_access
 
     try:
-        compliance_metadata = await compliance_resolver.resolve_for_run(req, spec)
-    except ComplianceDenied as exc:
-        # Chỉ emit reason code (exc.code) — KHÔNG emit str(exc)/message chi
-        # tiết ra event/audit payload để tránh rò rỉ nội dung lỗi từ Company
-        # (vd. có thể chứa cấu trúc lỗi nội bộ) vào timeline client-facing.
-        await _append_message(
+        prep = await prepare_request(
             plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=f"AI compliance check failed — run rejected: {exc.code}",
+            spec=spec,
             run_id=run_id,
-            status_="failed",
+            prompt=user_prompt,
+            principal=principal,
+            workspace_id=workspace_id,
+            conversation_id=conversation_id,
+            policy_snapshot=snapshot,
+            extra_metadata=extra_md or None,
         )
+    except RunCoreError as exc:
+        if exc.reason_code == "compliance_resolver_unavailable":
+            await _append_message(
+                plane,
+                conversation_id=conversation_id,
+                role="assistant",
+                content="AI compliance resolver not configured — run rejected",
+                run_id=run_id,
+                status_="failed",
+            )
+            await stream_mgr.emit(
+                stream_repo,
+                run_id=run_id,
+                conversation_id=conversation_id,
+                event_type="run.failed",
+                payload={"error": "compliance_resolver_unavailable"},
+            )
+            return
+        # compliance_denied — chỉ emit reason code, không leak str(exc).
+        code = exc.compliance_code or "UNKNOWN"
+        if code != "MISSING_DELEGATION_TOKEN":
+            await _append_message(
+                plane,
+                conversation_id=conversation_id,
+                role="assistant",
+                content=f"AI compliance check failed — run rejected: {code}",
+                run_id=run_id,
+                status_="failed",
+            )
         await stream_mgr.emit(
             stream_repo,
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="run.failed",
-            payload={"error": "compliance_denied", "reason_code": exc.code},
+            payload={"error": "compliance_denied", "reason_code": code},
         )
         return
-
-    # `_company_delegation_token` là raw JWT — giữ trong req.metadata (in
-    # process, không bao giờ persist nguyên bản vào RunRecord/event — xem
-    # kernel._execute_tool loại field này khỏi InvocationContext.metadata
-    # trước khi dùng cho audit) chỉ để kernel forward Authorization header
-    # cho các lệnh gọi Company trong đúng phạm vi run này.
-    if "_company_delegation_token" not in compliance_metadata:
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": "compliance_denied", "reason_code": "MISSING_DELEGATION_TOKEN"},
-        )
-        return
-
-    req.metadata.update(compliance_metadata)
 
     _run_start = time.monotonic()
     try:
-        async with trace_span(
-            "kernel.run",
-            attributes={
-                "run_id": run_id,
-                "agent_spec_id": getattr(spec, "spec_id", None),
-                "workspace_id": workspace_id,
-            },
-        ):
-            run_result = await plane.kernel.run(req, spec)
+        run_result, _ = await run_kernel(plane, prep, workspace_id=workspace_id, run_id=run_id)
 
         _run_duration = time.monotonic() - _run_start
 

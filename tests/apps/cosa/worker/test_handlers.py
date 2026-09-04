@@ -253,7 +253,7 @@ async def test_spec_resolution_error_is_not_sent_to_client():
         raise SpecDependencyMissingError("prompt", secret_detail, "v1", "not_found")
 
     with patch(
-        "apps.cosa.worker.handlers.SpecResolver.resolve_agent_spec_dependencies",
+        "apps.cosa.worker.run_core.SpecResolver.resolve_agent_spec_dependencies",
         _raise_missing,
     ):
         payload = _payload()
