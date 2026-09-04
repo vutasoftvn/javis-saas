@@ -1,8 +1,8 @@
 import { APIError } from "encore.dev/api";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../../models/db";
-import { projects } from "../../../shared/db/schema/operations";
+import { projects, tasks } from "../../../shared/db/schema/operations";
 import { projectOperatingSetups } from "../../../shared/db/schema/strategy";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
@@ -15,6 +15,7 @@ import {
 } from "./project-stage-lifecycle.service";
 import { Project } from "../../services/project.service";
 import { materializeFirstWeekPlan } from "./project-kickoff-materialize.service";
+import type { TaskStatus } from "../../services/task.service";
 
 export type OperatingSetupStatus = "NOT_STARTED" | "IN_PROGRESS" | "ACTIVE";
 
@@ -29,6 +30,12 @@ export type BasicKickoffStage = "P0_DISCOVERY" | "P1_PROBLEM_VALIDATION";
 export interface FirstWeekAction {
   id: string;
   title: string;
+}
+
+export interface FirstWeekActionView extends FirstWeekAction {
+  status: TaskStatus;
+  plannedStartAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface ProjectOperatingSetupView {
@@ -46,7 +53,7 @@ export interface ProjectOperatingSetupView {
   weeklyReviewWeekday: number | null;
   weeklyReviewTime: string | null;
   firstWeekOutcome: string | null;
-  firstWeekActions: FirstWeekAction[];
+  firstWeekActions: FirstWeekActionView[];
   updatedAt: string | null;
 }
 
@@ -151,7 +158,50 @@ function normalizeFirstWeekActions(
     .slice(0, 3);
 }
 
-function toView(row: typeof projectOperatingSetups.$inferSelect): ProjectOperatingSetupView {
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// Đọc live status/plannedStartAt/updatedAt từ operating.tasks cho từng
+// firstWeekAction — các action này đã được materialize 1-1 thành task cùng
+// id (xem project-kickoff-materialize.service.ts), nên đây chỉ là enrich ở
+// read-path, không tạo cột DB mới. Task không còn tồn tại (đã xoá) fallback
+// về "todo"/null thay vì throw — view vẫn phải trả về được.
+async function enrichFirstWeekActions(
+  actions: FirstWeekAction[],
+  dbOrTx: typeof db | Tx,
+  workspaceId: bigint
+): Promise<FirstWeekActionView[]> {
+  if (actions.length === 0) return [];
+
+  const ids = actions.map((a) => BigInt(a.id));
+  const rows = await dbOrTx
+    .select({
+      id: tasks.id,
+      status: tasks.status,
+      plannedStartAt: tasks.plannedStartAt,
+      updatedAt: tasks.updatedAt,
+    })
+    .from(tasks)
+    .where(and(eq(tasks.workspaceId, workspaceId), inArray(tasks.id, ids)));
+
+  const byId = new Map(rows.map((r) => [r.id.toString(), r]));
+
+  return actions.map((a) => {
+    const t = byId.get(a.id);
+    return {
+      id: a.id,
+      title: a.title,
+      status: (t?.status as TaskStatus) ?? "todo",
+      plannedStartAt: t?.plannedStartAt ? t.plannedStartAt.toISOString() : null,
+      updatedAt: t?.updatedAt ? t.updatedAt.toISOString() : null,
+    };
+  });
+}
+
+async function toView(
+  row: typeof projectOperatingSetups.$inferSelect,
+  dbOrTx: typeof db | Tx = db
+): Promise<ProjectOperatingSetupView> {
+  const actions = (row.firstWeekActions as FirstWeekAction[]) || [];
   return {
     projectId: row.projectId.toString(),
     workspaceId: row.workspaceId.toString(),
@@ -167,7 +217,7 @@ function toView(row: typeof projectOperatingSetups.$inferSelect): ProjectOperati
     weeklyReviewWeekday: row.weeklyReviewWeekday,
     weeklyReviewTime: row.weeklyReviewTime,
     firstWeekOutcome: row.firstWeekOutcome,
-    firstWeekActions: (row.firstWeekActions as FirstWeekAction[]) || [],
+    firstWeekActions: await enrichFirstWeekActions(actions, dbOrTx, row.workspaceId),
     updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
   };
 }
@@ -235,7 +285,7 @@ export async function getProjectOperatingSetup(
     };
   }
 
-  return toView(setup);
+  return toView(setup, db);
 }
 
 export async function saveProjectOperatingSetup(
@@ -410,7 +460,7 @@ export async function saveProjectOperatingSetup(
       roundStartDate: saved.roundStartDate,
     });
 
-    return toView(saved);
+    return toView(saved, tx);
   });
 }
 
@@ -607,7 +657,7 @@ export async function activateProjectOperatingSetup(
       .limit(1);
 
     return {
-      setup: toView(savedSetup),
+      setup: await toView(savedSetup, tx),
       project: toProject(refreshedProject ?? proj),
     };
   });

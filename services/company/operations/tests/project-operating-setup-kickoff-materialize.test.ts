@@ -5,7 +5,9 @@ import { createProject } from "../handlers/project.handler";
 import {
   putProjectOperatingSetupEndpoint,
   activateProjectOperatingSetupEndpoint,
+  getProjectOperatingSetupEndpoint,
 } from "../strategy/handlers/project-operating-setup.handler";
+import { updateTaskStatus, updateTaskSchedule } from "../handlers/task.handler";
 import { createTestWorkspaceWithMember } from "./_helpers";
 
 const { twelveWeekCycles, weeklyPlans, weeklyCommitments, tasks, taskProjects } = schema;
@@ -286,5 +288,58 @@ describe("kickoff materialize round-trips ids without churn end-to-end", () => {
     const plans = await db.select().from(weeklyPlans).where(eq(weeklyPlans.cycleId, cycles[0]!.id));
     expect(plans).toHaveLength(1);
     expect(plans[0]!.focus).toBe("Outcome v2");
+  });
+});
+
+describe("firstWeekActions view includes live task status/schedule fields", () => {
+  it("returns status/plannedStartAt/updatedAt per action, and reflects later updates", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "First week action view project",
+    });
+
+    const activated = await activateProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "Finance leads",
+      problemStatement: "Slow close",
+      evidenceLevel: "NONE",
+      selectedStage: "P0_DISCOVERY",
+      stageDurationWeeks: 2,
+      weeklyReviewWeekday: 5,
+      weeklyReviewTime: "16:00",
+      firstWeekOutcome: "Talk to 3 leads",
+      firstWeekActions: [{ title: "List prospects" }],
+    });
+
+    const action = activated.setup.firstWeekActions[0]!;
+    expect(action.status).toBe("todo");
+    expect(action.plannedStartAt).toBeNull();
+    expect(action.updatedAt).not.toBeNull();
+
+    await updateTaskStatus({
+      id: action.id,
+      status: "done",
+      workspaceId: ws.workspaceId,
+      authorization: ws.bearerToken,
+    });
+    await updateTaskSchedule({
+      id: action.id,
+      plannedStartAt: "2026-09-08T09:00:00.000Z",
+      workspaceId: ws.workspaceId,
+      authorization: ws.bearerToken,
+    });
+
+    const refreshed = await getProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+    });
+    const refreshedAction = refreshed.firstWeekActions[0]!;
+    expect(refreshedAction.status).toBe("done");
+    expect(refreshedAction.plannedStartAt).toBe("2026-09-08T09:00:00.000Z");
   });
 });
