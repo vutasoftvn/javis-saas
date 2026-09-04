@@ -439,3 +439,57 @@ async def test_work_products_author_unknown_when_run_outside_window(test_app) ->
     ) as client:
         res = await client.get("/agent/workforce/artifacts")
         assert res.json()["data"][0]["author_agent_key"] == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_exceptions_lists_failed_runs_as_open(test_app) -> None:
+    from agent.contracts.run import RunStatus
+    from agent.runs.models import RunRecord
+
+    plane = test_app.state.plane
+    await plane.repository.create_run(
+        RunRecord(
+            run_id="run_failed_1",
+            workspace_id="ws_1001",
+            principal="user:founder",
+            root_executable_id="functional.cashflow_planner",
+            status=RunStatus.FAILED,
+        )
+    )
+    await plane.repository.create_run(
+        RunRecord(
+            run_id="run_ok_1",
+            workspace_id="ws_1001",
+            principal="user:founder",
+            root_executable_id="functional.cashflow_planner",
+            status=RunStatus.COMPLETED,
+        )
+    )
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/exceptions")
+        assert res.status_code == 200
+        data = res.json()["data"]
+        assert data["total"] == 1
+        assert data["founder_gate_count"] == 0
+        assert data["has_critical"] is False
+        assert data["escalations"][0]["id"] == "run_failed_1"
+        assert data["escalations"][0]["exception_type"] == "run_failed"
+        assert data["escalations"][0]["tier"] == "LEAD_NOTIFY"
+        assert data["escalations"][0]["status"] == "OPEN"
+
+
+@pytest.mark.asyncio
+async def test_exceptions_empty_when_no_failed_runs(test_app) -> None:
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/exceptions")
+        assert res.status_code == 200
+        assert res.json()["data"]["total"] == 0

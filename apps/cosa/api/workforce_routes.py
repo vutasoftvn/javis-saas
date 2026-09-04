@@ -20,6 +20,8 @@ from apps.cosa.api.workforce_schemas import (
     WorkforceCapabilityOut,
     WorkforceCompositionEntry,
     WorkforceCostObservationOut,
+    WorkforceExceptionListOut,
+    WorkforceExceptionOut,
     WorkforceHealthOut,
     WorkforceOrgChartNode,
     WorkforceOrgChartOut,
@@ -286,6 +288,42 @@ async def list_work_products(
         for a in artifacts
     ]
     return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent_artifact.workspace_artifacts")])
+
+
+@router.get("/exceptions")
+async def list_exceptions(
+    request: Request,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[WorkforceExceptionListOut]:
+    """MVP read-only "escalations" — KHÔNG có resolve endpoint (xem spec Phase 5).
+    Định nghĩa "escalation" = run FAILED trong workspace. tier LUÔN
+    "LEAD_NOTIFY" (chưa có phân loại rủi ro FOUNDER_GATE thật — không tự bịa,
+    cần thiết kế domain riêng trước khi phân loại rủi ro cao/thấp)."""
+    plane = _get_plane(request)
+    runs = await plane.repository.list_runs(identity.workspace_id, limit=200)
+    from agent.contracts.run import RunStatus
+
+    failed = [r for r in runs if r.status == RunStatus.FAILED]
+
+    items = [
+        WorkforceExceptionOut(
+            id=r.run_id,
+            exception_type="run_failed",
+            tier="LEAD_NOTIFY",
+            status="OPEN",
+            agent_key=r.root_executable_id,
+            created_at=r.created_at.isoformat() if r.created_at else datetime.now(UTC).isoformat(),
+        )
+        for r in failed
+    ]
+    out = WorkforceExceptionListOut(
+        total=len(items),
+        founder_gate_count=0,
+        lead_notify_count=len(items),
+        has_critical=False,
+        escalations=items,
+    )
+    return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.runs")])
 
 
 # ─── Org Chart ───

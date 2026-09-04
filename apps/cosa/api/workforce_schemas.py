@@ -67,6 +67,23 @@ class WorkforceWorkProductOut(BaseModel):
     created_at: str
 
 
+class WorkforceExceptionOut(BaseModel):
+    id: str
+    exception_type: str
+    tier: str
+    status: str
+    agent_key: str
+    created_at: str
+
+
+class WorkforceExceptionListOut(BaseModel):
+    total: int
+    founder_gate_count: int
+    lead_notify_count: int
+    has_critical: bool
+    escalations: list[WorkforceExceptionOut]
+
+
 class WorkforceOrgChartNode(BaseModel):
     assignment_id: str
     functional_key: str
