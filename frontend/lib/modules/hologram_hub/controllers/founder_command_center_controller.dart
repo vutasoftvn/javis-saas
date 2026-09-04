@@ -15,8 +15,10 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../data/models/project_operating_setup_model.dart';
+import '../../../data/models/task_kanban_model.dart';
 import '../../../modules/strategy/services/project_operating_setup_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
+import '../../../modules/tasks/services/task_service.dart';
 import '../../../modules/workforce/models/workforce_mvp_models.dart';
 import '../../../modules/workforce/services/workforce_mvp_service.dart';
 
@@ -478,6 +480,54 @@ class FounderCommandCenterController extends GetxController {
         'Bật/tắt gói mở rộng hiện chưa khả dụng trên phiên bản này.',
         title: 'Chưa khả dụng',
       );
+    }
+  }
+
+  /// Đánh dấu hoàn thành / chưa hoàn thành 1 "Hành động tuần đầu" — `action.id`
+  /// chính là id của `operating.tasks` (đã materialize 1-1 khi lưu/activate
+  /// operating setup, xem
+  /// docs/superpowers/specs/2026-09-04-command-center-dashboard-redesign-design.md).
+  Future<void> toggleFirstWeekActionStatus(FirstWeekActionDraft action) async {
+    final actionId = action.id;
+    if (actionId == null) return;
+    final newStatus = action.status == TaskKanbanStatus.done
+        ? TaskKanbanStatus.todo
+        : TaskKanbanStatus.done;
+    try {
+      await TaskService().updateTaskStatus(actionId, newStatus.value);
+      await _refreshActiveProjectSetup();
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] toggleFirstWeekActionStatus error: $e');
+      AppToast.error('Không thể cập nhật trạng thái task: $e');
+    }
+  }
+
+  /// Đặt/xoá giờ dự kiến thực hiện cho 1 "Hành động tuần đầu".
+  Future<void> updateFirstWeekActionSchedule(
+    FirstWeekActionDraft action,
+    DateTime? plannedStartAt,
+  ) async {
+    final actionId = action.id;
+    if (actionId == null) return;
+    try {
+      await TaskService().updateTaskSchedule(actionId, plannedStartAt);
+      await _refreshActiveProjectSetup();
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] updateFirstWeekActionSchedule error: $e');
+      AppToast.error('Không thể cập nhật giờ thực hiện: $e');
+    }
+  }
+
+  Future<void> _refreshActiveProjectSetup() async {
+    final activeProjectId = projectsList.isNotEmpty
+        ? projectsList.first['id']?.toString()
+        : null;
+    if (activeProjectId == null) return;
+    try {
+      activeProjectSetup.value =
+          await ProjectOperatingSetupService().get(activeProjectId);
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] refresh setup error: $e');
     }
   }
 
