@@ -28,7 +28,9 @@ from apps.cosa.capabilities.operations_read import (
     create_operations_task_read_handler,
 )
 from apps.cosa.capabilities.operations_write import (
+    OPERATIONS_TASK_ADVANCE_SPEC,
     OPERATIONS_TASK_CREATE_DRAFT_SPEC,
+    create_operations_task_advance_handler,
     create_operations_task_create_draft_handler,
 )
 from apps.cosa.capabilities.project_lifecycle import (
@@ -60,6 +62,7 @@ __all__ = [
     "FINANCE_TRANSACTION_RECORD_SPEC",
     "LEGAL_APPLICABILITY_ASSESS_SPEC",
     "LEGAL_OBLIGATION_CREATE_DRAFT_SPEC",
+    "OPERATIONS_TASK_ADVANCE_SPEC",
     "OPERATIONS_TASK_CREATE_DRAFT_SPEC",
     "OPERATIONS_TASK_LIST_SPEC",
     "OPERATIONS_TASK_READ_SPEC",
@@ -78,6 +81,7 @@ __all__ = [
     "create_finance_transaction_record_handler",
     "create_legal_applicability_assess_handler",
     "create_legal_obligation_create_draft_handler",
+    "create_operations_task_advance_handler",
     "create_operations_task_create_draft_handler",
     "create_operations_task_list_handler",
     "create_operations_task_read_handler",

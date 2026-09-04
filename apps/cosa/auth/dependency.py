@@ -67,9 +67,7 @@ class AuthenticatedIdentity(BaseModel):
     # sync qua platform (`sync-from-platform`) — không có identity platform thật.
     resolved_platform_user_id: str | None = None
 
-    def mint_control_plane_delegation(
-        self, *, ttl_seconds: int = 600
-    ) -> str:
+    def mint_control_plane_delegation(self, *, ttl_seconds: int = 600) -> str:
         """Mint delegation JWT để apps/cosa gọi các endpoint control-plane
         (services/cosa) yêu cầu vừa qua gateway platform vừa chứng minh
         workspace membership — ví dụ `/platform/auth/me/agent-policy-snapshot`,

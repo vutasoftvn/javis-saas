@@ -28,7 +28,7 @@ from apps.cosa.capabilities import (
     VENTURE_STAGE_ASSESS_SPEC,
 )
 
-__all__ = ["capability_risk", "CAPABILITY_RISK_BY_ID"]
+__all__ = ["CAPABILITY_RISK_BY_ID", "capability_risk"]
 
 RiskLiteral = Literal["LOW", "MEDIUM", "HIGH"]
 

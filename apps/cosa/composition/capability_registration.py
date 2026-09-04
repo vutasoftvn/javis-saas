@@ -76,7 +76,9 @@ from apps.cosa.capabilities.operations_read import (
     create_operations_task_read_handler,
 )
 from apps.cosa.capabilities.operations_write import (
+    OPERATIONS_TASK_ADVANCE_SPEC,
     OPERATIONS_TASK_CREATE_DRAFT_SPEC,
+    create_operations_task_advance_handler,
     create_operations_task_create_draft_handler,
 )
 from apps.cosa.capabilities.project_lifecycle import (
@@ -135,6 +137,10 @@ def register_cosa_capabilities(
     cap_registry.register(
         OPERATIONS_TASK_CREATE_DRAFT_SPEC,
         create_operations_task_create_draft_handler(client),
+    )
+    cap_registry.register(
+        OPERATIONS_TASK_ADVANCE_SPEC,
+        create_operations_task_advance_handler(client),
     )
 
     # Finance
