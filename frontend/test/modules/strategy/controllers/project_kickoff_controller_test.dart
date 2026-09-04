@@ -33,7 +33,7 @@ class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
     final actionWithIds = draft.firstWeekActions
         .map(
           (a) => FirstWeekActionDraft(
-            id: a.id ?? 'id-action-${saveDraftCallCount}-${draft.firstWeekActions.indexOf(a)}',
+            id: a.id ?? 'id-action-$saveDraftCallCount-${draft.firstWeekActions.indexOf(a)}',
             title: a.title,
           ),
         )

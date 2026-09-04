@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime
 
 from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_spec
-from agent.workforce.repository import WorkforceRepository
+from agent.workforce.repository import WorkforceRepository, WorkforceScheduleRecord
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from apps.cosa.api.mvp_response import MvpSourceRef, MvpSuccess, mvp_item, mvp_list
@@ -505,7 +505,7 @@ async def get_run_artifacts(
 # xem ghi chú "Không đưa vào phạm vi" trong spec điều chỉnh Agent Platform).
 
 
-def _to_schedule_out(rec) -> ScheduleOut:
+def _to_schedule_out(rec: WorkforceScheduleRecord) -> ScheduleOut:
     return ScheduleOut(
         schedule_id=str(rec.schedule_id),
         workspace_id=rec.workspace_id,

@@ -23,6 +23,13 @@ EXPLICIT_UNAUTHENTICATED_ALLOWLIST = {
     ("cosa", "POST", "/platform/internal/list-workspace-memberships"),
     ("cosa", "POST", "/platform/internal/validate-workspace-membership"),
     ("cosa", "POST", "/platform/internal/mark-workspace-synced"),
+    # B5 (ADR-COSA-DELEGATION-002): Encore auth handler dùng PLATFORM_JWT_SECRET,
+    # nhưng caller (apps/cosa) mang control-plane delegation token ký bởi
+    # COSA_CONTROL_DELEGATION_SECRET — 2 secret khác nhau nên auth built-in
+    # luôn 403. Handler tự verify thủ công qua resolveCallerAuthorizedForWorkspace
+    # (control-plane delegation, fallback platform token + verifyWorkspaceMembership)
+    # rồi mới build snapshot. auth:false có chủ đích, đã kiểm tra.
+    ("cosa", "GET", "/platform/auth/me/agent-policy-snapshot"),
 }
 
 
