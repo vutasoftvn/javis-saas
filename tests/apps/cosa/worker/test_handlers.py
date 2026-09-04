@@ -87,6 +87,49 @@ async def test_execute_run_task_resolves_exact_spec_after_seeding():
 
 
 @pytest.mark.asyncio
+async def test_goal_like_message_appends_goal_confirm_card():
+    """WGA — tin nhắn founder trông như phát biểu mục tiêu tuần -> agent chèn
+    thêm 1 structured `goal_confirm` message (JSON) sau câu trả lời."""
+    import json as _json
+
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    stream_mgr = CosaEventStreamManager()
+
+    goal_msg = "Tuần này tôi muốn chốt 3 buổi phỏng vấn khách hàng và hoàn thành landing page"
+    await execute_run_task(plane, stream_mgr, _payload(user_prompt=goal_msg))
+
+    messages = await plane.conversation_repository.list_messages("conv_1")
+    confirm = [
+        m
+        for m in messages
+        if m.role == "assistant" and m.content.strip().startswith("{") and '"goal_confirm"' in m.content
+    ]
+    assert len(confirm) == 1
+    parsed = _json.loads(confirm[0].content)
+    assert parsed["kind"] == "goal_confirm"
+    assert "phỏng vấn khách hàng" in parsed["normalized_goal"]
+
+
+@pytest.mark.asyncio
+async def test_non_goal_message_does_not_append_goal_confirm_card():
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    stream_mgr = CosaEventStreamManager()
+
+    await execute_run_task(plane, stream_mgr, _payload(user_prompt="Ai đang phụ trách task này vậy?"))
+
+    messages = await plane.conversation_repository.list_messages("conv_1")
+    assert not any("goal_confirm" in m.content for m in messages)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("agent_profile", "expected_spec_id"),
     [

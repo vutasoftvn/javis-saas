@@ -1,4 +1,5 @@
 import contextlib
+import json
 import logging
 import os
 import time
@@ -12,6 +13,7 @@ from agent.contracts.run import RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.conversations.models import ConversationRecord, MessageRecord
 
+from apps.cosa.agents.goal_intent import detect_weekly_goal_suggestion
 from apps.cosa.agents.specs import (
     COSA_FINANCE_AGENT_SPEC,
     COSA_MARKETING_AGENT_SPEC,
@@ -360,6 +362,29 @@ async def _execute_run_task_inner(
                 event_type="run.completed",
                 payload={"output": output_text, "status": "COMPLETED"},
             )
+
+            # WGA — nếu tin nhắn founder trông như phát biểu mục tiêu tuần,
+            # chèn 1 structured `goal_confirm` message (content = JSON object,
+            # FE nhận diện qua field `kind`). Founder bấm nút mới ghi goal +
+            # chạy phân rã (không tự động, chống nhận nhầm).
+            if agent_profile in ("operations", "founder_assistant"):
+                with contextlib.suppress(Exception):
+                    suggestion = detect_weekly_goal_suggestion(user_prompt)
+                    if suggestion.should_suggest:
+                        await _append_message(
+                            plane,
+                            conversation_id=conversation_id,
+                            role="assistant",
+                            content=json.dumps(
+                                {
+                                    "kind": "goal_confirm",
+                                    "normalized_goal": suggestion.normalized_goal,
+                                },
+                                ensure_ascii=False,
+                            ),
+                            run_id=run_id,
+                            status_="completed",
+                        )
 
         elif run_result.status == RunStatus.WAITING_APPROVAL:
             record_run_outcome("waiting_approval", duration_sec=_run_duration)
