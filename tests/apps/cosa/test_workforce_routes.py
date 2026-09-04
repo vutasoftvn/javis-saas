@@ -493,3 +493,39 @@ async def test_exceptions_empty_when_no_failed_runs(test_app) -> None:
         res = await client.get("/agent/workforce/exceptions")
         assert res.status_code == 200
         assert res.json()["data"]["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_stage_roster_proxies_company_and_reshapes(test_app, monkeypatch) -> None:
+    async def fake_fetch_stage_roster(workspace_id: str, stage_code: str, principal: str):
+        assert workspace_id == "ws_1001"
+        assert stage_code == "P2"
+        return {
+            "stage": {"stageCode": "P2", "taskCount": 1},
+            "roster": [
+                {
+                    "taskId": "t1",
+                    "title": "Ship pricing page",
+                    "priority": "high",
+                    "status": "todo",
+                    "projectId": "proj_1",
+                }
+            ],
+            "summary": {"total": 1, "highPriority": 1, "medium": 0, "locked": 0},
+        }
+
+    import apps.cosa.api.workforce_routes as workforce_routes_mod
+
+    monkeypatch.setattr(workforce_routes_mod, "_fetch_company_stage_roster", fake_fetch_stage_roster)
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/stage-roster/P2")
+        assert res.status_code == 200
+        data = res.json()["data"]
+        assert data["stage"]["stage_code"] == "P2"
+        assert data["roster"][0]["task_id"] == "t1"
+        assert data["summary"]["high_priority"] == 1

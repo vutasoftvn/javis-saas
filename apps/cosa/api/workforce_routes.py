@@ -30,6 +30,10 @@ from apps.cosa.api.workforce_schemas import (
     WorkforceRunDetailOut,
     WorkforceRunEventOut,
     WorkforceRunSummaryOut,
+    WorkforceStageRosterEntryOut,
+    WorkforceStageRosterOut,
+    WorkforceStageRosterStageOut,
+    WorkforceStageRosterSummaryOut,
     WorkforceWorkProductOut,
     _ARTIFACT_STATUS_MAP,
 )
@@ -66,6 +70,33 @@ def _get_workforce_repo(request: Request) -> WorkforceRepository:
             detail="WorkforceRepository is not configured",
         )
     return plane.workforce_repository
+
+
+async def _fetch_company_stage_roster(
+    workspace_id: str, stage_code: str, principal: str
+) -> dict:
+    import httpx
+
+    from apps.cosa.auth.jwt import mint_company_delegation
+    from apps.cosa.config.service_identity import require_internal_url
+
+    company_base_url = require_internal_url(
+        "COMPANY_SERVICE_URL", purpose="stage roster proxy", default_dev="http://127.0.0.1:4000"
+    )
+    token = mint_company_delegation(
+        sub=principal,
+        workspace_id=workspace_id,
+        run_id=f"stage_roster_{workspace_id}_{stage_code}",
+        capability_ids=["operations.task.list"],
+    )
+    url = f"{company_base_url}/operations/tasks/stage-roster/{stage_code}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            url,
+            headers={"Authorization": f"Bearer {token}", "X-Workspace-Id": workspace_id},
+        )
+        resp.raise_for_status()
+        return resp.json()
 
 
 # ─── Assignments ───
@@ -324,6 +355,39 @@ async def list_exceptions(
         escalations=items,
     )
     return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.runs")])
+
+
+@router.get("/stage-roster/{stage_code}")
+async def get_stage_roster(
+    stage_code: str,
+    request: Request,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[WorkforceStageRosterOut]:
+    raw = await _fetch_company_stage_roster(
+        identity.workspace_id, stage_code, identity.principal_id
+    )
+    out = WorkforceStageRosterOut(
+        stage=WorkforceStageRosterStageOut(
+            stage_code=raw["stage"]["stageCode"], task_count=raw["stage"]["taskCount"]
+        ),
+        roster=[
+            WorkforceStageRosterEntryOut(
+                task_id=r["taskId"],
+                title=r["title"],
+                priority=r["priority"],
+                status=r["status"],
+                project_id=r["projectId"],
+            )
+            for r in raw["roster"]
+        ],
+        summary=WorkforceStageRosterSummaryOut(
+            total=raw["summary"]["total"],
+            high_priority=raw["summary"]["highPriority"],
+            medium=raw["summary"]["medium"],
+            locked=raw["summary"]["locked"],
+        ),
+    )
+    return mvp_item(out, [MvpSourceRef(kind="company_db", ref="operating.tasks")])
 
 
 # ─── Org Chart ───

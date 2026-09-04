@@ -84,6 +84,32 @@ class WorkforceExceptionListOut(BaseModel):
     escalations: list[WorkforceExceptionOut]
 
 
+class WorkforceStageRosterEntryOut(BaseModel):
+    task_id: str
+    title: str
+    priority: str
+    status: str
+    project_id: str
+
+
+class WorkforceStageRosterStageOut(BaseModel):
+    stage_code: str
+    task_count: int
+
+
+class WorkforceStageRosterSummaryOut(BaseModel):
+    total: int
+    high_priority: int
+    medium: int
+    locked: int
+
+
+class WorkforceStageRosterOut(BaseModel):
+    stage: WorkforceStageRosterStageOut
+    roster: list[WorkforceStageRosterEntryOut]
+    summary: WorkforceStageRosterSummaryOut
+
+
 class WorkforceOrgChartNode(BaseModel):
     assignment_id: str
     functional_key: str
