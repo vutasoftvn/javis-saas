@@ -148,10 +148,23 @@ class Top3FocusWidget extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     action.plannedStartAt != null
-                        ? TimeOfDay.fromDateTime(action.plannedStartAt!.toLocal()).format(context)
+                        ? _formatScheduleBadge(context, action.plannedStartAt!)
                         : 'Chưa đặt giờ',
                     style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
                   ),
+                  // Fix 4 (final review) — trước đây chỉ có thể ĐẶT giờ, không
+                  // thể XOÁ lịch đã đặt từ UI dù backend hỗ trợ đầy đủ.
+                  if (action.plannedStartAt != null && onScheduleAction != null) ...[
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () => onScheduleAction!(action, null),
+                      borderRadius: BorderRadius.circular(6),
+                      child: const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: Icon(Icons.close, size: 12, color: Color(0xFF94A3B8)),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -161,13 +174,29 @@ class Top3FocusWidget extends StatelessWidget {
     );
   }
 
+  /// Hiện "hôm nay lúc 14:00" chỉ với giờ, nhưng "8/9 14:00" cho ngày khác —
+  /// nếu không, "hôm nay 14:00" và "thứ Sáu tuần sau 14:00" render giống hệt
+  /// nhau, founder không phân biệt được lịch đang đặt cho ngày nào.
+  String _formatScheduleBadge(BuildContext context, DateTime plannedStartAt) {
+    final local = plannedStartAt.toLocal();
+    final now = DateTime.now();
+    final time = TimeOfDay.fromDateTime(local).format(context);
+    final isToday = local.year == now.year && local.month == now.month && local.day == now.day;
+    return isToday ? time : '${local.day}/${local.month} $time';
+  }
+
   Future<void> _pickSchedule(BuildContext context, FirstWeekActionDraft action) async {
     final now = DateTime.now();
-    final initialDate = action.plannedStartAt?.toLocal() ?? now;
+    // Fix 2 (final review) — "Hành động tuần đầu" sống trong cửa sổ 2-4
+    // tuần, nên `plannedStartAt` cũ hơn `now - 1 ngày` là bình thường; không
+    // clamp thì `showDatePicker` ném assert vì initialDate < firstDate.
+    final firstDate = now.subtract(const Duration(days: 1));
+    final rawInitialDate = action.plannedStartAt?.toLocal() ?? now;
+    final initialDate = rawInitialDate.isBefore(firstDate) ? firstDate : rawInitialDate;
     final date = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: now.subtract(const Duration(days: 1)),
+      firstDate: firstDate,
       lastDate: now.add(const Duration(days: 90)),
     );
     if (date == null || !context.mounted) return;

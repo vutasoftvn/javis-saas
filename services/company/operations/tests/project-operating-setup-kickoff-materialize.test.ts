@@ -319,6 +319,12 @@ describe("firstWeekActions view includes live task status/schedule fields", () =
     expect(action.status).toBe("todo");
     expect(action.plannedStartAt).toBeNull();
     expect(action.updatedAt).not.toBeNull();
+    // Wire-contract regression guard — chống rename/thêm/xoá field âm thầm
+    // lệch giữa serializer thật và các test hand-write JSON shape khác nhau
+    // (backend/DB/Dart) mà không có gì phát hiện.
+    expect(Object.keys(action).sort()).toEqual(
+      ["id", "plannedStartAt", "status", "title", "updatedAt"].sort()
+    );
 
     await updateTaskStatus({
       id: action.id,

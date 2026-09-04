@@ -443,25 +443,41 @@ class HologramHubView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // B. Top 3 Focus (12-Week Year) - Left Column
+                  //
+                  // Fix-review (2026-09-04, final review, Fix 1) — đọc
+                  // `activeProjectSetup.value` ở đây trước đây KHÔNG được
+                  // track bởi Obx nào: `Obx` bao ngoài ở dòng ~66 chỉ track
+                  // các Rx read xảy ra ĐỒNG BỘ trong chính builder của nó,
+                  // nhưng builder đó chỉ trả về `LayoutBuilder` — các đọc
+                  // Rx thật sự (trong `_buildCommandCenterTab`) chạy ở pass
+                  // build RIÊNG của `LayoutBuilder`, lúc đó GetX đã un-bind
+                  // proxy tracking. `_refreshActiveProjectSetup()` gán giá
+                  // trị mới nhưng không widget nào bị đánh dấu dirty ⇒
+                  // checklist không rebuild. Bọc riêng `Obx` tại đúng
+                  // call-site này (cùng pattern đã dùng cho banner ở dòng
+                  // ~424) để đọc `activeProjectSetup.value` NGAY TRONG
+                  // builder của chính `Obx` đó.
                   Expanded(
                     flex: 7,
-                    child: Top3FocusWidget(
-                      actions: controller.top3Actions.toList(),
-                      onActionTap: (action) =>
-                          _handleActionTap(context, controller, action),
-                      firstWeekActions:
-                          controller
-                              .activeProjectSetup
-                              .value
-                              ?.firstWeekActions ??
-                          const [],
-                      onToggleActionStatus: (action) =>
-                          controller.toggleFirstWeekActionStatus(action),
-                      onScheduleAction: (action, plannedStartAt) =>
-                          controller.updateFirstWeekActionSchedule(
-                            action,
-                            plannedStartAt,
-                          ),
+                    child: Obx(
+                      () => Top3FocusWidget(
+                        actions: controller.top3Actions.toList(),
+                        onActionTap: (action) =>
+                            _handleActionTap(context, controller, action),
+                        firstWeekActions:
+                            controller
+                                .activeProjectSetup
+                                .value
+                                ?.firstWeekActions ??
+                            const [],
+                        onToggleActionStatus: (action) =>
+                            controller.toggleFirstWeekActionStatus(action),
+                        onScheduleAction: (action, plannedStartAt) =>
+                            controller.updateFirstWeekActionSchedule(
+                              action,
+                              plannedStartAt,
+                            ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 24),
@@ -486,18 +502,21 @@ class HologramHubView extends StatelessWidget {
                 ],
               )
             else ...[
-              // Mobile Stacked layout
-              Top3FocusWidget(
-                actions: controller.top3Actions.toList(),
-                onActionTap: (action) =>
-                    _handleActionTap(context, controller, action),
-                firstWeekActions:
-                    controller.activeProjectSetup.value?.firstWeekActions ??
-                    const [],
-                onToggleActionStatus: (action) =>
-                    controller.toggleFirstWeekActionStatus(action),
-                onScheduleAction: (action, plannedStartAt) => controller
-                    .updateFirstWeekActionSchedule(action, plannedStartAt),
+              // Mobile Stacked layout — cùng lý do Obx-wrap như nhánh desktop
+              // ở trên (Fix 1).
+              Obx(
+                () => Top3FocusWidget(
+                  actions: controller.top3Actions.toList(),
+                  onActionTap: (action) =>
+                      _handleActionTap(context, controller, action),
+                  firstWeekActions:
+                      controller.activeProjectSetup.value?.firstWeekActions ??
+                      const [],
+                  onToggleActionStatus: (action) =>
+                      controller.toggleFirstWeekActionStatus(action),
+                  onScheduleAction: (action, plannedStartAt) => controller
+                      .updateFirstWeekActionSchedule(action, plannedStartAt),
+                ),
               ),
               const SizedBox(height: 24),
               WaitingForYouWidget(

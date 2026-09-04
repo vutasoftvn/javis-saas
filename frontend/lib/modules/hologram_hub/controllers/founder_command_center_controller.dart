@@ -483,6 +483,21 @@ class FounderCommandCenterController extends GetxController {
     }
   }
 
+  /// Cập nhật `firstWeekActions` của `activeProjectSetup` tại chỗ (optimistic
+  /// update) trước khi có phản hồi thật từ server — spec (2026-09-04, §2) yêu
+  /// cầu tick/untick phản ánh ngay trên UI, không đợi round-trip mạng.
+  void _applyFirstWeekActionOptimistically(
+    String actionId,
+    FirstWeekActionDraft Function(FirstWeekActionDraft) update,
+  ) {
+    final current = activeProjectSetup.value;
+    if (current == null) return;
+    final updatedActions = current.firstWeekActions
+        .map((a) => a.id == actionId ? update(a) : a)
+        .toList();
+    activeProjectSetup.value = current.copyWith(firstWeekActions: updatedActions);
+  }
+
   /// Đánh dấu hoàn thành / chưa hoàn thành 1 "Hành động tuần đầu" — `action.id`
   /// chính là id của `operating.tasks` (đã materialize 1-1 khi lưu/activate
   /// operating setup, xem
@@ -493,12 +508,18 @@ class FounderCommandCenterController extends GetxController {
     final newStatus = action.status == TaskKanbanStatus.done
         ? TaskKanbanStatus.todo
         : TaskKanbanStatus.done;
+    _applyFirstWeekActionOptimistically(actionId, (a) => a.copyWith(status: newStatus));
     try {
       await TaskService().updateTaskStatus(actionId, newStatus.value);
       await _refreshActiveProjectSetup();
     } catch (e) {
       debugPrint('[FounderCommandCenter] toggleFirstWeekActionStatus error: $e');
-      AppToast.error('Không thể cập nhật trạng thái task: $e');
+      // Không hiện raw exception ($e) cho founder — có thể lộ nội dung HTTP
+      // response body của backend. Chi tiết đầy đủ chỉ nằm ở debugPrint trên.
+      AppToast.error('Không thể cập nhật, vui lòng thử lại.');
+      // Optimistic guess có thể sai (request thất bại) — refresh lại để
+      // reconcile về đúng server truth thay vì để giá trị sai âm thầm đứng yên.
+      await _refreshActiveProjectSetup();
     }
   }
 
@@ -509,12 +530,17 @@ class FounderCommandCenterController extends GetxController {
   ) async {
     final actionId = action.id;
     if (actionId == null) return;
+    _applyFirstWeekActionOptimistically(
+      actionId,
+      (a) => a.copyWith(plannedStartAt: plannedStartAt, clearPlannedStartAt: plannedStartAt == null),
+    );
     try {
       await TaskService().updateTaskSchedule(actionId, plannedStartAt);
       await _refreshActiveProjectSetup();
     } catch (e) {
       debugPrint('[FounderCommandCenter] updateFirstWeekActionSchedule error: $e');
-      AppToast.error('Không thể cập nhật giờ thực hiện: $e');
+      AppToast.error('Không thể cập nhật, vui lòng thử lại.');
+      await _refreshActiveProjectSetup();
     }
   }
 

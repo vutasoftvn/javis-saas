@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../../models/db";
 import { projects, tasks } from "../../../shared/db/schema/operations";
@@ -172,16 +172,32 @@ async function enrichFirstWeekActions(
 ): Promise<FirstWeekActionView[]> {
   if (actions.length === 0) return [];
 
-  const ids = actions.map((a) => BigInt(a.id));
-  const rows = await dbOrTx
-    .select({
-      id: tasks.id,
-      status: tasks.status,
-      plannedStartAt: tasks.plannedStartAt,
-      updatedAt: tasks.updatedAt,
+  const ids = actions
+    .map((a) => {
+      try {
+        return BigInt(a.id);
+      } catch {
+        return null;
+      }
     })
-    .from(tasks)
-    .where(and(eq(tasks.workspaceId, workspaceId), inArray(tasks.id, ids)));
+    .filter((id): id is bigint => id !== null);
+  const rows = ids.length === 0
+    ? []
+    : await dbOrTx
+        .select({
+          id: tasks.id,
+          status: tasks.status,
+          plannedStartAt: tasks.plannedStartAt,
+          updatedAt: tasks.updatedAt,
+        })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.workspaceId, workspaceId),
+            inArray(tasks.id, ids),
+            isNull(tasks.deletedAt)
+          )
+        );
 
   const byId = new Map(rows.map((r) => [r.id.toString(), r]));
 

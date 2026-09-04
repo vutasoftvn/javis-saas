@@ -62,6 +62,25 @@ class FirstWeekActionDraft {
     if (id != null) 'id': id,
     'title': title.trim(),
   };
+
+  /// Dùng cho optimistic update ở `FounderCommandCenterController` — đổi
+  /// `status`/`plannedStartAt` tại chỗ trước khi có phản hồi thật từ server.
+  /// `clearPlannedStartAt` tách riêng khỏi `plannedStartAt == null` vì
+  /// `null` cũng là giá trị hợp lệ muốn set (không có cách nào phân biệt
+  /// "giữ nguyên" với "xoá về null" chỉ bằng 1 tham số nullable).
+  FirstWeekActionDraft copyWith({
+    TaskKanbanStatus? status,
+    DateTime? plannedStartAt,
+    bool clearPlannedStartAt = false,
+  }) {
+    return FirstWeekActionDraft(
+      id: id,
+      title: title,
+      status: status ?? this.status,
+      plannedStartAt: clearPlannedStartAt ? null : (plannedStartAt ?? this.plannedStartAt),
+      updatedAt: updatedAt,
+    );
+  }
 }
 
 class KickoffStagePolicy {
@@ -214,6 +233,30 @@ class ProjectOperatingSetup {
       updatedAt: json['updatedAt'] != null
           ? DateTime.tryParse(json['updatedAt'].toString())
           : null,
+    );
+  }
+
+  /// Dùng để optimistic-update `firstWeekActions` tại chỗ (giữ nguyên mọi
+  /// field khác) trước khi `_refreshActiveProjectSetup()` lấy lại state thật
+  /// từ server.
+  ProjectOperatingSetup copyWith({List<FirstWeekActionDraft>? firstWeekActions}) {
+    return ProjectOperatingSetup(
+      projectId: projectId,
+      workspaceId: workspaceId,
+      status: status,
+      targetCustomer: targetCustomer,
+      problemStatement: problemStatement,
+      evidenceLevel: evidenceLevel,
+      recommendedStage: recommendedStage,
+      selectedStage: selectedStage,
+      stageDurationWeeks: stageDurationWeeks,
+      stageTargetDate: stageTargetDate,
+      roundStartDate: roundStartDate,
+      weeklyReviewWeekday: weeklyReviewWeekday,
+      weeklyReviewTime: weeklyReviewTime,
+      firstWeekOutcome: firstWeekOutcome,
+      firstWeekActions: firstWeekActions ?? this.firstWeekActions,
+      updatedAt: updatedAt,
     );
   }
 }
