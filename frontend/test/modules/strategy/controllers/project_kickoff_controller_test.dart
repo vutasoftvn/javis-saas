@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/contracts/enums.generated.dart';
 import 'package:frontend/data/models/project_operating_setup_model.dart';
@@ -21,9 +22,17 @@ class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
   int requestKickoffSuggestionCallCount = 0;
   bool throwOnRequestKickoffSuggestion = false;
   ProjectOperatingSetup? getOverride;
+  // Chỉ dùng cho test mô phỏng race dispose-trong-lúc-poll: cho phép giữ
+  // `get()` "đang chờ" đủ lâu để test có thể gọi `onDelete()` (dispose thật,
+  // set isClosed=true) NGAY GIỮA lúc `await` này còn treo — tái tạo đúng tình
+  // huống bug gốc thay vì chỉ dispose trước khi tick kịp bắt đầu.
+  Duration getDelay = Duration.zero;
 
   @override
   Future<ProjectOperatingSetup> get(String projectId) async {
+    if (getDelay > Duration.zero) {
+      await Future.delayed(getDelay);
+    }
     return getOverride ?? _setup;
   }
 
@@ -441,6 +450,115 @@ void main() {
 
         expect(controller.aiSuggestionLoading.value, false);
         expect(controller.firstWeekOutcomeCtrl.text, isEmpty);
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
+    );
+
+    test(
+      'dừng poll và tắt loading sau khi vượt mốc 30s nếu status không bao '
+      'giờ về trạng thái cuối (nhánh timeout — trước đây chưa có test)',
+      () {
+        // Dùng fake_async để "tua" 30s ảo tức thời thay vì chờ 30s thật —
+        // Timer.periodic bên trong _pollSuggestion() và Future.delayed bên
+        // trong FakeProjectOperatingSetupService đều chạy trên cùng đồng hồ
+        // ảo này nên vẫn tất định.
+        fakeAsync((async) {
+          final service = FakeProjectOperatingSetupService();
+          final controller = ProjectKickoffController(service: service);
+          controller.load('p1');
+          async.elapse(const Duration(milliseconds: 10));
+
+          // Status không bao giờ "completed"/"failed" — mô phỏng backend kẹt
+          // (job worker chết, hoặc job không bao giờ hoàn tất).
+          service.getOverride = const ProjectOperatingSetup(
+            projectId: 'p1',
+            workspaceId: 'w1',
+            status: OperatingSetupStatus.inProgress,
+            aiSuggestionStatus: 'pending',
+          );
+
+          controller.requestKickoffSuggestion(overwrite: true);
+          async.elapse(const Duration(milliseconds: 10));
+          expect(controller.aiSuggestionLoading.value, isTrue);
+
+          // 15 tick x 2000ms = 30000ms (_suggestionPollTimeoutMs) — tick thứ
+          // 15 thấy _suggestionPollElapsedMs đã >= 30000ms nên tự dừng, dù
+          // status vẫn "pending". Elapse dư 50ms để chắc chắn tick 15 chạy
+          // xong trọn vẹn.
+          async.elapse(const Duration(milliseconds: 30050));
+
+          expect(controller.aiSuggestionLoading.value, isFalse);
+          expect(controller.firstWeekOutcomeCtrl.text, isEmpty);
+          expect(controller.firstWeekActions, isEmpty);
+        });
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
+    );
+
+    test(
+      'không crash khi controller bị dispose (onDelete) trong lúc 1 tick '
+      'poll đang chờ _service.get() (race điều kiện của bug gốc: '
+      'timer.cancel() trong onClose() chỉ chặn tick TƯƠNG LAI, không huỷ '
+      'được continuation của tick đang await dở — ghi vào '
+      'firstWeekOutcomeCtrl đã dispose sẽ throw AssertionError nếu thiếu '
+      'guard isClosed)',
+      () {
+        fakeAsync((async) {
+          // getDelay giữ `_service.get()` "đang treo" đủ lâu để test có thể
+          // dispose NGAY GIỮA lúc await còn chưa resolve — tái tạo đúng race,
+          // khác với chỉ dispose trước khi tick kịp bắt đầu (không có ý nghĩa
+          // vì onClose() đã cancel timer, tick sẽ không bao giờ chạy).
+          final service = FakeProjectOperatingSetupService()
+            ..getDelay = const Duration(milliseconds: 500);
+          final controller = ProjectKickoffController(service: service);
+          controller.load('p1');
+          async.elapse(const Duration(milliseconds: 600));
+
+          service.getOverride = const ProjectOperatingSetup(
+            projectId: 'p1',
+            workspaceId: 'w1',
+            status: OperatingSetupStatus.inProgress,
+            aiSuggestionStatus: 'completed',
+            aiSuggestedOutcome: 'Gợi ý AI mới',
+            aiSuggestedActions: ['Việc AI gợi ý'],
+          );
+
+          controller.requestKickoffSuggestion(overwrite: true);
+          async.elapse(const Duration(milliseconds: 10));
+          expect(controller.aiSuggestionLoading.value, isTrue);
+
+          // Timer.periodic được tạo ở mốc đồng hồ ảo hiện tại (~610ms, sau
+          // 600ms load() tiêu tốn + 10ms flush await ở trên) nên tick ĐẦU
+          // TIÊN bắn ở ~610+2000=2610ms và ngay lập tức bắt đầu `await
+          // _service.get()` (delay riêng 500ms, resolve ở ~3110ms). Elapse
+          // thêm 2100ms (610 -> 2710ms) để đứng NGAY GIỮA khoảng await đó
+          // (đã fire tick, chưa resolve get()) rồi mới dispose — đây chính
+          // là interleaving của bug gốc.
+          async.elapse(const Duration(milliseconds: 2100));
+
+          // Dispose qua onDelete() (không phải gọi thẳng onClose()) vì GetX
+          // chỉ set `isClosed = true` bên trong _onDelete() trước khi gọi
+          // onClose() — đây cũng là đường dispose thật khi Get gỡ controller
+          // (get_instance.dart, get_view.dart đều gọi `i.onDelete()`).
+          // `onDelete` là `InternalFinalCallback<void>` (callable object, không
+          // phải `Function` thật) nên không dùng được matcher `returnsNormally`
+          // — gọi trực tiếp; nếu nó throw thì test tự fail vì lỗi thoát ra
+          // ngoài scope.
+          controller.onDelete();
+          expect(controller.isClosed, isTrue);
+
+          // Chờ nốt cho `await _service.get()` của tick đang treo resolve
+          // (bắt đầu await ở ~2610ms, delay 500ms -> resolve ở ~3110ms; hiện
+          // đang ở ~2710ms nên cần thêm >= 400ms, dùng dư 450ms). Nếu guard
+          // `isClosed` trong _pollSuggestion() bị thiếu, dòng elapse dưới đây
+          // sẽ ném AssertionError (used after dispose) vì code sẽ chạy
+          // `firstWeekOutcomeCtrl.text = ...` trên TextEditingController đã
+          // bị dispose ở trên.
+          expect(
+            () => async.elapse(const Duration(milliseconds: 450)),
+            returnsNormally,
+          );
+        });
       },
       timeout: const Timeout(Duration(seconds: 10)),
     );

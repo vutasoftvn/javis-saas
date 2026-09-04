@@ -234,6 +234,15 @@ class ProjectKickoffController extends GetxController {
         } catch (_) {
           return; // lỗi mạng tạm thời — thử lại ở tick sau, không dừng poll
         }
+        // Guard chống race dispose-trong-lúc-poll: `timer.cancel()` ở
+        // onClose() chỉ chặn tick TƯƠNG LAI, không huỷ được phần tiếp diễn
+        // của tick đang await dở phía trên. Nếu controller đã đóng trong lúc
+        // chờ `_service.get()`, `firstWeekOutcomeCtrl` (TextEditingController)
+        // đã bị dispose — ghi tiếp vào đây sẽ throw AssertionError (used
+        // after dispose). `isClosed` do GetX set true ngay khi onClose() bắt
+        // đầu chạy (xem GetLifeCycleBase._onDelete), nên check này chặn được
+        // mọi ghi state bên dưới một cách an toàn.
+        if (isClosed) return;
         if (latest.aiSuggestionStatus == 'completed') {
           timer.cancel();
           aiSuggestionLoading.value = false;
