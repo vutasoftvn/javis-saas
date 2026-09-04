@@ -515,7 +515,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: `plane.repository.list_runs(workspace_id, limit)` (existing).
-- Produces: `GET /agent/workforce/exceptions?status=OPEN` → `MvpSuccess[WorkforceExceptionListOut]`.
+- Produces: `GET /agent/workforce/exceptions` → `MvpSuccess[WorkforceExceptionListOut]`. No `status` query param — pre-flight review (2026-09-04) decided against accepting a filter param the route can't honor (MVP has no persisted resolution state, so "OPEN vs RESOLVED" isn't a real distinction yet); add the param back only alongside the real escalation domain.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -552,7 +552,7 @@ async def test_exceptions_lists_failed_runs_as_open(test_app) -> None:
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
-        res = await client.get("/agent/workforce/exceptions?status=OPEN")
+        res = await client.get("/agent/workforce/exceptions")
         assert res.status_code == 200
         data = res.json()["data"]
         assert data["total"] == 1
@@ -571,7 +571,7 @@ async def test_exceptions_empty_when_no_failed_runs(test_app) -> None:
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
-        res = await client.get("/agent/workforce/exceptions?status=OPEN")
+        res = await client.get("/agent/workforce/exceptions")
         assert res.status_code == 200
         assert res.json()["data"]["total"] == 0
 ```
@@ -611,7 +611,6 @@ In `apps/cosa/api/workforce_routes.py`, add after `list_work_products`:
 @router.get("/exceptions")
 async def list_exceptions(
     request: Request,
-    status_filter: str = Query("OPEN", alias="status"),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ) -> MvpSuccess[WorkforceExceptionListOut]:
     """MVP read-only "escalations" — KHÔNG có resolve endpoint (xem spec Phase 5).
@@ -647,10 +646,10 @@ async def list_exceptions(
 
 Add `WorkforceExceptionOut`, `WorkforceExceptionListOut` to the schema import block.
 
-Note: `status_filter` is accepted but not applied to filtering (MVP only ever
-returns OPEN-equivalent items since there is no persisted resolution state) —
-this matches the "read-only, no resolve" scope; do not add a `RESOLVED`
-branch here, that requires the excluded escalation domain.
+Do not add a `status` query param or a `RESOLVED` branch here — MVP has no
+persisted resolution state (every failed run is always "OPEN"); that
+requires the excluded escalation domain (see spec Phase 5 / Global
+Constraints).
 
 - [ ] **Step 5: Run test to verify it passes**
 
@@ -1795,10 +1794,9 @@ the closing `}`), importing the new model classes at the top of the file
     );
   }
 
-  Future<ApiResult<WorkforceExceptionSummary>> listExceptions({String status = 'OPEN'}) async {
+  Future<ApiResult<WorkforceExceptionSummary>> listExceptions() async {
     return _client.request<WorkforceExceptionSummary>(
       MvpEndpoint.workforceExceptionList,
-      query: {'status': status},
       decode: (json) => WorkforceExceptionSummary.fromJson(json as Map<String, dynamic>),
     );
   }
@@ -2028,13 +2026,20 @@ replace the bodies of `getDashboardSummary`, `listAgents`, `getStageRoster`,
     );
   }
 
+  // `status`/`exceptionType`/`tier`/`limit` kept on this method's own
+  // signature (call sites in hub_control_plane_mixin.dart pass `status:
+  // 'OPEN'` and must keep compiling) but NOT forwarded to
+  // `_workforceMvpService.listExceptions()` anymore — the backend route has
+  // no filter to honor yet (pre-flight decision, 2026-09-04; see spec Phase
+  // 5 / Global Constraints). Every returned item is always effectively
+  // "OPEN" today.
   Future<Map<String, dynamic>> listEscalations({
     String? status = 'OPEN',
     String? exceptionType,
     String? tier,
     int limit = 50,
   }) async {
-    final result = await _workforceMvpService.listExceptions(status: status ?? 'OPEN');
+    final result = await _workforceMvpService.listExceptions();
     return result.when(
       success: (data, _) => {
         'total': data.total,
