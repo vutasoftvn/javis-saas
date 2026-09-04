@@ -1,8 +1,16 @@
 # Integration: Google ADK
 
-## Trạng thái: SHIPPED production, nhưng NGOÀI `packages/agent_integrations/`
+## Cập nhật 2026-09-04: `AdkCofounderWorkflow` không còn tồn tại
 
-Khác mọi integration khác trong thư mục này, Google ADK đã **chạy production thật** — `AdkCofounderWorkflow` ở `legacy/agent_runtime/workforce/agents/orchestration/adk/` (xác nhận lại đường dẫn 2026-08-24 — `legacy/backend/app/workforce/...` không tồn tại, là suy đoán sai của phiên trước), dùng `google-adk==2.7.0`, có `CosaGovernedTool` (wrap tool qua governance audit) và `CosaModelGatewayLlm` (LiteLLM invoker, circuit breaker, fallback). Xem `docs/agent-platform/ADK_INTEGRATION.md` cho chi tiết đầy đủ (tài liệu có từ trước phiên này).
+Các mục dưới đây (viết 2026-08-24) mô tả `AdkCofounderWorkflow` — business pipeline
+"cofounder mission" cụ thể domain, từng chạy ở
+`legacy/agent_runtime/workforce/agents/orchestration/adk/` — như đang "SHIPPED
+production". Toàn bộ `legacy/` (bao gồm thư mục đó) đã bị xoá hẳn 2026-08-25 (xem
+CLAUDE.md, quyết định "keep deleted"), và `docs/agent-platform/ADK_INTEGRATION.md`
+(tài liệu chi tiết pipeline đó) đã xoá theo, không phục hồi. Pipeline đó KHÔNG được
+migrate sang đâu cả trước khi `legacy/` bị xoá — nó đơn giản không còn tồn tại.
+Phần "Cập nhật 2026-08-24: adapter GENERIC mới" bên dưới vẫn đúng và là toàn bộ
+những gì Google ADK integration còn lại trong repo hiện nay.
 
 ## Chưa migrate vào `packages/agent_integrations/google_adk/`
 
@@ -35,7 +43,12 @@ resume đúng — để lại cho lần hardening sau khi có nhu cầu thật.
 
 ## Việc cần làm khi migrate
 
-1. Đọc kỹ `legacy/agent_runtime/workforce/agents/orchestration/adk/` + `docs/agent-platform/ADK_INTEGRATION.md`.
+Mục này giờ chỉ còn giá trị lịch sử — `AdkCofounderWorkflow` (nguồn migrate) đã xoá
+theo `legacy/` (xem "Cập nhật 2026-09-04" ở đầu file), nên bước 1 dưới đây không còn
+thực hiện được. Giữ lại các bước 2-5 vì vẫn mô tả đúng cách thiết kế 1 kernel adapter
+mới cho package này, nếu sau này có business pipeline ADK khác cần tích hợp.
+
+1. ~~Đọc kỹ `legacy/agent_runtime/workforce/agents/orchestration/adk/` + `docs/agent-platform/ADK_INTEGRATION.md`~~ (đã xoá, không còn áp dụng).
 2. Thiết kế `ADKKernel` implement `agent.contracts.kernel.ExecutionKernel` (giống `LangChainKernel`/`OpenAIAgentsKernel`).
 3. Port `CosaGovernedTool` → gọi `CapabilityGateway.execute()` (không tự implement governance riêng).
 4. Port `CosaModelGatewayLlm` → có thể tái dùng `LiteLLMModelClient` đã có (Wave 4) thay vì viết lại circuit breaker.
