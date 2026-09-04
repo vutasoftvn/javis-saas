@@ -290,6 +290,11 @@ export const projectOperatingSetups = strategySchema.table("project_operating_se
   weeklyReviewTime: varchar("weekly_review_time", { length: 5 }),
   firstWeekOutcome: text("first_week_outcome"),
   firstWeekActions: jsonb("first_week_actions").default([]).notNull(),
+  aiSuggestionStatus: varchar("ai_suggestion_status", { length: 20 }),
+  aiSuggestionRunId: text("ai_suggestion_run_id"),
+  aiSuggestedOutcome: text("ai_suggested_outcome"),
+  aiSuggestedActions: jsonb("ai_suggested_actions"),
+  aiSuggestionRequestedAt: timestamp("ai_suggestion_requested_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
