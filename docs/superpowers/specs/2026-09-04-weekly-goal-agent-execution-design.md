@@ -460,17 +460,22 @@ Spec §7.3 giả định sai. Thực tế phát hiện khi code:
 | **2 — int. point #2** run-core | ✅ `apps/cosa/worker/run_core.py` (`resolve_spec`/`prepare_request`/`run_kernel`), chat path refactor giữ nguyên hành vi | 7 |
 | **2 — int. point #3** spec caps | ✅ operations AgentSpec `1.2.0` + `operations.task.create_draft` ref | — |
 | **2 — decomposition + sweep** | ✅ `execute_goal_decomposition_task`, `execute_workspace_task_sweep_task`, self-trigger router (`_PLATFORM_SELF_TRIGGER`), dispatch branch `_dispatch_wga_task` | 24 |
-| **3 — goal-intent + Flutter** | ❌ CHƯA | — |
+| **3 — goal-intent + Flutter** | ✅ HOÀN TẤT (v1) | ~40 |
+| **3 — goal-intent** | `goal_intent.py` pre-filter đa tín hiệu → `_execute_run_task_inner` chèn `{kind:"goal_confirm"}` message | 15 |
+| **3 — Flutter** | `ExecutionPlan`/`ExecutionPlanItem` model, `ExecutionPlanService`, controller (`activeProjectId`/`draftPlans`/`requestDecomposition`/`acceptPlan`/`rejectPlan`/`updatePlanItem`/`loadDraftPlans`), `ExecutionPlanCardWidget` wired vào Command Center, nút "Nhờ AI lập kế hoạch", `goal_confirm` chat card, 5 allowlist entry | ~25 |
 
 **Luồng end-to-end đã nối (v1):**
 `weekly-goal` endpoint (`triggerDecomposition`) → outbox `operating.weekly_goal.set.v1` → relay → `handle_event` self-trigger → schedule `goal_decomposition` → worker → agent run → `parse_plan_output` → POST `/operations/execution-plans` (delegation, cap `operations.execution_plan.create`) → plan `draft`.
 Founder accept (Phase 3 UI, hoặc gọi API trực tiếp) → outbox `operating.execution_plan.accepted.v1` → self-trigger → `workspace_task_sweep` → `GET agent-claimable` → mỗi task AUTO: advance `in_progress` → agent run → advance `done`/`blocked` → re-schedule nếu batch đầy.
 
 **v1 boundary (follow-up, chưa làm):**
-- sweep chỉ chạy `autonomy_class == AUTO`. Task `NEEDS_APPROVAL` materialize rồi dừng — **đường approval-resume cho headless task** (int. point #4: `execute_resume_task` + `operations.task.advance` sau resume) chưa wire.
+- sweep chỉ chạy `autonomy_class == AUTO`. Task `NEEDS_APPROVAL` materialize rồi sweep đánh dấu `blocked` (founder thấy ở "Việc của bạn") — **đường approval-resume cho headless task** (int. point #4: `execute_resume_task` + `operations.task.advance` sau resume, emit `approval.required` ra 1 surface founder thấy) chưa wire.
 - Per-workspace kill-switch qua tenant policy `execution.autopilot` — hiện chỉ env `WGA_SWEEP_ENABLED`.
 - Per-workspace tenant-policy lookup lúc decomposition (classifier nhận `tenantPolicyDecision=null`) — classifier company vẫn áp `FORBIDDEN_RE` + risk default nên vẫn an toàn, chỉ chưa tôn trọng ALLOW override.
 - Chống loop = `sweep_depth` cap 20, chưa có DB counter `WGA_MAX_RUNS_PER_WORKSPACE_PER_DAY`.
+- goal-intent là pre-filter đa tín hiệu (không phải classify LLM) — nâng cấp theo spec §7.2.
+- "Việc của bạn" (list task `execution_mode='HUMAN'` + `status='blocked'`) chưa có widget riêng — task FOUNDER_ONLY hiện ở module Nhiệm vụ chung.
+- SSE reload `draftPlans` khi nhận `operating.execution_plan.created.v1` — hiện `loadDraftPlans` chạy khi `loadDashboardData` (founder mở lại tab); chưa push real-time.
 
-Gate xanh: `make services-test-company` 1116 pass · `make apps-cosa-test` 774 pass, coverage 85% (gate 78%) · `make lint` · company typecheck · boundary checks.
-Lỗi có sẵn KHÔNG liên quan (fail trên `main` trước WGA): `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`).
+Gate xanh: `make services-test-company` 1116 pass · `make apps-cosa-test` 774 pass (coverage 85% / gate 78%) · `make lint` · `cd frontend && flutter test` 1421 pass · `make frontend-api-contract-check` · company typecheck · boundary checks.
+Lỗi có sẵn KHÔNG liên quan (fail trên `main` trước WGA): `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`), `make frontend-analyze` 1 info trong `project_kickoff_controller_test.dart:36` (file đang dở dang từ trước session, không thuộc WGA).
