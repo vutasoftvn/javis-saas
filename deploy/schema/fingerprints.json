@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-03T15:07:34.475Z",
+  "generated_at": "2026-09-04T11:31:05.423Z",
   "groups": {
     "agent": {
-      "fingerprint": "11b06ec63ed89a885e84d1b24e40bf2e58be2e7c3fac4163bc72089290a27f62",
+      "fingerprint": "c27fec94d5ec82bef4bd2b7fabed11513c23618ac14fd47c70bdd4a3b93e0a78",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -14,7 +14,7 @@
         "agent_registry",
         "knowledge"
       ],
-      "tables_count": 34,
+      "tables_count": 35,
       "enums": [],
       "tables": {
         "agent.agent_web_search_budget": {
@@ -1739,6 +1739,137 @@
             {
               "name": "workforce_assignments_workspace_id_functional_key_spec_id_s_key",
               "definition": "CREATE UNIQUE INDEX workforce_assignments_workspace_id_functional_key_spec_id_s_key ON agent.workforce_assignments USING btree (workspace_id, functional_key, spec_id, spec_version, definition_hash)"
+            }
+          ]
+        },
+        "agent.workforce_schedules": {
+          "schema": "agent",
+          "name": "workforce_schedules",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "schedule_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "name",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "functional_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "cron_expression",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "input_payload",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "configured_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "retired_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workforce_schedules_pkey",
+            "columns": [
+              "schedule_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "workforce_schedules_status_check",
+              "clause": "((status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workforce_schedules_ws_status",
+              "definition": "CREATE INDEX idx_workforce_schedules_ws_status ON agent.workforce_schedules USING btree (workspace_id, status)"
+            },
+            {
+              "name": "workforce_schedules_pkey",
+              "definition": "CREATE UNIQUE INDEX workforce_schedules_pkey ON agent.workforce_schedules USING btree (schedule_id)"
             }
           ]
         },
@@ -9577,7 +9708,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "2c20d418df436882d63ea6045cde6713879563eff472df9650bf2721ad714fd7",
+      "fingerprint": "bc35b8301ad8f24694111f79bd5e98cd05619c1bedd61d3dd2b7eea6a053edc5",
       "schemas": [
         "commercial",
         "core",
@@ -9589,7 +9720,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 146,
+      "tables_count": 150,
       "enums": [],
       "tables": {
         "commercial.campaign_assets": {
@@ -25513,6 +25644,426 @@
             }
           ]
         },
+        "operating.execution_plan_items": {
+          "schema": "operating",
+          "name": "execution_plan_items",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "plan_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "title",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decision_reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "evidence_refs",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "owner_agent_profile",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "expected_capability",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "autonomy_class",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "autonomy_class_source",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "priority",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": "'medium'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "depends_on_item_ids",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": true,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "sort_key",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "materialized_task_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'proposed'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "execution_plan_items_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "execution_plan_items_materialized_task_id_fkey",
+              "columns": [
+                "materialized_task_id"
+              ],
+              "foreign_table": "operating.tasks",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
+              "name": "execution_plan_items_plan_id_fkey",
+              "columns": [
+                "plan_id"
+              ],
+              "foreign_table": "operating.execution_plans",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "execution_plan_items_pkey",
+              "definition": "CREATE UNIQUE INDEX execution_plan_items_pkey ON operating.execution_plan_items USING btree (id)"
+            },
+            {
+              "name": "ix_execution_plan_items_materialized_task",
+              "definition": "CREATE INDEX ix_execution_plan_items_materialized_task ON operating.execution_plan_items USING btree (materialized_task_id) WHERE (materialized_task_id IS NOT NULL)"
+            },
+            {
+              "name": "ix_execution_plan_items_plan",
+              "definition": "CREATE INDEX ix_execution_plan_items_plan ON operating.execution_plan_items USING btree (plan_id)"
+            }
+          ]
+        },
+        "operating.execution_plans": {
+          "schema": "operating",
+          "name": "execution_plans",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "weekly_plan_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "goal_text",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'draft'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "origin",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "origin_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "accepted_by_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "accepted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deleted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "execution_plans_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "execution_plans_project_id_fkey",
+              "columns": [
+                "project_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "execution_plans_weekly_plan_id_fkey",
+              "columns": [
+                "weekly_plan_id"
+              ],
+              "foreign_table": "operating.weekly_plans",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "execution_plans_pkey",
+              "definition": "CREATE UNIQUE INDEX execution_plans_pkey ON operating.execution_plans USING btree (id)"
+            },
+            {
+              "name": "ix_execution_plans_project_status",
+              "definition": "CREATE INDEX ix_execution_plans_project_status ON operating.execution_plans USING btree (project_id, status) WHERE (deleted_at IS NULL)"
+            },
+            {
+              "name": "uix_execution_plans_one_draft_per_weekly_plan",
+              "definition": "CREATE UNIQUE INDEX uix_execution_plans_one_draft_per_weekly_plan ON operating.execution_plans USING btree (weekly_plan_id) WHERE ((status = 'draft'::text) AND (deleted_at IS NULL))"
+            }
+          ]
+        },
         "operating.runtime_snoozes": {
           "schema": "operating",
           "name": "runtime_snoozes",
@@ -27161,6 +27712,141 @@
             {
               "name": "weekly_plans_pkey",
               "definition": "CREATE UNIQUE INDEX weekly_plans_pkey ON operating.weekly_plans USING btree (id)"
+            }
+          ]
+        },
+        "operating.workspace_capability_policy": {
+          "schema": "operating",
+          "name": "workspace_capability_policy",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "capability_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decision",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_by",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_capability_policy_pkey",
+            "columns": [
+              "workspace_id",
+              "capability_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "workspace_capability_policy_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_capability_policy_pkey ON operating.workspace_capability_policy USING btree (workspace_id, capability_id)"
+            }
+          ]
+        },
+        "operating.workspace_execution_settings": {
+          "schema": "operating",
+          "name": "workspace_execution_settings",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "sweep_enabled",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "true",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_by",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_execution_settings_pkey",
+            "columns": [
+              "workspace_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "workspace_execution_settings_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_execution_settings_pkey ON operating.workspace_execution_settings USING btree (workspace_id)"
             }
           ]
         },
@@ -33143,6 +33829,56 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "ai_suggestion_status",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "ai_suggestion_run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "ai_suggested_outcome",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "ai_suggested_actions",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "ai_suggestion_requested_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -33169,6 +33905,10 @@
             }
           ],
           "check_constraints": [
+            {
+              "name": "project_operating_setups_ai_suggestion_status_check",
+              "clause": "((ai_suggestion_status = ANY (ARRAY['dispatched'::text, 'completed'::text, 'failed'::text])))"
+            },
             {
               "name": "project_operating_setups_evidence_level_check",
               "clause": "((evidence_level = ANY (ARRAY['NONE'::text, 'ONE_TO_FOUR_INTERVIEWS'::text, 'FIVE_PLUS_INTERVIEWS'::text, 'PROTOTYPE_OR_REVENUE'::text])))"
