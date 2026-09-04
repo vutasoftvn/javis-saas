@@ -143,6 +143,7 @@ async def test_weekly_goal_set_schedules_goal_decomposition_task():
     assert t["input_payload"]["goal_text"] == "Close 3 customer interviews"
     assert t["input_payload"]["origin"] == "chat"
     assert t["input_payload"]["origin_ref"] == "conv_9"
+    assert t["input_payload"]["actor_id"] == "u1"  # from envelope actor.id
 
 
 @pytest.mark.asyncio

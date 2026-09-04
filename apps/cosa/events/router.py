@@ -21,20 +21,28 @@ _PLATFORM_SELF_TRIGGER: dict[str, tuple[str, str]] = {
 
 def _self_trigger_payload(event_type: str, env: object) -> dict:
     payload = getattr(env, "payload", {}) or {}
+    actor = getattr(env, "actor", None)
+    # `sub` cho mint_company_delegation = Company member/user id đã xác thực —
+    # dùng actor.id của envelope (founder user id do services/company set khi phát).
+    actor_id = getattr(actor, "id", None) or "0"
+    ws = payload.get("workspaceId") or getattr(env, "workspaceId", "")
+    corr = getattr(env, "correlationId", "")
     if event_type == "operating.weekly_goal.set.v1":
         return {
-            "workspace_id": payload.get("workspaceId") or getattr(env, "workspaceId", ""),
+            "workspace_id": ws,
             "project_id": payload.get("projectId"),
             "weekly_plan_id": payload.get("weeklyPlanId"),
             "goal_text": payload.get("focus", ""),
             "origin": payload.get("origin", "command_center"),
             "origin_ref": payload.get("originRef"),
-            "correlation_id": getattr(env, "correlationId", ""),
+            "actor_id": actor_id,
+            "correlation_id": corr,
         }
     # workspace_task_sweep
     return {
-        "workspace_id": payload.get("workspaceId") or getattr(env, "workspaceId", ""),
-        "correlation_id": getattr(env, "correlationId", ""),
+        "workspace_id": ws,
+        "actor_id": actor_id,
+        "correlation_id": corr,
     }
 
 
