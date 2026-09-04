@@ -11,7 +11,12 @@ import {
   acceptExecutionPlanService,
   CreatePlanItemInput,
 } from "../services/execution-plan.service";
-import { listAgentClaimableTasksService, advanceTaskByAgentService } from "../services/task.service";
+import {
+  listAgentClaimableTasksService,
+  advanceTaskByAgentService,
+  getWorkspaceExecutionSettingsService,
+  setWorkspaceExecutionSettingsService,
+} from "../services/task.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
 
 const { tasks } = schema;
@@ -100,5 +105,44 @@ describe("listAgentClaimableTasksService", () => {
     await advanceTaskByAgentService({ taskId, toStatus: "in_progress", runId: "r" }, ctxFor(s.workspaceId));
     const claimable2 = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
     expect(claimable2.length).toBe(0);
+  });
+
+  it("returns nothing when the workspace kill-switch (sweepEnabled=false) is set", async () => {
+    const s = await seedAcceptedPlan([autoItem("a"), autoItem("b")]);
+    expect((await listAgentClaimableTasksService(s.workspaceId, 10, s.auth)).length).toBe(2);
+
+    await setWorkspaceExecutionSettingsService(s.workspaceId, false, ctxFor(s.workspaceId));
+    expect((await listAgentClaimableTasksService(s.workspaceId, 10, s.auth)).length).toBe(0);
+
+    const back = await setWorkspaceExecutionSettingsService(s.workspaceId, true, ctxFor(s.workspaceId));
+    expect(back.sweepEnabled).toBe(true);
+    expect((await listAgentClaimableTasksService(s.workspaceId, 10, s.auth)).length).toBe(2);
+  });
+
+  it("getWorkspaceExecutionSettingsService defaults to sweepEnabled=true", async () => {
+    const s = await seedAcceptedPlan([autoItem("a")]);
+    const v = await getWorkspaceExecutionSettingsService(s.workspaceId, s.auth);
+    expect(v.sweepEnabled).toBe(true);
+  });
+
+  it("rate-limit: stops returning tasks once 24h agent run count hits the cap", async () => {
+    const prev = process.env.WGA_MAX_TASK_RUNS_PER_WORKSPACE_PER_DAY;
+    process.env.WGA_MAX_TASK_RUNS_PER_WORKSPACE_PER_DAY = "1";
+    try {
+      const s = await seedAcceptedPlan([autoItem("a"), autoItem("b")]);
+      const first = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
+      expect(first.length).toBe(2);
+
+      // simulate one completed agent run (advance writes a task_execution_records row)
+      await advanceTaskByAgentService(
+        { taskId: first[0]!.taskId, toStatus: "in_progress", runId: "wga_task_x_1" },
+        ctxFor(s.workspaceId)
+      );
+
+      const after = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
+      expect(after.length).toBe(0);
+    } finally {
+      process.env.WGA_MAX_TASK_RUNS_PER_WORKSPACE_PER_DAY = prev;
+    }
   });
 });

@@ -88,6 +88,20 @@ describe("advanceTaskByAgentService", () => {
     expect(b.status).toBe("blocked");
   });
 
+  it("allows waiting_approval, then done from waiting_approval", async () => {
+    const { workspaceId, taskId } = await seedTask({ assignee: "ai", status: "in_progress" });
+    const w = await advanceTaskByAgentService(
+      { taskId, toStatus: "waiting_approval", runId: "wga_task_1_abcd" },
+      ctxFor(workspaceId)
+    );
+    expect(w.status).toBe("waiting_approval");
+    const d = await advanceTaskByAgentService(
+      { taskId, toStatus: "done", runId: "wga_task_1_abcd" },
+      ctxFor(workspaceId)
+    );
+    expect(d.status).toBe("done");
+  });
+
   it("rejects advancing a human-assigned task", async () => {
     const { workspaceId, taskId } = await seedTask({ assignee: "human", status: "in_progress" });
     await expect(

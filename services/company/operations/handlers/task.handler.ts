@@ -13,6 +13,9 @@ import {
   advanceTaskByAgentService,
   listAgentClaimableTasksService,
   AgentClaimableTask,
+  getWorkspaceExecutionSettingsService,
+  setWorkspaceExecutionSettingsService,
+  WorkspaceExecutionSettingsView,
 } from "../services/task.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import {
@@ -156,6 +159,36 @@ export const listAgentClaimableTasks = api(
       ctx
     );
     return { tasks };
+  }
+);
+
+// WGA #2 — kill-switch per-workspace cho vòng thực thi tự động.
+export const getExecutionSettings = api(
+  { method: "GET", path: "/operations/execution-settings", expose: true },
+  async ({
+    workspaceId,
+    authorization,
+  }: {
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<WorkspaceExecutionSettingsView> => {
+    return getWorkspaceExecutionSettingsService(workspaceId, authorization);
+  }
+);
+
+export const setExecutionSettings = api(
+  { method: "POST", path: "/operations/execution-settings", expose: true },
+  async ({
+    sweepEnabled,
+    workspaceId,
+    authorization,
+  }: {
+    sweepEnabled: boolean;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<WorkspaceExecutionSettingsView> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return setWorkspaceExecutionSettingsService(workspaceId, sweepEnabled, ctx);
   }
 );
 

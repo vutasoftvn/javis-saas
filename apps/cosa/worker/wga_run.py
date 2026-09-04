@@ -22,6 +22,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import re
 import uuid
 from typing import Any
 
@@ -47,9 +48,13 @@ from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "advance_wga_task_after_resume",
     "execute_goal_decomposition_task",
     "execute_workspace_task_sweep_task",
 ]
+
+# run_id của task-execution run trong sweep: wga_task_<task_id>_<hex>
+_WGA_TASK_RUN_RE = re.compile(r"^wga_task_(\d+)_[0-9a-f]+$")
 
 _SPEC_BY_PROFILE = {
     "operations": COSA_OPERATIONS_AGENT_SPEC,
@@ -90,6 +95,33 @@ async def _advance_task(
             json=body,
             headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
         )
+
+
+async def advance_wga_task_after_resume(
+    plane: CosaAgentPlane, *, run_id: str, workspace_id: str | None, sub: str
+) -> None:
+    """Sau khi founder duyệt checkpoint và `execute_resume_task` chạy xong
+    (COMPLETED), đóng task WGA tương ứng bằng `operations.task.advance(done)`.
+    No-op nếu run_id không phải task-execution run của sweep."""
+    m = _WGA_TASK_RUN_RE.match(run_id or "")
+    if not m or not workspace_id:
+        return
+    task_id = m.group(1)
+    token = mint_company_delegation(
+        sub=sub or "0",
+        workspace_id=workspace_id,
+        run_id=run_id,
+        capability_ids=[_CAP_TASK_ADVANCE],
+    )
+    await _advance_task(
+        plane,
+        workspace_id=workspace_id,
+        task_id=task_id,
+        to_status="done",
+        run_id=run_id,
+        token=token,
+        note="hoàn tất sau khi founder duyệt",
+    )
 
 
 async def execute_goal_decomposition_task(
@@ -254,7 +286,9 @@ async def execute_workspace_task_sweep_task(
         task_id = str(t["taskId"])
         owner_profile = t.get("ownerAgentProfile") or "operations"
         spec = _SPEC_BY_PROFILE.get(owner_profile, COSA_OPERATIONS_AGENT_SPEC)
-        task_run_id = f"{run_id}_{task_id}"
+        # run_id mã hoá task_id để execute_resume_task khôi phục được task nào
+        # cần advance(done) sau khi founder duyệt checkpoint (WGA #1).
+        task_run_id = f"wga_task_{task_id}_{uuid.uuid4().hex[:8]}"
 
         caps = [_CAP_TASK_ADVANCE, _CAP_TASK_LIST]
         if t.get("expectedCapability"):
@@ -312,16 +346,17 @@ async def execute_workspace_task_sweep_task(
                 token=adv_token,
             )
         elif run_result.status == RunStatus.WAITING_APPROVAL:
-            # v1: đường approval-resume cho headless task chưa wire — đánh dấu
-            # blocked để founder thấy ở "Việc của bạn" thay vì kẹt in_progress.
+            # Kernel đã tạo bản ghi approval (hiện ở WaitingForYouWidget). Đặt
+            # task 'waiting_approval'; founder duyệt -> decide_approval schedule
+            # 1 task resume -> execute_resume_task advance(done) (WGA #1).
             await _advance_task(
                 plane,
                 workspace_id=workspace_id,
                 task_id=task_id,
-                to_status="blocked",
+                to_status="waiting_approval",
                 run_id=task_run_id,
                 token=adv_token,
-                note="cần phê duyệt — luồng resume cho task nền chưa hỗ trợ (v1)",
+                note="chờ founder duyệt checkpoint",
             )
         else:
             note = run_result.errors[0] if run_result.errors else "run_failed"

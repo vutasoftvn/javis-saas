@@ -37,6 +37,7 @@ from apps.cosa.worker.run_core import (
     resolve_spec,
     run_kernel,
 )
+from apps.cosa.worker.wga_run import advance_wga_task_after_resume
 
 logger = logging.getLogger(__name__)
 
@@ -573,6 +574,14 @@ async def execute_resume_task(
             event_type="run.completed",
             payload={"output": output_text, "status": "COMPLETED"},
         )
+
+        # WGA #1 — nếu đây là resume của 1 task-execution run trong sweep,
+        # đóng task tương ứng (advance done). No-op cho resume thường.
+        with contextlib.suppress(Exception):
+            _sub = str(payload.get("principal") or "0").split(":")[-1]
+            await advance_wga_task_after_resume(
+                plane, run_id=run_id, workspace_id=workspace_id, sub=_sub
+            )
 
 
 async def execute_scheduled_session_task(

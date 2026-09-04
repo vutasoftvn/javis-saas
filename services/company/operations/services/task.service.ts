@@ -13,6 +13,7 @@ import {
   taskExecutionRecords,
   executionPlans,
   executionPlanItems,
+  workspaceExecutionSettings,
 } from "../../shared/db/schema/operations";
 import { sql, inArray } from "drizzle-orm";
 
@@ -250,8 +251,13 @@ export async function updateTaskScheduleService(
   return toTask(row);
 }
 
-export type AgentAdvanceStatus = "in_progress" | "done" | "blocked";
-const AGENT_ADVANCE_STATUSES: readonly AgentAdvanceStatus[] = ["in_progress", "done", "blocked"];
+export type AgentAdvanceStatus = "in_progress" | "waiting_approval" | "done" | "blocked";
+const AGENT_ADVANCE_STATUSES: readonly AgentAdvanceStatus[] = [
+  "in_progress",
+  "waiting_approval",
+  "done",
+  "blocked",
+];
 
 export interface AdvanceTaskByAgentParams {
   taskId: string;
@@ -262,9 +268,11 @@ export interface AdvanceTaskByAgentParams {
 
 /**
  * Đường DUY NHẤT cho agent đổi trạng thái task — chỉ áp dụng cho task do một
- * AI_AGENT member đảm nhận. Không cho phép 'cancelled'/'todo'/'waiting_approval'
- * (huỷ là việc người). 'done' chỉ hợp lệ khi task đang 'in_progress' hoặc
- * 'waiting_approval'. Mọi lần gọi ghi 1 task_execution_records.
+ * AI_AGENT member đảm nhận. Cho phép 'in_progress' | 'waiting_approval' | 'done'
+ * | 'blocked' (không 'cancelled'/'todo' — huỷ là việc người). 'waiting_approval'
+ * dùng khi run nền gặp checkpoint cần founder duyệt (WGA). 'done' chỉ hợp lệ khi
+ * task đang 'in_progress' hoặc 'waiting_approval'. Mọi lần gọi ghi 1
+ * task_execution_records.
  */
 export async function advanceTaskByAgentService(
   params: AdvanceTaskByAgentParams,
@@ -373,6 +381,30 @@ export async function listAgentClaimableTasksService(
   const wsId = BigInt(ctxOverride?.workspaceId ?? workspaceId);
   const cap = Math.max(1, Math.min(limit || 5, 50));
 
+  // WGA #2 — kill-switch per-workspace: founder tắt -> không trả task nào (task
+  // vẫn ở trạng thái todo, chỉ không tự chạy).
+  const [settings] = await db
+    .select({ sweepEnabled: workspaceExecutionSettings.sweepEnabled })
+    .from(workspaceExecutionSettings)
+    .where(eq(workspaceExecutionSettings.workspaceId, wsId))
+    .limit(1);
+  if (settings && settings.sweepEnabled === false) return [];
+
+  // WGA #4 — rate-limit: đếm số task-execution run (distinct run_id do agent
+  // ghi vào task_execution_records) trong 24h; vượt hạn -> không trả task mới.
+  const maxRunsPerDay = Number(process.env.WGA_MAX_TASK_RUNS_PER_WORKSPACE_PER_DAY || "50");
+  const [runCount] = await db
+    .select({ n: sql<number>`count(distinct ${taskExecutionRecords.runId})::int` })
+    .from(taskExecutionRecords)
+    .where(
+      and(
+        eq(taskExecutionRecords.workspaceId, wsId),
+        eq(taskExecutionRecords.triggeredByKind, "agent"),
+        sql`${taskExecutionRecords.createdAt} >= now() - interval '24 hours'`
+      )
+    );
+  if (runCount && runCount.n >= maxRunsPerDay) return [];
+
   const rows = await db
     .select({
       taskId: tasks.id,
@@ -427,4 +459,47 @@ export async function listAgentClaimableTasksService(
     planItemId: r.planItemId.toString(),
     planId: r.planId.toString(),
   }));
+}
+
+export interface WorkspaceExecutionSettingsView {
+  workspaceId: string;
+  sweepEnabled: boolean;
+}
+
+export async function getWorkspaceExecutionSettingsService(
+  workspaceId: string,
+  authorization: string | undefined
+): Promise<WorkspaceExecutionSettingsView> {
+  await requireWorkspaceAccess(authorization, workspaceId);
+  const [row] = await db
+    .select()
+    .from(workspaceExecutionSettings)
+    .where(eq(workspaceExecutionSettings.workspaceId, BigInt(workspaceId)))
+    .limit(1);
+  return { workspaceId, sweepEnabled: row ? row.sweepEnabled : true };
+}
+
+export async function setWorkspaceExecutionSettingsService(
+  workspaceId: string,
+  sweepEnabled: boolean,
+  ctx: TenantContext
+): Promise<WorkspaceExecutionSettingsView> {
+  const wsId = BigInt(workspaceId);
+  await db
+    .insert(workspaceExecutionSettings)
+    .values({
+      workspaceId: wsId,
+      sweepEnabled,
+      updatedBy: ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: workspaceExecutionSettings.workspaceId,
+      set: {
+        sweepEnabled,
+        updatedBy: ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null,
+        updatedAt: new Date(),
+      },
+    });
+  return { workspaceId, sweepEnabled };
 }

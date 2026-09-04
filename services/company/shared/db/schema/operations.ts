@@ -297,6 +297,14 @@ export const executionPlanItems = operatingSchema.table("execution_plan_items", 
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 17c. Workspace Execution Settings (WGA #2 — kill-switch per-workspace cho sweep)
+export const workspaceExecutionSettings = operatingSchema.table("workspace_execution_settings", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).primaryKey(),
+  sweepEnabled: boolean("sweep_enabled").default(true).notNull(),
+  updatedBy: bigint("updated_by", { mode: "bigint" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // 18. Runtime Source Signals (Full MVP - Immutable upstream agent signals projection)
 export const runtimeSourceSignals = operatingSchema.table("runtime_source_signals", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),

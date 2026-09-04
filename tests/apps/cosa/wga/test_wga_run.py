@@ -187,6 +187,44 @@ async def test_sweep_skips_non_auto_tasks():
 
 
 @pytest.mark.asyncio
+async def test_sweep_marks_waiting_approval_on_kernel_waiting():
+    company = AsyncMock()
+    company.get.return_value = {
+        "tasks": [{"taskId": "t1", "autonomyClass": "AUTO", "title": "x", "decisionReason": "y"}]
+    }
+    plane = _plane(company, kernel_result=_run_result(RunStatus.WAITING_APPROVAL))
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1"}
+    )
+    advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    assert advance_calls[-1].kwargs["json"]["toStatus"] == "waiting_approval"
+    # run_id must encode the task id for the resume path
+    assert advance_calls[-1].kwargs["json"]["runId"].startswith("wga_task_t1_")
+
+
+@pytest.mark.asyncio
+async def test_advance_wga_task_after_resume_closes_the_task():
+    company = AsyncMock()
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED))
+    await wga_run.advance_wga_task_after_resume(
+        plane, run_id="wga_task_909_abcd1234", workspace_id="ws1", sub="42"
+    )
+    call = company.post.await_args
+    assert call.args[0] == "/operations/tasks/909/advance"
+    assert call.kwargs["json"]["toStatus"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_advance_wga_task_after_resume_ignores_non_wga_run_ids():
+    company = AsyncMock()
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED))
+    await wga_run.advance_wga_task_after_resume(
+        plane, run_id="run_abc123", workspace_id="ws1", sub="42"
+    )
+    company.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_sweep_marks_blocked_on_kernel_failure():
     company = AsyncMock()
     company.get.return_value = {
