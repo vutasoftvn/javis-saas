@@ -4,6 +4,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/runtime_app_chrome.dart';
 import '../controllers/founder_command_center_controller.dart';
 import '../widgets/cofounder_card_widget.dart';
+import '../widgets/pulse_stat_bar_widget.dart';
 import '../widgets/top3_focus_widget.dart';
 import '../widgets/waiting_for_you_widget.dart';
 import '../widgets/decision_modal_sheet.dart';
@@ -408,7 +409,12 @@ class HologramHubView extends StatelessWidget {
           // ở trạng thái 0 project; nhưng nếu có race khiến nó render tạm thời,
           // ẩn toàn bộ widget phụ thuộc project để không hiện số liệu giả.
           if (controller.hasProjects.value) ...[
-            // A. Hero Co-Founder Card + Company Pulse
+            // A0. Thống kê nhanh — đặt trên cùng theo feedback founder (2026-09-04)
+            // xem docs/superpowers/specs/2026-09-04-command-center-dashboard-redesign-design.md
+            PulseStatBarWidget(pulse: controller.pulse.value),
+            const SizedBox(height: 16),
+
+            // A. Hero Co-Founder Card
             CoFounderCardWidget(
               pulse: controller.pulse.value,
               onAskCosa: () => Get.find<ChatPanelController>().open(),
