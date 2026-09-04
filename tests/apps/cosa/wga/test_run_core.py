@@ -16,7 +16,7 @@ class _Snapshot:
 
 def _spec():
     return SimpleNamespace(
-        to_pinned_identity=lambda: "cosa.agents.operations@1.1.0#hash",
+        to_pinned_identity=lambda: "cosa.agents.operations@1.2.0#hash",
         spec_id="cosa.agents.operations",
     )
 

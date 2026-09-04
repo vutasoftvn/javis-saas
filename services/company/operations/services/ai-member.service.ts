@@ -15,7 +15,7 @@ export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
 // cho AI_AGENT). Runtime dispatch KHÔNG dùng giá trị này — worker resolve exact
 // hash qua registry theo ADR-AGENT-REG-001; đây chỉ là nhãn cho UI/audit.
 export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
-  operations: "1.1.0",
+  operations: "1.2.0",
   finance: "1.1.0",
   marketing: "1.1.0",
 };

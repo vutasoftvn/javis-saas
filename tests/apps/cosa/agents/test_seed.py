@@ -21,7 +21,7 @@ async def test_seed_publishes_both_agent_specs():
 
     await seed_cosa_agent_specs(repo)
 
-    operations_record = await repo.get("agent", "cosa.agents.operations", "1.1.0")
+    operations_record = await repo.get("agent", "cosa.agents.operations", "1.2.0")
     finance_record = await repo.get("agent", "cosa.agents.finance", "1.1.0")
     assert operations_record is not None
     assert operations_record.definition_hash == COSA_OPERATIONS_AGENT_SPEC.compute_hash()
@@ -48,7 +48,7 @@ async def test_seed_is_idempotent_when_called_twice():
     await seed_cosa_agent_specs(repo)
     await seed_cosa_agent_specs(repo)  # không raise SpecVersionHashConflictError
 
-    record = await repo.get("agent", "cosa.agents.operations", "1.1.0")
+    record = await repo.get("agent", "cosa.agents.operations", "1.2.0")
     assert record is not None
 
 
@@ -62,7 +62,7 @@ async def test_seed_fails_closed_on_same_version_stale_agent_content():
         PublishedSpecRecord(
             spec_kind="agent",
             spec_id=COSA_OPERATIONS_AGENT_SPEC.id,
-            version="1.1.0",
+            version=COSA_OPERATIONS_AGENT_SPEC.version,
             definition_hash="stale-hash-without-model-input-scope",
             content=stale_content,
             status="published",

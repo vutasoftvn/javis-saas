@@ -13,11 +13,16 @@ from apps.cosa.agents.specs import (
 
 
 def test_direct_chat_capable_agent_specs_use_new_immutable_version() -> None:
+    # operations bumped to 1.2.0 for WGA (added operations.task.create_draft to
+    # capability_refs); finance/marketing unchanged at 1.1.0. Invariant: all are
+    # a Wave-M2b immutable version (>= 1.1.0), none left at 1.0.0.
     assert {
         COSA_OPERATIONS_AGENT_SPEC.version,
         COSA_FINANCE_AGENT_SPEC.version,
         COSA_MARKETING_AGENT_SPEC.version,
-    } == {"1.1.0"}
+    } == {"1.2.0", "1.1.0"}
+    assert COSA_OPERATIONS_AGENT_SPEC.version == "1.2.0"
+    assert "operations.task.create_draft" in COSA_OPERATIONS_AGENT_SPEC.capability_refs
     assert COSA_OPERATIONS_AGENT_SPEC.model_input_capability_ref == "model.input.direct-user-message"
     assert COSA_FINANCE_AGENT_SPEC.model_input_capability_ref == "model.input.direct-user-message"
     assert COSA_MARKETING_AGENT_SPEC.model_input_capability_ref == "model.input.direct-user-message"

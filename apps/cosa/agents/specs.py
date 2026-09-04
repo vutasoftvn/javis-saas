@@ -51,12 +51,17 @@ COSA_MARKETING_PROMPT = PromptSpec(
 
 COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     id="cosa.agents.operations",
-    version="1.1.0",
+    # 1.2.0 (WGA int. point #3): thêm operations.task.create_draft vào
+    # capability_refs để agent trong workspace_task_sweep phân rã tiếp 1 task
+    # thành sub-task nháp. task.advance KHÔNG nằm đây — worker sweep gọi trực
+    # tiếp qua HTTP delegation, không qua kernel.
+    version="1.2.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions="Chuyên viên quản lý vận hành công việc, theo dõi tiến độ task và OKRs của doanh nghiệp.",
     capability_refs=[
         "operations.task.list",
         "operations.task.read",
+        "operations.task.create_draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[
