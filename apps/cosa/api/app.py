@@ -15,6 +15,7 @@ from apps.cosa.api.copilot_routes import create_copilot_router
 from apps.cosa.api.event_intake_routes import create_event_intake_router
 from apps.cosa.api.event_operations_routes import create_event_operations_router
 from apps.cosa.api.event_rule_routes import create_event_rule_router
+from apps.cosa.api.kickoff_suggestion_routes import create_kickoff_suggestion_router
 from apps.cosa.api.knowledge_routes import create_knowledge_router
 from apps.cosa.api.routes import router
 from apps.cosa.api.schedule_routes import create_schedule_router
@@ -205,6 +206,7 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     app.include_router(create_event_rule_router())
     app.include_router(create_event_operations_router())
     app.include_router(create_copilot_router())
+    app.include_router(create_kickoff_suggestion_router())
     app.include_router(create_autopilot_metrics_router())
 
     @app.get("/live")
