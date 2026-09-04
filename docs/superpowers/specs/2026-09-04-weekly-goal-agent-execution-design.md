@@ -404,3 +404,38 @@ Company endpoint `POST /operations/tasks/:id/advance` (handler → service, khô
 ## 14. Câu hỏi mở
 
 Không còn — user đã chốt 5 quyết định phạm vi ở §2. Đây là bản tổng hợp để review trước khi viết implementation plan.
+
+## 15. Addendum 2026-09-04 — quyết định wiring + phát hiện khi triển khai
+
+### 15.1 Trigger wiring: hướng A (event-intake production) — đã chốt
+
+Spec §7.3 giả định sai. Thực tế phát hiện khi code:
+
+1. **Không có kênh `services/company` → `apps/cosa` đồng bộ.** Delegation chỉ 1 chiều (cosa ký → company verify). Company chỉ gọi RPC sang `services/cosa` (control plane TS).
+2. **Đường event-intake CÓ wire trong lifespan** (`apps/cosa/api/app.py` gọi `build_event_intake_deps` khi `AGENT_DATABASE_URL` set) — docstring "P0 để None" đã lỗi thời. Outbox relay ở company (`events/outbox-relay.service.ts`) cũng có sẵn.
+3. **Nhưng `handle_event` bắt buộc `EventTriggerRule` per-workspace** (cơ chế autopilot, operator provision, mặc định `enabled=false`).
+
+**Giải pháp (đã implement, commit `9cffb11b`):** `apps/cosa/events/router.py` thêm `_PLATFORM_SELF_TRIGGER` — event founder chủ động phát tự schedule task, KHÔNG cần `EventTriggerRule`:
+- `operating.weekly_goal.set.v1` → task `goal_decomposition` (spec `cosa.agents.operations`)
+- `operating.execution_plan.accepted.v1` → task `workspace_task_sweep`
+
+`LocalExecutionPlaneScheduleClient.schedule_platform_task()` schedule task với `task_type` tùy ý (không phải reference-task autopilot). `coalescing_key = wga:<ws>:<event_type>:<aggregate_id>` chống trùng.
+
+**Task execution KHÔNG dùng poll loop toàn cục** (khác spec §9.1). Thay bằng: `execution_plan.accepted.v1` → 1 task `workspace_task_sweep` cho workspace đó. Handler sweep gọi `GET /operations/tasks/agent-claimable` (đã có, Task 1.8), chạy từng task, tự re-schedule (delay ~15s) nếu còn task `todo` (dependency chưa xong), tự dừng khi hết. Backpressure tự nhiên, không cần endpoint global "workspaces-with-claimable".
+
+### 15.2 Điểm tích hợp CÒN LẠI (chưa code) — cần cho `execute_goal_decomposition_task` + `execute_workspace_task_sweep_task`
+
+1. **Auth cho background-task → company.** Task self-trigger không có user session → không có delegation token. Phải mint qua `plane.compliance_resolver.resolve_for_run(req, spec)` (đường autopilot đang dùng) → `_company_delegation_token` scoped `{workspace_id, run_id, capability_ids}`.
+   - **Chặn:** endpoint `POST /operations/execution-plans` + `POST /operations/tasks/:id/advance` hiện verify qua `requireWorkspaceAccess` (local-session / platform token). Phải cho verify thêm **cosa company-delegation token** (`cosa-delegation.service.ts::verifyCosaDelegationToken`, đã có cho capability-scoped call). `execution-plans`/`advance` không phải "capability" theo nghĩa scoped — cần quyết định: (a) thêm capability id giả cho 2 route này vào `capability_ids` scope, hoặc (b) 1 đường verify riêng "workspace-scoped cosa task token".
+2. **Reuse run core.** `_execute_run_task_inner` (~370 dòng) coupling chặt với conversation. Cần tách helper `run_agent_and_get_text(plane, *, agent_profile, prompt, workspace_id, principal) -> (status, text, company_delegation_token)` để 2 handler mới + chat path dùng chung — refactor có test risk cho chat path (nhiều test hiện có).
+3. **`workspace_task_sweep` kill-switch + rate limit.** Gọi `plane.tenant_policy_client` (RPC services/cosa) check `execution.autopilot=DENY` + đếm `task_execution` run 24h. Cần xác nhận `tenant_policy_client` có sẵn method phù hợp hay phải thêm.
+4. **`execute_resume_task` mở rộng.** Sau resume completed, nếu payload có `execution_plan_item_id` → gọi `operations.task.advance(done)`.
+5. **Dispatch branches** trong `apps/cosa/worker/main.py::dispatch_one_task` cho `task_type ∈ {goal_decomposition, workspace_task_sweep}` (giống nhánh `run`/`resume`, có lease theo `run_id` sinh nội bộ).
+
+### 15.3 Trạng thái triển khai (2026-09-04)
+
+- **Phase 1 (company backend): HOÀN TẤT.** 8 task, 47 test mới, `make services-test-company` 1110 pass, migration 37 rollback verified, boundary checks pass.
+- **Phase 2 (apps/cosa): 4/8.** `capability_risk_map` ✓, `goal_decomposition` parser ✓, `operations.task.advance` capability ✓, event self-trigger routing ✓ (20 test). Còn: `execute_goal_decomposition_task`, `execute_workspace_task_sweep_task`, dispatch wiring, resume extension — chặn ở §15.2 (auth + core refactor).
+- **Phase 3 (goal-intent + Flutter): CHƯA.**
+
+Lỗi có sẵn không liên quan: `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`) — cả 2 fail sẵn trên `main` trước WGA.
