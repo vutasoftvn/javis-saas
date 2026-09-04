@@ -223,8 +223,12 @@ function generateUserConfirmationEmail(data: EarlyAccessEmailData): string {
                   <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #ffffff;">${phone}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 12px 16px; color: #94a3b8;">Thời gian ghi nhận:</td>
-                  <td style="padding: 12px 16px; color: #94a3b8;">${registeredAt}</td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #94a3b8;">Thời gian ghi nhận:</td>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #1e293b; color: #94a3b8;">${registeredAt}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; color: #94a3b8;">Gói kích hoạt:</td>
+                  <td style="padding: 12px 16px; color: #10b981; font-weight: 600;">${priorityInterest}</td>
                 </tr>
               </table>
 

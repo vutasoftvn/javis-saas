@@ -86,4 +86,32 @@ describe("InMemoryEarlyAccessStore", () => {
     await store.markEmailSimulated(created.id);
     expect((await store.findByEmail("ada2@example.com"))?.emailDeliveryStatus).toBe("simulated");
   });
+
+  it("updates persona discovery data successfully", async () => {
+    const store = new InMemoryEarlyAccessStore();
+    await store.create({
+      fullName: "Student B",
+      email: "student@school.edu.vn",
+      phone: "0912345678",
+      company: "School Project",
+      userSegment: "Học sinh, Sinh viên / Nghiên cứu học tập",
+      projectName: "AI Thesis",
+      priorityInterest: "Gói Free - 1 Workspace & 1 Project",
+      accessCode: "ref-code-4",
+      emailDeliveryStatus: "pending",
+    });
+
+    const ok = await store.updatePersonaDiscovery("student@school.edu.vn", {
+      firstProjectGoal: "Nghiên cứu đồ án AI",
+      aiAutonomyLevel: "L1",
+    });
+    expect(ok).toBe(true);
+
+    const record = await store.findByEmail("student@school.edu.vn");
+    expect(record?.personaData).toMatchObject({
+      firstProjectGoal: "Nghiên cứu đồ án AI",
+      aiAutonomyLevel: "L1",
+    });
+  });
 });
+
