@@ -20,7 +20,7 @@ Map<String, dynamic> _escalation({
   String exceptionType = 'AGENT_STALL',
 }) {
   return {
-    'id': 1,
+    'id': 'run_failed_1',
     'tier': tier,
     'exception_type': exceptionType,
     'agent_key': 'agent-x',

@@ -193,34 +193,24 @@ mixin HubControlPlaneMixin on GetxController {
     }
   }
 
-  /// Resolve một escalation với action cụ thể và reload danh sách.
+  /// MVP hiện tại chỉ có escalations LIST (read-only) — KHÔNG có backend
+  /// resolve thật (xem docs/superpowers/specs/2026-09-04-workforce-dashboard-backend-gaps-design.md
+  /// Phase 5). UI đã vô hiệu hoá nút bấm từ 2026-09-02 (xem
+  /// exception_escalation_inbox.dart) nên đường này giờ không còn ai gọi
+  /// được từ UI — giữ lại làm no-op tường minh (thay vì gọi
+  /// agentPlatformService.resolveEscalation vào 1 route sẽ luôn 404) để bất
+  /// kỳ caller nào khác (test, tương lai) cũng nhận được thông báo rõ ràng
+  /// thay vì một lỗi mạng khó hiểu.
   Future<void> resolveEscalation(
-    int escalationId,
+    String escalationId,
     String action, [
     String? comment,
   ]) async {
-    try {
-      final result = await agentPlatformService.resolveEscalation(
-        escalationId,
-        action: action,
-        comment: comment,
-      );
-      if (result != null) {
-        // Remove from open list immediately (optimistic update)
-        openEscalations.removeWhere(
-          (e) => (e['id'] as int?) == escalationId,
-        );
-        // Reload để cập nhật summary
-        await loadOpenEscalations();
-        AppToast.success(
-          'Exception đã được resolve với action: $action',
-          title: 'Đã xử lý',
-          duration: const Duration(seconds: 3),
-        );
-      }
-    } catch (e) {
-      debugPrint('[HologramHub] Error resolving escalation: $e');
-    }
+    AppToast.error(
+      'Chưa hỗ trợ resolve exception trong bản này — đang chờ thiết kế domain escalation riêng.',
+      title: 'Chưa khả dụng',
+      duration: const Duration(seconds: 4),
+    );
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────

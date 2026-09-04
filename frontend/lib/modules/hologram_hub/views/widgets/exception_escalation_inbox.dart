@@ -16,7 +16,7 @@ class ExceptionEscalationInbox extends StatelessWidget {
   final RxList<Map<String, dynamic>> escalations;
   final Map<String, dynamic>? summary;
   final RxBool isLoading;
-  final void Function(int id, String action, String? comment) onResolve;
+  final void Function(String id, String action, String? comment) onResolve;
 
   const ExceptionEscalationInbox({
     super.key,
@@ -31,7 +31,7 @@ class ExceptionEscalationInbox extends StatelessWidget {
     required RxList<Map<String, dynamic>> escalations,
     required Map<String, dynamic>? summary,
     required RxBool isLoading,
-    required void Function(int id, String action, String? comment) onResolve,
+    required void Function(String id, String action, String? comment) onResolve,
   }) {
     showModalBottomSheet(
       context: context,
@@ -183,7 +183,7 @@ class ExceptionEscalationInbox extends StatelessWidget {
                   return _EscalationCard(
                     escalation: esc,
                     onResolve: (action, comment) {
-                      final id = esc['id'] as int?;
+                      final id = esc['id'] as String?;
                       if (id != null) onResolve(id, action, comment);
                     },
                   );
