@@ -92,6 +92,60 @@ class _FakeWorkforceMvpService implements WorkforceMvpService {
   Future<ApiResult<Map<String, dynamic>>> getOrgChart() async {
     return ApiSuccess(data: const {}, meta: _fakeMeta);
   }
+
+  // Task 13 — bổ sung 5 method mới của `WorkforceMvpService` (workforce
+  // dashboard gaps) sau khi interface gốc thêm chúng; fake trước đó
+  // `implements` toàn bộ class nên thiếu override làm build lỗi biên dịch,
+  // không liên quan gì tới approvals/mission-control mà test này đang cover.
+  @override
+  Future<ApiResult<List<WorkforceRosterEntry>>> listRoster() async {
+    return ApiSuccess(data: const [], meta: _fakeMeta);
+  }
+
+  @override
+  Future<ApiResult<List<WorkforceWorkProduct>>> listWorkProducts() async {
+    return ApiSuccess(data: const [], meta: _fakeMeta);
+  }
+
+  @override
+  Future<ApiResult<WorkforceExceptionSummary>> listExceptions() async {
+    return ApiSuccess(
+      data: const WorkforceExceptionSummary(
+        total: 0,
+        founderGateCount: 0,
+        leadNotifyCount: 0,
+        hasCritical: false,
+        escalations: [],
+      ),
+      meta: _fakeMeta,
+    );
+  }
+
+  @override
+  Future<ApiResult<WorkforceStageRoster>> getStageRoster(String stageCode) async {
+    return ApiSuccess(
+      data: const WorkforceStageRoster(
+        stage: WorkforceStageRosterStage(stageCode: '', taskCount: 0),
+        roster: [],
+        summary: WorkforceStageRosterSummary(total: 0, highPriority: 0, medium: 0, locked: 0),
+      ),
+      meta: _fakeMeta,
+    );
+  }
+
+  @override
+  Future<ApiResult<WorkforceDashboardSummary>> getDashboardSummary() async {
+    return ApiSuccess(
+      data: const WorkforceDashboardSummary(
+        rosterTotal: 0,
+        rosterActive: 0,
+        openExceptions: 0,
+        pendingApprovals: 0,
+        workProductsTotal: 0,
+      ),
+      meta: _fakeMeta,
+    );
+  }
 }
 
 WorkforceApproval _approval(String id, {String action = 'approve_action_1'}) {
