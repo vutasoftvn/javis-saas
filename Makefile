@@ -3,6 +3,11 @@ TEST_DATABASE_URL ?=
 
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
+# apps/cosa/** import kiểu "from agent.contracts..." (không phải "packages.agent...") —
+# pytest tự thêm packages/apps vào sys.path qua pyproject.toml [tool.pytest.ini_options]
+# pythonpath, nhưng lệnh chạy runtime trực tiếp (không qua pytest) thì không — cần
+# PYTHONPATH này để apps.cosa.api.main / apps.cosa.worker.main import được.
+RUNTIME_PYTHONPATH := $(CURDIR):$(CURDIR)/packages:$(CURDIR)/apps
 
 .PHONY: backend-test backend-integration-test frontend-test frontend-analyze frontend-coverage-check boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-stack-no-infra dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test e2e-cross-plane-smoke schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check encore-handler-boundary-check ts-suppression-check route-auth-allowlist-check encore-type-safety-check mvp-e2e-purity-check frontend-api-contract-check
 
@@ -65,7 +70,7 @@ knowledge-ingestion-test:
 # identity/connector/policy). Biến COSA_CONTROL_PLANE_URL cũ chỉ còn fallback.
 # Xem SPEC-EXEC-PLANE-SPLIT + COSA_FINAL_INTEGRATION_..._2026-08-25.md §29.6.
 agent-worker:
-	PYTHONPATH=$(CURDIR) $(PYTHON) -m apps.cosa.worker.main
+	PYTHONPATH=$(RUNTIME_PYTHONPATH) $(PYTHON) -m apps.cosa.worker.main
 
 frontend-test:
 	cd frontend && flutter test
@@ -377,9 +382,9 @@ dev-stack-no-infra: ## Launch Company, COSA, API and worker — assumes Postgres
 	COMPANY_PID=$$!; \
 	cd $(CURDIR)/services/cosa && encore run --port=4001 &\
 	COSA_PID=$$!; \
-	PYTHONPATH=$(CURDIR) $(PYTHON) -m apps.cosa.api.main &\
+	PYTHONPATH=$(RUNTIME_PYTHONPATH) $(PYTHON) -m uvicorn apps.cosa.api.main:app --host 127.0.0.1 --port 8000 &\
 	API_PID=$$!; \
-	PYTHONPATH=$(CURDIR) $(PYTHON) -m apps.cosa.worker.main &\
+	PYTHONPATH=$(RUNTIME_PYTHONPATH) $(PYTHON) -m apps.cosa.worker.main &\
 	WORKER_PID=$$!; \
 
 	echo "Services launched (PIDs: Company=$$COMPANY_PID COSA=$$COSA_PID API=$$API_PID Worker=$$WORKER_PID)"; \
@@ -419,7 +424,7 @@ dev-status: ## Show dev stack status
 	else \
 		echo "✗ COSA FastAPI (http://127.0.0.1:8000)"; \
 	fi
-	@if pgrep -f "python -m apps.cosa.worker" >/dev/null 2>&1; then \
+	@if pgrep -if "apps.cosa.worker" >/dev/null 2>&1; then \
 		echo "✓ COSA Worker (running)"; \
 	else \
 		echo "✗ COSA Worker (not running)"; \
