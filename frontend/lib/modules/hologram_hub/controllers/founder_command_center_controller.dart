@@ -131,9 +131,6 @@ class FounderCommandCenterController extends GetxController {
 
   /// WGA #6a — "Việc của bạn": task FOUNDER_ONLY + task AI bị chặn.
   final RxList<FounderInboxTask> founderInboxTasks = <FounderInboxTask>[].obs;
-
-  /// WGA #6b — poll draftPlans + inbox khi đang ở tab Command Center.
-  Timer? _wgaPollTimer;
   final RxList<FounderDecisionModel> pendingDecisions =
       <FounderDecisionModel>[].obs;
   final RxList<Map<String, dynamic>> pendingApprovals =
@@ -174,26 +171,21 @@ class FounderCommandCenterController extends GetxController {
   void onInit() {
     super.onInit();
     loadDashboardData();
-    // WGA #6b — poll nhẹ 20s khi đang ở tab Command Center (0) và có project.
-    // Bỏ qua trong widget test (Get.testMode) để không giữ timer treo.
-    if (!Get.testMode) {
-      _wgaPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-        if (selectedTabIndex.value == 0 &&
-            hasProjects.value &&
-            (activeProjectId.value?.isNotEmpty ?? false)) {
-          loadDraftPlans();
-          loadFounderInbox();
-        }
-      });
-    }
   }
 
   @override
   void onClose() {
     _chatSseSubscription?.cancel();
-    _wgaPollTimer?.cancel();
     chatInputController.dispose();
     super.onClose();
+  }
+
+  /// WGA #6b — poll nhẹ draftPlans + inbox; gọi bởi widget wrapper của tab
+  /// Command Center (`_WgaPollWrapper`), timer gắn với vòng đời widget đó.
+  Future<void> refreshWgaSurfaces() async {
+    if (!hasProjects.value || (activeProjectId.value?.isEmpty ?? true)) return;
+    await loadDraftPlans();
+    await loadFounderInbox();
   }
 
   /// Fix-review (2026-09-02, final review C-1) — controller này đăng ký

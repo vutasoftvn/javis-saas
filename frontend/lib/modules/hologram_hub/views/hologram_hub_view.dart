@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -423,27 +425,8 @@ class HologramHubView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // A1. WGA — "Kế hoạch đề xuất" (agent phân rã mục tiêu tuần)
-            Obx(
-              () => Column(
-                children: controller.draftPlans
-                    .map(
-                      (plan) => ExecutionPlanCardWidget(
-                        plan: plan,
-                        onAccept: controller.acceptPlan,
-                        onReject: controller.rejectPlan,
-                        onChangeItemClass: (itemId, klass) => controller
-                            .updatePlanItem(plan.id, itemId, autonomyClass: klass),
-                        onDropItem: (itemId) =>
-                            controller.updatePlanItem(plan.id, itemId, drop: true),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-
-            // A2. WGA — "Việc của bạn" (FOUNDER_ONLY + blocked)
-            Obx(() => YourTasksWidget(tasks: controller.founderInboxTasks.toList())),
+            // A1/A2. WGA — "Kế hoạch đề xuất" + "Việc của bạn" (poll 20s qua wrapper)
+            _WgaSurfaces(controller: controller),
 
             Obx(() {
               final setup = controller.activeProjectSetup.value;
@@ -1058,6 +1041,64 @@ class HologramHubView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// WGA #6b — bọc 2 card WGA và poll `refreshWgaSurfaces()` mỗi 20s. Timer gắn
+/// với vòng đời widget này (dispose đúng cách) thay vì controller onInit —
+/// controller là `permanent: true` nên timer ở đó sẽ treo trong widget test.
+class _WgaSurfaces extends StatefulWidget {
+  final FounderCommandCenterController controller;
+
+  const _WgaSurfaces({required this.controller});
+
+  @override
+  State<_WgaSurfaces> createState() => _WgaSurfacesState();
+}
+
+class _WgaSurfacesState extends State<_WgaSurfaces> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => widget.controller.refreshWgaSurfaces(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.controller;
+    return Column(
+      children: [
+        Obx(
+          () => Column(
+            children: c.draftPlans
+                .map(
+                  (plan) => ExecutionPlanCardWidget(
+                    plan: plan,
+                    onAccept: c.acceptPlan,
+                    onReject: c.rejectPlan,
+                    onChangeItemClass: (itemId, klass) =>
+                        c.updatePlanItem(plan.id, itemId, autonomyClass: klass),
+                    onDropItem: (itemId) =>
+                        c.updatePlanItem(plan.id, itemId, drop: true),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        Obx(() => YourTasksWidget(tasks: c.founderInboxTasks.toList())),
+      ],
     );
   }
 }
