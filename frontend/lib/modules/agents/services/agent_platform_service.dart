@@ -331,7 +331,7 @@ class AgentPlatformService {
         'decided_at': d.decidedAt.toIso8601String(),
       };
 
-  /// List work products — canonical `/agent/workforce/work-products` qua
+  /// List work products — canonical `/agent/workforce/artifacts` qua
   /// `WorkforceMvpService`. Backend chưa có filter `status` cho route này
   /// (pre-flight decision, 2026-09-04) nên tham số cũ bị bỏ — không call site
   /// nào trong app truyền `status:` vào method này (đã grep xác nhận).
@@ -719,31 +719,6 @@ class AgentPlatformService {
         };
       },
     );
-  }
-
-  /// Resolve một escalation với action cụ thể.
-  /// [action]: 'retry' | 'reassign' | 'force_approve' | 'dismiss' | 'increase_budget' | 'block_permanently'
-  Future<Map<String, dynamic>?> resolveEscalation(
-    int escalationId, {
-    required String action,
-    String? comment,
-  }) async {
-    try {
-      final response = await ApiClient.post(
-        '/workforce/exceptions/$escalationId/resolve',
-        body: {
-          'action': action,
-          'comment': ?comment,
-        },
-      );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-      debugPrint('[AgentPlatformService] resolveEscalation failed: ${response.statusCode}');
-    } catch (e) {
-      debugPrint('[AgentPlatformService] resolveEscalation error: $e');
-    }
-    return null;
   }
 
   /// Báo cáo STAGE_MISMATCH khi agent bị locked được kích hoạt ở stage không phù hợp.

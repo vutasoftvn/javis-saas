@@ -480,6 +480,12 @@ export interface StageRosterView {
  * đang chọn stage đó trong workspace (project_operating_setups.selected_stage).
  * Dùng cho workforce dashboard bên apps/cosa
  * (GET /agent/workforce/stage-roster/{stage_code}).
+ *
+ * Lưu ý: `stageCode` chỉ khớp khi trùng đúng 1 trong 2 giá trị CHECK
+ * constraint hiện có trên `selected_stage` ('P0_DISCOVERY' |
+ * 'P1_PROBLEM_VALIDATION') — xem
+ * migrations/34_project_operating_setups.up.sql. Giá trị khác không lỗi,
+ * chỉ khiến `projects` rỗng và roster trả về rỗng.
  */
 export async function listStageRosterService(
   workspaceId: string,

@@ -139,8 +139,12 @@ mixin HubControlPlaneMixin on GetxController {
 
   // ── Phase 6: Stage Roster Loading ────────────────────────────────────────
 
-  /// Load Stage Roster theo stage code (ví dụ 'P2').
-  /// [stageCode]: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | 'P5' | 'P6'
+  /// Load Stage Roster theo stage code (ví dụ 'P0_DISCOVERY').
+  /// [stageCode]: chỉ 2 giá trị thật được CHECK constraint Postgres cho phép
+  /// hiện nay — 'P0_DISCOVERY' | 'P1_PROBLEM_VALIDATION' (xem
+  /// `strategy.project_operating_setups.selected_stage` tại
+  /// `services/company/operations/migrations/34_project_operating_setups.up.sql`).
+  /// Truyền stage code khác KHÔNG lỗi — backend chỉ lặng lẽ trả roster rỗng.
   Future<void> loadStageRoster(String stageCode) async {
     if (isStageRosterLoading.value) return;
     final generation = _workspaceGeneration;
