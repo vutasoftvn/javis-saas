@@ -738,19 +738,47 @@ class HologramHubView extends StatelessWidget {
           if (setup.firstWeekOutcome != null &&
               setup.firstWeekOutcome!.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(
-              'Kết quả tuần 1: ${setup.firstWeekOutcome}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Kết quả tuần 1: ${setup.firstWeekOutcome}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Obx(
+                  () => TextButton.icon(
+                    onPressed: _cc.isDecomposing.value
+                        ? null
+                        : () => _cc
+                            .requestDecomposition(setup.firstWeekOutcome!),
+                    icon: const Icon(Icons.auto_awesome, size: 14),
+                    label: Text(
+                      _cc.isDecomposing.value
+                          ? 'Đang lập...'
+                          : 'Nhờ AI lập kế hoạch',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF818CF8),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
       ),
     );
   }
+
+  FounderCommandCenterController get _cc =>
+      Get.find<FounderCommandCenterController>();
 
   // Giữ lại cho spec follow-up (tạo dự án đầu tiên) — first-project banner đã
   // gỡ nên tạm thời không còn call-site trong file này.

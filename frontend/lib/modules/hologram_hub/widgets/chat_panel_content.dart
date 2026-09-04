@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/ui/app_copy.dart';
@@ -66,6 +68,28 @@ class ChatPanelContent extends StatelessWidget {
                 final msg = controller.chatMessages[idx];
                 final isUser = msg['role'] == 'user';
                 final isError = msg['role'] == 'error';
+
+                // WGA — agent chèn 1 message JSON {"kind":"goal_confirm",...}
+                // khi nhận diện phát biểu mục tiêu tuần. Render 2 nút thay vì text.
+                final content = (msg['content'] ?? '').trim();
+                if (!isUser &&
+                    !isError &&
+                    content.startsWith('{') &&
+                    content.contains('"goal_confirm"')) {
+                  String goal = '';
+                  try {
+                    final parsed = jsonDecode(content) as Map<String, dynamic>;
+                    goal = (parsed['normalized_goal'] ?? '') as String;
+                  } catch (_) {}
+                  return _GoalConfirmCard(
+                    goal: goal,
+                    onConfirm: () => controller.requestDecomposition(
+                      goal,
+                      origin: 'chat',
+                    ),
+                  );
+                }
+
                 return Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
@@ -120,6 +144,75 @@ class ChatPanelContent extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// WGA — thẻ xác nhận "đặt làm mục tiêu tuần" trong luồng chat.
+class _GoalConfirmCard extends StatefulWidget {
+  final String goal;
+  final VoidCallback onConfirm;
+
+  const _GoalConfirmCard({required this.goal, required this.onConfirm});
+
+  @override
+  State<_GoalConfirmCard> createState() => _GoalConfirmCardState();
+}
+
+class _GoalConfirmCardState extends State<_GoalConfirmCard> {
+  bool _dismissed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_dismissed) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF6366F1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Đặt đây làm mục tiêu tuần này và để tôi lập kế hoạch?',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          if (widget.goal.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              '“${widget.goal}”',
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  widget.onConfirm();
+                  setState(() => _dismissed = true);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Đặt & lập kế hoạch'),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () => setState(() => _dismissed = true),
+                child: const Text(
+                  'Không',
+                  style: TextStyle(color: Color(0xFF94A3B8)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

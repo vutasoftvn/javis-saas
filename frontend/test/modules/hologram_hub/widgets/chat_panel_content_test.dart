@@ -37,6 +37,36 @@ void main() {
     expect(closed, isTrue);
   });
 
+  testWidgets('renders a goal_confirm JSON message as a confirm card, not raw text',
+      (tester) async {
+    final controller = Get.put(FounderCommandCenterController());
+    controller.chatMessages.add({
+      'role': 'assistant',
+      'content':
+          '{"kind":"goal_confirm","normalized_goal":"Chốt 3 phỏng vấn khách hàng"}',
+    });
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(
+          body: ChatPanelContent(controller: controller, onClose: () {}),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.textContaining('Đặt đây làm mục tiêu tuần'), findsOneWidget);
+    expect(find.text('Đặt & lập kế hoạch'), findsOneWidget);
+    expect(find.text('Không'), findsOneWidget);
+    // raw JSON must not be shown
+    expect(find.textContaining('"kind"'), findsNothing);
+
+    // dismiss
+    await tester.tap(find.text('Không'));
+    await tester.pump();
+    expect(find.text('Đặt & lập kế hoạch'), findsNothing);
+  });
+
   testWidgets('submitting text field calls sendChatMessage', (tester) async {
     final controller = Get.put(FounderCommandCenterController());
 
