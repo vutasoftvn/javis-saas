@@ -113,6 +113,25 @@ class TaskService extends WorkspaceService {
     }
   }
 
+  /// Cập nhật giờ dự kiến thực hiện task qua endpoint Encore: POST /operations/tasks/:id/schedule
+  Future<void> updateTaskSchedule(String taskId, DateTime? plannedStartAt) async {
+    if (taskId.isEmpty) throw ArgumentError('taskId cannot be empty');
+    await _requireWorkspaceId();
+
+    final response = await ApiClient.post(
+      '/operations/tasks/$taskId/schedule',
+      body: {'plannedStartAt': plannedStartAt?.toUtc().toIso8601String()},
+    );
+    if (response.statusCode == 200) return;
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw StateError('Authentication or workspace access denied: ${response.statusCode}');
+    } else if (response.statusCode == 404) {
+      throw StateError('Task $taskId not found (404)');
+    } else {
+      throw StateError('Failed to update task schedule: ${response.statusCode} ${response.body}');
+    }
+  }
+
   /// Lấy danh sách các tasks đang block task hiện tại
   Future<List<TaskKanbanModel>> getTaskBlockers(String taskId) async {
     if (taskId.isEmpty) return [];

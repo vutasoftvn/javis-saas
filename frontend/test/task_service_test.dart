@@ -132,5 +132,36 @@ void main() {
       expect(() => TaskService().updateTaskStatus('', 'done'), throwsArgumentError);
     });
   });
+
+  group('updateTaskSchedule', () {
+    test('sends plannedStartAt as an ISO string', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/operations/tasks/1/schedule');
+        expect(jsonDecode(request.body), {'plannedStartAt': '2026-09-08T09:00:00.000Z'});
+        return http.Response(jsonEncode({'id': '1', 'status': 'todo'}), 200);
+      });
+
+      await TaskService().updateTaskSchedule('1', DateTime.utc(2026, 9, 8, 9));
+    });
+
+    test('sends null to clear the schedule', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(jsonDecode(request.body), {'plannedStartAt': null});
+        return http.Response(jsonEncode({'id': '1', 'status': 'todo'}), 200);
+      });
+
+      await TaskService().updateTaskSchedule('1', null);
+    });
+
+    test('throws StateError on a 404 response', () async {
+      ApiClient.client = MockClient((request) async => http.Response('Not found', 404));
+      expect(() => TaskService().updateTaskSchedule('1', null), throwsA(isA<StateError>()));
+    });
+
+    test('throws ArgumentError on empty taskId', () async {
+      expect(() => TaskService().updateTaskSchedule('', null), throwsArgumentError);
+    });
+  });
 }
 

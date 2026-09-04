@@ -1970,6 +1970,13 @@
       "expires_on": "2026-12-31"
     },
     {
+      "path": "/operations/tasks/:taskId/schedule",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "New endpoint (Command Center dashboard task checklist, 2026-09-04) for editing a first-week-action task's plannedStartAt; not part of the curated MVP capability manifest yet, same class as the pre-existing /operations/tasks/:taskId/status entry above.",
+      "expires_on": "2026-12-31"
+    },
+    {
       "path": "/platform/prompts/:domain/:name",
       "method": "POST",
       "owner": "control-plane",
