@@ -450,15 +450,27 @@ Spec §7.3 giả định sai. Thực tế phát hiện khi code:
 
 → Sweep executor v1 thực chất chỉ chạy được subset nhỏ; muốn đủ phải làm thêm bước mở rộng spec (chưa scope).
 
-### 15.3 Trạng thái triển khai (2026-09-04, cuối session)
+### 15.3 Trạng thái triển khai (2026-09-04, cập nhật cuối)
 
-| Phase | Trạng thái | Test mới |
+| Phase | Trạng thái | Test |
 |---|---|---|
-| **1 — company backend** | ✅ HOÀN TẤT, shippable độc lập | 53 (bao gồm 6 delegation-auth) |
-| **2 — apps/cosa** | 🟡 5/8: `capability_risk_map`, `goal_decomposition` parser, `operations.task.advance` capability, event self-trigger routing, **cross-plane delegation auth** (int. point #1) | 23 |
-| **2 — còn lại** | `execute_goal_decomposition_task`, `execute_workspace_task_sweep_task`, dispatch branches `worker/main.py`, `execute_resume_task` mở rộng | — |
-| **2 — chặn** | int. point #2 (reuse run-core / kernel.run wiring), #3 (operations spec `capability_refs` cho sweep) | — |
+| **1 — company backend** | ✅ HOÀN TẤT | 53 |
+| **2 — apps/cosa** | ✅ HOÀN TẤT (v1) | ~55 |
+| **2 — int. point #1** delegation auth | ✅ `cosa-task-delegation.ts` + 3 route | 6 |
+| **2 — int. point #2** run-core | ✅ `apps/cosa/worker/run_core.py` (`resolve_spec`/`prepare_request`/`run_kernel`), chat path refactor giữ nguyên hành vi | 7 |
+| **2 — int. point #3** spec caps | ✅ operations AgentSpec `1.2.0` + `operations.task.create_draft` ref | — |
+| **2 — decomposition + sweep** | ✅ `execute_goal_decomposition_task`, `execute_workspace_task_sweep_task`, self-trigger router (`_PLATFORM_SELF_TRIGGER`), dispatch branch `_dispatch_wga_task` | 24 |
 | **3 — goal-intent + Flutter** | ❌ CHƯA | — |
 
-Gate xanh: `make services-test-company` 1116 pass, `apps/cosa` 756 pass, typecheck (company), boundary checks.
-Lỗi có sẵn KHÔNG liên quan (fail sẵn trên `main` trước WGA): `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`).
+**Luồng end-to-end đã nối (v1):**
+`weekly-goal` endpoint (`triggerDecomposition`) → outbox `operating.weekly_goal.set.v1` → relay → `handle_event` self-trigger → schedule `goal_decomposition` → worker → agent run → `parse_plan_output` → POST `/operations/execution-plans` (delegation, cap `operations.execution_plan.create`) → plan `draft`.
+Founder accept (Phase 3 UI, hoặc gọi API trực tiếp) → outbox `operating.execution_plan.accepted.v1` → self-trigger → `workspace_task_sweep` → `GET agent-claimable` → mỗi task AUTO: advance `in_progress` → agent run → advance `done`/`blocked` → re-schedule nếu batch đầy.
+
+**v1 boundary (follow-up, chưa làm):**
+- sweep chỉ chạy `autonomy_class == AUTO`. Task `NEEDS_APPROVAL` materialize rồi dừng — **đường approval-resume cho headless task** (int. point #4: `execute_resume_task` + `operations.task.advance` sau resume) chưa wire.
+- Per-workspace kill-switch qua tenant policy `execution.autopilot` — hiện chỉ env `WGA_SWEEP_ENABLED`.
+- Per-workspace tenant-policy lookup lúc decomposition (classifier nhận `tenantPolicyDecision=null`) — classifier company vẫn áp `FORBIDDEN_RE` + risk default nên vẫn an toàn, chỉ chưa tôn trọng ALLOW override.
+- Chống loop = `sweep_depth` cap 20, chưa có DB counter `WGA_MAX_RUNS_PER_WORKSPACE_PER_DAY`.
+
+Gate xanh: `make services-test-company` 1116 pass · `make apps-cosa-test` 774 pass, coverage 85% (gate 78%) · `make lint` · company typecheck · boundary checks.
+Lỗi có sẵn KHÔNG liên quan (fail trên `main` trước WGA): `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`).
