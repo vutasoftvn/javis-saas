@@ -8,6 +8,7 @@ import {
   getTaskService,
   listTasksService,
   updateTaskStatusService,
+  updateTaskScheduleService,
 } from "../services/task.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { linkTaskProjects, listTaskProjects, unlinkTaskProject } from "../services/project-link.service";
@@ -72,6 +73,24 @@ export const updateTaskStatus = api(
   }): Promise<Task> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     return updateTaskStatusService(id, status, ctx);
+  }
+);
+
+export const updateTaskSchedule = api(
+  { method: "POST", path: "/operations/tasks/:id/schedule", expose: true },
+  async ({
+    id,
+    plannedStartAt,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    plannedStartAt: string | null;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<Task> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return updateTaskScheduleService(id, plannedStartAt, ctx);
   }
 );
 

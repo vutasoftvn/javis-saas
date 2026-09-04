@@ -219,3 +219,26 @@ export async function updateTaskStatusService(
 
   return task;
 }
+
+export async function updateTaskScheduleService(
+  id: string,
+  plannedStartAt: string | null,
+  ctx: TenantContext
+): Promise<Task> {
+  let parsedPlannedStartAt: Date | null = null;
+  if (plannedStartAt !== null && plannedStartAt !== undefined) {
+    parsedPlannedStartAt = new Date(plannedStartAt);
+    if (Number.isNaN(parsedPlannedStartAt.getTime())) {
+      throw APIError.invalidArgument("plannedStartAt phải là ISO date hợp lệ");
+    }
+  }
+
+  const [row] = await db
+    .update(tasks)
+    .set({ plannedStartAt: parsedPlannedStartAt, updatedAt: new Date() })
+    .where(and(eq(tasks.id, BigInt(id)), eq(tasks.workspaceId, BigInt(ctx.workspaceId))))
+    .returning();
+
+  if (!row) throw APIError.notFound(`task ${id} not found`);
+  return toTask(row);
+}

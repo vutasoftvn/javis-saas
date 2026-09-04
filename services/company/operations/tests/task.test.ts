@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
-import { createTask, getTask, listTasks, updateTaskStatus, linkTaskProjects_Endpoint, getTaskProjects, unlinkTaskProject_Endpoint } from "../handlers/task.handler";
+import { createTask, getTask, listTasks, updateTaskStatus, updateTaskSchedule, linkTaskProjects_Endpoint, getTaskProjects, unlinkTaskProject_Endpoint } from "../handlers/task.handler";
 import { createProject } from "../handlers/project.handler";
 import { readOutbox } from "./helpers/outbox";
 
@@ -206,6 +206,78 @@ describe("updateTaskStatus", () => {
       updateTaskStatus({
         id: taskA.id,
         status: "in_progress",
+        workspaceId: workspaceB.workspaceId,
+        authorization: workspaceB.authorization,
+      })
+    ).rejects.toThrow(/not found/i);
+  });
+});
+
+describe("updateTaskSchedule", () => {
+  it("sets plannedStartAt from an ISO string", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Schedule Test Inc");
+    const created = await createTask({ workspaceId, title: "Interview lead", authorization });
+    expect(created.plannedStartAt).toBeNull();
+
+    const scheduled = await updateTaskSchedule({
+      id: created.id,
+      plannedStartAt: "2026-09-08T09:00:00.000Z",
+      workspaceId,
+      authorization,
+    });
+
+    expect(scheduled.plannedStartAt).toBe("2026-09-08T09:00:00.000Z");
+  });
+
+  it("clears plannedStartAt when null is passed", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Schedule Clear Test Inc");
+    const created = await createTask({ workspaceId, title: "Interview lead", authorization });
+    await updateTaskSchedule({
+      id: created.id,
+      plannedStartAt: "2026-09-08T09:00:00.000Z",
+      workspaceId,
+      authorization,
+    });
+
+    const cleared = await updateTaskSchedule({
+      id: created.id,
+      plannedStartAt: null,
+      workspaceId,
+      authorization,
+    });
+
+    expect(cleared.plannedStartAt).toBeNull();
+  });
+
+  it("rejects an invalid (non-ISO) plannedStartAt string", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Schedule Bad Date Test Inc");
+    const created = await createTask({ workspaceId, title: "Interview lead", authorization });
+
+    await expect(
+      updateTaskSchedule({ id: created.id, plannedStartAt: "not-a-date", workspaceId, authorization })
+    ).rejects.toThrow();
+  });
+
+  it("throws not found for a missing id", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Task Schedule Test");
+    await expect(
+      updateTaskSchedule({ id: "999999999", plannedStartAt: null, workspaceId, authorization })
+    ).rejects.toThrow();
+  });
+
+  it("does not allow a workspace B member to schedule a task from workspace A (404, not 403)", async () => {
+    const workspaceA = await makeAuthedWorkspace("Task Schedule Isolation Ws A");
+    const workspaceB = await makeAuthedWorkspace("Task Schedule Isolation Ws B");
+    const taskA = await createTask({
+      workspaceId: workspaceA.workspaceId,
+      title: "Task in A",
+      authorization: workspaceA.authorization,
+    });
+
+    await expect(
+      updateTaskSchedule({
+        id: taskA.id,
+        plannedStartAt: "2026-09-08T09:00:00.000Z",
         workspaceId: workspaceB.workspaceId,
         authorization: workspaceB.authorization,
       })
