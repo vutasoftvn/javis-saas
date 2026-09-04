@@ -782,6 +782,36 @@
       "integration_test": "tests/e2e/test_mvp_workforce_http.py"
     },
     {
+      "id": "workforce.dashboard_summary.get",
+      "enabled": true,
+      "owner": "agent-platform",
+      "plane": "agent",
+      "method": "GET",
+      "path": "/agent/workforce/dashboard-summary",
+      "schema": "workforce.dashboard_summary.get.v1",
+      "source_kind": "agent_db",
+      "requires_workspace": true,
+      "frontend_symbol": "WorkforceMvpService.getDashboardSummary",
+      "backend_test": "tests/apps/cosa/test_workforce_routes.py",
+      "flutter_test": "frontend/test/modules/workforce/services/workforce_mvp_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_workforce_http.py"
+    },
+    {
+      "id": "workforce.exception.list",
+      "enabled": true,
+      "owner": "agent-platform",
+      "plane": "agent",
+      "method": "GET",
+      "path": "/agent/workforce/exceptions",
+      "schema": "workforce.exception.list.v1",
+      "source_kind": "agent_db",
+      "requires_workspace": true,
+      "frontend_symbol": "WorkforceMvpService.listExceptions",
+      "backend_test": "tests/apps/cosa/test_workforce_routes.py",
+      "flutter_test": "frontend/test/modules/workforce/services/workforce_mvp_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_workforce_http.py"
+    },
+    {
       "id": "workforce.health.get",
       "enabled": true,
       "owner": "agent-platform",
@@ -809,6 +839,21 @@
       "frontend_symbol": "WorkforceService.getOrgChart",
       "backend_test": "tests/apps/cosa/test_workforce_routes.py",
       "flutter_test": "frontend/test/workforce_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_workforce_http.py"
+    },
+    {
+      "id": "workforce.roster.list",
+      "enabled": true,
+      "owner": "agent-platform",
+      "plane": "agent",
+      "method": "GET",
+      "path": "/agent/workforce/roster",
+      "schema": "workforce.roster.list.v1",
+      "source_kind": "agent_db",
+      "requires_workspace": true,
+      "frontend_symbol": "WorkforceMvpService.listRoster",
+      "backend_test": "tests/apps/cosa/test_workforce_routes.py",
+      "flutter_test": "frontend/test/modules/workforce/services/workforce_mvp_service_test.dart",
       "integration_test": "tests/e2e/test_mvp_workforce_http.py"
     },
     {
@@ -914,6 +959,36 @@
       "frontend_symbol": "WorkforceService.runScheduleNow",
       "backend_test": "tests/apps/cosa/test_workforce_routes.py",
       "flutter_test": "frontend/test/workforce_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_workforce_http.py"
+    },
+    {
+      "id": "workforce.stage_roster.get",
+      "enabled": true,
+      "owner": "agent-platform",
+      "plane": "agent",
+      "method": "GET",
+      "path": "/agent/workforce/stage-roster/:stageCode",
+      "schema": "workforce.stage_roster.get.v1",
+      "source_kind": "agent_db",
+      "requires_workspace": true,
+      "frontend_symbol": "WorkforceMvpService.getStageRoster",
+      "backend_test": "tests/apps/cosa/test_workforce_routes.py",
+      "flutter_test": "frontend/test/modules/workforce/services/workforce_mvp_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_workforce_http.py"
+    },
+    {
+      "id": "workforce.work_product.list",
+      "enabled": true,
+      "owner": "agent-platform",
+      "plane": "agent",
+      "method": "GET",
+      "path": "/agent/workforce/artifacts",
+      "schema": "workforce.work_product.list.v1",
+      "source_kind": "agent_db",
+      "requires_workspace": true,
+      "frontend_symbol": "WorkforceMvpService.listWorkProducts",
+      "backend_test": "tests/apps/cosa/test_workforce_routes.py",
+      "flutter_test": "frontend/test/modules/workforce/services/workforce_mvp_service_test.dart",
       "integration_test": "tests/e2e/test_mvp_workforce_http.py"
     },
     {
