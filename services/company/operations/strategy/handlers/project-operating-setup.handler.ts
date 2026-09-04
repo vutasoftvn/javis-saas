@@ -4,9 +4,11 @@ import {
   getProjectOperatingSetup,
   saveProjectOperatingSetup,
   activateProjectOperatingSetup,
+  requestKickoffSuggestion,
   ProjectOperatingSetupView,
   SaveProjectOperatingSetupRequest,
   ActivateProjectOperatingSetupRequest,
+  KickoffSuggestionDispatchResult,
   OperatingSetupStatus,
   EvidenceLevel,
   BasicKickoffStage,
@@ -18,6 +20,7 @@ export type {
   ProjectOperatingSetupView,
   SaveProjectOperatingSetupRequest,
   ActivateProjectOperatingSetupRequest,
+  KickoffSuggestionDispatchResult,
   OperatingSetupStatus,
   EvidenceLevel,
   BasicKickoffStage,
@@ -113,5 +116,20 @@ export const activateProjectOperatingSetupEndpoint = api(
       firstWeekOutcome: params.firstWeekOutcome,
       firstWeekActions: params.firstWeekActions,
     });
+  }
+);
+
+export interface RequestKickoffSuggestionParams {
+  id: string;
+  workspaceId: Header<"X-Workspace-Id">;
+  authorization?: Header<"Authorization">;
+}
+
+// ── POST /operations/projects/:id/kickoff-suggestion ──
+export const requestKickoffSuggestionEndpoint = api(
+  { method: "POST", path: "/operations/projects/:id/kickoff-suggestion", expose: true },
+  async (params: RequestKickoffSuggestionParams): Promise<KickoffSuggestionDispatchResult> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return requestKickoffSuggestion(ctx, params.id);
   }
 );

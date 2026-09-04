@@ -16,6 +16,9 @@ import {
 import { Project } from "../../services/project.service";
 import { materializeFirstWeekPlan } from "./project-kickoff-materialize.service";
 import type { TaskStatus } from "../../services/task.service";
+import {
+  dispatchKickoffSuggestionRun,
+} from "./kickoff-suggestion-cosa-client";
 
 export type OperatingSetupStatus = "NOT_STARTED" | "IN_PROGRESS" | "ACTIVE";
 
@@ -686,4 +689,78 @@ export async function activateProjectOperatingSetup(
       project: toProject(refreshedProject ?? proj),
     };
   });
+}
+
+export interface KickoffSuggestionDispatchResult {
+  runId: string;
+  status: "dispatched" | "failed";
+}
+
+export async function requestKickoffSuggestion(
+  ctx: TenantContext,
+  projectId: string
+): Promise<KickoffSuggestionDispatchResult> {
+  const wsId = BigInt(ctx.workspaceId);
+  const pId = BigInt(projectId);
+
+  const [proj] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, pId), eq(projects.workspaceId, wsId)))
+    .limit(1);
+  if (!proj) {
+    throw APIError.notFound("Project không tồn tại trong workspace này");
+  }
+
+  const [existing] = await db
+    .select()
+    .from(projectOperatingSetups)
+    .where(and(eq(projectOperatingSetups.projectId, pId), eq(projectOperatingSetups.workspaceId, wsId)))
+    .limit(1);
+
+  if (
+    !existing ||
+    !existing.targetCustomer?.trim() ||
+    !existing.problemStatement?.trim() ||
+    !existing.evidenceLevel
+  ) {
+    throw APIError.failedPrecondition(
+      "Hoàn thành Bước 1 (đối tượng, vấn đề, mức bằng chứng) trước khi tạo gợi ý AI"
+    );
+  }
+
+  const runId = randomUUID();
+
+  await db
+    .update(projectOperatingSetups)
+    .set({
+      aiSuggestionStatus: "dispatched",
+      aiSuggestionRunId: runId,
+      aiSuggestionRequestedAt: new Date(),
+    })
+    .where(and(eq(projectOperatingSetups.projectId, pId), eq(projectOperatingSetups.workspaceId, wsId)));
+
+  const selectedStage =
+    (existing.selectedStage as BasicKickoffStage | null) ??
+    recommendKickoffStage(existing.evidenceLevel as EvidenceLevel);
+
+  try {
+    await dispatchKickoffSuggestionRun({
+      workspaceId: ctx.workspaceId,
+      projectId,
+      runId,
+      targetCustomer: existing.targetCustomer,
+      problemStatement: existing.problemStatement,
+      evidenceLevel: existing.evidenceLevel,
+      selectedStage,
+      stageDurationWeeks: existing.stageDurationWeeks ?? 2,
+    });
+    return { runId, status: "dispatched" };
+  } catch {
+    await db
+      .update(projectOperatingSetups)
+      .set({ aiSuggestionStatus: "failed" })
+      .where(and(eq(projectOperatingSetups.projectId, pId), eq(projectOperatingSetups.workspaceId, wsId)));
+    return { runId, status: "failed" };
+  }
 }
