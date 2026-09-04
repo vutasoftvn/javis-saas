@@ -12,6 +12,13 @@ import 'package:frontend/modules/strategy/controllers/project_orchestration_cont
 class FakeKickoffService extends ProjectOperatingSetupService {
   FakeKickoffService({this.initialSetup});
   final ProjectOperatingSetup? initialSetup;
+  int requestKickoffSuggestionCallCount = 0;
+  bool overwriteOnLastCall = false;
+
+  @override
+  Future<void> requestKickoffSuggestion(String projectId) async {
+    requestKickoffSuggestionCallCount++;
+  }
 
   @override
   Future<ProjectOperatingSetup> get(String projectId) async {
@@ -421,4 +428,85 @@ void main() {
       expect(find.text('Cần chuyên gia phê duyệt'), findsOneWidget);
     },
   );
+
+  testWidgets('bấm Tiếp tục ở Bước 2 gọi requestKickoffSuggestion', (
+    tester,
+  ) async {
+    Get.reset();
+    final service = FakeKickoffService(initialSetup: draftP0Setup);
+    Get.put(
+      ProjectKickoffController(service: service),
+      tag: draftP0Setup.projectId,
+    );
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(
+          body: ProjectKickoffView(
+            projectId: draftP0Setup.projectId,
+            onBack: () {},
+            onActivated: (_) {},
+            onOpenAdvancedRoadmap: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // draftP0Setup resume ở Bước 2 ("Chọn vòng đầu").
+    expect(find.text('Bước 2: Chọn vòng đầu'), findsOneWidget);
+
+    final buttonFinder = find.widgetWithText(ElevatedButton, 'Tiếp tục');
+    await tester.ensureVisible(buttonFinder);
+    await tester.tap(buttonFinder);
+    await tester.pumpAndSettle();
+
+    expect(service.requestKickoffSuggestionCallCount, 1);
+  });
+
+  testWidgets('icon AI ở Bước 3 hiện CircularProgressIndicator khi đang loading', (
+    tester,
+  ) async {
+    await tester.pumpWidget(kickoffHarness(setup: completeP0Draft));
+    await tester.pumpAndSettle();
+
+    final controller = Get.find<ProjectKickoffController>(
+      tag: completeP0Draft.projectId,
+    );
+    controller.aiSuggestionLoading.value = true;
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byTooltip('Tạo lại gợi ý bằng AI'), findsNothing);
+  });
+
+  testWidgets('bấm icon AI ở Bước 3 gọi requestKickoffSuggestion', (
+    tester,
+  ) async {
+    Get.reset();
+    final service = FakeKickoffService(initialSetup: completeP0Draft);
+    Get.put(
+      ProjectKickoffController(service: service),
+      tag: completeP0Draft.projectId,
+    );
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(
+          body: ProjectKickoffView(
+            projectId: completeP0Draft.projectId,
+            onBack: () {},
+            onActivated: (_) {},
+            onOpenAdvancedRoadmap: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final iconFinder = find.byTooltip('Tạo lại gợi ý bằng AI');
+    expect(iconFinder, findsOneWidget);
+    await tester.tap(iconFinder);
+    await tester.pumpAndSettle();
+
+    expect(service.requestKickoffSuggestionCallCount, 1);
+  });
 }

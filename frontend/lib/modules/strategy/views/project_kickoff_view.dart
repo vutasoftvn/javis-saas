@@ -717,7 +717,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                     ? null
                     : () async {
                         final ok = await controller.saveCurrentStep();
-                        if (ok) controller.currentStep.value = 2;
+                        if (ok) {
+                          controller.currentStep.value = 2;
+                          controller.requestKickoffSuggestion(overwrite: false);
+                        }
                       },
                 icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                 style: ElevatedButton.styleFrom(
@@ -834,13 +837,36 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Bước 3: Chốt việc tuần đầu',
-            style: TextStyle(
-              color: AppTheme.textDark,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Bước 3: Chốt việc tuần đầu',
+                  style: TextStyle(
+                    color: AppTheme.textDark,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (controller.aiSuggestionLoading.value)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.auto_awesome, size: 20),
+                  color: AppTheme.primary,
+                  tooltip: 'Tạo lại gợi ý bằng AI',
+                  onPressed: () =>
+                      controller.requestKickoffSuggestion(overwrite: true),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+            ],
           ),
           const SizedBox(height: 16),
 
