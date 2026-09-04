@@ -19,3 +19,4 @@ export * from "./metric-contract.handler";
 export * from "./metric-snapshot.handler";
 export * from "./pmf-scoreboard.handler";
 export * from "./maturity-assessment.handler";
+export * from "./weekly-goal.handler";

@@ -17,6 +17,11 @@ export const NEXT_BEST_ACTION_ACCEPTED = "strategy.next_best_action.accepted.v1"
 export const WEEKLY_REVIEW_COMPLETED = "operations.weekly_review.completed.v1";
 export const PROJECT_OPERATING_SETUP_ACTIVATED = "project.operating_setup.activated.v1";
 
+// WGA — Weekly Goal → Agent Execution
+export const WEEKLY_GOAL_SET = "operating.weekly_goal.set.v1";
+export const EXECUTION_PLAN_CREATED = "operating.execution_plan.created.v1";
+export const EXECUTION_PLAN_ACCEPTED = "operating.execution_plan.accepted.v1";
+
 export * from "./events/envelope";
 
 
