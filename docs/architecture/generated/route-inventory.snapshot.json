@@ -225,6 +225,10 @@
       "resolved": false,
       "owner": null
     },
+    "GET /operations/execution-settings": {
+      "resolved": true,
+      "owner": null
+    },
     "GET /operations/objectives": {
       "resolved": true,
       "owner": null

@@ -480,7 +480,19 @@ Founder accept (Phase 3 UI, hoặc gọi API trực tiếp) → outbox `operatin
 | **#6a** | Không có widget "Việc của bạn" | `GET /operations/tasks/founder-inbox` (FOUNDER_ONLY + blocked ai_agent_proposal) → `YourTasksWidget` trong Command Center. |
 | **#6b** | `draftPlans` chỉ reload khi mở lại tab | Controller poll `loadDraftPlans` + `loadFounderInbox` mỗi 20s khi ở tab Command Center (bỏ qua trong `Get.testMode`). |
 
-Còn lại (không chặn, để sau): SSE push real-time thay poll 20s; UI toggle cho `execution-settings`/`capability-policy` (hiện chỉ API-level); circular-dep giữa item của 2 plan khác nhau.
+### 15.5 Addendum 2026-09-04 (chiều muộn) — đóng nốt phần "còn lại" + 3 gate fail có sẵn
+
+| Việc | Đã làm |
+|---|---|
+| **Circular-dep giữa 2 plan** | `acceptExecutionPlanService` DFS toàn graph `task_dependencies` của workspace (join `tasks` để scope đúng workspace — bảng không có `workspace_id`) + cạnh mới, reject mọi chu trình. |
+| **UI toggle kill-switch (#2)** | `Switch` trong `_WgaSurfaces` (Command Center) gọi `setSweepEnabled` → `POST /operations/execution-settings`. `loadExecutionSettings` gọi từ `initState` của widget (không phải `loadDashboardData`) để tránh rò future SharedPreferences trong widget test không mock. |
+| **UI cho `capability-policy`** | Vẫn API-level (`GET/POST /operations/capability-policy`) — không thêm UI (cần capability-picker, giá trị thấp; founder dùng qua API/admin). |
+| **"Real-time" thay poll 20s** | Không có kênh SSE workspace-level (SSE hiện keyed theo `run_id`, terminate ở terminal event — dựng kênh mới là infra riêng). Thay bằng `_burstReloadDraftPlans` — sau `requestDecomposition` reload nhanh ở 3s/11s/26s để kế hoạch hiện gần như tức thì; poll 20s vẫn là backstop. |
+| **`typecheck-py`** (`workforce_routes.py:508`) | Annotate `_to_schedule_out(rec: WorkforceScheduleRecord)`. |
+| **`route-auth-allowlist-check`** (`cosa /platform/auth/me/agent-policy-snapshot`) | Thêm vào `EXPLICIT_UNAUTHENTICATED_ALLOWLIST` kèm rationale (auth built-in dùng `PLATFORM_JWT_SECRET`, caller mang control-plane delegation — handler tự verify, `auth:false` có chủ đích, B5). |
+| **`frontend-analyze`** (`project_kickoff_controller_test.dart:36`) | Bỏ `${}` thừa trong string interpolation. |
+
+**Toàn bộ gate xanh** (không còn fail có sẵn): `make services-test-company` **1124** · `make apps-cosa-test` **795** (cov 85%) · `cd frontend && flutter test` **1425** · `make typecheck-py` · `make route-auth-allowlist-check` · `make frontend-analyze` · `make frontend-api-contract-check` · lint · boundary/contract/route-inventory checks · migration 37/38/39 rollback.
 
 Gate xanh: `make services-test-company` 1116 pass · `make apps-cosa-test` 774 pass (coverage 85% / gate 78%) · `make lint` · `cd frontend && flutter test` 1421 pass · `make frontend-api-contract-check` · company typecheck · boundary checks.
 Lỗi có sẵn KHÔNG liên quan (fail trên `main` trước WGA): `route-auth-allowlist-check` (`cosa /platform/auth/me/agent-policy-snapshot`), `typecheck-py` (`apps/cosa/api/workforce_routes.py:508`), `make frontend-analyze` 1 info trong `project_kickoff_controller_test.dart:36` (file đang dở dang từ trước session, không thuộc WGA).

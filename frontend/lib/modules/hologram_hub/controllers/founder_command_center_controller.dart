@@ -671,10 +671,23 @@ class FounderCommandCenterController extends GetxController {
       AppToast.info(
         'Đã ghi mục tiêu tuần. AI đang lập kế hoạch triển khai — kế hoạch sẽ hiện ở đây trong giây lát.',
       );
+      unawaited(_burstReloadDraftPlans());
     } catch (e) {
       AppToast.error('Không thể đặt mục tiêu: $e');
     } finally {
       isDecomposing.value = false;
+    }
+  }
+
+  /// Kế hoạch được tạo bất đồng bộ ở backend (event → worker) — reload nhanh
+  /// vài nhịp để founder thấy kế hoạch ngay thay vì chờ nhịp poll 20s. (bỏ qua
+  /// trong test để không rò future delayed.)
+  Future<void> _burstReloadDraftPlans() async {
+    if (Get.testMode) return;
+    for (final s in const [3, 8, 15]) {
+      await Future<void>.delayed(Duration(seconds: s));
+      if (draftPlans.isNotEmpty) return;
+      await loadDraftPlans();
     }
   }
 
