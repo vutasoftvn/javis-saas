@@ -28,6 +28,8 @@ from apps.cosa.api.workforce_schemas import (
     WorkforceRunDetailOut,
     WorkforceRunEventOut,
     WorkforceRunSummaryOut,
+    WorkforceWorkProductOut,
+    _ARTIFACT_STATUS_MAP,
 )
 from apps.cosa.auth.dependency import (
     AuthenticatedIdentity,
@@ -248,6 +250,42 @@ async def get_roster(
         for idx, entry in enumerate(FUNCTIONAL_AGENT_CATALOG.values(), start=1)
     ]
     return mvp_list(entries, [MvpSourceRef(kind="agent_db", ref="agent.workforce_assignments")])
+
+
+@router.get("/artifacts")
+async def list_work_products(
+    request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[list[WorkforceWorkProductOut]]:
+    """MVP "work products" = artifact ghi nhận trong workspace, workspace-wide
+    (khác /runs/{run_id}/artifacts vốn theo từng run). Xem spec Phase 2 cho
+    known gap (content_markdown chưa fetch được — FE dùng object_ref)."""
+    plane = _get_plane(request)
+    if plane.artifact_repository is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ArtifactRepository is not configured",
+        )
+    artifacts = await plane.artifact_repository.list_for_workspace(
+        identity.workspace_id, limit=limit
+    )
+    runs = await plane.repository.list_runs(identity.workspace_id, limit=limit)
+    run_author_map = {r.run_id: r.root_executable_id for r in runs}
+
+    items = [
+        WorkforceWorkProductOut(
+            id=a.artifact_id,
+            title=a.display_name,
+            product_type=a.media_type,
+            status=_ARTIFACT_STATUS_MAP.get(a.status, a.status.upper()),
+            author_agent_key=run_author_map.get(a.run_id or "", "unknown"),
+            object_ref=a.object_ref,
+            created_at=a.created_at.isoformat(),
+        )
+        for a in artifacts
+    ]
+    return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent_artifact.workspace_artifacts")])
 
 
 # ─── Org Chart ───

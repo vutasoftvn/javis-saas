@@ -54,6 +54,19 @@ class WorkforceRosterEntryOut(BaseModel):
     enabled: bool
 
 
+_ARTIFACT_STATUS_MAP = {"available": "READY", "failed": "FAILED", "archived": "ARCHIVED"}
+
+
+class WorkforceWorkProductOut(BaseModel):
+    id: str
+    title: str
+    product_type: str
+    status: str
+    author_agent_key: str
+    object_ref: str
+    created_at: str
+
+
 class WorkforceOrgChartNode(BaseModel):
     assignment_id: str
     functional_key: str

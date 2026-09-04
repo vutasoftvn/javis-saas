@@ -371,3 +371,71 @@ async def test_roster_marks_assigned_entries_active(test_app) -> None:
         assert res.status_code == 200
         entry = next(e for e in res.json()["data"] if e["key"] == "campaign_planner")
         assert entry["status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_work_products_maps_workspace_artifacts(test_app) -> None:
+    from agent.artifacts.models import WorkspaceArtifact
+    from agent.contracts.run import RunStatus
+    from agent.runs.models import RunRecord
+
+    plane = test_app.state.plane
+    run = RunRecord(
+        run_id="run_wp_1",
+        workspace_id="ws_1001",
+        principal="user:founder",
+        root_executable_id="functional.market_research_specialist",
+        status=RunStatus.COMPLETED,
+    )
+    await plane.repository.create_run(run)
+    await plane.artifact_repository.create(
+        WorkspaceArtifact(
+            workspace_id="ws_1001",
+            conversation_id="conv_1",
+            run_id="run_wp_1",
+            display_name="Market brief Q1",
+            media_type="text/markdown",
+            object_ref="object://brief-q1",
+        )
+    )
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/artifacts")
+        assert res.status_code == 200
+        items = res.json()["data"]
+        assert len(items) == 1
+        item = items[0]
+        assert item["title"] == "Market brief Q1"
+        assert item["product_type"] == "text/markdown"
+        assert item["status"] == "READY"
+        assert item["author_agent_key"] == "functional.market_research_specialist"
+        assert item["object_ref"] == "object://brief-q1"
+
+
+@pytest.mark.asyncio
+async def test_work_products_author_unknown_when_run_outside_window(test_app) -> None:
+    from agent.artifacts.models import WorkspaceArtifact
+
+    plane = test_app.state.plane
+    await plane.artifact_repository.create(
+        WorkspaceArtifact(
+            workspace_id="ws_1001",
+            conversation_id="conv_1",
+            run_id="run_not_seeded",
+            display_name="Orphan artifact",
+            media_type="text/markdown",
+            object_ref="object://orphan",
+        )
+    )
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/artifacts")
+        assert res.json()["data"][0]["author_agent_key"] == "unknown"
