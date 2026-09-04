@@ -1,4 +1,5 @@
 import '../../core/contracts/enums.generated.dart';
+import 'task_kanban_model.dart';
 
 enum KickoffEvidenceLevel {
   none('NONE', 'Chưa nói chuyện với khách hàng'),
@@ -42,9 +43,20 @@ enum OperatingSetupStatus {
 }
 
 class FirstWeekActionDraft {
-  const FirstWeekActionDraft({this.id, required this.title});
+  const FirstWeekActionDraft({
+    this.id,
+    required this.title,
+    this.status = TaskKanbanStatus.todo,
+    this.plannedStartAt,
+    this.updatedAt,
+  });
   final String? id;
   final String title;
+  final TaskKanbanStatus status;
+  final DateTime? plannedStartAt;
+  final DateTime? updatedAt;
+
+  bool get isDone => status == TaskKanbanStatus.done;
 
   Map<String, dynamic> toJson() => {
     if (id != null) 'id': id,
@@ -188,6 +200,13 @@ class ProjectOperatingSetup {
                 (e) => FirstWeekActionDraft(
                   id: e['id']?.toString(),
                   title: (e['title'] ?? '').toString(),
+                  status: TaskKanbanStatus.fromString(e['status']?.toString()),
+                  plannedStartAt: e['plannedStartAt'] != null
+                      ? DateTime.tryParse(e['plannedStartAt'].toString())
+                      : null,
+                  updatedAt: e['updatedAt'] != null
+                      ? DateTime.tryParse(e['updatedAt'].toString())
+                      : null,
                 ),
               )
               .toList() ??
