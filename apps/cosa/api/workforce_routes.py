@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from apps.cosa.api.mvp_response import MvpSourceRef, MvpSuccess, mvp_item, mvp_list
 from apps.cosa.api.workforce_schemas import (
+    _ARTIFACT_STATUS_MAP,
     ApprovalDecisionRequest,
     CreateAssignmentRequest,
     CreateScheduleRequest,
@@ -36,7 +37,6 @@ from apps.cosa.api.workforce_schemas import (
     WorkforceStageRosterStageOut,
     WorkforceStageRosterSummaryOut,
     WorkforceWorkProductOut,
-    _ARTIFACT_STATUS_MAP,
 )
 from apps.cosa.auth.dependency import (
     AuthenticatedIdentity,
@@ -44,6 +44,7 @@ from apps.cosa.auth.dependency import (
     require_workspace_operator,
 )
 from apps.cosa.auth.jwt import MissingPlatformIdentityError
+from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 
 logger = logging.getLogger(__name__)
@@ -74,30 +75,28 @@ def _get_workforce_repo(request: Request) -> WorkforceRepository:
 
 
 async def _fetch_company_stage_roster(
-    workspace_id: str, stage_code: str, principal: str
+    plane: CosaAgentPlane, workspace_id: str, stage_code: str, principal: str
 ) -> dict:
-    import httpx
-
+    """Follow-up (2026-09-04) — trước đây tự dựng `httpx.AsyncClient` +
+    `require_internal_url` (pattern copy từ `kickoff_suggestion_run.py`, vốn
+    là callback fire-and-forget của worker, không phải route đồng bộ). Route
+    này giờ tái dùng `plane.company_client` — đúng abstraction apps/cosa→
+    company đã có sẵn (`wga_run.py` dùng cùng pattern cho
+    `/operations/tasks/agent-claimable`): tự inject OTEL trace carrier, tự
+    phân loại lỗi thành `CompanyServiceError` (network vs 4xx/5xx) thay vì
+    `resp.raise_for_status()` thô propagate thành 500 không map."""
     from apps.cosa.auth.jwt import mint_company_delegation
-    from apps.cosa.config.service_identity import require_internal_url
 
-    company_base_url = require_internal_url(
-        "COMPANY_SERVICE_URL", purpose="stage roster proxy", default_dev="http://127.0.0.1:4000"
-    )
     token = mint_company_delegation(
         sub=principal,
         workspace_id=workspace_id,
         run_id=f"stage_roster_{workspace_id}_{stage_code}",
         capability_ids=["operations.task.list"],
     )
-    url = f"{company_base_url}/operations/tasks/stage-roster/{stage_code}"
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            url,
-            headers={"Authorization": f"Bearer {token}", "X-Workspace-Id": workspace_id},
-        )
-        resp.raise_for_status()
-        return resp.json()
+    return await plane.company_client.get(
+        f"/operations/tasks/stage-roster/{stage_code}",
+        headers={"Authorization": f"Bearer {token}", "X-Workspace-Id": workspace_id},
+    )
 
 
 # ─── Assignments ───
@@ -319,7 +318,9 @@ async def list_work_products(
         )
         for a in artifacts
     ]
-    return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent_artifact.workspace_artifacts")])
+    return mvp_list(
+        items, [MvpSourceRef(kind="agent_db", ref="agent_artifact.workspace_artifacts")]
+    )
 
 
 @router.get("/exceptions")
@@ -364,9 +365,30 @@ async def get_stage_roster(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ) -> MvpSuccess[WorkforceStageRosterOut]:
-    raw = await _fetch_company_stage_roster(
-        identity.workspace_id, stage_code, identity.principal_id
-    )
+    """Proxy sang `services/company` (`GET /operations/tasks/stage-roster/:stageCode`).
+
+    `stage_code` chỉ có 2 giá trị thật sự trả roster non-empty hôm nay —
+    `P0_DISCOVERY`/`P1_PROBLEM_VALIDATION` — do CHECK constraint trên
+    `strategy.project_operating_setups.selected_stage`
+    (`services/company/operations/migrations/34_project_operating_setups.up.sql`).
+    Mã stage khác KHÔNG lỗi, chỉ trả roster rỗng (không match hàng nào)."""
+    plane = _get_plane(request)
+    try:
+        raw = await _fetch_company_stage_roster(
+            plane, identity.workspace_id, stage_code, identity.principal_id
+        )
+    except CompanyServiceError as exc:
+        logger.error(
+            "stage_roster company_call_failed workspace=%s stage=%s status=%s: %s",
+            identity.workspace_id,
+            stage_code,
+            exc.status_code,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch stage roster from Company service",
+        ) from exc
     out = WorkforceStageRosterOut(
         stage=WorkforceStageRosterStageOut(
             stage_code=raw["stage"]["stageCode"], task_count=raw["stage"]["taskCount"]

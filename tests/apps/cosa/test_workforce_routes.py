@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-
 from agent.artifacts import InMemoryArtifactRepository
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
@@ -497,7 +496,7 @@ async def test_exceptions_empty_when_no_failed_runs(test_app) -> None:
 
 @pytest.mark.asyncio
 async def test_stage_roster_proxies_company_and_reshapes(test_app, monkeypatch) -> None:
-    async def fake_fetch_stage_roster(workspace_id: str, stage_code: str, principal: str):
+    async def fake_fetch_stage_roster(plane, workspace_id: str, stage_code: str, principal: str):
         assert workspace_id == "ws_1001"
         assert stage_code == "P2"
         return {
@@ -516,7 +515,9 @@ async def test_stage_roster_proxies_company_and_reshapes(test_app, monkeypatch) 
 
     import apps.cosa.api.workforce_routes as workforce_routes_mod
 
-    monkeypatch.setattr(workforce_routes_mod, "_fetch_company_stage_roster", fake_fetch_stage_roster)
+    monkeypatch.setattr(
+        workforce_routes_mod, "_fetch_company_stage_roster", fake_fetch_stage_roster
+    )
 
     override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
     async with httpx.AsyncClient(
@@ -532,13 +533,39 @@ async def test_stage_roster_proxies_company_and_reshapes(test_app, monkeypatch) 
 
 
 @pytest.mark.asyncio
+async def test_stage_roster_maps_company_service_error_to_502(test_app, monkeypatch) -> None:
+    from apps.cosa.capabilities.client import CompanyServiceError
+
+    async def fake_fetch_stage_roster_error(
+        plane, workspace_id: str, stage_code: str, principal: str
+    ):
+        raise CompanyServiceError("Company Service Error (500): boom", status_code=500)
+
+    import apps.cosa.api.workforce_routes as workforce_routes_mod
+
+    monkeypatch.setattr(
+        workforce_routes_mod, "_fetch_company_stage_roster", fake_fetch_stage_roster_error
+    )
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/workforce/stage-roster/P2")
+        assert res.status_code == 502
+
+
+@pytest.mark.asyncio
 async def test_dashboard_summary_aggregates_existing_counts(test_app) -> None:
     override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
-        await client.post("/agent/workforce/assignments", json={"functional_key": "campaign_planner"})
+        await client.post(
+            "/agent/workforce/assignments", json={"functional_key": "campaign_planner"}
+        )
 
         res = await client.get("/agent/workforce/dashboard-summary")
         assert res.status_code == 200
