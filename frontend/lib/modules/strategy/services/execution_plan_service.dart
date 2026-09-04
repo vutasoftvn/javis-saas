@@ -54,6 +54,28 @@ class ExecutionPlanService extends WorkspaceScopedService {
         .toList();
   }
 
+  /// WGA #2 — kill-switch: đọc / đặt cho phép vòng thực thi tự động chạy.
+  Future<bool> getSweepEnabled() async {
+    await _requireWorkspaceId();
+    final res = await ApiClient.get('/operations/execution-settings');
+    if (res.statusCode != 200) return true;
+    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    return (data['sweepEnabled'] as bool?) ?? true;
+  }
+
+  Future<bool> setSweepEnabled(bool enabled) async {
+    await _requireWorkspaceId();
+    final res = await ApiClient.post(
+      '/operations/execution-settings',
+      body: {'sweepEnabled': enabled},
+    );
+    if (res.statusCode != 200) {
+      throw StateError('Failed to set execution settings: ${res.statusCode} ${res.body}');
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    return (data['sweepEnabled'] as bool?) ?? enabled;
+  }
+
   Future<List<FounderInboxTask>> listFounderInbox() async {
     await _requireWorkspaceId();
     final res = await ApiClient.get('/operations/tasks/founder-inbox');

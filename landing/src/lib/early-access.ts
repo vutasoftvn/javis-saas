@@ -23,6 +23,17 @@ const earlyAccessSchema = z.object({
     .max(160)
     .optional()
     .transform((val) => (val && val.length > 0 ? val : "Cá nhân / Doanh nghiệp")),
+  userSegment: z
+    .string()
+    .trim()
+    .max(80)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : "OPC (Doanh nghiệp 1 người)")),
+  projectName: z
+    .string()
+    .trim()
+    .max(160)
+    .optional(),
   role: z.string().trim().max(80).optional(),
   teamSize: z.string().trim().max(80).optional(),
   priorityInterest: z
@@ -30,13 +41,28 @@ const earlyAccessSchema = z.object({
     .trim()
     .max(80)
     .optional()
-    .transform((val) => (val && val.length > 0 ? val : "Đăng ký nhận thông báo phát hành sớm COSA OS 2027")),
+    .transform((val) => (val && val.length > 0 ? val : "Gói Free - 1 Workspace & 1 Project")),
   note: z.string().trim().max(2000).optional(),
   turnstileToken: z.string().trim().max(4096).optional(),
   website: z.string().trim().max(200).optional(),
 });
 
 export type EarlyAccessRegistrationInput = z.infer<typeof earlyAccessSchema>;
+
+export const personaDiscoverySchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  firstProjectGoal: z.string().trim().max(250).optional(),
+  biggestChallenge: z.array(z.string().trim().max(250)).max(5).optional(),
+  aiAutonomyLevel: z.enum(["L0", "L1", "L2"]).optional().default("L1"),
+  targetTimelineWeeks: z.number().int().positive().max(52).optional(),
+  notes: z.string().trim().max(2000).optional(),
+});
+
+export type PersonaDiscoveryInput = z.infer<typeof personaDiscoverySchema>;
+
+export function parsePersonaDiscovery(input: unknown): PersonaDiscoveryInput {
+  return personaDiscoverySchema.parse(input);
+}
 
 /**
  * Parse + validate dữ liệu đăng ký early access thô (chưa tin cậy) từ request

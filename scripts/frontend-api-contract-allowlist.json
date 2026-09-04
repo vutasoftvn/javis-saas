@@ -2019,6 +2019,20 @@
       "expires_on": "2026-12-31"
     },
     {
+      "path": "/operations/execution-settings",
+      "method": "GET",
+      "owner": "company-operations",
+      "reason": "WGA #2 (2026-09-04): read the per-workspace auto-execution kill-switch (sweepEnabled).",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "path": "/operations/execution-settings",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "WGA #2 (2026-09-04): founder toggles the per-workspace auto-execution kill-switch from Command Center.",
+      "expires_on": "2026-12-31"
+    },
+    {
       "path": "/platform/prompts/:domain/:name",
       "method": "POST",
       "owner": "control-plane",

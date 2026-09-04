@@ -131,6 +131,9 @@ class FounderCommandCenterController extends GetxController {
 
   /// WGA #6a — "Việc của bạn": task FOUNDER_ONLY + task AI bị chặn.
   final RxList<FounderInboxTask> founderInboxTasks = <FounderInboxTask>[].obs;
+
+  /// WGA #2 — cho phép vòng thực thi tự động (sweep) chạy hay không.
+  final RxBool sweepEnabled = true.obs;
   final RxList<FounderDecisionModel> pendingDecisions =
       <FounderDecisionModel>[].obs;
   final RxList<Map<String, dynamic>> pendingApprovals =
@@ -186,6 +189,30 @@ class FounderCommandCenterController extends GetxController {
     if (!hasProjects.value || (activeProjectId.value?.isEmpty ?? true)) return;
     await loadDraftPlans();
     await loadFounderInbox();
+  }
+
+  Future<void> loadExecutionSettings() async {
+    try {
+      sweepEnabled.value = await _executionPlanService.getSweepEnabled();
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] loadExecutionSettings error: $e');
+    }
+  }
+
+  Future<void> setSweepEnabled(bool enabled) async {
+    final prev = sweepEnabled.value;
+    sweepEnabled.value = enabled; // optimistic
+    try {
+      sweepEnabled.value = await _executionPlanService.setSweepEnabled(enabled);
+      AppToast.info(
+        enabled
+            ? 'AI sẽ tự chạy các việc trong quyền hạn.'
+            : 'Đã tạm dừng — AI không tự chạy việc nào (việc vẫn được lập kế hoạch).',
+      );
+    } catch (e) {
+      sweepEnabled.value = prev;
+      AppToast.error('Không đổi được cài đặt: $e');
+    }
   }
 
   /// Fix-review (2026-09-02, final review C-1) — controller này đăng ký

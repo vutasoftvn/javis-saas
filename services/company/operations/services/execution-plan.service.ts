@@ -571,7 +571,25 @@ export async function acceptExecutionPlanService(
       if (klass === "FOUNDER_ONLY") founderOnlyTaskIds.push(taskId.toString());
     }
 
-    // Pass 2 — dựng task_dependencies từ depends_on_item_ids.
+    // Pass 2 — dựng task_dependencies từ depends_on_item_ids. Kiểm tra chu trình
+    // trên TOÀN graph task_dependencies của workspace (không chỉ trong plan này)
+    // — phòng cạnh mà accept plan thứ 2 tạo cạnh khép vòng với task của plan cũ.
+    // task_dependencies không có workspace_id — join tasks để chỉ lấy cạnh của
+    // workspace này (nếu không sẽ gộp graph của MỌI workspace, false-positive).
+    const existingDeps = await tx
+      .select({ taskId: taskDependencies.taskId, dependsOnTaskId: taskDependencies.dependsOnTaskId })
+      .from(taskDependencies)
+      .innerJoin(tasks, eq(tasks.id, taskDependencies.taskId))
+      .where(and(eq(tasks.workspaceId, wsId), isNull(taskDependencies.deletedAt)));
+    const adj = new Map<string, Set<string>>();
+    const addEdge = (from: string, to: string): void => {
+      (adj.get(from) ?? adj.set(from, new Set()).get(from)!).add(to);
+    };
+    for (const d of existingDeps) {
+      addEdge(d.taskId.toString(), d.dependsOnTaskId.toString());
+    }
+
+    const newEdges: Array<{ taskId: string; depTaskId: string }> = [];
     for (const it of liveItems) {
       const deps = Array.isArray(it.dependsOnItemIds)
         ? (it.dependsOnItemIds as unknown[]).map((v) => String(v))
@@ -581,14 +599,37 @@ export async function acceptExecutionPlanService(
       for (const depItemId of deps) {
         const depTaskId = itemIdToTaskId.get(depItemId);
         if (!depTaskId) continue; // dep trỏ item đã dropped
-        await tx.insert(taskDependencies).values({
-          id: generateSnowflake(),
-          taskId: BigInt(taskId),
-          dependsOnTaskId: BigInt(depTaskId),
-          dependencyType: "BLOCKS",
-          status: "PENDING",
-        });
+        newEdges.push({ taskId, depTaskId });
+        addEdge(taskId, depTaskId);
       }
+    }
+
+    // DFS phát hiện chu trình trên graph đã gộp cạnh mới.
+    const WHITE = 0;
+    const GRAY = 1;
+    const BLACK = 2;
+    const color = new Map<string, number>();
+    const dfs = (node: string): void => {
+      color.set(node, GRAY);
+      for (const next of adj.get(node) ?? []) {
+        const c = color.get(next) ?? WHITE;
+        if (c === GRAY) throw APIError.invalidArgument(`circular task dependency involving ${next}`);
+        if (c === WHITE) dfs(next);
+      }
+      color.set(node, BLACK);
+    };
+    for (const node of adj.keys()) {
+      if ((color.get(node) ?? WHITE) === WHITE) dfs(node);
+    }
+
+    for (const e of newEdges) {
+      await tx.insert(taskDependencies).values({
+        id: generateSnowflake(),
+        taskId: BigInt(e.taskId),
+        dependsOnTaskId: BigInt(e.depTaskId),
+        dependencyType: "BLOCKS",
+        status: "PENDING",
+      });
     }
 
     await tx

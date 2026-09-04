@@ -167,6 +167,26 @@ void main() {
     expect(c.founderInboxTasks.firstWhere((t) => t.taskId == '2').isBlocked, isTrue);
   });
 
+  test('setSweepEnabled posts and updates the flag optimistically', () async {
+    final calls = <Map<String, dynamic>>[];
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'POST' && req.url.path == '/operations/execution-settings') {
+        calls.add(jsonDecode(req.body) as Map<String, dynamic>);
+        return _ok({'workspaceId': 'ws_1', 'sweepEnabled': false});
+      }
+      if (req.method == 'GET' && req.url.path == '/operations/execution-settings') {
+        return _ok({'workspaceId': 'ws_1', 'sweepEnabled': true});
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    await c.loadExecutionSettings();
+    expect(c.sweepEnabled.value, isTrue);
+    await c.setSweepEnabled(false);
+    expect(calls.single['sweepEnabled'], isFalse);
+    expect(c.sweepEnabled.value, isFalse);
+  });
+
   test('loadDraftPlans populates from backend', () async {
     ApiClient.client = MockClient((req) async {
       if (req.method == 'GET' && req.url.path == '/operations/execution-plans') {

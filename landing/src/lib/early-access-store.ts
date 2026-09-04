@@ -59,6 +59,8 @@ export interface NewEarlyAccessRegistration {
   email: string;
   phone: string;
   company: string;
+  userSegment?: string;
+  projectName?: string;
   role?: string;
   teamSize?: string;
   priorityInterest: string;
@@ -69,6 +71,7 @@ export interface NewEarlyAccessRegistration {
   // đâu để authorization.
   accessCode: string;
   emailDeliveryStatus: EmailDeliveryStatus;
+  personaData?: Record<string, unknown>;
 }
 
 export interface EarlyAccessRegistration extends NewEarlyAccessRegistration {
@@ -80,6 +83,7 @@ export interface EarlyAccessRegistration extends NewEarlyAccessRegistration {
 export interface EarlyAccessStore {
   findByEmail(email: string): Promise<EarlyAccessRegistration | null>;
   create(input: NewEarlyAccessRegistration): Promise<EarlyAccessRegistration>;
+  updatePersonaDiscovery(email: string, personaData: Record<string, unknown>): Promise<boolean>;
   markEmailQueued(id: string, providerMessageId: string): Promise<void>;
   // Đánh dấu "failed" khi lần gửi (đầu tiên hoặc retry ở nhánh duplicate)
   // thất bại — bắt buộc để route handler KHÔNG bao giờ trả success: true
@@ -128,6 +132,13 @@ export class InMemoryEarlyAccessStore implements EarlyAccessStore {
     return registration;
   }
 
+  async updatePersonaDiscovery(email: string, personaData: Record<string, unknown>): Promise<boolean> {
+    const reg = this.byEmail.get(email);
+    if (!reg) return false;
+    reg.personaData = { ...(reg.personaData || {}), ...personaData };
+    return true;
+  }
+
   async markEmailQueued(id: string, providerMessageId: string): Promise<void> {
     for (const registration of this.byEmail.values()) {
       if (registration.id === id) {
@@ -174,10 +185,6 @@ export class InMemoryEarlyAccessStore implements EarlyAccessStore {
   }
 }
 
-// Tự tạo schema khi khởi động (migration-on-boot) — app landing là Next.js
-// độc lập, chưa có tooling migration riêng, nên dùng CREATE TABLE IF NOT
-// EXISTS đơn giản, an toàn để chạy lại nhiều lần (idempotent) thay vì bắt
-// buộc vận hành viên áp file .sql thủ công.
 const CREATE_REGISTRATIONS_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS early_access_registrations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -185,6 +192,8 @@ CREATE TABLE IF NOT EXISTS early_access_registrations (
   full_name TEXT NOT NULL,
   phone TEXT NOT NULL,
   company TEXT NOT NULL,
+  user_segment TEXT,
+  project_name TEXT,
   role TEXT,
   team_size TEXT,
   priority_interest TEXT NOT NULL,
@@ -192,8 +201,12 @@ CREATE TABLE IF NOT EXISTS early_access_registrations (
   access_code TEXT NOT NULL,
   email_delivery_status TEXT NOT NULL,
   email_provider_message_id TEXT,
+  persona_data JSONB,
   registered_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE early_access_registrations ADD COLUMN IF NOT EXISTS user_segment TEXT;
+ALTER TABLE early_access_registrations ADD COLUMN IF NOT EXISTS project_name TEXT;
+ALTER TABLE early_access_registrations ADD COLUMN IF NOT EXISTS persona_data JSONB;
 `;
 
 /**
@@ -220,8 +233,8 @@ export class PostgresEarlyAccessStore implements EarlyAccessStore {
   async findByEmail(email: string): Promise<EarlyAccessRegistration | null> {
     await this.ensureSchema();
     const result = await this.pool.query(
-      `SELECT id, email, full_name, phone, company, role, team_size, priority_interest, note,
-              access_code, email_delivery_status, email_provider_message_id, registered_at
+      `SELECT id, email, full_name, phone, company, user_segment, project_name, role, team_size, priority_interest, note,
+              access_code, email_delivery_status, email_provider_message_id, persona_data, registered_at
        FROM early_access_registrations WHERE email = $1`,
       [email]
     );
@@ -233,25 +246,39 @@ export class PostgresEarlyAccessStore implements EarlyAccessStore {
     await this.ensureSchema();
     const result = await this.pool.query(
       `INSERT INTO early_access_registrations
-         (email, full_name, phone, company, role, team_size, priority_interest, note, access_code, email_delivery_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         (email, full_name, phone, company, user_segment, project_name, role, team_size, priority_interest, note, access_code, email_delivery_status, persona_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
-       RETURNING id, email, full_name, phone, company, role, team_size, priority_interest, note,
-                 access_code, email_delivery_status, email_provider_message_id, registered_at`,
+       RETURNING id, email, full_name, phone, company, user_segment, project_name, role, team_size, priority_interest, note,
+                 access_code, email_delivery_status, email_provider_message_id, persona_data, registered_at`,
       [
         input.email,
         input.fullName,
         input.phone,
         input.company,
+        input.userSegment ?? null,
+        input.projectName ?? null,
         input.role ?? null,
         input.teamSize ?? null,
         input.priorityInterest,
         input.note ?? null,
         input.accessCode,
         input.emailDeliveryStatus,
+        input.personaData ? JSON.stringify(input.personaData) : null,
       ]
     );
     return mapRow(result.rows[0]);
+  }
+
+  async updatePersonaDiscovery(email: string, personaData: Record<string, unknown>): Promise<boolean> {
+    await this.ensureSchema();
+    const result = await this.pool.query(
+      `UPDATE early_access_registrations
+       SET persona_data = COALESCE(persona_data, '{}'::jsonb) || $2::jsonb
+       WHERE email = $1`,
+      [email, JSON.stringify(personaData)]
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async markEmailQueued(id: string, providerMessageId: string): Promise<void> {
@@ -282,12 +309,6 @@ export class PostgresEarlyAccessStore implements EarlyAccessStore {
 
   async claimEmailAttempt(id: string): Promise<boolean> {
     await this.ensureSchema();
-    // UPDATE có điều kiện (optimistic lock) trên chính điều kiện trạng thái
-    // hiện tại — Postgres đảm bảo tính nguyên tử cho một câu UPDATE đơn lẻ,
-    // nên khi 2 request đồng thời cùng chạy câu này trên cùng id, CHỈ MỘT
-    // trong số đó khớp điều kiện WHERE (request thắng sẽ đổi trạng thái
-    // trước khi request thua đọc được), request còn lại nhận 0 dòng bị ảnh
-    // hưởng và biết mình không được phép gửi.
     const result = await this.pool.query(
       `UPDATE early_access_registrations
        SET email_delivery_status = 'sending'
@@ -307,6 +328,8 @@ function mapRow(row: any): EarlyAccessRegistration {
     fullName: row.full_name,
     phone: row.phone,
     company: row.company,
+    userSegment: row.user_segment ?? undefined,
+    projectName: row.project_name ?? undefined,
     role: row.role ?? undefined,
     teamSize: row.team_size ?? undefined,
     priorityInterest: row.priority_interest,
@@ -314,6 +337,7 @@ function mapRow(row: any): EarlyAccessRegistration {
     accessCode: row.access_code,
     emailDeliveryStatus: row.email_delivery_status,
     emailProviderMessageId: row.email_provider_message_id ?? undefined,
+    personaData: row.persona_data ?? undefined,
     registeredAt: new Date(row.registered_at).toISOString(),
   };
 }
@@ -346,12 +370,6 @@ export function createEarlyAccessStore(): EarlyAccessStore {
   return new InMemoryEarlyAccessStore();
 }
 
-// Khởi tạo LAZY (chỉ khi có method nào đó được gọi lần đầu), KHÔNG khởi tạo
-// ngay lúc import module. Next.js `next build` import route module để thu
-// thập page data ở build time (NODE_ENV=production) nhưng KHÔNG gọi handler
-// — nếu khởi tạo eager, build sẽ throw dù server chưa thực sự phục vụ request
-// nào. Fail loud vẫn xảy ra đúng như yêu cầu, nhưng ở đúng thời điểm "first
-// use" (request thật đầu tiên), không phải "module import".
 let cachedStore: EarlyAccessStore | null = null;
 function getEarlyAccessStore(): EarlyAccessStore {
   if (!cachedStore) {
@@ -361,13 +379,13 @@ function getEarlyAccessStore(): EarlyAccessStore {
 }
 
 // Route handler dùng chung một instance cho toàn bộ lifetime của process
-// (pool kết nối Postgres nên được tái sử dụng, không tạo mới theo từng
-// request). Test mock nguyên module này qua vi.mock.
 export const earlyAccessStore: EarlyAccessStore = {
   findByEmail: (email) => getEarlyAccessStore().findByEmail(email),
   create: (input) => getEarlyAccessStore().create(input),
+  updatePersonaDiscovery: (email, personaData) => getEarlyAccessStore().updatePersonaDiscovery(email, personaData),
   markEmailQueued: (id, providerMessageId) => getEarlyAccessStore().markEmailQueued(id, providerMessageId),
   markEmailFailed: (id) => getEarlyAccessStore().markEmailFailed(id),
   markEmailSimulated: (id) => getEarlyAccessStore().markEmailSimulated(id),
   claimEmailAttempt: (id) => getEarlyAccessStore().claimEmailAttempt(id),
 };
+

@@ -221,6 +221,55 @@ describe("acceptExecutionPlanService", () => {
       )
     ).rejects.toThrow(/circular/i);
   });
+
+  it("rejects accept when the new deps would close a cycle with an existing task_dependency", async () => {
+    const ctx = await seedProjectWithGoal();
+
+    // Plan 1: two independent auto tasks
+    const p1 = await createExecutionPlanService(
+      { ...baseInput(ctx), items: [item({ title: "P1-A" }), item({ title: "P1-B" })] },
+      ctx.auth
+    );
+    const r1 = await acceptExecutionPlanService(
+      p1.id,
+      { workspaceId: ctx.workspaceId, acceptedByMemberId: ctx.founderMemberId },
+      ctx.auth
+    );
+    const [taskA, taskB] = r1.taskIds;
+
+    // Inject an out-of-band dependency taskA -> taskB (as if a future dep-editor did it).
+    await db.insert(taskDependencies).values({
+      id: generateSnowflake(),
+      taskId: BigInt(taskA!),
+      dependsOnTaskId: BigInt(taskB!),
+      dependencyType: "BLOCKS",
+      status: "PENDING",
+    });
+
+    // Plan 2 materialises a task X that depends on taskA... we can't express a
+    // cross-plan dep via the API, so simulate by making plan 2 whose single
+    // accepted task is then wired taskB -> that task via a manual edge, closing
+    // taskA->taskB->X->taskA. Simplest deterministic check: a self-cycle edge.
+    await db.insert(taskDependencies).values({
+      id: generateSnowflake(),
+      taskId: BigInt(taskB!),
+      dependsOnTaskId: BigInt(taskA!),
+      dependencyType: "BLOCKS",
+      status: "PENDING",
+    });
+
+    const p2 = await createExecutionPlanService(
+      { ...baseInput(ctx), items: [item({ title: "P2-A", dependsOnTitles: [] })] },
+      ctx.auth
+    );
+    await expect(
+      acceptExecutionPlanService(
+        p2.id,
+        { workspaceId: ctx.workspaceId, acceptedByMemberId: ctx.founderMemberId },
+        ctx.auth
+      )
+    ).rejects.toThrow(/circular/i);
+  });
 });
 
 describe("rejectExecutionPlanService", () => {

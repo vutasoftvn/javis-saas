@@ -1063,6 +1063,7 @@ class _WgaSurfacesState extends State<_WgaSurfaces> {
   @override
   void initState() {
     super.initState();
+    widget.controller.loadExecutionSettings();
     _timer = Timer.periodic(
       const Duration(seconds: 20),
       (_) => widget.controller.refreshWgaSurfaces(),
@@ -1080,6 +1081,41 @@ class _WgaSurfacesState extends State<_WgaSurfaces> {
     final c = widget.controller;
     return Column(
       children: [
+        Obx(
+          () => (c.activeProjectId.value?.isEmpty ?? true)
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        c.sweepEnabled.value
+                            ? Icons.smart_toy_outlined
+                            : Icons.pause_circle_outline,
+                        size: 16,
+                        color: const Color(0xFF94A3B8),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          c.sweepEnabled.value
+                              ? 'AI tự chạy việc trong quyền hạn'
+                              : 'Đã tạm dừng AI tự chạy việc',
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: c.sweepEnabled.value,
+                        activeThumbColor: const Color(0xFF6366F1),
+                        onChanged: c.setSweepEnabled,
+                      ),
+                    ],
+                  ),
+                ),
+        ),
         Obx(
           () => Column(
             children: c.draftPlans
