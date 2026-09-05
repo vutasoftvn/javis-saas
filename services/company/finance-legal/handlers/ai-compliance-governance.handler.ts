@@ -130,13 +130,17 @@ export const resumeAiDeploymentApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/deployments/:deploymentId/resume", expose: true },
   async (req: ResumeAiDeploymentRequest) => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+    await requireCommandAuthority(ctx, "ai.deployment.approve", { workspaceId: String(ctx.workspaceId) });
     const memberId = ctx.workforceMemberId || ctx.userId;
-    return resumeAiDeployment({
-      workspaceId: ctx.workspaceId,
-      deploymentId: req.deploymentId,
-      rationale: req.rationale,
-      resumedByMemberId: memberId,
-    });
+    return resumeAiDeployment(
+      {
+        workspaceId: ctx.workspaceId,
+        deploymentId: req.deploymentId,
+        rationale: req.rationale,
+        resumedByMemberId: memberId,
+      },
+      ctx
+    );
   }
 );
 

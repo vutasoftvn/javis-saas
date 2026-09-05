@@ -11,6 +11,8 @@ import {
 } from "../services/ai-compliance-governance.service";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { resumeAiDeploymentApi } from "../handlers/ai-compliance-governance.handler";
+import { createTestSession } from "../../identity/tests/helpers/test-session";
 
 const { aiSystemCatalog, aiSystemVersions, aiProviderProfiles, aiDataProcessingProfiles, aiComplianceEvidence } = schema;
 
@@ -213,6 +215,77 @@ describe("AI compliance governance service", () => {
       resumedByMemberId: founder2,
     });
     expect(resumed.status).toBe("APPROVED_FOR_USE");
+  });
+
+  it("denies resume through the real HTTP handler when current membership no longer holds authority, even though DB fallback fields would match (IA17)", async () => {
+    // memberId3 từng đứng tên founderMemberId/approvedByMemberId của deployment
+    // (giả lập: họ đã approve khi còn là founder), nhưng membership hiện tại của
+    // họ trong workspace chỉ là "member" — quyền ai.deployment.approve đã mất.
+    // Trước fix IA17, resumeAiDeploymentApi không truyền ctx xuống service nên
+    // service chỉ so resumedByMemberId với 2 cột DB này và cho qua bất kể quyền
+    // hiện tại — endpoint thật vẫn cho phép "founder cũ" resume sau khi bị hạ quyền.
+    const session = await createTestSession({ role: "member" });
+    const ws3 = session.workspaceId;
+    const memberId3 = session.userId;
+
+    const { versionId } = await seedCatalogAndVersion();
+    const deployment = await createAiDeployment({
+      workspaceId: ws3,
+      systemVersionId: versionId,
+      mode: "ADVISORY_ONLY",
+      founderMemberId: memberId3,
+      technicalOwnerMemberId: memberId3,
+    });
+
+    const assessment = await submitAiAssessment({
+      workspaceId: ws3,
+      deploymentId: deployment.id,
+      classification: "OUT_OF_CATALOG",
+      intendedPurpose: "private-business advisory",
+      controls: ["HUMAN_CONFIRMATION"],
+      expiresAt: "2027-01-01T00:00:00Z",
+    });
+
+    await seedApprovedProviderAndDataProfile(ws3, deployment.id);
+
+    const evidenceId = generateSnowflake();
+    await db.insert(aiComplianceEvidence).values({
+      id: evidenceId,
+      workspaceId: BigInt(ws3),
+      assessmentId: BigInt(assessment.id),
+      evidenceType: "POLICY_GATE",
+      uriReference: "vault://evidence/policy-ia17",
+      contentHash: "sha256:ia17",
+      reviewerMemberId: BigInt(memberId3),
+    });
+
+    await approveAiAssessment({
+      workspaceId: ws3,
+      deploymentId: deployment.id,
+      assessmentId: assessment.id,
+      approvedByMemberId: memberId3,
+      rationale: "Founder approves deployment",
+      expiresAt: "2027-01-01T00:00:00Z",
+    });
+
+    await suspendAiDeployment({
+      workspaceId: ws3,
+      deploymentId: deployment.id,
+      rationale: "Routine audit",
+      suspendedByMemberId: memberId3,
+    });
+
+    await expect(
+      resumeAiDeploymentApi({
+        workspaceId: ws3,
+        authorization: `Bearer ${session.accessToken}`,
+        deploymentId: String(deployment.id),
+        rationale: "Trying to resume after being demoted",
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    const reloaded = await getDeployment(ws3, deployment.id);
+    expect(reloaded.status).toBe("SUSPENDED");
   });
 
   it("returns no deployment from another workspace", async () => {
