@@ -275,3 +275,65 @@ def test_build_cosa_agent_plane_wires_governance_store_into_gateway():
         model=FakeSDKModel(),
     )
     assert plane.gateway._governance_store is explicit_gov_store
+
+
+def test_build_cosa_agent_plane_never_leaves_knowledge_snapshot_repo_as_none():
+    """IA07: register_cosa_capabilities() nhận knowledge_snapshot_repo optional,
+    nhưng build_cosa_agent_plane() trước đây không bao giờ truyền nó — mọi plane
+    dựng ra đều có knowledge.profile.read chạy nhánh "repository chưa inject",
+    kể cả khi AGENT_DATABASE_URL đã cấu hình đầy đủ. Plane phải luôn có một
+    KnowledgeSnapshotRepository thật (InMemory fallback hoặc Postgres/injected),
+    không bao giờ None."""
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.knowledge.snapshot_repository import InMemoryKnowledgeSnapshotRepository
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
+    from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
+    plane = build_cosa_agent_plane(
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+    assert plane.knowledge_snapshot_repo is not None
+    assert isinstance(plane.knowledge_snapshot_repo, InMemoryKnowledgeSnapshotRepository)
+
+
+@pytest.mark.asyncio
+async def test_build_cosa_agent_plane_wires_injected_knowledge_snapshot_repo_into_capability():
+    """IA07: knowledge_snapshot_repo tự truyền vào phải là repo THẬT sự được
+    knowledge.profile.read dùng, không bị bỏ qua ở register_cosa_capabilities()."""
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.knowledge.snapshot_repository import InMemoryKnowledgeSnapshotRepository
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
+    from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
+    injected_repo = InMemoryKnowledgeSnapshotRepository()
+    plane = build_cosa_agent_plane(
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+        knowledge_snapshot_repo=injected_repo,
+    )
+    assert plane.knowledge_snapshot_repo is injected_repo
+
+    handler = plane.capability_registry.get_handler("knowledge.profile.read")
+    result = await handler({"workspace_id": "ws1", "profile_id": "p1"}, {"workspace_id": "ws1"})
+
+    # Với repo=None (bug cũ), message luôn là "Knowledge repository unavailable".
+    # Với repo thật (dù rỗng), message phải là "not found" — bằng chứng repo
+    # ĐÃ được gọi thật (snapshot_repo.get(...)) thay vì bị bỏ qua.
+    assert result["status"] == "UNAVAILABLE"
+    assert "unavailable" not in result["message"].lower()
+    assert "not found" in result["message"].lower()

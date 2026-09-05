@@ -15,6 +15,7 @@ from agent.contracts.kernel import ExecutionKernel
 from agent.conversations.repository import ConversationRepository
 from agent.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
 from agent.governance.store import GovernanceStateStore
+from agent.knowledge.snapshot_repository import KnowledgeSnapshotRepository
 from agent.registry.repository import SpecRegistryRepository
 from agent.runs.control_plane_client import HttpControlPlaneLeaseClient
 from agent.runs.repository import RunRepository
@@ -85,6 +86,7 @@ class CosaAgentPlane:
         workforce_repository: WorkforceRepository | None = None,
         vault_repository: VaultRepository | None = None,
         workspace_settings_client: WorkspaceSettingsClient | None = None,
+        knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -114,6 +116,7 @@ class CosaAgentPlane:
         self.event_intake_deps = event_intake_deps
         self.memory_service = memory_service
         self.knowledge_ingestion_service = knowledge_ingestion_service
+        self.knowledge_snapshot_repo = knowledge_snapshot_repo
         # Task 5 — expose ở plane level (không chỉ giấu trong kernel private
         # attribute) để apps/cosa/worker/handlers.py có thể gọi
         # `resolve_for_run()` TRƯỚC `plane.kernel.run()`.
@@ -196,6 +199,7 @@ def build_cosa_agent_plane(
     workforce_repository: WorkforceRepository | None = None,
     vault_repository: VaultRepository | None = None,
     workspace_settings_client: WorkspaceSettingsClient | None = None,
+    knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -221,6 +225,7 @@ def build_cosa_agent_plane(
         web_search_budget_store=web_search_budget_store,
         memory_service=memory_service,
         knowledge_ingestion_service=knowledge_ingestion_service,
+        knowledge_snapshot_repo=knowledge_snapshot_repo,
         database_url=database_url,
     )
 
@@ -240,6 +245,9 @@ def build_cosa_agent_plane(
         search_budget=storage.web_search_budget_store,
         artifact_repo=storage.artifact_repository,
         web_search_provider=web_search_provider,
+        # IA07: trước đây không truyền -> luôn None -> knowledge.read capability
+        # không có nguồn dữ liệu thật, kể cả khi AGENT_DATABASE_URL đã cấu hình.
+        knowledge_snapshot_repo=storage.knowledge_snapshot_repo,
     )
 
     # 3. Policy Engine & Approval Service
@@ -318,6 +326,7 @@ def build_cosa_agent_plane(
         event_intake_deps=event_intake_deps,
         memory_service=storage.memory_service,
         knowledge_ingestion_service=storage.knowledge_ingestion_service,
+        knowledge_snapshot_repo=storage.knowledge_snapshot_repo,
         compliance_resolver=compliance_resolver,
         workspace_settings_client=workspace_settings_client,
     )

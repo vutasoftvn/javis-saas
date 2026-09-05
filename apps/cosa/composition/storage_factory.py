@@ -20,6 +20,11 @@ from agent.conversations.repository import (
 )
 from agent.governance.providers.postgres import PostgresGovernanceStateStore
 from agent.governance.store import GovernanceStateStore
+from agent.knowledge.snapshot_repository import (
+    InMemoryKnowledgeSnapshotRepository,
+    KnowledgeSnapshotRepository,
+    PostgresKnowledgeSnapshotRepository,
+)
 from agent.registry.repository import (
     PostgresSpecRegistryRepository,
     SpecRegistryRepository,
@@ -64,6 +69,7 @@ class PlaneStorageBundle:
     web_search_budget_store: WebSearchBudgetStore
     memory_service: Any
     knowledge_ingestion_service: Any
+    knowledge_snapshot_repo: KnowledgeSnapshotRepository
     created_engines: list[Any]
 
 
@@ -80,6 +86,7 @@ def init_plane_storage(
     web_search_budget_store: WebSearchBudgetStore | None = None,
     memory_service: Any | None = None,
     knowledge_ingestion_service: Any | None = None,
+    knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     database_url: str | None = None,
 ) -> PlaneStorageBundle:
     """Khởi tạo toàn bộ database sessions và repositories cho CosaAgentPlane.
@@ -213,6 +220,19 @@ def init_plane_storage(
 
             knowledge_ingestion_service = _KIS(_InMemKStore())
 
+    # IA07: knowledge_snapshot_repo trước đây không có trong bundle này nên
+    # register_cosa_capabilities() luôn nhận None, khiến knowledge.read
+    # capability không có nguồn dữ liệu thật kể cả khi AGENT_DATABASE_URL đã
+    # cấu hình đầy đủ (chỉ InMemory ở test mới set nó).
+    if knowledge_snapshot_repo is not None:
+        knowledge_snap_repo: KnowledgeSnapshotRepository = knowledge_snapshot_repo
+    elif resolved_url:
+        know_engine, know_session_factory = build_postgres_session_factory(resolved_url)
+        created_engines.append(know_engine)
+        knowledge_snap_repo = PostgresKnowledgeSnapshotRepository(know_session_factory)
+    else:
+        knowledge_snap_repo = InMemoryKnowledgeSnapshotRepository()
+
     # Web search budget store
     if web_search_budget_store is not None:
         search_budget: WebSearchBudgetStore = web_search_budget_store
@@ -235,5 +255,6 @@ def init_plane_storage(
         web_search_budget_store=search_budget,
         memory_service=memory_service,
         knowledge_ingestion_service=knowledge_ingestion_service,
+        knowledge_snapshot_repo=knowledge_snap_repo,
         created_engines=created_engines,
     )
