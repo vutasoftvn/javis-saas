@@ -63,25 +63,55 @@ export async function scheduleTask(params: ScheduleParams): Promise<ScheduledTas
 
   return db.transaction(async (tx) => {
     if (params.coalescingKey) {
-      // Khoá đúng row đang "scheduled" với cùng coalescing_key (nếu có) để
-      // tránh race giữa 2 request cùng coalesce vào 1 task.
-      const existingRows = await tx
-        .select()
-        .from(scheduledTasks)
-        .where(and(eq(scheduledTasks.coalescingKey, params.coalescingKey), eq(scheduledTasks.status, "scheduled")))
-        .for("update");
-      const existing = existingRows[0];
+      if (params.coalescingKey.startsWith("evt:")) {
+        // Event triggers (evt:ws:event_id:rule_id) are strictly idempotent: check across all statuses.
+        // If scheduled: coalesce and preserve existing run_id.
+        // If already processing or completed: return existing without re-scheduling.
+        const existingRows = await tx
+          .select()
+          .from(scheduledTasks)
+          .where(eq(scheduledTasks.coalescingKey, params.coalescingKey))
+          .for("update");
+        const existing = existingRows[0];
 
-      if (existing) {
-        const mergedPayload = {
-          ...(existing.inputPayload as Record<string, unknown>),
-          ...params.inputPayload,
-        };
-        await tx
-          .update(scheduledTasks)
-          .set({ inputPayload: mergedPayload })
-          .where(eq(scheduledTasks.id, existing.id));
-        return { ...existing, inputPayload: mergedPayload } as ScheduledTaskRow;
+        if (existing) {
+          if (existing.status === "scheduled") {
+            const existingPayload = (existing.inputPayload as Record<string, unknown>) || {};
+            const mergedPayload = {
+              ...existingPayload,
+              ...params.inputPayload,
+              ...(existingPayload.run_id ? { run_id: existingPayload.run_id } : {}),
+            };
+            await tx
+              .update(scheduledTasks)
+              .set({ inputPayload: mergedPayload })
+              .where(eq(scheduledTasks.id, existing.id));
+            return { ...existing, inputPayload: mergedPayload } as ScheduledTaskRow;
+          }
+          return existing as ScheduledTaskRow;
+        }
+      } else {
+        // Non-evt tasks: lock row currently "scheduled" with same coalescing_key
+        const existingRows = await tx
+          .select()
+          .from(scheduledTasks)
+          .where(and(eq(scheduledTasks.coalescingKey, params.coalescingKey), eq(scheduledTasks.status, "scheduled")))
+          .for("update");
+        const existing = existingRows[0];
+
+        if (existing) {
+          const existingPayload = (existing.inputPayload as Record<string, unknown>) || {};
+          const mergedPayload = {
+            ...existingPayload,
+            ...params.inputPayload,
+            ...(existingPayload.run_id ? { run_id: existingPayload.run_id } : {}),
+          };
+          await tx
+            .update(scheduledTasks)
+            .set({ inputPayload: mergedPayload })
+            .where(eq(scheduledTasks.id, existing.id));
+          return { ...existing, inputPayload: mergedPayload } as ScheduledTaskRow;
+        }
       }
     }
 

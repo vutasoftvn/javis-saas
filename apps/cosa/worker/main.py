@@ -25,6 +25,7 @@ from apps.cosa.composition.agent_plane import (
     build_cosa_agent_plane,
     close_cosa_agent_plane,
 )
+from apps.cosa.events.event_run_contract import adapt_event_task_payload
 from apps.cosa.observability.logging import log_context, setup_logging
 from apps.cosa.observability.metrics import (
     dec_active_leases,
@@ -265,8 +266,21 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
     knowledge_ingestion tasks không dùng RunLeaseManager — chỉ dùng task claim
     fencing từ scheduler (heartbeat_task + complete_task).
     """
+    raw_payload = dict(task.input_payload) if isinstance(task.input_payload, dict) else {}
+    adapted_payload, reject_reason = adapt_event_task_payload(raw_payload)
+    if reject_reason is not None:
+        logger.error("task=%s rejected event trigger: %s", task.task_id, reject_reason)
+        await plane.scheduler.complete_task(
+            task.task_id,
+            worker_id=WORKER_ID,
+            claim_token=task.claim_token,
+            success=False,
+            error=reject_reason,
+        )
+        return
+    payload = adapted_payload if adapted_payload is not None else raw_payload
+
     stream_mgr = get_cosa_event_stream_manager()
-    payload = task.input_payload
     task_type = payload.get("task_type")
     run_id = payload.get("run_id")
     if not run_id and task_type == "scheduled_session":

@@ -174,17 +174,27 @@ async def _execute_run_task_inner(
 
     local_spec = _AGENT_PROFILE_SPECS.get(agent_profile)
     if local_spec is None:
-        # Trước đây mọi agent_profile lạ (kể cả "marketing") âm thầm rơi vào
-        # Operations qua so khớp chuỗi "finance" in agent_profile — sửa dead
-        # dispatch branch: log rõ ràng để phát hiện được profile chưa được
-        # ánh xạ, vẫn fallback Operations (không hard-fail run của người dùng
-        # vì 1 giá trị agent_profile chưa biết).
-        logger.warning(
-            "unmapped agent_profile %r, falling back to operations spec",
+        logger.error(
+            "unsupported agent_profile %r for run_id=%s, failing closed",
             agent_profile,
-            extra={"run_id": run_id},
+            run_id,
         )
-        local_spec = COSA_OPERATIONS_AGENT_SPEC
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=f"Unsupported agent profile '{agent_profile}' — run rejected",
+            run_id=run_id,
+            status_="failed",
+        )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": f"unsupported_agent_profile_{agent_profile}"},
+        )
+        return
 
     # Resolve PolicySnapshot TRƯỚC khi tạo run — §10.5 freshness invariant:
     # không xác nhận được current gate/tenant policy thật KHÔNG được coi là

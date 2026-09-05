@@ -100,19 +100,22 @@ async def test_schedule_reference_task_success():
     body = captured["body"]
     assert body["targetSpecId"] == "cosa.agents.customer_support"
     assert body["targetSpecKind"] == "agent"
-    assert body["coalescingKey"] == "evt:ws_test:evt_123"
+    assert body["coalescingKey"] == "evt:ws_test:evt_123:rule_test_1"
 
-    # Verify input_payload has reference-only fields, not raw business payload
+    # Verify input_payload has reference-only fields, matching EventRunEnvelope
     payload = body["inputPayload"]
-    assert payload["kind"] == "event_trigger"
+    assert payload["schema_version"] == 1
+    assert payload["task_type"] == "run"
+    assert payload["run_id"].startswith("run_")
     assert payload["workspace_id"] == "ws_test"
     assert payload["event_id"] == "evt_123"
     assert payload["correlation_id"] == "corr_456"
     assert payload["trigger_rule_id"] == "rule_test_1"
-    assert payload["agent_spec"]["id"] == "cosa.agents.customer_support"
-    assert payload["aggregate_ref"]["type"] == "task"
-    assert payload["aggregate_ref"]["id"] == "t_789"
-    assert payload["mode"] == "proposal"
+    assert payload["agent_spec_id"] == "cosa.agents.customer_support"
+    assert payload["agent_spec_version"] == "1.0.0"
+    assert payload["agent_spec_hash"] == "hash_abc123"
+    assert payload["aggregate_type"] == "task"
+    assert payload["aggregate_id"] == "t_789"
     assert payload["agent_profile"] == "customer_support"  # mapped from spec id
 
     # Verify task_id returned
@@ -146,34 +149,25 @@ async def test_schedule_reference_task_maps_autopilot_agent_profile():
 
 
 @pytest.mark.asyncio
-async def test_schedule_reference_task_omits_agent_profile_for_unknown_spec_id():
-    """agent_spec.id không match pattern → agent_profile omitted từ payload."""
+async def test_schedule_reference_task_rejects_unknown_spec_id():
+    """agent_spec.id không match bảng mapping → từ chối có lý do rõ ràng (ValueError)."""
     captured = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(
-            200,
-            json={
-                "id": "task_unknown_001",
-                "targetSpecId": "cosa.agents.unknown_agent",
-                "runAt": "2026-08-25T10:00:00.000Z",
-            },
-        )
+        return httpx.Response(200, json={"id": "task_unknown_001"})
 
     client = _client_with_transport(handler)
     rule = _create_rule("cosa.agents.unknown_agent")
     env = _FakeEnvelope()
 
-    await client.schedule_reference_task(rule, env)
-
-    payload = captured["body"]["inputPayload"]
-    assert "agent_profile" not in payload
+    with pytest.raises(ValueError, match="unsupported agent spec id"):
+        await client.schedule_reference_task(rule, env)
 
 
 @pytest.mark.asyncio
-async def test_schedule_reference_task_includes_thread_ref_for_engagement_thread():
-    """aggregate_type=engagement.thread → include thread_ref."""
+async def test_schedule_reference_task_stores_thread_aggregate_reference():
+    """aggregate_type=engagement.thread → lưu aggregate reference trong EventRunEnvelope."""
     captured = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -194,85 +188,8 @@ async def test_schedule_reference_task_includes_thread_ref_for_engagement_thread
     await client.schedule_reference_task(rule, env)
 
     payload = captured["body"]["inputPayload"]
-    assert payload["thread_ref"] == {"thread_id": "thread_xyz"}
-
-
-@pytest.mark.asyncio
-async def test_schedule_reference_task_thread_ref_alias_engagement_thread():
-    """aggregate_type=engagement_thread (underscore) → include thread_ref."""
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["body"] = json.loads(request.content)
-        return httpx.Response(
-            200,
-            json={
-                "id": "task_thread_002",
-                "targetSpecId": "cosa.agents.customer_support",
-                "runAt": "2026-08-25T10:00:00.000Z",
-            },
-        )
-
-    client = _client_with_transport(handler)
-    rule = _create_rule()
-    env = _FakeEnvelope(aggregate_type="engagement_thread", aggregate_id="thread_abc")
-
-    await client.schedule_reference_task(rule, env)
-
-    payload = captured["body"]["inputPayload"]
-    assert payload["thread_ref"] == {"thread_id": "thread_abc"}
-
-
-@pytest.mark.asyncio
-async def test_schedule_reference_task_thread_ref_alias_thread():
-    """aggregate_type=thread → include thread_ref."""
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["body"] = json.loads(request.content)
-        return httpx.Response(
-            200,
-            json={
-                "id": "task_thread_003",
-                "targetSpecId": "cosa.agents.customer_support",
-                "runAt": "2026-08-25T10:00:00.000Z",
-            },
-        )
-
-    client = _client_with_transport(handler)
-    rule = _create_rule()
-    env = _FakeEnvelope(aggregate_type="thread", aggregate_id="thread_def")
-
-    await client.schedule_reference_task(rule, env)
-
-    payload = captured["body"]["inputPayload"]
-    assert payload["thread_ref"] == {"thread_id": "thread_def"}
-
-
-@pytest.mark.asyncio
-async def test_schedule_reference_task_omits_thread_ref_for_other_aggregate_types():
-    """aggregate_type khác → thread_ref omitted."""
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["body"] = json.loads(request.content)
-        return httpx.Response(
-            200,
-            json={
-                "id": "task_other_001",
-                "targetSpecId": "cosa.agents.customer_support",
-                "runAt": "2026-08-25T10:00:00.000Z",
-            },
-        )
-
-    client = _client_with_transport(handler)
-    rule = _create_rule()
-    env = _FakeEnvelope(aggregate_type="engagement", aggregate_id="eng_123")
-
-    await client.schedule_reference_task(rule, env)
-
-    payload = captured["body"]["inputPayload"]
-    assert "thread_ref" not in payload
+    assert payload["aggregate_type"] == "engagement.thread"
+    assert payload["aggregate_id"] == "thread_xyz"
 
 
 @pytest.mark.asyncio

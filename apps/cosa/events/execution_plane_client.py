@@ -10,6 +10,8 @@ from typing import Any
 
 from agent.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
 
+from apps.cosa.events.event_run_contract import build_event_run_envelope
+
 __all__ = ["LocalExecutionPlaneScheduleClient"]
 
 
@@ -19,39 +21,15 @@ class LocalExecutionPlaneScheduleClient:
             base_url=base_url, service_token=service_token, client=client
         )
 
-    async def schedule_reference_task(self, rule: Any, env: Any) -> str:
-        agent_profile = (
-            "customer_support_autopilot"
-            if rule.agent_spec.id == "cosa.agents.customer_support_autopilot"
-            else "customer_support"
-            if rule.agent_spec.id == "cosa.agents.customer_support"
-            else None
-        )
-
-        input_payload = {
-            "kind": "event_trigger",
-            "workspace_id": env.workspaceId,
-            "event_id": env.eventId,
-            "correlation_id": env.correlationId,
-            "trigger_rule_id": rule.rule_id,
-            "agent_spec": {
-                "id": rule.agent_spec.id,
-                "version": rule.agent_spec.version,
-                "definition_hash": rule.agent_spec.definition_hash,
-            },
-            "aggregate_ref": {"type": env.aggregateType, "id": env.aggregateId},
-            "mode": rule.mode,
-        }
-        if agent_profile:
-            input_payload["agent_profile"] = agent_profile
-        if env.aggregateType in ("engagement.thread", "engagement_thread", "thread"):
-            input_payload["thread_ref"] = {"thread_id": env.aggregateId}
+    async def schedule_reference_task(self, rule: Any, env: Any, run_id: str | None = None) -> str:
+        envelope = build_event_run_envelope(rule=rule, env=env, run_id=run_id)
+        coalescing_key = f"evt:{env.workspaceId}:{env.eventId}:{rule.rule_id}"
 
         record = await self._sched.schedule(
             target_spec_id=rule.agent_spec.id,
             target_spec_kind="agent",
-            coalescing_key=f"evt:{env.workspaceId}:{env.eventId}",
-            input_payload=input_payload,
+            coalescing_key=coalescing_key,
+            input_payload=envelope.model_dump(),
         )
         return record.task_id
 
