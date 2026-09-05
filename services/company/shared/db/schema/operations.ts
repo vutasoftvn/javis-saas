@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, primaryKey, foreignKey, date } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, primaryKey, foreignKey, date, uuid, numeric } from "drizzle-orm/pg-core";
 
 export const operatingSchema = pgSchema("operating");
 export const strategySchema = pgSchema("strategy");
@@ -107,6 +107,8 @@ export const keyResults = strategySchema.table("key_results", {
   unit: text("unit"),
   cadence: text("cadence"),
   metricType: text("metric_type"),
+  scoringType: varchar("scoring_type", { length: 50 }).default("LINEAR_INCREASE").notNull(),
+  metricContractVersion: integer("metric_contract_version"),
   evidenceRefs: jsonb("evidence_refs"),
   status: text("status").default("draft").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -165,6 +167,11 @@ export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
   status: varchar("status", { length: 50 }).default("todo").notNull(),
   plannedEffort: varchar("planned_effort", { length: 50 }),
   commitmentOwnerType: varchar("commitment_owner_type", { length: 50 }).default("FOUNDER"),
+  ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
+  purposeType: varchar("purpose_type", { length: 50 }).default("KR").notNull(),
+  purposeRef: text("purpose_ref"),
+  doneCriteria: jsonb("done_criteria"),
+  committedAt: timestamp("committed_at", { withTimezone: true }),
   executionMode: varchar("execution_mode", { length: 50 }).default("MANUAL"),
   sourceActionId: varchar("source_action_id", { length: 255 }),
   sourceRevision: integer("source_revision").default(1).notNull(),
@@ -187,6 +194,42 @@ export const cycleRevisions = operatingSchema.table("cycle_revisions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   uixCycleRevision: uniqueIndex("uix_cycle_revisions_cycle_revision").on(t.cycleId, t.revision),
+}));
+
+export const cycleKeyResults = operatingSchema.table("cycle_key_results", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => twelveWeekCycles.id, { onDelete: "cascade" }),
+  keyResultId: bigint("key_result_id", { mode: "bigint" }).notNull().references(() => keyResults.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.workspaceId, t.cycleId, t.keyResultId] }),
+}));
+
+export const commitmentKeyResults = operatingSchema.table("commitment_key_results", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  commitmentId: bigint("commitment_id", { mode: "bigint" }).notNull().references(() => weeklyCommitments.id, { onDelete: "cascade" }),
+  keyResultId: bigint("key_result_id", { mode: "bigint" }).notNull().references(() => keyResults.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.workspaceId, t.commitmentId, t.keyResultId] }),
+}));
+
+export const krObservations = operatingSchema.table("kr_observations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  krId: bigint("kr_id", { mode: "bigint" }).notNull().references(() => keyResults.id, { onDelete: "cascade" }),
+  valueDecimal: numeric("value_decimal", { precision: 18, scale: 4 }).notNull(),
+  measurementAt: timestamp("measurement_at", { withTimezone: true }).notNull(),
+  windowStart: timestamp("window_start", { withTimezone: true }),
+  windowEnd: timestamp("window_end", { withTimezone: true }),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  sourceRef: text("source_ref"),
+  recordedBy: bigint("recorded_by", { mode: "bigint" }),
+  metricContractVersion: integer("metric_contract_version"),
+  idempotencyKey: text("idempotency_key"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixIdempotency: uniqueIndex("uix_kr_observations_ws_kr_idempotency").on(t.workspaceId, t.krId, t.idempotencyKey),
 }));
 
 export const portfolios = strategySchema.table("portfolios", {
