@@ -34,6 +34,7 @@ import { createBankConnectionService } from "../services/bank-connection.service
 
 const {
   bankTransactions,
+  bankConnections,
   documentReconciliationProposals,
   accountingDocuments,
   accountingPeriods,
@@ -483,6 +484,95 @@ describe("F1 Financial Integrity", () => {
       });
       expect(savedUsd.currency).toBe("USD");
       expect(parseFloat(savedUsd.cashIn)).toBe(1000);
+    });
+
+    it("computes cash/burn per legal entity instead of pooling across all entities in the workspace (IA12)", async () => {
+      const { workspaceId } = await makeAuthedWorkspace("Multi-Entity Snapshot Ws");
+      const wsBig = BigInt(workspaceId);
+
+      const entityA = generateSnowflake();
+      const entityB = generateSnowflake();
+
+      const connA = await createBankConnectionService({
+        workspaceId: wsBig,
+        provider: "cas",
+        secretRef: "secret://cosa-connectors/cas/entity-a",
+      });
+      await db
+        .update(bankConnections)
+        .set({ legalEntityId: entityA })
+        .where(eq(bankConnections.id, BigInt(connA.id)));
+
+      const connB = await createBankConnectionService({
+        workspaceId: wsBig,
+        provider: "cas",
+        secretRef: "secret://cosa-connectors/cas/entity-b",
+      });
+      await db
+        .update(bankConnections)
+        .set({ legalEntityId: entityB })
+        .where(eq(bankConnections.id, BigInt(connB.id)));
+
+      // Entity A nhận 10,000,000 VND; Entity B nhận 3,000,000 VND — cùng
+      // workspace, cùng ngày, cùng currency.
+      await db.insert(bankTransactions).values([
+        {
+          id: generateSnowflake(),
+          workspaceId: wsBig,
+          bankConnectionId: BigInt(connA.id),
+          externalTransactionId: `ext_a_${Date.now()}`,
+          postedAt: new Date("2026-08-10"),
+          amount: "10000000.00",
+          currency: "VND",
+          direction: "IN",
+          description: "Entity A revenue",
+          status: "UNRECONCILED",
+        },
+        {
+          id: generateSnowflake(),
+          workspaceId: wsBig,
+          bankConnectionId: BigInt(connB.id),
+          externalTransactionId: `ext_b_${Date.now()}`,
+          postedAt: new Date("2026-08-10"),
+          amount: "3000000.00",
+          currency: "VND",
+          direction: "IN",
+          description: "Entity B revenue",
+          status: "UNRECONCILED",
+        },
+      ]);
+
+      const snapshotA = await calculateAndSaveSnapshotService({
+        workspaceId: wsBig,
+        legalEntityId: entityA,
+        snapshotDate: "2026-08-31",
+        currency: "VND",
+      });
+      expect(snapshotA.legalEntityId).toBe(String(entityA));
+      expect(parseFloat(snapshotA.cashIn)).toBe(10000000);
+
+      const snapshotB = await calculateAndSaveSnapshotService({
+        workspaceId: wsBig,
+        legalEntityId: entityB,
+        snapshotDate: "2026-08-31",
+        currency: "VND",
+      });
+      expect(snapshotB.legalEntityId).toBe(String(entityB));
+      expect(parseFloat(snapshotB.cashIn)).toBe(3000000);
+
+      // Cả 2 snapshot cùng tồn tại (không ghi đè nhau qua unique constraint —
+      // migration 38 thêm entity vào unique key).
+      const rows = await db
+        .select()
+        .from(schema.financialSnapshots)
+        .where(
+          and(
+            eq(schema.financialSnapshots.workspaceId, wsBig),
+            eq(schema.financialSnapshots.snapshotDate, "2026-08-31" as unknown as string),
+            eq(schema.financialSnapshots.currency, "VND")
+          )
+        );
+      expect(rows.length).toBe(2);
     });
   });
 });

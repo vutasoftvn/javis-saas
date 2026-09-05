@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
-const { financialSnapshots, bankTransactions } = schema;
+const { financialSnapshots, bankTransactions, bankConnections } = schema;
 
 export interface FinancialSnapshotView {
   id: string;
@@ -178,15 +178,43 @@ export async function calculateAndSaveSnapshotService(
   const targetCurrency = (p.currency || "VND").toUpperCase();
   const legalEntityId = p.legalEntityId ? BigInt(p.legalEntityId) : null;
 
-  const conditions = [
-    eq(bankTransactions.workspaceId, p.workspaceId),
-    eq(bankTransactions.currency, targetCurrency),
-  ];
-
-  const txns = await db
-    .select()
-    .from(bankTransactions)
-    .where(and(...conditions));
+  // IA12: snapshot gắn nhãn legalEntityId nhưng trước đây tính từ TOÀN BỘ
+  // bank_transactions của workspace (không join/lọc theo entity) — 2 pháp
+  // nhân trong cùng workspace sẽ có cash/burn/runway giống hệt nhau và đều
+  // sai (cộng gộp cả 2 phía). bank_transactions không có cột legal_entity_id
+  // riêng — phải join bank_connections (nguồn sự thật cho entity của 1 kết
+  // nối ngân hàng) để lọc đúng.
+  const txns = legalEntityId
+    ? await db
+        .select({
+          amount: bankTransactions.amount,
+          direction: bankTransactions.direction,
+          postedAt: bankTransactions.postedAt,
+          currency: bankTransactions.currency,
+        })
+        .from(bankTransactions)
+        .innerJoin(bankConnections, eq(bankTransactions.bankConnectionId, bankConnections.id))
+        .where(
+          and(
+            eq(bankTransactions.workspaceId, p.workspaceId),
+            eq(bankTransactions.currency, targetCurrency),
+            eq(bankConnections.legalEntityId, legalEntityId)
+          )
+        )
+    : await db
+        .select({
+          amount: bankTransactions.amount,
+          direction: bankTransactions.direction,
+          postedAt: bankTransactions.postedAt,
+          currency: bankTransactions.currency,
+        })
+        .from(bankTransactions)
+        .where(
+          and(
+            eq(bankTransactions.workspaceId, p.workspaceId),
+            eq(bankTransactions.currency, targetCurrency)
+          )
+        );
 
   const windowMonths = p.burnWindowMonths ?? 3;
   const openingBalance = parseFloat(p.openingBalance ?? "0") || 0;

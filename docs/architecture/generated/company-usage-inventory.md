@@ -5,9 +5,9 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | Lớp | Occurrences | Files |
 |---|---|---|
-| LEGACY_TENANCY (M2 xóa) | 137 | 35 |
+| LEGACY_TENANCY (M2 xóa) | 139 | 36 |
 | VALID_KEEP (giữ nguyên) | 100 | 31 |
-| REVIEW (chưa phân loại) | 913 | 262 |
+| REVIEW (chưa phân loại) | 962 | 273 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -26,6 +26,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/migrations/1_baseline_identity_and_agent_policy.down.sql | 3 |
 | services/cosa/migrations/29_cleanup_legacy_companies_and_rename_workspaces.up.sql | 3 |
 | services/cosa/migrations/retired_pre_baseline_v1/4_add_agent_policy.up.sql | 3 |
+| apps/cosa/api/workforce_routes.py | 2 |
 | apps/cosa/policies/snapshot.py | 2 |
 | frontend/lib/modules/auth/services/auth_service.dart | 2 |
 | frontend/lib/modules/auth/views/register_view.dart | 2 |
@@ -54,17 +55,19 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | File | Hits |
 |---|---|
 | apps/cosa/auth/jwt.py | 35 |
-| frontend/lib/core/network/mvp_endpoints.g.dart | 31 |
+| frontend/lib/core/network/mvp_endpoints.g.dart | 35 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
 | services/company/operations/migrations/7_create_strategy_domain.up.sql | 22 |
 | apps/cosa/auth/dependency.py | 21 |
 | frontend/lib/modules/auth/services/auth_service.dart | 21 |
+| apps/cosa/policies/company_policy_client.py | 20 |
+| apps/cosa/worker/wga_run.py | 18 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 18 |
-| apps/cosa/worker/wga_run.py | 17 |
 | services/cosa/services/workspace-connector.service.ts | 17 |
+| apps/cosa/worker/copilot_run.py | 16 |
 | services/cosa/migrations/13_workspace_only_product_scope.up.sql | 15 |
-| apps/cosa/worker/copilot_run.py | 14 |
 | services/company/operations/migrations/11_dedupe_strategy_company_workspace_id.up.sql | 14 |
+| apps/cosa/api/workforce_routes.py | 13 |
 | packages/agent/migrations/017_workspace_only_tenancy.sql | 13 |
 | services/company/operations/services/workspace-runtime.service.ts | 13 |
 | apps/cosa/capabilities/project_lifecycle.py | 12 |
@@ -110,6 +113,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/migrations/12_connector_authorization_tenant_scope.up.sql | 5 |
 | services/cosa/services/token.service.ts | 5 |
 | services/cosa/services/workspace-settings.service.ts | 5 |
+| apps/cosa/capabilities/engagement_read.py | 4 |
 | apps/cosa/capabilities/marketing_read.py | 4 |
 | apps/cosa/capabilities/venture_profile.py | 4 |
 | apps/cosa/knowledge_ingestion/event_sink.py | 4 |
@@ -123,7 +127,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/api/app.py | 3 |
 | apps/cosa/capabilities/__init__.py | 3 |
 | apps/cosa/capabilities/commercial_customer_read.py | 3 |
-| apps/cosa/capabilities/engagement_read.py | 3 |
 | apps/cosa/capabilities/finance_read.py | 3 |
 | apps/cosa/capabilities/operations_write.py | 3 |
 | apps/cosa/compliance/data_egress_context.py | 3 |
@@ -151,17 +154,16 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
 | services/cosa/handlers/workspace-connector.handler.ts | 3 |
 | apps/cosa/api/schedule_routes.py | 2 |
+| apps/cosa/capabilities/knowledge_read.py | 2 |
 | apps/cosa/capabilities/legal_read.py | 2 |
 | apps/cosa/capabilities/legal_write.py | 2 |
 | apps/cosa/capabilities/venture_stage.py | 2 |
 | apps/cosa/compliance/data_model_gate.py | 2 |
 | apps/cosa/config/planes.py | 2 |
 | apps/cosa/events/router.py | 2 |
-| apps/cosa/policies/company_policy_client.py | 2 |
 | apps/cosa/policies/evaluator.py | 2 |
 | apps/cosa/worker/autopilot_run.py | 2 |
 | frontend/lib/core/routing/app_routes.dart | 2 |
-| frontend/lib/modules/agents/services/agent_platform_service.dart | 2 |
 | frontend/lib/modules/agents/services/agents_service.dart | 2 |
 | frontend/lib/modules/chat/models/data_access_declaration.dart | 2 |
 | frontend/lib/modules/finance/services/policy_funding_service.dart | 2 |
@@ -197,6 +199,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/core/network/api_auth_resolver.dart | 1 |
 | frontend/lib/core/network/api_result.dart | 1 |
 | frontend/lib/core/session/session_controller.dart | 1 |
+| frontend/lib/modules/agents/services/agent_platform_service.dart | 1 |
+| frontend/lib/modules/hologram_hub/controllers/mixins/hub_control_plane_mixin.dart | 1 |
 | frontend/lib/modules/hologram_hub/controllers/mixins/hub_stage_mixin.dart | 1 |
 | frontend/lib/modules/hologram_hub/widgets/stage_selector_header.dart | 1 |
 | frontend/lib/modules/hologram_hub/widgets/top3_focus_widget.dart | 1 |
@@ -216,6 +220,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent/scripts/migrate.py | 1 |
 | packages/agent/vault/lifecycle.py | 1 |
 | packages/agent_testkit/kernel_conformance/test_openai_agents_sdk_kernel.py | 1 |
+| services/company/finance-legal/cas-sync.cron.ts | 1 |
 | services/company/finance-legal/handlers/ai-compliance-runtime.handler.ts | 1 |
 | services/company/finance-legal/handlers/ai-data-governance.handler.ts | 1 |
 | services/company/finance-legal/migrations/12_legal_catalog.down.sql | 1 |
@@ -256,6 +261,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/migrations/30_ai_legal_source_corrections.up.sql | 1 |
 | services/company/finance-legal/migrations/31_ai_legal_review_pending_correction.down.sql | 1 |
 | services/company/finance-legal/migrations/31_ai_legal_review_pending_correction.up.sql | 1 |
+| services/company/finance-legal/services/ingestion.service.ts | 1 |
 | services/company/identity/handlers/auth.handler.ts | 1 |
 | services/company/identity/handlers/e2e-session.handler.ts | 1 |
 | services/company/identity/handlers/workforce.handler.ts | 1 |
@@ -301,6 +307,12 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/migrations/38_workspace_execution_settings.up.sql | 1 |
 | services/company/operations/migrations/39_workspace_capability_policy.up.sql | 1 |
 | services/company/operations/migrations/40_kickoff_ai_suggestion.up.sql | 1 |
+| services/company/operations/migrations/42_execution_cycle_calendar.down.sql | 1 |
+| services/company/operations/migrations/42_execution_cycle_calendar.up.sql | 1 |
+| services/company/operations/migrations/43_execution_outcomes.down.sql | 1 |
+| services/company/operations/migrations/43_execution_outcomes.up.sql | 1 |
+| services/company/operations/migrations/44_review_decision_links.down.sql | 1 |
+| services/company/operations/migrations/44_review_decision_links.up.sql | 1 |
 | services/company/operations/tests/_helpers.ts | 1 |
 | services/company/package.json | 1 |
 | services/company/shared/auth/workspace-access.ts | 1 |
