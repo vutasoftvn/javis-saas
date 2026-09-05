@@ -163,16 +163,38 @@ export const accountingRegimePolicies = financeSchema.table("accounting_regime_p
 export const bankConnections = financeSchema.table("bank_connections", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
   provider: text("provider").notNull(), // 'cas' | 'manual'
+  providerEnvironment: text("provider_environment").default("sandbox").notNull(),
   consentState: text("consent_state").default("PENDING").notNull(), // 'PENDING' | 'GRANTED' | 'REVOKED' | 'EXPIRED'
   secretRef: text("secret_ref"),
   scopes: jsonb("scopes").default([]).notNull(),
   accountLinks: jsonb("account_links").default([]).notNull(),
+  providerGrantId: text("provider_grant_id"),
+  externalAccountId: text("external_account_id"),
+  institutionId: text("institution_id"),
+  accountFingerprint: text("account_fingerprint"),
+  grantedScopes: jsonb("granted_scopes").default([]).notNull(),
   grantExpiresAt: timestamp("grant_expires_at", { withTimezone: true }),
+  providerContractVersion: text("provider_contract_version"),
+  reauthRequired: boolean("reauth_required").default(false).notNull(),
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
   syncStatus: text("sync_status").default("IDLE").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const casLinkSessions = financeSchema.table("cas_link_sessions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
+  createdBy: bigint("created_by", { mode: "bigint" }).notNull(),
+  stateHash: text("state_hash").notNull().unique(),
+  scopes: jsonb("scopes").default([]).notNull(),
+  allowedRedirect: text("allowed_redirect").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const ingestionEvents = financeSchema.table("ingestion_events", {
