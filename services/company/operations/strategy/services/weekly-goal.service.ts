@@ -12,10 +12,19 @@ import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { WEEKLY_GOAL_SET } from "../../../shared/events";
+import {
+  getLocalDateFromInstant,
+  nextMondayOnOrAfterLocalDate,
+  calculateCycleEndDateExclusive,
+  resolveExecutionWeek,
+} from "../../services/execution-calendar";
 
 export interface SetWeeklyGoalParams {
   projectId: string;
   workspaceId: string;
+  cycleId?: string;
+  weekNo?: number;
+  expectedVersion?: number;
   focus: string;
   mission?: string | null;
   triggerDecomposition: boolean;
@@ -30,10 +39,10 @@ export interface SetWeeklyGoalResult {
 }
 
 /**
- * Ghi "mục tiêu tuần" của founder vào weekly_plans (tuần 1) — tái dùng chuỗi
- * 12WY (twelve_week_cycles → weekly_plans). Tạo lười cycle + plan lần đầu, các
- * lần sau chỉ cập nhật focus/mission. Khi triggerDecomposition=true, phát event
- * operating.weekly_goal.set.v1 cho apps/cosa chạy run phân rã.
+ * Ghi "mục tiêu tuần" của founder vào weekly_plans.
+ * Khi cycleId và weekNo được cung cấp, ghi đúng vào tuần đó.
+ * Khi không cung cấp cycleId, chỉ tự suy ra nếu tồn tại đúng 1 chu kỳ ACTIVE READY.
+ * Nếu có nhiều chu kỳ ACTIVE, bắt buộc người dùng chỉ định rõ cycleId.
  */
 export async function setWeeklyGoalService(
   params: SetWeeklyGoalParams,
@@ -56,30 +65,103 @@ export async function setWeeklyGoalService(
       .limit(1);
     if (!proj) throw APIError.notFound(`project ${params.projectId} not found`);
 
-    let [cycle] = await tx
-      .select()
-      .from(twelveWeekCycles)
-      .where(
-        and(
-          eq(twelveWeekCycles.projectId, pId),
-          eq(twelveWeekCycles.workspaceId, wsId),
-          isNull(twelveWeekCycles.deletedAt)
-        )
-      )
-      .orderBy(desc(twelveWeekCycles.createdAt))
-      .limit(1);
+    let targetCycle: typeof twelveWeekCycles.$inferSelect | null = null;
+    let targetWeekNo = params.weekNo ?? 1;
 
-    if (!cycle) {
-      [cycle] = await tx
-        .insert(twelveWeekCycles)
-        .values({
-          id: generateSnowflake(),
-          workspaceId: wsId,
-          projectId: pId,
-          stageAtStart: "P0_DISCOVERY",
-          durationWeeks: 2,
-        })
-        .returning();
+    if (params.cycleId) {
+      const [cycle] = await tx
+        .select()
+        .from(twelveWeekCycles)
+        .where(
+          and(
+            eq(twelveWeekCycles.id, BigInt(params.cycleId)),
+            eq(twelveWeekCycles.projectId, pId),
+            eq(twelveWeekCycles.workspaceId, wsId),
+            isNull(twelveWeekCycles.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (!cycle) throw APIError.notFound(`cycle ${params.cycleId} not found`);
+      targetCycle = cycle;
+    } else {
+      const activeCycles = await tx
+        .select()
+        .from(twelveWeekCycles)
+        .where(
+          and(
+            eq(twelveWeekCycles.projectId, pId),
+            eq(twelveWeekCycles.workspaceId, wsId),
+            eq(twelveWeekCycles.status, "ACTIVE"),
+            isNull(twelveWeekCycles.deletedAt)
+          )
+        );
+
+      const readyCycles = activeCycles.filter(
+        (c) => c.calendarState === "READY" || c.calendarState === null
+      );
+
+      if (readyCycles.length > 1) {
+        throw APIError.failedPrecondition(
+          "Multiple active execution cycles found. Explicit cycleId is required."
+        );
+      } else if (readyCycles.length === 1) {
+        targetCycle = readyCycles[0]!;
+        if (!params.weekNo && targetCycle.startLocalDate) {
+          const todayLocal = getLocalDateFromInstant(new Date(), targetCycle.timezone || "UTC");
+          const resolved = resolveExecutionWeek(
+            String(targetCycle.startLocalDate),
+            targetCycle.durationWeeks,
+            todayLocal
+          );
+          if (resolved !== null) {
+            targetWeekNo = resolved;
+          }
+        }
+      } else {
+        // No active ready cycle, check if any cycle exists
+        if (activeCycles.length === 1) {
+          targetCycle = activeCycles[0]!;
+        } else if (activeCycles.length > 1) {
+          throw APIError.failedPrecondition(
+            "Multiple active execution cycles found. Explicit cycleId is required."
+          );
+        } else {
+          // Create default cycle
+          const todayLocal = getLocalDateFromInstant(new Date(), "UTC");
+          const startLocalDate = nextMondayOnOrAfterLocalDate(todayLocal);
+          const endLocalDateExclusive = calculateCycleEndDateExclusive(startLocalDate, 2);
+
+          const [created] = await tx
+            .insert(twelveWeekCycles)
+            .values({
+              id: generateSnowflake(),
+              workspaceId: wsId,
+              projectId: pId,
+              stageAtStart: "P0_DISCOVERY",
+              durationWeeks: 2,
+              timezone: "UTC",
+              startLocalDate: startLocalDate || null,
+              endLocalDateExclusive: endLocalDateExclusive || null,
+              calendarState: "READY",
+              revision: 1,
+            })
+            .returning();
+          targetCycle = created!;
+        }
+      }
+    }
+
+    if (targetWeekNo < 1 || targetWeekNo > targetCycle.durationWeeks) {
+      throw APIError.invalidArgument(
+        `weekNo ${targetWeekNo} is outside cycle duration of ${targetCycle.durationWeeks} weeks`
+      );
+    }
+
+    if (params.expectedVersion !== undefined && targetCycle.revision !== params.expectedVersion) {
+      throw APIError.failedPrecondition(
+        `Cycle revision conflict: expected ${params.expectedVersion}, actual ${targetCycle.revision}`
+      );
     }
 
     const [plan] = await tx
@@ -87,8 +169,8 @@ export async function setWeeklyGoalService(
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
-        cycleId: cycle!.id,
-        weekNo: 1,
+        cycleId: targetCycle.id,
+        weekNo: targetWeekNo,
         focus,
         mission,
       })

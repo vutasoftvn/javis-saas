@@ -35,6 +35,53 @@ export const listCycles = api(
   }
 );
 
+export const updateCycle = api(
+  { expose: true, method: "PATCH", path: "/operations/cycles/:id" },
+  async ({
+    id,
+    authorization,
+    workspaceId,
+    expectedVersion,
+    displayName,
+    theme,
+    visionStatement,
+    durationWeeks,
+    startLocalDate,
+    timezone,
+    status,
+    reason,
+  }: {
+    id: string;
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+    expectedVersion?: number;
+    displayName?: string | null;
+    theme?: string | null;
+    visionStatement?: string;
+    durationWeeks?: number;
+    startLocalDate?: string | null;
+    timezone?: string | null;
+    status?: string;
+    reason?: string | null;
+  }): Promise<TwelveWeekCycle> => {
+    const { updateCycleService } = await import("../services/twelve-week-year.service");
+    return updateCycleService({
+      workspaceId,
+      cycleId: id,
+      authorization,
+      expectedVersion,
+      displayName,
+      theme,
+      visionStatement,
+      durationWeeks,
+      startLocalDate,
+      timezone,
+      status,
+      reason,
+    });
+  }
+);
+
 // ─── Weekly Plans Endpoints ───
 
 export const createWeeklyPlan = api(

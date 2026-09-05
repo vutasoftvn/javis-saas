@@ -51,6 +51,7 @@ export interface ProjectOperatingSetupView {
   recommendedStage: BasicKickoffStage | null;
   selectedStage: BasicKickoffStage | null;
   stageDurationWeeks: number | null;
+  cycleDurationWeeks: number | null;
   stageTargetDate: string | null;
   roundStartDate: string | null;
   weeklyReviewWeekday: number | null;
@@ -69,6 +70,7 @@ export interface SaveProjectOperatingSetupRequest {
   evidenceLevel?: EvidenceLevel | null;
   selectedStage?: BasicKickoffStage | null;
   stageDurationWeeks?: number | null;
+  cycleDurationWeeks?: number | null;
   roundStartDate?: string | null;
   weeklyReviewWeekday?: number | null;
   weeklyReviewTime?: string | null;
@@ -82,6 +84,7 @@ export interface ActivateProjectOperatingSetupRequest {
   evidenceLevel: EvidenceLevel;
   selectedStage: BasicKickoffStage;
   stageDurationWeeks: number;
+  cycleDurationWeeks?: number;
   roundStartDate?: string | null;
   weeklyReviewWeekday: number;
   weeklyReviewTime: string;
@@ -234,6 +237,7 @@ async function toView(
     recommendedStage: row.recommendedStage as BasicKickoffStage | null,
     selectedStage: row.selectedStage as BasicKickoffStage | null,
     stageDurationWeeks: row.stageDurationWeeks,
+    cycleDurationWeeks: row.cycleDurationWeeks ?? null,
     stageTargetDate: row.stageTargetDate ? row.stageTargetDate.toISOString() : null,
     roundStartDate: row.roundStartDate ? row.roundStartDate.toISOString() : null,
     weeklyReviewWeekday: row.weeklyReviewWeekday,
@@ -300,6 +304,7 @@ export async function getProjectOperatingSetup(
       recommendedStage: "P0_DISCOVERY",
       selectedStage: "P0_DISCOVERY",
       stageDurationWeeks: 2,
+      cycleDurationWeeks: null,
       stageTargetDate: null,
       roundStartDate: null,
       weeklyReviewWeekday: 5,
@@ -467,6 +472,7 @@ export async function saveProjectOperatingSetup(
           recommendedStage: recommendedStage as string | null,
           selectedStage: req.selectedStage !== undefined ? req.selectedStage : existing?.selectedStage ?? null,
           stageDurationWeeks: durationWeeks,
+          cycleDurationWeeks: req.cycleDurationWeeks !== undefined ? req.cycleDurationWeeks : existing?.cycleDurationWeeks ?? null,
           stageTargetDate,
           roundStartDate: resolvedRoundStart,
           weeklyReviewWeekday: req.weeklyReviewWeekday !== undefined ? req.weeklyReviewWeekday : existing?.weeklyReviewWeekday ?? null,
@@ -485,6 +491,7 @@ export async function saveProjectOperatingSetup(
       firstWeekOutcome: resolvedOutcome,
       selectedStage: (saved.selectedStage as BasicKickoffStage | null),
       stageDurationWeeks: saved.stageDurationWeeks,
+      cycleDurationWeeks: saved.cycleDurationWeeks,
       roundStartDate: saved.roundStartDate,
     });
 
@@ -633,6 +640,7 @@ export async function activateProjectOperatingSetup(
           recommendedStage,
           selectedStage: req.selectedStage,
           stageDurationWeeks: req.stageDurationWeeks,
+          cycleDurationWeeks: req.cycleDurationWeeks ?? req.stageDurationWeeks ?? 2,
           stageTargetDate,
           roundStartDate,
           weeklyReviewWeekday: req.weeklyReviewWeekday,
@@ -675,6 +683,7 @@ export async function activateProjectOperatingSetup(
       firstWeekOutcome: req.firstWeekOutcome.trim(),
       selectedStage: req.selectedStage,
       stageDurationWeeks: req.stageDurationWeeks,
+      cycleDurationWeeks: req.cycleDurationWeeks ?? req.stageDurationWeeks ?? 2,
       roundStartDate,
     });
 

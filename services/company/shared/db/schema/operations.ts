@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, primaryKey, foreignKey } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, primaryKey, foreignKey, date } from "drizzle-orm/pg-core";
 
 export const operatingSchema = pgSchema("operating");
 export const strategySchema = pgSchema("strategy");
@@ -29,6 +29,9 @@ export const tasks = operatingSchema.table("tasks", {
   completionPolicy: text("completion_policy"),
   initiativeId: bigint("initiative_id", { mode: "bigint" }).references(() => initiatives.id, { onDelete: "set null" }),
   weeklyCommitmentId: bigint("weekly_commitment_id", { mode: "bigint" }).references(() => weeklyCommitments.id, { onDelete: "set null" }),
+  sourceActionId: text("source_action_id"),
+  sourceRevision: integer("source_revision").default(1).notNull(),
+  revision: integer("revision").default(1).notNull(),
   sortKey: doublePrecision("sort_key"),
   assigneeMemberId: bigint("assignee_member_id", { mode: "bigint" }),
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
@@ -121,6 +124,12 @@ export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
   currentWeek: integer("current_week").default(1).notNull(),
   durationWeeks: integer("duration_weeks").default(12).notNull(),
   overallExecutionScore: doublePrecision("overall_execution_score").default(0.0).notNull(),
+  displayName: varchar("display_name", { length: 255 }),
+  timezone: varchar("timezone", { length: 100 }).default("UTC").notNull(),
+  startLocalDate: date("start_local_date"),
+  endLocalDateExclusive: date("end_local_date_exclusive"),
+  revision: integer("revision").default(1).notNull(),
+  calendarState: varchar("calendar_state", { length: 50 }).default("READY").notNull(),
   startDate: timestamp("start_date", { withTimezone: true }),
   endDate: timestamp("end_date", { withTimezone: true }),
   commitmentLevel: varchar("commitment_level", { length: 50 }),
@@ -157,10 +166,28 @@ export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
   plannedEffort: varchar("planned_effort", { length: 50 }),
   commitmentOwnerType: varchar("commitment_owner_type", { length: 50 }).default("FOUNDER"),
   executionMode: varchar("execution_mode", { length: 50 }).default("MANUAL"),
+  sourceActionId: varchar("source_action_id", { length: 255 }),
+  sourceRevision: integer("source_revision").default(1).notNull(),
+  revision: integer("revision").default(1).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
+
+export const cycleRevisions = operatingSchema.table("cycle_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => twelveWeekCycles.id, { onDelete: "cascade" }),
+  revision: integer("revision").notNull(),
+  beforeState: jsonb("before_state").notNull(),
+  afterState: jsonb("after_state").notNull(),
+  reason: text("reason"),
+  actorId: text("actor_id"),
+  actorKind: text("actor_kind").default("user").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixCycleRevision: uniqueIndex("uix_cycle_revisions_cycle_revision").on(t.cycleId, t.revision),
+}));
 
 export const portfolios = strategySchema.table("portfolios", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
