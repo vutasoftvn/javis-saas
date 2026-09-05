@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { db, schema } from "../models/db";
@@ -120,6 +120,17 @@ export async function resolveTenantContext(
     workforceMemberId = wfMember.id.toString();
   }
 
+  let policyVersion = 1;
+  const [latestVer] = await db
+    .select({ version: schema.coreWorkspacePolicyVersions.version })
+    .from(schema.coreWorkspacePolicyVersions)
+    .where(eq(schema.coreWorkspacePolicyVersions.workspaceId, targetWorkspaceId))
+    .orderBy(desc(schema.coreWorkspacePolicyVersions.version))
+    .limit(1);
+  if (latestVer) {
+    policyVersion = latestVer.version;
+  }
+
   const context: TenantContext = Object.freeze({
     workspaceId: targetWorkspaceId.toString(),
     userId: localUserId.toString(),
@@ -128,6 +139,7 @@ export async function resolveTenantContext(
     permissions: getRolePermissions(membership.role),
     correlationId,
     platformUserId: userRow.platformUserId ?? null,
+    policyVersion,
   });
 
   return context;

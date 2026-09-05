@@ -12,4 +12,5 @@ export interface TenantContext {
   // platform user id (xem apps/cosa/auth/jwt.py::mint_control_plane_delegation).
   // `null`/`undefined` nếu user local này chưa từng sync từ platform.
   readonly platformUserId?: string | null;
+  readonly policyVersion?: number;
 }

@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, integer, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, integer, timestamp, primaryKey, boolean, uuid, jsonb, index, unique } from "drizzle-orm/pg-core";
 
 export const coreSchema = pgSchema("core");
 
@@ -107,3 +107,58 @@ export const identityWorkforceMembers = coreSchema.table("workforce_members", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
+
+export const corePermissionDefinitions = coreSchema.table("permission_definitions", {
+  permissionKey: text("permission_key").primaryKey(),
+  domain: text("domain").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const coreWorkspaceRoles = coreSchema.table("workspace_roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  roleKey: text("role_key").notNull(),
+  name: text("name").notNull(),
+  isSystem: boolean("is_system").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uqWorkspaceRoleKey: unique("uq_workspace_roles_key").on(t.workspaceId, t.roleKey),
+}));
+
+export const coreRolePermissions = coreSchema.table("role_permissions", {
+  roleId: uuid("role_id").notNull().references(() => coreWorkspaceRoles.id, { onDelete: "cascade" }),
+  permissionKey: text("permission_key").notNull().references(() => corePermissionDefinitions.permissionKey, { onDelete: "cascade" }),
+  effect: text("effect").notNull(), // 'ALLOW' | 'DENY' | 'REQUIRE_APPROVAL'
+  conditions: jsonb("conditions").default({}).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.roleId, t.permissionKey] }),
+}));
+
+export const coreMemberRoleAssignments = coreSchema.table("member_role_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  workforceMemberId: bigint("workforce_member_id", { mode: "bigint" }).notNull().references(() => identityWorkforceMembers.id, { onDelete: "cascade" }),
+  roleId: uuid("role_id").notNull().references(() => coreWorkspaceRoles.id, { onDelete: "cascade" }),
+  projectId: bigint("project_id", { mode: "bigint" }),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
+  validFrom: timestamp("valid_from", { withTimezone: true }).defaultNow().notNull(),
+  validUntil: timestamp("valid_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  lookupIdx: index("idx_member_role_assignments_lookup").on(t.workspaceId, t.workforceMemberId),
+}));
+
+export const coreWorkspacePolicyVersions = coreSchema.table("workspace_policy_versions", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  policyHash: text("policy_hash").notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  reason: text("reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.workspaceId, t.version] }),
+}));
+
