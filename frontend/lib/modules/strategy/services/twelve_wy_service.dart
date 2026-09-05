@@ -126,4 +126,14 @@ class TwelveWyService {
       reflection: reflection,
     );
   }
+
+  Future<ApiResult<MvpExecutionCycleView>> getExecutionCycleView({
+    required String projectId,
+    String? cycleId,
+  }) async {
+    return _client.getExecutionCycleView(
+      projectId: projectId,
+      cycleId: cycleId,
+    );
+  }
 }

@@ -357,3 +357,212 @@ class MvpWeeklyCommitment {
     );
   }
 }
+
+class MvpExecutionCycleSummary {
+  final String id;
+  final String? displayName;
+  final int durationWeeks;
+  final String? startLocalDate;
+  final String? endLocalDateExclusive;
+  final String timezone;
+  final int revision;
+  final String status;
+
+  const MvpExecutionCycleSummary({
+    required this.id,
+    this.displayName,
+    required this.durationWeeks,
+    this.startLocalDate,
+    this.endLocalDateExclusive,
+    required this.timezone,
+    required this.revision,
+    required this.status,
+  });
+
+  factory MvpExecutionCycleSummary.fromJson(Map<String, dynamic> json) {
+    return MvpExecutionCycleSummary(
+      id: json['id']?.toString() ?? '',
+      displayName: json['displayName'] as String?,
+      durationWeeks: (json['durationWeeks'] as num?)?.toInt() ?? 12,
+      startLocalDate: json['startLocalDate'] as String?,
+      endLocalDateExclusive: json['endLocalDateExclusive'] as String?,
+      timezone: json['timezone'] as String? ?? 'UTC',
+      revision: (json['revision'] as num?)?.toInt() ?? 1,
+      status: json['status'] as String? ?? 'ACTIVE',
+    );
+  }
+}
+
+class MvpExecutionCycleWeeklyPlan {
+  final String id;
+  final int weekNo;
+  final String? startDate;
+  final String? endDate;
+  final String? focus;
+  final String? mission;
+  final double? executionScore;
+  final double? outcomeScore;
+  final String? reflection;
+  final String? decisionId;
+
+  const MvpExecutionCycleWeeklyPlan({
+    required this.id,
+    required this.weekNo,
+    this.startDate,
+    this.endDate,
+    this.focus,
+    this.mission,
+    this.executionScore,
+    this.outcomeScore,
+    this.reflection,
+    this.decisionId,
+  });
+
+  factory MvpExecutionCycleWeeklyPlan.fromJson(Map<String, dynamic> json) {
+    return MvpExecutionCycleWeeklyPlan(
+      id: json['id']?.toString() ?? '',
+      weekNo: (json['weekNo'] as num?)?.toInt() ?? 1,
+      startDate: json['startDate'] as String?,
+      endDate: json['endDate'] as String?,
+      focus: json['focus'] as String?,
+      mission: json['mission'] as String?,
+      executionScore: (json['executionScore'] as num?)?.toDouble(),
+      outcomeScore: (json['outcomeScore'] as num?)?.toDouble(),
+      reflection: json['reflection'] as String?,
+      decisionId: json['decisionId']?.toString(),
+    );
+  }
+}
+
+class MvpExecutionCycleCommitment {
+  final String id;
+  final String weeklyPlanId;
+  final String title;
+  final String status;
+  final String? plannedEffort;
+  final String? commitmentOwnerType;
+  final String? ownerMemberId;
+  final String purposeType;
+  final String? purposeRef;
+  final String? executionMode;
+  final String? decisionId;
+  final int revision;
+
+  const MvpExecutionCycleCommitment({
+    required this.id,
+    required this.weeklyPlanId,
+    required this.title,
+    required this.status,
+    this.plannedEffort,
+    this.commitmentOwnerType,
+    this.ownerMemberId,
+    required this.purposeType,
+    this.purposeRef,
+    this.executionMode,
+    this.decisionId,
+    required this.revision,
+  });
+
+  factory MvpExecutionCycleCommitment.fromJson(Map<String, dynamic> json) {
+    return MvpExecutionCycleCommitment(
+      id: json['id']?.toString() ?? '',
+      weeklyPlanId: json['weeklyPlanId']?.toString() ?? '',
+      title: json['title'] as String? ?? '',
+      status: json['status'] as String? ?? 'todo',
+      plannedEffort: json['plannedEffort'] as String?,
+      commitmentOwnerType: json['commitmentOwnerType'] as String?,
+      ownerMemberId: json['ownerMemberId']?.toString(),
+      purposeType: json['purposeType'] as String? ?? 'KR',
+      purposeRef: json['purposeRef'] as String?,
+      executionMode: json['executionMode'] as String?,
+      decisionId: json['decisionId']?.toString(),
+      revision: (json['revision'] as num?)?.toInt() ?? 1,
+    );
+  }
+}
+
+class MvpExecutionCycleLinkedKr {
+  final String id;
+  final String? title;
+  final double? targetValue;
+  final double? currentValue;
+  final String? unit;
+  final double? progress;
+  final String status;
+
+  const MvpExecutionCycleLinkedKr({
+    required this.id,
+    this.title,
+    this.targetValue,
+    this.currentValue,
+    this.unit,
+    this.progress,
+    required this.status,
+  });
+
+  factory MvpExecutionCycleLinkedKr.fromJson(Map<String, dynamic> json) {
+    return MvpExecutionCycleLinkedKr(
+      id: json['id']?.toString() ?? '',
+      title: json['title'] as String?,
+      targetValue: (json['targetValue'] as num?)?.toDouble(),
+      currentValue: (json['currentValue'] as num?)?.toDouble(),
+      unit: json['unit'] as String?,
+      progress: (json['progress'] as num?)?.toDouble(),
+      status: json['status'] as String? ?? 'active',
+    );
+  }
+}
+
+class MvpExecutionCycleView {
+  final MvpExecutionCycleSummary? cycle;
+  final int? currentWeek;
+  final List<MvpExecutionCycleWeeklyPlan> weeklyPlans;
+  final List<MvpExecutionCycleCommitment> commitments;
+  final List<MvpExecutionCycleLinkedKr> linkedKrs;
+  final double? executionScore;
+  final double? outcomeProgress;
+  final List<String> dataIssues;
+  final List<String> allowedActions;
+
+  const MvpExecutionCycleView({
+    this.cycle,
+    this.currentWeek,
+    required this.weeklyPlans,
+    required this.commitments,
+    required this.linkedKrs,
+    this.executionScore,
+    this.outcomeProgress,
+    required this.dataIssues,
+    required this.allowedActions,
+  });
+
+  factory MvpExecutionCycleView.fromJson(Map<String, dynamic> json) {
+    final rawCycle = json['cycle'] as Map<String, dynamic>?;
+    final rawPlans = json['weeklyPlans'] as List<dynamic>? ?? [];
+    final rawCommitments = json['commitments'] as List<dynamic>? ?? [];
+    final rawKrs = json['linkedKrs'] as List<dynamic>? ?? [];
+    final rawIssues = json['dataIssues'] as List<dynamic>? ?? [];
+    final rawActions = json['allowedActions'] as List<dynamic>? ?? [];
+
+    return MvpExecutionCycleView(
+      cycle: rawCycle != null ? MvpExecutionCycleSummary.fromJson(rawCycle) : null,
+      currentWeek: (json['currentWeek'] as num?)?.toInt(),
+      weeklyPlans: rawPlans
+          .whereType<Map<String, dynamic>>()
+          .map((p) => MvpExecutionCycleWeeklyPlan.fromJson(p))
+          .toList(),
+      commitments: rawCommitments
+          .whereType<Map<String, dynamic>>()
+          .map((c) => MvpExecutionCycleCommitment.fromJson(c))
+          .toList(),
+      linkedKrs: rawKrs
+          .whereType<Map<String, dynamic>>()
+          .map((k) => MvpExecutionCycleLinkedKr.fromJson(k))
+          .toList(),
+      executionScore: (json['executionScore'] as num?)?.toDouble(),
+      outcomeProgress: (json['outcomeProgress'] as num?)?.toDouble(),
+      dataIssues: rawIssues.map((e) => e.toString()).toList(),
+      allowedActions: rawActions.map((e) => e.toString()).toList(),
+    );
+  }
+}

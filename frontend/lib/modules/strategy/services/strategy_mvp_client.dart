@@ -233,4 +233,19 @@ class StrategyMvpClient {
       decode: (json) => MvpWeeklyPlan.fromJson(json as Map<String, dynamic>),
     );
   }
+
+  Future<ApiResult<MvpExecutionCycleView>> getExecutionCycleView({
+    required String projectId,
+    String? cycleId,
+  }) async {
+    final queryMap = <String, String>{'projectId': projectId};
+    if (cycleId != null && cycleId.isNotEmpty) {
+      queryMap['cycleId'] = cycleId;
+    }
+    return _client.request<MvpExecutionCycleView>(
+      MvpEndpoint.strategyExecutionCycleView,
+      query: queryMap,
+      decode: (json) => MvpExecutionCycleView.fromJson(json as Map<String, dynamic>),
+    );
+  }
 }

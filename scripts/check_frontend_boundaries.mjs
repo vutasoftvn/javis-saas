@@ -15,6 +15,7 @@ const legacyWorkspaceScopedImportAllowlist = new Set([
   'modules/legal/services/ai_compliance_service.dart',
   'modules/legal/services/legal_service.dart',
   'modules/sales/services/sales_service.dart',
+  'modules/strategy/services/execution_plan_service.dart',
   'modules/strategy/services/next_best_action_service.dart',
   'modules/strategy/services/outcomes_service.dart',
   'modules/tasks/services/task_service.dart',

@@ -340,8 +340,8 @@ class TwelveWyModals {
 
     AppModalDialog.show(
       context: context,
-      title: 'Tuần 13 — Chuyển Dịch Chiến Lược & Kỷ Niệm (Week 13 Transition)',
-      subtitle: 'Nghỉ ngơi, tôn vinh thành quả 12 tuần, tổng kết bài học và hoạch định chu kỳ kế tiếp',
+      title: 'Tổng Kết Chu Kỳ & Kỷ Niệm (Cycle Transition & Celebration)',
+      subtitle: 'Nghỉ ngơi, tôn vinh thành quả chu kỳ thực thi, tổng kết bài học và hoạch định chu kỳ kế tiếp',
       icon: Icons.celebration_rounded,
       maxWidth: 720,
       content: StatefulBuilder(
@@ -367,7 +367,7 @@ class TwelveWyModals {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Tiến độ chuẩn bị: Đã hoàn tất $completedReviews/$totalWeeks bản đánh giá tuần. Tuần 13 là bắt buộc để tái tạo năng lượng.',
+                          'Tiến độ chuẩn bị: Đã hoàn tất $completedReviews/$totalWeeks bản đánh giá tuần của chu kỳ.',
                           style: const TextStyle(fontSize: 12, color: Colors.white70),
                         ),
                       ),
@@ -436,7 +436,7 @@ class TwelveWyModals {
             );
           },
           icon: const Icon(Icons.celebration_rounded, size: 16),
-          label: const Text('Hoàn Tất Chuyển Dịch Tuần 13'),
+          label: const Text('Hoàn Tất Chuyển Dịch Chu Kỳ'),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, foregroundColor: const Color(0xFF04070E), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
         ),
       ],

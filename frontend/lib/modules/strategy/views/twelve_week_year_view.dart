@@ -26,13 +26,13 @@ class TwelveWeekYearView extends GetView<StrategyController> {
         children: [
           // 1. Top Floating AppBar Card
           CosaFloatingAppBar(
-            title: 'Kế hoạch Thực thi 12 Tuần (12WY)',
-            subtitle: 'Stage-Gate Governance, Weekly Mission, phân bổ năng lực Founder & AI Delegation theo mô hình 12 Week Year.',
+            title: 'Kế hoạch Chu kỳ Thực thi',
+            subtitle: 'Stage-Gate Governance, Weekly Mission, phân bổ năng lực Founder & AI Delegation theo mô hình Chu kỳ Thực thi.',
             actions: [
               OutlinedButton.icon(
                 onPressed: () => TwelveWyModals.showWeek13TransitionDialog(context, controller),
                 icon: const Icon(Icons.celebration_rounded, size: 16, color: Colors.pinkAccent),
-                label: const Text('Tuần 13 & Kỷ Niệm', style: TextStyle(color: Colors.pinkAccent, fontSize: 13)),
+                label: const Text('Tổng kết & Kỷ Niệm', style: TextStyle(color: Colors.pinkAccent, fontSize: 13)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: Colors.pink.withValues(alpha: 0.4)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -54,7 +54,7 @@ class TwelveWeekYearView extends GetView<StrategyController> {
               OutlinedButton.icon(
                 onPressed: () => TwelveWyGovernanceDialog.showCycleGovernanceDialog(context, controller),
                 icon: const Icon(Icons.shield_outlined, size: 16, color: AppTheme.primaryLight),
-                label: const Text('13-Week Stages & Gate', style: TextStyle(color: AppTheme.primaryLight, fontSize: 13)),
+                label: const Text('Stages & Gate Governance', style: TextStyle(color: AppTheme.primaryLight, fontSize: 13)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

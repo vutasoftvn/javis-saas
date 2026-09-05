@@ -245,6 +245,14 @@ enum MvpEndpoint {
     path: '/operations/strategy/canvases/:id',
     requiresWorkspace: true,
   ),
+  strategyExecutionCycleView(
+    id: 'strategy.execution_cycle_view',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'GET',
+    path: '/operations/execution-cycle-view',
+    requiresWorkspace: true,
+  ),
   strategyFundingMatches(
     id: 'strategy.funding.matches',
     enabled: true,

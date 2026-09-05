@@ -130,4 +130,55 @@ describe("MVP OKR & 12-Week Contracts", () => {
     expect(updated.outcomeScore).toBe(80);
     expect(updated.reflection).toBe("Tốt");
   });
+
+  it("returns consolidated execution cycle view for a project", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Execution Cycle View Test");
+    const { getExecutionCycleViewEndpoint } = await import("../handlers/execution-cycle-view.handler");
+    const { createProject } = await import("../handlers/project.handler");
+
+    const project = await createProject({
+      workspaceId,
+      authorization,
+      title: "Pilot Cycle Project",
+    });
+
+    const cycle = await createCycle({
+      workspaceId,
+      authorization,
+      projectId: project.id,
+      displayName: "Tìm 5 pilot",
+      durationWeeks: 6,
+      startLocalDate: "2026-09-07",
+    });
+
+    const plan = await createWeeklyPlan({
+      workspaceId,
+      authorization,
+      cycleId: cycle.id,
+      weekNo: 1,
+      focus: "Pilot Onboarding",
+    });
+
+    await createWeeklyCommitment({
+      workspaceId,
+      authorization,
+      weeklyPlanId: plan.id,
+      title: "Contact first batch",
+    });
+
+    const view = await getExecutionCycleViewEndpoint({
+      workspaceId,
+      authorization,
+      projectId: project.id,
+    });
+
+    expect(view.cycle).toBeDefined();
+    expect(view.cycle?.displayName).toBe("Tìm 5 pilot");
+    expect(view.cycle?.durationWeeks).toBe(6);
+    expect(view.weeklyPlans.length).toBe(1);
+    expect(view.weeklyPlans[0].focus).toBe("Pilot Onboarding");
+    expect(view.commitments.length).toBe(1);
+    expect(view.commitments[0].title).toBe("Contact first batch");
+    expect(view.allowedActions).toContain("weekly.plan.edit");
+  });
 });

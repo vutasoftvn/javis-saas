@@ -20,6 +20,7 @@ class MockStrategyMvpClient implements StrategyMvpClient {
   Future<ApiResult<List<MvpWeeklyPlan>>> Function()? _listTwelveWeekPlansImpl;
   Future<ApiResult<List<MvpWeeklyCommitment>>> Function()? _listTwelveWeekCommitmentsImpl;
   Future<ApiResult<MvpWeeklyPlan>> Function()? _updateWeeklyPlanImpl;
+  Future<ApiResult<MvpExecutionCycleView>> Function()? _getExecutionCycleViewImpl;
 
   void setListTwelveWeekCyclesResult(Future<ApiResult<List<MvpTwelveWeekCycle>>> result) {
     _listTwelveWeekCyclesImpl = () => result;
@@ -35,6 +36,10 @@ class MockStrategyMvpClient implements StrategyMvpClient {
 
   void setUpdateWeeklyPlanResult(Future<ApiResult<MvpWeeklyPlan>> result) {
     _updateWeeklyPlanImpl = () => result;
+  }
+
+  void setGetExecutionCycleViewResult(Future<ApiResult<MvpExecutionCycleView>> result) {
+    _getExecutionCycleViewImpl = () => result;
   }
 
   @override
@@ -78,6 +83,19 @@ class MockStrategyMvpClient implements StrategyMvpClient {
       return _updateWeeklyPlanImpl!();
     }
     return ApiFailure<MvpWeeklyPlan>(
+      _failureDetail(ApiFailureCode.unknown),
+    );
+  }
+
+  @override
+  Future<ApiResult<MvpExecutionCycleView>> getExecutionCycleView({
+    required String projectId,
+    String? cycleId,
+  }) async {
+    if (_getExecutionCycleViewImpl != null) {
+      return _getExecutionCycleViewImpl!();
+    }
+    return ApiFailure<MvpExecutionCycleView>(
       _failureDetail(ApiFailureCode.unknown),
     );
   }
@@ -482,6 +500,42 @@ void main() {
       expect(result, isA<ApiSuccess>());
       if (result is ApiSuccess) {
         expect(result.dataOrNull!.executionScore, 60);
+      }
+    });
+
+    test('getExecutionCycleView forwards to StrategyMvpClient.getExecutionCycleView', () async {
+      final mockClient = MockStrategyMvpClient();
+      final view = MvpExecutionCycleView(
+        cycle: const MvpExecutionCycleSummary(
+          id: 'cycle-501',
+          displayName: 'Tìm 5 pilot',
+          durationWeeks: 6,
+          startLocalDate: '2026-09-07',
+          endLocalDateExclusive: '2026-10-19',
+          timezone: 'Asia/Ho_Chi_Minh',
+          revision: 1,
+          status: 'ACTIVE',
+        ),
+        currentWeek: 2,
+        weeklyPlans: const [],
+        commitments: const [],
+        linkedKrs: const [],
+        executionScore: 0.8,
+        outcomeProgress: 0.4,
+        dataIssues: const [],
+        allowedActions: const ['weekly.plan.edit'],
+      );
+      mockClient.setGetExecutionCycleViewResult(Future.value(_success(view)));
+
+      final service = TwelveWyService(client: mockClient);
+      final result = await service.getExecutionCycleView(projectId: 'proj-1');
+
+      expect(result, isA<ApiSuccess>());
+      if (result is ApiSuccess) {
+        expect(result.dataOrNull!.cycle?.displayName, 'Tìm 5 pilot');
+        expect(result.dataOrNull!.currentWeek, 2);
+        expect(result.dataOrNull!.executionScore, 0.8);
+        expect(result.dataOrNull!.outcomeProgress, 0.4);
       }
     });
   });
