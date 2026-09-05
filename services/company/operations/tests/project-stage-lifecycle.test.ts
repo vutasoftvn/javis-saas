@@ -6,6 +6,8 @@ import { projects } from "../../shared/db/schema/operations";
 import {
   projectStageTransitionPolicies,
   projectStageTransitions,
+  decisionRecords,
+  gateEvaluations,
 } from "../../shared/db/schema/strategy";
 import { eventOutbox } from "../../shared/db/schema/integration";
 import { transitionProjectStage } from "../strategy/services/project-stage-lifecycle.service";
@@ -247,5 +249,105 @@ describe("project stage lifecycle (M4 §3)", () => {
       .where(and(eq(projects.id, pid), eq(projects.stageVersion, 0)))
       .returning({ id: projects.id });
     expect(stale.length).toBe(0);
+  });
+
+  it("policy allowed=true ⇒ agent tự động / member không có thẩm quyền vẫn cần decision record (IA04)", async () => {
+    const fx = await createTestWorkspaceWithMember();
+    const pid = await makeProject(BigInt(fx.workspaceId));
+    const wsId = BigInt(fx.workspaceId);
+
+    await db.insert(projectStageTransitionPolicies).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      fromStage: "P0_DISCOVERY",
+      toStage: "P1_PROBLEM_VALIDATION",
+      allowed: true,
+    });
+
+    // Agent tự động: trước đây đi qua thẳng vì nhánh allowed=true không có
+    // check nào — giờ phải bị chặn khi thiếu decision.
+    await expect(
+      transitionProjectStage({
+        workspaceId: wsId,
+        projectId: pid,
+        toStage: "P1_PROBLEM_VALIDATION",
+        reason: "agent thinks it's ready",
+        actorRole: "founder",
+        isAutonomous: true,
+      })
+    ).rejects.toMatchObject({ code: "failed_precondition" });
+
+    // Member không có thẩm quyền: cũng bị chặn.
+    await expect(
+      transitionProjectStage({
+        workspaceId: wsId,
+        projectId: pid,
+        toStage: "P1_PROBLEM_VALIDATION",
+        reason: "regular member trying",
+        actorRole: "member",
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    // Founder vẫn tự quyết được (không bắt buộc decisionId cho con người có
+    // thẩm quyền — không phá các quy trình định tính khác như operating-setup).
+    const ok = await transitionProjectStage({
+      workspaceId: wsId,
+      projectId: pid,
+      toStage: "P1_PROBLEM_VALIDATION",
+      reason: "founder proceeds",
+      actorRole: "founder",
+    });
+    expect(ok.toStage).toBe("P1_PROBLEM_VALIDATION");
+  });
+
+  it("blocks stage transition when the linked gate evaluation is stale for the current stage_version (IA04)", async () => {
+    const fx = await createTestWorkspaceWithMember();
+    const pid = await makeProject(BigInt(fx.workspaceId));
+    const wsId = BigInt(fx.workspaceId);
+
+    await db.insert(projectStageTransitionPolicies).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      fromStage: "P0_DISCOVERY",
+      toStage: "P1_PROBLEM_VALIDATION",
+      allowed: true,
+    });
+
+    const gateEvalId = generateSnowflake();
+    await db.insert(gateEvaluations).values({
+      id: gateEvalId,
+      workspaceId: wsId,
+      projectId: pid,
+      requirementsMet: true,
+      result: "passed",
+      // Đánh giá này chốt tại stage_version=5, nhưng project hiện đang ở
+      // stage_version=0 (mới tạo) — mismatch giả lập project đã bị transition
+      // khác chen vào từ lúc evaluation này được tạo.
+      expectedStageVersion: 5,
+    });
+
+    const decisionId = generateSnowflake();
+    await db.insert(decisionRecords).values({
+      id: decisionId,
+      workspaceId: wsId,
+      projectId: pid,
+      gateEvaluationId: gateEvalId,
+      decision: "proceed",
+      founderDecision: "accepted",
+    });
+
+    await expect(
+      transitionProjectStage({
+        workspaceId: wsId,
+        projectId: pid,
+        toStage: "P1_PROBLEM_VALIDATION",
+        reason: "using stale evaluation",
+        actorRole: "member",
+        decisionId: decisionId.toString(),
+      })
+    ).rejects.toMatchObject({ code: "STALE_EVALUATION" });
+
+    const [proj] = await db.select().from(projects).where(eq(projects.id, pid));
+    expect(proj!.lifecycleStage).toBe("P0_DISCOVERY");
   });
 });

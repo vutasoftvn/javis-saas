@@ -40,6 +40,11 @@ export interface TransitionProjectStageRequest {
   reason: string;
   override?: boolean;
   overrideApprovalRef?: string;
+  // IA04: trước đây 2 field này không có trong request shape nên decisionId
+  // KHÔNG thể truyền qua endpoint thật — mọi transition forward qua HTTP đều
+  // bỏ qua hoàn toàn phần kiểm decision/evaluation ở service.
+  decisionId?: string;
+  expectedStageVersion?: number;
 }
 
 export const transitionProjectStageEndpoint = api(
@@ -56,6 +61,8 @@ export const transitionProjectStageEndpoint = api(
       isAutonomous: false, // endpoint HTTP = người thao tác
       override: params.override,
       overrideApprovalRef: params.overrideApprovalRef,
+      decisionId: params.decisionId,
+      expectedStageVersion: params.expectedStageVersion,
     });
   }
 );

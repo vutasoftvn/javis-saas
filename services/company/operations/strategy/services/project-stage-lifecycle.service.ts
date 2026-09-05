@@ -8,6 +8,7 @@ import {
   projectStageTransitionPolicies,
   projectStageTransitions,
   decisionRecords,
+  gateEvaluations,
 } from "../../../shared/db/schema/strategy";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { buildProjectPhaseChangedEvent } from "../events/venture-stage-events";
@@ -140,6 +141,8 @@ export async function transitionProjectStageInTransaction(
   const isForward = toIndex === currentIndex + 1;
 
   if (isForward) {
+    let resolvedDecision: typeof decisionRecords.$inferSelect | null = null;
+
     if (p.decisionId) {
       const [dec] = await tx
         .select()
@@ -170,6 +173,42 @@ export async function transitionProjectStageInTransaction(
           `Decision record ${p.decisionId} chưa được chấp thuận để tiến stage (trạng thái: ${dec.founderDecision || dec.decision})`
         );
       }
+
+      // IA04: decision gắn với gate evaluation nào thì evaluation đó phải còn
+      // "phù hợp" stage_version hiện tại của project — trước đây không hề kiểm,
+      // nên một decision được duyệt từ lâu (project đã qua nhiều transition
+      // khác từ đó) vẫn dùng được để tiến stage dựa trên evidence đã lỗi thời.
+      if (dec.gateEvaluationId) {
+        const [gateEval] = await tx
+          .select()
+          .from(gateEvaluations)
+          .where(
+            and(
+              eq(gateEvaluations.id, dec.gateEvaluationId),
+              eq(gateEvaluations.workspaceId, p.workspaceId)
+            )
+          )
+          .limit(1);
+
+        if (!gateEval) {
+          throw APIError.notFound(
+            `Gate evaluation ${dec.gateEvaluationId} liên kết với decision ${p.decisionId} không tồn tại`
+          );
+        }
+
+        if (
+          gateEval.expectedStageVersion !== null &&
+          gateEval.expectedStageVersion !== proj.stageVersion
+        ) {
+          const err = APIError.aborted(
+            `Gate evaluation của decision ${p.decisionId} đã cũ (đánh giá tại stage_version ${gateEval.expectedStageVersion}, hiện tại là ${proj.stageVersion}) — cần đánh giá lại`
+          );
+          (err as any).code = "STALE_EVALUATION";
+          throw err;
+        }
+      }
+
+      resolvedDecision = dec;
     }
 
     if (!edge) {
@@ -195,6 +234,27 @@ export async function transitionProjectStageInTransaction(
       }
       if (!privileged) {
         throw APIError.permissionDenied("Override project gate chỉ dành cho founder/admin");
+      }
+    } else {
+      // IA04: edge tồn tại và allowed=true — đường "gate đã mở, được tiến bình
+      // thường". Trước đây nhánh này hoàn toàn không có kiểm tra nào (kể cả
+      // privilege), nên agent tự động hoặc member không có thẩm quyền cũng
+      // tiến được stage chỉ với một chuỗi `reason`. Áp cùng pattern
+      // privileged/autonomous đã dùng ở 2 nhánh trên: founder/admin (con người)
+      // vẫn tự quyết được (vd luồng operating-setup tự chứng thực evidenceLevel
+      // trước khi gọi transition) — không bắt buộc decisionId ở mọi trường hợp
+      // vì sẽ phá các quy trình định tính khác đã có gate riêng của chúng; nhưng
+      // autonomous agent hoặc member không có thẩm quyền BẮT BUỘC phải có decision
+      // record đã chấp thuận (kiểm ở trên) mới được đi qua.
+      if (p.isAutonomous && !resolvedDecision) {
+        throw APIError.failedPrecondition(
+          `Agent tự động cần decision record đã được chấp thuận để tiến stage ${currentStage} → ${p.toStage}`
+        );
+      }
+      if (!privileged && !resolvedDecision) {
+        throw APIError.permissionDenied(
+          `Cần founder/admin hoặc decision record đã được chấp thuận để tiến stage ${currentStage} → ${p.toStage}`
+        );
       }
     }
   }
