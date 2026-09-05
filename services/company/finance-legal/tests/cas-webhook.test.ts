@@ -1,22 +1,20 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import {
-  storeCasWebhookService,
-  processCasInboxEntryService,
-  verifyCasWebhookSignature,
-} from "../services/cas-webhook.service";
-import { createBankConnectionService } from "../services/bank-connection.service";
-import { listBankTransactionsService } from "../services/bank-transaction.service";
-import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { receiveCasWebhookService, verifyCasWebhookSignature } from "../services/cas-webhook.service";
 import { createHmac } from "node:crypto";
 
-describe("Cas.so Webhook Inbox & Ingestion", () => {
-  const wsId = generateSnowflake();
+// F3 — cas-webhook.handler/service được viết lại để dùng raw JSON envelope
+// thật của Cas.so ({id, error, data}, xem cas-contract.ts) thay vì payload ad
+// -hoc cũ ({eventId, eventType, connectionId, workspaceId, ...}) đặt ra trước
+// khi contract được xác nhận ở F2. Test tenant-resolution/cross-tenant/
+// dedup-hội-tụ chi tiết hơn nằm ở cas-ingestion-contract.test.ts — file này
+// giữ phần thuộc riêng webhook: HMAC verify + fail-closed + dedup cơ bản.
+describe("Cas.so Webhook — verify, fail-closed, durable ACK", () => {
   const secret = "test_cas_secret_123";
 
   it("verifies HMAC signatures correctly", () => {
-    const payload = JSON.stringify({ eventId: "evt_101", eventType: "test" });
+    const payload = JSON.stringify({ id: "evt_101", error: 0, data: null });
     const sig = createHmac("sha256", secret).update(payload).digest("hex");
 
     expect(verifyCasWebhookSignature(payload, sig, secret)).toBe(true);
@@ -24,113 +22,45 @@ describe("Cas.so Webhook Inbox & Ingestion", () => {
     expect(verifyCasWebhookSignature(payload, "invalid_signature", secret)).toBe(false);
   });
 
-  it("stores webhook payload in inbox and prevents duplicates", async () => {
+  it("stores a raw JSON webhook (not wrapped as a rawPayload string) into the durable inbox and dedups by identity", async () => {
     const payloadStr = JSON.stringify({
-      eventId: `evt_${Date.now()}_dedup`,
-      eventType: "ping",
-      connectionId: "1",
-      workspaceId: String(wsId),
-      data: {},
+      id: `evt_${Date.now()}_dedup`,
+      error: 0,
+      data: {
+        tid: `dup_tid_${Date.now()}`,
+        amount: 1000,
+        when: "2026-08-29T10:00:00Z",
+        bank_sub_acc_id: "sub_acc_never_registered_dedup",
+      },
     });
 
-    const res1 = await storeCasWebhookService({
-      rawPayload: payloadStr,
-      skipSigVerify: true,
-    });
+    const res1 = await receiveCasWebhookService({ rawPayload: payloadStr, skipSigVerify: true });
     expect(res1.inboxId).toBeDefined();
     expect(res1.isDuplicate).toBe(false);
 
-    // Second call with same eventId
-    const res2 = await storeCasWebhookService({
-      rawPayload: payloadStr,
-      skipSigVerify: true,
-    });
+    const res2 = await receiveCasWebhookService({ rawPayload: payloadStr, skipSigVerify: true });
     expect(res2.isDuplicate).toBe(true);
     expect(res2.inboxId).toBe(res1.inboxId);
   });
 
-  it("processes transaction.created webhook into bank_transactions", async () => {
-    const conn = await createBankConnectionService({
-      workspaceId: wsId,
-      provider: "cas",
-      secretRef: "secret://cosa-connectors/cas/ws_webhook_test",
-    });
-
-    const extTxnId = `cas_txn_${Date.now()}`;
+  it("ACKs immediately without processing inline — the inbox row stays at RECEIVED/QUARANTINED, no bank_transaction is created synchronously", async () => {
     const payloadStr = JSON.stringify({
-      eventId: `evt_${Date.now()}_txn`,
-      eventType: "transaction.created",
-      connectionId: conn.id,
-      workspaceId: String(wsId),
+      id: `evt_${Date.now()}_noinline`,
+      error: 0,
       data: {
-        transactionId: extTxnId,
-        postedAt: "2026-08-29T11:00:00Z",
-        amount: "15000000",
-        currency: "VND",
-        direction: "IN",
-        description: "Khach hang chuyen khoan tien coc du an",
-        counterpartyName: "Cong ty XYZ",
+        tid: `noinline_tid_${Date.now()}`,
+        amount: 999,
+        when: "2026-08-29T10:00:00Z",
+        bank_sub_acc_id: "sub_acc_never_registered_noinline",
       },
     });
-
-    const storeRes = await storeCasWebhookService({
-      rawPayload: payloadStr,
-      skipSigVerify: true,
-    });
-    expect(storeRes.isDuplicate).toBe(false);
-
-    const procRes = await processCasInboxEntryService(BigInt(storeRes.inboxId));
-    expect(procRes.success).toBe(true);
-    expect(procRes.transactionId).toBeDefined();
-
-    // Verify transaction exists in bank_transactions
-    const txns = await listBankTransactionsService(wsId);
-    const found = txns.find((t) => t.externalTransactionId === extTxnId);
-    expect(found).toBeDefined();
-    expect(parseFloat(found!.amount)).toBe(15000000);
-    expect(found?.direction).toBe("IN");
-  });
-
-  // M1 §5 — payload tự khai workspace không được tin.
-  it("rejects a webhook whose connectionId belongs to another workspace", async () => {
-    const victimWs = generateSnowflake();
-    const conn = await createBankConnectionService({
-      workspaceId: victimWs,
-      provider: "cas",
-      secretRef: "secret://cosa-connectors/cas/victim",
-    });
-
-    // Kẻ tấn công khai workspaceId của mình nhưng dùng connectionId của nạn nhân.
-    const attackerWs = generateSnowflake();
-    const payloadStr = JSON.stringify({
-      eventId: `evt_${Date.now()}_xtenant`,
-      eventType: "transaction.created",
-      connectionId: conn.id,
-      workspaceId: String(attackerWs),
-      data: {
-        transactionId: `fake_${Date.now()}`,
-        amount: "99999999",
-        direction: "IN",
-        description: "injected",
-      },
-    });
-
-    const storeRes = await storeCasWebhookService({ rawPayload: payloadStr, skipSigVerify: true });
-    await expect(
-      processCasInboxEntryService(BigInt(storeRes.inboxId))
-    ).rejects.toThrow(/does not belong to the workspace/i);
-
-    // Không có giao dịch nào được ghi cho workspace kẻ tấn công.
-    const txns = await listBankTransactionsService(attackerWs);
-    expect(txns.length).toBe(0);
-
-    // Inbox entry đánh dấu SECURITY.
-    const [entry] = await db
-      .select()
-      .from(schema.casWebhookInbox)
-      .where(eq(schema.casWebhookInbox.id, BigInt(storeRes.inboxId)));
-    expect(entry.status).toBe("FAILED");
-    expect(entry.errorMsg?.startsWith("SECURITY:")).toBe(true);
+    const res = await receiveCasWebhookService({ rawPayload: payloadStr, skipSigVerify: true });
+    const [row] = await db.select().from(schema.casSyncInbox).where(eq(schema.casSyncInbox.id, BigInt(res.inboxId)));
+    // Không resolve được tenant -> QUARANTINED ngay (không RECEIVED) nhưng
+    // vẫn KHÔNG PROCESSED — điều cốt lõi cần khẳng định là "không xử lý
+    // nghiệp vụ inline trong request webhook".
+    expect(row.status).not.toBe("PROCESSED");
+    expect(row.processedAt).toBeNull();
   });
 
   // M1 §5 — fail-closed ở staging/prod.
@@ -141,8 +71,8 @@ describe("Cas.so Webhook Inbox & Ingestion", () => {
     delete process.env.CAS_WEBHOOK_SECRET;
     try {
       await expect(
-        storeCasWebhookService({
-          rawPayload: JSON.stringify({ eventId: "evt_noSecret", eventType: "ping" }),
+        receiveCasWebhookService({
+          rawPayload: JSON.stringify({ id: "evt_noSecret", error: 0, data: null }),
         })
       ).rejects.toThrow(/not configured/i);
     } finally {
@@ -160,8 +90,8 @@ describe("Cas.so Webhook Inbox & Ingestion", () => {
     process.env.CAS_WEBHOOK_SECRET = secret;
     try {
       await expect(
-        storeCasWebhookService({
-          rawPayload: JSON.stringify({ eventId: "evt_unsigned", eventType: "ping" }),
+        receiveCasWebhookService({
+          rawPayload: JSON.stringify({ id: "evt_unsigned", error: 0, data: null }),
           // không truyền signatureHeader, không skipSigVerify
         })
       ).rejects.toThrow(/signature/i);
@@ -171,5 +101,11 @@ describe("Cas.so Webhook Inbox & Ingestion", () => {
       if (prevSecret === undefined) delete process.env.CAS_WEBHOOK_SECRET;
       else process.env.CAS_WEBHOOK_SECRET = prevSecret;
     }
+  });
+
+  it("rejects malformed JSON as invalidArgument", async () => {
+    await expect(
+      receiveCasWebhookService({ rawPayload: "{not json", skipSigVerify: true })
+    ).rejects.toThrow();
   });
 });

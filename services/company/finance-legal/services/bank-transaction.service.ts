@@ -59,7 +59,19 @@ export async function listBankTransactionsService(
   }));
 }
 
-export async function ingestBankTransactionService(p: {
+export interface UpsertBankTransactionResult {
+  view: BankTransactionView;
+  wasInserted: boolean;
+}
+
+/**
+ * F3 — upsert idempotent, trả kèm `wasInserted` để caller (cas-inbox-worker)
+ * biết đây là INSERT thật hay đã trùng externalTransactionId từ trước (dùng
+ * để ghi action INSERT/SKIP_DUP vào cas_normalizer_log). `ingestBankTransactionService`
+ * dưới đây giữ nguyên contract cũ (trả BankTransactionView trực tiếp) cho các
+ * caller đã có từ trước (vd. finance-tt58 test) — cả hai dùng chung logic này.
+ */
+export async function ingestBankTransactionIdempotent(p: {
   workspaceId: bigint;
   bankConnectionId: bigint;
   ingestionEventId?: bigint;
@@ -72,42 +84,15 @@ export async function ingestBankTransactionService(p: {
   counterpartyName?: string;
   counterpartyAccount?: string;
   rawPayload?: any;
-}): Promise<BankTransactionView> {
-  // Idempotent upsert based on (bank_connection_id, external_transaction_id)
-  const [existing] = await db
-    .select()
-    .from(bankTransactions)
-    .where(
-      and(
-        eq(bankTransactions.bankConnectionId, p.bankConnectionId),
-        eq(bankTransactions.externalTransactionId, p.externalTransactionId)
-      )
-    );
-
-  if (existing) {
-    return {
-      id: String(existing.id),
-      workspaceId: String(existing.workspaceId),
-      bankConnectionId: String(existing.bankConnectionId),
-      ingestionEventId: existing.ingestionEventId ? String(existing.ingestionEventId) : null,
-      externalTransactionId: existing.externalTransactionId,
-      postedAt: existing.postedAt.toISOString(),
-      amount: String(existing.amount),
-      currency: existing.currency,
-      direction: existing.direction as any,
-      description: existing.description,
-      counterpartyName: existing.counterpartyName,
-      counterpartyAccount: existing.counterpartyAccount,
-      status: existing.status as any,
-      matchedAccountingDocumentId: existing.matchedAccountingDocumentId
-        ? String(existing.matchedAccountingDocumentId)
-        : null,
-      createdAt: existing.createdAt.toISOString(),
-    };
-  }
-
+}): Promise<UpsertBankTransactionResult> {
+  // Idempotent upsert dựa trên unique index THẬT ở tầng DB
+  // (bank_connection_id, external_transaction_id) — migration 37. Trước F3
+  // đây là select-then-insert ở tầng app (race được khi 2 nguồn — GET-poll và
+  // webhook — cùng ingest 1 giao dịch đồng thời). onConflictDoNothing khiến
+  // insert atomic: hoặc tạo mới, hoặc no-op vì đã tồn tại — không có khoảng
+  // hở giữa "check" và "insert".
   const newId = generateSnowflake();
-  const [created] = await db
+  const inserted = await db
     .insert(bankTransactions)
     .values({
       id: newId,
@@ -125,23 +110,98 @@ export async function ingestBankTransactionService(p: {
       rawPayload: p.rawPayload ?? null,
       status: "UNRECONCILED",
     })
+    .onConflictDoNothing({
+      target: [bankTransactions.bankConnectionId, bankTransactions.externalTransactionId],
+    })
     .returning();
 
+  if (inserted.length === 1) {
+    const created = inserted[0];
+    return {
+      wasInserted: true,
+      view: {
+        id: String(created.id),
+        workspaceId: String(created.workspaceId),
+        bankConnectionId: String(created.bankConnectionId),
+        ingestionEventId: created.ingestionEventId ? String(created.ingestionEventId) : null,
+        externalTransactionId: created.externalTransactionId,
+        postedAt: created.postedAt.toISOString(),
+        amount: String(created.amount),
+        currency: created.currency,
+        direction: created.direction as any,
+        description: created.description,
+        counterpartyName: created.counterpartyName,
+        counterpartyAccount: created.counterpartyAccount,
+        status: created.status as any,
+        matchedAccountingDocumentId: null,
+        createdAt: created.createdAt.toISOString(),
+      },
+    };
+  }
+
+  // Conflict — dòng đã tồn tại (do lần ingest trước, GET-poll hoặc webhook).
+  // KHÔNG overwrite record đã có (correction/reversal phải là event mới có
+  // relation riêng, không âm thầm ghi đè record đã đối soát) — chỉ đọc lại.
+  const [existing] = await db
+    .select()
+    .from(bankTransactions)
+    .where(
+      and(
+        eq(bankTransactions.bankConnectionId, p.bankConnectionId),
+        eq(bankTransactions.externalTransactionId, p.externalTransactionId)
+      )
+    );
+
+  if (!existing) {
+    throw APIError.internal(
+      `bank_transaction conflict but row not found for connection=${p.bankConnectionId} ext=${p.externalTransactionId}`
+    );
+  }
+
   return {
-    id: String(created.id),
-    workspaceId: String(created.workspaceId),
-    bankConnectionId: String(created.bankConnectionId),
-    ingestionEventId: created.ingestionEventId ? String(created.ingestionEventId) : null,
-    externalTransactionId: created.externalTransactionId,
-    postedAt: created.postedAt.toISOString(),
-    amount: String(created.amount),
-    currency: created.currency,
-    direction: created.direction as any,
-    description: created.description,
-    counterpartyName: created.counterpartyName,
-    counterpartyAccount: created.counterpartyAccount,
-    status: created.status as any,
-    matchedAccountingDocumentId: null,
-    createdAt: created.createdAt.toISOString(),
+    wasInserted: false,
+    view: {
+      id: String(existing.id),
+      workspaceId: String(existing.workspaceId),
+      bankConnectionId: String(existing.bankConnectionId),
+      ingestionEventId: existing.ingestionEventId ? String(existing.ingestionEventId) : null,
+      externalTransactionId: existing.externalTransactionId,
+      postedAt: existing.postedAt.toISOString(),
+      amount: String(existing.amount),
+      currency: existing.currency,
+      direction: existing.direction as any,
+      description: existing.description,
+      counterpartyName: existing.counterpartyName,
+      counterpartyAccount: existing.counterpartyAccount,
+      status: existing.status as any,
+      matchedAccountingDocumentId: existing.matchedAccountingDocumentId
+        ? String(existing.matchedAccountingDocumentId)
+        : null,
+      createdAt: existing.createdAt.toISOString(),
+    },
   };
+}
+
+/**
+ * Contract cũ (pre-F3): trả BankTransactionView trực tiếp. Vẫn idempotent
+ * (dùng chung `ingestBankTransactionIdempotent`), chỉ khác chỗ không lộ
+ * `wasInserted` ra ngoài — giữ tương thích các call site đã có (finance-tt58,
+ * và cas-webhook.service.ts cho luồng inline-cũ nếu còn dùng).
+ */
+export async function ingestBankTransactionService(p: {
+  workspaceId: bigint;
+  bankConnectionId: bigint;
+  ingestionEventId?: bigint;
+  externalTransactionId: string;
+  postedAt: string;
+  amount: string | number;
+  currency?: string;
+  direction: "IN" | "OUT";
+  description: string;
+  counterpartyName?: string;
+  counterpartyAccount?: string;
+  rawPayload?: any;
+}): Promise<BankTransactionView> {
+  const { view } = await ingestBankTransactionIdempotent(p);
+  return view;
 }

@@ -178,6 +178,17 @@ export const bankConnections = financeSchema.table("bank_connections", {
   grantExpiresAt: timestamp("grant_expires_at", { withTimezone: true }),
   providerContractVersion: text("provider_contract_version"),
   reauthRequired: boolean("reauth_required").default(false).notNull(),
+  // F3 — sync cursor/lease cho GET-poll. `lastSyncedAt` mang nghĩa "lần
+  // ĐỒNG BỘ THÀNH CÔNG cuối", không phải lần thử cuối (attempt lỗi không đổi
+  // field này). `updatedAt` (đã có sẵn, được cas-link.service bump khi
+  // revoke/reauthorize) dùng làm optimistic-lock "grant version" cho
+  // syncCasConnection — không thêm cột grant_version riêng để tránh phình
+  // schema khi updatedAt đã đủ dùng.
+  syncCursor: text("sync_cursor"),
+  syncError: text("sync_error"),
+  syncErrorCount: integer("sync_error_count").default(0).notNull(),
+  syncLockedUntil: timestamp("sync_locked_until", { withTimezone: true }),
+  syncCoverageStart: timestamp("sync_coverage_start", { withTimezone: true }),
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
   syncStatus: text("sync_status").default("IDLE").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -197,6 +208,11 @@ export const casLinkSessions = financeSchema.table("cas_link_sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// `ingestion_events` predate kế hoạch F3 và không còn được pipeline mới dùng
+// (không có caller nào query bảng này ngoài chính service cũ của nó, đã bị
+// thay bằng `cas_sync_inbox` bên dưới — bảng hợp nhất GET-poll + webhook).
+// Giữ nguyên bảng cũ (migration Expand-only, không xoá dữ liệu đã tồn tại),
+// chỉ không mở rộng thêm cột cho nó nữa.
 export const ingestionEvents = financeSchema.table("ingestion_events", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   bankConnectionId: bigint("bank_connection_id", { mode: "bigint" }).notNull().references(() => bankConnections.id, { onDelete: "cascade" }),
@@ -227,6 +243,70 @@ export const bankTransactions = financeSchema.table("bank_transactions", {
   rawPayload: jsonb("raw_payload"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// F3 — hộp thư hợp nhất cho CẢ webhook (Cas.so đẩy) VÀ GET-poll (Cas.so kéo).
+// Dedup theo (provider, environment, event_identity) — identity dựng từ field
+// contract-defined (bank_connection_id/grant + account + transaction id +
+// loại event + version contract), KHÔNG dùng hash nguyên payload đơn độc làm
+// identity (2 lần giao hàng cùng 1 giao dịch có thể lệch byte nhưng vẫn phải
+// trỏ về đúng 1 canonical row). Nhờ vậy GET-poll và webhook của cùng giao
+// dịch tự nhiên collapse về 1 dòng inbox duy nhất.
+export const casSyncInbox = financeSchema.table("cas_sync_inbox", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  // NULL khi webhook chưa resolve được tenant (unknown grant/account) — dòng
+  // ở trạng thái QUARANTINED, không tự gán nhầm sang workspace nào.
+  bankConnectionId: bigint("bank_connection_id", { mode: "bigint" }).references(() => bankConnections.id, { onDelete: "cascade" }),
+  provider: text("provider").default("cas").notNull(),
+  environment: text("environment").default("sandbox").notNull(),
+  source: text("source").notNull(), // 'webhook' | 'poll'
+  eventIdentity: text("event_identity").notNull(),
+  rawPayload: jsonb("raw_payload").notNull(),
+  // 'RECEIVED' | 'PROCESSING' | 'PROCESSED' | 'FAILED' | 'DLQ' | 'QUARANTINED' | 'IGNORED'
+  status: text("status").default("RECEIVED").notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+  leaseUntil: timestamp("lease_until", { withTimezone: true }),
+  leaseToken: text("lease_token"),
+  errorCode: text("error_code"),
+  errorMsg: text("error_msg"),
+  bankTransactionId: bigint("bank_transaction_id", { mode: "bigint" }).references(() => bankTransactions.id, { onDelete: "set null" }),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+});
+
+// Audit trail chuyển đổi raw -> bank_transaction, tách khỏi cas_sync_inbox để
+// giữ lịch sử dù dòng inbox có bị prune sau này. unique(bank_connection_id,
+// provider_tx_id) là lớp dedup THỨ HAI ở mức nghiệp vụ (độc lập với dedup ở
+// mức inbox) — hai lớp cùng tồn tại vì inbox dedup theo identity dựng từ
+// contract, còn log này dedup theo provider_tx_id thô providers trả về.
+export const casNormalizerLog = financeSchema.table("cas_normalizer_log", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  bankConnectionId: bigint("bank_connection_id", { mode: "bigint" }).notNull().references(() => bankConnections.id, { onDelete: "cascade" }),
+  inboxEventId: bigint("inbox_event_id", { mode: "bigint" }).references(() => casSyncInbox.id, { onDelete: "set null" }),
+  providerTxId: text("provider_tx_id").notNull(),
+  providerTxHash: text("provider_tx_hash").notNull(),
+  bankTransactionId: bigint("bank_transaction_id", { mode: "bigint" }).references(() => bankTransactions.id, { onDelete: "set null" }),
+  // 'INSERT' | 'SKIP_DUP' (trùng, hash khớp) | 'CONFLICT' (trùng provider_tx_id
+  // nhưng hash lệch — nghi correction/reversal, KHÔNG tự overwrite, cần review)
+  // | 'FAIL' (raw payload không hợp lệ)
+  action: text("action").default("INSERT").notNull(),
+  failReason: text("fail_reason"),
+  normalizedAt: timestamp("normalized_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// DLQ cho inbox event thất bại quá số lần retry cho phép — cần con người xem
+// lại thay vì worker tự lặp vô hạn.
+export const ingestionDlq = financeSchema.table("ingestion_dlq", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  inboxEventId: bigint("inbox_event_id", { mode: "bigint" }).notNull().references(() => casSyncInbox.id),
+  bankConnectionId: bigint("bank_connection_id", { mode: "bigint" }).references(() => bankConnections.id),
+  movedAt: timestamp("moved_at", { withTimezone: true }).defaultNow().notNull(),
+  failCount: integer("fail_count").default(0).notNull(),
+  lastError: text("last_error"),
+  reviewed: boolean("reviewed").default(false).notNull(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: bigint("reviewed_by", { mode: "bigint" }),
 });
 
 export const accountingDocuments = financeSchema.table("accounting_documents", {

@@ -1,29 +1,16 @@
+// F3 — webhook Cas.so là 1 trong 2 "producer" của pipeline ingestion hợp
+// nhất: verify raw bytes -> parse -> resolve tenant PHÍA SERVER (không tin
+// field tự khai trong payload) -> ghi durable vào cas_sync_inbox -> ACK
+// ngay. Xử lý nghiệp vụ (normalize + ghi bank_transaction) hoàn toàn thuộc
+// worker (cas-inbox-worker.service.ts qua cas-inbox-worker.cron.ts), KHÔNG
+// còn gọi inline trong request handler như thiết kế cũ trước F3.
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
-import { db, schema } from "../models/db";
-import { generateSnowflake } from "../../shared/services/snowflake.service";
-import { isStagingOrProd } from "../../shared/env";
-import { ingestBankTransactionService } from "./bank-transaction.service";
 import { createHmac } from "node:crypto";
-
-const { casWebhookInbox, bankConnections } = schema;
-
-export interface CasWebhookPayload {
-  eventId: string;
-  eventType: string; // e.g. "transaction.created" | "balance.updated"
-  connectionId: string;
-  workspaceId: string;
-  data: {
-    transactionId?: string;
-    postedAt?: string;
-    amount?: number | string;
-    currency?: string;
-    direction?: "IN" | "OUT";
-    description?: string;
-    counterpartyName?: string;
-    counterpartyAccount?: string;
-  };
-}
+import { isStagingOrProd } from "../../shared/env";
+import { CAS_CONTRACT, type CasWebhookEnvelope } from "./cas-contract";
+import { computeCasEventIdentity } from "./cas-normalizer";
+import { enqueueCasInboxEvent } from "./ingestion.service";
+import { resolveBankConnectionForCasAccount } from "./cas-sync.service";
 
 export function verifyCasWebhookSignature(
   rawPayload: string,
@@ -35,157 +22,102 @@ export function verifyCasWebhookSignature(
   return signatureHeader === expected || signatureHeader === `sha256=${expected}`;
 }
 
-export async function storeCasWebhookService(p: {
+export interface ReceiveCasWebhookResult {
+  inboxId: string;
+  isDuplicate: boolean;
+  quarantined: boolean;
+}
+
+export async function receiveCasWebhookService(p: {
   rawPayload: string;
   signatureHeader?: string;
   skipSigVerify?: boolean;
-}): Promise<{ inboxId: string; isDuplicate: boolean }> {
+  environment?: string;
+}): Promise<ReceiveCasWebhookResult> {
   const webhookSecret = process.env.CAS_WEBHOOK_SECRET;
 
-  // Fail-closed: ở staging/prod thiếu secret là lỗi cấu hình, KHÔNG được chấp nhận
-  // webhook unsigned. `skipSigVerify` chỉ dành cho test/dev.
+  // Fail-closed: ở staging/prod thiếu secret là lỗi cấu hình, KHÔNG được
+  // chấp nhận webhook unsigned. `skipSigVerify` chỉ dành cho test/dev.
   if (isStagingOrProd()) {
     if (!webhookSecret) {
       throw APIError.internal(
         "CAS_WEBHOOK_SECRET is not configured — refusing to accept unsigned webhooks"
       );
     }
-    const isValid = verifyCasWebhookSignature(p.rawPayload, p.signatureHeader, webhookSecret);
-    if (!isValid) {
+    if (!verifyCasWebhookSignature(p.rawPayload, p.signatureHeader, webhookSecret)) {
       throw APIError.unauthenticated("Invalid Cas webhook signature");
     }
   } else if (webhookSecret && !p.skipSigVerify) {
-    const isValid = verifyCasWebhookSignature(p.rawPayload, p.signatureHeader, webhookSecret);
-    if (!isValid) {
+    if (!verifyCasWebhookSignature(p.rawPayload, p.signatureHeader, webhookSecret)) {
       throw APIError.unauthenticated("Invalid Cas webhook signature");
     }
   }
 
-  let parsed: CasWebhookPayload;
+  let envelope: CasWebhookEnvelope;
   try {
-    parsed = JSON.parse(p.rawPayload);
+    envelope = JSON.parse(p.rawPayload);
   } catch (err) {
-    throw APIError.invalidArgument("Malformed JSON in webhook payload");
+    throw APIError.invalidArgument("Malformed JSON in Cas webhook payload");
   }
 
-  if (!parsed.eventId) {
-    throw APIError.invalidArgument("Missing eventId in Cas webhook payload");
+  const environment = p.environment ?? "sandbox";
+
+  // error != 0 hoặc data null: không phải sự kiện giao dịch (vd. grant.revoked/
+  // grant.expired theo CAS_CONTRACT.webhook.eventTypes). F3 chỉ ingest giao
+  // dịch ngân hàng — ghi nhận để có audit trail (durable, không mất sự kiện)
+  // nhưng đánh dấu IGNORED ngay, không đưa qua normalizer/worker retry.
+  if (envelope.error !== 0 || !envelope.data) {
+    const identity = computeCasEventIdentity({
+      bankConnectionId: null,
+      bankSubAccId: null,
+      externalTransactionId: envelope.id || "unknown",
+      eventKind: "not_a_transaction",
+      contractVersion: CAS_CONTRACT.contractVersion,
+    });
+    const enq = await enqueueCasInboxEvent({
+      bankConnectionId: null,
+      provider: "cas",
+      environment,
+      source: "webhook",
+      eventIdentity: identity,
+      rawPayload: envelope,
+      initialStatus: "IGNORED",
+    });
+    return { inboxId: enq.id, isDuplicate: enq.isDuplicate, quarantined: false };
   }
 
-  // Deduplication check
-  const [existing] = await db
-    .select()
-    .from(casWebhookInbox)
-    .where(eq(casWebhookInbox.providerEventId, parsed.eventId));
+  const raw = envelope.data;
+  const bankSubAccId = typeof raw.bank_sub_acc_id === "string" ? raw.bank_sub_acc_id : null;
 
-  if (existing) {
-    return { inboxId: String(existing.id), isDuplicate: true };
-  }
+  // Resolve tenant PHÍA SERVER qua grant/account mapping đã lưu — payload
+  // Cas.so không mang workspaceId của chúng ta nên không có gì để "tin" ở
+  // đây; chỉ tra bảng bank_connections theo bank_sub_acc_id + environment.
+  const resolved = bankSubAccId
+    ? await resolveBankConnectionForCasAccount({ bankSubAccId, environment })
+    : null;
 
-  const newId = generateSnowflake();
-  const [created] = await db
-    .insert(casWebhookInbox)
-    .values({
-      id: newId,
-      providerEventId: parsed.eventId,
-      rawPayload: p.rawPayload,
-      signatureHeader: p.signatureHeader ?? null,
-      status: "RECEIVED",
-    })
-    .returning();
+  const externalTransactionId =
+    typeof raw.tid === "string" && raw.tid.trim() ? raw.tid : raw.id !== undefined ? String(raw.id) : "unknown";
 
-  return { inboxId: String(created.id), isDuplicate: false };
-}
+  const identity = computeCasEventIdentity({
+    bankConnectionId: resolved?.id ?? null,
+    bankSubAccId,
+    externalTransactionId,
+    eventKind: "transaction",
+    contractVersion: CAS_CONTRACT.contractVersion,
+  });
 
-export async function processCasInboxEntryService(inboxId: bigint): Promise<{ success: boolean; transactionId?: string }> {
-  const [entry] = await db
-    .select()
-    .from(casWebhookInbox)
-    .where(eq(casWebhookInbox.id, inboxId));
+  const enq = await enqueueCasInboxEvent({
+    bankConnectionId: resolved ? BigInt(resolved.id) : null,
+    provider: "cas",
+    environment,
+    source: "webhook",
+    eventIdentity: identity,
+    rawPayload: raw,
+    // Không resolve được tenant (unknown grant/account, hoặc connection đã
+    // REVOKED) -> quarantine, không tự gán nhầm workspace nào.
+    initialStatus: resolved ? undefined : "QUARANTINED",
+  });
 
-  if (!entry) {
-    throw APIError.notFound(`Inbox entry '${inboxId}' not found`);
-  }
-
-  if (entry.status === "PROCESSED") {
-    return { success: true };
-  }
-
-  await db
-    .update(casWebhookInbox)
-    .set({ status: "PROCESSING" })
-    .where(eq(casWebhookInbox.id, inboxId));
-
-  try {
-    const payload: CasWebhookPayload = JSON.parse(entry.rawPayload);
-
-    if (payload.eventType === "transaction.created" && payload.data.transactionId) {
-      // Payload tự khai workspaceId/connectionId — KHÔNG tin. Chứng minh bank
-      // connection thật sự thuộc workspace được khai trước khi ghi giao dịch.
-      if (!payload.connectionId || !payload.workspaceId) {
-        throw APIError.invalidArgument("Webhook payload missing connectionId/workspaceId");
-      }
-      const [connection] = await db
-        .select()
-        .from(bankConnections)
-        .where(eq(bankConnections.id, BigInt(payload.connectionId)));
-      if (!connection) {
-        throw APIError.notFound(`Bank connection '${payload.connectionId}' not found`);
-      }
-      if (connection.workspaceId !== BigInt(payload.workspaceId)) {
-        // Cross-tenant injection attempt — chặn + đánh dấu SECURITY.
-        await db
-          .update(casWebhookInbox)
-          .set({
-            status: "FAILED",
-            errorMsg: `SECURITY: connection ${payload.connectionId} belongs to workspace ${connection.workspaceId}, not ${payload.workspaceId}`,
-          })
-          .where(eq(casWebhookInbox.id, inboxId));
-        throw APIError.permissionDenied(
-          "Bank connection does not belong to the workspace declared in the payload"
-        );
-      }
-
-      const txn = await ingestBankTransactionService({
-        workspaceId: BigInt(payload.workspaceId),
-        bankConnectionId: BigInt(payload.connectionId),
-        externalTransactionId: payload.data.transactionId,
-        postedAt: payload.data.postedAt || new Date().toISOString(),
-        amount: payload.data.amount || 0,
-        currency: payload.data.currency || "VND",
-        direction: payload.data.direction || "IN",
-        description: payload.data.description || "Cas transaction",
-        counterpartyName: payload.data.counterpartyName,
-        counterpartyAccount: payload.data.counterpartyAccount,
-        rawPayload: payload.data,
-      });
-
-      await db
-        .update(casWebhookInbox)
-        .set({ status: "PROCESSED", processedAt: new Date() })
-        .where(eq(casWebhookInbox.id, inboxId));
-
-      return { success: true, transactionId: txn.id };
-    }
-
-    await db
-      .update(casWebhookInbox)
-      .set({ status: "PROCESSED", processedAt: new Date() })
-      .where(eq(casWebhookInbox.id, inboxId));
-
-    return { success: true };
-  } catch (err: any) {
-    // Không ghi đè dòng SECURITY chi tiết đã set trước khi throw.
-    const [cur] = await db
-      .select({ errorMsg: casWebhookInbox.errorMsg })
-      .from(casWebhookInbox)
-      .where(eq(casWebhookInbox.id, inboxId));
-    if (!cur?.errorMsg?.startsWith("SECURITY:")) {
-      await db
-        .update(casWebhookInbox)
-        .set({ status: "FAILED", errorMsg: err.message || String(err) })
-        .where(eq(casWebhookInbox.id, inboxId));
-    }
-    throw err;
-  }
+  return { inboxId: enq.id, isDuplicate: enq.isDuplicate, quarantined: !resolved };
 }

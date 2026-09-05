@@ -14,6 +14,14 @@ export interface BankConnectionView {
   scopes: string[];
   syncStatus: string;
   lastSyncedAt: string | null;
+  // F3 — UI cần thấy syncStatus/coverage/asOf và KHÔNG bị mất dữ liệu cũ khi
+  // provider lỗi: asOf = lần sync THÀNH CÔNG cuối (alias của lastSyncedAt),
+  // coverageStart = mốc bắt đầu backfill lịch sử đã hoàn tất, syncError = lỗi
+  // gần nhất (nếu có) hiển thị cho founder biết dữ liệu có thể chưa mới nhất
+  // mà KHÔNG xoá giao dịch đã biết.
+  asOf: string | null;
+  coverageStart: string | null;
+  syncError: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +43,9 @@ export async function listBankConnectionsService(
     scopes: (r.scopes || []) as string[],
     syncStatus: r.syncStatus,
     lastSyncedAt: r.lastSyncedAt ? r.lastSyncedAt.toISOString() : null,
+    asOf: r.lastSyncedAt ? r.lastSyncedAt.toISOString() : null,
+    coverageStart: r.syncCoverageStart ? r.syncCoverageStart.toISOString() : null,
+    syncError: r.syncError ?? null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   }));
@@ -74,6 +85,9 @@ export async function createBankConnectionService(p: {
     scopes: (created.scopes || []) as string[],
     syncStatus: created.syncStatus,
     lastSyncedAt: null,
+    asOf: null,
+    coverageStart: null,
+    syncError: null,
     createdAt: created.createdAt.toISOString(),
     updatedAt: created.updatedAt.toISOString(),
   };
@@ -105,6 +119,9 @@ export async function updateConsentStateService(p: {
     scopes: (updated.scopes || []) as string[],
     syncStatus: updated.syncStatus,
     lastSyncedAt: updated.lastSyncedAt ? updated.lastSyncedAt.toISOString() : null,
+    asOf: updated.lastSyncedAt ? updated.lastSyncedAt.toISOString() : null,
+    coverageStart: updated.syncCoverageStart ? updated.syncCoverageStart.toISOString() : null,
+    syncError: updated.syncError ?? null,
     createdAt: updated.createdAt.toISOString(),
     updatedAt: updated.updatedAt.toISOString(),
   };
