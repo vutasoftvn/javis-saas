@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
-import { computeKeyResultScore, computeObjectiveScore } from "./okr-scoring.service";
+import { computeKeyResultProgress, computeObjectiveScore, KrScoringType } from "./okr-scoring.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { mvpList, mvpItem, MvpSuccess } from "../../shared/contracts/mvp-response";
 import { TenantContext } from "../../shared/types/tenant_context";
@@ -51,6 +51,8 @@ export interface KeyResult {
   title: string | null;
   targetValue: number | null;
   currentValue: number | null;
+  baselineValue: number | null;
+  scoringType: string;
   unit: string | null;
   status: string;
   createdAt: string;
@@ -60,6 +62,11 @@ export interface AddKeyResultParams {
   objectiveId: string;
   title: string;
   targetValue: number;
+  // IA22: trước đây không có cách nào set baseline/scoringType qua API nên
+  // mọi KR mặc định LINEAR_INCREASE baseline=0 — một KR mục tiêu GIẢM (vd
+  // churn) bị tính điểm như thể mục tiêu là TĂNG, cho điểm sai hoàn toàn.
+  baselineValue?: number;
+  scoringType?: KrScoringType;
   unit?: string;
   authorization?: string;
 }
@@ -87,6 +94,8 @@ function toKeyResult(row: typeof keyResults.$inferSelect): KeyResult {
     title: row.title,
     targetValue: row.targetValue,
     currentValue: row.currentValue,
+    baselineValue: row.baselineValue,
+    scoringType: row.scoringType,
     unit: row.unit,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
@@ -167,6 +176,8 @@ export async function addKeyResultService(params: AddKeyResultParams): Promise<K
       title: params.title,
       targetValue: params.targetValue,
       currentValue: 0,
+      baselineValue: params.baselineValue ?? null,
+      scoringType: params.scoringType ?? "LINEAR_INCREASE",
       unit: params.unit || "count",
     })
     .returning();
@@ -247,7 +258,17 @@ export async function getObjectiveProgressService(
   const resultKeyResults: { id: string; title: string | null; score: number }[] = rows.map((row) => ({
     id: row.id.toString(),
     title: row.title,
-    score: computeKeyResultScore(row.targetValue ?? 0, row.currentValue ?? 0),
+    // IA22: dùng computeKeyResultProgress (baseline + scoringType aware) thay
+    // vì tỷ lệ current/target thô — KR mục tiêu GIẢM (LINEAR_DECREASE, vd
+    // baseline=10 target=5 current=8) trước đây tính score=1 (sai), giờ đúng
+    // 0.4 theo hướng tiến bộ thật.
+    score:
+      computeKeyResultProgress({
+        baseline: row.baselineValue,
+        target: row.targetValue,
+        current: row.currentValue,
+        scoringType: row.scoringType as KrScoringType,
+      }) ?? 0,
   }));
 
   const score = computeObjectiveScore(resultKeyResults.map((kr) => kr.score));

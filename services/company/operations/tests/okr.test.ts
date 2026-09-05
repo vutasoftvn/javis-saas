@@ -82,6 +82,31 @@ describe("addKeyResult + checkin + getObjectiveProgress", () => {
     expect(progress.keyResults).toHaveLength(2);
   });
 
+  it("scores a LINEAR_DECREASE key result by progress toward baseline, not the raw current/target ratio (IA22)", async () => {
+    const { workspace, cycle, authorization } = await makeCycle();
+    const objective = await createObjective({ workspaceId: workspace.id, cycleId: cycle.id, title: "Reduce churn", authorization });
+
+    // Mục tiêu GIẢM churn từ 10 xuống 5. Hiện tại 8 -> tiến bộ thật = (10-8)/(10-5) = 0.4.
+    // Công thức cũ (current/target = 8/5, clamp 1) sẽ cho điểm 1 (sai — coi như đã đạt mục tiêu).
+    const kr = await addKeyResult({
+      objectiveId: objective.id,
+      title: "Monthly churn rate",
+      targetValue: 5,
+      baselineValue: 10,
+      scoringType: "LINEAR_DECREASE",
+      authorization,
+    });
+    expect(kr.baselineValue).toBe(10);
+    expect(kr.scoringType).toBe("LINEAR_DECREASE");
+
+    await checkin({ id: kr.id, value: 8, authorization });
+
+    const progress = await getObjectiveProgress({ id: objective.id, authorization, workspaceId: workspace.id });
+    expect(progress.keyResults).toHaveLength(1);
+    expect(progress.keyResults[0]!.score).toBeCloseTo(0.4);
+    expect(progress.score).toBeCloseTo(0.4);
+  });
+
   it("getObjectiveProgress is a pure read — emits zero events", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("OKR Read Purity Inc");
     const cycle = await createOkrCycle({ workspaceId, name: "Q1", authorization });
