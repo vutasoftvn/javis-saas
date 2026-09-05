@@ -10,6 +10,7 @@ const { accountingPeriods } = schema;
 export interface AccountingPeriod {
   id: string;
   workspaceId: string;
+  legalEntityId: string | null;
   startDate: string;
   endDate: string;
   status: string;
@@ -19,6 +20,7 @@ export interface AccountingPeriod {
 
 export interface OpenAccountingPeriodParams {
   workspaceId: string;
+  legalEntityId?: string;
   startDate: string;
   endDate: string;
 }
@@ -27,6 +29,7 @@ function toAccountingPeriod(row: typeof accountingPeriods.$inferSelect): Account
   return {
     id: String(row.id),
     workspaceId: String(row.workspaceId),
+    legalEntityId: row.legalEntityId ? String(row.legalEntityId) : null,
     startDate: String(row.startDate),
     endDate: String(row.endDate),
     status: row.status,
@@ -58,6 +61,7 @@ export async function openAccountingPeriodService(
     .values({
       id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
+      legalEntityId: params.legalEntityId ? BigInt(params.legalEntityId) : null,
       startDate: params.startDate,
       endDate: params.endDate,
     })
@@ -80,18 +84,31 @@ export async function closeAccountingPeriodService(
   id: string,
   authorization: string | undefined
 ): Promise<AccountingPeriod> {
-  const existing = await getAccountingPeriodRow(id);
-  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
+  return await db.transaction(async (tx) => {
+    // Row lock FOR UPDATE để serialize với posting guard
+    const [existing] = await tx
+      .select()
+      .from(accountingPeriods)
+      .where(eq(accountingPeriods.id, BigInt(id)))
+      .for("update");
 
-  const [row] = await db
-    .update(accountingPeriods)
-    .set({
-      status: "CLOSED",
-      closedAt: new Date(),
-    })
-    .where(eq(accountingPeriods.id, BigInt(id)))
-    .returning();
+    if (!existing) throw APIError.notFound(`accounting period ${id} not found`);
+    await requireWorkspaceAccess(authorization, String(existing.workspaceId));
 
-  if (!row) throw APIError.notFound(`accounting period ${id} not found`);
-  return toAccountingPeriod(row);
+    if (existing.status === "CLOSED") {
+      return toAccountingPeriod(existing);
+    }
+
+    const [row] = await tx
+      .update(accountingPeriods)
+      .set({
+        status: "CLOSED",
+        closedAt: new Date(),
+      })
+      .where(eq(accountingPeriods.id, BigInt(id)))
+      .returning();
+
+    if (!row) throw APIError.notFound(`accounting period ${id} not found`);
+    return toAccountingPeriod(row);
+  });
 }

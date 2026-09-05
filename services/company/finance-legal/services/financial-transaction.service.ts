@@ -5,6 +5,7 @@ import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { assertOpenPostingPeriod } from "./posting-guard.service";
 
 const { financialTransactions } = schema;
 
@@ -22,6 +23,7 @@ export const FINANCIAL_TRANSACTION_APPROVAL_THRESHOLD = Number(
 export interface FinancialTransaction {
   id: string;
   workspaceId: string;
+  legalEntityId: string | null;
   documentId: string | null;
   projectId: string | null;
   cycleId: string | null;
@@ -30,6 +32,7 @@ export interface FinancialTransaction {
   transactionDate: string;
   description: string;
   amount: string;
+  currency: string;
   direction: "IN" | "OUT";
   category: string | null;
   approvalStatus: ApprovalStatus;
@@ -40,9 +43,11 @@ export interface FinancialTransaction {
 
 export interface RecordFinancialTransactionParams {
   workspaceId: string;
+  legalEntityId?: string;
   transactionDate: string;
   description: string;
   amount: string;
+  currency?: string;
   direction: "IN" | "OUT";
   category?: string;
   workItemId?: string;
@@ -64,6 +69,7 @@ function toFinancialTransaction(row: typeof financialTransactions.$inferSelect):
   return {
     id: String(row.id),
     workspaceId: String(row.workspaceId),
+    legalEntityId: row.legalEntityId ? String(row.legalEntityId) : null,
     documentId: row.documentId ? String(row.documentId) : null,
     projectId: row.projectId ? String(row.projectId) : null,
     cycleId: row.cycleId ? String(row.cycleId) : null,
@@ -72,6 +78,7 @@ function toFinancialTransaction(row: typeof financialTransactions.$inferSelect):
     transactionDate: String(row.transactionDate),
     description: row.description,
     amount: row.amount,
+    currency: row.currency || "VND",
     direction: row.direction as "IN" | "OUT",
     category: row.category,
     approvalStatus: row.approvalStatus as ApprovalStatus,
@@ -87,45 +94,56 @@ export async function recordFinancialTransactionService(
   await requireWorkspaceAccess(params.authorization, params.workspaceId);
   await getWorkspace({ id: params.workspaceId });
 
-  if (params.idempotencyKey) {
-    const [existing] = await db
-      .select()
-      .from(financialTransactions)
-      .where(
-        and(
-          eq(financialTransactions.workspaceId, BigInt(params.workspaceId)),
-          eq(financialTransactions.idempotencyKey, params.idempotencyKey)
+  return await db.transaction(async (tx) => {
+    // F07: Kiểm tra kỳ kế toán mở trước khi ghi sổ
+    await assertOpenPostingPeriod(tx, {
+      workspaceId: params.workspaceId,
+      legalEntityId: params.legalEntityId,
+      postingDate: params.transactionDate,
+    });
+
+    if (params.idempotencyKey) {
+      const [existing] = await tx
+        .select()
+        .from(financialTransactions)
+        .where(
+          and(
+            eq(financialTransactions.workspaceId, BigInt(params.workspaceId)),
+            eq(financialTransactions.idempotencyKey, params.idempotencyKey)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (existing) {
-      return toFinancialTransaction(existing);
+      if (existing) {
+        return toFinancialTransaction(existing);
+      }
     }
-  }
 
-  const initialStatus: ApprovalStatus = requiresApproval(params.direction, params.amount)
-    ? "PENDING_APPROVAL"
-    : "AUTO_APPROVED";
+    const initialStatus: ApprovalStatus = requiresApproval(params.direction, params.amount)
+      ? "PENDING_APPROVAL"
+      : "AUTO_APPROVED";
 
-  const [row] = await db
-    .insert(financialTransactions)
-    .values({
-      id: generateSnowflake(),
-      workspaceId: BigInt(params.workspaceId),
-      transactionDate: params.transactionDate,
-      description: params.description,
-      amount: params.amount,
-      direction: params.direction,
-      category: params.category || null,
-      workItemId: params.workItemId ? BigInt(params.workItemId) : null,
-      idempotencyKey: params.idempotencyKey || null,
-      approvalStatus: initialStatus,
-    })
-    .returning();
+    const [row] = await tx
+      .insert(financialTransactions)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: BigInt(params.workspaceId),
+        legalEntityId: params.legalEntityId ? BigInt(params.legalEntityId) : null,
+        transactionDate: params.transactionDate,
+        description: params.description,
+        amount: params.amount,
+        currency: (params.currency || "VND").toUpperCase(),
+        direction: params.direction,
+        category: params.category || null,
+        workItemId: params.workItemId ? BigInt(params.workItemId) : null,
+        idempotencyKey: params.idempotencyKey || null,
+        approvalStatus: initialStatus,
+      })
+      .returning();
 
-  if (!row) throw APIError.internal("failed to record financial transaction");
-  return toFinancialTransaction(row);
+    if (!row) throw APIError.internal("failed to record financial transaction");
+    return toFinancialTransaction(row);
+  });
 }
 
 export async function approveFinancialTransactionService(

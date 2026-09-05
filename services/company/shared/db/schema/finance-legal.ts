@@ -22,6 +22,7 @@ export const accountingProfiles = financeSchema.table("accounting_profiles", {
 export const accountingPeriods = financeSchema.table("accounting_periods", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   status: text("status").default("OPEN").notNull(),
@@ -35,6 +36,7 @@ export const accountingPeriods = financeSchema.table("accounting_periods", {
 export const financialTransactions = financeSchema.table("financial_transactions", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
   documentId: bigint("document_id", { mode: "bigint" }),
   accountingDocumentId: bigint("accounting_document_id", { mode: "bigint" }),
   projectId: bigint("project_id", { mode: "bigint" }),
@@ -44,6 +46,7 @@ export const financialTransactions = financeSchema.table("financial_transactions
   transactionDate: date("transaction_date").notNull(),
   description: text("description").notNull(),
   amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
+  currency: text("currency").default("VND").notNull(),
   direction: text("direction").notNull(),
   category: text("category"),
   provenance: jsonb("provenance").default({}).notNull(),
@@ -239,7 +242,9 @@ export const documentReconciliationProposals = financeSchema.table("document_rec
 export const financialSnapshots = financeSchema.table("financial_snapshots", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
   snapshotDate: date("snapshot_date").notNull(),
+  currency: text("currency").default("VND").notNull(),
   cashIn: numeric("cash_in", { precision: 20, scale: 2 }).default("0").notNull(),
   cashOut: numeric("cash_out", { precision: 20, scale: 2 }).default("0").notNull(),
   netBurn: numeric("net_burn", { precision: 20, scale: 2 }).default("0").notNull(),

@@ -139,6 +139,31 @@ export async function acceptReconciliationProposalService(p: {
     }
 
     const now = new Date();
+
+    // F08: Atomic claim bank transaction với điều kiện status = 'UNRECONCILED'.
+    // Nếu giao dịch đã bị claim bởi một proposal khác, RETURNING sẽ rỗng -> rollback.
+    const claimedBankRows = await tx
+      .update(bankTransactions)
+      .set({
+        status: "MATCHED",
+        matchedAccountingDocumentId: prop.accountingDocumentId,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(bankTransactions.id, prop.bankTransactionId),
+          eq(bankTransactions.workspaceId, p.workspaceId),
+          eq(bankTransactions.status, "UNRECONCILED")
+        )
+      )
+      .returning({ id: bankTransactions.id });
+
+    if (claimedBankRows.length === 0) {
+      throw APIError.failedPrecondition(
+        "BANK_TRANSACTION_ALREADY_MATCHED: Giao dịch ngân hàng đã được đối soát hoặc không còn ở trạng thái UNRECONCILED"
+      );
+    }
+
     // Mark proposal accepted — ghi acceptedBy, re-check PENDING chống race.
     const acceptedRows = await tx
       .update(documentReconciliationProposals)
@@ -151,25 +176,11 @@ export async function acceptReconciliationProposalService(p: {
         )
       )
       .returning();
+
     if (acceptedRows.length === 0) {
       throw APIError.failedPrecondition("Reconciliation proposal is no longer PENDING");
     }
     const [updatedProp] = acceptedRows;
-
-    // Link bank transaction (scoped theo workspace).
-    await tx
-      .update(bankTransactions)
-      .set({
-        status: "MATCHED",
-        matchedAccountingDocumentId: prop.accountingDocumentId,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(bankTransactions.id, prop.bankTransactionId),
-          eq(bankTransactions.workspaceId, p.workspaceId)
-        )
-      );
 
     return {
       id: String(updatedProp.id),

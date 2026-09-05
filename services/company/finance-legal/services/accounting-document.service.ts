@@ -6,6 +6,7 @@ import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../shared/events/envelope";
 import { FINANCE_ACCOUNTING_DOCUMENT_CONFIRMED } from "../../shared/events";
 import { randomUUID } from "node:crypto";
+import { assertOpenPostingPeriod } from "./posting-guard.service";
 
 const { accountingDocuments } = schema;
 
@@ -136,6 +137,12 @@ export async function confirmAccountingDocumentService(p: {
       throw APIError.failedPrecondition(`Document '${p.documentId}' is already confirmed`);
     }
 
+    // F07: Khóa kỳ kế toán, không cho phép confirm document vào kỳ đã đóng
+    await assertOpenPostingPeriod(tx, {
+      workspaceId: p.workspaceId,
+      postingDate: doc.documentDate,
+    });
+
     const now = new Date();
     const [updated] = await tx
       .update(accountingDocuments)
@@ -202,41 +209,59 @@ export async function voidAccountingDocumentService(p: {
   workspaceId: bigint;
   voidReason: string;
 }): Promise<AccountingDocumentView> {
-  const [updated] = await db
-    .update(accountingDocuments)
-    .set({
-      status: "VOID",
-      voidReason: p.voidReason,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(accountingDocuments.id, p.documentId),
-        eq(accountingDocuments.workspaceId, p.workspaceId)
+  return await db.transaction(async (tx) => {
+    const [doc] = await tx
+      .select()
+      .from(accountingDocuments)
+      .where(
+        and(
+          eq(accountingDocuments.id, p.documentId),
+          eq(accountingDocuments.workspaceId, p.workspaceId)
+        )
+      );
+
+    if (!doc) {
+      throw APIError.notFound(`Accounting document '${p.documentId}' not found`);
+    }
+
+    // F07: Khóa kỳ kế toán, không cho phép void document trong kỳ đã đóng
+    await assertOpenPostingPeriod(tx, {
+      workspaceId: p.workspaceId,
+      postingDate: doc.documentDate,
+    });
+
+    const [updated] = await tx
+      .update(accountingDocuments)
+      .set({
+        status: "VOID",
+        voidReason: p.voidReason,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(accountingDocuments.id, p.documentId),
+          eq(accountingDocuments.workspaceId, p.workspaceId)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  if (!updated) {
-    throw APIError.notFound(`Accounting document '${p.documentId}' not found`);
-  }
-
-  return {
-    id: String(updated.id),
-    workspaceId: String(updated.workspaceId),
-    documentType: updated.documentType as any,
-    number: updated.number,
-    documentDate: typeof updated.documentDate === "string" ? updated.documentDate : new Date(updated.documentDate).toISOString().split("T")[0],
-    amount: String(updated.amount),
-    currency: updated.currency,
-    description: updated.description,
-    status: "VOID",
-    regimePolicyId: updated.regimePolicyId ? String(updated.regimePolicyId) : null,
-    lineItems: (updated.lineItems || []) as any[],
-    confirmedAt: updated.confirmedAt ? updated.confirmedAt.toISOString() : null,
-    confirmedBy: updated.confirmedBy ? String(updated.confirmedBy) : null,
-    voidReason: updated.voidReason,
-    createdAt: updated.createdAt.toISOString(),
-    updatedAt: updated.updatedAt.toISOString(),
-  };
+    return {
+      id: String(updated.id),
+      workspaceId: String(updated.workspaceId),
+      documentType: updated.documentType as any,
+      number: updated.number,
+      documentDate: typeof updated.documentDate === "string" ? updated.documentDate : new Date(updated.documentDate).toISOString().split("T")[0],
+      amount: String(updated.amount),
+      currency: updated.currency,
+      description: updated.description,
+      status: "VOID",
+      regimePolicyId: updated.regimePolicyId ? String(updated.regimePolicyId) : null,
+      lineItems: (updated.lineItems || []) as any[],
+      confirmedAt: updated.confirmedAt ? updated.confirmedAt.toISOString() : null,
+      confirmedBy: updated.confirmedBy ? String(updated.confirmedBy) : null,
+      voidReason: updated.voidReason,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  });
 }
