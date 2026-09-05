@@ -1,13 +1,22 @@
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
+import {
+  evaluateLegalPredicate,
+  evaluateLegalPredicateWithDetails,
+  LegalFacts,
+  LegalPredicate,
+} from "./legal-predicate";
 
 const {
   legalEntityProfiles,
+  accountingFiscalProfiles,
   regulationSources,
   regulationVersions,
   legalObligationTemplates,
   applicabilityRules,
+  applicabilityEvaluations,
   legalObligationInstances,
 } = schema;
 
@@ -17,6 +26,7 @@ export interface ApplicableObligationView {
   description: string | null;
   typicalDueDate: string | null;
   ruleId: string;
+  legalEntityId?: string;
   sourceRegulationNumber: string;
   sourceRegulationVersion: string;
   layer: "CURRENT_LAW" | "POLICY_WATCH" | "PROFESSIONAL_REVIEW";
@@ -24,28 +34,74 @@ export interface ApplicableObligationView {
   hasExistingInstance: boolean;
   existingInstanceId?: string;
   existingInstanceStatus?: string;
+  evaluationResult?: "APPLIES" | "NOT_APPLIES" | "NEEDS_REVIEW";
+  reasonCodes?: string[];
 }
 
-export async function assessApplicableObligations(
-  workspaceId: bigint
+export { evaluateLegalPredicate, evaluateLegalPredicateWithDetails };
+
+/**
+ * Đánh giá tính áp dụng pháp lý cho một pháp nhân cụ thể (Legal Entity Profile).
+ * Tuyệt đối không dùng profiles[0] để suy diễn pháp nhân ngầm định.
+ */
+export async function evaluateEntityApplicability(
+  ctx: { workspaceId: string },
+  legalEntityId: bigint,
+  fiscalProfileId?: bigint
 ): Promise<ApplicableObligationView[]> {
-  // 1. Get entity profile status
-  const profiles = await db
+  const wsId = BigInt(ctx.workspaceId);
+
+  // 1. Lấy đúng pháp nhân theo ID trong workspace của context
+  const [profile] = await db
     .select()
     .from(legalEntityProfiles)
-    .where(eq(legalEntityProfiles.workspaceId, workspaceId));
+    .where(
+      and(
+        eq(legalEntityProfiles.id, legalEntityId),
+        eq(legalEntityProfiles.workspaceId, wsId)
+      )
+    );
 
-  const profile = profiles.length > 0 ? profiles[0] : null;
-  const entityStatus = profile?.status || "DRAFT";
+  if (!profile) {
+    throw APIError.notFound(`Legal entity profile ${legalEntityId} not found in workspace ${ctx.workspaceId}`);
+  }
 
-  // 2. Query active versions of regulation sources
+  // 2. Lấy fiscal profile (nếu có) để trích xuất accounting regime và fiscal year
+  let fiscalProfile = null;
+  if (fiscalProfileId) {
+    const [fp] = await db
+      .select()
+      .from(accountingFiscalProfiles)
+      .where(
+        and(
+          eq(accountingFiscalProfiles.id, fiscalProfileId),
+          eq(accountingFiscalProfiles.workspaceId, wsId)
+        )
+      );
+    fiscalProfile = fp;
+  } else {
+    const [fp] = await db
+      .select()
+      .from(accountingFiscalProfiles)
+      .where(eq(accountingFiscalProfiles.workspaceId, wsId))
+      .limit(1);
+    fiscalProfile = fp;
+  }
+
+  const facts: LegalFacts = {
+    entityStatus: profile.status,
+    accountingRegime: fiscalProfile?.regulationCode || null,
+    fiscalYearStart: fiscalProfile ? `${fiscalProfile.fiscalYear}-01-01` : null,
+  };
+
+  // 3. Lấy các phiên bản quy định đang hiệu lực
   const now = new Date().toISOString().split("T")[0];
   const sources = await db.select().from(regulationSources);
   const versions = await db.select().from(regulationVersions);
 
   const activeVersions = new Map<
     string,
-    { sourceNumber: string; layer: string; version: string }
+    { sourceNumber: string; layer: string; version: string; reviewConfirmed: boolean }
   >();
   for (const s of sources) {
     const sVersions = versions.filter((v) => v.regulationSourceId === s.id);
@@ -65,20 +121,26 @@ export async function assessApplicableObligations(
           sourceNumber: s.number,
           layer: s.layer,
           version: v.version,
+          reviewConfirmed: v.legalReviewConfirmed,
         });
       }
     }
   }
 
-  // 3. Query all rules and templates
+  // 4. Lấy toàn bộ rules và templates
   const rules = await db.select().from(applicabilityRules);
   const templates = await db.select().from(legalObligationTemplates);
 
-  // 4. Query existing instances for this workspace
+  // 5. Lấy các obligation instances hiện có của entity này
   const existingInstances = await db
     .select()
     .from(legalObligationInstances)
-    .where(eq(legalObligationInstances.workspaceId, workspaceId));
+    .where(
+      and(
+        eq(legalObligationInstances.workspaceId, wsId),
+        eq(legalObligationInstances.legalEntityProfileId, legalEntityId)
+      )
+    );
 
   const instanceMap = new Map<string, typeof legalObligationInstances.$inferSelect>();
   for (const inst of existingInstances) {
@@ -91,10 +153,41 @@ export async function assessApplicableObligations(
 
   for (const rule of rules) {
     const verInfo = activeVersions.get(String(rule.regulationVersionId));
-    if (!verInfo) continue; // Source version expired
+    if (!verInfo) continue;
 
-    const predicate = (rule.predicate || {}) as Record<string, any>;
-    if (predicate.entity_status && predicate.entity_status !== entityStatus) {
+    const predicate = (rule.predicate || {}) as LegalPredicate;
+    const evalDetail = evaluateLegalPredicateWithDetails(predicate, facts);
+
+    // Ghi lưu lịch sử đánh giá vào bảng applicabilityEvaluations
+    const evalId = generateSnowflake();
+    await db
+      .insert(applicabilityEvaluations)
+      .values({
+        id: evalId,
+        workspaceId: wsId,
+        legalEntityId,
+        ruleId: rule.id,
+        ruleVersion: verInfo.version,
+        factsVersion: "1.0",
+        result: evalDetail.result,
+        reasonCodes: evalDetail.reasonCodes,
+        sourceRef: verInfo.sourceNumber,
+      })
+      .onConflictDoUpdate({
+        target: [
+          applicabilityEvaluations.legalEntityId,
+          applicabilityEvaluations.ruleId,
+          applicabilityEvaluations.factsVersion,
+        ],
+        set: {
+          result: evalDetail.result,
+          reasonCodes: evalDetail.reasonCodes,
+          evaluatedAt: new Date(),
+        },
+      });
+
+    // Chỉ xuất kết quả khi APPLIES
+    if (evalDetail.result !== "APPLIES") {
       continue;
     }
 
@@ -115,6 +208,7 @@ export async function assessApplicableObligations(
       description: template.description,
       typicalDueDate: typicalDue,
       ruleId: String(rule.id),
+      legalEntityId: String(legalEntityId),
       sourceRegulationNumber: verInfo.sourceNumber,
       sourceRegulationVersion: verInfo.version,
       layer: verInfo.layer as any,
@@ -122,11 +216,51 @@ export async function assessApplicableObligations(
       hasExistingInstance: existing !== undefined,
       existingInstanceId: existing ? String(existing.id) : undefined,
       existingInstanceStatus: existing ? existing.status : undefined,
+      evaluationResult: evalDetail.result,
+      reasonCodes: evalDetail.reasonCodes,
     });
   }
 
   return results;
 }
 
-export { assessWorkspaceAiApplicability } from "./ai-legal-applicability.service";
+/**
+ * Đánh giá nghĩa vụ pháp lý áp dụng cho workspace hoặc một legal entity cụ thể.
+ * Nếu không chỉ định legalEntityId, evaluate riêng từng legal entity profile rồi tổng hợp.
+ */
+export async function assessApplicableObligations(
+  workspaceId: bigint,
+  options?: { legalEntityId?: bigint; fiscalProfileId?: bigint }
+): Promise<ApplicableObligationView[]> {
+  if (options?.legalEntityId) {
+    return evaluateEntityApplicability(
+      { workspaceId: String(workspaceId) },
+      options.legalEntityId,
+      options.fiscalProfileId
+    );
+  }
 
+  // Nếu không chỉ định entity, lấy toàn bộ legal entity profiles của workspace
+  const profiles = await db
+    .select()
+    .from(legalEntityProfiles)
+    .where(eq(legalEntityProfiles.workspaceId, workspaceId));
+
+  if (profiles.length === 0) {
+    return [];
+  }
+
+  const allResults: ApplicableObligationView[] = [];
+  for (const prof of profiles) {
+    const entityObligations = await evaluateEntityApplicability(
+      { workspaceId: String(workspaceId) },
+      prof.id,
+      options?.fiscalProfileId
+    );
+    allResults.push(...entityObligations);
+  }
+
+  return allResults;
+}
+
+export { assessWorkspaceAiApplicability } from "./ai-legal-applicability.service";

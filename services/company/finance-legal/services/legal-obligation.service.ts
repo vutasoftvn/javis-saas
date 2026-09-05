@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
@@ -134,6 +134,68 @@ export async function listObligationInstancesService(
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   }));
+}
+
+export interface OpenObligationView extends LegalObligationInstanceView {
+  isOverdue: boolean;
+  overdueDays: number;
+}
+
+export async function listOpenObligations(
+  ctx: { workspaceId: string },
+  params?: {
+    projectId?: bigint;
+    legalEntityId?: bigint;
+    at?: string;
+  }
+): Promise<OpenObligationView[]> {
+  const wsId = BigInt(ctx.workspaceId);
+  const atDate = params?.at ? new Date(params.at) : new Date();
+
+  const conditions = [
+    eq(legalObligationInstances.workspaceId, wsId),
+    inArray(legalObligationInstances.status, ["OPEN", "IN_PROGRESS", "PENDING"]),
+  ];
+
+  if (params?.legalEntityId) {
+    conditions.push(eq(legalObligationInstances.legalEntityProfileId, params.legalEntityId));
+  }
+
+  const rows = await db
+    .select()
+    .from(legalObligationInstances)
+    .where(and(...conditions));
+
+  return rows.map((r) => {
+    let isOverdue = false;
+    let overdueDays = 0;
+    if (r.dueDate) {
+      const dueTime = new Date(r.dueDate).getTime();
+      const diffMs = atDate.getTime() - dueTime;
+      if (diffMs > 0) {
+        isOverdue = true;
+        overdueDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+      }
+    }
+
+    return {
+      id: String(r.id),
+      workspaceId: String(r.workspaceId),
+      legalEntityProfileId: r.legalEntityProfileId ? String(r.legalEntityProfileId) : null,
+      templateId: r.templateId ? String(r.templateId) : null,
+      regulationVersionId: r.regulationVersionId ? String(r.regulationVersionId) : null,
+      source: r.source as any,
+      title: r.title,
+      dueDate: r.dueDate ? String(r.dueDate) : null,
+      status: r.status === "PENDING" ? "OPEN" : r.status,
+      evidenceArtifactId: r.evidenceArtifactId ? String(r.evidenceArtifactId) : null,
+      reviewStatus: r.reviewStatus,
+      isOverdue,
+      overdueDays,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    };
+  });
 }
 
 export async function createObligationInstanceService(p: {

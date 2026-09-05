@@ -216,6 +216,33 @@ enum LegalEntityStatus {
   String toApi() => wire;
 }
 
+/// Trạng thái của một obligation instance — OPEN/IN_PROGRESS/FULFILLED/EXEMPT/CANCELLED.
+enum LegalObligationInstanceStatus {
+  open('OPEN'),
+  inProgress('IN_PROGRESS'),
+  fulfilled('FULFILLED'),
+  exempt('EXEMPT'),
+  cancelled('CANCELLED');
+
+  const LegalObligationInstanceStatus(this.wire);
+  final String wire;
+
+  static LegalObligationInstanceStatus fromWire(String v) => values.firstWhere(
+        (e) => e.wire == v,
+        orElse: () => throw ArgumentError('Unknown LegalObligationInstanceStatus wire value: $v'),
+      );
+
+  static LegalObligationInstanceStatus? tryFromWire(String? v) {
+    if (v == null) return null;
+    for (final e in values) {
+      if (e.wire == v) return e;
+    }
+    return null;
+  }
+
+  String toApi() => wire;
+}
+
 const Map<String, String> legacyWorkspaceStageToCanonical = {
   'S0_GENESIS': 'W0_IDEA',
   'S1_PROBLEM_VALIDATION': 'W1_PROBLEM_VALIDATION',

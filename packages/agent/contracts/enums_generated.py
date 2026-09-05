@@ -11,6 +11,7 @@ __all__ = [
     "LEGACY_PROJECT_STAGE_TO_CANONICAL",
     "LEGACY_WORKSPACE_STAGE_TO_CANONICAL",
     "LegalEntityStatus",
+    "LegalObligationInstanceStatus",
     "ProjectLifecycleStage",
     "ProjectStatus",
     "RuntimeMode",
@@ -173,6 +174,26 @@ class LegalEntityStatus(StrEnum):
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi
             raise ValueError(f"Unknown LegalEntityStatus wire value: {v!r}") from exc
+
+    def to_wire(self) -> str:
+        return self.value
+
+
+class LegalObligationInstanceStatus(StrEnum):
+    """Trạng thái của một obligation instance — OPEN/IN_PROGRESS/FULFILLED/EXEMPT/CANCELLED."""
+
+    OPEN = "OPEN"
+    IN_PROGRESS = "IN_PROGRESS"
+    FULFILLED = "FULFILLED"
+    EXEMPT = "EXEMPT"
+    CANCELLED = "CANCELLED"
+
+    @classmethod
+    def from_wire(cls, v: str) -> LegalObligationInstanceStatus:
+        try:
+            return cls(v)
+        except ValueError as exc:  # pragma: no cover - thông điệp lỗi
+            raise ValueError(f"Unknown LegalObligationInstanceStatus wire value: {v!r}") from exc
 
     def to_wire(self) -> str:
         return self.value

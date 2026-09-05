@@ -95,6 +95,19 @@ export const applicabilityRules = legalSchema.table("applicability_rules", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const applicabilityEvaluations = legalSchema.table("applicability_evaluations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }).notNull(),
+  ruleId: bigint("rule_id", { mode: "bigint" }).notNull(),
+  ruleVersion: text("rule_version").default("1.0").notNull(),
+  factsVersion: text("facts_version").default("1.0").notNull(),
+  result: text("result").notNull(), // 'APPLIES' | 'NOT_APPLIES' | 'NEEDS_REVIEW'
+  reasonCodes: jsonb("reason_codes").default([]).notNull(),
+  evaluatedAt: timestamp("evaluated_at", { withTimezone: true }).defaultNow().notNull(),
+  sourceRef: text("source_ref"),
+});
+
 export const legalObligationInstances = legalSchema.table("legal_obligation_instances", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),

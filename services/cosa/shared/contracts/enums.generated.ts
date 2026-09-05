@@ -92,5 +92,16 @@ export function parseLegalEntityStatus(v: string): LegalEntityStatus {
   return v;
 }
 
+/** Trạng thái của một obligation instance — OPEN/IN_PROGRESS/FULFILLED/EXEMPT/CANCELLED. */
+export const LEGAL_OBLIGATION_INSTANCE_STATUS = ["OPEN", "IN_PROGRESS", "FULFILLED", "EXEMPT", "CANCELLED"] as const;
+export type LegalObligationInstanceStatus = (typeof LEGAL_OBLIGATION_INSTANCE_STATUS)[number];
+export function isLegalObligationInstanceStatus(v: unknown): v is LegalObligationInstanceStatus {
+  return typeof v === "string" && (LEGAL_OBLIGATION_INSTANCE_STATUS as readonly string[]).includes(v);
+}
+export function parseLegalObligationInstanceStatus(v: string): LegalObligationInstanceStatus {
+  if (!isLegalObligationInstanceStatus(v)) throw new Error(`Unknown LegalObligationInstanceStatus wire value: ${v}`);
+  return v;
+}
+
 export const LEGACY_WORKSPACE_STAGE_TO_CANONICAL: Readonly<Record<string, string>> = Object.freeze({"S0_GENESIS":"W0_IDEA","S1_PROBLEM_VALIDATION":"W1_PROBLEM_VALIDATION","S2_SOLUTION_VALIDATION":"W2_SOLUTION_VALIDATION","S3_MVP_BUILD":"W3_MVP_BUILD","S4_PRODUCT_MARKET_FIT":"W4_PRODUCT_MARKET_FIT","S5_SCALE":"W5_SCALE"});
 export const LEGACY_PROJECT_STAGE_TO_CANONICAL: Readonly<Record<string, string>> = Object.freeze({"S0_EXPLORE":"P0_DISCOVERY","S1_PROBLEM_VALIDATION":"P1_PROBLEM_VALIDATION","S2_SOLUTION_VALIDATION":"P2_SOLUTION_VALIDATION","S3_BUSINESS_VALIDATION":"P3_BUILD_VALIDATE","S4_GO_TO_MARKET":"P4_GO_TO_MARKET","S5_OPERATE_GROWTH":"P5_OPERATE_GROWTH","S6_SCALE_GOVERN":"P6_SCALE_GOVERN"});

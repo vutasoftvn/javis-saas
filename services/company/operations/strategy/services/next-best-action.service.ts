@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db, schema } from "../../db";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
@@ -85,7 +85,7 @@ export async function assembleActionContextService(workspaceId: bigint): Promise
     .where(
       and(
         eq(legalObligationInstances.workspaceId, workspaceId),
-        eq(legalObligationInstances.status, "PENDING")
+        inArray(legalObligationInstances.status, ["OPEN", "IN_PROGRESS", "PENDING"])
       )
     )
     .limit(5);

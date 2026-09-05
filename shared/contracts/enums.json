@@ -66,6 +66,16 @@
         "SUSPENDED",
         "DISSOLVED"
       ]
+    },
+    "legal_obligation_instance_status": {
+      "doc": "Trạng thái của một obligation instance — OPEN/IN_PROGRESS/FULFILLED/EXEMPT/CANCELLED.",
+      "values": [
+        "OPEN",
+        "IN_PROGRESS",
+        "FULFILLED",
+        "EXEMPT",
+        "CANCELLED"
+      ]
     }
   },
   "migration_maps": {
