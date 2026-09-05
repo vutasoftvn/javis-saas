@@ -3,6 +3,7 @@ import { eq, and, inArray, desc, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { requireCommandAuthority } from "../../identity/services/command-authority.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 
@@ -293,16 +294,37 @@ export async function transitionObligationStatus(
   const wsId = input.workspaceId;
   const instId = input.instanceId;
 
-  // 1. Transition sang FULFILLED bắt buộc kèm evidence
+  // IA18: bắt buộc quyền legal.obligation.manage khi có ctx (request HTTP thật
+  // luôn có ctx qua requireWorkspaceAccess); giữ ctx optional để không phá các
+  // caller nội bộ/test không qua HTTP — theo đúng pattern resumeAiDeployment.
+  if (ctx) {
+    await requireCommandAuthority(ctx, "legal.obligation.manage", { workspaceId: String(wsId) });
+  }
+
+  // 1. Transition sang FULFILLED bắt buộc kèm evidence có nội dung thật
+  // (IA18: trước đây [""] cũng qua vì chỉ kiểm length > 0, không kiểm nội dung).
   if (input.toStatus === "FULFILLED") {
     const hasEvidence =
       Boolean(input.evidenceArtifactId) ||
-      (Array.isArray(input.evidenceRefs) && input.evidenceRefs.length > 0);
+      (Array.isArray(input.evidenceRefs) &&
+        input.evidenceRefs.some((ref) => typeof ref === "string" && ref.trim().length > 0));
     if (!hasEvidence) {
       const err = APIError.invalidArgument(
         "Fulfillment requires verified evidence (evidenceArtifactId or non-empty evidenceRefs)"
       );
       (err as any).code = "EVIDENCE_REQUIRED";
+      throw err;
+    }
+  }
+
+  // IA18: EXEMPT bắt buộc rationale làm căn cứ miễn trừ — trước đây có thể
+  // miễn trừ nghĩa vụ mà không cần giải trình gì.
+  if (input.toStatus === "EXEMPT") {
+    if (!input.rationale || !input.rationale.trim()) {
+      const err = APIError.invalidArgument(
+        "Exemption requires a rationale documenting the legal basis"
+      );
+      (err as any).code = "RATIONALE_REQUIRED";
       throw err;
     }
   }

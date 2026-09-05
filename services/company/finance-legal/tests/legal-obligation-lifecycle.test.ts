@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import {
   createObligationInstanceService,
   transitionObligationStatus,
@@ -11,6 +12,8 @@ import {
 } from "../../operations/strategy/services/weekly-review.service";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { createTestSession } from "../../identity/tests/helpers/test-session";
+import { transitionObligationInstanceApi } from "../handlers/legal-obligation.handler";
 
 const {
   regulationSources,
@@ -209,5 +212,93 @@ describe("legal-obligation-lifecycle (Task L3)", () => {
     });
 
     expect(review.obligationsSummary).toBe(summary.summaryText);
+  });
+
+  it("denies transition through the real HTTP handler from a member without legal.obligation.manage (IA18)", async () => {
+    const session = await createTestSession({ role: "member" });
+    const wsId = BigInt(session.workspaceId);
+
+    const instance = await createObligationInstanceService({
+      workspaceId: wsId,
+      source: "USER_CREATED",
+      title: "IA18 auditor attempt",
+      dueDate: "2026-06-30",
+    });
+
+    await expect(
+      transitionObligationInstanceApi({
+        id: instance.id,
+        workspaceId: session.workspaceId,
+        authorization: `Bearer ${session.accessToken}`,
+        toStatus: "IN_PROGRESS",
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    const [reloaded] = await db
+      .select()
+      .from(legalObligationInstances)
+      .where(eq(legalObligationInstances.id, BigInt(instance.id)));
+    expect(reloaded!.status).toBe("OPEN");
+  });
+
+  it("rejects FULFILLED with only blank evidenceRefs, through the real HTTP handler (IA18)", async () => {
+    const session = await createTestSession({ role: "founder" });
+    const wsId = BigInt(session.workspaceId);
+    const auth = `Bearer ${session.accessToken}`;
+
+    const instance = await createObligationInstanceService({
+      workspaceId: wsId,
+      source: "USER_CREATED",
+      title: "IA18 blank evidence attempt",
+      dueDate: "2026-06-30",
+    });
+
+    await transitionObligationInstanceApi({
+      id: instance.id,
+      workspaceId: session.workspaceId,
+      authorization: auth,
+      toStatus: "IN_PROGRESS",
+    });
+
+    await expect(
+      transitionObligationInstanceApi({
+        id: instance.id,
+        workspaceId: session.workspaceId,
+        authorization: auth,
+        toStatus: "FULFILLED",
+        evidenceRefs: [""],
+      })
+    ).rejects.toMatchObject({ code: "EVIDENCE_REQUIRED" });
+  });
+
+  it("rejects EXEMPT without a rationale, through the real HTTP handler (IA18)", async () => {
+    const session = await createTestSession({ role: "founder" });
+    const wsId = BigInt(session.workspaceId);
+    const auth = `Bearer ${session.accessToken}`;
+
+    const instance = await createObligationInstanceService({
+      workspaceId: wsId,
+      source: "USER_CREATED",
+      title: "IA18 exemption without rationale",
+      dueDate: "2026-06-30",
+    });
+
+    await expect(
+      transitionObligationInstanceApi({
+        id: instance.id,
+        workspaceId: session.workspaceId,
+        authorization: auth,
+        toStatus: "EXEMPT",
+      })
+    ).rejects.toMatchObject({ code: "RATIONALE_REQUIRED" });
+
+    const exempted = await transitionObligationInstanceApi({
+      id: instance.id,
+      workspaceId: session.workspaceId,
+      authorization: auth,
+      toStatus: "EXEMPT",
+      rationale: "Miễn theo điều 12 Nghị định XYZ do doanh thu dưới ngưỡng",
+    });
+    expect(exempted.status).toBe("EXEMPT");
   });
 });
