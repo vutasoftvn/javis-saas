@@ -157,7 +157,13 @@ export function normalizeCasTransaction(
 
   let amountMinor: string;
   try {
-    const absAmountStr = String(Math.abs(typeof rawAmount === "number" ? rawAmount : Number(rawAmount)));
+    // IA13: KHÔNG được đi qua Number() khi rawAmount đã là string — JS number
+    // (float64) chỉ chính xác tới 2^53, một amount string hợp lệ vượt
+    // MAX_SAFE_INTEGER sẽ bị làm tròn sai trước khi tới parseDecimalToMoney
+    // (vốn tự parse string bằng BigInt, không có giới hạn này). Chỉ strip dấu
+    // âm trên string gốc, không Math.abs(Number(...)).
+    const rawAmountStr = String(rawAmount).trim();
+    const absAmountStr = rawAmountStr.replace(/^[+-]/, "");
     amountMinor = parseDecimalToMoney(absAmountStr, currency).minor;
   } catch (err: any) {
     return {

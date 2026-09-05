@@ -91,6 +91,50 @@ describe("cas-normalizer: reject typed, không default 0/IN/now", () => {
     if (!result.ok) expect(result.reason).toBe("INVALID_PROVIDER_PAYLOAD");
   });
 
+  it("preserves exact amountMinor for a string amount beyond Number.MAX_SAFE_INTEGER (IA13)", () => {
+    // 9007199254740993 = MAX_SAFE_INTEGER (9007199254740991) + 2 — không thể
+    // biểu diễn chính xác bằng JS number (float64). Provider gửi amount dạng
+    // string chính là để tránh mất chính xác này; code KHÔNG được tự ý đi
+    // qua Number() rồi mất nó trước khi tới BigInt-based Money parser.
+    const wsId = generateSnowflake();
+    const connId = generateSnowflake();
+    const result = normalizeCasTransaction(
+      {
+        tid: "tid_precision_1",
+        amount: "9007199254740993",
+        when: "2026-08-29T10:00:00Z",
+        bank_sub_acc_id: "acc_1",
+      },
+      CAS_CONTRACT,
+      ctx(connId, wsId)
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.transaction.amountMinor).toBe("9007199254740993");
+      expect(result.transaction.direction).toBe("IN");
+    }
+  });
+
+  it("preserves exact amountMinor for a large negative string amount (IA13)", () => {
+    const wsId = generateSnowflake();
+    const connId = generateSnowflake();
+    const result = normalizeCasTransaction(
+      {
+        tid: "tid_precision_2",
+        amount: "-9007199254740993",
+        when: "2026-08-29T10:00:00Z",
+        bank_sub_acc_id: "acc_1",
+      },
+      CAS_CONTRACT,
+      ctx(connId, wsId)
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.transaction.amountMinor).toBe("9007199254740993");
+      expect(result.transaction.direction).toBe("OUT");
+    }
+  });
+
   it("rejects missing booked time as INVALID_PROVIDER_PAYLOAD, not defaulted to now()", () => {
     const result = normalizeCasTransaction({ tid: "tid_no_time", amount: 1000 }, CAS_CONTRACT, ctx(1n, 1n));
     expect(result.ok).toBe(false);
