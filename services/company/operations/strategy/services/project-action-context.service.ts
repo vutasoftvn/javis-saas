@@ -454,10 +454,14 @@ export async function acceptActionProposal(
   const proposalIdBig = BigInt(input.proposalId);
 
   return await db.transaction(async (tx) => {
+    // Row lock FOR UPDATE — serialize accept đồng thời trên cùng proposal
+    // (IA20: trước đây không lock nên 2 request PROPOSED cùng lúc đều qua được
+    // check status ở dưới rồi cùng tạo decision/commitment/outbox trùng lặp).
     const [action] = await tx
       .select()
       .from(nextBestActions)
       .where(and(eq(nextBestActions.id, proposalIdBig), eq(nextBestActions.workspaceId, wsId)))
+      .for("update")
       .limit(1);
 
     if (!action) {
@@ -510,8 +514,9 @@ export async function acceptActionProposal(
     const nextRevision = (action.revision ?? 1) + 1;
     const now = new Date();
 
-    // 2. Update action proposal to ACCEPTED
-    await tx
+    // 2. Update action proposal to ACCEPTED — CAS theo status cũ (PROPOSED),
+    // đồng nhất với row lock ở trên để không có 2 lần accept nào cùng thành công.
+    const [acceptedRow] = await tx
       .update(nextBestActions)
       .set({
         status: "ACCEPTED",
@@ -519,12 +524,51 @@ export async function acceptActionProposal(
         revision: nextRevision,
         updatedAt: now,
       })
-      .where(and(eq(nextBestActions.id, proposalIdBig), eq(nextBestActions.workspaceId, wsId)));
+      .where(
+        and(
+          eq(nextBestActions.id, proposalIdBig),
+          eq(nextBestActions.workspaceId, wsId),
+          eq(nextBestActions.status, "PROPOSED")
+        )
+      )
+      .returning({ id: nextBestActions.id });
+
+    if (!acceptedRow) {
+      const err = APIError.aborted(
+        `Concurrent modification: action proposal ${input.proposalId} was already transitioned`
+      );
+      (err as any).code = "CONCURRENT_MODIFICATION";
+      throw err;
+    }
 
     // 3. Create weekly commitment if cycleId/weekNo provided
     let commitmentIdStr: string | null = null;
     if (input.cycleId && input.weekNo) {
       const cycleIdBig = BigInt(input.cycleId);
+
+      // IA20: cycle phải cùng workspace và (nếu action gắn project) cùng
+      // project với action — trước đây tin thẳng input.cycleId nên có thể
+      // dùng cycle của workspace/project khác để tạo weekly plan/commitment.
+      const [cycle] = await tx
+        .select()
+        .from(twelveWeekCycles)
+        .where(and(eq(twelveWeekCycles.id, cycleIdBig), eq(twelveWeekCycles.workspaceId, wsId)))
+        .limit(1);
+
+      if (!cycle) {
+        throw APIError.notFound(`Cycle ${input.cycleId} không tồn tại trong workspace này`);
+      }
+      if (action.projectId !== null && (cycle.projectId === null || cycle.projectId !== action.projectId)) {
+        throw APIError.invalidArgument(
+          `Cycle ${input.cycleId} không thuộc project của action proposal ${input.proposalId}`
+        );
+      }
+      if (!Number.isInteger(input.weekNo) || input.weekNo < 1 || input.weekNo > cycle.durationWeeks) {
+        throw APIError.invalidArgument(
+          `weekNo phải là số nguyên trong khoảng 1..${cycle.durationWeeks} (cycle này dài ${cycle.durationWeeks} tuần)`
+        );
+      }
+
       let [plan] = await tx
         .select()
         .from(weeklyPlans)

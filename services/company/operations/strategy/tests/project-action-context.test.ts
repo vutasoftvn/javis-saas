@@ -55,9 +55,11 @@ describe("Project Action Context & Live Proposals (S4)", () => {
     const wsId = BigInt(ws.workspaceId);
     const pId = BigInt(project.id);
 
-    // Large ID string that exceeds JS Number.MAX_SAFE_INTEGER (9007199254740991)
-    const largeIdStr = "9007199254740993";
-    const largeId = BigInt(largeIdStr);
+    // Snowflake ID thật luôn > Number.MAX_SAFE_INTEGER (9007199254740991) — dùng
+    // generateSnowflake() thay vì literal cố định để test lặp lại được trên DB
+    // dev persistent (literal cũ để lại row vĩnh viễn, va PK ở lần chạy sau).
+    const largeId = generateSnowflake();
+    const largeIdStr = largeId.toString();
 
     await db.insert(assumptions).values({
       id: largeId,
@@ -233,5 +235,113 @@ describe("Project Action Context & Live Proposals (S4)", () => {
         proposalId: proposalId.toString(),
       })
     ).rejects.toThrow();
+  });
+
+  it("rejects a cycle that belongs to a different project (IA20)", async () => {
+    const { ctx, project, ws } = await seedProjectFixture();
+    const otherProject = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Other project, same workspace",
+    });
+
+    const otherCycle = await createCycleService({
+      workspaceId: ws.workspaceId,
+      authorization: ws.bearerToken,
+      projectId: otherProject.id,
+      durationWeeks: 6,
+      startLocalDate: "2026-09-07",
+    });
+
+    const proposalId = generateSnowflake();
+    await db.insert(nextBestActions).values({
+      id: proposalId,
+      workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(project.id),
+      source: "evidence",
+      recommendation: "Cross-project cycle attempt",
+      priority: 1,
+      status: "PROPOSED",
+      decisionReason: "IA20 regression",
+      revision: 1,
+    });
+
+    await expect(
+      acceptActionProposal(ctx, {
+        proposalId: proposalId.toString(),
+        cycleId: otherCycle.id,
+        weekNo: 1,
+      })
+    ).rejects.toThrow();
+
+    const [reloaded] = await db
+      .select()
+      .from(nextBestActions)
+      .where(eq(nextBestActions.id, proposalId));
+    expect(reloaded!.status).toBe("PROPOSED"); // không được accept một phần
+  });
+
+  it("rejects a weekNo outside the cycle's actual duration (IA20)", async () => {
+    const { ctx, project, ws } = await seedProjectFixture();
+
+    const cycle = await createCycleService({
+      workspaceId: ws.workspaceId,
+      authorization: ws.bearerToken,
+      projectId: project.id,
+      durationWeeks: 6,
+      startLocalDate: "2026-09-07",
+    });
+
+    const proposalId = generateSnowflake();
+    await db.insert(nextBestActions).values({
+      id: proposalId,
+      workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(project.id),
+      source: "evidence",
+      recommendation: "Out-of-range weekNo attempt",
+      priority: 1,
+      status: "PROPOSED",
+      decisionReason: "IA20 regression",
+      revision: 1,
+    });
+
+    await expect(
+      acceptActionProposal(ctx, {
+        proposalId: proposalId.toString(),
+        cycleId: cycle.id,
+        weekNo: 999,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("allows only one of two concurrent accepts on the same proposal to succeed (IA20)", async () => {
+    const { ctx, project, ws } = await seedProjectFixture();
+
+    const proposalId = generateSnowflake();
+    await db.insert(nextBestActions).values({
+      id: proposalId,
+      workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(project.id),
+      source: "evidence",
+      recommendation: "Concurrent accept attempt",
+      priority: 1,
+      status: "PROPOSED",
+      decisionReason: "IA20 regression",
+      revision: 1,
+    });
+
+    const results = await Promise.allSettled([
+      acceptActionProposal(ctx, { proposalId: proposalId.toString() }),
+      acceptActionProposal(ctx, { proposalId: proposalId.toString() }),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+
+    const decisions = await db
+      .select()
+      .from(decisionRecords)
+      .where(and(eq(decisionRecords.projectId, BigInt(project.id)), eq(decisionRecords.workspaceId, BigInt(ws.workspaceId))));
+    expect(decisions.length).toBe(1); // không tạo 2 decision record trùng lặp
   });
 });
