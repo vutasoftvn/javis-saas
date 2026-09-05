@@ -32,6 +32,7 @@ class PolicySnapshot(BaseModel):
     principal_status: str
     rules: list[TenantPolicyRule]
     snapshot_hash: str
+    business_policy_ref: dict[str, Any] | None = None
 
     def match(self, capability_id: str) -> TenantPolicyRule | None:
         """Cùng thứ tự ưu tiên với `getTenantPolicyForTool` trong

@@ -75,6 +75,14 @@ export const workspaceAgentPolicy = cosaSchema.table("workspace_agent_policy", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const workspaceBusinessPolicyReferences = cosaSchema.table("workspace_business_policy_references", {
+  platformWorkspaceId: bigint("platform_workspace_id", { mode: "bigint" }).primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
+  businessWorkspaceId: text("business_workspace_id").notNull(),
+  version: integer("version").notNull(),
+  policyHash: text("policy_hash").notNull(),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const workspaceLicenses = cosaSchema.table("workspace_licenses", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),

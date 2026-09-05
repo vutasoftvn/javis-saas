@@ -77,9 +77,48 @@ class CosaTenantPolicyClient:
                     for r in data["rules"]
                 ],
                 snapshot_hash=data["snapshotHash"],
+                business_policy_ref=data.get("businessPolicyRef"),
             )
         except KeyError as exc:
             raise CosaTenantPolicyError(f"response thiếu field bắt buộc: {exc}") from exc
+
+    async def evaluate_business_action(
+        self,
+        bearer_token: str,
+        workspace_id: str,
+        action: str,
+        resource_ref: str | None = None,
+        version: int | None = None,
+        run_ref: str | None = None,
+        project_id: str | None = None,
+        legal_entity_id: str | None = None,
+    ) -> dict[str, Any]:
+        payload = {
+            "action": action,
+            "resourceRef": resource_ref,
+            "version": version,
+            "runRef": run_ref,
+            "projectId": project_id,
+            "legalEntityId": legal_entity_id,
+        }
+        try:
+            resp = await self._client.post(
+                "/identity/business-policy/evaluate",
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {bearer_token}",
+                    "X-Workspace-Id": workspace_id,
+                },
+            )
+        except httpx.HTTPError as exc:
+            raise CosaTenantPolicyError(f"không gọi được Company service: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise CosaTenantPolicyError(
+                f"Company business policy evaluate trả lỗi {resp.status_code}: {resp.text[:200]}"
+            )
+
+        return resp.json()
 
     async def aclose(self) -> None:
         await self._client.aclose()

@@ -83,6 +83,11 @@ export interface TenantPolicySnapshotResult {
   principalStatus: string;
   rules: TenantPolicyRule[];
   snapshotHash: string;
+  businessPolicyRef?: {
+    workspaceId: string;
+    version: number;
+    hash: string;
+  } | null;
 }
 
 /**
@@ -140,8 +145,22 @@ export async function buildTenantPolicySnapshot(
     reason: r.reason,
   }));
 
+  const [bRef] = await db
+    .select()
+    .from(schema.workspaceBusinessPolicyReferences)
+    .where(eq(schema.workspaceBusinessPolicyReferences.platformWorkspaceId, workspaceIdBig))
+    .limit(1);
+
+  const businessPolicyRef = bRef
+    ? {
+        workspaceId: bRef.businessWorkspaceId,
+        version: bRef.version,
+        hash: bRef.policyHash,
+      }
+    : null;
+
   const snapshotHash = createHash("sha256")
-    .update(JSON.stringify({ workspaceStatus: "active", principalStatus: userRow.status, rules }))
+    .update(JSON.stringify({ workspaceStatus: "active", principalStatus: userRow.status, rules, businessPolicyRef }))
     .digest("hex");
 
   return {
@@ -150,6 +169,7 @@ export async function buildTenantPolicySnapshot(
     principalStatus: userRow.status,
     rules,
     snapshotHash,
+    businessPolicyRef,
   };
 }
 

@@ -5,3 +5,4 @@ export * from "./sync.handler";
 export * from "./workspace.handler";
 export * from "./tenant-context.handler";
 export * from "./e2e-session.handler";
+export * from "./business-policy.handler";
