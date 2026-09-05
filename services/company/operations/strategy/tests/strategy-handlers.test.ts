@@ -322,7 +322,8 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     });
     expect(nextActions.projectId).toBe(project.id);
     expect(nextActions.items.length).toBeGreaterThan(0);
-    expect(nextActions.items[0].candidate).toBeDefined();
-    expect(nextActions.items[0].rank).toBe(1);
+    expect(nextActions.items[0].recommendation).toBeDefined();
+    expect(nextActions.items[0].priority).toBeGreaterThanOrEqual(1);
+    expect(nextActions.items[0].status).toBe("PROPOSED");
   });
 });

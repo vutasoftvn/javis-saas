@@ -315,10 +315,13 @@ export const nextBestActions = strategySchema.table("next_best_actions", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   source: text("source").notNull(), // 'evidence' | 'finance' | 'legal' | 'stage'
+  projectId: bigint("project_id", { mode: "bigint" }).references(() => projects.id, { onDelete: "cascade" }),
+  decisionId: bigint("decision_id", { mode: "bigint" }).references(() => decisionRecords.id, { onDelete: "set null" }),
   recommendation: text("recommendation").notNull(),
   priority: integer("priority").default(1).notNull(),
   dueBy: date("due_by"),
   status: text("status").default("PROPOSED").notNull(), // 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'DONE'
+  revision: integer("revision").default(1).notNull(),
   capabilityRequired: text("capability_required"),
   decisionReason: text("decision_reason").notNull(),
   contextSnapshot: jsonb("context_snapshot").default({}).notNull(),
@@ -338,7 +341,10 @@ export const weeklyReviews = strategySchema.table("weekly_reviews", {
   cashSummary: text("cash_summary"),
   obligationsSummary: text("obligations_summary"),
   actionProposals: jsonb("action_proposals").default([]).notNull(),
+  weeklyPlanIds: jsonb("weekly_plan_ids").default([]).notNull(),
+  decisionIds: jsonb("decision_ids").default([]).notNull(),
   status: text("status").default("DRAFT").notNull(), // 'DRAFT' | 'COMPLETED'
+  revision: integer("revision").default(1).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

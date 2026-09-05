@@ -21,7 +21,10 @@ export interface WeeklyReviewView {
   cashSummary: string | null;
   obligationsSummary: string | null;
   actionProposals: JsonValue[];
+  weeklyPlanIds: string[];
+  decisionIds: string[];
   status: WeeklyReviewStatus;
+  revision: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,6 +37,8 @@ export interface CreateWeeklyReviewServiceInput {
   cashSummary?: string;
   obligationsSummary?: string;
   actionProposals?: JsonValue[];
+  weeklyPlanIds?: string[];
+  decisionIds?: string[];
 }
 
 export async function createWeeklyReviewService(p: CreateWeeklyReviewServiceInput): Promise<WeeklyReviewView> {
@@ -49,7 +54,10 @@ export async function createWeeklyReviewService(p: CreateWeeklyReviewServiceInpu
       cashSummary: p.cashSummary ?? null,
       obligationsSummary: p.obligationsSummary ?? null,
       actionProposals: p.actionProposals ?? [],
+      weeklyPlanIds: p.weeklyPlanIds ?? [],
+      decisionIds: p.decisionIds ?? [],
       status: "DRAFT",
+      revision: 1,
     })
     .returning();
 
@@ -62,7 +70,10 @@ export async function createWeeklyReviewService(p: CreateWeeklyReviewServiceInpu
     cashSummary: created.cashSummary,
     obligationsSummary: created.obligationsSummary,
     actionProposals: toJsonArray(created.actionProposals),
+    weeklyPlanIds: (created.weeklyPlanIds as string[]) || [],
+    decisionIds: (created.decisionIds as string[]) || [],
     status: created.status as WeeklyReviewStatus,
+    revision: created.revision ?? 1,
     createdAt: created.createdAt.toISOString(),
     updatedAt: created.updatedAt.toISOString(),
   };
@@ -86,7 +97,10 @@ export async function listWeeklyReviewsService(
     cashSummary: r.cashSummary,
     obligationsSummary: r.obligationsSummary,
     actionProposals: toJsonArray(r.actionProposals),
+    weeklyPlanIds: (r.weeklyPlanIds as string[]) || [],
+    decisionIds: (r.decisionIds as string[]) || [],
     status: r.status as WeeklyReviewStatus,
+    revision: r.revision ?? 1,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   }));
@@ -127,7 +141,10 @@ export async function completeWeeklyReviewService(p: CompleteWeeklyReviewInput):
         cashSummary: review.cashSummary,
         obligationsSummary: review.obligationsSummary,
         actionProposals: toJsonArray(review.actionProposals),
+        weeklyPlanIds: (review.weeklyPlanIds as string[]) || [],
+        decisionIds: (review.decisionIds as string[]) || [],
         status: "COMPLETED",
+        revision: review.revision ?? 1,
         createdAt: review.createdAt.toISOString(),
         updatedAt: review.updatedAt.toISOString(),
       };
@@ -170,7 +187,10 @@ export async function completeWeeklyReviewService(p: CompleteWeeklyReviewInput):
           cashSummary: recheck.cashSummary,
           obligationsSummary: recheck.obligationsSummary,
           actionProposals: toJsonArray(recheck.actionProposals),
+          weeklyPlanIds: (recheck.weeklyPlanIds as string[]) || [],
+          decisionIds: (recheck.decisionIds as string[]) || [],
           status: "COMPLETED",
+          revision: recheck.revision ?? 1,
           createdAt: recheck.createdAt.toISOString(),
           updatedAt: recheck.updatedAt.toISOString(),
         };
@@ -211,7 +231,10 @@ export async function completeWeeklyReviewService(p: CompleteWeeklyReviewInput):
       cashSummary: updated.cashSummary,
       obligationsSummary: updated.obligationsSummary,
       actionProposals: toJsonArray(updated.actionProposals),
+      weeklyPlanIds: (updated.weeklyPlanIds as string[]) || [],
+      decisionIds: (updated.decisionIds as string[]) || [],
       status: "COMPLETED",
+      revision: updated.revision ?? 1,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     };
