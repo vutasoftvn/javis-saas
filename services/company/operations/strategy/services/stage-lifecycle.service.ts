@@ -6,6 +6,7 @@ import { stagePolicies, stageTransitionPolicies, workspaceStageTransitions, evid
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { buildVentureStageChangedEvent } from "../events/venture-stage-events";
 import { evaluateGate, EvidenceItem, parseStagePolicyRules } from "./gate-evaluation.service";
+import { getEvidenceExclusionReason } from "./eligible-evidence.service";
 import { toJsonArray } from "./strategy-json";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
@@ -118,13 +119,18 @@ export async function assessVentureStage(workspaceId: bigint): Promise<AssessRes
     };
   }
 
-  // Load evidence của workspace
+  // Load evidence của workspace — chỉ evidence "approved", chưa xóa, chưa hết
+  // hạn mới được góp vào gate (IA03: trước đây lấy toàn bộ evidence bất kể
+  // status/deletedAt/freshUntil, nên candidate/expired vẫn đủ điểm pass gate).
   const rawEvidence = await db
     .select()
     .from(evidence)
     .where(eq(evidence.workspaceId, workspaceId));
 
-  const evidenceItems: EvidenceItem[] = rawEvidence.map((e) => ({
+  const now0 = new Date();
+  const eligibleEvidence = rawEvidence.filter((e) => getEvidenceExclusionReason(e, now0) === null);
+
+  const evidenceItems: EvidenceItem[] = eligibleEvidence.map((e) => ({
     id: e.id,
     sourceType: e.sourceType,
     strength: e.strength,
@@ -246,7 +252,11 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
 
   // M4 §2 — policy_version của edge (currentStage -> toStage) để ghi vào journal.
   const [edgePolicy] = await db
-    .select({ policyVersion: stageTransitionPolicies.policyVersion })
+    .select({
+      policyVersion: stageTransitionPolicies.policyVersion,
+      allowed: stageTransitionPolicies.allowed,
+      deletedAt: stageTransitionPolicies.deletedAt,
+    })
     .from(stageTransitionPolicies)
     .where(
       and(
@@ -256,6 +266,17 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
       )
     )
     .limit(1);
+
+  // IA03: edge policy allowed=false phải chặn transition — trước đây chỉ đọc
+  // policyVersion để ghi journal, không bao giờ dùng cờ allowed để quyết định.
+  // Đây là rule tường minh riêng của cặp (fromStage, toStage), độc lập với gate
+  // evidence ở trên — không override được bằng p.override (khác bản chất: gate
+  // là "chưa đủ bằng chứng", edge deny là "quy tắc nghiệp vụ cấm chuyển").
+  if (edgePolicy && !edgePolicy.deletedAt && edgePolicy.allowed === false) {
+    throw APIError.permissionDenied(
+      `Chuyển stage từ ${currentStage} sang ${p.toStage} bị chặn bởi stage transition policy (allowed=false)`
+    );
+  }
 
   const now = new Date();
   const transitionId = generateSnowflake();

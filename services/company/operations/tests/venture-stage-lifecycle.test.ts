@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { db } from "../models/db";
 import { identityWorkspaces } from "../../shared/db/schema/identity";
-import { stagePolicies, workspaceStageTransitions } from "../../shared/db/schema/strategy";
+import { stagePolicies, stageTransitionPolicies, workspaceStageTransitions, evidence } from "../../shared/db/schema/strategy";
 import { eventOutbox } from "../../shared/db/schema/integration";
 import { and, eq } from "drizzle-orm";
 import { assessVentureStage, transitionVentureStage } from "../strategy/services/stage-lifecycle.service";
+import { createProject } from "../handlers/project.handler";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
@@ -249,5 +250,107 @@ describe("venture stage lifecycle", () => {
       actorRole: "founder",
     });
     expect(r.stageVersion).toBe(2);
+  });
+
+  it("W-stage gate excludes candidate/expired evidence, counts only approved+fresh (IA03)", async () => {
+    const fixture = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fixture.workspaceId);
+    const project = await createProject({
+      authorization: fixture.bearerToken,
+      workspaceId: fixture.workspaceId,
+      title: "IA03 evidence eligibility project",
+    });
+
+    await db.insert(stagePolicies).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      stageKey: "W1_PROBLEM_VALIDATION",
+      minimumEvidenceScore: 5.0,
+      requirements: [],
+      blockingRiskRules: [],
+    });
+
+    // 1. Chỉ có evidence "candidate" (chưa duyệt) — điểm rất cao nhưng KHÔNG
+    // được tính vào gate.
+    await db.insert(evidence).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      projectId: BigInt(project.id),
+      sourceType: "interview",
+      claim: "Candidate evidence chưa duyệt",
+      strength: 10,
+      confidence: 1,
+      supportsOrRefutes: "supports",
+      status: "candidate",
+    });
+
+    const withCandidateOnly = await assessVentureStage(wsId);
+    expect(withCandidateOnly.evidenceCount).toBe(0);
+    expect(withCandidateOnly.gatePassed).toBe(false);
+
+    // 2. Thêm evidence "approved" nhưng đã hết hạn (freshUntil trong quá khứ)
+    // — cũng KHÔNG được tính.
+    await db.insert(evidence).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      projectId: BigInt(project.id),
+      sourceType: "interview",
+      claim: "Evidence đã hết hạn",
+      strength: 10,
+      confidence: 1,
+      supportsOrRefutes: "supports",
+      status: "approved",
+      freshUntil: new Date(Date.now() - 60 * 60 * 1000),
+    });
+
+    const withExpiredToo = await assessVentureStage(wsId);
+    expect(withExpiredToo.evidenceCount).toBe(0);
+    expect(withExpiredToo.gatePassed).toBe(false);
+
+    // 3. Thêm evidence "approved" còn hạn — đây là evidence DUY NHẤT được tính,
+    // đủ điểm để gate pass.
+    await db.insert(evidence).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      projectId: BigInt(project.id),
+      sourceType: "interview",
+      claim: "Evidence hợp lệ",
+      strength: 10,
+      confidence: 1,
+      supportsOrRefutes: "supports",
+      status: "approved",
+    });
+
+    const withValidEvidence = await assessVentureStage(wsId);
+    expect(withValidEvidence.evidenceCount).toBe(1);
+    expect(withValidEvidence.gatePassed).toBe(true);
+  });
+
+  it("blocks a transition explicitly disallowed by an edge policy (allowed=false), even for founder (IA03)", async () => {
+    const fixture = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fixture.workspaceId);
+
+    await db.insert(stageTransitionPolicies).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      fromStage: "W0_IDEA",
+      toStage: "W1_PROBLEM_VALIDATION",
+      allowed: false,
+    });
+
+    await expect(
+      transitionVentureStage({
+        workspaceId: wsId,
+        toStage: "W1_PROBLEM_VALIDATION",
+        reason: "founder tries anyway",
+        actorRole: "founder",
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    const [ws] = await db
+      .select()
+      .from(identityWorkspaces)
+      .where(eq(identityWorkspaces.id, wsId));
+    expect(ws.lifecycleStage).toBe("W0_IDEA");
   });
 });
