@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from typing import Any
+
 import httpx
 
 from apps.cosa.config.planes import resolve_platform_control_plane_url
@@ -35,10 +38,26 @@ class CosaTenantPolicyClient:
         base_url: str | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
         timeout: float = 5.0,
+        company_base_url: str | None = None,
+        company_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = (base_url or resolve_platform_control_plane_url()).rstrip("/")
         self._client = httpx.AsyncClient(
             base_url=self._base_url, transport=transport, timeout=timeout
+        )
+
+        # IA02: evaluate_business_action gọi services/company (Company Business
+        # plane) — KHÁC HẲN self._client ở trên vốn trỏ platform control plane
+        # (services/cosa) cho get_snapshot. Trước đây evaluate_business_action
+        # tái dùng self._client nên request /identity/business-policy/evaluate
+        # đi nhầm sang services/cosa (route không tồn tại ở đó). Resolve URL
+        # theo cùng biến môi trường COMPANY_SERVICE_URL đã dùng ở
+        # apps/cosa/compliance/company_client.py::AiComplianceClient.
+        self._company_base_url = (
+            company_base_url or os.environ.get("COMPANY_SERVICE_URL") or "http://127.0.0.1:4000"
+        ).rstrip("/")
+        self._company_client = httpx.AsyncClient(
+            base_url=self._company_base_url, transport=company_transport, timeout=timeout
         )
 
     async def get_snapshot(self, bearer_token: str, workspace_id: str) -> PolicySnapshot:
@@ -84,7 +103,7 @@ class CosaTenantPolicyClient:
 
     async def evaluate_business_action(
         self,
-        bearer_token: str,
+        delegation_token: str,
         workspace_id: str,
         action: str,
         resource_ref: str | None = None,
@@ -93,6 +112,14 @@ class CosaTenantPolicyClient:
         project_id: str | None = None,
         legal_entity_id: str | None = None,
     ) -> dict[str, Any]:
+        """Gọi `POST /identity/business-policy/evaluate` trên services/company
+        (Company Business plane) — KHÔNG phải services/cosa. `delegation_token`
+        PHẢI là JWT mint bởi `apps.cosa.auth.jwt.mint_company_delegation()`
+        (ký bằng COSA_COMPANY_DELEGATION_SECRET, scoped
+        {workspace_id, run_id, capability_ids}) — không phải bearer token
+        platform gốc của user (khác secret, services/company sẽ không verify
+        được — cùng lớp lỗi đã gây ra bug B5 cross-plane delegation).
+        """
         payload = {
             "action": action,
             "resourceRef": resource_ref,
@@ -102,11 +129,11 @@ class CosaTenantPolicyClient:
             "legalEntityId": legal_entity_id,
         }
         try:
-            resp = await self._client.post(
+            resp = await self._company_client.post(
                 "/identity/business-policy/evaluate",
                 json=payload,
                 headers={
-                    "Authorization": f"Bearer {bearer_token}",
+                    "Authorization": f"Bearer {delegation_token}",
                     "X-Workspace-Id": workspace_id,
                 },
             )
@@ -122,3 +149,4 @@ class CosaTenantPolicyClient:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+        await self._company_client.aclose()

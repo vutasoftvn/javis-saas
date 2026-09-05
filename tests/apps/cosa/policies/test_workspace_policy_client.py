@@ -68,3 +68,53 @@ async def test_get_snapshot_missing_field_raises():
     with pytest.raises(CosaTenantPolicyError):
         await client.get_snapshot("tok", "c1")
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_evaluate_business_action_targets_company_plane_not_control_plane():
+    # IA02: evaluate_business_action phải gọi services/company (Company
+    # Business plane), KHÔNG được đi qua self._client (control plane) như
+    # get_snapshot — 2 plane khác nhau, khác secret verify.
+    control_plane_calls: list[httpx.Request] = []
+
+    def control_plane_handler(request: httpx.Request) -> httpx.Response:
+        control_plane_calls.append(request)
+        return httpx.Response(500, json={"error": "should not be called"})
+
+    def company_handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/identity/business-policy/evaluate"
+        assert request.headers["authorization"] == "Bearer company-delegation-jwt"
+        assert request.headers["x-workspace-id"] == "ws1"
+        return httpx.Response(200, json={"effect": "ALLOW", "reasonCodes": []})
+
+    client = CosaTenantPolicyClient(
+        base_url="http://cosa-control-plane.test",
+        transport=httpx.MockTransport(control_plane_handler),
+        company_base_url="http://company-plane.test",
+        company_transport=httpx.MockTransport(company_handler),
+    )
+
+    result = await client.evaluate_business_action(
+        "company-delegation-jwt",
+        "ws1",
+        "finance.payment.approve",
+    )
+    assert result["effect"] == "ALLOW"
+    assert control_plane_calls == []  # không lọt sang control plane
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_evaluate_business_action_non_200_raises():
+    def company_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={"error": "permission_denied"})
+
+    client = CosaTenantPolicyClient(
+        base_url="http://cosa-control-plane.test",
+        transport=httpx.MockTransport(lambda r: httpx.Response(500)),
+        company_base_url="http://company-plane.test",
+        company_transport=httpx.MockTransport(company_handler),
+    )
+    with pytest.raises(CosaTenantPolicyError):
+        await client.evaluate_business_action("tok", "ws1", "finance.payment.approve")
+    await client.aclose()
