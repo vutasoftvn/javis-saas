@@ -318,24 +318,39 @@ async def run_customer_support_copilot(
                     )
                     await plane.artifact_repository.create(artifact)
                     if hasattr(plane.artifact_repository, "get"):
+                        # IA06: ArtifactRepository.get() nhận (workspace_id,
+                        # artifact_id) — trước đây chỉ truyền artifact_ref
+                        # (1 arg), khiến repository thật (InMemory/Postgres)
+                        # raise TypeError, bị nuốt bởi except bên dưới và báo
+                        # artifact_persisted=False cho một artifact thực ra ĐÃ
+                        # được create() thành công phía trên — output hợp lệ
+                        # bị báo thất bại oan.
                         get_fn = plane.artifact_repository.get
                         if inspect.iscoroutinefunction(get_fn) or type(get_fn).__name__ == "AsyncMock":
-                            retrieved = await get_fn(artifact_ref)
+                            retrieved = await get_fn(workspace_id, artifact_ref)
                             artifact_persisted = retrieved is not None
                         elif callable(get_fn):
-                            res = get_fn(artifact_ref)
+                            res = get_fn(workspace_id, artifact_ref)
                             if inspect.isawaitable(res):
                                 res = await res
                             artifact_persisted = res is not None
                         else:
-                            artifact_persisted = True
+                            # Có thuộc tính "get" nhưng không callable — không
+                            # thể xác minh đã persist, fail-closed.
+                            artifact_persisted = False
                     else:
-                        artifact_persisted = True
+                        # Repository không có get() để verify — fail-closed,
+                        # không suy diễn "chắc là đã lưu".
+                        artifact_persisted = False
                 except Exception as e:
                     logger.warning("Failed to persist copilot artifact: %s", e)
                     artifact_persisted = False
             else:
-                artifact_persisted = True
+                # IA06: KHÔNG có artifact_repository nào được cấu hình — không
+                # có nơi nào lưu artifact, phải fail-closed (False), không
+                # phải mặc định True như trước (khiến run được coi là hoàn
+                # thành dù artifact chưa từng được ghi ở đâu cả).
+                artifact_persisted = False
 
         from apps.cosa.worker.run_outcome import normalize_status, resolve_run_outcome
         outcome = resolve_run_outcome(

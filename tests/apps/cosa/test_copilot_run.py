@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from agent.artifacts.repository import InMemoryArtifactRepository
 from agent.contracts.run import RunRequest, RunResult, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.governance.contracts import AutonomyLevel
@@ -238,6 +239,62 @@ async def test_copilot_happy_path_artifact_persisted_ux_emitted_and_callback_sen
         assert cb_args[0] == "run_good_1"
         assert cb_args[1] == "completed"
         assert "artifact_ref" in mock_cb.call_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_copilot_completes_with_a_real_artifact_repository_not_a_mock(mock_plane, mock_stream_mgr):
+    """IA06: dùng InMemoryArtifactRepository THẬT (không phải AsyncMock chấp
+    nhận mọi số lượng tham số) — trước đây get_fn(artifact_ref) gọi thiếu
+    workspace_id, repository thật raise TypeError, bị nuốt bởi except và báo
+    artifact_persisted=False oan cho một artifact ĐÃ create() thành công.
+    """
+    mock_plane.artifact_repository = InMemoryArtifactRepository()
+
+    payload = {
+        "run_id": "run_real_repo_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_100", "contact_id": "c_200"},
+        "intent": "summarize",
+        "identity_verified": False,
+        "knowledge_scope": {},
+        "correlation_id": "corr-real-repo",
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+        mock_cb.assert_awaited_once()
+        assert mock_cb.call_args.args == ("run_real_repo_1", "completed")
+
+        # Artifact thực sự nằm trong repository, đọc lại được bằng đúng workspace.
+        artifact_ref = mock_cb.call_args.kwargs["artifact_ref"]
+        retrieved = await mock_plane.artifact_repository.get("ws_1", artifact_ref)
+        assert retrieved is not None
+
+
+@pytest.mark.asyncio
+async def test_copilot_fails_closed_when_no_artifact_repository_is_configured(mock_plane, mock_stream_mgr):
+    """IA06: không có artifact_repository nào -> không có nơi nào lưu artifact
+    -> phải fail-closed, không được mặc định coi như đã persist."""
+    mock_plane.artifact_repository = None
+
+    payload = {
+        "run_id": "run_no_repo_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_100", "contact_id": "c_200"},
+        "intent": "summarize",
+        "identity_verified": False,
+        "knowledge_scope": {},
+        "correlation_id": "corr-no-repo",
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+        mock_cb.assert_awaited_once()
+        assert mock_cb.call_args.args[1] != "completed"
 
 
 @pytest.mark.asyncio
