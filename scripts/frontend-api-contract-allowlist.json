@@ -2,6 +2,13 @@
   "version": 1,
   "entries": [
     {
+      "path": "/operations/projects/:projectId/kickoff-suggestion",
+      "method": "POST",
+      "owner": "company-operations",
+      "reason": "AI Kickoff suggestion dispatch trigger from Flutter UI (step 3)",
+      "expires_on": "2027-06-01"
+    },
+    {
       "path": "/auth/me",
       "method": "GET",
       "owner": "control-plane",

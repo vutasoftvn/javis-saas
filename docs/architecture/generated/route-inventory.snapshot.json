@@ -373,15 +373,7 @@
       "resolved": false,
       "owner": null
     },
-    "GET /workforce/dashboard-summary": {
-      "resolved": false,
-      "owner": null
-    },
     "GET /workforce/decisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /workforce/exceptions": {
       "resolved": false,
       "owner": null
     },
@@ -409,15 +401,7 @@
       "resolved": false,
       "owner": null
     },
-    "GET /workforce/stage-roster": {
-      "resolved": false,
-      "owner": null
-    },
     "GET /workforce/tools": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /workforce/work-products": {
       "resolved": false,
       "owner": null
     },

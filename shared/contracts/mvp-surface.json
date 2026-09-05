@@ -1065,6 +1065,51 @@
       "backend_test": "services/company/operations/tests/mvp-canvas-runtime.test.ts",
       "flutter_test": "frontend/test/workspace_runtime_service_test.dart",
       "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
+    },
+    {
+      "id": "settings.permission.get",
+      "enabled": true,
+      "owner": "company-identity",
+      "plane": "company",
+      "method": "GET",
+      "path": "/identity/permissions",
+      "schema": "settings.permission.get.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "frontend_symbol": "PermissionsService.getPermissions",
+      "backend_test": "services/company/identity/tests/permissions-api.test.ts",
+      "flutter_test": "frontend/test/modules/settings/permissions_panel_test.dart",
+      "integration_test": "tests/e2e/test_mvp_settings_http.py"
+    },
+    {
+      "id": "settings.permission.simulate",
+      "enabled": true,
+      "owner": "company-identity",
+      "plane": "company",
+      "method": "POST",
+      "path": "/identity/permissions/simulate",
+      "schema": "settings.permission.simulate.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "frontend_symbol": "PermissionsService.simulatePermissions",
+      "backend_test": "services/company/identity/tests/permissions-api.test.ts",
+      "flutter_test": "frontend/test/modules/settings/permissions_panel_test.dart",
+      "integration_test": "tests/e2e/test_mvp_settings_http.py"
+    },
+    {
+      "id": "settings.permission.update",
+      "enabled": true,
+      "owner": "company-identity",
+      "plane": "company",
+      "method": "PUT",
+      "path": "/identity/permissions",
+      "schema": "settings.permission.update.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "frontend_symbol": "PermissionsService.updatePermissions",
+      "backend_test": "services/company/identity/tests/permissions-api.test.ts",
+      "flutter_test": "frontend/test/modules/settings/permissions_panel_test.dart",
+      "integration_test": "tests/e2e/test_mvp_settings_http.py"
     }
   ]
 }
