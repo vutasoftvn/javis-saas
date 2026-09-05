@@ -47,7 +47,10 @@ import { Query } from "encore.dev/api";
 import {
   listObligationInstancesService,
   createObligationInstanceService,
+  transitionObligationStatus,
+  listObligationTransitions,
   LegalObligationInstanceView,
+  ObligationTransitionView,
 } from "../services/legal-obligation.service";
 
 export interface ListObligationInstancesParams {
@@ -65,11 +68,31 @@ export interface CreateObligationInstanceParams {
   workspaceId: Header<"X-Workspace-Id">;
   templateId?: string;
   regulationVersionId?: string;
+  legalEntityProfileId?: string;
   source: "REGULATION_TEMPLATE" | "USER_CREATED" | "AI_PROPOSAL";
   title: string;
   dueDate?: string;
+  periodKey?: string;
+  evidenceRefs?: string[];
   evidenceArtifactId?: string;
   ownerMemberId?: string;
+}
+
+export interface TransitionObligationInstanceParams {
+  id: string;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  expectedFromStatus?: string;
+  toStatus: "OPEN" | "IN_PROGRESS" | "FULFILLED" | "EXEMPT" | "CANCELLED";
+  evidenceArtifactId?: string;
+  evidenceRefs?: string[];
+  rationale?: string;
+}
+
+export interface ListObligationTransitionsParams {
+  id: string;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
 }
 
 export const getObligationInstances = api(
@@ -94,14 +117,53 @@ export const postObligationInstance = api(
       regulationVersionId: params.regulationVersionId
         ? BigInt(params.regulationVersionId)
         : undefined,
+      legalEntityProfileId: params.legalEntityProfileId
+        ? BigInt(params.legalEntityProfileId)
+        : undefined,
       source: params.source,
       title: params.title,
       dueDate: params.dueDate,
+      periodKey: params.periodKey,
+      evidenceRefs: params.evidenceRefs,
       evidenceArtifactId: params.evidenceArtifactId
         ? BigInt(params.evidenceArtifactId)
         : undefined,
       ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : undefined,
     });
+  }
+);
+
+export const transitionObligationInstanceApi = api(
+  { method: "POST", path: "/legal/obligation-instances/:id/transition", expose: true },
+  async (params: TransitionObligationInstanceParams): Promise<LegalObligationInstanceView> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return transitionObligationStatus(
+      {
+        workspaceId: BigInt(ctx.workspaceId),
+        instanceId: BigInt(params.id),
+        expectedFromStatus: params.expectedFromStatus,
+        toStatus: params.toStatus,
+        evidenceArtifactId: params.evidenceArtifactId
+          ? BigInt(params.evidenceArtifactId)
+          : undefined,
+        evidenceRefs: params.evidenceRefs,
+        actorMemberId: ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : undefined,
+        rationale: params.rationale,
+      },
+      ctx
+    );
+  }
+);
+
+export const listObligationTransitionsApi = api(
+  { method: "GET", path: "/legal/obligation-instances/:id/transitions", expose: true },
+  async (params: ListObligationTransitionsParams): Promise<{ transitions: ObligationTransitionView[] }> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const transitions = await listObligationTransitions(
+      BigInt(ctx.workspaceId),
+      BigInt(params.id)
+    );
+    return { transitions };
   }
 );
 

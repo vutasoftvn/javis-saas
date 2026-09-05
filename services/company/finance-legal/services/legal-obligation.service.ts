@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
@@ -87,7 +87,7 @@ export async function fulfillObligationService(
   return toObligation(row);
 }
 
-const { legalObligationInstances } = schema;
+const { legalObligationInstances, obligationTransitions } = schema;
 
 export interface LegalObligationInstanceView {
   id: string;
@@ -99,10 +99,32 @@ export interface LegalObligationInstanceView {
   title: string;
   dueDate: string | null;
   status: string;
+  periodKey: string | null;
+  evidenceRefs: string[];
   evidenceArtifactId: string | null;
   reviewStatus: string;
   createdAt: string;
   updatedAt: string;
+}
+
+function toInstanceView(r: typeof legalObligationInstances.$inferSelect): LegalObligationInstanceView {
+  return {
+    id: String(r.id),
+    workspaceId: String(r.workspaceId),
+    legalEntityProfileId: r.legalEntityProfileId ? String(r.legalEntityProfileId) : null,
+    templateId: r.templateId ? String(r.templateId) : null,
+    regulationVersionId: r.regulationVersionId ? String(r.regulationVersionId) : null,
+    source: r.source as any,
+    title: r.title,
+    dueDate: r.dueDate ? String(r.dueDate) : null,
+    status: r.status === "PENDING" ? "OPEN" : r.status,
+    periodKey: r.periodKey ?? null,
+    evidenceRefs: (r.evidenceRefs as string[]) || [],
+    evidenceArtifactId: r.evidenceArtifactId ? String(r.evidenceArtifactId) : null,
+    reviewStatus: r.reviewStatus,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
 }
 
 export async function listObligationInstancesService(
@@ -119,21 +141,7 @@ export async function listObligationInstancesService(
     filtered = rows.filter((r) => r.status.toLowerCase() === status.toLowerCase());
   }
 
-  return filtered.map((r) => ({
-    id: String(r.id),
-    workspaceId: String(r.workspaceId),
-    legalEntityProfileId: r.legalEntityProfileId ? String(r.legalEntityProfileId) : null,
-    templateId: r.templateId ? String(r.templateId) : null,
-    regulationVersionId: r.regulationVersionId ? String(r.regulationVersionId) : null,
-    source: r.source as any,
-    title: r.title,
-    dueDate: r.dueDate ? String(r.dueDate) : null,
-    status: r.status,
-    evidenceArtifactId: r.evidenceArtifactId ? String(r.evidenceArtifactId) : null,
-    reviewStatus: r.reviewStatus,
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
-  }));
+  return filtered.map(toInstanceView);
 }
 
 export interface OpenObligationView extends LegalObligationInstanceView {
@@ -178,22 +186,11 @@ export async function listOpenObligations(
       }
     }
 
+    const base = toInstanceView(r);
     return {
-      id: String(r.id),
-      workspaceId: String(r.workspaceId),
-      legalEntityProfileId: r.legalEntityProfileId ? String(r.legalEntityProfileId) : null,
-      templateId: r.templateId ? String(r.templateId) : null,
-      regulationVersionId: r.regulationVersionId ? String(r.regulationVersionId) : null,
-      source: r.source as any,
-      title: r.title,
-      dueDate: r.dueDate ? String(r.dueDate) : null,
-      status: r.status === "PENDING" ? "OPEN" : r.status,
-      evidenceArtifactId: r.evidenceArtifactId ? String(r.evidenceArtifactId) : null,
-      reviewStatus: r.reviewStatus,
+      ...base,
       isOverdue,
       overdueDays,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
     };
   });
 }
@@ -202,23 +199,51 @@ export async function createObligationInstanceService(p: {
   workspaceId: bigint;
   templateId?: bigint;
   regulationVersionId?: bigint;
+  legalEntityProfileId?: bigint;
   source: "REGULATION_TEMPLATE" | "USER_CREATED" | "AI_PROPOSAL";
   title: string;
   dueDate?: string;
+  periodKey?: string;
+  evidenceRefs?: string[];
   evidenceArtifactId?: bigint;
   ownerMemberId?: bigint;
 }): Promise<LegalObligationInstanceView> {
+  // Idempotency check: if templateId and periodKey exist, prevent duplicate instance
+  if (p.templateId && p.periodKey) {
+    const existing = await db
+      .select()
+      .from(legalObligationInstances)
+      .where(
+        and(
+          eq(legalObligationInstances.workspaceId, p.workspaceId),
+          eq(legalObligationInstances.templateId, p.templateId),
+          eq(legalObligationInstances.periodKey, p.periodKey),
+          p.legalEntityProfileId
+            ? eq(legalObligationInstances.legalEntityProfileId, p.legalEntityProfileId)
+            : isNull(legalObligationInstances.legalEntityProfileId)
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      return toInstanceView(existing[0]);
+    }
+  }
+
   const newId = generateSnowflake();
   const [created] = await db
     .insert(legalObligationInstances)
     .values({
       id: newId,
       workspaceId: p.workspaceId,
+      legalEntityProfileId: p.legalEntityProfileId ?? null,
       templateId: p.templateId ?? null,
       regulationVersionId: p.regulationVersionId ?? null,
       source: p.source,
       title: p.title,
       dueDate: p.dueDate ? (p.dueDate as any) : null,
+      periodKey: p.periodKey ?? null,
+      evidenceRefs: p.evidenceRefs ?? [],
       evidenceArtifactId: p.evidenceArtifactId ?? null,
       ownerMemberId: p.ownerMemberId ?? null,
       status: "OPEN",
@@ -226,21 +251,179 @@ export async function createObligationInstanceService(p: {
     })
     .returning();
 
-  return {
-    id: String(created.id),
-    workspaceId: String(created.workspaceId),
-    legalEntityProfileId: created.legalEntityProfileId ? String(created.legalEntityProfileId) : null,
-    templateId: created.templateId ? String(created.templateId) : null,
-    regulationVersionId: created.regulationVersionId ? String(created.regulationVersionId) : null,
-    source: created.source as any,
-    title: created.title,
-    dueDate: created.dueDate ? String(created.dueDate) : null,
-    status: created.status,
-    evidenceArtifactId: created.evidenceArtifactId ? String(created.evidenceArtifactId) : null,
-    reviewStatus: created.reviewStatus,
-    createdAt: created.createdAt.toISOString(),
-    updatedAt: created.updatedAt.toISOString(),
-  };
+  return toInstanceView(created);
+}
+
+export interface TransitionObligationInput {
+  workspaceId: bigint;
+  instanceId: bigint;
+  expectedFromStatus?: string;
+  toStatus: "OPEN" | "IN_PROGRESS" | "FULFILLED" | "EXEMPT" | "CANCELLED";
+  evidenceArtifactId?: bigint;
+  evidenceRefs?: string[];
+  actorMemberId?: bigint;
+  rationale?: string;
+}
+
+export interface ObligationTransitionView {
+  id: string;
+  obligationInstanceId: string;
+  fromStatus: string;
+  toStatus: string;
+  evidenceArtifactId: string | null;
+  evidenceRefs: string[];
+  actorMemberId: string | null;
+  rationale: string | null;
+  createdAt: string;
+}
+
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  OPEN: ["IN_PROGRESS", "FULFILLED", "EXEMPT", "CANCELLED"],
+  IN_PROGRESS: ["FULFILLED", "EXEMPT", "CANCELLED", "OPEN"],
+  FULFILLED: [],
+  EXEMPT: ["OPEN"],
+  CANCELLED: ["OPEN"],
+  PENDING: ["OPEN", "IN_PROGRESS", "FULFILLED", "EXEMPT", "CANCELLED"],
+};
+
+export async function transitionObligationStatus(
+  input: TransitionObligationInput,
+  ctx?: TenantContext
+): Promise<LegalObligationInstanceView> {
+  const wsId = input.workspaceId;
+  const instId = input.instanceId;
+
+  // 1. Transition sang FULFILLED bắt buộc kèm evidence
+  if (input.toStatus === "FULFILLED") {
+    const hasEvidence =
+      Boolean(input.evidenceArtifactId) ||
+      (Array.isArray(input.evidenceRefs) && input.evidenceRefs.length > 0);
+    if (!hasEvidence) {
+      const err = APIError.invalidArgument(
+        "Fulfillment requires verified evidence (evidenceArtifactId or non-empty evidenceRefs)"
+      );
+      (err as any).code = "EVIDENCE_REQUIRED";
+      throw err;
+    }
+  }
+
+  return await db.transaction(async (tx) => {
+    // 2. Fetch current record
+    const [current] = await tx
+      .select()
+      .from(legalObligationInstances)
+      .where(
+        and(
+          eq(legalObligationInstances.id, instId),
+          eq(legalObligationInstances.workspaceId, wsId)
+        )
+      )
+      .limit(1);
+
+    if (!current) {
+      throw APIError.notFound(`Legal obligation instance ${instId} not found`);
+    }
+
+    const currentCanonical = current.status === "PENDING" ? "OPEN" : current.status;
+
+    // Idempotent: return existing if already transitioned
+    if (currentCanonical === input.toStatus) {
+      return toInstanceView(current);
+    }
+
+    // Expected from status check
+    if (input.expectedFromStatus && currentCanonical !== input.expectedFromStatus) {
+      const err = APIError.aborted(
+        `CAS mismatch: expected status ${input.expectedFromStatus} but current status is ${currentCanonical}`
+      );
+      (err as any).code = "CONCURRENT_MODIFICATION";
+      throw err;
+    }
+
+    // Allowed transition check
+    const allowed = ALLOWED_TRANSITIONS[currentCanonical] || [];
+    if (!allowed.includes(input.toStatus)) {
+      const err = APIError.invalidArgument(
+        `Invalid obligation transition from ${currentCanonical} to ${input.toStatus}`
+      );
+      (err as any).code = "INVALID_TRANSITION";
+      throw err;
+    }
+
+    const now = new Date();
+    const updatedEvidenceRefs = input.evidenceRefs || (current.evidenceRefs as string[]) || [];
+    const updatedArtifactId = input.evidenceArtifactId ?? current.evidenceArtifactId;
+
+    // 3. CAS Update
+    const [updated] = await tx
+      .update(legalObligationInstances)
+      .set({
+        status: input.toStatus,
+        evidenceArtifactId: updatedArtifactId,
+        evidenceRefs: updatedEvidenceRefs,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(legalObligationInstances.id, instId),
+          eq(legalObligationInstances.workspaceId, wsId),
+          eq(legalObligationInstances.status, current.status)
+        )
+      )
+      .returning();
+
+    if (!updated) {
+      const err = APIError.aborted("Concurrent modification during obligation transition");
+      (err as any).code = "CONCURRENT_MODIFICATION";
+      throw err;
+    }
+
+    // 4. Log to obligation_transitions
+    const transitionId = generateSnowflake();
+    const actorId = ctx ? (ctx.workforceMemberId || ctx.userId) : input.actorMemberId;
+    await tx.insert(obligationTransitions).values({
+      id: transitionId,
+      workspaceId: wsId,
+      obligationInstanceId: instId,
+      fromStatus: currentCanonical,
+      toStatus: input.toStatus,
+      evidenceArtifactId: input.evidenceArtifactId ?? null,
+      evidenceRefs: input.evidenceRefs || [],
+      actorMemberId: actorId ? BigInt(actorId) : null,
+      rationale: input.rationale ?? null,
+      createdAt: now,
+    });
+
+    return toInstanceView(updated);
+  });
+}
+
+export async function listObligationTransitions(
+  workspaceId: bigint,
+  obligationInstanceId: bigint
+): Promise<ObligationTransitionView[]> {
+  const rows = await db
+    .select()
+    .from(obligationTransitions)
+    .where(
+      and(
+        eq(obligationTransitions.workspaceId, workspaceId),
+        eq(obligationTransitions.obligationInstanceId, obligationInstanceId)
+      )
+    )
+    .orderBy(desc(obligationTransitions.createdAt));
+
+  return rows.map((r) => ({
+    id: String(r.id),
+    obligationInstanceId: String(r.obligationInstanceId),
+    fromStatus: r.fromStatus,
+    toStatus: r.toStatus,
+    evidenceArtifactId: r.evidenceArtifactId ? String(r.evidenceArtifactId) : null,
+    evidenceRefs: (r.evidenceRefs as string[]) || [],
+    actorMemberId: r.actorMemberId ? String(r.actorMemberId) : null,
+    rationale: r.rationale,
+    createdAt: r.createdAt.toISOString(),
+  }));
 }
 
 

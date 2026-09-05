@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db, schema } from "../../db";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
@@ -8,9 +8,42 @@ import { WEEKLY_REVIEW_COMPLETED } from "../../../shared/events";
 import { randomUUID } from "node:crypto";
 import { JsonValue, toJsonArray } from "./strategy-json";
 
-const { weeklyReviews } = schema;
+const { weeklyReviews, legalObligationInstances } = schema;
 
 export type WeeklyReviewStatus = "DRAFT" | "COMPLETED";
+
+export interface WeeklyObligationsSummary {
+  openCount: number;
+  inProgressCount: number;
+  overdueCount: number;
+  fulfilledCount: number;
+  summaryText: string;
+}
+
+export async function aggregateWeeklyObligationsSummary(
+  workspaceId: bigint,
+  atDate: Date = new Date()
+): Promise<WeeklyObligationsSummary> {
+  const all = await db
+    .select()
+    .from(legalObligationInstances)
+    .where(eq(legalObligationInstances.workspaceId, workspaceId));
+
+  const open = all.filter((o) => o.status === "OPEN" || o.status === "PENDING");
+  const inProgress = all.filter((o) => o.status === "IN_PROGRESS");
+  const fulfilled = all.filter((o) => o.status === "FULFILLED");
+  const overdue = [...open, ...inProgress].filter(
+    (o) => o.dueDate && new Date(o.dueDate) < atDate
+  );
+
+  return {
+    openCount: open.length,
+    inProgressCount: inProgress.length,
+    overdueCount: overdue.length,
+    fulfilledCount: fulfilled.length,
+    summaryText: `${open.length + inProgress.length} active legal obligations (${overdue.length} overdue, ${fulfilled.length} fulfilled)`,
+  };
+}
 
 export interface WeeklyReviewView {
   id: string;
@@ -43,6 +76,12 @@ export interface CreateWeeklyReviewServiceInput {
 
 export async function createWeeklyReviewService(p: CreateWeeklyReviewServiceInput): Promise<WeeklyReviewView> {
   const newId = generateSnowflake();
+  let obligationsSummary = p.obligationsSummary;
+  if (!obligationsSummary) {
+    const agg = await aggregateWeeklyObligationsSummary(p.workspaceId);
+    obligationsSummary = agg.summaryText;
+  }
+
   const [created] = await db
     .insert(weeklyReviews)
     .values({
@@ -52,7 +91,7 @@ export async function createWeeklyReviewService(p: CreateWeeklyReviewServiceInpu
       summary: p.summary,
       stageAssessment: p.stageAssessment ?? null,
       cashSummary: p.cashSummary ?? null,
-      obligationsSummary: p.obligationsSummary ?? null,
+      obligationsSummary: obligationsSummary ?? null,
       actionProposals: p.actionProposals ?? [],
       weeklyPlanIds: p.weeklyPlanIds ?? [],
       decisionIds: p.decisionIds ?? [],

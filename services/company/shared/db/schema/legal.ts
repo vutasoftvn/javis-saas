@@ -121,6 +121,8 @@ export const legalObligationInstances = legalSchema.table("legal_obligation_inst
   title: text("title").notNull(),
   dueDate: date("due_date"),
   status: text("status").default("OPEN").notNull(),
+  periodKey: text("period_key"),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
   evidenceArtifactId: bigint("evidence_artifact_id", { mode: "bigint" }),
   applicabilityAssessedAt: timestamp("applicability_assessed_at", { withTimezone: true }),
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
@@ -128,6 +130,21 @@ export const legalObligationInstances = legalSchema.table("legal_obligation_inst
   legacyRef: text("legacy_ref").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const obligationTransitions = legalSchema.table("obligation_transitions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  obligationInstanceId: bigint("obligation_instance_id", { mode: "bigint" })
+    .notNull()
+    .references(() => legalObligationInstances.id, { onDelete: "cascade" }),
+  fromStatus: text("from_status").notNull(),
+  toStatus: text("to_status").notNull(),
+  evidenceArtifactId: bigint("evidence_artifact_id", { mode: "bigint" }),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  rationale: text("rationale"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // AI Compliance & Governance Schema
