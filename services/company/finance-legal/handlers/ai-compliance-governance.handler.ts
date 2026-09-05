@@ -1,6 +1,7 @@
 import { api, Header } from "encore.dev/api";
 import { APIError } from "encore.dev/api";
-import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { requireCommandAuthority } from "../../identity/services/command-authority.service";
 import {
   createAiDeployment,
   submitAiAssessment,
@@ -15,6 +16,7 @@ export interface CreateAiDeploymentRequest {
   workspaceId: Header<"X-Workspace-Id">;
   authorization?: Header<"Authorization">;
   systemVersionId: string;
+  accountableMemberId?: string;
   technicalOwnerMemberId?: string;
 }
 
@@ -61,13 +63,15 @@ export const createAiDeploymentApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/deployments", expose: true },
   async (req: CreateAiDeploymentRequest) => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
-    requireFounderCommand(ctx, "ai.deployment.create");
+    await requireCommandAuthority(ctx, "ai.deployment.create", { workspaceId: String(ctx.workspaceId) });
     const memberId = ctx.workforceMemberId || ctx.userId;
     return createAiDeployment({
       workspaceId: ctx.workspaceId,
       systemVersionId: req.systemVersionId,
       mode: "ADVISORY_ONLY",
       founderMemberId: memberId,
+      createdByMemberId: memberId,
+      accountableMemberId: req.accountableMemberId || memberId,
       technicalOwnerMemberId: req.technicalOwnerMemberId,
     }, ctx);
   }
@@ -95,7 +99,7 @@ export const approveAiAssessmentApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/deployments/:deploymentId/approve", expose: true },
   async (req: ApproveAiAssessmentRequest) => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
-    requireFounderCommand(ctx, "ai.deployment.approve");
+    await requireCommandAuthority(ctx, "ai.deployment.approve", { workspaceId: String(ctx.workspaceId) });
     const memberId = ctx.workforceMemberId || ctx.userId;
     return approveAiAssessment({
       workspaceId: ctx.workspaceId,

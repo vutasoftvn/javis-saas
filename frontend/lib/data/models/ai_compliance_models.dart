@@ -8,6 +8,12 @@ class AiComplianceDeployment {
   final String providerStatus;
   final String mode;
   final List<String> allowedCapabilities;
+  final String? createdByMemberId;
+  final String? accountableMemberId;
+  final String? reviewerMemberId;
+  final String? approvedByMemberId;
+  final int policyVersion;
+  final int? approvedVersion;
 
   const AiComplianceDeployment({
     required this.id,
@@ -19,6 +25,12 @@ class AiComplianceDeployment {
     required this.providerStatus,
     this.mode = 'ADVISORY_ONLY',
     this.allowedCapabilities = const [],
+    this.createdByMemberId,
+    this.accountableMemberId,
+    this.reviewerMemberId,
+    this.approvedByMemberId,
+    this.policyVersion = 1,
+    this.approvedVersion,
   });
 
   factory AiComplianceDeployment.fromJson(Map<String, dynamic> json) {
@@ -32,6 +44,12 @@ class AiComplianceDeployment {
       providerStatus: json['providerStatus']?.toString() ?? json['provider_status']?.toString() ?? '',
       mode: json['mode']?.toString() ?? 'ADVISORY_ONLY',
       allowedCapabilities: (json['allowedCapabilities'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      createdByMemberId: json['createdByMemberId']?.toString() ?? json['created_by_member_id']?.toString(),
+      accountableMemberId: json['accountableMemberId']?.toString() ?? json['accountable_member_id']?.toString(),
+      reviewerMemberId: json['reviewerMemberId']?.toString() ?? json['reviewer_member_id']?.toString(),
+      approvedByMemberId: json['approvedByMemberId']?.toString() ?? json['approved_by_member_id']?.toString(),
+      policyVersion: json['policyVersion'] is int ? json['policyVersion'] : int.tryParse(json['policyVersion']?.toString() ?? '') ?? 1,
+      approvedVersion: json['approvedVersion'] is int ? json['approvedVersion'] : int.tryParse(json['approvedVersion']?.toString() ?? ''),
     );
   }
 
@@ -45,6 +63,12 @@ class AiComplianceDeployment {
     'providerStatus': providerStatus,
     'mode': mode,
     'allowedCapabilities': allowedCapabilities,
+    'createdByMemberId': createdByMemberId,
+    'accountableMemberId': accountableMemberId,
+    'reviewerMemberId': reviewerMemberId,
+    'approvedByMemberId': approvedByMemberId,
+    'policyVersion': policyVersion,
+    'approvedVersion': approvedVersion,
   };
 }
 

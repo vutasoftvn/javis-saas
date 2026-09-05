@@ -198,6 +198,12 @@ class ComplianceCenterPanel extends StatelessWidget {
           const SizedBox(height: 8),
           Text('Chế độ: ${dep.mode}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
           Text('Người quản lý: ${dep.ownerName}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+          if (dep.createdByMemberId != null)
+            Text('Người tạo: Member ${dep.createdByMemberId}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+          if (dep.accountableMemberId != null && dep.accountableMemberId != dep.createdByMemberId)
+            Text('Chịu trách nhiệm: Member ${dep.accountableMemberId}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+          if (dep.approvedByMemberId != null)
+            Text('Đã duyệt bởi: Member ${dep.approvedByMemberId}${dep.approvedVersion != null ? ' (v${dep.approvedVersion})' : ''}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 12)),
           if (dep.assessmentExpiresAt.isNotEmpty)
             Text('Hạn đánh giá: ${dep.assessmentExpiresAt}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
           const SizedBox(height: 12),
@@ -280,7 +286,7 @@ class ComplianceCenterPanel extends StatelessWidget {
                     backgroundColor: const Color(0xFF3B82F6),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   ),
-                  child: const Text('Phê duyệt (Founder)', style: TextStyle(color: Colors.white, fontSize: 12)),
+                  child: const Text('Phê duyệt thẩm quyền', style: TextStyle(color: Colors.white, fontSize: 12)),
                 ),
               ],
             ],

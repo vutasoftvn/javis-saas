@@ -169,6 +169,12 @@ export const workspaceAiDeployments = legalSchema.table(
     mode: text("mode").notNull(),
     status: text("status").notNull(),
     founderMemberId: bigint("founder_member_id", { mode: "bigint" }).notNull(),
+    createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+    accountableMemberId: bigint("accountable_member_id", { mode: "bigint" }),
+    reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }),
+    approvedByMemberId: bigint("approved_by_member_id", { mode: "bigint" }),
+    policyVersion: integer("policy_version").default(1).notNull(),
+    approvedVersion: integer("approved_version"),
     technicalOwnerMemberId: bigint("technical_owner_member_id", { mode: "bigint" }),
     // nullable — deployment mới tạo chưa có assessment nào được chốt làm current
     currentAssessmentId: bigint("current_assessment_id", { mode: "bigint" }),

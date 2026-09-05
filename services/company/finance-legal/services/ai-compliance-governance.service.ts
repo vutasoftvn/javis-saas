@@ -6,6 +6,10 @@ import { assessAiApplicability } from "./ai-legal-applicability.service";
 import { getDeploymentInWorkspace, getAssessmentInWorkspace } from "./ai-compliance-access.service";
 import { requireFounderCommand } from "../../shared/auth/workspace-access";
 import type { TenantContext } from "../../shared/types/tenant_context";
+import {
+  authorizeBusinessAction,
+  getLatestPolicyVersion,
+} from "../../identity/services/business-authorization.service";
 
 const {
   workspaceAiDeployments,
@@ -16,6 +20,7 @@ const {
   aiIncidents,
   aiSystemVersions,
   aiSystemCapabilityBindings,
+  legalEntityProfiles,
 } = schema;
 
 export type DeploymentStatus =
@@ -47,7 +52,9 @@ export interface CreateAiDeploymentInput {
   workspaceId: string | bigint;
   systemVersionId: string | bigint;
   mode: "ADVISORY_ONLY";
-  founderMemberId: string | bigint;
+  founderMemberId?: string | bigint;
+  createdByMemberId?: string | bigint;
+  accountableMemberId?: string | bigint;
   technicalOwnerMemberId?: string | bigint;
 }
 
@@ -69,6 +76,7 @@ export interface ApproveAiAssessmentInput {
   approvedByMemberId: string | bigint;
   rationale: string;
   expiresAt: string;
+  allowSoleProprietorshipExemption?: boolean;
 }
 
 export interface SuspendAiDeploymentInput {
@@ -96,6 +104,12 @@ export interface ComplianceCenterView {
     mode: string;
     status: string;
     founderMemberId: string;
+    createdByMemberId?: string | null;
+    accountableMemberId?: string | null;
+    reviewerMemberId?: string | null;
+    approvedByMemberId?: string | null;
+    policyVersion?: number;
+    approvedVersion?: number | null;
     technicalOwnerMemberId: string | null;
     ownerName: string;
     currentAssessmentId: string | null;
@@ -142,7 +156,16 @@ export async function createAiDeployment(
   ctx?: TenantContext
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
   if (ctx) {
-    requireFounderCommand(ctx, "ai.deployment.create");
+    const decision = await authorizeBusinessAction(ctx, "ai.deployment.create", {
+      workspaceId: String(input.workspaceId),
+    });
+    if (decision.effect === "DENY") {
+      const err = APIError.permissionDenied(
+        `AI deployment creation denied: ${decision.reasonCodes.join(", ")}`
+      );
+      (err as any).code = "PERMISSION_DENIED";
+      throw err;
+    }
   }
 
   if (input.mode !== "ADVISORY_ONLY") {
@@ -152,7 +175,15 @@ export async function createAiDeployment(
   }
 
   const id = generateSnowflake();
-  const founderMemberId = ctx ? (ctx.workforceMemberId || ctx.userId) : input.founderMemberId;
+  const callerMemberId = ctx
+    ? (ctx.workforceMemberId || ctx.userId)
+    : (input.createdByMemberId || generateSnowflake());
+  const createdByMemberId = input.createdByMemberId || callerMemberId;
+  const founderMemberId = input.founderMemberId || callerMemberId;
+  const accountableMemberId = input.accountableMemberId || founderMemberId;
+
+  const policyVersion = await getLatestPolicyVersion(BigInt(input.workspaceId));
+
   const [created] = await db
     .insert(workspaceAiDeployments)
     .values({
@@ -162,6 +193,9 @@ export async function createAiDeployment(
       mode: "ADVISORY_ONLY",
       status: "DRAFT",
       founderMemberId: BigInt(founderMemberId),
+      createdByMemberId: BigInt(createdByMemberId),
+      accountableMemberId: BigInt(accountableMemberId),
+      policyVersion,
       technicalOwnerMemberId: input.technicalOwnerMemberId ? BigInt(input.technicalOwnerMemberId) : null,
     })
     .returning();
@@ -198,6 +232,7 @@ export async function submitAiAssessment(
     .set({
       status: "ASSESSED",
       currentAssessmentId: assessment.id,
+      reviewerMemberId: input.reviewerMemberId ? BigInt(input.reviewerMemberId) : deployment.reviewerMemberId,
       updatedAt: new Date(),
     })
     .where(eq(workspaceAiDeployments.id, deployment.id));
@@ -209,28 +244,72 @@ export async function approveAiAssessment(
   input: ApproveAiAssessmentInput,
   ctx?: TenantContext
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
-  if (ctx) {
-    requireFounderCommand(ctx, "ai.deployment.approve");
-  }
-
   const deployment = await getDeploymentInWorkspace(input.workspaceId, input.deploymentId);
   const assessment = await getAssessmentInWorkspace(input.workspaceId, deployment.id, input.assessmentId);
 
-  // Precondition: Founder approval required
-  if (String(deployment.founderMemberId) !== String(input.approvedByMemberId)) {
-    const err = APIError.permissionDenied("Founder approval required for AI deployment activation");
-    (err as any).code = "FOUNDER_APPROVAL_REQUIRED";
-    throw err;
+  // 1. Không cho phép người tạo tự duyệt trừ phi có miễn trừ sole-proprietorship
+  const creatorId = String(deployment.createdByMemberId || deployment.founderMemberId);
+  const approverId = String(input.approvedByMemberId);
+  if (creatorId === approverId) {
+    let isSoleProprietorship = input.allowSoleProprietorshipExemption === true;
+    if (!isSoleProprietorship) {
+      const soleEntity = await db
+        .select()
+        .from(legalEntityProfiles)
+        .where(
+          and(
+            eq(legalEntityProfiles.workspaceId, deployment.workspaceId),
+            eq(legalEntityProfiles.entityType, "SOLE_PROPRIETORSHIP")
+          )
+        )
+        .limit(1);
+      isSoleProprietorship = soleEntity.length > 0;
+    }
+
+    if (!isSoleProprietorship) {
+      const err = APIError.permissionDenied(
+        "Creator cannot approve their own AI deployment unless sole-proprietorship exemption applies"
+      );
+      (err as any).code = "SELF_APPROVAL_PROHIBITED";
+      throw err;
+    }
   }
 
-  // Precondition: Non-empty rationale
+  // 2. Kiểm tra quyền phê duyệt qua business authorization kernel
+  if (ctx) {
+    const decision = await authorizeBusinessAction(
+      ctx,
+      "ai.deployment.approve",
+      { workspaceId: String(deployment.workspaceId) },
+      {
+        deploymentId: String(deployment.id),
+        riskClassification: assessment.classification,
+      }
+    );
+    if (decision.effect === "DENY") {
+      const err = APIError.permissionDenied(
+        `AI deployment approval denied: ${decision.reasonCodes.join(", ")}`
+      );
+      (err as any).code = "PERMISSION_DENIED";
+      throw err;
+    }
+  } else {
+    // Không có ctx: fallback kiểm tra thẩm quyền Founder
+    if (String(deployment.founderMemberId) !== String(input.approvedByMemberId)) {
+      const err = APIError.permissionDenied("Founder approval required for AI deployment activation");
+      (err as any).code = "FOUNDER_APPROVAL_REQUIRED";
+      throw err;
+    }
+  }
+
+  // 3. Precondition: Non-empty rationale
   if (!input.rationale?.trim()) {
     const err = APIError.invalidArgument("Approval requires a non-empty rationale");
     (err as any).code = "RATIONALE_REQUIRED";
     throw err;
   }
 
-  // Precondition: Expiration date in future
+  // 4. Precondition: Expiration date in future
   const expiresDate = new Date(input.expiresAt);
   if (isNaN(expiresDate.getTime()) || expiresDate <= new Date()) {
     const err = APIError.invalidArgument("Assessment expiration date must be in the future");
@@ -238,7 +317,7 @@ export async function approveAiAssessment(
     throw err;
   }
 
-  // Precondition: Statutory law check produces zero blocks
+  // 5. Precondition: Statutory law check produces zero blocks
   const statutoryCheck = await assessAiApplicability({
     workspaceId: String(deployment.workspaceId),
     deploymentMode: deployment.mode,
@@ -258,7 +337,7 @@ export async function approveAiAssessment(
     throw err;
   }
 
-  // Precondition: Required evidence present
+  // 6. Precondition: Required evidence present
   const evidence = await db
     .select()
     .from(aiComplianceEvidence)
@@ -270,7 +349,7 @@ export async function approveAiAssessment(
     throw err;
   }
 
-  // Precondition: Active provider and data profile present
+  // 7. Precondition: Active provider and data profile present
   const providerProfiles = await db
     .select()
     .from(aiProviderProfiles)
@@ -300,6 +379,9 @@ export async function approveAiAssessment(
   assertTransition(deployment.status as DeploymentStatus, "APPROVED_FOR_USE");
 
   const now = new Date();
+  const currentPolicyVersion = await getLatestPolicyVersion(deployment.workspaceId);
+  const nextApprovedVersion = (deployment.approvedVersion || 0) + 1;
+
   await db
     .update(aiRiskAssessments)
     .set({
@@ -317,6 +399,9 @@ export async function approveAiAssessment(
     .set({
       status: "APPROVED_FOR_USE",
       currentAssessmentId: assessment.id,
+      approvedByMemberId: BigInt(input.approvedByMemberId),
+      policyVersion: currentPolicyVersion,
+      approvedVersion: nextApprovedVersion,
       updatedAt: now,
     })
     .where(eq(workspaceAiDeployments.id, deployment.id))
@@ -336,7 +421,6 @@ export async function suspendAiDeployment(
 
   assertTransition(deployment.status as DeploymentStatus, "SUSPENDED");
 
-
   const [updated] = await db
     .update(workspaceAiDeployments)
     .set({
@@ -350,15 +434,32 @@ export async function suspendAiDeployment(
 }
 
 export async function resumeAiDeployment(
-  input: ResumeAiDeploymentInput
+  input: ResumeAiDeploymentInput,
+  ctx?: TenantContext
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
   const deployment = await getDeploymentInWorkspace(input.workspaceId, input.deploymentId);
 
-  // Resume requires Founder approval
-  if (String(deployment.founderMemberId) !== String(input.resumedByMemberId)) {
-    const err = APIError.permissionDenied("Founder approval required to resume deployment");
-    (err as any).code = "FOUNDER_APPROVAL_REQUIRED";
-    throw err;
+  if (ctx) {
+    const decision = await authorizeBusinessAction(ctx, "ai.deployment.approve", {
+      workspaceId: String(deployment.workspaceId),
+    });
+    if (decision.effect === "DENY") {
+      const err = APIError.permissionDenied(
+        `Resume deployment approval denied: ${decision.reasonCodes.join(", ")}`
+      );
+      (err as any).code = "PERMISSION_DENIED";
+      throw err;
+    }
+  } else {
+    // Resume requires authorized approver or founder
+    if (
+      String(deployment.founderMemberId) !== String(input.resumedByMemberId) &&
+      String(deployment.approvedByMemberId) !== String(input.resumedByMemberId)
+    ) {
+      const err = APIError.permissionDenied("Authorized approval required to resume deployment");
+      (err as any).code = "FOUNDER_APPROVAL_REQUIRED";
+      throw err;
+    }
   }
 
   // Check no open CRITICAL incident exists for this deployment
@@ -450,6 +551,12 @@ export async function getComplianceCenterView(
         mode: d.mode,
         status: d.status,
         founderMemberId: String(d.founderMemberId),
+        createdByMemberId: d.createdByMemberId ? String(d.createdByMemberId) : null,
+        accountableMemberId: d.accountableMemberId ? String(d.accountableMemberId) : null,
+        reviewerMemberId: d.reviewerMemberId ? String(d.reviewerMemberId) : null,
+        approvedByMemberId: d.approvedByMemberId ? String(d.approvedByMemberId) : null,
+        policyVersion: d.policyVersion ?? 1,
+        approvedVersion: d.approvedVersion ?? null,
         technicalOwnerMemberId: d.technicalOwnerMemberId ? String(d.technicalOwnerMemberId) : null,
         ownerName: d.technicalOwnerMemberId ? `Member ${d.technicalOwnerMemberId}` : `Founder ${d.founderMemberId}`,
         currentAssessmentId: d.currentAssessmentId ? String(d.currentAssessmentId) : null,
