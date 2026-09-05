@@ -1,6 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { APIError } from "encore.dev/api";
-import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
 import {
   createAiDeployment,
   submitAiAssessment,
@@ -61,6 +61,7 @@ export const createAiDeploymentApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/deployments", expose: true },
   async (req: CreateAiDeploymentRequest) => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+    requireFounderCommand(ctx, "ai.deployment.create");
     const memberId = ctx.workforceMemberId || ctx.userId;
     return createAiDeployment({
       workspaceId: ctx.workspaceId,
@@ -68,7 +69,7 @@ export const createAiDeploymentApi = api(
       mode: "ADVISORY_ONLY",
       founderMemberId: memberId,
       technicalOwnerMemberId: req.technicalOwnerMemberId,
-    });
+    }, ctx);
   }
 );
 
@@ -94,6 +95,7 @@ export const approveAiAssessmentApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/deployments/:deploymentId/approve", expose: true },
   async (req: ApproveAiAssessmentRequest) => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+    requireFounderCommand(ctx, "ai.deployment.approve");
     const memberId = ctx.workforceMemberId || ctx.userId;
     return approveAiAssessment({
       workspaceId: ctx.workspaceId,
@@ -102,7 +104,7 @@ export const approveAiAssessmentApi = api(
       approvedByMemberId: memberId,
       rationale: req.rationale,
       expiresAt: req.expiresAt,
-    });
+    }, ctx);
   }
 );
 

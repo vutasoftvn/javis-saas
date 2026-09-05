@@ -3,7 +3,7 @@ import { eq, desc, and, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { getWorkforceMember } from "../../identity/handlers/workforce.handler";
-import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
 import { buildTaskCompletedEvent, buildTaskCreatedEvent, EventContext } from "./task-events.service";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -623,6 +623,7 @@ export async function setWorkspaceExecutionSettingsService(
   sweepEnabled: boolean,
   ctx: TenantContext
 ): Promise<WorkspaceExecutionSettingsView> {
+  requireFounderCommand(ctx, "agent.sweep.manage");
   const wsId = BigInt(workspaceId);
   await db
     .insert(workspaceExecutionSettings)

@@ -92,39 +92,104 @@ export async function listWeeklyReviewsService(
   }));
 }
 
-export async function completeWeeklyReviewService(p: {
+import type { TenantContext } from "../../../shared/types/tenant_context";
+
+export interface CompleteWeeklyReviewInput {
   reviewId: bigint;
   completedBy: bigint;
-}): Promise<WeeklyReviewView> {
+  ctx?: TenantContext;
+}
+
+export async function completeWeeklyReviewService(p: CompleteWeeklyReviewInput): Promise<WeeklyReviewView> {
   return await db.transaction(async (tx) => {
+    const whereConditions = [eq(weeklyReviews.id, p.reviewId)];
+    if (p.ctx) {
+      whereConditions.push(eq(weeklyReviews.workspaceId, BigInt(p.ctx.workspaceId)));
+    }
+
     const [review] = await tx
       .select()
       .from(weeklyReviews)
-      .where(eq(weeklyReviews.id, p.reviewId));
+      .where(and(...whereConditions));
 
     if (!review) {
       throw APIError.notFound(`Weekly review '${p.reviewId}' not found`);
     }
 
+    // Idempotent: return existing COMPLETED state without emitting another outbox event
+    if (review.status === "COMPLETED") {
+      return {
+        id: String(review.id),
+        workspaceId: String(review.workspaceId),
+        weekStartDate: typeof review.weekStartDate === "string" ? review.weekStartDate : new Date(review.weekStartDate).toISOString().split("T")[0],
+        summary: review.summary,
+        stageAssessment: review.stageAssessment,
+        cashSummary: review.cashSummary,
+        obligationsSummary: review.obligationsSummary,
+        actionProposals: toJsonArray(review.actionProposals),
+        status: "COMPLETED",
+        createdAt: review.createdAt.toISOString(),
+        updatedAt: review.updatedAt.toISOString(),
+      };
+    }
+
+    if (review.status !== "DRAFT") {
+      throw APIError.failedPrecondition(`Weekly review must be in DRAFT status to complete (current: ${review.status})`);
+    }
+
     const now = new Date();
+    const updateConditions = [
+      eq(weeklyReviews.id, p.reviewId),
+      eq(weeklyReviews.status, "DRAFT"),
+    ];
+    if (p.ctx) {
+      updateConditions.push(eq(weeklyReviews.workspaceId, BigInt(p.ctx.workspaceId)));
+    }
+
     const [updated] = await tx
       .update(weeklyReviews)
       .set({
         status: "COMPLETED",
         updatedAt: now,
       })
-      .where(eq(weeklyReviews.id, p.reviewId))
+      .where(and(...updateConditions))
       .returning();
+
+    if (!updated) {
+      const [recheck] = await tx
+        .select()
+        .from(weeklyReviews)
+        .where(eq(weeklyReviews.id, p.reviewId));
+      if (recheck && recheck.status === "COMPLETED") {
+        return {
+          id: String(recheck.id),
+          workspaceId: String(recheck.workspaceId),
+          weekStartDate: typeof recheck.weekStartDate === "string" ? recheck.weekStartDate : new Date(recheck.weekStartDate).toISOString().split("T")[0],
+          summary: recheck.summary,
+          stageAssessment: recheck.stageAssessment,
+          cashSummary: recheck.cashSummary,
+          obligationsSummary: recheck.obligationsSummary,
+          actionProposals: toJsonArray(recheck.actionProposals),
+          status: "COMPLETED",
+          createdAt: recheck.createdAt.toISOString(),
+          updatedAt: recheck.updatedAt.toISOString(),
+        };
+      }
+      throw APIError.failedPrecondition(`Weekly review could not be transitioned to COMPLETED`);
+    }
+
+    const actorId = p.ctx?.userId ? String(p.ctx.userId) : String(p.completedBy);
+    const correlationId = p.ctx?.correlationId || randomUUID();
 
     const event = makeBusinessEvent({
       eventType: WEEKLY_REVIEW_COMPLETED,
       workspaceId: String(updated.workspaceId),
       aggregateType: "weekly_review",
       aggregateId: String(updated.id),
-      correlationId: randomUUID(),
+      correlationId,
       actor: {
         kind: "user",
-        id: String(p.completedBy),
+        id: actorId,
       },
       classification: "internal",
       payload: {

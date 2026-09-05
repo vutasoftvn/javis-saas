@@ -4,6 +4,8 @@ import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { assessAiApplicability } from "./ai-legal-applicability.service";
 import { getDeploymentInWorkspace, getAssessmentInWorkspace } from "./ai-compliance-access.service";
+import { requireFounderCommand } from "../../shared/auth/workspace-access";
+import type { TenantContext } from "../../shared/types/tenant_context";
 
 const {
   workspaceAiDeployments,
@@ -136,8 +138,13 @@ export interface ComplianceCenterView {
 }
 
 export async function createAiDeployment(
-  input: CreateAiDeploymentInput
+  input: CreateAiDeploymentInput,
+  ctx?: TenantContext
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
+  if (ctx) {
+    requireFounderCommand(ctx, "ai.deployment.create");
+  }
+
   if (input.mode !== "ADVISORY_ONLY") {
     const err = APIError.invalidArgument("All AI deployments must operate in ADVISORY_ONLY mode");
     (err as any).code = "NON_ADVISORY_MODE";
@@ -145,6 +152,7 @@ export async function createAiDeployment(
   }
 
   const id = generateSnowflake();
+  const founderMemberId = ctx ? (ctx.workforceMemberId || ctx.userId) : input.founderMemberId;
   const [created] = await db
     .insert(workspaceAiDeployments)
     .values({
@@ -153,7 +161,7 @@ export async function createAiDeployment(
       systemVersionId: BigInt(input.systemVersionId),
       mode: "ADVISORY_ONLY",
       status: "DRAFT",
-      founderMemberId: BigInt(input.founderMemberId),
+      founderMemberId: BigInt(founderMemberId),
       technicalOwnerMemberId: input.technicalOwnerMemberId ? BigInt(input.technicalOwnerMemberId) : null,
     })
     .returning();
@@ -198,8 +206,13 @@ export async function submitAiAssessment(
 }
 
 export async function approveAiAssessment(
-  input: ApproveAiAssessmentInput
+  input: ApproveAiAssessmentInput,
+  ctx?: TenantContext
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
+  if (ctx) {
+    requireFounderCommand(ctx, "ai.deployment.approve");
+  }
+
   const deployment = await getDeploymentInWorkspace(input.workspaceId, input.deploymentId);
   const assessment = await getAssessmentInWorkspace(input.workspaceId, deployment.id, input.assessmentId);
 

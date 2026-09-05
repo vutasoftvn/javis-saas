@@ -61,6 +61,7 @@ export const postCompleteWeeklyReview = api(
     return completeWeeklyReviewService({
       reviewId: BigInt(params.id),
       completedBy: BigInt(ctx.userId || "1"),
+      ctx,
     });
   }
 );

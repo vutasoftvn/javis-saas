@@ -282,39 +282,110 @@ export async function listActionProposalsService(
   }));
 }
 
-export async function acceptActionProposalService(p: {
+import type { TenantContext } from "../../../shared/types/tenant_context";
+
+export interface AcceptActionProposalInput {
   proposalId: bigint;
   acceptedBy: bigint;
-}): Promise<NextBestActionView> {
+  ctx?: TenantContext;
+}
+
+export async function acceptActionProposalService(p: AcceptActionProposalInput): Promise<NextBestActionView> {
   return await db.transaction(async (tx) => {
+    const whereConditions = [eq(nextBestActions.id, p.proposalId)];
+    if (p.ctx) {
+      whereConditions.push(eq(nextBestActions.workspaceId, BigInt(p.ctx.workspaceId)));
+    }
+
     const [action] = await tx
       .select()
       .from(nextBestActions)
-      .where(eq(nextBestActions.id, p.proposalId));
+      .where(and(...whereConditions));
 
     if (!action) {
       throw APIError.notFound(`Next best action proposal '${p.proposalId}' not found`);
     }
 
+    // Idempotent: return existing ACCEPTED state without emitting another outbox event
+    if (action.status === "ACCEPTED") {
+      return {
+        id: String(action.id),
+        workspaceId: String(action.workspaceId),
+        source: action.source as NextBestActionSource,
+        recommendation: action.recommendation,
+        priority: action.priority,
+        dueBy: action.dueBy ? (typeof action.dueBy === "string" ? action.dueBy : new Date(action.dueBy).toISOString().split("T")[0]) : null,
+        status: "ACCEPTED",
+        capabilityRequired: action.capabilityRequired,
+        decisionReason: action.decisionReason,
+        contextSnapshot: toJsonObject(action.contextSnapshot),
+        evidenceRefs: toJsonArray(action.evidenceRefs),
+        regulationRefs: toJsonArray(action.regulationRefs),
+        createdAt: action.createdAt.toISOString(),
+        updatedAt: action.updatedAt.toISOString(),
+      };
+    }
+
+    if (action.status !== "PROPOSED") {
+      throw APIError.failedPrecondition(`Next best action proposal must be in PROPOSED status to accept (current: ${action.status})`);
+    }
+
     const now = new Date();
+    const updateConditions = [
+      eq(nextBestActions.id, p.proposalId),
+      eq(nextBestActions.status, "PROPOSED"),
+    ];
+    if (p.ctx) {
+      updateConditions.push(eq(nextBestActions.workspaceId, BigInt(p.ctx.workspaceId)));
+    }
+
     const [updated] = await tx
       .update(nextBestActions)
       .set({
         status: "ACCEPTED",
         updatedAt: now,
       })
-      .where(eq(nextBestActions.id, p.proposalId))
+      .where(and(...updateConditions))
       .returning();
+
+    if (!updated) {
+      const [recheck] = await tx
+        .select()
+        .from(nextBestActions)
+        .where(eq(nextBestActions.id, p.proposalId));
+      if (recheck && recheck.status === "ACCEPTED") {
+        return {
+          id: String(recheck.id),
+          workspaceId: String(recheck.workspaceId),
+          source: recheck.source as NextBestActionSource,
+          recommendation: recheck.recommendation,
+          priority: recheck.priority,
+          dueBy: recheck.dueBy ? (typeof recheck.dueBy === "string" ? recheck.dueBy : new Date(recheck.dueBy).toISOString().split("T")[0]) : null,
+          status: "ACCEPTED",
+          capabilityRequired: recheck.capabilityRequired,
+          decisionReason: recheck.decisionReason,
+          contextSnapshot: toJsonObject(recheck.contextSnapshot),
+          evidenceRefs: toJsonArray(recheck.evidenceRefs),
+          regulationRefs: toJsonArray(recheck.regulationRefs),
+          createdAt: recheck.createdAt.toISOString(),
+          updatedAt: recheck.updatedAt.toISOString(),
+        };
+      }
+      throw APIError.failedPrecondition(`Failed to transition action proposal '${p.proposalId}' to ACCEPTED`);
+    }
+
+    const actorId = p.ctx?.userId ? String(p.ctx.userId) : String(p.acceptedBy);
+    const correlationId = p.ctx?.correlationId || randomUUID();
 
     const event = makeBusinessEvent({
       eventType: NEXT_BEST_ACTION_ACCEPTED,
       workspaceId: String(updated.workspaceId),
       aggregateType: "next_best_action",
       aggregateId: String(updated.id),
-      correlationId: randomUUID(),
+      correlationId,
       actor: {
         kind: "user",
-        id: String(p.acceptedBy),
+        id: actorId,
       },
       classification: "internal",
       payload: {

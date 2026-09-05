@@ -107,6 +107,7 @@ export const postAcceptActionProposal = api(
     return acceptActionProposalService({
       proposalId: BigInt(params.id),
       acceptedBy: BigInt(ctx.userId || "1"),
+      ctx,
     });
   }
 );

@@ -12,7 +12,7 @@ import {
   weeklyCommitments,
   workspaceCapabilityPolicy,
 } from "../../shared/db/schema/operations";
-import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
 import type { TenantContext } from "../../shared/types/tenant_context";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../shared/events/envelope";
@@ -464,6 +464,7 @@ export async function acceptExecutionPlanService(
   authorization: string | undefined
 ): Promise<AcceptExecutionPlanResult> {
   const ctx = await requireWorkspaceAccess(authorization, p.workspaceId);
+  requireFounderCommand(ctx, "execution.plan.approve");
   const wsId = BigInt(ctx.workspaceId);
 
   return await db.transaction(async (tx) => {

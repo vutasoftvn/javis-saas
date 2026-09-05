@@ -26,3 +26,5 @@ export async function requireWorkspaceAccess(
 ): Promise<TenantContext> {
   return resolveTenantContext({ authorization, workspaceId });
 }
+
+export { requireFounderCommand } from "../../identity/services/command-authority.service";
