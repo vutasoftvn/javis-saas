@@ -11,6 +11,7 @@ import {
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { createHash } from "node:crypto";
 import { JsonObject, toJsonObject } from "./strategy-json";
+import { isEvidenceEligible } from "./eligible-evidence.service";
 
 export type PmfScoreboardResult = "INSUFFICIENT_DATA" | "MIXED" | "PROMISING" | "CONCERNING";
 
@@ -116,13 +117,25 @@ export async function calculatePmfScoreboard(p: CalculatePmfScoreboardParams) {
     missingDataFlags.push("NO_REVIEWED_EVIDENCE");
   }
 
-  // Check evidence reviews
+  // Check evidence reviews & expiration
+  const now = new Date();
   const unreviewedEvidence = reviewedEvidenceList.filter((e) => e.status !== "approved");
   if (unreviewedEvidence.length > 0) {
     reliabilityFlags.push(`UNREVIEWED_EVIDENCE_EXCLUDED:${unreviewedEvidence.length}`);
   }
 
-  const validEvidence = reviewedEvidenceList.filter((e) => e.status === "approved");
+  const expiredEvidence = reviewedEvidenceList.filter(
+    (e) => e.status === "approved" && e.freshUntil !== null && e.freshUntil.getTime() <= now.getTime()
+  );
+  if (expiredEvidence.length > 0) {
+    reliabilityFlags.push(`EXPIRED_EVIDENCE_EXCLUDED:${expiredEvidence.length}`);
+  }
+
+  const validEvidence = reviewedEvidenceList.filter((e) => isEvidenceEligible(e, now));
+
+  if (validEvidence.length === 0) {
+    missingDataFlags.push("NO_ELIGIBLE_EVIDENCE");
+  }
 
   // 5. Evaluate snapshots & compute components
   let totalWeightedScore = 0;
@@ -179,7 +192,7 @@ export async function calculatePmfScoreboard(p: CalculatePmfScoreboardParams) {
   // 6. Determine classification
   let result: PmfScoreboardResult = "INSUFFICIENT_DATA";
 
-  if (snapshots.length === 0 || totalWeight === 0) {
+  if (snapshots.length === 0 || totalWeight === 0 || validEvidence.length === 0 || contracts.length === 0) {
     result = "INSUFFICIENT_DATA";
   } else {
     const compositeScore = totalWeightedScore / totalWeight;
@@ -214,7 +227,6 @@ export async function calculatePmfScoreboard(p: CalculatePmfScoreboardParams) {
   };
 
   const calculationHash = createHash("sha256").update(JSON.stringify(hashPayload)).digest("hex");
-  const now = new Date();
   const id = generateSnowflake();
 
   const [run] = await db

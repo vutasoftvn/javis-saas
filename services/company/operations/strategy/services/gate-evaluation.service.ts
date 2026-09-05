@@ -5,6 +5,7 @@ import { TenantContext } from "../../../shared/types/tenant_context";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 import { isJsonObject, JsonValue, toJsonArray } from "./strategy-json";
+import { selectEligibleEvidence } from "./eligible-evidence.service";
 
 const { gateEvaluations, stagePolicies, evidence } = schema;
 
@@ -261,19 +262,11 @@ export async function runGateEvaluationInWorkspace(
 
   if (!policyRow) throw APIError.notFound("Stage policy not found");
 
-  // 2. Fetch approved project evidence from workspace (candidate evidence is ignored by gates until approved)
+  // 2. Fetch approved eligible project evidence from workspace via selectEligibleEvidence
   const now = new Date();
-  const allApprovedEvidence = await db
-    .select()
-    .from(evidence)
-    .where(and(eq(evidence.projectId, BigInt(params.projectId)), eq(evidence.workspaceId, wsId), eq(evidence.status, "approved"), isNull(evidence.deletedAt)));
-
-  // Filter out stale/expired evidence based on freshUntil
-  const freshEvidenceRows = allApprovedEvidence.filter((e) => {
-    if (e.freshUntil && new Date(e.freshUntil) < now) {
-      return false;
-    }
-    return true;
+  const { eligible: freshEvidenceRows, excluded } = await selectEligibleEvidence(ctx, {
+    projectId: params.projectId,
+    at: now,
   });
 
   // 3. Evaluate deterministically without LLM - recommendation only
@@ -312,6 +305,15 @@ export async function runGateEvaluationInWorkspace(
       result: evaluation.result,
       rationale: evaluation.rationale,
       humanOverride: false,
+      provenanceSnapshot: {
+        capturedAt: now.toISOString(),
+        eligibleEvidenceIds: freshEvidenceRows.map((e) => e.id.toString()),
+        excludedEvidenceCount: excluded.length,
+        excludedReasons: excluded.map((x) => ({
+          id: x.evidence.id.toString(),
+          reason: x.reason,
+        })),
+      },
     })
     .returning();
 

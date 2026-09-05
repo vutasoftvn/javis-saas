@@ -7,6 +7,7 @@ import { TenantContext } from "../../../shared/types/tenant_context";
 import {
   projectStageTransitionPolicies,
   projectStageTransitions,
+  decisionRecords,
 } from "../../../shared/db/schema/strategy";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { buildProjectPhaseChangedEvent } from "../events/venture-stage-events";
@@ -35,6 +36,8 @@ export interface ProjectTransitionParams {
   override?: boolean;
   source?: "manual" | "autonomous" | "api" | "system";
   overrideApprovalRef?: string;
+  decisionId?: string | bigint;
+  expectedStageVersion?: number;
 }
 
 export interface ProjectTransitionResult {
@@ -127,10 +130,48 @@ export async function transitionProjectStageInTransaction(
     )
     .limit(1);
 
+  if (p.expectedStageVersion !== undefined && p.expectedStageVersion !== proj.stageVersion) {
+    throw APIError.aborted(
+      `project stage_version đã thay đổi (expected ${p.expectedStageVersion} nhưng hiện tại là ${proj.stageVersion})`
+    );
+  }
+
   const privileged = isLifecyclePrivileged(p.actorRole);
   const isForward = toIndex === currentIndex + 1;
 
   if (isForward) {
+    if (p.decisionId) {
+      const [dec] = await tx
+        .select()
+        .from(decisionRecords)
+        .where(
+          and(
+            eq(decisionRecords.id, BigInt(p.decisionId)),
+            eq(decisionRecords.workspaceId, p.workspaceId)
+          )
+        )
+        .limit(1);
+
+      if (!dec) {
+        throw APIError.notFound(`Decision record ${p.decisionId} không tồn tại trong workspace này`);
+      }
+
+      if (dec.projectId && String(dec.projectId) !== String(p.projectId)) {
+        throw APIError.permissionDenied("Decision record không thuộc về project này");
+      }
+
+      const isAccepted =
+        dec.founderDecision === "accepted" ||
+        dec.decision.toLowerCase() === "proceed" ||
+        dec.decision.toLowerCase() === "approved";
+
+      if (!isAccepted) {
+        throw APIError.failedPrecondition(
+          `Decision record ${p.decisionId} chưa được chấp thuận để tiến stage (trạng thái: ${dec.founderDecision || dec.decision})`
+        );
+      }
+    }
+
     if (!edge) {
       // Fail-closed cho autonomous; người thường bị chặn; founder/admin đi tiếp.
       if (p.isAutonomous) {
@@ -198,6 +239,15 @@ export async function transitionProjectStageInTransaction(
     policyVersion: edge?.policyVersion ?? null,
     evidenceSnapshot: { capturedAt: now.toISOString() },
     evaluationResult: edge ? { allowed: edge.allowed } : null,
+    provenanceSnapshot: {
+      capturedAt: now.toISOString(),
+      decisionId: p.decisionId ? p.decisionId.toString() : null,
+      expectedStageVersion: p.expectedStageVersion ?? null,
+      stageVersionFrom: fromVersion,
+      edgeAllowed: edge?.allowed ?? null,
+    },
+    decisionId: p.decisionId ? BigInt(p.decisionId) : null,
+    expectedStageVersion: p.expectedStageVersion ?? null,
     decidedAt: now,
     createdAt: now,
   });
