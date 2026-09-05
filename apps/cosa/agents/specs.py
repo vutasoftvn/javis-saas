@@ -62,6 +62,12 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "operations.task.list",
         "operations.task.read",
         "operations.task.create_draft",
+        "strategy.project.get",
+        "strategy.next_best_action.get",
+        "strategy.evidence.list",
+        "analytics.metric_contract.get",
+        "analytics.pmf_scoreboard.get",
+        "knowledge.profile.read",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[
@@ -106,7 +112,12 @@ COSA_FINANCE_AGENT_SPEC = AgentSpec(
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions="Chuyên viên tài chính kế toán, theo dõi và ghi nhận sổ cái giao dịch của doanh nghiệp.",
     capability_refs=[
+        "finance.connection.read",
+        "finance.transaction.read",
         "finance.transaction.record",
+        "finance.transaction.classify.propose",
+        "finance.accounting_document.create_draft",
+        "finance.accounting_document.confirm",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[
@@ -141,7 +152,11 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
     instructions="Chuyên viên chiến lược marketing và sáng tạo nội dung, xây dựng định vị sản phẩm và copywriting dựa trên bằng chứng thực nghiệm.",
     capability_refs=[
         "commercial.marketing_context.read",
+        "commercial.marketing_context.write",
+        "campaign.asset.write",
+        "experiment.write",
         "web.search",
+        "knowledge.profile.read",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[

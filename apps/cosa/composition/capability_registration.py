@@ -7,6 +7,7 @@ from agent.capabilities.web_search import (
     WebSearchProvider,
     build_web_search_provider,
 )
+from agent.knowledge.snapshot_repository import KnowledgeSnapshotRepository
 
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.commercial_customer_read import (
@@ -128,6 +129,7 @@ def register_cosa_capabilities(
     tenant_policy: CosaTenantPolicyClient,
     search_budget: WebSearchBudgetStore,
     artifact_repo: ArtifactRepository,
+    knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     web_search_provider: WebSearchProvider | None = None,
 ) -> None:
     """Đăng ký toàn bộ capability specs và handlers cho CosaAgentPlane."""
@@ -192,7 +194,13 @@ def register_cosa_capabilities(
     )
 
     # Knowledge & Legal
-    cap_registry.register(KNOWLEDGE_PROFILE_READ_SPEC, create_knowledge_profile_read_handler())
+    cap_registry.register(
+        KNOWLEDGE_PROFILE_READ_SPEC,
+        create_knowledge_profile_read_handler(
+            snapshot_repo=knowledge_snapshot_repo,
+            client=client,
+        ),
+    )
     cap_registry.register(
         LEGAL_APPLICABILITY_ASSESS_SPEC, create_legal_applicability_assess_handler(client)
     )

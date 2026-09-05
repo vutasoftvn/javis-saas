@@ -54,10 +54,20 @@ FINANCE_TRANSACTION_READ_SPEC = CapabilitySpec(
 
 def create_finance_connection_read_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any) -> dict[str, Any]:
-        ws_id = payload.get("workspace_id") or getattr(context, "workspace_id", None)
-        headers = {}
+        ws_id = payload.get("workspace_id")
+        token = None
+        if isinstance(context, dict):
+            ws_id = ws_id or context.get("workspace_id")
+            token = context.get("delegation_token") or context.get("token")
+        else:
+            ws_id = ws_id or getattr(context, "workspace_id", None)
+            token = getattr(context, "delegation_token", None) or getattr(context, "token", None)
+
+        headers: dict[str, str] = {}
         if ws_id:
             headers["X-Workspace-Id"] = str(ws_id)
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
 
         res = await client.get("/finance/bank-connections", headers=headers)
         return {"connections": res.get("connections", [])}
@@ -67,10 +77,20 @@ def create_finance_connection_read_handler(client: CompanyServiceClient):
 
 def create_finance_transaction_read_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any) -> dict[str, Any]:
-        ws_id = payload.get("workspace_id") or getattr(context, "workspace_id", None)
-        headers = {}
+        ws_id = payload.get("workspace_id")
+        token = None
+        if isinstance(context, dict):
+            ws_id = ws_id or context.get("workspace_id")
+            token = context.get("delegation_token") or context.get("token")
+        else:
+            ws_id = ws_id or getattr(context, "workspace_id", None)
+            token = getattr(context, "delegation_token", None) or getattr(context, "token", None)
+
+        headers: dict[str, str] = {}
         if ws_id:
             headers["X-Workspace-Id"] = str(ws_id)
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
 
         params = {}
         if payload.get("status"):

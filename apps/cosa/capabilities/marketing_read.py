@@ -70,7 +70,14 @@ def create_marketing_context_read_handler(
                 "Không thể thực hiện commercial.marketing_context.read: thiếu workspace_id"
             )
 
-        headers = {"X-Workspace-Id": str(workspace_id)}
+        headers: dict[str, str] = {"X-Workspace-Id": str(workspace_id)}
+        token = None
+        if isinstance(ctx, dict):
+            token = ctx.get("delegation_token") or ctx.get("token")
+        else:
+            token = getattr(ctx, "delegation_token", None) or getattr(ctx, "token", None)
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
 
         try:
             res = await company_client.get(
