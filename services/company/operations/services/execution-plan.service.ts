@@ -691,7 +691,9 @@ export async function setCapabilityPolicyService(
   p: { workspaceId: string; capabilityId: string; decision: TenantPolicyDecision | null },
   ctx: TenantContext
 ): Promise<CapabilityPolicyEntry[]> {
-  const wsId = BigInt(p.workspaceId);
+  requireFounderCommand(ctx, "operations.capability_policy.set");
+
+  const wsId = BigInt(ctx.workspaceId);
   const cap = p.capabilityId?.trim();
   if (!cap) throw APIError.invalidArgument("capabilityId không được rỗng");
 

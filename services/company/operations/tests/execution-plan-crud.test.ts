@@ -4,6 +4,7 @@ import { db, schema } from "../models/db";
 import { createProject } from "../handlers/project.handler";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import type { TenantContext } from "../../shared/types/tenant_context";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 import {
   createExecutionPlanService,
   setCapabilityPolicyService,
@@ -14,7 +15,7 @@ import {
 } from "../services/execution-plan.service";
 import { setWeeklyGoalService } from "../strategy/services/weekly-goal.service";
 
-const { executionPlans } = schema;
+const { executionPlans, workspaceCapabilityPolicy } = schema;
 
 async function seedProject() {
   const ws = await createTestWorkspaceWithMember();
@@ -242,9 +243,12 @@ describe("patchExecutionPlanItemService", () => {
 
 describe("WGA #3 — workspace_capability_policy override at classification", () => {
   function tctx(workspaceId: string): TenantContext {
+    // setCapabilityPolicyService bắt buộc quyền founder (IA01) — các test dưới
+    // đây kiểm tra hiệu ứng của policy, không kiểm tra role, nên dùng ctx founder
+    // hợp lệ; role không-founder được kiểm riêng ở test "rejects ... (IA01)".
     return Object.freeze({
       workspaceId, userId: "1", workforceMemberId: undefined,
-      membershipRole: "admin", permissions: [], correlationId: "t", platformUserId: null,
+      membershipRole: "founder", permissions: [], correlationId: "t", platformUserId: null,
     }) as unknown as TenantContext;
   }
 
@@ -310,5 +314,50 @@ describe("WGA #3 — workspace_capability_policy override at classification", ()
       ctx.auth
     );
     expect(p.items[0]!.autonomyClass).toBe("NEEDS_APPROVAL"); // FORBIDDEN_RE wins
+  });
+
+  it("rejects setCapabilityPolicy from a non-founder member (IA01)", async () => {
+    const ctx = await seedProject();
+    const cap = `some.capability.${Date.now()}`;
+    const memberCtx: TenantContext = Object.freeze({
+      workspaceId: ctx.workspaceId, userId: "1", workforceMemberId: undefined,
+      membershipRole: "member", permissions: [], correlationId: "t", platformUserId: null,
+    }) as unknown as TenantContext;
+
+    await expect(
+      setCapabilityPolicyService(
+        { workspaceId: ctx.workspaceId, capabilityId: cap, decision: "ALLOW" },
+        memberCtx
+      )
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    const rows = await db
+      .select()
+      .from(workspaceCapabilityPolicy)
+      .where(eq(workspaceCapabilityPolicy.capabilityId, cap));
+    expect(rows.length).toBe(0);
+  });
+
+  it("uses ctx.workspaceId, not the request body workspaceId, as the write target (IA01)", async () => {
+    const real = await seedProject();
+    const spoofedWsId = String(generateSnowflake());
+    const cap = `some.capability.${Date.now()}`;
+
+    await setCapabilityPolicyService(
+      { workspaceId: spoofedWsId, capabilityId: cap, decision: "ALLOW" },
+      tctx(real.workspaceId)
+    );
+
+    const spoofedRows = await db
+      .select()
+      .from(workspaceCapabilityPolicy)
+      .where(eq(workspaceCapabilityPolicy.workspaceId, BigInt(spoofedWsId)));
+    expect(spoofedRows.find((r) => r.capabilityId === cap)).toBeUndefined();
+
+    const realRows = await db
+      .select()
+      .from(workspaceCapabilityPolicy)
+      .where(eq(workspaceCapabilityPolicy.workspaceId, BigInt(real.workspaceId)));
+    expect(realRows.find((r) => r.capabilityId === cap)?.decision).toBe("ALLOW");
   });
 });
