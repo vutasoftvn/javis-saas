@@ -6,6 +6,7 @@ import { createTestWorkspaceWithMember } from "../../tests/_helpers";
 import { readOutbox } from "../../tests/helpers/outbox";
 import { setWeeklyGoalService } from "../services/weekly-goal.service";
 import { WEEKLY_GOAL_SET } from "../../../shared/events";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 const { weeklyPlans, twelveWeekCycles } = schema;
 
@@ -111,6 +112,59 @@ describe("setWeeklyGoalService", () => {
         auth
       )
     ).rejects.toThrow();
+  });
+
+  it("rejects writing to an ended cycle instead of silently defaulting to week 1 (IA21)", async () => {
+    const { projectId, workspaceId, auth } = await seedProject();
+
+    // Tạo trực tiếp 1 cycle 2 tuần đã kết thúc từ lâu (start date trong quá khứ).
+    const cycleId = generateSnowflake();
+    await db.insert(twelveWeekCycles).values({
+      id: cycleId,
+      workspaceId: BigInt(workspaceId),
+      projectId: BigInt(projectId),
+      stageAtStart: "P0_DISCOVERY",
+      durationWeeks: 2,
+      timezone: "UTC",
+      startLocalDate: "2020-01-06", // thứ Hai, đã qua từ lâu
+      endLocalDateExclusive: "2020-01-20",
+      calendarState: "READY",
+      status: "ACTIVE",
+      revision: 1,
+    });
+
+    await expect(
+      setWeeklyGoalService(
+        { projectId, workspaceId, focus: "Trying to write to ended cycle", triggerDecomposition: false, origin: "command_center" },
+        auth
+      )
+    ).rejects.toThrow(/kết thúc|weekNo/i);
+
+    const plans = await db
+      .select()
+      .from(weeklyPlans)
+      .where(eq(weeklyPlans.cycleId, cycleId));
+    expect(plans.length).toBe(0);
+
+    // Truyền weekNo rõ ràng thì vẫn ghi được vào cycle đã kết thúc (không cấm
+    // hoàn toàn — chỉ cấm suy luận ngầm).
+    const explicit = await setWeeklyGoalService(
+      {
+        projectId,
+        workspaceId,
+        cycleId: cycleId.toString(),
+        weekNo: 2,
+        focus: "Backfilling week 2 explicitly",
+        triggerDecomposition: false,
+        origin: "command_center",
+      },
+      auth
+    );
+    const [plan] = await db
+      .select()
+      .from(weeklyPlans)
+      .where(eq(weeklyPlans.id, BigInt(explicit.weeklyPlanId)));
+    expect(plan!.weekNo).toBe(2);
   });
 
   it("rejects an unknown project", async () => {

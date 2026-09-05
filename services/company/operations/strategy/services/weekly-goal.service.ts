@@ -17,6 +17,7 @@ import {
   nextMondayOnOrAfterLocalDate,
   calculateCycleEndDateExclusive,
   resolveExecutionWeek,
+  localDateToEpochDays,
 } from "../../services/execution-calendar";
 
 export interface SetWeeklyGoalParams {
@@ -36,6 +37,40 @@ export interface SetWeeklyGoalResult {
   weeklyPlanId: string;
   focus: string;
   decompositionRequested: boolean;
+}
+
+/**
+ * IA21: khi caller không truyền weekNo, PHẢI tự suy ra đúng tuần hiện tại từ
+ * lịch cycle — không được âm thầm mặc định tuần 1. Trước đây cycle đã kết
+ * thúc hoặc chưa cấu hình lịch (NEEDS_SETUP) vẫn lặng lẽ ghi/ghi đè tuần 1.
+ */
+function resolveWeekNoOrThrow(
+  cycle: typeof twelveWeekCycles.$inferSelect,
+  providedWeekNo: number | undefined
+): number {
+  if (providedWeekNo !== undefined) return providedWeekNo;
+
+  if (!cycle.startLocalDate) {
+    throw APIError.invalidArgument(
+      `Cycle ${cycle.id} chưa cấu hình lịch (startLocalDate) — cần truyền weekNo rõ ràng`
+    );
+  }
+
+  const todayLocal = getLocalDateFromInstant(new Date(), cycle.timezone || "UTC");
+  const resolved = resolveExecutionWeek(String(cycle.startLocalDate), cycle.durationWeeks, todayLocal);
+  if (resolved !== null) return resolved;
+
+  // Chưa tới ngày bắt đầu cycle (vd cycle vừa tạo, startLocalDate là thứ Hai
+  // kế tiếp) — "tuần hiện tại" chưa tồn tại, tuần 1 là câu trả lời hợp lý,
+  // không phải fallback che giấu lỗi.
+  const diffDays = localDateToEpochDays(todayLocal) - localDateToEpochDays(String(cycle.startLocalDate));
+  if (diffDays < 0) return 1;
+
+  // Ngược lại là cycle ĐÃ KẾT THÚC (diffDays >= durationWeeks*7) — đây mới là
+  // trường hợp IA21: không được âm thầm ghi/ghi đè tuần 1 của 1 cycle đã xong.
+  throw APIError.invalidArgument(
+    `Cycle ${cycle.id} đã kết thúc (ngoài khoảng thời gian của cycle) — cần truyền weekNo rõ ràng hoặc mở cycle mới`
+  );
 }
 
 /**
@@ -66,7 +101,7 @@ export async function setWeeklyGoalService(
     if (!proj) throw APIError.notFound(`project ${params.projectId} not found`);
 
     let targetCycle: typeof twelveWeekCycles.$inferSelect | null = null;
-    let targetWeekNo = params.weekNo ?? 1;
+    let targetWeekNo: number | null = null;
 
     if (params.cycleId) {
       const [cycle] = await tx
@@ -84,6 +119,7 @@ export async function setWeeklyGoalService(
 
       if (!cycle) throw APIError.notFound(`cycle ${params.cycleId} not found`);
       targetCycle = cycle;
+      targetWeekNo = resolveWeekNoOrThrow(cycle, params.weekNo);
     } else {
       const activeCycles = await tx
         .select()
@@ -107,21 +143,12 @@ export async function setWeeklyGoalService(
         );
       } else if (readyCycles.length === 1) {
         targetCycle = readyCycles[0]!;
-        if (!params.weekNo && targetCycle.startLocalDate) {
-          const todayLocal = getLocalDateFromInstant(new Date(), targetCycle.timezone || "UTC");
-          const resolved = resolveExecutionWeek(
-            String(targetCycle.startLocalDate),
-            targetCycle.durationWeeks,
-            todayLocal
-          );
-          if (resolved !== null) {
-            targetWeekNo = resolved;
-          }
-        }
+        targetWeekNo = resolveWeekNoOrThrow(targetCycle, params.weekNo);
       } else {
         // No active ready cycle, check if any cycle exists
         if (activeCycles.length === 1) {
           targetCycle = activeCycles[0]!;
+          targetWeekNo = resolveWeekNoOrThrow(targetCycle, params.weekNo);
         } else if (activeCycles.length > 1) {
           throw APIError.failedPrecondition(
             "Multiple active execution cycles found. Explicit cycleId is required."
@@ -148,8 +175,16 @@ export async function setWeeklyGoalService(
             })
             .returning();
           targetCycle = created!;
+          // Cycle vừa tạo bắt đầu hôm nay/thứ Hai kế tiếp — chưa có "tuần hiện
+          // tại" nào để suy ra, tuần 1 là mặc định hợp lý (không phải fallback
+          // im lặng che giấu lỗi như 2 nhánh trên).
+          targetWeekNo = params.weekNo ?? 1;
         }
       }
+    }
+
+    if (targetCycle === null || targetWeekNo === null) {
+      throw APIError.internal("Không xác định được cycle/weekNo để ghi weekly goal");
     }
 
     if (targetWeekNo < 1 || targetWeekNo > targetCycle.durationWeeks) {

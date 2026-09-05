@@ -13,6 +13,13 @@ export interface SetWeeklyGoalParams {
   triggerDecomposition?: boolean;
   origin?: "command_center" | "chat";
   originRef?: string;
+  // IA21: trước đây 3 field này không có trong request shape nên caller
+  // KHÔNG thể chỉ định rõ cycle/tuần/version qua endpoint thật — luôn phải đi
+  // qua đường tự suy luận (và khi suy luận thất bại, service từng âm thầm
+  // mặc định tuần 1).
+  cycleId?: string;
+  weekNo?: number;
+  expectedVersion?: number;
 }
 
 export const setWeeklyGoal = api(
@@ -31,6 +38,9 @@ export const setWeeklyGoal = api(
         triggerDecomposition: params.triggerDecomposition ?? false,
         origin: params.origin ?? "command_center",
         originRef: params.originRef ?? null,
+        cycleId: params.cycleId,
+        weekNo: params.weekNo,
+        expectedVersion: params.expectedVersion,
       },
       params.authorization
     );
