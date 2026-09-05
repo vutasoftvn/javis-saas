@@ -51,6 +51,18 @@ export function matchBestRuleInRole(
 
   if (!bestRule) return null;
 
+  const requiresAmountFacts =
+    bestRule.conditions?.maxAmountMinor !== undefined || bestRule.conditions?.currency !== undefined;
+
+  // IA16: rule có điều kiện hạn mức/currency nhưng caller không truyền
+  // facts.amount — trước đây bỏ qua toàn bộ khối kiểm tra bên dưới và trả
+  // thẳng bestRule (effect ALLOW gốc), biến "ALLOW có hạn mức" thành "ALLOW
+  // vô điều kiện" bất cứ khi nào facts bị thiếu. Fail-closed: DENY khi rule
+  // yêu cầu kiểm tiền tệ mà không có gì để kiểm.
+  if (requiresAmountFacts && !facts?.amount) {
+    return { ...bestRule, effect: "DENY" };
+  }
+
   // Kiểm tra conditions nếu có facts về tiền tệ
   if (bestRule.conditions && facts?.amount) {
     const factCurrency = facts.amount.currency;

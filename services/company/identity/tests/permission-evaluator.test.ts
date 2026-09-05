@@ -321,5 +321,76 @@ describe("permission-evaluator db & scoping", () => {
       { amount: { minor: "100", currency: "USD" } }
     );
     expect(decisionDiffCurrency.effect).toBe("DENY");
+
+    // IA16: rule có maxAmountMinor nhưng caller KHÔNG truyền facts.amount —
+    // trước đây bị bỏ qua toàn bộ điều kiện và ALLOW vô hạn mức; giờ phải
+    // fail-closed (DENY), không được coi "thiếu facts" như "không có giới hạn".
+    const decisionNoFacts = await authorizeBusinessAction(
+      ctx,
+      "finance.request.create",
+      { workspaceId: ws.workspaceId }
+      // facts omitted entirely
+    );
+    expect(decisionNoFacts.effect).toBe("DENY");
+
+    const decisionEmptyFacts = await authorizeBusinessAction(
+      ctx,
+      "finance.request.create",
+      { workspaceId: ws.workspaceId },
+      {}
+    );
+    expect(decisionEmptyFacts.effect).toBe("DENY");
+  });
+
+  it("IA16: a role with NO amount condition still ALLOWs without facts (regression guard)", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "member" });
+    const wsId = BigInt(ws.workspaceId);
+
+    const workforceMemberId = generateSnowflake();
+    await db.insert(identityWorkforceMembers).values({
+      id: workforceMemberId,
+      workspaceId: wsId,
+      memberType: "HUMAN",
+      humanUserId: BigInt(ws.userId),
+      roleTitle: "Ops",
+      status: "active",
+    });
+
+    const roleId = randomUUID();
+    await db.insert(coreWorkspaceRoles).values({
+      id: roleId,
+      workspaceId: wsId,
+      roleKey: "ops_no_limit",
+      name: "Ops No Limit",
+      isSystem: false,
+    });
+    await db.insert(coreRolePermissions).values({
+      roleId,
+      permissionKey: "strategy.write",
+      effect: "ALLOW",
+      conditions: {},
+    });
+    await db.insert(coreMemberRoleAssignments).values({
+      id: randomUUID(),
+      workspaceId: wsId,
+      workforceMemberId,
+      roleId,
+      validFrom: new Date(Date.now() - 60000),
+      validUntil: new Date(Date.now() + 60000),
+    });
+
+    const ctx: TenantContext = {
+      workspaceId: ws.workspaceId,
+      userId: ws.userId,
+      workforceMemberId: String(workforceMemberId),
+      membershipRole: "member",
+      permissions: [],
+      correlationId: "test-corr-no-limit",
+    };
+
+    const decision = await authorizeBusinessAction(ctx, "strategy.write", {
+      workspaceId: ws.workspaceId,
+    });
+    expect(decision.effect).toBe("ALLOW");
   });
 });
