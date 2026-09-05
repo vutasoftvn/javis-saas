@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+import httpx
 import pytest
 
 from agent.contracts.run import RunRequest, RunResult, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.governance.contracts import AutonomyLevel
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
+from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.capabilities.engagement_read import create_engagement_thread_read_handler
 from apps.cosa.worker.copilot_run import run_customer_support_copilot
 
 
@@ -75,6 +79,9 @@ def mock_plane():
     # Artifact repo
     plane.artifact_repository = MagicMock()
     plane.artifact_repository.create = AsyncMock()
+    plane.artifact_repository.get = AsyncMock(
+        return_value=SimpleNamespace(artifact_id="art_mock")
+    )
 
     # Stream event repo
     plane.run_stream_event_repository = MagicMock()
@@ -122,16 +129,15 @@ async def test_copilot_guard_fails_when_spec_has_write_capability(mock_plane, mo
         # Stream manager emits run.failed
         assert mock_stream_mgr.emit.await_count >= 1
         # Callback company result with failed
-        mock_cb.assert_awaited_once_with("run_bad_1", "failed")
+        mock_cb.assert_awaited_once()
+        assert mock_cb.call_args.args[0] == "run_bad_1"
+        assert mock_cb.call_args.args[1] == "failed"
 
 
 @pytest.mark.asyncio
 async def test_copilot_fails_closed_when_registered_spec_content_is_invalid(
     mock_plane, mock_stream_mgr
 ):
-    """Simulates registry corruption/drift via a field with no default (`id`) so
-    this stays a genuine invalid-content test regardless of which other fields
-    later become optional — see the autopilot-copilot-initial-input-unblock plan."""
     stale_content = COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_dump(
         mode="json", exclude={"id"}
     )
@@ -157,17 +163,13 @@ async def test_copilot_fails_closed_when_registered_spec_content_is_invalid(
         mock_stream_mgr.emit.call_args.kwargs["payload"]["reason_code"]
         == "agent_spec_content_invalid"
     )
-    mock_cb.assert_awaited_once_with("run_stale_spec_1", "failed")
+    mock_cb.assert_awaited_once()
+    assert mock_cb.call_args.args[0] == "run_stale_spec_1"
+    assert mock_cb.call_args.args[1] == "failed"
 
 
 @pytest.mark.asyncio
 async def test_copilot_unexpected_error_is_not_sent_to_client(mock_plane, mock_stream_mgr):
-    """Final-review Finding 1 — exception thô (vd. secret nội bộ) từ nhánh
-    `except Exception` bao trùm KHÔNG được interpolate vào payload SSE
-    `run.failed` client-facing; chỉ mã lỗi ổn định `internal_error` được
-    forward, exception thật chỉ log server-side (cùng pattern với
-    `execute_run_task`'s broad-failure branch trong
-    `apps/cosa/worker/handlers.py`)."""
     secret_detail = "internal-copilot-secret-detail"
     mock_plane.kernel.run = AsyncMock(side_effect=RuntimeError(secret_detail))
 
@@ -187,7 +189,9 @@ async def test_copilot_unexpected_error_is_not_sent_to_client(mock_plane, mock_s
     ) as mock_cb:
         await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
 
-    mock_cb.assert_awaited_once_with("run_crash_1", "failed")
+    mock_cb.assert_awaited_once()
+    assert mock_cb.call_args.args[0] == "run_crash_1"
+    assert mock_cb.call_args.args[1] == "failed"
     assert mock_stream_mgr.emit.await_count >= 1
     all_emitted_text = " ".join(
         str(call.kwargs.get("payload", "")) for call in mock_stream_mgr.emit.call_args_list
@@ -234,3 +238,125 @@ async def test_copilot_happy_path_artifact_persisted_ux_emitted_and_callback_sen
         assert cb_args[0] == "run_good_1"
         assert cb_args[1] == "completed"
         assert "artifact_ref" in mock_cb.call_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_copilot_failed_kernel_cannot_complete(mock_plane, mock_stream_mgr):
+    """Kernel status=FAILED -> outcome failed, callback company failed."""
+    mock_plane.kernel.run = AsyncMock(
+        return_value=RunResult(
+            run_id="run_fail_kernel",
+            status=RunStatus.FAILED,
+            errors=["model_overloaded"],
+        )
+    )
+    payload = {
+        "run_id": "run_fail_kernel",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_100"},
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+        mock_cb.assert_awaited_once()
+        assert mock_cb.call_args.args == ("run_fail_kernel", "failed")
+        assert mock_cb.call_args.kwargs.get("reason_code") == "kernel_failed"
+        assert mock_stream_mgr.emit.call_args.kwargs["event_type"] == "run.failed"
+
+
+@pytest.mark.asyncio
+async def test_copilot_empty_output_fails_run(mock_plane, mock_stream_mgr):
+    """Output rỗng ({}) không được coi là success -> failed."""
+    mock_plane.kernel.run = AsyncMock(
+        return_value=RunResult(
+            run_id="run_empty_output",
+            status=RunStatus.COMPLETED,
+            final_output={},
+        )
+    )
+    payload = {
+        "run_id": "run_empty_output",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_100"},
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+        mock_cb.assert_awaited_once()
+        assert mock_cb.call_args.args == ("run_empty_output", "failed")
+        assert mock_cb.call_args.kwargs.get("reason_code") == "invalid_output"
+        assert mock_stream_mgr.emit.call_args.kwargs["event_type"] == "run.failed"
+
+
+@pytest.mark.asyncio
+async def test_copilot_artifact_write_error_fails_run(mock_plane, mock_stream_mgr):
+    """Artifact repo fail -> run không thể complete."""
+    mock_plane.artifact_repository.create = AsyncMock(side_effect=RuntimeError("disk full"))
+
+    payload = {
+        "run_id": "run_art_fail",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_100"},
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+        mock_cb.assert_awaited_once()
+        assert mock_cb.call_args.args == ("run_art_fail", "failed")
+        assert mock_cb.call_args.kwargs.get("reason_code") == "missing_artifact"
+        assert mock_stream_mgr.emit.call_args.kwargs["event_type"] == "run.failed"
+
+
+@pytest.mark.asyncio
+async def test_copilot_waiting_approval_preserves_checkpoint(mock_plane, mock_stream_mgr):
+    """WAITING_APPROVAL không báo failed."""
+    mock_plane.kernel.run = AsyncMock(
+        return_value=RunResult(
+            run_id="run_wait_1",
+            status=RunStatus.WAITING_APPROVAL,
+            final_output={"summary": "Cần duyệt"},
+        )
+    )
+    payload = {
+        "run_id": "run_wait_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_100"},
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+        mock_cb.assert_awaited_once()
+        assert mock_cb.call_args.args == ("run_wait_1", "waiting_approval")
+
+
+@pytest.mark.asyncio
+async def test_copilot_auth_context_captured():
+    """Auth test dùng CompanyServiceClient thật + mock HTTP transport, capture Authorization đúng delegation."""
+    captured_headers = {}
+
+    def transport_handler(request: httpx.Request) -> httpx.Response:
+        captured_headers["Authorization"] = request.headers.get("Authorization")
+        captured_headers["X-Workspace-Id"] = request.headers.get("X-Workspace-Id")
+        return httpx.Response(200, json={"thread": {"id": "t_auth_1"}, "messages": []})
+
+    transport = httpx.MockTransport(transport_handler)
+    with patch("apps.cosa.capabilities.client.httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        client = CompanyServiceClient(base_url="http://company.internal")
+        handler = create_engagement_thread_read_handler(client)
+        ctx = {
+            "workspace_id": "ws_auth_test",
+            "delegation_token": "mock_delegation_jwt_token_123",
+        }
+
+        res = await handler({"thread_id": "t_auth_1"}, ctx)
+        assert res["thread"]["id"] == "t_auth_1"
+        assert captured_headers["Authorization"] == "Bearer mock_delegation_jwt_token_123"
+        assert captured_headers["X-Workspace-Id"] == "ws_auth_test"

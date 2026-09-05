@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 import re
 from typing import Any
@@ -61,6 +63,8 @@ async def callback_company_result(
     status: str,
     artifact_ref: str | None = None,
     summary_ref: str | None = None,
+    reason_code: str | None = None,
+    evidence_refs: list[str] | None = None,
 ) -> None:
     company_base_url = require_internal_url(
         "COMPANY_SERVICE_URL", purpose="copilot callback", default_dev="http://127.0.0.1:4000"
@@ -72,11 +76,13 @@ async def callback_company_result(
         "Content-Type": "application/json",
         "X-Cosa-Service-Token": service_token,
     }
-    body = {
+    body: dict[str, Any] = {
         "runId": run_id,
         "status": status,
         "artifactRef": artifact_ref,
         "summaryRef": summary_ref,
+        "reasonCode": reason_code,
+        "evidenceRefs": evidence_refs or [],
     }
 
     try:
@@ -129,7 +135,7 @@ async def run_customer_support_copilot(
                     },
                     correlation_id=correlation_id,
                 )
-            await callback_company_result(run_id, "failed")
+            await callback_company_result(run_id, "failed", reason_code=reason)
             return
         spec = fetched_spec
 
@@ -145,21 +151,36 @@ async def run_customer_support_copilot(
                     payload={"error": f"forbidden capability in copilot spec: {cap}"},
                     correlation_id=correlation_id,
                 )
-            await callback_company_result(run_id, "failed")
+            await callback_company_result(run_id, "failed", reason_code="forbidden_capability")
             return
 
     try:
-        # 2. Assemble minimized read context
+        # 2. Resolve principal / delegation token BEFORE context prefetch
+        delegation_token = payload.get("delegation_token")
+        if not delegation_token:
+            from apps.cosa.auth.jwt import mint_company_delegation
+            sub = str(payload.get("actor_id") or payload.get("user_id") or "0")
+            delegation_token = mint_company_delegation(
+                sub=sub,
+                workspace_id=workspace_id,
+                run_id=run_id,
+                capability_ids=spec.capability_refs,
+            )
+
+        ctx = {
+            "workspace_id": workspace_id,
+            "run_id": run_id,
+            "delegation_token": delegation_token,
+            "token": delegation_token,
+        }
+
+        # 3. Assemble minimized read context via gateway
         thread_ref = payload.get("thread_ref", {})
         thread_id = thread_ref.get("thread_id")
         contact_id = thread_ref.get("contact_id")
         identity_verified = payload.get("identity_verified", False)
         knowledge_scope = payload.get("knowledge_scope", {})
 
-        ctx = {"workspace_id": workspace_id, "run_id": run_id}
-
-        # Các read capability chỉ bắt buộc khi payload có dữ liệu tương ứng;
-        # có dữ liệu nhưng thiếu handler => fail hẳn với reason code, không skip im lặng.
         thread_context = {}
         if thread_id:
             thread_handler = await _require_handler(
@@ -204,7 +225,7 @@ async def run_customer_support_copilot(
                 return
             knowledge_profile = await knowledge_handler(knowledge_scope, ctx)
 
-        # 3. Execute Kernel
+        # 4. Build Model Input
         context_bundle = {
             "thread_context": thread_context,
             "customer_360": customer_360,
@@ -237,101 +258,148 @@ async def run_customer_support_copilot(
         else:
             raise RuntimeError("Kernel does not support run or execute_run")
 
+        kernel_status = getattr(kernel_resp, "status", None) or "COMPLETED"
         final_out = getattr(kernel_resp, "final_output", None)
         if final_out is None and hasattr(kernel_resp, "output"):
             final_out = kernel_resp.output
 
-        output_data = final_out if isinstance(final_out, dict) else {}
-        summary = output_data.get("summary") or "Tóm tắt yêu cầu khách hàng"
-        draft_body = (
-            output_data.get("recommended_response_draft")
-            or "Xin chào, cảm ơn bạn đã liên hệ. Chúng tôi đang kiểm tra thông tin."
+        # Validate Output: DO NOT use empty final_output as success
+        output_valid = bool(
+            final_out
+            and isinstance(final_out, dict)
+            and (final_out.get("summary") or final_out.get("recommended_response_draft"))
         )
+
+        output_data = final_out if isinstance(final_out, dict) else {}
+        summary = output_data.get("summary", "")
+        draft_body = output_data.get("recommended_response_draft", "")
         intent = output_data.get("intent") or payload.get("intent", "summarize")
         missing_info = output_data.get("missing_info") or []
         sales_signal = output_data.get("sales_signal") or "None"
         evidence_refs = output_data.get("evidence_refs") or ["thread.context"]
 
-        # Call draft capability handler to validate draft artifact — luôn bắt buộc.
-        draft_handler = await _require_handler(
-            plane,
-            "engagement.message.draft",
-            run_id=run_id,
-            correlation_id=correlation_id,
-            stream_repo=stream_repo,
-            stream_mgr=stream_mgr,
-        )
-        if draft_handler is None:
-            return
-        await draft_handler(
-            {
-                "thread_id": str(thread_id),
-                "draft_body": str(draft_body),
-                "evidence_refs": evidence_refs,
-                "rationale": str(summary),
-            },
-            ctx,
-        )
-
-        # 4. Persist Artifact
+        artifact_persisted = False
         artifact_ref = f"art_{run_id}"
         summary_ref = f"sum_{run_id}"
 
-        if plane.artifact_repository is not None:
-            try:
-                artifact = WorkspaceArtifact(
-                    artifact_id=artifact_ref,
-                    workspace_id=workspace_id,
-                    conversation_id=str(thread_id or "copilot"),
-                    run_id=run_id,
-                    artifact_kind="assistant_output",
-                    display_name="Customer Support Copilot Draft",
-                    media_type="application/json",
-                    object_ref=f"artifact://copilot/{run_id}/draft",
-                )
-                await plane.artifact_repository.create(artifact)
-            except Exception as e:
-                logger.warning("Failed to persist copilot artifact: %s", e)
-
-        # 5. Emit UX SSE
-        if stream_repo:
-            ux_payload = {
-                "run_id": run_id,
-                "status": "completed",
-                "artifact_ref": artifact_ref,
-                "summary_ref": summary_ref,
-                "summary": summary,
-                "recommended_response_draft": draft_body,
-                "intent": intent,
-                "missing_info": missing_info,
-                "sales_signal": sales_signal,
-                "evidence_refs": evidence_refs,
-            }
-            redacted = redact_ux_event_payload("run.completed", ux_payload)
-            await stream_mgr.emit(
-                stream_repo,
+        if output_valid:
+            draft_handler = await _require_handler(
+                plane,
+                "engagement.message.draft",
                 run_id=run_id,
-                conversation_id="",
-                event_type="run.completed",
-                payload=redacted,
                 correlation_id=correlation_id,
+                stream_repo=stream_repo,
+                stream_mgr=stream_mgr,
+            )
+            if draft_handler is None:
+                return
+            await draft_handler(
+                {
+                    "thread_id": str(thread_id),
+                    "draft_body": str(draft_body),
+                    "evidence_refs": evidence_refs,
+                    "rationale": str(summary),
+                },
+                ctx,
             )
 
-        # 6. Callback Company Service
-        await callback_company_result(
-            run_id,
-            "completed",
-            artifact_ref=artifact_ref,
-            summary_ref=summary_ref,
+            # 5. Persist Artifact & verify readable
+            if plane.artifact_repository is not None:
+                try:
+                    artifact = WorkspaceArtifact(
+                        artifact_id=artifact_ref,
+                        workspace_id=workspace_id,
+                        conversation_id=str(thread_id or "copilot"),
+                        run_id=run_id,
+                        artifact_kind="assistant_output",
+                        display_name="Customer Support Copilot Draft",
+                        media_type="application/json",
+                        object_ref=f"artifact://copilot/{run_id}/draft",
+                    )
+                    await plane.artifact_repository.create(artifact)
+                    if hasattr(plane.artifact_repository, "get"):
+                        get_fn = plane.artifact_repository.get
+                        if inspect.iscoroutinefunction(get_fn) or type(get_fn).__name__ == "AsyncMock":
+                            retrieved = await get_fn(artifact_ref)
+                            artifact_persisted = retrieved is not None
+                        elif callable(get_fn):
+                            res = get_fn(artifact_ref)
+                            if inspect.isawaitable(res):
+                                res = await res
+                            artifact_persisted = res is not None
+                        else:
+                            artifact_persisted = True
+                    else:
+                        artifact_persisted = True
+                except Exception as e:
+                    logger.warning("Failed to persist copilot artifact: %s", e)
+                    artifact_persisted = False
+            else:
+                artifact_persisted = True
+
+        from apps.cosa.worker.run_outcome import normalize_status, resolve_run_outcome
+        outcome = resolve_run_outcome(
+            status=kernel_status,
+            output_valid=output_valid,
+            artifact_persisted=artifact_persisted,
         )
 
+        if outcome == "completed":
+            if stream_repo:
+                ux_payload = {
+                    "run_id": run_id,
+                    "status": "completed",
+                    "artifact_ref": artifact_ref,
+                    "summary_ref": summary_ref,
+                    "summary": summary,
+                    "recommended_response_draft": draft_body,
+                    "intent": intent,
+                    "missing_info": missing_info,
+                    "sales_signal": sales_signal,
+                    "evidence_refs": evidence_refs,
+                }
+                redacted = redact_ux_event_payload("run.completed", ux_payload)
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id="",
+                    event_type="run.completed",
+                    payload=redacted,
+                    correlation_id=correlation_id,
+                )
+            await callback_company_result(
+                run_id,
+                "completed",
+                artifact_ref=artifact_ref,
+                summary_ref=summary_ref,
+                evidence_refs=evidence_refs,
+            )
+        else:
+            reason = (
+                "kernel_failed"
+                if normalize_status(kernel_status) in ("FAILED", "FAIL")
+                else "invalid_output"
+                if not output_valid
+                else "missing_artifact"
+                if not artifact_persisted
+                else "run_failed"
+            )
+            if stream_repo:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id="",
+                    event_type=f"run.{outcome}",
+                    payload={"error": f"run_{outcome}", "reason_code": reason},
+                    correlation_id=correlation_id,
+                )
+            await callback_company_result(
+                run_id,
+                outcome,
+                reason_code=reason,
+            )
+
     except Exception:
-        # Final-review Finding 1 — exception thô có thể mang chi tiết nội bộ
-        # (host/port control-plane, stack chi tiết) KHÔNG được interpolate
-        # vào payload SSE client-facing. Log đầy đủ server-side kèm run_id,
-        # client chỉ nhận mã lỗi ổn định — cùng pattern với
-        # `execute_run_task`'s broad-failure branch trong
-        # `apps/cosa/worker/handlers.py`.
         logger.exception("Copilot run %s crashed", run_id)
         if stream_repo:
             await stream_mgr.emit(
@@ -342,5 +410,5 @@ async def run_customer_support_copilot(
                 payload={"error": "internal_error", "reason_code": "copilot_unhandled_exception"},
                 correlation_id=correlation_id,
             )
-        await callback_company_result(run_id, "failed")
+        await callback_company_result(run_id, "failed", reason_code="copilot_unhandled_exception")
         return

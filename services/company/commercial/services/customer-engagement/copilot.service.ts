@@ -166,6 +166,8 @@ export async function applyCopilotResult(input: {
   status: string;
   artifactRef?: string | null;
   summaryRef?: string | null;
+  reasonCode?: string | null;
+  evidenceRefs?: string[] | null;
 }): Promise<void> {
   const rows = await db
     .select()

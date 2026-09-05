@@ -63,6 +63,8 @@ export interface ApplyCopilotResultRequest {
   status: string;
   artifactRef?: string;
   summaryRef?: string;
+  reasonCode?: string;
+  evidenceRefs?: string[];
   serviceToken?: Header<"X-Cosa-Service-Token">;
 }
 
@@ -141,12 +143,12 @@ export const recordCopilotFeedbackApi = api(
 // 9. POST /commercial/engagement/copilot-invocations/:runId/result (Internal callback from COSA)
 export const applyCopilotResultApi = api(
   { expose: true, method: "POST", path: "/commercial/engagement/copilot-invocations/:runId/result" },
-  async ({ runId, status, artifactRef, summaryRef, serviceToken }: ApplyCopilotResultRequest): Promise<{ success: boolean }> => {
+  async ({ runId, status, artifactRef, summaryRef, reasonCode, evidenceRefs, serviceToken }: ApplyCopilotResultRequest): Promise<{ success: boolean }> => {
     const expectedToken = process.env.COSA_SERVICE_TOKEN || "local-dev-service-token";
     if (!serviceToken || serviceToken !== expectedToken) {
       throw APIError.unauthenticated("invalid or missing service token");
     }
-    await applyCopilotResult({ runId, status, artifactRef, summaryRef });
+    await applyCopilotResult({ runId, status, artifactRef, summaryRef, reasonCode, evidenceRefs });
     return { success: true };
   }
 );

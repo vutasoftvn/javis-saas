@@ -160,6 +160,12 @@ async def test_sweep_runs_auto_tasks_and_marks_done():
             }
         ]
     }
+    async def mock_post(path, *args, **kwargs):
+        if "validate-completion" in path:
+            return {"status": "done"}
+        return {"status": "ok"}
+    company.post.side_effect = mock_post
+
     plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "done"}))
 
     await wga_run.execute_workspace_task_sweep_task(
@@ -171,6 +177,44 @@ async def test_sweep_runs_auto_tasks_and_marks_done():
     assert len(advance_calls) == 2
     assert advance_calls[0].kwargs["json"]["toStatus"] == "in_progress"
     assert advance_calls[1].kwargs["json"]["toStatus"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_sweep_keeps_task_in_progress_when_completion_not_validated():
+    """R2 / F05: Trong giai đoạn S3 chưa deploy hoặc validate-completion không 'done',
+    giữ task in_progress kèm completion_pending, không advance('done') trực tiếp."""
+    company = AsyncMock()
+    company.get.return_value = {
+        "tasks": [
+            {
+                "taskId": "t1",
+                "autonomyClass": "AUTO",
+                "ownerAgentProfile": "operations",
+                "expectedCapability": "operations.task.list",
+                "title": "List stale tasks",
+                "decisionReason": "cleanup",
+                "planItemId": "i1",
+            }
+        ]
+    }
+    # validate-completion returns 404/exception or status != "done"
+    async def mock_post(path, *args, **kwargs):
+        if "validate-completion" in path:
+            return {"status": "pending"}
+        return {"status": "ok"}
+    company.post.side_effect = mock_post
+
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "done"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "wga_sweep_unval", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    assert len(advance_calls) == 2
+    assert advance_calls[0].kwargs["json"]["toStatus"] == "in_progress"
+    assert advance_calls[1].kwargs["json"]["toStatus"] == "in_progress"
+    assert advance_calls[1].kwargs["json"]["note"] == "completion_pending"
 
 
 @pytest.mark.asyncio
@@ -205,13 +249,20 @@ async def test_sweep_marks_waiting_approval_on_kernel_waiting():
 @pytest.mark.asyncio
 async def test_advance_wga_task_after_resume_closes_the_task():
     company = AsyncMock()
+    async def mock_post(path, *args, **kwargs):
+        if "validate-completion" in path:
+            return {"status": "done"}
+        return {"status": "ok"}
+    company.post.side_effect = mock_post
+
     plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED))
     await wga_run.advance_wga_task_after_resume(
         plane, run_id="wga_task_909_abcd1234", workspace_id="ws1", sub="42"
     )
-    call = company.post.await_args
-    assert call.args[0] == "/operations/tasks/909/advance"
-    assert call.kwargs["json"]["toStatus"] == "done"
+    advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    assert len(advance_calls) == 1
+    assert advance_calls[0].args[0] == "/operations/tasks/909/advance"
+    assert advance_calls[0].kwargs["json"]["toStatus"] == "done"
 
 
 @pytest.mark.asyncio

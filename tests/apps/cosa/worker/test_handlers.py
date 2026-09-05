@@ -140,11 +140,6 @@ async def test_non_goal_message_does_not_append_goal_confirm_card():
         # createNewConversation() không truyền agentProfile) — phải tiếp tục
         # map sang Operations, không được coi là "unknown".
         ("founder_assistant", "cosa.agents.operations"),
-        # Profile lạ chưa từng dùng — fallback an toàn về Operations thay vì
-        # âm thầm rơi vào đó qua so khớp chuỗi "finance" in agent_profile như
-        # trước đây (bug: "marketing" cũng rơi vào Operations do "finance"
-        # not in "marketing").
-        ("some_never_used_profile", "cosa.agents.operations"),
     ],
 )
 async def test_execute_run_task_dispatches_correct_spec_per_agent_profile(
@@ -166,6 +161,27 @@ async def test_execute_run_task_dispatches_correct_spec_per_agent_profile(
     run = await plane.run_repository.get_run("run_handler_test_1")
     assert run is not None
     assert run.root_executable_id == expected_spec_id
+
+
+@pytest.mark.asyncio
+async def test_execute_run_task_rejects_unsupported_profile():
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    stream_mgr = CosaEventStreamManager()
+
+    await execute_run_task(
+        plane,
+        stream_mgr,
+        _payload(agent_profile="unsupported_profile_xyz"),
+    )
+
+    run = await plane.run_repository.get_run("run_handler_test_1")
+    assert run is None
+    events = await plane.stream_event_repository.list_since("run_handler_test_1")
+    assert any(e.event_type == "run.failed" for e in events)
 
 
 class _SpyComplianceResolver:

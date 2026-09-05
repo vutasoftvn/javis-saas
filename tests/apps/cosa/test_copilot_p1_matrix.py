@@ -119,14 +119,16 @@ async def test_matrix_unverified_customer_redaction_flow():
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
         await run_customer_support_copilot(plane, stream_mgr, payload)
 
-        # Verify commercial.customer_360.read was invoked with identity_verified=False
-        mock_customer_read.assert_awaited_once_with(
-            {"contact_id": "c_99", "identity_verified": False},
-            {"workspace_id": "ws_1", "run_id": "run_unverified_matrix"},
-        )
-        mock_cb.assert_awaited_once_with(
-            "run_unverified_matrix",
-            "completed",
-            artifact_ref="art_run_unverified_matrix",
-            summary_ref="sum_run_unverified_matrix",
-        )
+        # Verify commercial.customer_360.read was invoked with identity_verified=False and context
+        assert mock_customer_read.await_count == 1
+        read_args, read_ctx = mock_customer_read.await_args[0]
+        assert read_args == {"contact_id": "c_99", "identity_verified": False}
+        assert read_ctx.get("workspace_id") == "ws_1"
+        assert read_ctx.get("run_id") == "run_unverified_matrix"
+        assert "delegation_token" in read_ctx
+
+        assert mock_cb.await_count == 1
+        assert mock_cb.await_args.args[0] == "run_unverified_matrix"
+        assert mock_cb.await_args.args[1] == "completed"
+        assert mock_cb.await_args.kwargs.get("artifact_ref") == "art_run_unverified_matrix"
+        assert mock_cb.await_args.kwargs.get("summary_ref") == "sum_run_unverified_matrix"

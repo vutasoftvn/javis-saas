@@ -448,11 +448,25 @@ class RealOpenAIAgentsSDKKernel:
 
         prompt_content = ""
         if request.input:
-            prompt_content = (
-                request.input.get("prompt")
-                or request.input.get("message")
-                or json.dumps(request.input)
-            )
+            prompt = request.input.get("prompt") or request.input.get("message")
+            ctx_data = request.input.get("context")
+            if prompt and ctx_data:
+                ctx_str = (
+                    json.dumps(ctx_data, ensure_ascii=False, indent=2)
+                    if isinstance(ctx_data, (dict, list))
+                    else str(ctx_data)
+                )
+                prompt_content = f"{prompt}\n\n--- CONTEXT (provenance: verified_gateway) ---\n{ctx_str}"
+            elif prompt:
+                prompt_content = prompt
+            elif ctx_data:
+                prompt_content = (
+                    json.dumps(ctx_data, ensure_ascii=False, indent=2)
+                    if isinstance(ctx_data, (dict, list))
+                    else str(ctx_data)
+                )
+            else:
+                prompt_content = json.dumps(request.input)
 
         if self._model_input_guard:
             try:

@@ -97,12 +97,60 @@ async def _advance_task(
         )
 
 
+async def finalize_wga_task_completion(
+    plane: CosaAgentPlane,
+    *,
+    workspace_id: str,
+    task_id: str,
+    run_id: str,
+    token: str,
+    note: str = "completion_pending",
+) -> None:
+    """Finalizer chung cho task WGA khi run hoàn tất (cả initial lẫn resumed).
+
+    Gọi S3 validateTaskCompletion nếu endpoint có sẵn; trong giai đoạn chưa deploy
+    S3 endpoint, giữ task 'in_progress' kèm completion_pending, không advance('done')
+    trực tiếp (theo R2 / F05: 'Run hoàn tất chưa mặc nhiên là task hoặc KR hoàn tất').
+    """
+    validated = False
+    try:
+        resp = await plane.company_client.post(
+            f"/operations/tasks/{task_id}/validate-completion",
+            json={"taskId": task_id},
+            headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
+        )
+        if isinstance(resp, dict) and resp.get("status") in ("done", "completed"):
+            validated = True
+    except Exception:
+        validated = False
+
+    if validated:
+        await _advance_task(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            to_status="done",
+            run_id=run_id,
+            token=token,
+            note="validated_completion",
+        )
+    else:
+        await _advance_task(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            to_status="in_progress",
+            run_id=run_id,
+            token=token,
+            note=note or "completion_pending",
+        )
+
+
 async def advance_wga_task_after_resume(
     plane: CosaAgentPlane, *, run_id: str, workspace_id: str | None, sub: str
 ) -> None:
     """Sau khi founder duyệt checkpoint và `execute_resume_task` chạy xong
-    (COMPLETED), đóng task WGA tương ứng bằng `operations.task.advance(done)`.
-    No-op nếu run_id không phải task-execution run của sweep."""
+    (COMPLETED), gọi finalizer chung thay vì advance(done) trực tiếp."""
     m = _WGA_TASK_RUN_RE.match(run_id or "")
     if not m or not workspace_id:
         return
@@ -113,11 +161,10 @@ async def advance_wga_task_after_resume(
         run_id=run_id,
         capability_ids=[_CAP_TASK_ADVANCE],
     )
-    await _advance_task(
+    await finalize_wga_task_completion(
         plane,
         workspace_id=workspace_id,
         task_id=task_id,
-        to_status="done",
         run_id=run_id,
         token=token,
         note="hoàn tất sau khi founder duyệt",
@@ -338,13 +385,13 @@ async def execute_workspace_task_sweep_task(
         run_result, _ = await run_kernel(plane, prep, workspace_id=workspace_id, run_id=task_run_id)
 
         if run_result.status == RunStatus.COMPLETED:
-            await _advance_task(
+            await finalize_wga_task_completion(
                 plane,
                 workspace_id=workspace_id,
                 task_id=task_id,
-                to_status="done",
                 run_id=task_run_id,
                 token=adv_token,
+                note="completion_pending",
             )
         elif run_result.status == RunStatus.WAITING_APPROVAL:
             # Kernel đã tạo bản ghi approval (hiện ở WaitingForYouWidget). Đặt
