@@ -34,7 +34,6 @@ describe("legal-applicability-integrity", () => {
     await db.insert(legalEntityProfiles).values({
       id: entityAId,
       workspaceId: wsId,
-      legalName: "Entity A Corp",
       entityType: "MICRO_ENTERPRISE",
       status: "VERIFIED",
     });
@@ -44,7 +43,6 @@ describe("legal-applicability-integrity", () => {
     await db.insert(legalEntityProfiles).values({
       id: entityBId,
       workspaceId: wsId,
-      legalName: "Entity B Co",
       entityType: "MICRO_ENTERPRISE",
       status: "DRAFT",
     });
@@ -87,8 +85,8 @@ describe("legal-applicability-integrity", () => {
 
     // Evaluate Entity A directly
     const evalA = await evaluateEntityApplicability(
-      { workspaceId: wsId },
-      String(entityAId)
+      { workspaceId: String(wsId) },
+      entityAId
     );
     const ruleEvalA = evalA.find((e) => e.ruleId === String(ruleId));
     expect(ruleEvalA).toBeDefined();
@@ -96,8 +94,8 @@ describe("legal-applicability-integrity", () => {
 
     // Evaluate Entity B directly - does not match predicate, so omitted from applicable obligations
     const evalB = await evaluateEntityApplicability(
-      { workspaceId: wsId },
-      String(entityBId)
+      { workspaceId: String(wsId) },
+      entityBId
     );
     const ruleEvalB = evalB.find((e) => e.ruleId === String(ruleId));
     expect(ruleEvalB).toBeUndefined();
@@ -179,7 +177,7 @@ describe("legal-applicability-integrity", () => {
       .where(eq(legalObligationInstances.id, BigInt(ob2.id)));
 
     // Query open obligations
-    const openList = await listOpenObligations({ workspaceId: wsId });
+    const openList = await listOpenObligations({ workspaceId: String(wsId) });
     const titles = openList.map((o) => o.title);
 
     expect(titles).toContain("Open Tax Filing");

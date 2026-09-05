@@ -169,7 +169,6 @@ describe("deployment-authority (F16)", () => {
     await db.insert(legalEntityProfiles).values({
       id: generateSnowflake(),
       workspaceId: BigInt(wsId),
-      legalName: "Solo Venture",
       entityType: "SOLE_PROPRIETORSHIP",
       status: "VERIFIED",
     });
@@ -259,6 +258,8 @@ describe("deployment-authority (F16)", () => {
       userId: memberWithoutPermId,
       workforceMemberId: memberWithoutPermId,
       membershipRole: "member",
+      permissions: [],
+      correlationId: "test-resume-unauthorized",
     };
 
     await expect(
@@ -282,6 +283,8 @@ describe("deployment-authority (F16)", () => {
       userId: founderId,
       workforceMemberId: founderId,
       membershipRole: "founder",
+      permissions: [],
+      correlationId: "test-resume-founder",
     };
 
     const approved = await approveAiAssessment(

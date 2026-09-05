@@ -98,7 +98,6 @@ describe("legal-obligation-lifecycle (Task L3)", () => {
     await db.insert(legalEntityProfiles).values({
       id: entityId,
       workspaceId: wsId,
-      legalName: "Lifecycle Test LLC",
       entityType: "LLC",
       status: "VERIFIED",
     });
