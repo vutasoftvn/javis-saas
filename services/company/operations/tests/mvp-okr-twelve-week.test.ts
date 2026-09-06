@@ -181,4 +181,74 @@ describe("MVP OKR & 12-Week Contracts", () => {
     expect(view.commitments[0].title).toBe("Contact first batch");
     expect(view.allowedActions).toContain("weekly.plan.edit");
   });
+
+  it("rejects an explicit cycleId that belongs to a different project in the same workspace (IA26)", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Execution Cycle Cross-Project");
+    const { getExecutionCycleViewEndpoint } = await import("../handlers/execution-cycle-view.handler");
+    const { createProject } = await import("../handlers/project.handler");
+
+    const projectA = await createProject({ workspaceId, authorization, title: "Project A" });
+    const projectB = await createProject({ workspaceId, authorization, title: "Project B" });
+
+    const cycleB = await createCycle({
+      workspaceId,
+      authorization,
+      projectId: projectB.id,
+      displayName: "Cycle của Project B",
+      durationWeeks: 6,
+      startLocalDate: "2026-09-07",
+    });
+
+    // Yêu cầu view của Project A nhưng chỉ định cycleId thuộc Project B.
+    const view = await getExecutionCycleViewEndpoint({
+      workspaceId,
+      authorization,
+      projectId: projectA.id,
+      cycleId: cycleB.id,
+    });
+
+    expect(view.cycle).toBeNull();
+  });
+
+  it("only picks an ACTIVE cycle for the fallback (no cycleId), never a completed one, even if newer (IA26)", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Execution Cycle Fallback Status");
+    const { getExecutionCycleViewEndpoint } = await import("../handlers/execution-cycle-view.handler");
+    const { createProject } = await import("../handlers/project.handler");
+    const { db, schema } = await import("../models/db");
+    const { eq } = await import("drizzle-orm");
+
+    const project = await createProject({ workspaceId, authorization, title: "Fallback Status Project" });
+
+    const activeCycle = await createCycle({
+      workspaceId,
+      authorization,
+      projectId: project.id,
+      displayName: "Active cycle (older)",
+      durationWeeks: 6,
+      startLocalDate: "2026-09-07",
+    });
+
+    const completedCycle = await createCycle({
+      workspaceId,
+      authorization,
+      projectId: project.id,
+      displayName: "Completed cycle (newer)",
+      durationWeeks: 6,
+      startLocalDate: "2026-09-14",
+    });
+    // Đánh dấu cycle mới hơn là đã kết thúc — trước đây fallback chọn theo
+    // createdAt desc, sẽ chọn nhầm cycle này dù đã COMPLETED.
+    await db
+      .update(schema.twelveWeekCycles)
+      .set({ status: "COMPLETED" })
+      .where(eq(schema.twelveWeekCycles.id, BigInt(completedCycle.id)));
+
+    const view = await getExecutionCycleViewEndpoint({
+      workspaceId,
+      authorization,
+      projectId: project.id,
+    });
+
+    expect(view.cycle?.id).toBe(activeCycle.id);
+  });
 });

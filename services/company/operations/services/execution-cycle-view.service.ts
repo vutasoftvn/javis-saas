@@ -99,6 +99,11 @@ export async function getExecutionCycleView(
   const dataIssues: string[] = [];
 
   // 1. Locate cycle: by cycleId if provided, or the latest active cycle for the project
+  // IA26: explicit cycleId trước đây chỉ kiểm workspace, không kiểm project —
+  // 1 cycleId hợp lệ của project KHÁC trong cùng workspace vẫn được trả về,
+  // trộn dữ liệu weekly plan/commitment sai project vào view. Fallback (không
+  // truyền cycleId) trước đây không lọc theo status — có thể chọn 1 cycle đã
+  // COMPLETED/CANCELLED làm "cycle hiện tại" chỉ vì nó được tạo gần nhất.
   let cycleRow: typeof twelveWeekCycles.$inferSelect | undefined;
   if (params.cycleId && params.cycleId.trim()) {
     const cycleIdBig = BigInt(params.cycleId);
@@ -108,6 +113,7 @@ export async function getExecutionCycleView(
       .where(
         and(
           eq(twelveWeekCycles.id, cycleIdBig),
+          eq(twelveWeekCycles.projectId, pId),
           eq(twelveWeekCycles.workspaceId, wsId),
           isNull(twelveWeekCycles.deletedAt)
         )
@@ -115,19 +121,35 @@ export async function getExecutionCycleView(
       .limit(1);
     cycleRow = found;
   } else {
-    const [latest] = await db
+    const activeCycles = await db
       .select()
       .from(twelveWeekCycles)
       .where(
         and(
           eq(twelveWeekCycles.projectId, pId),
           eq(twelveWeekCycles.workspaceId, wsId),
+          eq(twelveWeekCycles.status, "ACTIVE"),
           isNull(twelveWeekCycles.deletedAt)
         )
       )
-      .orderBy(desc(twelveWeekCycles.createdAt))
-      .limit(1);
-    cycleRow = latest;
+      .orderBy(desc(twelveWeekCycles.createdAt));
+
+    const readyCycles = activeCycles.filter(
+      (c) => c.calendarState === "READY" || c.calendarState === null
+    );
+
+    if (activeCycles.length > 1) {
+      dataIssues.push(
+        readyCycles.length > 1
+          ? "multiple_active_ready_cycles_showing_most_recent"
+          : "multiple_active_cycles_showing_most_recent"
+      );
+    }
+
+    cycleRow = readyCycles[0] ?? activeCycles[0];
+    if (cycleRow && readyCycles.length === 0) {
+      dataIssues.push("active_cycle_needs_setup");
+    }
   }
 
   if (!cycleRow) {
