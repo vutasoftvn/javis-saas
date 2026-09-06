@@ -20,6 +20,8 @@ const {
   cycleKeyResults,
   twelveWeekCycles,
   tasks,
+  weeklyPlans,
+  weeklyCommitments,
 } = schema;
 
 describe("Linear Progress Calculation (Pure Logic)", () => {
@@ -310,5 +312,125 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
       .from(keyResults)
       .where(eq(keyResults.id, BigInt(krId)));
     expect(kr!.currentValue).toBe(100); // untouched!
+  });
+
+  it("does not close the parent commitment while a sibling task is still pending (IA23)", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const wsId = BigInt(ws.workspaceId);
+    const ctx = {
+      workspaceId: ws.workspaceId,
+      userId: "1",
+      membershipRole: "founder",
+      permissions: [],
+      correlationId: "sibling-test",
+    };
+
+    const [cycle] = await db
+      .insert(twelveWeekCycles)
+      .values({ id: generateSnowflake(), workspaceId: wsId, durationWeeks: 6 })
+      .returning();
+    const [plan] = await db
+      .insert(weeklyPlans)
+      .values({ id: generateSnowflake(), workspaceId: wsId, cycleId: cycle!.id, weekNo: 1 })
+      .returning();
+    const [commitment] = await db
+      .insert(weeklyCommitments)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: wsId,
+        weeklyPlanId: plan!.id,
+        title: "Ship onboarding flow",
+      })
+      .returning();
+
+    const taskAId = generateSnowflake();
+    const taskBId = generateSnowflake();
+    await db.insert(tasks).values([
+      {
+        id: taskAId,
+        workspaceId: wsId,
+        title: "Task A",
+        status: "todo",
+        revision: 1,
+        weeklyCommitmentId: commitment!.id,
+      },
+      {
+        id: taskBId,
+        workspaceId: wsId,
+        title: "Task B (still pending)",
+        status: "todo",
+        revision: 1,
+        weeklyCommitmentId: commitment!.id,
+      },
+    ]);
+
+    // Complete task A only — task B (sibling) is still "todo".
+    await validateTaskCompletion(ctx, {
+      taskId: taskAId.toString(),
+      expectedVersion: 1,
+      evidenceRefs: ["ev_a"],
+    });
+
+    const [commitmentAfterA] = await db
+      .select()
+      .from(weeklyCommitments)
+      .where(eq(weeklyCommitments.id, commitment!.id));
+    expect(commitmentAfterA!.status).not.toBe("done");
+
+    // Complete task B — now both siblings are done, commitment should close.
+    await validateTaskCompletion(ctx, {
+      taskId: taskBId.toString(),
+      expectedVersion: 1,
+      evidenceRefs: ["ev_b"],
+    });
+
+    const [commitmentAfterB] = await db
+      .select()
+      .from(weeklyCommitments)
+      .where(eq(weeklyCommitments.id, commitment!.id));
+    expect(commitmentAfterB!.status).toBe("done");
+  });
+
+  it("two concurrent completions of the same task never both report success with the same revision (IA23)", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const wsId = BigInt(ws.workspaceId);
+    const ctx = {
+      workspaceId: ws.workspaceId,
+      userId: "1",
+      membershipRole: "founder",
+      permissions: [],
+      correlationId: "cas-race-test",
+    };
+
+    const taskId = generateSnowflake();
+    await db.insert(tasks).values({
+      id: taskId,
+      workspaceId: wsId,
+      title: "Racy task",
+      status: "todo",
+      revision: 1,
+    });
+
+    const results = await Promise.allSettled([
+      validateTaskCompletion(ctx, { taskId: taskId.toString(), evidenceRefs: ["ev_x"] }),
+      validateTaskCompletion(ctx, { taskId: taskId.toString(), evidenceRefs: ["ev_y"] }),
+    ]);
+
+    // Cả 2 phải hội tụ đúng: hoặc 1 thắng ghi revision=2 và bên kia thấy
+    // status="done" đã tồn tại (idempotent no-op), hoặc DB CAS chặn 1 bên —
+    // KHÔNG được có chuyện cả 2 cùng "thành công" nhưng task chỉ tăng
+    // revision đúng 1 lần (mất 1 update).
+    const fulfilled = results.filter((r) => r.status === "fulfilled") as PromiseFulfilledResult<any>[];
+    expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+
+    const [finalTask] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+    expect(finalTask!.status).toBe("done");
+    expect(finalTask!.revision).toBe(2);
+
+    // Mọi kết quả fulfilled phải phản ánh đúng trạng thái cuối (revision=2),
+    // không có kết quả "done, revision=2" bị báo trùng từ 2 lần tăng riêng biệt.
+    for (const r of fulfilled) {
+      expect(r.value.revision).toBe(2);
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "../models/db";
 import { tasks, weeklyCommitments } from "../../shared/db/schema/operations";
 import { TenantContext } from "../../shared/types/tenant_context";
@@ -167,6 +167,10 @@ export async function validateTaskCompletion(
     const nextRevision = (task.revision ?? 1) + 1;
     const now = new Date();
 
+    // IA23: CAS trên chính revision vừa đọc — trước đây UPDATE không có điều
+    // kiện revision trong WHERE, nên 2 lời gọi đồng thời cùng đọc revision N
+    // đều tính nextRevision=N+1 và cùng ghi thành công, khiến revision không
+    // phản ánh đúng số lần cập nhật thật (mất 1 lần tăng phiên bản).
     const [updated] = await tx
       .update(tasks)
       .set({
@@ -174,23 +178,55 @@ export async function validateTaskCompletion(
         revision: nextRevision,
         updatedAt: now,
       })
-      .where(and(eq(tasks.id, taskIdBig), eq(tasks.workspaceId, wsId)))
+      .where(
+        and(
+          eq(tasks.id, taskIdBig),
+          eq(tasks.workspaceId, wsId),
+          eq(tasks.revision, task.revision)
+        )
+      )
       .returning();
 
-    // If linked to commitment, update commitment status if all tasks done
+    if (!updated) {
+      const err = APIError.aborted(
+        `Concurrent modification: task ${params.taskId} revision changed during completion`
+      );
+      (err as any).code = "CONCURRENT_MODIFICATION";
+      throw err;
+    }
+
+    // IA23: chỉ đóng commitment khi TẤT CẢ task khác thuộc cùng commitment
+    // cũng đã done — trước đây đóng commitment ngay khi 1 task bất kỳ hoàn
+    // thành, bỏ qua các task anh em (sibling) chưa xong.
     if (task.weeklyCommitmentId) {
-      await tx
-        .update(weeklyCommitments)
-        .set({
-          status: "done",
-          updatedAt: now,
-        })
+      const [pendingSibling] = await tx
+        .select({ id: tasks.id })
+        .from(tasks)
         .where(
           and(
-            eq(weeklyCommitments.id, task.weeklyCommitmentId),
-            eq(weeklyCommitments.workspaceId, wsId)
+            eq(tasks.weeklyCommitmentId, task.weeklyCommitmentId),
+            eq(tasks.workspaceId, wsId),
+            isNull(tasks.deletedAt),
+            ne(tasks.id, taskIdBig),
+            ne(tasks.status, "done")
           )
-        );
+        )
+        .limit(1);
+
+      if (!pendingSibling) {
+        await tx
+          .update(weeklyCommitments)
+          .set({
+            status: "done",
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(weeklyCommitments.id, task.weeklyCommitmentId),
+              eq(weeklyCommitments.workspaceId, wsId)
+            )
+          );
+      }
     }
 
     const event = makeBusinessEvent({
