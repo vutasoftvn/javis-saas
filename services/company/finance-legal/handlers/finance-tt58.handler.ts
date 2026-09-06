@@ -33,6 +33,17 @@ import {
   calculateAndSaveSnapshotService,
   FinancialSnapshotView,
 } from "../services/financial-snapshot.service";
+import {
+  createBookEntryService,
+  listBookEntriesService,
+  BookEntryView,
+} from "../services/accounting-books.service";
+import {
+  generateReportService,
+  listReportSnapshotsService,
+  confirmMappingService,
+  ReportSnapshotView,
+} from "../services/accounting-reports.service";
 
 // 1. Accounting Regime Policy
 export interface GetRegimePolicyParams {
@@ -232,5 +243,117 @@ export const postCalculateSnapshot = api(
       openingBalance: params.openingBalance,
       burnWindowMonths: params.burnWindowMonths,
     });
+  }
+);
+
+// 7. TT58 Books & Reports (F5)
+export interface CreateBookEntryParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  legalEntityId: string;
+  periodId: string;
+  documentId?: string;
+  item: string;
+  category: "capital" | "loan" | "internal_transfer" | "revenue" | "cost" | "advance" | "payable" | "receivable";
+  amountMinor: string;
+  currency?: string;
+  effectiveDate: string;
+  source: string;
+}
+
+export const postBookEntry = api(
+  { method: "POST", path: "/finance/books", expose: true },
+  async (params: CreateBookEntryParams): Promise<BookEntryView> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return createBookEntryService(ctx, {
+      legalEntityId: params.legalEntityId,
+      periodId: params.periodId,
+      documentId: params.documentId,
+      item: params.item,
+      category: params.category,
+      amountMinor: params.amountMinor,
+      currency: params.currency,
+      effectiveDate: params.effectiveDate,
+      source: params.source,
+    });
+  }
+);
+
+export interface ListBookEntriesParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  legalEntityId: Query<string>;
+  periodId: Query<string>;
+}
+
+export const getBookEntries = api(
+  { method: "GET", path: "/finance/books", expose: true },
+  async (params: ListBookEntriesParams): Promise<{ entries: BookEntryView[] }> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const entries = await listBookEntriesService(ctx, {
+      legalEntityId: params.legalEntityId,
+      periodId: params.periodId,
+    });
+    return { entries };
+  }
+);
+
+export interface GenerateReportParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  legalEntityId: string;
+  periodId: string;
+  reportCode: string;
+  mappingVersion?: string;
+  expectedPeriodVersion?: number;
+}
+
+export const postGenerateReport = api(
+  { method: "POST", path: "/finance/reports/generate", expose: true },
+  async (params: GenerateReportParams): Promise<ReportSnapshotView> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return generateReportService(ctx, {
+      legalEntityId: params.legalEntityId,
+      periodId: params.periodId,
+      reportCode: params.reportCode,
+      mappingVersion: params.mappingVersion,
+      expectedPeriodVersion: params.expectedPeriodVersion,
+    });
+  }
+);
+
+export interface ListReportsParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  legalEntityId: Query<string>;
+  periodId: Query<string>;
+  reportCode?: Query<string>;
+}
+
+export const getReports = api(
+  { method: "GET", path: "/finance/reports", expose: true },
+  async (params: ListReportsParams): Promise<{ reports: ReportSnapshotView[] }> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const reports = await listReportSnapshotsService(ctx, {
+      legalEntityId: params.legalEntityId,
+      periodId: params.periodId,
+      reportCode: params.reportCode,
+    });
+    return { reports };
+  }
+);
+
+export interface ConfirmMappingParams {
+  regimeCode: string;
+  mappingVersion: string;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+}
+
+export const postConfirmAccountingMapping = api(
+  { method: "POST", path: "/finance/accounting-mapping/:regimeCode/:mappingVersion/confirm", expose: true },
+  async (params: ConfirmMappingParams): Promise<{ confirmedAt: string }> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return confirmMappingService(ctx, params.regimeCode, params.mappingVersion);
   }
 );
