@@ -125,6 +125,30 @@ describe("Project Action Context & Live Proposals (S4)", () => {
     expect(legalAction!.recommendation).toContain("Nghị định 13");
   });
 
+  it("IA28: keeps an IN_PROGRESS obligation visible in active context, not just OPEN", async () => {
+    const { ctx, project, ws } = await seedProjectFixture();
+    const wsId = BigInt(ws.workspaceId);
+
+    await db.insert(legalObligationInstances).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      title: "Nghĩa vụ đang xử lý (IN_PROGRESS)",
+      source: "USER_CREATED",
+      dueDate: "2026-10-01",
+      status: "IN_PROGRESS",
+    });
+
+    const context = await getProjectActionContext(ctx, project.id);
+    expect(context.openObligations.availability).toBe("READY");
+    if (context.openObligations.availability === "READY") {
+      // Trước IA28: query chỉ lọc status="OPEN" nên nghĩa vụ IN_PROGRESS
+      // biến mất khỏi active context dù chưa đóng (chưa FULFILLED/EXEMPT/
+      // CANCELLED) — agent/người xem context sẽ tưởng nhầm là không còn
+      // nghĩa vụ pháp lý nào đang chờ xử lý.
+      expect(context.openObligations.data.some((o) => o.title.includes("IN_PROGRESS"))).toBe(true);
+    }
+  });
+
   it("marks cashSummary and budgetSummary as UNAVAILABLE with reason instead of zero-filling", async () => {
     const { ctx, project } = await seedProjectFixture();
 

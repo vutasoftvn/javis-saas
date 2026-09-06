@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../../models/db";
 import {
@@ -258,10 +258,21 @@ export async function getProjectActionContext(
   }
 
   // 6. Open Legal Obligations
+  // IA28: trước đây chỉ lấy status="OPEN" — 1 nghĩa vụ vừa được chuyển sang
+  // IN_PROGRESS (agent/người đang xử lý, chưa FULFILLED) biến mất hoàn toàn
+  // khỏi active context, dù về nghiệp vụ vẫn đang "mở" (chưa đóng). Dùng
+  // cùng tập trạng thái "đang mở" đã có sẵn ở listOpenObligations
+  // (legal-obligation.service.ts) để nhất quán 1 định nghĩa "active" duy
+  // nhất trong toàn hệ thống.
   const obligations = await db
     .select()
     .from(legalObligationInstances)
-    .where(and(eq(legalObligationInstances.workspaceId, wsId), eq(legalObligationInstances.status, "OPEN")))
+    .where(
+      and(
+        eq(legalObligationInstances.workspaceId, wsId),
+        inArray(legalObligationInstances.status, ["OPEN", "IN_PROGRESS", "PENDING"])
+      )
+    )
     .orderBy(legalObligationInstances.dueDate)
     .limit(10);
 
