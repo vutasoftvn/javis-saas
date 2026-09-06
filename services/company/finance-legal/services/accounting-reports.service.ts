@@ -125,6 +125,26 @@ export function requireReportMappingBucket(bucket: string | null): LedgerBucket 
   }
 }
 
+/**
+ * Guard runtime cho derivedKind đọc lại từ DB — cùng pattern với
+ * `requireReportMappingBucket` ở trên: không tin thẳng giá trị `string |
+ * null` bằng cast, vì giá trị lạ đọc từ DB sẽ lặng lẽ rơi vào nhánh
+ * `net_profit_after_tax` trong `computeDerivedLine` và ra số sai không báo
+ * lỗi — nghiêm trọng vì đây là report tài chính lõi.
+ */
+export function requireDerivedLineKind(value: string | null): DerivedLineKind {
+  switch (value) {
+    case "gross_profit":
+    case "corporate_income_tax":
+    case "net_profit_after_tax":
+      return value;
+    case null:
+      throw APIError.failedPrecondition("report mapping line is missing derived kind");
+    default:
+      throw APIError.failedPrecondition(`report mapping line has invalid derived kind: ${value}`);
+  }
+}
+
 export function computeReportStatus(input: ReportStatusInput): ReportStatusResult {
   const issues: string[] = [];
   const covered = new Set(input.coveredBuckets);
@@ -299,7 +319,7 @@ export async function generateReportService(
   const derivedIssues = new Set<string>();
   const lines: ReportLineView[] = mappingLines.map((row) => {
     if (row.derivedKind) {
-      const result = computeDerivedLine(row.derivedKind as DerivedLineKind, bucketTotals, taxRateBps);
+      const result = computeDerivedLine(requireDerivedLineKind(row.derivedKind), bucketTotals, taxRateBps);
       if (result.issue) derivedIssues.add(result.issue);
       return {
         lineCode: row.lineCode,
