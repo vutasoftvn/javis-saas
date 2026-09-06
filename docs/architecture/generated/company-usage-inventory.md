@@ -6,8 +6,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | Lớp | Occurrences | Files |
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 139 | 36 |
-| VALID_KEEP (giữ nguyên) | 100 | 31 |
-| REVIEW (chưa phân loại) | 962 | 273 |
+| VALID_KEEP (giữ nguyên) | 101 | 32 |
+| REVIEW (chưa phân loại) | 974 | 277 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -61,10 +61,10 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/auth/dependency.py | 21 |
 | frontend/lib/modules/auth/services/auth_service.dart | 21 |
 | apps/cosa/policies/company_policy_client.py | 20 |
+| apps/cosa/worker/copilot_run.py | 19 |
 | apps/cosa/worker/wga_run.py | 18 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 18 |
 | services/cosa/services/workspace-connector.service.ts | 17 |
-| apps/cosa/worker/copilot_run.py | 16 |
 | services/cosa/migrations/13_workspace_only_product_scope.up.sql | 15 |
 | services/company/operations/migrations/11_dedupe_strategy_company_workspace_id.up.sql | 14 |
 | apps/cosa/api/workforce_routes.py | 13 |
@@ -109,6 +109,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/workspace_runtime/views/company_workspace_view.dart | 5 |
 | services/company/finance-legal/services/ai-compliance-e2e-seed.service.ts | 5 |
 | services/company/identity/services/platform-workspace-mapping.service.ts | 5 |
+| services/company/identity/services/token.service.ts | 5 |
 | services/company/shared/services/snowflake.service.ts | 5 |
 | services/cosa/migrations/12_connector_authorization_tenant_scope.up.sql | 5 |
 | services/cosa/services/token.service.ts | 5 |
@@ -125,6 +126,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/events/envelope.ts | 4 |
 | services/cosa/handlers/agent-policy.handler.ts | 4 |
 | apps/cosa/api/app.py | 3 |
+| apps/cosa/api/copilot_routes.py | 3 |
 | apps/cosa/capabilities/__init__.py | 3 |
 | apps/cosa/capabilities/commercial_customer_read.py | 3 |
 | apps/cosa/capabilities/finance_read.py | 3 |
@@ -147,7 +149,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/handlers/tenant-context.handler.ts | 3 |
 | services/company/identity/migrations/6_add_cosa_delegation_replay.up.sql | 3 |
 | services/company/identity/services/platform.client.ts | 3 |
-| services/company/identity/services/token.service.ts | 3 |
 | services/company/operations/application/runtime/runtime-overview-query.ts | 3 |
 | services/company/operations/services/twelve-week-year.service.ts | 3 |
 | services/company/shared/auth/cosa-task-delegation.ts | 3 |
@@ -176,6 +177,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent/migrations/016_workspace_artifacts.sql | 2 |
 | services/company/events/outbox-relay.service.ts | 2 |
 | services/company/finance-legal/migrations/11_drop_validation_domain.up.sql | 2 |
+| services/company/finance-legal/services/cas-link.service.ts | 2 |
 | services/company/identity/migrations/5_workspace_lifecycle_stage.up.sql | 2 |
 | services/company/identity/migrations/retired_pre_baseline_v1/5_identity_projection_rework.up.sql | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
@@ -261,6 +263,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/migrations/30_ai_legal_source_corrections.up.sql | 1 |
 | services/company/finance-legal/migrations/31_ai_legal_review_pending_correction.down.sql | 1 |
 | services/company/finance-legal/migrations/31_ai_legal_review_pending_correction.up.sql | 1 |
+| services/company/finance-legal/migrations/39_legal_predicate_tt58_status_correction.down.sql | 1 |
+| services/company/finance-legal/migrations/39_legal_predicate_tt58_status_correction.up.sql | 1 |
 | services/company/finance-legal/services/ingestion.service.ts | 1 |
 | services/company/identity/handlers/auth.handler.ts | 1 |
 | services/company/identity/handlers/e2e-session.handler.ts | 1 |
@@ -362,5 +366,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/commercial/migrations/2_create_sales_leads.up.sql | 1 |
 | services/company/commercial/migrations/8_actor_naming_standardization.up.sql | 1 |
 | services/company/commercial/migrations/9_marketing_context_hybrid.up.sql | 1 |
+| services/company/commercial/services/customer-engagement/copilot-cosa-client.ts | 1 |
 | services/company/shared/db/schema/commercial.ts | 1 |
 

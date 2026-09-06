@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { assessApplicableObligations } from "../services/legal-applicability.service";
 import { createLegalEntityProfile } from "../services/legal-entity-profile.service";
 import { db, schema } from "../models/db";
@@ -9,6 +10,8 @@ const {
   regulationVersions,
   legalObligationTemplates,
   applicabilityRules,
+  legalEntityProfiles,
+  accountingFiscalProfiles,
 } = schema;
 
 describe("legal-applicability service", () => {
@@ -111,5 +114,48 @@ describe("legal-applicability service", () => {
     expect(matched).toBeDefined();
     expect(matched?.evaluationResult).toBe("NEEDS_REVIEW");
     expect(matched?.reasonCodes).toContain("missing_fact:fiscalYearStart");
+  });
+
+  // IA19 — migration 39 sửa predicate của rule TT58 seed thật (migration 14,
+  // id=301: "Nộp báo cáo tài chính năm theo TT58") từ literal
+  // "REGISTERED_VERIFIED" (không khớp bất kỳ giá trị enum thật nào của
+  // legal_entity_profiles.status) sang "VERIFIED" (giá trị thật do
+  // legal-entity-profile.service.ts gán khi founder xác minh xong), và đổi
+  // field vestigial "condition_field"/"condition_value" sang field chuẩn
+  // "accounting_regime" mà evaluator nhận diện được. Test này dùng ĐÚNG rule
+  // đã seed thật trong DB (không tạo rule giả) để chứng minh obligation
+  // không còn "ẩn" vĩnh viễn.
+  it("IA19: seeded TT58 rule (id=301) now APPLIES for a VERIFIED entity with a TT58_2026 fiscal profile", async () => {
+    const wsId = generateSnowflake();
+    const profile = await createLegalEntityProfile({
+      workspaceId: wsId,
+      entityType: "MICRO_ENTERPRISE",
+    });
+
+    // Nâng entity lên VERIFIED trực tiếp — luồng xin/duyệt verification đầy
+    // đủ (requestVerification/applyVerification) không thuộc phạm vi test
+    // này, chỉ cần đúng trạng thái cuối để kiểm predicate của rule 301.
+    await db
+      .update(legalEntityProfiles)
+      .set({ status: "VERIFIED" })
+      .where(eq(legalEntityProfiles.id, BigInt(profile.id)));
+
+    const fiscalProfileId = generateSnowflake();
+    await db.insert(accountingFiscalProfiles).values({
+      id: fiscalProfileId,
+      workspaceId: wsId,
+      fiscalYear: 2026,
+      regulationCode: "TT58_2026",
+    });
+
+    const obligations = await assessApplicableObligations(wsId, {
+      legalEntityId: BigInt(profile.id),
+      fiscalProfileId,
+    });
+
+    const tt58 = obligations.find((o) => o.obligationTemplateId === "201");
+    expect(tt58).toBeDefined();
+    expect(tt58?.evaluationResult).toBe("APPLIES");
+    expect(tt58?.title).toContain("TT58");
   });
 });
