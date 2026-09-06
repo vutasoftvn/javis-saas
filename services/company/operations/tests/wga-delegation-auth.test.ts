@@ -32,7 +32,7 @@ function item(over: Partial<CreatePlanItemInput> = {}): CreatePlanItemInput {
 }
 
 async function seed() {
-  const ws = await createTestWorkspaceWithMember();
+  const ws = await createTestWorkspaceWithMember({ role: "founder" });
   const project = await createProject({
     authorization: ws.bearerToken,
     workspaceId: ws.workspaceId,

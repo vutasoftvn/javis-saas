@@ -19,7 +19,7 @@ import { EXECUTION_PLAN_ACCEPTED } from "../../shared/events";
 const { tasks, taskDependencies, executionPlanItems } = schema;
 
 async function seedProjectWithGoal() {
-  const ws = await createTestWorkspaceWithMember();
+  const ws = await createTestWorkspaceWithMember({ role: "founder" });
   const project = await createProject({
     authorization: ws.bearerToken,
     workspaceId: ws.workspaceId,

@@ -12,7 +12,7 @@ import {
 import { setWeeklyGoalService } from "../strategy/services/weekly-goal.service";
 
 async function seed() {
-  const ws = await createTestWorkspaceWithMember();
+  const ws = await createTestWorkspaceWithMember({ role: "founder" });
   const project = await createProject({
     authorization: ws.bearerToken,
     workspaceId: ws.workspaceId,

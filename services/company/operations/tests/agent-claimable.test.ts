@@ -24,12 +24,12 @@ const { tasks } = schema;
 function ctxFor(workspaceId: string): TenantContext {
   return Object.freeze({
     workspaceId, userId: "1", workforceMemberId: undefined,
-    membershipRole: "admin", permissions: [], correlationId: "t", platformUserId: null,
+    membershipRole: "founder", permissions: [], correlationId: "t", platformUserId: null,
   }) as unknown as TenantContext;
 }
 
 async function seedAcceptedPlan(items: CreatePlanItemInput[]) {
-  const ws = await createTestWorkspaceWithMember();
+  const ws = await createTestWorkspaceWithMember({ role: "founder" });
   const project = await createProject({
     authorization: ws.bearerToken, workspaceId: ws.workspaceId, title: "claimable project",
   });
