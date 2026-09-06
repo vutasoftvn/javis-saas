@@ -1,5 +1,6 @@
 import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, date, numeric, smallint } from "drizzle-orm/pg-core";
 import { legalSchema } from "./legal";
+import { LedgerBucket } from "../../../finance-legal/services/accounting-mapping";
 
 export const financeSchema = pgSchema("finance");
 
@@ -140,7 +141,7 @@ export const accountingReportMappings = financeSchema.table("accounting_report_m
   name: text("name").notNull(),
   sourceRef: text("source_ref").notNull(),
   ruleType: varchar("rule_type", { length: 20 }).notNull(),
-  bucket: varchar("bucket", { length: 20 }).notNull(),
+  bucket: varchar("bucket", { length: 20 }).$type<LedgerBucket>().notNull(),
   sign: smallint("sign").notNull(),
   rounding: varchar("rounding", { length: 20 }).notNull(),
   definitionHash: text("definition_hash").notNull(),
@@ -181,9 +182,12 @@ export const accountingReportSnapshots = financeSchema.table("accounting_report_
   reportCode: varchar("report_code", { length: 10 }).notNull(),
   mappingVersion: varchar("mapping_version", { length: 50 }).notNull(),
   inputWatermark: text("input_watermark").notNull(),
-  lines: jsonb("lines").default([]).notNull(),
-  status: varchar("status", { length: 20 }).notNull(),
-  issues: jsonb("issues").default([]).notNull(),
+  lines: jsonb("lines")
+    .$type<Array<{ lineCode: string; officialCode: string; name: string; sourceRef: string; amountMinor: string }>>()
+    .default([])
+    .notNull(),
+  status: varchar("status", { length: 20 }).$type<"INCOMPLETE" | "PROVIDER_NOT_READY" | "VERIFIED">().notNull(),
+  issues: jsonb("issues").$type<string[]>().default([]).notNull(),
   generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

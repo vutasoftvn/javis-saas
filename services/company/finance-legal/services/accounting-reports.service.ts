@@ -9,7 +9,6 @@ import {
   classifyBookEntry,
   computeMappingDefinitionHash,
   LedgerBucket,
-  ReportMappingLine,
   RegimeMapping,
   TT58_2026_MAPPING,
 } from "./accounting-mapping";
@@ -146,11 +145,23 @@ export async function generateReportService(
     );
   }
 
+  const knownReportCodes = new Set(mapping.lines.map((line) => line.reportCode));
+  if (!knownReportCodes.has(input.reportCode)) {
+    throw APIError.invalidArgument(
+      `Unknown reportCode ${input.reportCode}; available: ${[...knownReportCodes].join(", ")}`
+    );
+  }
+
   if (input.expectedPeriodVersion !== undefined) {
     const [period] = await db
       .select({ id: accountingPeriods.id, version: accountingPeriods.version })
       .from(accountingPeriods)
-      .where(eq(accountingPeriods.id, BigInt(input.periodId)))
+      .where(
+        and(
+          eq(accountingPeriods.id, BigInt(input.periodId)),
+          eq(accountingPeriods.workspaceId, BigInt(ctx.workspaceId))
+        )
+      )
       .limit(1);
     if (!period) throw APIError.notFound(`accounting period ${input.periodId} not found`);
     if (period.version !== input.expectedPeriodVersion) {
@@ -202,10 +213,10 @@ export async function generateReportService(
     officialCode: row.officialCode,
     name: row.name,
     sourceRef: row.sourceRef,
-    amountMinor: String((bucketTotals.get(row.bucket as LedgerBucket) ?? 0n) * BigInt(row.sign)),
+    amountMinor: String((bucketTotals.get(row.bucket) ?? 0n) * BigInt(row.sign)),
   }));
 
-  const requiredBuckets = mappingLines.map((row) => row.bucket as LedgerBucket);
+  const requiredBuckets = mappingLines.map((row) => row.bucket);
   const coveredBuckets = requiredBuckets.filter((bucket) => bucketTotals.has(bucket));
 
   const { status, issues } = computeReportStatus({
@@ -246,9 +257,9 @@ export async function generateReportService(
     reportCode: row.reportCode,
     mappingVersion: row.mappingVersion,
     inputWatermark: row.inputWatermark,
-    lines: row.lines as ReportLineView[],
-    status: row.status as ReportSnapshotView["status"],
-    issues: row.issues as string[],
+    lines: row.lines,
+    status: row.status,
+    issues: row.issues,
     generatedAt: row.generatedAt.toISOString(),
   };
 }
@@ -284,9 +295,9 @@ export async function listReportSnapshotsService(
     reportCode: row.reportCode,
     mappingVersion: row.mappingVersion,
     inputWatermark: row.inputWatermark,
-    lines: row.lines as ReportLineView[],
-    status: row.status as ReportSnapshotView["status"],
-    issues: row.issues as string[],
+    lines: row.lines,
+    status: row.status,
+    issues: row.issues,
     generatedAt: row.generatedAt.toISOString(),
   }));
 }
