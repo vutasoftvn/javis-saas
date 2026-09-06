@@ -114,6 +114,7 @@ async def test_matrix_unverified_customer_redaction_flow():
         "thread_ref": {"thread_id": "t_99", "contact_id": "c_99"},
         "identity_verified": False,
         "intent": "summarize",
+        "delegation_token": "test-delegation-token",
     }
 
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:

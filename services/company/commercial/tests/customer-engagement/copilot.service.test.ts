@@ -20,6 +20,7 @@ import {
   recordCopilotFeedback,
 } from "../../services/customer-engagement/copilot.service";
 import { setCustomCopilotRunner } from "../../services/customer-engagement/copilot-cosa-client";
+import { verifyAccessToken } from "../../../identity/services/token.service";
 import type { TenantContext } from "../../../shared/types/tenant_context";
 
 function makeCtx(workspaceId: string, permissions: string[] = ["engagement.copilot.request", "engagement.copilot.manage", "engagement.thread.read"]): TenantContext {
@@ -124,6 +125,17 @@ describe("copilot.service", () => {
     expect(result.invocationId).toBeDefined();
     expect(result.runId).toBeDefined();
     expect(dispatchedRuns.length).toBe(1);
+
+    // IA25: dispatch payload phải mang đúng actorId của người dùng thật, và
+    // delegationToken phải là 1 access token THẬT verify được cho đúng người
+    // đó — trước đây không có 2 field này, apps/cosa tự mint token dưới danh
+    // nghĩa "system:copilot" bằng sai secret (PLATFORM_JWT_SECRET), khiến mọi
+    // lời gọi ngược lại services/company để lấy thread/customer/knowledge
+    // context fail xác thực.
+    expect(dispatchedRuns[0].actorId).toBe(ctx.userId);
+    expect(dispatchedRuns[0].delegationToken).toBeTruthy();
+    const decoded = verifyAccessToken(dispatchedRuns[0].delegationToken);
+    expect(decoded.sub).toBe(ctx.userId);
 
     // 4. Verify invocation record
     const invocation = await getCopilotInvocation(result.invocationId, ctx);

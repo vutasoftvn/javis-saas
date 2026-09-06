@@ -10,6 +10,7 @@ import {
   type Actor,
 } from "../../../shared/events/customer-engagement-events";
 import type { TenantContext } from "../../../shared/types/tenant_context";
+import { mintCopilotDelegationToken } from "../../../identity/services/token.service";
 import { ENGAGEMENT_PERMISSIONS, requireEngagementPermission } from "./rbac";
 import { assertCopilotUsable } from "./copilot-settings.service";
 import { getThreadContextForAgent } from "./thread-context.service";
@@ -75,6 +76,12 @@ export async function requestCopilot(
   const context = await getThreadContextForAgent(threadId, ctx);
 
   // 3. Dispatch run to COSA
+  // IA25: mint delegation NGẮN HẠN cho ĐÚNG user đang yêu cầu — trước đây
+  // không truyền gì, khiến apps/cosa tự mint token dưới danh nghĩa
+  // "system:copilot" bằng sai secret (PLATFORM_JWT_SECRET thay vì
+  // JWT_SECRET), làm mọi lời gọi ngược lại đọc context (thread/customer/
+  // knowledge) fail xác thực ở chính route này.
+  const delegationToken = mintCopilotDelegationToken(ctx.userId);
   const dispatchRes = await dispatchCopilotRun({
     workspaceId: ctx.workspaceId,
     threadRef: {
@@ -85,6 +92,8 @@ export async function requestCopilot(
     knowledgeScope: settings.knowledgeScope,
     identityVerified: context.identityVerified,
     correlationId: context.thread.correlationId,
+    actorId: ctx.userId,
+    delegationToken,
   });
 
   const invocationId = generateSnowflake();

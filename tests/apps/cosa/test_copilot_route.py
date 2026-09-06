@@ -32,6 +32,8 @@ async def test_dispatch_copilot_unauthorized_missing_token(test_app):
                 "thread_ref": {"thread_id": "t_456"},
                 "intent": "summarize",
                 "correlation_id": "corr-1",
+                "actor_id": "u_123",
+                "delegation_token": "fake-real-user-token",
             },
         )
         assert resp.status_code == 401
@@ -52,6 +54,8 @@ async def test_dispatch_copilot_authorized_success(test_app, monkeypatch):
                 "knowledge_scope": {"profile_types": ["product"]},
                 "identity_verified": True,
                 "correlation_id": "corr-1",
+                "actor_id": "u_123",
+                "delegation_token": "real-user-delegation-token",
             },
         )
         assert resp.status_code == 202
@@ -72,3 +76,10 @@ async def test_dispatch_copilot_authorized_success(test_app, monkeypatch):
         assert payload["thread_ref"] == {"thread_id": "t_456", "contact_id": "c_789"}
         assert payload["intent"] == "summarize"
         assert payload["identity_verified"] is True
+
+        # IA25: route phải forward NGUYÊN VẸN delegation_token/actor_id do
+        # services/company gửi — không tự mint token khác dưới danh nghĩa
+        # "system:copilot".
+        assert payload["actor_id"] == "u_123"
+        assert payload["delegation_token"] == "real-user-delegation-token"
+        assert payload["principal"] == "user:u_123"

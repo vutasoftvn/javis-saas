@@ -39,7 +39,12 @@ async def test_missing_capability_handler_fails_run_with_reason_code(monkeypatch
     await run_customer_support_copilot(
         _Plane(),
         mgr,
-        {"run_id": "run_1", "workspace_id": "ws_1", "thread_ref": {"thread_id": "t1"}},
+        {
+            "run_id": "run_1",
+            "workspace_id": "ws_1",
+            "thread_ref": {"thread_id": "t1"},
+            "delegation_token": "test-delegation-token",
+        },
     )
 
     assert ("run_1", "failed") in calls

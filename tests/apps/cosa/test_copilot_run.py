@@ -183,6 +183,7 @@ async def test_copilot_unexpected_error_is_not_sent_to_client(mock_plane, mock_s
         "identity_verified": False,
         "knowledge_scope": {},
         "correlation_id": "corr-crash",
+        "delegation_token": "test-delegation-token",
     }
 
     with patch(
@@ -217,6 +218,7 @@ async def test_copilot_happy_path_artifact_persisted_ux_emitted_and_callback_sen
         "identity_verified": False,
         "knowledge_scope": {},
         "correlation_id": "corr-100",
+        "delegation_token": "test-delegation-token",
     }
 
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
@@ -259,6 +261,7 @@ async def test_copilot_completes_with_a_real_artifact_repository_not_a_mock(mock
         "identity_verified": False,
         "knowledge_scope": {},
         "correlation_id": "corr-real-repo",
+        "delegation_token": "test-delegation-token",
     }
 
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
@@ -288,6 +291,7 @@ async def test_copilot_fails_closed_when_no_artifact_repository_is_configured(mo
         "identity_verified": False,
         "knowledge_scope": {},
         "correlation_id": "corr-no-repo",
+        "delegation_token": "test-delegation-token",
     }
 
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
@@ -295,6 +299,43 @@ async def test_copilot_fails_closed_when_no_artifact_repository_is_configured(mo
 
         mock_cb.assert_awaited_once()
         assert mock_cb.call_args.args[1] != "completed"
+        assert mock_cb.call_args.kwargs.get("reason_code") != "missing_delegation_token"
+
+
+@pytest.mark.asyncio
+async def test_copilot_fails_closed_when_delegation_token_is_missing_instead_of_self_minting(
+    mock_plane, mock_stream_mgr
+):
+    """IA25: trước đây thiếu delegation_token thì tự mint bằng
+    mint_company_delegation() dưới actor giả "0" — nhưng token đó ký sai
+    định dạng cho đích thật (route Copilot gọi xác thực bằng verifyAccessToken/
+    JWT_SECRET, không phải company delegation/COSA_COMPANY_DELEGATION_SECRET),
+    nên luôn fail xác thực dù có "vẻ" như đã xử lý. Giờ phải fail-closed ngay,
+    không tự mint bất kỳ token nào, và không được gọi capability nào cả."""
+    payload = {
+        "run_id": "run_no_token_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "customer_support",
+        "thread_ref": {"thread_id": "t_100", "contact_id": "c_200"},
+        "intent": "summarize",
+        "identity_verified": False,
+        "knowledge_scope": {},
+        "correlation_id": "corr-no-token",
+        # delegation_token intentionally omitted
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
+        await run_customer_support_copilot(mock_plane, mock_stream_mgr, payload)
+
+        mock_cb.assert_awaited_once()
+        assert mock_cb.call_args.args == ("run_no_token_1", "failed")
+        assert mock_cb.call_args.kwargs.get("reason_code") == "missing_delegation_token"
+        assert mock_stream_mgr.emit.call_args.kwargs["payload"]["error"] == "missing_delegation_token"
+
+        # No capability handler was ever called with a bogus token.
+        cap_registry = mock_plane.capability_registry
+        cap_registry.get_handler.assert_not_called()
+        assert mock_plane.kernel.run.await_count == 0
 
 
 @pytest.mark.asyncio
@@ -312,6 +353,7 @@ async def test_copilot_failed_kernel_cannot_complete(mock_plane, mock_stream_mgr
         "workspace_id": "ws_1",
         "agent_profile": "customer_support",
         "thread_ref": {"thread_id": "t_100"},
+        "delegation_token": "test-delegation-token",
     }
 
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
@@ -338,6 +380,7 @@ async def test_copilot_empty_output_fails_run(mock_plane, mock_stream_mgr):
         "workspace_id": "ws_1",
         "agent_profile": "customer_support",
         "thread_ref": {"thread_id": "t_100"},
+        "delegation_token": "test-delegation-token",
     }
 
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
@@ -359,6 +402,7 @@ async def test_copilot_artifact_write_error_fails_run(mock_plane, mock_stream_mg
         "workspace_id": "ws_1",
         "agent_profile": "customer_support",
         "thread_ref": {"thread_id": "t_100"},
+        "delegation_token": "test-delegation-token",
     }
 
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
@@ -385,6 +429,7 @@ async def test_copilot_waiting_approval_preserves_checkpoint(mock_plane, mock_st
         "workspace_id": "ws_1",
         "agent_profile": "customer_support",
         "thread_ref": {"thread_id": "t_100"},
+        "delegation_token": "test-delegation-token",
     }
 
     with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:

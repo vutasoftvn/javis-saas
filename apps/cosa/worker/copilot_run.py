@@ -154,19 +154,33 @@ async def run_customer_support_copilot(
             await callback_company_result(run_id, "failed", reason_code="forbidden_capability")
             return
 
-    try:
-        # 2. Resolve principal / delegation token BEFORE context prefetch
-        delegation_token = payload.get("delegation_token")
-        if not delegation_token:
-            from apps.cosa.auth.jwt import mint_company_delegation
-            sub = str(payload.get("actor_id") or payload.get("user_id") or "0")
-            delegation_token = mint_company_delegation(
-                sub=sub,
-                workspace_id=workspace_id,
+    # IA25: delegation_token PHẢI do services/company mint sẵn cho đúng
+    # người dùng thật đã yêu cầu Copilot (mintCopilotDelegationToken —
+    # copilot_routes.py bắt buộc field này ở request). Trước đây thiếu
+    # field này thì tự mint bằng mint_company_delegation() dưới actor giả
+    # "0" khi không rõ actor_id/user_id — nhưng mint_company_delegation() ký
+    # theo hình dạng "company delegation" (aud=company, COSA_COMPANY_
+    # DELEGATION_SECRET) trong khi các route Copilot thực sự gọi
+    # (/commercial/engagement/threads/:id/context v.v.) xác thực bằng
+    # verifyAccessToken (phiên đăng nhập local, JWT_SECRET) — token tự mint
+    # ở đây LUÔN sai định dạng cho đích đến thật, không phải một fallback có
+    # tác dụng. Fail-closed thay vì mint một token chắc chắn không dùng được.
+    delegation_token = payload.get("delegation_token")
+    if not delegation_token:
+        logger.error("run_id=%s missing delegation_token in copilot payload, failing closed", run_id)
+        if stream_repo:
+            await stream_mgr.emit(
+                stream_repo,
                 run_id=run_id,
-                capability_ids=spec.capability_refs,
+                conversation_id="",
+                event_type="run.failed",
+                payload={"error": "missing_delegation_token"},
+                correlation_id=correlation_id,
             )
+        await callback_company_result(run_id, "failed", reason_code="missing_delegation_token")
+        return
 
+    try:
         ctx = {
             "workspace_id": workspace_id,
             "run_id": run_id,

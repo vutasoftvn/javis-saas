@@ -7,7 +7,6 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from apps.cosa.api.event_stream import get_cosa_event_stream_manager
-from apps.cosa.auth.jwt import mint_delegation_token
 from apps.cosa.config.service_identity import require_service_token
 
 __all__ = ["create_copilot_router"]
@@ -25,6 +24,15 @@ class CopilotCustomerSupportRequest(BaseModel):
     knowledge_scope: dict[str, Any] = Field(default_factory=dict)
     identity_verified: bool = False
     correlation_id: str
+    # IA25: services/company giờ LUÔN mint và gửi delegation ngắn hạn
+    # (mintCopilotDelegationToken, cùng shape {sub, auth_time} ký bằng
+    # JWT_SECRET) cho ĐÚNG người dùng đã yêu cầu Copilot — route này KHÔNG
+    # còn tự mint token khác dưới danh nghĩa "system:copilot" (sai secret,
+    # PLATFORM_JWT_SECRET thay vì JWT_SECRET, khiến mọi lời gọi ngược lại
+    # services/company để đọc thread/customer/knowledge context luôn fail
+    # xác thực). Bắt buộc có — thiếu thì từ chối thẳng, không tự chế fallback.
+    actor_id: str
+    delegation_token: str
 
 
 def create_copilot_router() -> APIRouter:
@@ -60,11 +68,6 @@ def create_copilot_router() -> APIRouter:
         stream_mgr = get_cosa_event_stream_manager()
         stream_mgr.start_run(run_id)
 
-        try:
-            delegation_token = mint_delegation_token("system:copilot")
-        except Exception:
-            delegation_token = "system:copilot"
-
         await plane.scheduler.schedule(
             target_spec_id="cosa.customer_support",
             input_payload={
@@ -73,8 +76,11 @@ def create_copilot_router() -> APIRouter:
                 "agent_profile": "customer_support",
                 "copilot": True,
                 "workspace_id": body.workspace_id,
-                "principal": "system:copilot",
-                "delegation_token": delegation_token,
+                "principal": f"user:{body.actor_id}",
+                "actor_id": body.actor_id,
+                # Forward NGUYÊN VẸN — KHÔNG tự mint token khác ở đây. Token
+                # này đã được services/company ký cho đúng user thật (IA25).
+                "delegation_token": body.delegation_token,
                 "thread_ref": body.thread_ref.model_dump(),
                 "intent": body.intent,
                 "knowledge_scope": body.knowledge_scope,

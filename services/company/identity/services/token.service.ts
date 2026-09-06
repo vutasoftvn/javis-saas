@@ -36,6 +36,34 @@ export function signAccessToken(userId: string, authTime: number = Math.floor(Da
   return jwt.sign({ sub: userId, auth_time: authTime }, getJwtSecret(), { expiresIn: getSessionTtl() as any });
 }
 
+// TTL rất ngắn — token này chỉ sống đủ lâu để apps/cosa dùng lại khi gọi
+// ngược vào services/company thay mặt đúng người dùng đã yêu cầu Copilot,
+// không phải một phiên đăng nhập dài hạn.
+const COPILOT_DELEGATION_TTL_SECONDS = 600;
+
+/**
+ * IA25: Mint token ngắn hạn CÙNG SHAPE và CÙNG SECRET với access token phiên
+ * thật ({sub, auth_time} ký bằng JWT_SECRET) — verifyAccessToken/
+ * requireWorkspaceAccess hiện tại xác minh được thẳng, KHÔNG cần sửa gì ở
+ * đường verify. Dùng để apps/cosa (Python) mang theo khi gọi ngược vào các
+ * route đọc context cho Copilot (/commercial/engagement/threads/:id/context
+ * v.v.) thay mặt ĐÚNG người dùng đã bấm yêu cầu Copilot — trước đây các route
+ * này nhận một token ký bằng PLATFORM_JWT_SECRET (mint_delegation_token phía
+ * Python, sai hoàn toàn secret/đối tượng verify) nên luôn fail xác thực.
+ *
+ * KHÔNG dùng lại cho mục đích nào khác ngoài luồng Copilot — token này mang
+ * quyền đầy đủ của user gốc (không scope theo capability như
+ * mint_company_delegation), TTL ngắn để giảm cửa sổ rủi ro nếu payload này bị
+ * lộ khi nằm trong durable queue.
+ */
+export function mintCopilotDelegationToken(userId: string): string {
+  return jwt.sign(
+    { sub: userId, auth_time: Math.floor(Date.now() / 1000) },
+    getJwtSecret(),
+    { expiresIn: COPILOT_DELEGATION_TTL_SECONDS }
+  );
+}
+
 export function verifyAccessToken(token: string): JwtPayload {
   return jwt.verify(token, getJwtSecret()) as JwtPayload;
 }

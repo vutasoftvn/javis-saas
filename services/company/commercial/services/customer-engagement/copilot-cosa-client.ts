@@ -11,6 +11,11 @@ export interface DispatchCopilotRunPayload {
   knowledgeScope: Record<string, unknown>;
   identityVerified: boolean;
   correlationId: string;
+  // IA25: định danh người dùng thật + delegation ngắn hạn mint cho đúng
+  // người đó — apps/cosa phải forward nguyên delegationToken khi gọi ngược
+  // vào services/company, không tự mint token khác dưới danh nghĩa hệ thống.
+  actorId: string;
+  delegationToken: string;
 }
 
 export interface DispatchCopilotRunResult {
@@ -51,6 +56,8 @@ export async function dispatchCopilotRun(payload: DispatchCopilotRunPayload): Pr
         knowledge_scope: payload.knowledgeScope,
         identity_verified: payload.identityVerified,
         correlation_id: payload.correlationId,
+        actor_id: payload.actorId,
+        delegation_token: payload.delegationToken,
       }),
     });
 
