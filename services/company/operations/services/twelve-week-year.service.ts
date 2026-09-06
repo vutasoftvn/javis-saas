@@ -223,6 +223,15 @@ export async function updateCycleService(req: UpdateTwelveWeekCycleRequest): Pro
   }
 
   const nextDuration = req.durationWeeks ?? existing.durationWeeks;
+  if (req.durationWeeks !== undefined && req.durationWeeks !== existing.durationWeeks) {
+    if (
+      (ctx as any).actorKind === "AI_AGENT" ||
+      (ctx as any).isAgent === true ||
+      ctx.membershipRole === "agent"
+    ) {
+      throw APIError.permissionDenied("Agents cannot resize execution cycles; human approval required");
+    }
+  }
   validateDurationWeeks(nextDuration);
 
   const nextTimezone = req.timezone ?? existing.timezone ?? "UTC";

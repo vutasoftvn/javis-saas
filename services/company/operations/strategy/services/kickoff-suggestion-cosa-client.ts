@@ -55,3 +55,53 @@ export async function dispatchKickoffSuggestionRun(
     throw new Error(`COSA returned ${response.status}: ${errText}`);
   }
 }
+
+export interface DispatchStrategyCopilotPayload {
+  workspaceId: string;
+  projectId?: string;
+  agentProfile: string;
+  taskKind: "research_pestel" | "research_resource" | "swot_synthesis" | "tows_draft" | "initiative_draft";
+  context: Record<string, any>;
+}
+
+export type DispatchStrategyCopilotRunner = (
+  payload: DispatchStrategyCopilotPayload
+) => Promise<void>;
+
+let customStrategyCopilotRunner: DispatchStrategyCopilotRunner | null = null;
+
+export function setCustomStrategyCopilotRunner(runner: DispatchStrategyCopilotRunner | null): void {
+  customStrategyCopilotRunner = runner;
+}
+
+export async function dispatchStrategyCopilotRun(
+  payload: DispatchStrategyCopilotPayload
+): Promise<void> {
+  if (customStrategyCopilotRunner) {
+    await customStrategyCopilotRunner(payload);
+    return;
+  }
+
+  const cosaBaseUrl = requireCosaInternalUrl();
+  const serviceToken = requireCosaServiceToken();
+
+  const response = await fetch(`${cosaBaseUrl}/agent/strategy/copilot-suggestion`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Cosa-Service-Token": serviceToken,
+    },
+    body: JSON.stringify({
+      workspace_id: payload.workspaceId,
+      project_id: payload.projectId,
+      agent_profile: payload.agentProfile,
+      task_kind: payload.taskKind,
+      context: payload.context,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`COSA returned ${response.status}: ${errText}`);
+  }
+}

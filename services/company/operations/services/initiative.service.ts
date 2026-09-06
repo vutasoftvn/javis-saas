@@ -176,8 +176,10 @@ export async function createInitiativeService(
   params: CreateInitiativeParams,
   authorization: string | undefined
 ): Promise<Initiative> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  if (authorization) {
+    await requireWorkspaceAccess(authorization, params.workspaceId);
+    await getWorkspace({ id: params.workspaceId });
+  }
 
   const wsId = BigInt(params.workspaceId);
 

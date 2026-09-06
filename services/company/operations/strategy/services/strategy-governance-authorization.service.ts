@@ -32,6 +32,16 @@ export async function requireStrategyGovernanceAuthority(
     throw APIError.unauthenticated("Authentication context required");
   }
 
+  if (
+    (ctx as any).actorKind === "AI_AGENT" ||
+    (ctx as any).isAgent === true ||
+    ctx.membershipRole === "agent"
+  ) {
+    throw APIError.permissionDenied(
+      `Agents cannot execute strategy governance action ${permission}`
+    );
+  }
+
   const wsId = String(ctx.workspaceId);
   if (scope?.workspaceId && String(scope.workspaceId) !== wsId) {
     throw APIError.permissionDenied("Cross-workspace access denied");

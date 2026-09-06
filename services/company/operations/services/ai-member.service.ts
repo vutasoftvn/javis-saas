@@ -2,13 +2,20 @@ import { and, asc, eq } from "drizzle-orm";
 import { identityWorkforceMembers } from "../../shared/db/schema/identity";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
-export type OwnerAgentProfile = "operations" | "finance" | "marketing";
+export type OwnerAgentProfile =
+  | "operations"
+  | "finance"
+  | "marketing"
+  | "research_intelligence"
+  | "strategy";
 
 // AgentSpec id theo apps/cosa/agents/specs.py (COSA_*_AGENT_SPEC.id).
 export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
   operations: "cosa.agents.operations",
   finance: "cosa.agents.finance",
   marketing: "cosa.agents.marketing",
+  research_intelligence: "cosa.agents.research_intelligence",
+  strategy: "cosa.agents.strategy",
 };
 
 // Metadata mô tả (constraint workforce_members yêu cầu agent_spec_version NOT NULL
@@ -18,6 +25,8 @@ export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
   operations: "1.2.0",
   finance: "1.1.0",
   marketing: "1.1.0",
+  research_intelligence: "1.0.0",
+  strategy: "1.0.0",
 };
 
 // Drizzle transaction type — cùng cách project-kickoff-materialize.service.ts đặt tên.
