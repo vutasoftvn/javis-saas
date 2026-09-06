@@ -158,4 +158,89 @@ describe("legal-applicability service", () => {
     expect(tt58?.evaluationResult).toBe("APPLIES");
     expect(tt58?.title).toContain("TT58");
   });
+
+  // Regression cho bug: khi không truyền fiscalProfileId, nhánh fallback
+  // trước đây chỉ lọc theo workspaceId (.limit(1) trên TOÀN BỘ fiscal
+  // profile của workspace) — có thể lấy nhầm fiscal profile của MỘT
+  // LEGAL ENTITY KHÁC trong cùng workspace. Từ khi accounting_fiscal_profiles
+  // có cột legal_entity_id (F5), fallback phải lọc luôn theo entity đang
+  // đánh giá.
+  it("fallback không truyền fiscalProfileId phải lọc theo legal_entity_id, không lấy nhầm fiscal profile của entity khác cùng workspace", async () => {
+    const wsId = generateSnowflake();
+    const entityA = await createLegalEntityProfile({
+      workspaceId: wsId,
+      entityType: "MICRO_ENTERPRISE",
+    });
+    const entityB = await createLegalEntityProfile({
+      workspaceId: wsId,
+      entityType: "MICRO_ENTERPRISE",
+    });
+    expect(entityA.id).not.toBe(entityB.id);
+
+    // entity A có fiscal profile năm 2025 — KHÔNG thỏa threshold
+    // 2026-01-01 của rule bên dưới. Insert trước để mô phỏng tình huống
+    // fallback cũ (.limit(1), không lọc entity) có thể vô tình lấy nhầm
+    // hàng này thay vì hàng của entity B.
+    await db.insert(accountingFiscalProfiles).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      fiscalYear: 2025,
+      legalEntityId: BigInt(entityA.id),
+    });
+
+    // entity B có fiscal profile năm 2026 — thỏa threshold. Đây mới là
+    // profile PHẢI được resolve khi đánh giá entity B.
+    await db.insert(accountingFiscalProfiles).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      fiscalYear: 2026,
+      legalEntityId: BigInt(entityB.id),
+    });
+
+    const sourceId = generateSnowflake();
+    await db.insert(regulationSources).values({
+      id: sourceId,
+      sourceName: "Entity Scope Fiscal Threshold Law",
+      issuer: "National Assembly",
+      number: `LAW-ENTITY-SCOPE-${Date.now()}`,
+      url: "https://example.gov.vn/law",
+      layer: "CURRENT_LAW",
+    });
+
+    const verId = generateSnowflake();
+    await db.insert(regulationVersions).values({
+      id: verId,
+      regulationSourceId: sourceId,
+      version: "2026",
+      effectiveFrom: "2026-01-01" as any,
+    });
+
+    const tplId = generateSnowflake();
+    await db.insert(legalObligationTemplates).values({
+      id: tplId,
+      regulationVersionId: verId,
+      title: "File once fiscal year starts after threshold (entity scope)",
+      typicalDueOffsetDays: 30,
+    });
+
+    await db.insert(applicabilityRules).values({
+      id: generateSnowflake(),
+      regulationVersionId: verId,
+      obligationTemplateId: tplId,
+      predicate: { fiscal_year_start_on_or_after: "2026-01-01" },
+    });
+
+    // Đánh giá entity B, KHÔNG truyền fiscalProfileId -> rơi vào nhánh
+    // fallback. Nếu fallback không lọc theo legalEntityId, nó có thể lấy
+    // nhầm fiscal profile 2025 của entity A (fiscalYearStart 2025-01-01 <
+    // threshold 2026-01-01) -> NOT_APPLIES -> obligation bị loại khỏi kết
+    // quả -> assertion bên dưới FAIL, chứng minh bug có thật.
+    const obligations = await assessApplicableObligations(wsId, {
+      legalEntityId: BigInt(entityB.id),
+    });
+
+    const matched = obligations.find((o) => o.obligationTemplateId === String(tplId));
+    expect(matched).toBeDefined();
+    expect(matched?.evaluationResult).toBe("APPLIES");
+  });
 });

@@ -80,10 +80,20 @@ export async function evaluateEntityApplicability(
       );
     fiscalProfile = fp;
   } else {
+    // Không được chỉ định fiscalProfileId cụ thể — fallback này PHẢI lọc
+    // luôn theo legalEntityId (không chỉ workspaceId), nếu không sẽ có thể
+    // lấy nhầm fiscal profile của MỘT LEGAL ENTITY KHÁC trong cùng
+    // workspace (bug đã phát hiện sau khi accounting_fiscal_profiles có
+    // cột legal_entity_id ở F5).
     const [fp] = await db
       .select()
       .from(accountingFiscalProfiles)
-      .where(eq(accountingFiscalProfiles.workspaceId, wsId))
+      .where(
+        and(
+          eq(accountingFiscalProfiles.workspaceId, wsId),
+          eq(accountingFiscalProfiles.legalEntityId, BigInt(legalEntityId))
+        )
+      )
       .limit(1);
     fiscalProfile = fp;
   }
