@@ -155,3 +155,21 @@ export function nextMondayOnOrAfterLocalDate(localDate: string): string {
   const add = isoDay === 1 ? 0 : 8 - isoDay;
   return addDaysToLocalDate(localDate, add);
 }
+
+/**
+ * Converts a civil date string (YYYY-MM-DD) and optional local time into a UTC Date instant
+ * representing that exact civil date and time in the specified timezone.
+ * Roundtrips safely with getLocalDateFromInstant(instant, timezone) === localDate.
+ */
+export function localDateToTimezoneInstant(localDate: string, timezone = "UTC", time = "12:00:00"): Date {
+  validateLocalDateString(localDate);
+  const guess = new Date(`${localDate}T${time}Z`);
+  try {
+    const invDate = new Date(guess.toLocaleString("en-US", { timeZone: timezone }));
+    const diff = guess.getTime() - invDate.getTime();
+    return new Date(guess.getTime() + diff);
+  } catch {
+    return guess;
+  }
+}
+

@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, primaryKey, foreignKey, date, uuid, numeric } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, index, primaryKey, foreignKey, date, uuid, numeric } from "drizzle-orm/pg-core";
 
 export const operatingSchema = pgSchema("operating");
 export const strategySchema = pgSchema("strategy");
@@ -449,4 +449,35 @@ export const runtimeSnoozes = operatingSchema.table("runtime_snoozes", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// 20. Cycle Reviews (operating.cycle_reviews)
+export const cycleReviews = operatingSchema.table(
+  "cycle_reviews",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    projectId: bigint("project_id", { mode: "bigint" }).references(() => projects.id, { onDelete: "set null" }),
+    cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => twelveWeekCycles.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 50 }).notNull(), // 'WEEKLY' | 'MID_CYCLE' | 'END_CYCLE'
+    scheduledWeekNo: integer("scheduled_week_no").notNull(),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    status: varchar("status", { length: 50 }).default("SCHEDULED").notNull(), // 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED' | 'SUPERSEDED'
+    krSnapshots: jsonb("kr_snapshots").default([]).notNull(),
+    initiativeSnapshots: jsonb("initiative_snapshots").default([]).notNull(),
+    pestelSnapshots: jsonb("pestel_snapshots").default([]).notNull(),
+    decisionId: bigint("decision_id", { mode: "bigint" }),
+    conclusion: text("conclusion"),
+    conductedByMemberId: bigint("conducted_by_member_id", { mode: "bigint" }),
+    conductedAt: timestamp("conducted_at", { withTimezone: true }),
+    settingsRevision: integer("settings_revision"),
+    revision: integer("revision").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => ({
+    ixWorkspaceCycle: index("ix_cycle_reviews_workspace_cycle").on(t.workspaceId, t.cycleId, t.scheduledWeekNo, t.kind),
+    uixActiveSlot: uniqueIndex("uix_cycle_reviews_active_slot").on(t.cycleId, t.kind, t.scheduledWeekNo),
+  })
+);
 

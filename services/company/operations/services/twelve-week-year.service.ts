@@ -11,8 +11,13 @@ import {
   addDaysToLocalDate,
 } from "./execution-calendar";
 import { assertInitiativeInWorkspace } from "./initiative.service";
+import {
+  scheduleInitialCycleReviews,
+  rescheduleCycleReviews,
+} from "../strategy/services/cycle-review.service";
+import { getWorkspaceStrategySettings } from "../strategy/services/workspace-strategy-settings.service";
 
-const { twelveWeekCycles, weeklyPlans, weeklyCommitments, cycleRevisions } = schema;
+const { twelveWeekCycles, weeklyPlans, weeklyCommitments, cycleRevisions, cycleReviews } = schema;
 
 
 export interface TwelveWeekCycle {
@@ -174,27 +179,42 @@ export async function createCycleService(req: CreateTwelveWeekCycleRequest): Pro
     }
   }
 
-  const [row] = await db
-    .insert(twelveWeekCycles)
-    .values({
-      id: generateSnowflake(),
-      workspaceId: BigInt(req.workspaceId),
-      projectId: req.projectId ? BigInt(req.projectId) : null,
-      displayName: req.displayName || null,
-      theme: req.theme || null,
-      visionStatement: req.visionStatement ?? "",
-      stageAtStart: req.stageAtStart ?? "S1_PROBLEM_VALIDATION",
-      durationWeeks,
-      timezone,
-      startLocalDate: startLocalDate || null,
-      endLocalDateExclusive: endLocalDateExclusive || null,
-      revision: 1,
-      calendarState,
-      startDate: req.startDate ? new Date(req.startDate) : (startLocalDate ? new Date(startLocalDate + "T00:00:00Z") : null),
-      endDate: req.endDate ? new Date(req.endDate) : (endLocalDateExclusive ? new Date(endLocalDateExclusive + "T00:00:00Z") : null),
-      commitmentLevel: req.commitmentLevel || null,
-    })
-    .returning();
+  const [row] = await db.transaction(async (tx) => {
+    const [inserted] = await tx
+      .insert(twelveWeekCycles)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: BigInt(req.workspaceId),
+        projectId: req.projectId ? BigInt(req.projectId) : null,
+        displayName: req.displayName || null,
+        theme: req.theme || null,
+        visionStatement: req.visionStatement ?? "",
+        stageAtStart: req.stageAtStart ?? "S1_PROBLEM_VALIDATION",
+        durationWeeks,
+        timezone,
+        startLocalDate: startLocalDate || null,
+        endLocalDateExclusive: endLocalDateExclusive || null,
+        revision: 1,
+        calendarState,
+        startDate: req.startDate ? new Date(req.startDate) : (startLocalDate ? new Date(startLocalDate + "T00:00:00Z") : null),
+        endDate: req.endDate ? new Date(req.endDate) : (endLocalDateExclusive ? new Date(endLocalDateExclusive + "T00:00:00Z") : null),
+        commitmentLevel: req.commitmentLevel || null,
+      })
+      .returning();
+
+    if (!inserted) throw APIError.internal("Failed to create twelve week cycle");
+
+    await scheduleInitialCycleReviews(tx, {
+      id: inserted.id,
+      workspaceId: inserted.workspaceId,
+      projectId: inserted.projectId,
+      durationWeeks: inserted.durationWeeks,
+      startLocalDate: inserted.startLocalDate ? String(inserted.startLocalDate) : null,
+      timezone: inserted.timezone,
+    });
+
+    return [inserted];
+  });
 
   if (!row) throw APIError.internal("Failed to create twelve week cycle");
   return toCycle(row);
@@ -278,6 +298,58 @@ export async function updateCycleService(req: UpdateTwelveWeekCycleRequest): Pro
   };
 
   const [updated] = await db.transaction(async (tx) => {
+    if (
+      nextDuration !== existing.durationWeeks ||
+      nextStartLocal !== (existing.startLocalDate ? String(existing.startLocalDate) : null)
+    ) {
+      const beforeReviews = await tx
+        .select()
+        .from(cycleReviews)
+        .where(
+          and(
+            eq(cycleReviews.cycleId, cycleIdBig),
+            eq(cycleReviews.workspaceId, wsId),
+            isNull(cycleReviews.deletedAt)
+          )
+        );
+
+      const settings = await getWorkspaceStrategySettings(wsId);
+      await rescheduleCycleReviews(
+        tx,
+        cycleIdBig,
+        wsId,
+        existing.durationWeeks,
+        nextDuration,
+        settings,
+        nextStartLocal,
+        nextTimezone
+      );
+
+      const afterReviews = await tx
+        .select()
+        .from(cycleReviews)
+        .where(
+          and(
+            eq(cycleReviews.cycleId, cycleIdBig),
+            eq(cycleReviews.workspaceId, wsId),
+            isNull(cycleReviews.deletedAt)
+          )
+        );
+
+      (beforeState as any).reviewSchedule = beforeReviews.map((r: any) => ({
+        id: String(r.id),
+        kind: r.kind,
+        scheduledWeekNo: r.scheduledWeekNo,
+        status: r.status,
+      }));
+      (afterState as any).reviewSchedule = afterReviews.map((r: any) => ({
+        id: String(r.id),
+        kind: r.kind,
+        scheduledWeekNo: r.scheduledWeekNo,
+        status: r.status,
+      }));
+    }
+
     await tx.insert(cycleRevisions).values({
       id: generateSnowflake(),
       workspaceId: wsId,
