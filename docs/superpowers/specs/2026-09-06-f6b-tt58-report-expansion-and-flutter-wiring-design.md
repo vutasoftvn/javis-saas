@@ -319,12 +319,29 @@ export interface TaxObligationSummaryView {
 export async function getTaxObligationsService(
   ctx: TenantContext, legalEntityId: string, periodId: string
 ): Promise<TaxObligationSummaryView>
-// 1. Đọc mọi row tax_obligation_instances theo (legalEntityId, periodId).
-// 2. Nếu có report B02 VERIFIED/INCOMPLETE cho kỳ này (gọi generateReportService
-//    nội bộ, không qua HTTP), lấy dòng THUE_TNDN, upsert 1 row source='COMPUTED_CIT'
-//    tax_name="Thuế TNDN" với incurred_minor = giá trị đó (không đổi paid_minor —
-//    đã nộp bao nhiêu là founder tự khai qua setTaxObligationPaidService riêng).
-// 3. closingDebt = incurred - paid mỗi dòng; totalBalanceDue = tổng closingDebt.
+// ĐỌC THUẦN TÚY — không gọi generateReportService, không ghi gì. Đọc mọi row
+// tax_obligation_instances theo (legalEntityId, periodId); closingDebt =
+// incurred - paid mỗi dòng; totalBalanceDue = tổng closingDebt.
+
+export async function syncComputedCorporateIncomeTaxService(
+  ctx: TenantContext, legalEntityId: string, periodId: string
+): Promise<TaxObligationView | null>
+// Hành động RIÊNG, tường minh — mirror đúng pattern POST /finance/reports/generate
+// (tạo báo cáo là sự kiện có chủ đích, không phải side-effect của một lần đọc).
+// Gọi generateReportService(ctx, {legalEntityId, periodId, reportCode: "B02"}),
+// lấy dòng THUE_TNDN, upsert 1 row source='COMPUTED_CIT' tax_name="Thuế TNDN"
+// với incurred_minor = giá trị đó (không đổi paid_minor — đã nộp bao nhiêu là
+// founder tự khai qua đường upsertManualTaxObligationService riêng). Trả về
+// null nếu B02 không có dòng THUE_TNDN (không nên xảy ra, nhưng an toàn kiểu).
+//
+// (Addendum 2026-09-07: bản gốc gọi generateReportService bên trong
+// getTaxObligationsService — bị phát hiện lỗi kiến trúc khi review Task 5:
+// generateReportService luôn ghi 1 dòng mới vào accounting_report_snapshots,
+// nên một thao tác ĐỌC đơn thuần lại âm thầm sinh sự kiện "đã tạo báo cáo",
+// làm phình bảng audit log vô hạn theo số lần màn hình được tải lại. Founder
+// đã chọn phương án tách hành động đồng bộ ra khỏi đường đọc — client phải
+// gọi sync tường minh (vd. khi mở tab F01, hoặc nút "Cập nhật") thay vì mỗi
+// lần đọc đều kích hoạt.)
 
 export interface UpsertTaxObligationInput {
   legalEntityId: string; periodId: string; taxName: string;
@@ -432,8 +449,10 @@ policy vào `accounting_policies.{currency, inventory_valuation,
 depreciation_method, revenue_recognition}`; `is_statutory_required` LUÔN
 `true` cho micro-enterprise theo TT58 hiện hành (giá trị cứng, không phải
 API — khớp đúng comment cũ trong card "P2/P4" quy định bắt buộc; đây là
-văn bản luật đã biết, không phải số liệu cần tính). F01 map thẳng
-`getTaxObligationsService`'s output vào `taxes`/`total_balance_due`.
+văn bản luật đã biết, không phải số liệu cần tính). F01: gọi
+`syncComputedCorporateIncomeTaxService` (tường minh, một lần khi mở tab F01)
+rồi mới gọi `getTaxObligationsService` (đọc thuần túy) và map output vào
+`taxes`/`total_balance_due` — không gộp 2 bước thành 1 lời gọi.
 
 `createAndPostDocument`/`voidDocument`: XÓA khỏi `finance_tt58_service.dart`
 (dead stub) — `finance_controller.dart` gọi thẳng
