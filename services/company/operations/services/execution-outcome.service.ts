@@ -138,6 +138,31 @@ export async function validateTaskCompletion(
   const wsId = BigInt(ctx.workspaceId);
   const taskIdBig = BigInt(params.taskId);
 
+  // IA22/IA23 — trước đây evidenceRefs chỉ được forward vào event payload,
+  // KHÔNG hề được kiểm tra: 1 task có thể DONE mà không có bất kỳ bằng
+  // chứng nào, vẫn đóng góp điểm execution score (calculateExecutionScore ở
+  // execution-cycle-view.service.ts coi mọi commitment DONE là có evidence
+  // hợp lệ). Cùng pattern đã dùng cho legal obligation FULFILLED (IA18):
+  // bắt buộc ít nhất 1 evidenceRef có nội dung thật, không chấp nhận mảng
+  // rỗng hoặc chuỗi rỗng/toàn khoảng trắng.
+  // IA22/IA23 — trước đây evidenceRefs chỉ được forward vào event payload,
+  // KHÔNG hề được kiểm tra: 1 task có thể DONE mà không có bất kỳ bằng
+  // chứng nào, vẫn đóng góp điểm execution score (calculateExecutionScore ở
+  // execution-cycle-view.service.ts coi mọi commitment DONE là có evidence
+  // hợp lệ). Cùng pattern đã dùng cho legal obligation FULFILLED (IA18):
+  // bắt buộc ít nhất 1 evidenceRef có nội dung thật, không chấp nhận mảng
+  // rỗng hoặc chuỗi rỗng/toàn khoảng trắng.
+  const hasEvidence =
+    Array.isArray(params.evidenceRefs) &&
+    params.evidenceRefs.some((ref) => typeof ref === "string" && ref.trim().length > 0);
+  if (!hasEvidence) {
+    const err = APIError.invalidArgument(
+      "Task completion requires at least one non-blank evidence reference (evidenceRefs)"
+    );
+    (err as any).code = "EVIDENCE_REQUIRED";
+    throw err;
+  }
+
   return await db.transaction(async (tx) => {
     const [task] = await tx
       .select()

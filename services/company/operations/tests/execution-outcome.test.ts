@@ -338,6 +338,41 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
     expect(kr!.currentValue).toBe(100); // untouched!
   });
 
+  it("rejects completing a task with no evidence instead of silently marking it DONE (IA22/IA23)", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const wsId = BigInt(ws.workspaceId);
+    const ctx = {
+      workspaceId: ws.workspaceId,
+      userId: "1",
+      membershipRole: "founder",
+      permissions: [],
+      correlationId: "no-evidence-test",
+    };
+
+    const taskId = generateSnowflake();
+    await db.insert(tasks).values({
+      id: taskId,
+      workspaceId: wsId,
+      title: "Task without evidence",
+      status: "todo",
+      revision: 1,
+    });
+
+    // Trước fix: evidenceRefs chỉ được forward vào event payload, không hề
+    // được kiểm tra — task DONE mà không có bằng chứng nào vẫn đóng góp
+    // điểm execution score như thể đã hoàn thành thật.
+    await expect(
+      validateTaskCompletion(ctx, { taskId: taskId.toString(), expectedVersion: 1 })
+    ).rejects.toThrow(/evidence/i);
+    await expect(
+      validateTaskCompletion(ctx, { taskId: taskId.toString(), expectedVersion: 1, evidenceRefs: ["   "] })
+    ).rejects.toThrow(/evidence/i);
+
+    const [stillTodo] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+    expect(stillTodo!.status).toBe("todo");
+    expect(stillTodo!.revision).toBe(1);
+  });
+
   it("does not close the parent commitment while a sibling task is still pending (IA23)", async () => {
     const ws = await createTestWorkspaceWithMember();
     const wsId = BigInt(ws.workspaceId);
