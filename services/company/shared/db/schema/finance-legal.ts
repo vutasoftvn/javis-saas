@@ -141,7 +141,8 @@ export const accountingReportMappings = financeSchema.table("accounting_report_m
   name: text("name").notNull(),
   sourceRef: text("source_ref").notNull(),
   ruleType: varchar("rule_type", { length: 20 }).notNull(),
-  bucket: varchar("bucket", { length: 20 }).$type<LedgerBucket>().notNull(),
+  bucket: varchar("bucket", { length: 20 }).$type<LedgerBucket>(),
+  derivedKind: varchar("derived_kind", { length: 30 }),
   sign: smallint("sign").notNull(),
   rounding: varchar("rounding", { length: 20 }).notNull(),
   definitionHash: text("definition_hash").notNull(),
@@ -193,6 +194,36 @@ export const accountingReportSnapshots = financeSchema.table("accounting_report_
   status: varchar("status", { length: 20 }).$type<"INCOMPLETE" | "PROVIDER_NOT_READY" | "VERIFIED">().notNull(),
   issues: jsonb("issues").$type<string[]>().default([]).notNull(),
   generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const accountingPolicies = financeSchema.table("accounting_policies", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }).notNull(),
+  inventoryValuationMethod: varchar("inventory_valuation_method", { length: 50 }).default("weighted_average").notNull(),
+  depreciationMethod: varchar("depreciation_method", { length: 50 }).default("straight_line").notNull(),
+  revenueRecognitionMethod: text("revenue_recognition_method")
+    .default("Ghi nhận khi hoàn thành chuyển giao dịch vụ/hàng hóa")
+    .notNull(),
+  corporateIncomeTaxRateBps: integer("corporate_income_tax_rate_bps"),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const taxObligationInstances = financeSchema.table("tax_obligation_instances", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }).notNull(),
+  periodId: bigint("period_id", { mode: "bigint" }).notNull(),
+  taxName: varchar("tax_name", { length: 100 }).notNull(),
+  incurredMinor: numeric("incurred_minor", { precision: 38, scale: 0 }).default("0").notNull(),
+  paidMinor: numeric("paid_minor", { precision: 38, scale: 0 }).default("0").notNull(),
+  source: varchar("source", { length: 20 }).default("MANUAL").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const legalChecklistItems = legalSchema.table("legal_checklist_items", {
