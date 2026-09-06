@@ -23,3 +23,4 @@ export * from "./weekly-goal.handler";
 export * from "./workspace-strategy-settings.handler";
 export * from "./strategic-objective.handler";
 export * from "./strategy-analysis.handler";
+export * from "./tows-option.handler";

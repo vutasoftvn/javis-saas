@@ -617,3 +617,46 @@ export const swotItems = strategySchema.table("swot_items", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 29. TOWS Options
+export const towsOptions = strategySchema.table("tows_options", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .notNull()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
+    .notNull()
+    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
+  quadrant: text("quadrant").notNull(), // SO | WO | ST | WT
+  title: text("title").notNull(),
+  rationale: text("rationale"),
+  swotItemIds: jsonb("swot_item_ids").$type<string[]>().default([]).notNull(),
+  status: text("status").default("DRAFT").notNull(), // DRAFT | PROPOSED | SELECTED | REJECTED | SUPERSEDED
+  aiProvenance: jsonb("ai_provenance").$type<Record<string, any>>(),
+  selectedByMemberId: bigint("selected_by_member_id", { mode: "bigint" }),
+  selectedAt: timestamp("selected_at", { withTimezone: true }),
+  decisionId: bigint("decision_id", { mode: "bigint" }).references(() => decisionRecords.id, { onDelete: "set null" }),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
+  revision: integer("revision").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 30. TOWS Option Evaluations
+export const towsOptionEvaluations = strategySchema.table("tows_option_evaluations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .notNull()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  towsOptionId: bigint("tows_option_id", { mode: "bigint" })
+    .notNull()
+    .references(() => towsOptions.id, { onDelete: "cascade" }),
+  impactScore: integer("impact_score").notNull(),
+  difficultyScore: integer("difficulty_score").notNull(),
+  rationale: text("rationale"),
+  scoredByMemberId: bigint("scored_by_member_id", { mode: "bigint" }),
+  scorerKind: text("scorer_kind").default("HUMAN").notNull(), // HUMAN | AI_AGENT
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+

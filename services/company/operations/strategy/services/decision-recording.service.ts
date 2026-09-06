@@ -268,3 +268,74 @@ export async function deleteDecisionRecordInWorkspace(
   if (!row) throw APIError.notFound("Decision record not found");
   return { success: true };
 }
+
+export interface RecordTowsDecisionInput {
+  workspaceId: string | bigint;
+  strategicObjectiveId: string | bigint;
+  towsOptionId: string | bigint;
+  action: "SELECTED" | "REJECTED" | "SUPERSEDED";
+  actorMemberId?: string | bigint | null;
+  actorRole?: string | null;
+  reason?: string;
+  candidateRanking: Array<{
+    optionId: string;
+    title: string;
+    quadrant: string;
+    impactScore?: number;
+    difficultyScore?: number;
+    priorityScore?: number;
+    status: string;
+  }>;
+  selectedOptionIds: string[];
+  supersededOptionId?: string | null;
+  settingsRevision: number;
+  sourceEvidence?: Array<{ id: string; type?: string; title?: string; summary?: string }>;
+}
+
+export async function recordTowsDecision(
+  input: RecordTowsDecisionInput,
+  txClient?: any
+): Promise<string> {
+  const client = txClient ?? db;
+  const id = generateSnowflake();
+  const wsId = BigInt(input.workspaceId);
+  const decisionStr =
+    input.action === "SELECTED"
+      ? "TOWS_OPTION_SELECTED"
+      : input.action === "REJECTED"
+      ? "TOWS_OPTION_REJECTED"
+      : "TOWS_OPTION_SUPERSEDED";
+
+  await client.insert(decisionRecords).values({
+    id,
+    workspaceId: wsId,
+    projectId: null,
+    gateEvaluationId: null,
+    decision: decisionStr,
+    decisionType: "TOWS_SELECTION",
+    createdByKind: "FOUNDER",
+    policyVersion: String(input.settingsRevision),
+    actorMemberId: input.actorMemberId ? BigInt(input.actorMemberId) : null,
+    founderDecision: input.action === "SELECTED" ? "accepted" : "rejected",
+    decidedAt: new Date(),
+    evidenceSnapshot: {
+      action: input.action,
+      strategicObjectiveId: String(input.strategicObjectiveId),
+      towsOptionId: String(input.towsOptionId),
+      reason: input.reason || "",
+      settingsRevision: input.settingsRevision,
+      selectedIds: input.selectedOptionIds,
+      supersededOptionId: input.supersededOptionId ?? null,
+      candidateRanking: input.candidateRanking,
+      approver: {
+        memberId: input.actorMemberId ? String(input.actorMemberId) : null,
+        role: input.actorRole || null,
+      },
+      sourceEvidence: input.sourceEvidence || [],
+      recordedAt: new Date().toISOString(),
+    },
+  });
+
+  return id.toString();
+}
+
