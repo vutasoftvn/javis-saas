@@ -142,6 +142,7 @@ interface AcceptParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;
   acceptedByMemberId?: string | null;
+  initiativeId?: string | null;
 }
 
 export const acceptExecutionPlan = api(
@@ -150,7 +151,11 @@ export const acceptExecutionPlan = api(
     if (!p.workspaceId) throw APIError.invalidArgument("X-Workspace-Id header required");
     return acceptExecutionPlanService(
       p.id,
-      { workspaceId: p.workspaceId, acceptedByMemberId: p.acceptedByMemberId ?? null },
+      {
+        workspaceId: p.workspaceId,
+        acceptedByMemberId: p.acceptedByMemberId ?? null,
+        initiativeId: p.initiativeId ?? null,
+      },
       p.authorization
     );
   }

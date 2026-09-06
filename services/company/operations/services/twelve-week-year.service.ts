@@ -10,8 +10,10 @@ import {
   getLocalDateFromInstant,
   addDaysToLocalDate,
 } from "./execution-calendar";
+import { assertInitiativeInWorkspace } from "./initiative.service";
 
 const { twelveWeekCycles, weeklyPlans, weeklyCommitments, cycleRevisions } = schema;
+
 
 export interface TwelveWeekCycle {
   id: string;
@@ -457,6 +459,10 @@ export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentR
   }
   await requireWorkspaceAccess(req.authorization, String(req.workspaceId));
 
+  if (req.initiativeId) {
+    await assertInitiativeInWorkspace(req.initiativeId, req.workspaceId, true);
+  }
+
   const [row] = await db
     .insert(weeklyCommitments)
     .values({
@@ -469,6 +475,7 @@ export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentR
       commitmentOwnerType: req.commitmentOwnerType || "FOUNDER",
       executionMode: req.executionMode || "MANUAL",
     })
+
     .returning();
 
   if (!row) throw APIError.internal("Failed to create weekly commitment");

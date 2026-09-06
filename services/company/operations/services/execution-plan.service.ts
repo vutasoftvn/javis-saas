@@ -13,6 +13,8 @@ import {
   workspaceCapabilityPolicy,
 } from "../../shared/db/schema/operations";
 import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
+import { requireStrategyGovernanceAuthority } from "../strategy/services/strategy-governance-authorization.service";
+import { assertInitiativeInWorkspace } from "./initiative.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../shared/events/envelope";
@@ -460,12 +462,27 @@ function assertNoCycles(items: { id: string; deps: string[] }[]): void {
  */
 export async function acceptExecutionPlanService(
   planId: string,
-  p: { workspaceId: string; acceptedByMemberId?: string | null },
+  p: { workspaceId: string; acceptedByMemberId?: string | null; initiativeId?: string | null },
   authorization: string | undefined
 ): Promise<AcceptExecutionPlanResult> {
   const ctx = await requireWorkspaceAccess(authorization, p.workspaceId);
-  requireFounderCommand(ctx, "execution.plan.approve");
+  if (
+    (ctx as any).actorKind === "AI_AGENT" ||
+    (ctx as any).isAgent === true ||
+    ctx.membershipRole === "agent"
+  ) {
+    throw APIError.permissionDenied("Agents cannot accept execution plans; human approval required");
+  }
+  await requireStrategyGovernanceAuthority(ctx, "execution.plan.approve", {
+    workspaceId: ctx.workspaceId,
+  });
   const wsId = BigInt(ctx.workspaceId);
+
+  let validatedInitiativeId: bigint | null = null;
+  if (p.initiativeId) {
+    const init = await assertInitiativeInWorkspace(p.initiativeId, ctx.workspaceId, true);
+    validatedInitiativeId = init.id;
+  }
 
   return await db.transaction(async (tx) => {
     const [plan] = await tx
@@ -537,7 +554,7 @@ export async function acceptExecutionPlanService(
           id: generateSnowflake(),
           workspaceId: wsId,
           weeklyPlanId: plan.weeklyPlanId,
-          initiativeId: null,
+          initiativeId: validatedInitiativeId,
           title: it.title.slice(0, 255),
           commitmentOwnerType: klass === "FOUNDER_ONLY" ? "FOUNDER" : "AGENT",
           executionMode,
@@ -553,6 +570,7 @@ export async function acceptExecutionPlanService(
         priority: it.priority ?? "medium",
         source: "ai_agent_proposal",
         weeklyCommitmentId: commitment!.id,
+        initiativeId: commitment!.initiativeId,
         assigneeMemberId,
         executionMode,
       });

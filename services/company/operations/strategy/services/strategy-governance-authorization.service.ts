@@ -13,6 +13,10 @@ import {
   WorkspaceStrategySettings,
 } from "./workspace-strategy-settings.service";
 
+export type GovernedStrategyPermission =
+  | StrategyGovernancePermission
+  | "execution.plan.approve";
+
 /**
  * Enforces strategy governance authority based on workspace settings approval policy.
  * - Under FOUNDER_ONLY: only founder / co-founder can execute the command.
@@ -20,7 +24,7 @@ import {
  */
 export async function requireStrategyGovernanceAuthority(
   ctx: TenantContext,
-  permission: StrategyGovernancePermission,
+  permission: GovernedStrategyPermission,
   scope?: ResourceScope,
   settings?: WorkspaceStrategySettings
 ): Promise<RuleDecision> {
@@ -62,10 +66,11 @@ export async function requireStrategyGovernanceAuthority(
  */
 export async function canExecuteStrategyGovernance(
   ctx: TenantContext,
-  permission: StrategyGovernancePermission,
+  permission: GovernedStrategyPermission,
   scope?: ResourceScope,
   settings?: WorkspaceStrategySettings
 ): Promise<boolean> {
+
   try {
     await requireStrategyGovernanceAuthority(ctx, permission, scope, settings);
     return true;

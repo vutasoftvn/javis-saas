@@ -139,8 +139,9 @@ function toInitiative(
  * and belongs to the workspace. Throws APIError.notFound if missing or cross-workspace.
  */
 export async function assertInitiativeInWorkspace(
-  id: string | bigint,
-  workspaceId: string | bigint
+  id: string | number | bigint,
+  workspaceId: string | number | bigint,
+  requireApproved: boolean = false
 ): Promise<typeof initiatives.$inferSelect> {
   const wsId = BigInt(workspaceId);
   const initId = BigInt(id);
@@ -161,8 +162,15 @@ export async function assertInitiativeInWorkspace(
     throw APIError.notFound(`Initiative ${id} not found in workspace`);
   }
 
+  if (requireApproved && row.approvalStatus !== "APPROVED") {
+    throw APIError.failedPrecondition(
+      `Initiative ${id} must be APPROVED for strategic execution (current status: ${row.approvalStatus})`
+    );
+  }
+
   return row;
 }
+
 
 export async function createInitiativeService(
   params: CreateInitiativeParams,

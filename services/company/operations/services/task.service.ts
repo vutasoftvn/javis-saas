@@ -14,10 +14,13 @@ import {
   executionPlans,
   executionPlanItems,
   workspaceExecutionSettings,
+  weeklyCommitments,
 } from "../../shared/db/schema/operations";
 import { sql, inArray } from "drizzle-orm";
+import { assertInitiativeInWorkspace } from "./initiative.service";
 
 const { tasks } = schema;
+
 
 export type TaskStatus = "todo" | "in_progress" | "waiting_approval" | "blocked" | "done" | "cancelled";
 export const TASK_STATUSES: readonly TaskStatus[] = ["todo", "in_progress", "waiting_approval", "blocked", "done", "cancelled"];
@@ -52,6 +55,7 @@ export interface CreateTaskParams {
   priority?: "low" | "medium" | "high" | "urgent";
   dueAt?: string;
   initiativeId?: string;
+  weeklyCommitmentId?: string;
   assigneeMemberId?: string;
   ownerMemberId?: string;
   executionMode?: "HUMAN" | "AGENT" | "HYBRID";
@@ -60,6 +64,7 @@ export interface CreateTaskParams {
   correlationId?: string;
   actor?: { kind: "user" | "agent" | "system"; id: string };
 }
+
 
 function toTask(row: typeof tasks.$inferSelect, projectIds: string[] = []): Task {
   return {
@@ -125,6 +130,33 @@ export async function createTaskService(
     }
   }
 
+  let resolvedInitiativeId = params.initiativeId;
+  if (params.weeklyCommitmentId) {
+    const [commitment] = await db
+      .select()
+      .from(weeklyCommitments)
+      .where(
+        and(
+          eq(weeklyCommitments.id, BigInt(params.weeklyCommitmentId)),
+          eq(weeklyCommitments.workspaceId, BigInt(params.workspaceId)),
+          isNull(weeklyCommitments.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (!commitment) {
+      throw APIError.notFound(`Weekly commitment ${params.weeklyCommitmentId} not found in workspace`);
+    }
+
+    if (commitment.initiativeId) {
+      resolvedInitiativeId = commitment.initiativeId.toString();
+    }
+  }
+
+  if (resolvedInitiativeId) {
+    await assertInitiativeInWorkspace(resolvedInitiativeId, params.workspaceId, true);
+  }
+
   const actor = params.actor || (authCtx.userId ? { kind: "user" as const, id: authCtx.userId } : { kind: "system" as const, id: "operations" });
   const eventCtx: EventContext = {
     correlationId: params.correlationId,
@@ -140,7 +172,8 @@ export async function createTaskService(
         title: params.title,
         priority: params.priority || "medium",
         dueAt: params.dueAt ? new Date(params.dueAt) : null,
-        initiativeId: params.initiativeId ? BigInt(params.initiativeId) : null,
+        initiativeId: resolvedInitiativeId ? BigInt(resolvedInitiativeId) : null,
+        weeklyCommitmentId: params.weeklyCommitmentId ? BigInt(params.weeklyCommitmentId) : null,
         assigneeMemberId: params.assigneeMemberId ? BigInt(params.assigneeMemberId) : null,
         ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
         executionMode: params.executionMode || null,
