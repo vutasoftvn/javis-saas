@@ -428,4 +428,89 @@ describe("F6a — budget envelope enforcement on approve", () => {
     expect(approved.budgetOverrideReason).toBeNull();
     expect(approved.budgetOverrideByMemberId).toBeNull();
   });
+
+  it("rejects an actual non-founder session attempting to approve over the budget limit, with the BUDGET_LIMIT_EXCEEDED marker", async () => {
+    const { session, authorization, legalEntityId } = await foundersSetup("Budget Non-Founder Ws");
+    const { createProject } = await import("../../operations/handlers/project.handler");
+    const project = await createProject({
+      authorization, workspaceId: session.workspaceId, title: "Budget non-founder project",
+    });
+    const { createBudgetEnvelopeService } = await import("../services/budget-summary.service");
+    const { resolveTenantContext } = await import("../../identity/services/tenant-context.service");
+    const founderCtx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    await createBudgetEnvelopeService(founderCtx, {
+      projectId: project.id,
+      legalEntityId,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+      limitMinor: "1000000",
+    });
+
+    const created = await createPaymentRequest({
+      authorization, workspaceId: session.workspaceId,
+      legalEntityId, projectId: project.id,
+      amountMinor: "1500000", currency: "VND",
+      beneficiaryBankBin: "970415", beneficiaryAccountNumber: "777",
+      beneficiaryName: "NCC Non Founder Over Limit", purpose: "vuot ngan sach non-founder",
+      idempotencyKey: "budget-enforce-non-founder-over-limit",
+    });
+    const submitted = await submitPaymentRequest({
+      id: created.id, expectedVersion: created.version, authorization, workspaceId: session.workspaceId,
+    });
+
+    // Thêm 1 member THẬT không phải founder vào CÙNG workspace (role
+    // "member", như các test authorization khác trong repo dùng
+    // addMemberToWorkspace) và cấp quyền finance.request.approve qua role
+    // assignment riêng (không dựa vào founder default-allow) — để đảm bảo
+    // request bị chặn đúng ở nhánh requireFounderCommand bên trong khối vượt
+    // ngân sách, không phải bị chặn sớm hơn vì thiếu quyền approve nói
+    // chung (dẫn tới permissionDenied khác, không phải BUDGET_LIMIT_EXCEEDED).
+    const { addMemberToWorkspace } = await import("../../operations/tests/_helpers");
+    const { db: identityDb, schema: identitySchema } = await import("../../identity/models/db");
+    const { generateSnowflake } = await import("../../shared/services/snowflake.service");
+    const { randomUUID } = await import("node:crypto");
+
+    const member = await addMemberToWorkspace(session.workspaceId, "member");
+    const workforceMemberId = generateSnowflake();
+    await identityDb.insert(identitySchema.identityWorkforceMembers).values({
+      id: workforceMemberId,
+      workspaceId: BigInt(session.workspaceId),
+      memberType: "HUMAN",
+      humanUserId: BigInt(member.userId),
+      roleTitle: "Non-Founder Approver (test)",
+      status: "active",
+    });
+    const roleId = randomUUID();
+    await identityDb.insert(identitySchema.coreWorkspaceRoles).values({
+      id: roleId,
+      workspaceId: BigInt(session.workspaceId),
+      roleKey: "finance_approver_non_founder_test",
+      name: "Finance Approver (test, non-founder)",
+      isSystem: false,
+    });
+    await identityDb.insert(identitySchema.coreRolePermissions).values({
+      roleId,
+      permissionKey: "finance.request.approve",
+      effect: "ALLOW",
+      conditions: {},
+    });
+    await identityDb.insert(identitySchema.coreMemberRoleAssignments).values({
+      id: randomUUID(),
+      workspaceId: BigInt(session.workspaceId),
+      workforceMemberId,
+      roleId,
+    });
+
+    // Non-founder có quyền finance.request.approve nói chung (qua role
+    // assignment ở trên) và thậm chí gửi kèm overrideReason — vẫn phải bị
+    // chặn với đúng marker BUDGET_LIMIT_EXCEEDED vì chỉ founder mới được
+    // duyệt vượt ngân sách (Finding 1 fix).
+    await expect(
+      approvePaymentRequest({
+        id: submitted.id, expectedVersion: submitted.version,
+        authorization: member.bearerToken, workspaceId: session.workspaceId,
+        overrideReason: "Non-founder co gang override nhung khong co quyen founder",
+      })
+    ).rejects.toThrow(/BUDGET_LIMIT_EXCEEDED/);
+  });
 });

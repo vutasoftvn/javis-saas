@@ -425,13 +425,19 @@ export async function approvePaymentRequestService(
       if (position.coverage === "COMPLETE") {
         const wouldBeTotal = position.committedUnpaidMinor + position.actualPaidMinor + BigInt(current.amountMinor);
         if (wouldBeTotal > position.limitMinor) {
-          requireFounderCommand(ctx, "finance.budget.override");
+          try {
+            requireFounderCommand(ctx, "finance.budget.override");
+          } catch {
+            throw APIError.failedPrecondition(
+              "BUDGET_LIMIT_EXCEEDED: chỉ founder mới có thể duyệt vượt ngân sách"
+            );
+          }
           if (!p.overrideReason?.trim()) {
             throw APIError.failedPrecondition(
               "BUDGET_LIMIT_EXCEEDED: cần overrideReason khi duyệt vượt ngân sách"
             );
           }
-          budgetOverrideReason = p.overrideReason;
+          budgetOverrideReason = p.overrideReason.trim();
           budgetOverrideByMemberId = BigInt(ctx.workforceMemberId ?? ctx.userId);
         }
       }
