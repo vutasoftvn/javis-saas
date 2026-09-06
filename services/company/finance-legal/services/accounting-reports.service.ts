@@ -2,6 +2,7 @@ import { APIError } from "encore.dev/api";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { requireFounderCommand } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { computeCanonicalSha256 } from "./compliance/canonical-hasher";
 import { listBookEntriesService } from "./accounting-books.service";
@@ -300,4 +301,43 @@ export async function listReportSnapshotsService(
     issues: row.issues,
     generatedAt: row.generatedAt.toISOString(),
   }));
+}
+
+/**
+ * Xác nhận nội dung mapping TT58 — chỉ founder được phép, vì mapping quyết
+ * định report có thể lên `status=VERIFIED` hay không (business truth, không
+ * để LLM/agent tự quyết). Idempotent theo (regimeCode, mappingVersion) qua
+ * unique constraint `uix_mapping_confirmation`.
+ */
+export async function confirmMappingService(
+  ctx: TenantContext,
+  regimeCode: string,
+  mappingVersion: string
+): Promise<{ confirmedAt: string }> {
+  requireFounderCommand(ctx, "finance.accounting_mapping.confirm");
+
+  if (regimeCode !== TT58_2026_MAPPING.regimeCode || mappingVersion !== TT58_2026_MAPPING.mappingVersion) {
+    throw APIError.invalidArgument(`Unknown mapping ${regimeCode}/${mappingVersion}`);
+  }
+  await ensureMappingSeeded(TT58_2026_MAPPING);
+
+  const [row] = await db
+    .insert(accountingMappingConfirmations)
+    .values({
+      id: generateSnowflake(),
+      regimeCode,
+      mappingVersion,
+      confirmedByMemberId: BigInt(ctx.workforceMemberId ?? ctx.userId),
+    })
+    .onConflictDoUpdate({
+      target: [accountingMappingConfirmations.regimeCode, accountingMappingConfirmations.mappingVersion],
+      set: {
+        confirmedByMemberId: BigInt(ctx.workforceMemberId ?? ctx.userId),
+        confirmedAt: new Date(),
+      },
+    })
+    .returning();
+
+  if (!row) throw APIError.internal("Failed to record mapping confirmation");
+  return { confirmedAt: row.confirmedAt.toISOString() };
 }
