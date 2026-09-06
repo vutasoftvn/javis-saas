@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 class AppTheme {
   // Brand & Accent Colors
   static const Color primary = Color(0xFF14B8A6); // Teal 500
+  static const Color primaryColor = primary;
   static const Color primaryLight = Color(0xFF2DD4BF); // Teal 400
   static const Color primaryDark = Color(0xFF0D9488); // Teal 600
   static const Color secondary = Color(0xFF38BDF8); // Sky Blue

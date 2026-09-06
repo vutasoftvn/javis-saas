@@ -18,7 +18,7 @@ class StrategyLensesHubModal extends StatefulWidget {
   final Function(SwotType category, String statement, double importance, List<int> evidenceRefs) onCreateSwotItem;
   final Function(TowsType quadrant, String title, String description) onCreateTowsOption;
   final Function(int optionId, String tacticTitle, int weekNumber, String leadIndicator) onConvertTowsToTactics;
-  final Function(BscPerspective perspective, String objective, String kpiName, String target, String current) onCreateBscGoal;
+  final Function(BscPerspective perspective, String objective, String kpiName, String target, String current)? onCreateBscGoal;
 
   const StrategyLensesHubModal({
     super.key,
@@ -31,7 +31,7 @@ class StrategyLensesHubModal extends StatefulWidget {
     required this.onCreateSwotItem,
     required this.onCreateTowsOption,
     required this.onConvertTowsToTactics,
-    required this.onCreateBscGoal,
+    this.onCreateBscGoal,
   });
 
   static void show(
@@ -45,7 +45,7 @@ class StrategyLensesHubModal extends StatefulWidget {
     required Function(SwotType category, String statement, double importance, List<int> evidenceRefs) onCreateSwotItem,
     required Function(TowsType quadrant, String title, String description) onCreateTowsOption,
     required Function(int optionId, String tacticTitle, int weekNumber, String leadIndicator) onConvertTowsToTactics,
-    required Function(BscPerspective perspective, String objective, String kpiName, String target, String current) onCreateBscGoal,
+    Function(BscPerspective perspective, String objective, String kpiName, String target, String current)? onCreateBscGoal,
   }) {
     showDialog(
       context: context,
@@ -95,7 +95,7 @@ class _StrategyLensesHubModalState extends State<StrategyLensesHubModal>
     final swotItems = summary?.swotItems ?? [];
     final towsOptions = summary?.towsOptions ?? [];
     final bscGoals = summary?.bscGoals ?? [];
-    final isBscUnlocked = summary?.isBscUnlocked ?? (widget.currentStage == ProjectStage.p5OperateGrowth || widget.currentStage == ProjectStage.p6ScaleGovern);
+    final isBscUnlocked = summary?.isBscUnlocked ?? false;
 
     return Container(
       width: 1080,

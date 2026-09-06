@@ -574,22 +574,25 @@ class WorkspaceStrategySettingsModel {
   final String? updatedByMemberId;
   final String? updatedAt;
 
+  int get maxTowsSelections => towsSelectionLimit;
+
   const WorkspaceStrategySettingsModel({
     required this.workspaceId,
     required this.strategyMethod,
     required this.bscMode,
-    required this.enabledBscPerspectives,
-    required this.towsSelectionLimit,
-    required this.weeklyReviewEnabled,
-    required this.midCycleReviewPolicy,
-    required this.endCycleReviewEnabled,
-    required this.allowedAgentProfiles,
-    required this.approvalPolicy,
-    required this.revision,
+    this.enabledBscPerspectives = const [],
+    int? towsSelectionLimit,
+    int? maxTowsSelections,
+    this.weeklyReviewEnabled = true,
+    this.midCycleReviewPolicy = MidCycleReviewPolicy.off,
+    this.endCycleReviewEnabled = true,
+    this.allowedAgentProfiles = const [],
+    this.approvalPolicy = ApprovalPolicy.founderOnly,
+    this.revision = 1,
     this.canEdit = true,
     this.updatedByMemberId,
     this.updatedAt,
-  });
+  }) : towsSelectionLimit = towsSelectionLimit ?? maxTowsSelections ?? 1;
 
   factory WorkspaceStrategySettingsModel.fromJson(Map<String, dynamic> json) {
     final perspectivesRaw = (json['enabledBscPerspectives'] as List<dynamic>?) ?? [];

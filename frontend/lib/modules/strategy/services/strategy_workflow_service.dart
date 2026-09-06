@@ -220,6 +220,11 @@ class StrategyWorkflowService extends WorkspaceScopedService {
         .toList();
   }
 
+  Future<List<BscFocusScopeModel>> updateObjectiveBscFocus(
+    String objectiveId, {
+    required List<BscFocusScopeModel> scopes,
+  }) => saveBscFocusScopes(objectiveId, scopes);
+
   Future<List<BscFocusScopeModel>> listFocusScopes(String objectiveId) async {
     final obj = await getStrategicObjective(objectiveId);
     return obj.bscFocusScopes;
@@ -248,7 +253,8 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   }
 
   Future<PestelSignalModel> createPestelSignal({
-    required String strategicObjectiveId,
+    String? strategicObjectiveId,
+    String? objectiveId,
     required PestelDimension dimension,
     required String statement,
     required String impact,
@@ -257,6 +263,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     List<BscPerspective>? bscPerspectives,
     String? status,
   }) async {
+    final targetObjectiveId = strategicObjectiveId ?? objectiveId ?? '';
     final body = <String, dynamic>{
       'dimension': dimension.toApiString(),
       'statement': statement,
@@ -267,7 +274,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'status': ?status,
     };
     final res = await ApiClient.post(
-      '/operations/strategy/objectives/$strategicObjectiveId/analysis/pestel',
+      '/operations/strategy/objectives/$targetObjectiveId/analysis/pestel',
       body: body,
     );
     _checkResponse(res);
@@ -326,8 +333,14 @@ class StrategyWorkflowService extends WorkspaceScopedService {
         .toList();
   }
 
+  Future<List<ResourceCapabilityAssessmentModel>> listResourceAssessments(
+    String objectiveId, {
+    String? status,
+  }) => listResourceCapabilities(objectiveId, status: status);
+
   Future<ResourceCapabilityAssessmentModel> createResourceCapability({
-    required String strategicObjectiveId,
+    String? strategicObjectiveId,
+    String? objectiveId,
     required ResourceCapabilityCategory category,
     required String statement,
     required String strengthLevel,
@@ -335,6 +348,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     List<BscPerspective>? bscPerspectives,
     String? status,
   }) async {
+    final targetObjectiveId = strategicObjectiveId ?? objectiveId ?? '';
     final body = <String, dynamic>{
       'category': category.toApiString(),
       'statement': statement,
@@ -344,13 +358,33 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'status': ?status,
     };
     final res = await ApiClient.post(
-      '/operations/strategy/objectives/$strategicObjectiveId/analysis/resources',
+      '/operations/strategy/objectives/$targetObjectiveId/analysis/resources',
       body: body,
     );
     _checkResponse(res);
     final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
     return ResourceCapabilityAssessmentModel.fromJson(data);
   }
+
+  Future<ResourceCapabilityAssessmentModel> createResourceAssessment({
+    String? strategicObjectiveId,
+    String? objectiveId,
+    required ResourceCapabilityCategory category,
+    required String statement,
+    required String strengthLevel,
+    List<String>? evidenceRefs,
+    List<BscPerspective>? bscPerspectives,
+    String? status,
+  }) => createResourceCapability(
+    strategicObjectiveId: strategicObjectiveId,
+    objectiveId: objectiveId,
+    category: category,
+    statement: statement,
+    strengthLevel: strengthLevel,
+    evidenceRefs: evidenceRefs,
+    bscPerspectives: bscPerspectives,
+    status: status,
+  );
 
   Future<ResourceCapabilityAssessmentModel> updateResourceCapability(
     String objectiveId,
@@ -402,26 +436,32 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   }
 
   Future<SwotItemModel> createSwotItem({
-    required String strategicObjectiveId,
-    required SwotItemType itemType,
-    required String content,
+    String? strategicObjectiveId,
+    String? objectiveId,
+    SwotItemType? itemType,
+    SwotItemType? kind,
+    String? content,
+    String? statement,
     String? sourceType,
     String? sourceId,
     List<String>? evidenceRefs,
     List<BscPerspective>? bscPerspectives,
     String? status,
   }) async {
+    final targetObjectiveId = strategicObjectiveId ?? objectiveId ?? '';
+    final finalKind = itemType ?? kind ?? SwotItemType.strength;
+    final finalText = content ?? statement ?? '';
     final body = <String, dynamic>{
-      'kind': itemType.toApiString(),
-      'statement': content,
+      'kind': finalKind.toApiString(),
+      'statement': finalText,
       'sourceType': sourceType ?? 'MANUAL',
-      'sourceId': ?sourceId,
-      'evidenceRefs': ?evidenceRefs,
-      'bscPerspectives': ?(bscPerspectives?.map((p) => p.toApiString()).toList()),
-      'status': ?status,
+      'sourceId': sourceId,
+      'evidenceRefs': evidenceRefs,
+      'bscPerspectives': bscPerspectives?.map((p) => p.toApiString()).toList(),
+      'status': status,
     };
     final res = await ApiClient.post(
-      '/operations/strategy/objectives/$strategicObjectiveId/analysis/swot',
+      '/operations/strategy/objectives/$targetObjectiveId/analysis/swot',
       body: body,
     );
     _checkResponse(res);
@@ -439,11 +479,11 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     String? status,
   }) async {
     final body = <String, dynamic>{
-      'kind': ?itemType?.toApiString(),
-      'statement': ?content,
-      'evidenceRefs': ?evidenceRefs,
-      'bscPerspectives': ?(bscPerspectives?.map((p) => p.toApiString()).toList()),
-      'status': ?status,
+      'kind': itemType?.toApiString(),
+      'statement': content,
+      'evidenceRefs': evidenceRefs,
+      'bscPerspectives': bscPerspectives?.map((p) => p.toApiString()).toList(),
+      'status': status,
     };
     final res = await ApiClient.put(
       '/operations/strategy/objectives/$objectiveId/analysis/swot/$id',
@@ -457,6 +497,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   Future<List<SwotItemModel>> deriveSwotDrafts(String objectiveId) async {
     final res = await ApiClient.post(
       '/operations/strategy/objectives/$objectiveId/analysis/swot/derive-drafts',
+      body: {},
     );
     _checkResponse(res);
     final decoded = jsonDecode(utf8.decode(res.bodyBytes));
@@ -495,22 +536,26 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   }
 
   Future<TowsOptionModel> createTowsOption({
-    required String strategicObjectiveId,
-    required TowsOptionType optionType,
+    String? strategicObjectiveId,
+    String? objectiveId,
+    TowsOptionType? optionType,
+    TowsOptionType? towsType,
     required String title,
     String? description,
     List<String>? swotLinkIds,
     String? status,
   }) async {
+    final targetObjectiveId = strategicObjectiveId ?? objectiveId ?? '';
+    final finalType = optionType ?? towsType ?? TowsOptionType.so;
     final body = <String, dynamic>{
-      'quadrant': optionType.toApiString(),
+      'quadrant': finalType.toApiString(),
       'title': title,
-      'rationale': ?description,
-      'swotItemIds': ?swotLinkIds,
-      'status': ?status,
+      'rationale': description,
+      'swotItemIds': swotLinkIds,
+      'status': status,
     };
     final res = await ApiClient.post(
-      '/operations/strategy/objectives/$strategicObjectiveId/tows-options',
+      '/operations/strategy/objectives/$targetObjectiveId/tows-options',
       body: body,
     );
     _checkResponse(res);
@@ -527,11 +572,11 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     int? expectedRevision,
   }) async {
     final body = <String, dynamic>{
-      'quadrant': ?optionType?.toApiString(),
-      'title': ?title,
-      'rationale': ?description,
-      'swotItemIds': ?swotLinkIds,
-      'expectedRevision': ?expectedRevision,
+      'quadrant': optionType?.toApiString(),
+      'title': title,
+      'rationale': description,
+      'swotItemIds': swotLinkIds,
+      'expectedRevision': expectedRevision,
     };
     final res = await ApiClient.put(
       '/operations/strategy/tows-options/$id',
@@ -547,13 +592,15 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     required double impactScore,
     required double difficultyScore,
     String? rationale,
+    String? evaluationNotes,
     String? scorerKind,
   }) async {
+    final finalRationale = rationale ?? evaluationNotes;
     final body = <String, dynamic>{
       'impactScore': impactScore,
       'difficultyScore': difficultyScore,
-      'rationale': ?rationale,
-      'scorerKind': ?scorerKind,
+      'rationale': finalRationale,
+      'scorerKind': scorerKind,
     };
     final res = await ApiClient.post(
       '/operations/strategy/tows-options/$id/evaluate',
