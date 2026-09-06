@@ -25,6 +25,8 @@ import {
   resolveExecutionWeek,
 } from "../../services/execution-calendar";
 import { isEvidenceEligible } from "./eligible-evidence.service";
+import { getFinancialSnapshotsService } from "../../../finance-legal/services/financial-snapshot.service";
+import { getBudgetSummary } from "../../../finance-legal/services/budget-summary.service";
 
 export type ContextPart<T> =
   | { availability: "READY"; data: T; asOf: string; sourceVersion: string }
@@ -293,16 +295,44 @@ export async function getProjectActionContext(
     sourceVersion: "1",
   };
 
-  // 7. Finance & Budget Adapters (Prior to F6, returns UNAVAILABLE with reason)
-  const cashSummary: ContextPart<{ cashBalance: number; monthlyBurn: number; runwayMonths: number }> = {
-    availability: "UNAVAILABLE",
-    reason: "Finance cash summary integration not yet available (scheduled in F6)",
-  };
+  // 7. Finance & Budget Adapters (F6a — đọc dữ liệu thật từ F1 snapshot và
+  // budget envelope, không còn stub cứng).
+  const snapshots = await getFinancialSnapshotsService(BigInt(ctx.workspaceId));
+  const latestSnapshot = snapshots[0];
+  const cashSummary: ContextPart<{ cashBalance: number; monthlyBurn: number; runwayMonths: number }> =
+    latestSnapshot
+      ? {
+          availability: "READY",
+          data: {
+            cashBalance: latestSnapshot.currentCash != null ? Number(latestSnapshot.currentCash) : 0,
+            monthlyBurn: latestSnapshot.monthlyNetBurn != null ? Number(latestSnapshot.monthlyNetBurn) : 0,
+            runwayMonths: latestSnapshot.runwayMonths != null ? Number(latestSnapshot.runwayMonths) : 0,
+          },
+          asOf: latestSnapshot.snapshotDate,
+          sourceVersion: latestSnapshot.id,
+        }
+      : {
+          availability: "UNAVAILABLE",
+          reason: "Chưa có finance snapshot nào cho workspace này",
+        };
 
-  const budgetSummary: ContextPart<{ totalBudget: number; spent: number; remaining: number }> = {
-    availability: "UNAVAILABLE",
-    reason: "Budget tracking adapter not yet available (scheduled in F6)",
-  };
+  const budgetPosition = await getBudgetSummary(ctx, projectId);
+  const budgetSummary: ContextPart<{ totalBudget: number; spent: number; remaining: number }> =
+    budgetPosition.coverage === "NO_ENVELOPE"
+      ? {
+          availability: "UNAVAILABLE",
+          reason: "Dự án chưa có budget envelope",
+        }
+      : {
+          availability: "READY",
+          data: {
+            totalBudget: Number(budgetPosition.limitMinor),
+            spent: Number(budgetPosition.actualPaidMinor) + Number(budgetPosition.committedUnpaidMinor),
+            remaining: Number(budgetPosition.remainingAfterCommitmentsMinor),
+          },
+          asOf: budgetPosition.asOf,
+          sourceVersion: budgetPosition.coverage,
+        };
 
   return {
     projectId,

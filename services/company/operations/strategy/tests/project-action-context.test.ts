@@ -149,18 +149,48 @@ describe("Project Action Context & Live Proposals (S4)", () => {
     }
   });
 
-  it("marks cashSummary and budgetSummary as UNAVAILABLE with reason instead of zero-filling", async () => {
+  it("marks cashSummary UNAVAILABLE with a real reason when no finance snapshot exists yet", async () => {
     const { ctx, project } = await seedProjectFixture();
 
     const context = await getProjectActionContext(ctx, project.id);
     expect(context.cashSummary.availability).toBe("UNAVAILABLE");
     if (context.cashSummary.availability === "UNAVAILABLE") {
-      expect(context.cashSummary.reason).toContain("F6");
+      expect(context.cashSummary.reason).not.toContain("F6");
+    }
+  });
+
+  it("marks budgetSummary UNAVAILABLE when the project has no budget envelope, READY with real numbers once one exists", async () => {
+    const { ctx, project } = await seedProjectFixture();
+
+    const before = await getProjectActionContext(ctx, project.id);
+    expect(before.budgetSummary.availability).toBe("UNAVAILABLE");
+    if (before.budgetSummary.availability === "UNAVAILABLE") {
+      expect(before.budgetSummary.reason).not.toContain("F6");
     }
 
-    expect(context.budgetSummary.availability).toBe("UNAVAILABLE");
-    if (context.budgetSummary.availability === "UNAVAILABLE") {
-      expect(context.budgetSummary.reason).toContain("F6");
+    const { createBudgetEnvelopeService } = await import(
+      "../../../finance-legal/services/budget-summary.service"
+    );
+    const { createLegalEntityProfile } = await import(
+      "../../../finance-legal/services/legal-entity-profile.service"
+    );
+    const entity = await createLegalEntityProfile({
+      workspaceId: BigInt(ctx.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+    await createBudgetEnvelopeService(ctx, {
+      projectId: project.id,
+      legalEntityId: entity.id,
+      periodStart: "2020-01-01",
+      periodEnd: "2030-12-31",
+      limitMinor: "5000000",
+    });
+
+    const after = await getProjectActionContext(ctx, project.id);
+    expect(after.budgetSummary.availability).toBe("READY");
+    if (after.budgetSummary.availability === "READY") {
+      expect(after.budgetSummary.data.totalBudget).toBe(5000000);
+      expect(after.budgetSummary.data.remaining).toBe(5000000);
     }
   });
 
