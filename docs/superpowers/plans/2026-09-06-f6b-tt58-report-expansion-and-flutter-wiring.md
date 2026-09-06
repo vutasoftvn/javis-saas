@@ -834,13 +834,29 @@ git commit -m "feat(company): thêm accounting-policy.service — cấu hình ch
 - Create: `services/company/finance-legal/handlers/tax-obligation.handler.ts`
 - Test: `services/company/finance-legal/tests/tax-obligation.test.ts`
 
+**⚠️ Design correction (2026-09-07):** the original version of this task had
+`getTaxObligationsService` call `generateReportService` internally on every
+read. Task 5's review caught that `generateReportService` unconditionally
+inserts a new row into `accounting_report_snapshots` on every call — so a
+plain read of "tax obligations" was silently writing an audit-log report
+snapshot every time, growing the table unboundedly under any polling/refresh
+usage. The founder chose to split this into two functions: a pure-read
+`getTaxObligationsService` and a separate, explicit
+`syncComputedCorporateIncomeTaxService` that the caller invokes deliberately
+(mirroring the existing explicit `POST /finance/reports/generate` pattern).
+The steps below reflect the corrected design — do not reintroduce the
+sync-on-read behavior.
+
 **Interfaces:**
 - Consumes: `generateReportService` from `./accounting-reports.service`
   (Task 6 — this task is written assuming Task 6 already exists; if
-  implementing tasks strictly in order, implement Task 6 BEFORE this one,
-  or stub the CIT-sync call and revisit — see Step 3 note).
+  implementing tasks strictly in order, implement Task 6 BEFORE this one).
 - Produces: `TaxObligationView`, `TaxObligationSummaryView`,
-  `getTaxObligationsService(ctx, legalEntityId, periodId): Promise<TaxObligationSummaryView>`,
+  `getTaxObligationsService(ctx, legalEntityId, periodId): Promise<TaxObligationSummaryView>`
+  (pure read, no side effects),
+  `syncComputedCorporateIncomeTaxService(ctx, legalEntityId, periodId): Promise<TaxObligationView | null>`
+  (explicit sync action, consumed by Task 9/10's Flutter wiring — call this
+  once before reading, e.g. when the F01 tab opens),
   `UpsertTaxObligationInput`,
   `upsertManualTaxObligationService(ctx, input): Promise<TaxObligationView>`.
 
@@ -867,6 +883,7 @@ import { setAccountingPolicyService } from "../services/accounting-policy.servic
 import { createBookEntryService } from "../services/accounting-books.service";
 import {
   getTaxObligationsService,
+  syncComputedCorporateIncomeTaxService,
   upsertManualTaxObligationService,
 } from "../services/tax-obligation.service";
 
@@ -909,10 +926,19 @@ describe("tax-obligation.service", () => {
       legalEntityId, periodId, taxName: "Thuế GTGT", incurredMinor: "500000", paidMinor: "500000",
     });
 
-    const summary = await getTaxObligationsService(ctx, legalEntityId, periodId);
-    const cit = summary.taxes.find((t) => t.taxName === "Thuế TNDN");
+    // Đọc thuần túy trước khi sync: chưa có dòng CIT nào, vì chưa từng gọi sync.
+    const before = await getTaxObligationsService(ctx, legalEntityId, periodId);
+    expect(before.taxes.find((t) => t.taxName === "Thuế TNDN")).toBeUndefined();
+
+    // Sync là hành động RIÊNG, tường minh — không phải side-effect của đọc.
+    const synced = await syncComputedCorporateIncomeTaxService(ctx, legalEntityId, periodId);
     // gross_profit = 10,000,000 (revenue - cogs=0); preTax = 10,000,000 - 2,000,000 = 8,000,000
     // tax = 8,000,000 * 2000/10000 = 1,600,000
+    expect(synced?.incurredMinor).toBe("1600000");
+    expect(synced?.source).toBe("COMPUTED_CIT");
+
+    const summary = await getTaxObligationsService(ctx, legalEntityId, periodId);
+    const cit = summary.taxes.find((t) => t.taxName === "Thuế TNDN");
     expect(cit?.incurredMinor).toBe("1600000");
     expect(cit?.source).toBe("COMPUTED_CIT");
 
@@ -920,6 +946,15 @@ describe("tax-obligation.service", () => {
     expect(vat?.closingDebtMinor).toBe("0");
 
     expect(summary.totalBalanceDueMinor).toBe("1600000"); // CIT chưa nộp + VAT đã nộp hết
+  });
+
+  it("getTaxObligationsService never writes a report snapshot as a side effect", async () => {
+    const { ctx, legalEntityId, periodId } = await foundersSetup("Tax Pure Read Ws");
+    await getTaxObligationsService(ctx, legalEntityId, periodId);
+    await getTaxObligationsService(ctx, legalEntityId, periodId);
+    const { listReportSnapshotsService } = await import("../services/accounting-reports.service");
+    const snapshots = await listReportSnapshotsService(ctx, { legalEntityId, periodId });
+    expect(snapshots.length).toBe(0);
   });
 });
 ```
@@ -969,16 +1004,23 @@ function toView(row: typeof taxObligationInstances.$inferSelect): TaxObligationV
   };
 }
 
-async function syncComputedCorporateIncomeTax(
+/**
+ * Hành động RIÊNG, tường minh — KHÔNG gọi từ getTaxObligationsService.
+ * generateReportService luôn ghi 1 dòng mới vào accounting_report_snapshots,
+ * nên việc gọi nó phải là một sự kiện có chủ đích (giống POST
+ * /finance/reports/generate đã có), không phải side-effect của một lần đọc —
+ * nếu không, mỗi lần tải màn hình F01 sẽ âm thầm phình audit log vô hạn.
+ */
+export async function syncComputedCorporateIncomeTaxService(
   ctx: TenantContext,
   legalEntityId: string,
   periodId: string
-): Promise<void> {
+): Promise<TaxObligationView | null> {
   const b02 = await generateReportService(ctx, { legalEntityId, periodId, reportCode: "B02" });
   const citLine = b02.lines.find((l) => l.lineCode === "THUE_TNDN");
-  if (!citLine) return;
+  if (!citLine) return null;
 
-  await db
+  const [row] = await db
     .insert(taxObligationInstances)
     .values({
       id: generateSnowflake(),
@@ -997,16 +1039,23 @@ async function syncComputedCorporateIncomeTax(
         taxObligationInstances.taxName,
       ],
       set: { incurredMinor: citLine.amountMinor, updatedAt: new Date() },
-    });
+    })
+    .returning();
+
+  if (!row) throw APIError.internal("Failed to sync computed CIT tax obligation");
+  return toView(row);
 }
 
+/**
+ * ĐỌC THUẦN TÚY — không gọi generateReportService, không ghi gì. Muốn số
+ * thuế TNDN mới nhất, caller phải gọi syncComputedCorporateIncomeTaxService
+ * riêng trước (xem doc comment ở trên).
+ */
 export async function getTaxObligationsService(
   ctx: TenantContext,
   legalEntityId: string,
   periodId: string
 ): Promise<TaxObligationSummaryView> {
-  await syncComputedCorporateIncomeTax(ctx, legalEntityId, periodId);
-
   const rows = await db
     .select()
     .from(taxObligationInstances)
@@ -1077,7 +1126,7 @@ export async function upsertManualTaxObligationService(
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd services/company && npx vitest run finance-legal/tests/tax-obligation.test.ts`
-Expected: PASS (2 tests). This depends on Task 6's derived-line logic
+Expected: PASS (3 tests). This depends on Task 6's derived-line logic
 already existing (`generateReportService` must produce a real `THUE_TNDN`
 value) — if Task 6 isn't done yet, this test will fail with an amount
 mismatch, not a missing-module error; that's expected until Task 6 lands.
@@ -1089,6 +1138,7 @@ import { api, Header, Query } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import {
   getTaxObligationsService,
+  syncComputedCorporateIncomeTaxService,
   upsertManualTaxObligationService,
   TaxObligationSummaryView,
   TaxObligationView,
@@ -1107,6 +1157,22 @@ export const getTaxObligations = api(
   async (req: GetTaxObligationsApiRequest): Promise<TaxObligationSummaryView> => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return getTaxObligationsService(ctx, req.legalEntityId, req.periodId);
+  }
+);
+
+export interface SyncTaxObligationApiRequest {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  legalEntityId: string;
+  periodId: string;
+}
+
+export const postSyncTaxObligation = api(
+  { method: "POST", path: "/finance/tax-obligations/sync", expose: true },
+  async (req: SyncTaxObligationApiRequest): Promise<{ synced: TaxObligationView | null }> => {
+    const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+    const synced = await syncComputedCorporateIncomeTaxService(ctx, req.legalEntityId, req.periodId);
+    return { synced };
   }
 );
 
@@ -1777,6 +1843,13 @@ class FinanceTT58Service extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> getTaxObligations(String legalEntityId, String periodId) async {
+    // Đồng bộ thuế TNDN là hành động RIÊNG, tường minh (không phải side-effect
+    // của đọc) — gọi trước, bỏ qua kết quả trả về nếu lỗi (không chặn việc đọc
+    // dữ liệu đã có sẵn khi sync tạm thời thất bại).
+    await postJson('/finance/tax-obligations/sync', {
+      'legalEntityId': legalEntityId,
+      'periodId': periodId,
+    });
     final data = await getJson('/finance/tax-obligations?legalEntityId=$legalEntityId&periodId=$periodId');
     if (data == null) return null;
     final taxesRaw = (data['taxes'] as List<dynamic>?) ?? [];
