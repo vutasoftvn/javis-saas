@@ -12,6 +12,7 @@ export * from "./legal-applicability.handler";
 export * from "./finance-tt58.handler";
 export * from "./cas-webhook.handler";
 export * from "./payment-request.handler";
+export * from "./payment-allocation.handler";
 export * from "./ai-compliance-governance.handler";
 export * from "./ai-data-governance.handler";
 export * from "./ai-incident-response.handler";

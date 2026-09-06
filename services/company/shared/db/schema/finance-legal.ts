@@ -405,5 +405,27 @@ export const paymentRequests = financeSchema.table("payment_requests", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
+// F4 phần 2 — khớp payment_requests với bank_transactions thật. Xem
+// migration 41 để biết phạm vi CHƯA làm (migrate dữ liệu đối soát cũ).
+export const paymentAllocations = financeSchema.table("payment_allocations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  bankTransactionId: bigint("bank_transaction_id", { mode: "bigint" })
+    .notNull()
+    .references(() => bankTransactions.id),
+  requestId: bigint("request_id", { mode: "bigint" })
+    .notNull()
+    .references(() => paymentRequests.id),
+  amountMinor: numeric("amount_minor", { precision: 38, scale: 0 }).notNull(),
+  currency: text("currency").notNull(),
+  status: text("status").default("ACTIVE").notNull(), // ACTIVE | REVERSED
+  reversedReason: text("reversed_reason"),
+  reversedByMemberId: bigint("reversed_by_member_id", { mode: "bigint" }),
+  reversedAt: timestamp("reversed_at", { withTimezone: true }),
+  idempotencyKey: text("idempotency_key").notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 
 
