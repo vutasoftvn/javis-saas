@@ -1,0 +1,18 @@
+{
+  "description": "Fixture rút gọn theo docs/superpowers/plans/2026-09-05-business-agents-finance.md (F5, dòng 152) — KHÔNG có thuế, chỉ kiểm bất biến assets = liabilities + equity. Viết độc lập với accounting-reports.service.ts để tránh test tự xác nhận chính nó.",
+  "entries": [
+    { "item": "Góp vốn thành lập", "category": "capital", "amountMinor": "100000000", "effectiveDate": "2026-02-01" },
+    { "item": "Vay ngân hàng", "category": "loan", "amountMinor": "20000000", "effectiveDate": "2026-02-02" },
+    { "item": "Doanh thu dịch vụ hoàn tất", "category": "revenue", "amountMinor": "10000000", "effectiveDate": "2026-03-01" },
+    { "item": "Thu tiền dịch vụ (một phần)", "category": "receivable", "amountMinor": "6000000", "effectiveDate": "2026-03-10" },
+    { "item": "Chi phí dịch vụ mua đã nhận", "category": "cost", "amountMinor": "2000000", "effectiveDate": "2026-03-05" },
+    { "item": "Trả tiền chi phí đã nhận", "category": "payable", "amountMinor": "2000000", "effectiveDate": "2026-03-06" }
+  ],
+  "expected": {
+    "cashMinor": "124000000",
+    "receivableMinor": "4000000",
+    "loanMinor": "20000000",
+    "equityMinor": "108000000",
+    "assetsMinor": "128000000"
+  }
+}

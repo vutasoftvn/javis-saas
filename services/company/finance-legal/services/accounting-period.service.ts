@@ -14,6 +14,7 @@ export interface AccountingPeriod {
   startDate: string;
   endDate: string;
   status: string;
+  version: number;
   closedBy: string | null;
   closedAt: string | null;
 }
@@ -33,6 +34,7 @@ function toAccountingPeriod(row: typeof accountingPeriods.$inferSelect): Account
     startDate: String(row.startDate),
     endDate: String(row.endDate),
     status: row.status,
+    version: row.version,
     closedBy: row.closedBy ? String(row.closedBy) : null,
     closedAt: row.closedAt ? row.closedAt.toISOString() : null,
   };
@@ -104,6 +106,7 @@ export async function closeAccountingPeriodService(
       .set({
         status: "CLOSED",
         closedAt: new Date(),
+        version: existing.version + 1,
       })
       .where(eq(accountingPeriods.id, BigInt(id)))
       .returning();
