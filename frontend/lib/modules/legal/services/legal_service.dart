@@ -185,10 +185,10 @@ class LegalService extends WorkspaceService {
   }) async {
     final data = await postJson('/legal/obligation-instances/$id/transition', {
       'toStatus': toStatus,
-      if (expectedFromStatus != null) 'expectedFromStatus': expectedFromStatus,
-      if (evidenceRefs != null) 'evidenceRefs': evidenceRefs,
-      if (evidenceArtifactId != null) 'evidenceArtifactId': evidenceArtifactId,
-      if (rationale != null) 'rationale': rationale,
+      'expectedFromStatus': ?expectedFromStatus,
+      'evidenceRefs': ?evidenceRefs,
+      'evidenceArtifactId': ?evidenceArtifactId,
+      'rationale': ?rationale,
     });
     if (data is Map<String, dynamic>) {
       return data;
