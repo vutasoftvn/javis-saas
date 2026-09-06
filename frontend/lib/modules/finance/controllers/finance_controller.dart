@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../modules/finance/services/finance_service.dart';
 import '../../../modules/finance/services/finance_tt58_service.dart';
+import '../../../modules/legal/services/legal_service.dart';
 import '../../../data/models/finance_legal_models.dart';
 
 class FinanceController extends GetxController {
@@ -37,6 +38,8 @@ class FinanceController extends GetxController {
   final reportB03 = Rxn<Map<String, dynamic>>();
   final reportF01 = Rxn<Map<String, dynamic>>();
   final isLoadingTT58 = false.obs;
+  final currentLegalEntityId = Rxn<String>();
+  final currentPeriodId = Rxn<String>();
 
   @override
   void onInit() {
@@ -139,22 +142,88 @@ class FinanceController extends GetxController {
   Future<void> loadTT58Data() async {
     isLoadingTT58.value = true;
     try {
-      final metrics = await tt58Service.getFounderLiteMetrics();
-      if (metrics != null) founderLiteMetrics.value = metrics;
+      final legalEntityId = await _resolveLegalEntityId();
+      final periodId = await _resolvePeriodId(legalEntityId);
+      currentLegalEntityId.value = legalEntityId;
+      currentPeriodId.value = periodId;
+      if (legalEntityId == null || periodId == null) {
+        debugPrint('loadTT58Data: no legal entity or period available yet');
+        return;
+      }
 
-      final b01 = await tt58Service.getReportB01();
-      if (b01 != null) reportB01.value = b01;
-
-      final b02 = await tt58Service.getReportB02();
-      if (b02 != null) reportB02.value = b02;
-
-      final b03 = await tt58Service.getReportB03();
-      if (b03 != null) reportB03.value = b03;
-
-      final f01 = await tt58Service.getReportF01();
-      if (f01 != null) reportF01.value = f01;
+      // Mỗi report gọi riêng, cô lập lỗi từng phần — 1 report lỗi không
+      // được kéo sập toàn bộ tab TT58 (khác hành vi cũ dùng Future.wait ngầm).
+      try {
+        founderLiteMetrics.value = await tt58Service.getFounderLiteMetrics(legalEntityId, periodId);
+      } catch (e) {
+        debugPrint('loadTT58Data founderLiteMetrics failed: $e');
+      }
+      try {
+        reportB01.value = await tt58Service.getReport(legalEntityId, periodId, 'B01');
+      } catch (e) {
+        debugPrint('loadTT58Data reportB01 failed: $e');
+      }
+      try {
+        reportB02.value = await tt58Service.getReport(legalEntityId, periodId, 'B02');
+      } catch (e) {
+        debugPrint('loadTT58Data reportB02 failed: $e');
+      }
+      try {
+        reportB03.value = await tt58Service.getAccountingPolicy(legalEntityId);
+      } catch (e) {
+        debugPrint('loadTT58Data reportB03 failed: $e');
+      }
+      try {
+        reportF01.value = await tt58Service.getTaxObligations(legalEntityId, periodId);
+      } catch (e) {
+        debugPrint('loadTT58Data reportF01 failed: $e');
+      }
     } finally {
       isLoadingTT58.value = false;
+    }
+  }
+
+  Future<String?> _resolveLegalEntityId() async {
+    final profiles = await LegalService().getLegalEntityProfiles();
+    if (profiles.isEmpty) return null;
+    final first = Map<String, dynamic>.from(profiles.first as Map);
+    return first['id']?.toString();
+  }
+
+  Future<String?> _resolvePeriodId(String? legalEntityId) async {
+    final periods = await service.getPeriods();
+    if (periods.isEmpty) return null;
+    if (legalEntityId != null) {
+      final matching = periods.where((p) {
+        final m = Map<String, dynamic>.from(p as Map);
+        return m['legalEntityId']?.toString() == legalEntityId && m['status'] == 'OPEN';
+      });
+      if (matching.isNotEmpty) {
+        return Map<String, dynamic>.from(matching.first as Map)['id']?.toString();
+      }
+    }
+    return Map<String, dynamic>.from(periods.first as Map)['id']?.toString();
+  }
+
+  /// UI lập chứng từ (TT58DocumentEntryDialog) dùng mã tiếng Việt
+  /// (PHIEU_THU/PHIEU_CHI/BAO_CO/BAO_NO/HOA_DON/PHIEU_XUAT) nhưng backend
+  /// Encore (`postAccountingDocument`) chỉ nhận đúng 4 giá trị enum
+  /// RECEIPT|PAYMENT|INVOICE|JOURNAL — ánh xạ tường minh, không đoán ngầm
+  /// bằng cách truyền thẳng chuỗi tiếng Việt (sẽ luôn bị backend từ chối).
+  String _mapDocumentTypeToBackend(String documentType, String direction) {
+    switch (documentType) {
+      case 'PHIEU_THU':
+      case 'BAO_CO':
+        return 'RECEIPT';
+      case 'PHIEU_CHI':
+      case 'BAO_NO':
+        return 'PAYMENT';
+      case 'HOA_DON':
+        return 'INVOICE';
+      case 'PHIEU_XUAT':
+        return 'JOURNAL';
+      default:
+        return direction == 'OUT' ? 'PAYMENT' : 'RECEIPT';
     }
   }
 
@@ -166,16 +235,20 @@ class FinanceController extends GetxController {
     required String description,
     String category = 'DOANH_THU',
   }) async {
-    final res = await tt58Service.createAndPostDocument(
-      documentNo: documentNo,
-      documentType: documentType,
-      amount: amount,
-      direction: direction,
-      description: description,
-      category: category,
-    );
-
-    if (res != null) {
+    try {
+      final doc = await service.createAccountingDocument({
+        'documentType': _mapDocumentTypeToBackend(documentType, direction),
+        'number': documentNo,
+        'documentDate': DateTime.now().toIso8601String().split('T').first,
+        'amount': amount,
+        'description': description,
+      });
+      final docId = doc?['id']?.toString();
+      if (docId == null) {
+        AppToast.error('Không thể ghi sổ chứng từ', title: 'Lỗi');
+        return false;
+      }
+      await service.confirmAccountingDocument(docId);
       AppToast.success(
         'Chứng từ $documentNo đã được ghi sổ thành công',
         title: 'Thành công',
@@ -183,17 +256,16 @@ class FinanceController extends GetxController {
       await load();
       await loadTT58Data();
       return true;
+    } catch (e) {
+      debugPrint('createAndPostDocument failed: $e');
+      AppToast.error('Không thể tạo chứng từ: $e', title: 'Lỗi');
+      return false;
     }
-    AppToast.error(
-      'Không thể ghi sổ chứng từ',
-      title: 'Lỗi',
-    );
-    return false;
   }
 
   Future<bool> voidDocument(String documentId, String reason) async {
-    final res = await tt58Service.voidDocument(documentId, reason);
-    if (res != null) {
+    try {
+      await service.voidAccountingDocument(documentId, reason);
       AppToast.info(
         'Chứng từ đã được hủy và ghi nhận bút toán đảo',
         title: 'Đã hủy chứng từ',
@@ -201,8 +273,11 @@ class FinanceController extends GetxController {
       await load();
       await loadTT58Data();
       return true;
+    } catch (e) {
+      debugPrint('voidDocument failed: $e');
+      AppToast.error('Không thể hủy chứng từ: $e', title: 'Lỗi');
+      return false;
     }
-    return false;
   }
 
   Future<bool> createProfile([String mode = 'TT58_MODE_1']) async {

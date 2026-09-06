@@ -263,6 +263,11 @@ class FinanceService extends WorkspaceService {
     return data is Map ? Map<String, dynamic>.from(data) : null;
   }
 
+  Future<Map<String, dynamic>?> voidAccountingDocument(String documentId, String reason) async {
+    final data = await postJson('/finance/accounting-documents/$documentId/void', {'reason': reason});
+    return data is Map<String, dynamic> ? data : null;
+  }
+
   Future<List<dynamic>> getReconciliationProposals({String? status}) async {
     final path = status != null ? '/finance/reconciliation-proposals?status=$status' : '/finance/reconciliation-proposals';
     return _list(path, 'proposals');
