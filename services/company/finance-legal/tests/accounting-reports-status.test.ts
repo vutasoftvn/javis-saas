@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { computeReportStatus } from "../services/accounting-reports.service";
+import {
+  computeReportStatus,
+  requireReportMappingBucket,
+} from "../services/accounting-reports.service";
 
 describe("accounting-reports.service — computeReportStatus", () => {
+  it("rejects a persisted report mapping without a ledger bucket", () => {
+    expect(() => requireReportMappingBucket(null)).toThrow(
+      /report mapping line is missing ledger bucket/i
+    );
+  });
+
+  it("preserves a valid persisted ledger bucket", () => {
+    expect(requireReportMappingBucket("cash")).toBe("cash");
+  });
+
   it("is INCOMPLETE when a required bucket has no covering line", () => {
     const result = computeReportStatus({
       requiredBuckets: ["cash", "receivable", "loan", "capital", "profit"],

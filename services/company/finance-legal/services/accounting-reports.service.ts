@@ -86,6 +86,23 @@ export interface ReportStatusResult {
   issues: string[];
 }
 
+export function requireReportMappingBucket(bucket: string | null): LedgerBucket {
+  switch (bucket) {
+    case "cash":
+    case "receivable":
+    case "payable":
+    case "loan":
+    case "advance":
+    case "capital":
+    case "profit":
+      return bucket;
+    case null:
+      throw APIError.failedPrecondition("report mapping line is missing ledger bucket");
+    default:
+      throw APIError.failedPrecondition(`report mapping line has invalid ledger bucket: ${bucket}`);
+  }
+}
+
 export function computeReportStatus(input: ReportStatusInput): ReportStatusResult {
   const issues: string[] = [];
   const covered = new Set(input.coveredBuckets);
@@ -212,7 +229,12 @@ export async function generateReportService(
     }
   }
 
-  const lines: ReportLineView[] = mappingLines.map((row) => ({
+  const reportMappingLines = mappingLines.map((row) => ({
+    ...row,
+    bucket: requireReportMappingBucket(row.bucket),
+  }));
+
+  const lines: ReportLineView[] = reportMappingLines.map((row) => ({
     lineCode: row.lineCode,
     officialCode: row.officialCode,
     name: row.name,
@@ -220,7 +242,7 @@ export async function generateReportService(
     amountMinor: String((bucketTotals.get(row.bucket) ?? 0n) * BigInt(row.sign)),
   }));
 
-  const requiredBuckets = mappingLines.map((row) => row.bucket);
+  const requiredBuckets = reportMappingLines.map((row) => row.bucket);
   const coveredBuckets = requiredBuckets.filter((bucket) => bucketTotals.has(bucket));
 
   const { status, issues } = computeReportStatus({
