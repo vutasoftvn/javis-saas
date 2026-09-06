@@ -186,8 +186,12 @@ export async function evaluateEntityApplicability(
         },
       });
 
-    // Chỉ xuất kết quả khi APPLIES
-    if (evalDetail.result !== "APPLIES") {
+    // IA19 — trước đây chỉ xuất kết quả khi APPLIES: 1 rule NEEDS_REVIEW
+    // (thiếu fact, ví dụ chưa có fiscal profile) bị coi giống hệt
+    // NOT_APPLIES — UI/API không thể phân biệt "chắc chắn không áp dụng"
+    // với "thiếu dữ liệu để kết luận". Chỉ loại NOT_APPLIES thật sự; vẫn
+    // xuất NEEDS_REVIEW kèm reasonCodes để caller biết cần bổ sung facts gì.
+    if (evalDetail.result === "NOT_APPLIES") {
       continue;
     }
 

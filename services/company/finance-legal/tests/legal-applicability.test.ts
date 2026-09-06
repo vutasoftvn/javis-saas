@@ -60,4 +60,56 @@ describe("legal-applicability service", () => {
     expect(matched?.sourceRegulationNumber).toContain("LAW-");
     expect(matched?.hasExistingInstance).toBe(false);
   });
+
+  it("IA19: surfaces NEEDS_REVIEW rules (missing facts) instead of silently dropping them like NOT_APPLIES", async () => {
+    const wsId = generateSnowflake();
+    await createLegalEntityProfile({
+      workspaceId: wsId,
+      entityType: "MICRO_ENTERPRISE",
+    });
+
+    const sourceId = generateSnowflake();
+    await db.insert(regulationSources).values({
+      id: sourceId,
+      sourceName: "Fiscal Threshold Law",
+      issuer: "National Assembly",
+      number: `LAW-FY-${Date.now()}`,
+      url: "https://example.gov.vn/law",
+      layer: "CURRENT_LAW",
+    });
+
+    const verId = generateSnowflake();
+    await db.insert(regulationVersions).values({
+      id: verId,
+      regulationSourceId: sourceId,
+      version: "2026",
+      effectiveFrom: "2026-01-01" as any,
+    });
+
+    const tplId = generateSnowflake();
+    await db.insert(legalObligationTemplates).values({
+      id: tplId,
+      regulationVersionId: verId,
+      title: "File once fiscal year starts after threshold",
+      typicalDueOffsetDays: 30,
+    });
+
+    // Rule đòi hỏi fiscalYearStartOnOrAfter — nhưng workspace này KHÔNG có
+    // accounting fiscal profile nào, nên fact.fiscalYearStart sẽ null ->
+    // NEEDS_REVIEW (thiếu fact), không phải NOT_APPLIES.
+    const ruleId = generateSnowflake();
+    await db.insert(applicabilityRules).values({
+      id: ruleId,
+      regulationVersionId: verId,
+      obligationTemplateId: tplId,
+      predicate: { fiscal_year_start_on_or_after: "2026-01-01" },
+    });
+
+    const obligations = await assessApplicableObligations(wsId);
+    const matched = obligations.find((o) => o.obligationTemplateId === String(tplId));
+    // Trước IA19: matched sẽ undefined (bị continue giống NOT_APPLIES).
+    expect(matched).toBeDefined();
+    expect(matched?.evaluationResult).toBe("NEEDS_REVIEW");
+    expect(matched?.reasonCodes).toContain("missing_fact:fiscalYearStart");
+  });
 });
