@@ -1,5 +1,6 @@
 import { text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, primaryKey, numeric, date } from "drizzle-orm/pg-core";
 import { projects, strategySchema, okrObjectives } from "./operations";
+import { identityWorkspaces } from "./identity";
 
 
 // 1. Stage Policies
@@ -485,4 +486,23 @@ export const canvasRevisions = strategySchema.table("canvas_revisions", {
   reviewNote: text("review_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+});
+
+// 23. Workspace Strategy Settings
+export const workspaceStrategySettings = strategySchema.table("workspace_strategy_settings", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .primaryKey()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  strategyMethod: text("strategy_method").default("CLASSIC").notNull(),
+  bscMode: text("bsc_mode").default("OFF").notNull(),
+  enabledBscPerspectives: jsonb("enabled_bsc_perspectives").$type<string[]>().default([]).notNull(),
+  towsSelectionLimit: integer("tows_selection_limit").default(1).notNull(),
+  weeklyReviewEnabled: boolean("weekly_review_enabled").default(true).notNull(),
+  midCycleReviewPolicy: text("mid_cycle_review_policy").default("AUTO").notNull(),
+  endCycleReviewEnabled: boolean("end_cycle_review_enabled").default(true).notNull(),
+  allowedAgentProfiles: jsonb("allowed_agent_profiles").$type<string[]>().default([]).notNull(),
+  approvalPolicy: text("approval_policy").default("FOUNDER_ONLY").notNull(),
+  revision: integer("revision").default(1).notNull(),
+  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

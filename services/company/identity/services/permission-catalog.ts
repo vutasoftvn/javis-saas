@@ -4,6 +4,15 @@ export interface PermissionDefinition {
   description: string;
 }
 
+export type StrategyGovernancePermission =
+  | "strategy.framework.manage"
+  | "strategy.analysis.write"
+  | "strategy.option.select"
+  | "strategy.okr.publish"
+  | "strategy.initiative.approve"
+  | "strategy.review.close"
+  | "strategy.agent.configure";
+
 export const PERMISSION_CATALOG: readonly PermissionDefinition[] = [
   { permissionKey: "permissions.read", domain: "identity", description: "Xem danh mục và phân quyền" },
   { permissionKey: "permissions.manage", domain: "identity", description: "Cấu hình vai trò và gán quyền" },
@@ -14,6 +23,13 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = [
   { permissionKey: "strategy.write", domain: "operations", description: "Tạo và cập nhật sáng kiến chiến lược" },
   { permissionKey: "strategy.target.manage", domain: "operations", description: "Quản lý chỉ tiêu mục tiêu tuần và quý" },
   { permissionKey: "strategy.transition", domain: "operations", description: "Chuyển đổi stage và trạng thái chiến lược" },
+  { permissionKey: "strategy.framework.manage", domain: "operations", description: "Cấu hình khung chiến lược và policy workspace" },
+  { permissionKey: "strategy.analysis.write", domain: "operations", description: "Tạo và cập nhật phân tích PESTEL, nguồn lực và SWOT" },
+  { permissionKey: "strategy.option.select", domain: "operations", description: "Đánh giá và chọn chiến lược TOWS" },
+  { permissionKey: "strategy.okr.publish", domain: "operations", description: "Công bố mục tiêu chiến lược và OKRs" },
+  { permissionKey: "strategy.initiative.approve", domain: "operations", description: "Phê duyệt sáng kiến chiến lược" },
+  { permissionKey: "strategy.review.close", domain: "operations", description: "Chốt đánh giá chu kỳ và review chiến lược" },
+  { permissionKey: "strategy.agent.configure", domain: "operations", description: "Cấu hình và phân quyền agent chiến lược" },
   { permissionKey: "finance.read", domain: "finance", description: "Xem dữ liệu sổ sách tài chính" },
   { permissionKey: "finance.request.create", domain: "finance", description: "Tạo đề nghị chi / thanh toán" },
   { permissionKey: "finance.request.approve", domain: "finance", description: "Phê duyệt đề nghị chi / thanh toán" },
