@@ -190,6 +190,9 @@ export async function generateReportService(
     .from(accountingMappingConfirmations)
     .where(
       and(
+        // Chỉ đọc xác nhận CỦA CHÍNH workspace này — xác nhận của workspace
+        // khác không được phép nâng report của tenant này lên VERIFIED.
+        eq(accountingMappingConfirmations.workspaceId, BigInt(ctx.workspaceId)),
         eq(accountingMappingConfirmations.regimeCode, mapping.regimeCode),
         eq(accountingMappingConfirmations.mappingVersion, mapping.mappingVersion)
       )
@@ -306,8 +309,10 @@ export async function listReportSnapshotsService(
 /**
  * Xác nhận nội dung mapping TT58 — chỉ founder được phép, vì mapping quyết
  * định report có thể lên `status=VERIFIED` hay không (business truth, không
- * để LLM/agent tự quyết). Idempotent theo (regimeCode, mappingVersion) qua
- * unique constraint `uix_mapping_confirmation`.
+ * để LLM/agent tự quyết). Xác nhận có phạm vi THEO WORKSPACE: idempotent theo
+ * (workspaceId, regimeCode, mappingVersion) qua unique constraint
+ * `uix_mapping_confirmation` (migration 43). Founder chỉ xác nhận cho tenant
+ * của mình, không thay mặt tenant khác.
  */
 export async function confirmMappingService(
   ctx: TenantContext,
@@ -325,12 +330,17 @@ export async function confirmMappingService(
     .insert(accountingMappingConfirmations)
     .values({
       id: generateSnowflake(),
+      workspaceId: BigInt(ctx.workspaceId),
       regimeCode,
       mappingVersion,
       confirmedByMemberId: BigInt(ctx.workforceMemberId ?? ctx.userId),
     })
     .onConflictDoUpdate({
-      target: [accountingMappingConfirmations.regimeCode, accountingMappingConfirmations.mappingVersion],
+      target: [
+        accountingMappingConfirmations.workspaceId,
+        accountingMappingConfirmations.regimeCode,
+        accountingMappingConfirmations.mappingVersion,
+      ],
       set: {
         confirmedByMemberId: BigInt(ctx.workforceMemberId ?? ctx.userId),
         confirmedAt: new Date(),

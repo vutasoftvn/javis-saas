@@ -3,10 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
-import { assertOpenPostingPeriod } from "./posting-guard.service";
+import { assertOpenPostingPeriod, normalizeDate } from "./posting-guard.service";
 import { BookEntryCategory } from "./accounting-mapping";
 
-const { accountingBookEntries } = schema;
+const { accountingBookEntries, accountingPeriods } = schema;
 
 export interface BookEntryView {
   id: string;
@@ -67,6 +67,61 @@ export async function createBookEntryService(
       legalEntityId: input.legalEntityId,
       postingDate: input.effectiveDate,
     });
+
+    // `assertOpenPostingPeriod` tìm kỳ bao phủ theo KHOẢNG NGÀY và không hề
+    // nhìn tới `input.periodId` do caller gửi lên. Nếu chỉ dựa vào guard đó,
+    // caller có thể gửi effectiveDate rơi vào một kỳ ĐANG MỞ (qua được guard)
+    // kèm periodId trỏ tới một kỳ ĐÃ ĐÓNG, kỳ của pháp nhân khác hoặc kỳ của
+    // workspace khác — bút toán lặng lẽ nằm dưới sai kỳ và làm sai sổ/báo cáo
+    // của kỳ đó về sau. Vì vậy kiểm tra tường minh: periodId phải đúng là một
+    // kỳ OPEN, thuộc workspace + pháp nhân này, và bao phủ chính effectiveDate.
+    const dateStr = normalizeDate(input.effectiveDate);
+    const [declaredPeriod] = await tx
+      .select({
+        id: accountingPeriods.id,
+        legalEntityId: accountingPeriods.legalEntityId,
+        status: accountingPeriods.status,
+        startDate: accountingPeriods.startDate,
+        endDate: accountingPeriods.endDate,
+      })
+      .from(accountingPeriods)
+      .where(
+        and(
+          eq(accountingPeriods.id, BigInt(input.periodId)),
+          eq(accountingPeriods.workspaceId, BigInt(ctx.workspaceId))
+        )
+      )
+      .limit(1);
+
+    if (!declaredPeriod) {
+      throw APIError.failedPrecondition(
+        `PERIOD_CLOSED: Kỳ kế toán ${input.periodId} không tồn tại trong workspace này`
+      );
+    }
+
+    if (
+      declaredPeriod.legalEntityId !== null &&
+      declaredPeriod.legalEntityId !== BigInt(input.legalEntityId)
+    ) {
+      throw APIError.failedPrecondition(
+        `PERIOD_CLOSED: Kỳ kế toán ${input.periodId} thuộc pháp nhân khác, không ghi sổ chéo pháp nhân`
+      );
+    }
+
+    if (declaredPeriod.status !== "OPEN") {
+      throw APIError.failedPrecondition(
+        `PERIOD_CLOSED: Không thể ghi sổ vào kỳ kế toán ${input.periodId} (status ${declaredPeriod.status})`
+      );
+    }
+
+    const periodStart = normalizeDate(declaredPeriod.startDate);
+    const periodEnd = normalizeDate(declaredPeriod.endDate);
+    if (dateStr < periodStart || dateStr > periodEnd) {
+      throw APIError.failedPrecondition(
+        `PERIOD_CLOSED: Ngày ghi sổ ${dateStr} nằm ngoài kỳ kế toán ${input.periodId} ` +
+          `(${periodStart} → ${periodEnd})`
+      );
+    }
 
     const [row] = await tx
       .insert(accountingBookEntries)

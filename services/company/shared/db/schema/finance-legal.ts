@@ -150,6 +150,10 @@ export const accountingReportMappings = financeSchema.table("accounting_report_m
 
 export const accountingMappingConfirmations = financeSchema.table("accounting_mapping_confirmations", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
+  // Xác nhận mapping phải thuộc về từng workspace (migration 43) — trước đó
+  // là toàn cục nên founder của workspace bất kỳ vô tình VERIFIED report của
+  // mọi tenant khác.
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   regimeCode: varchar("regime_code", { length: 50 }).notNull(),
   mappingVersion: varchar("mapping_version", { length: 50 }).notNull(),
   confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }).notNull(),

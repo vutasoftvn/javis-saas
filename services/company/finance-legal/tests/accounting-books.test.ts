@@ -77,4 +77,54 @@ describe("accounting-books.service", () => {
       })
     ).rejects.toThrow(/PERIOD_CLOSED/);
   });
+
+  it("rejects an entry whose periodId points at a different (closed) period than the one its effectiveDate falls in", async () => {
+    const { ctx, authorization, legalEntityId } = await foundersSetup("Books Period Mismatch Ws");
+
+    // Kỳ 2025 đã đóng và kỳ 2026 đang mở, cùng một pháp nhân.
+    const closedPeriod = await openAccountingPeriodService(
+      {
+        workspaceId: ctx.workspaceId,
+        legalEntityId,
+        startDate: "2025-01-01",
+        endDate: "2025-12-31",
+      },
+      authorization
+    );
+    await closeAccountingPeriodService(closedPeriod.id, authorization);
+
+    const openPeriod = await openAccountingPeriodService(
+      {
+        workspaceId: ctx.workspaceId,
+        legalEntityId,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+      authorization
+    );
+
+    // effectiveDate nằm trong kỳ 2026 ĐANG MỞ nên `assertOpenPostingPeriod`
+    // (tìm kỳ theo khoảng ngày) cho qua — nhưng periodId lại trỏ tới kỳ 2025
+    // ĐÃ ĐÓNG. Không được phép ghi: bút toán sẽ nằm sai kỳ và làm sai sổ/báo
+    // cáo của kỳ đã đóng.
+    await expect(
+      createBookEntryService(ctx, {
+        legalEntityId,
+        periodId: closedPeriod.id,
+        item: "Bút toán gán sai kỳ",
+        category: "cost",
+        amountMinor: "1000000",
+        effectiveDate: "2026-06-15",
+        source: "fixture:tt58-2026",
+      })
+    ).rejects.toThrow(/PERIOD_CLOSED/);
+
+    // Kỳ đóng vẫn phải trống, và kỳ mở cũng không nhận bút toán nào.
+    expect(
+      await listBookEntriesService(ctx, { legalEntityId, periodId: closedPeriod.id })
+    ).toHaveLength(0);
+    expect(
+      await listBookEntriesService(ctx, { legalEntityId, periodId: openPeriod.id })
+    ).toHaveLength(0);
+  });
 });

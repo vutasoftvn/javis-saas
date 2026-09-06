@@ -116,7 +116,7 @@ export const TT58_2026_MAPPING: RegimeMapping = {
       reportCode: "B01",
       lineCode: "TS",
       officialCode: "TS",
-      name: "Tổng tài sản (tiền + phải thu + tạm ứng)",
+      name: "Tiền và tương đương tiền",
       sourceRef: UNVERIFIED_SOURCE,
       ruleType: "closing",
       bucket: "cash",

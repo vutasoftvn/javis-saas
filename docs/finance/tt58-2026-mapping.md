@@ -21,11 +21,18 @@ liệu — sửa mapping phải sửa file TS, không sửa file markdown này.
 
 | Report | Line code | Ý nghĩa | Bucket | Dấu |
 |---|---|---|---|---|
-| B01 | TS | Tổng tài sản (tiền mặt) | cash | + |
+| B01 | TS | Tiền và tương đương tiền | cash | + |
 | B01 | PHAI_THU | Phải thu khách hàng | receivable | + |
 | B01 | NO_VAY | Nợ vay | loan | + |
 | B01 | VON_GOP | Vốn góp chủ sở hữu | capital | + |
 | B02 | LOI_NHUAN | Lợi nhuận kỳ | profit | + |
+
+`lineCode = "TS"` là mã lịch sử (giữ nguyên vì đã dùng trong test/snapshot đã
+sinh), nhưng dòng này CHỈ cộng bucket `cash` — không phải tổng tài sản. Tổng
+tài sản trong v1 là `TS + PHAI_THU`, do bên tiêu thụ tự cộng; mapping chưa có
+dòng tổng riêng. Trước đây dòng này bị đặt tên "Tổng tài sản (…)" nên người
+đọc thấy một con số chỉ-là-tiền dưới nhãn tổng tài sản — đã sửa nhãn, không
+đổi `lineCode`/`officialCode`/`bucket`.
 
 ## Chưa có trong v1
 

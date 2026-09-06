@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, or, isNull, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import {
@@ -85,15 +85,30 @@ export async function evaluateEntityApplicability(
     // lấy nhầm fiscal profile của MỘT LEGAL ENTITY KHÁC trong cùng
     // workspace (bug đã phát hiện sau khi accounting_fiscal_profiles có
     // cột legal_entity_id ở F5).
+    //
+    // Nhưng cột legal_entity_id chỉ mới có từ migration 42 và hiện chưa có
+    // đường ghi nào điền nó (`createFiscalProfileService` không set) — nếu
+    // lọc CHẶT theo eq(legalEntityId) thì với mọi workspace thật (profile
+    // legacy có legal_entity_id NULL) fallback khớp 0 hàng và facts mất sạch
+    // accountingRegime/fiscalYear. Vì vậy chấp nhận cả hàng NULL: profile
+    // chưa entity-scoped vẫn nhìn thấy được, còn hàng ĐÃ gán entity thì vẫn
+    // bị cô lập đúng theo entity đó.
     const [fp] = await db
       .select()
       .from(accountingFiscalProfiles)
       .where(
         and(
           eq(accountingFiscalProfiles.workspaceId, wsId),
-          eq(accountingFiscalProfiles.legalEntityId, BigInt(legalEntityId))
+          or(
+            eq(accountingFiscalProfiles.legalEntityId, BigInt(legalEntityId)),
+            isNull(accountingFiscalProfiles.legalEntityId)
+          )
         )
       )
+      // Khi workspace có CẢ hàng đã gán entity lẫn hàng legacy NULL, ưu tiên
+      // hàng gán đúng entity — NULL xếp sau, để việc nới điều kiện ở trên
+      // không vô tình chọn profile legacy khi đã có profile riêng của entity.
+      .orderBy(sql`${accountingFiscalProfiles.legalEntityId} ASC NULLS LAST`)
       .limit(1);
     fiscalProfile = fp;
   }

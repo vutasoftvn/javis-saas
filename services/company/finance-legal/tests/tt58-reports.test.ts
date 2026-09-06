@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
 import fixture from "./fixtures/tt58-2026/basic-entity.json";
-import { db, schema } from "../models/db";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createLegalEntityProfile } from "../services/legal-entity-profile.service";
 import { resolveTenantContext } from "../../identity/services/tenant-context.service";
@@ -49,25 +47,11 @@ describe("F5 — TT58 report generation (fixture-based)", () => {
       });
     }
 
-    // confirmMappingService là idempotent TOÀN CỤC theo (regimeCode,
-    // mappingVersion) — bảng accounting_mapping_confirmations không có
-    // workspaceId (xem comment trong accounting-reports.service.ts: xác
-    // nhận nội dung mapping đối chiếu văn bản luật chỉ cần làm 1 lần, không
-    // phải theo từng workspace). Vì test này chạy trên Postgres dev DÙNG
-    // CHUNG, persistent giữa các lần chạy test khác nhau (không có
-    // truncate), dọn sạch xác nhận cũ của đúng mapping này trước khi assert
-    // "chưa xác nhận" — tránh test phụ thuộc thứ tự chạy file test khác
-    // (vd. accounting-mapping-confirmation.test.ts) đã từng xác nhận mapping
-    // này trong lịch sử.
-    await db
-      .delete(schema.accountingMappingConfirmations)
-      .where(
-        and(
-          eq(schema.accountingMappingConfirmations.regimeCode, TT58_2026_MAPPING.regimeCode),
-          eq(schema.accountingMappingConfirmations.mappingVersion, TT58_2026_MAPPING.mappingVersion)
-        )
-      );
-
+    // Từ migration 43, xác nhận mapping có phạm vi theo workspace nên không
+    // còn cần dọn xác nhận cũ trên DB dev dùng chung: test này tự tạo
+    // workspace mới, workspace đó chắc chắn chưa từng xác nhận mapping nào —
+    // không phụ thuộc thứ tự chạy so với accounting-mapping-confirmation.test.ts.
+    //
     // Trước khi founder confirm — report phải INCOMPLETE dù đủ book entries.
     const beforeConfirm = await generateReportService(ctx, {
       legalEntityId: entity.id,
