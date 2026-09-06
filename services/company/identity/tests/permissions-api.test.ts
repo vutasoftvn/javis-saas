@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { eq, and } from "drizzle-orm";
 import { createTestWorkspaceWithMember } from "../../operations/tests/_helpers";
 import { db } from "../models/db";
 import {
@@ -14,6 +15,7 @@ import {
   simulatePermissionsService,
   updatePermissionsService,
 } from "../services/permissions.service";
+import { coreRolePermissions } from "../../shared/db/schema/identity";
 
 describe("permissions-api service", () => {
   it("auditor cannot update permissions", async () => {
@@ -247,5 +249,83 @@ describe("permissions-api service", () => {
         ],
       })
     ).rejects.toThrow(/CANNOT_REVOKE_LAST_FOUNDER/);
+  });
+
+  it("PUT without conditions preserves existing maxAmountMinor/currency instead of wiping it (IA15)", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const wsId = BigInt(ws.workspaceId);
+    const workforceMemberId = generateSnowflake();
+
+    await db.insert(identityWorkforceMembers).values({
+      id: workforceMemberId,
+      workspaceId: wsId,
+      memberType: "HUMAN",
+      humanUserId: BigInt(ws.userId),
+      roleTitle: "Founder",
+      status: "active",
+    });
+
+    const founderCtx: TenantContext = {
+      workspaceId: ws.workspaceId,
+      userId: ws.userId,
+      workforceMemberId: String(workforceMemberId),
+      membershipRole: "founder",
+      permissions: ["*"],
+      correlationId: "founder-preserve-conditions",
+    };
+
+    const roleId = randomUUID();
+    await db.insert(coreWorkspaceRoles).values({
+      id: roleId,
+      workspaceId: wsId,
+      roleKey: "spender",
+      name: "Spender Role",
+      isSystem: false,
+    });
+
+    const initial = await getPermissionsService(founderCtx);
+
+    // 1. Set with a maxAmountMinor/currency limit.
+    const afterFirst = await updatePermissionsService(founderCtx, {
+      expectedVersion: initial.version,
+      reason: "Set spending limit",
+      mutations: [
+        {
+          kind: "SET_ROLE_PERMISSION",
+          roleId,
+          permissionKey: "finance.request.create",
+          effect: "ALLOW",
+          conditions: { maxAmountMinor: "1000000", currency: "VND" },
+        },
+      ],
+    });
+    expect(afterFirst.success).toBe(true);
+
+    // 2. Second PUT changes only the effect, omitting conditions entirely
+    // (mirrors the Flutter controller sending effect without conditions).
+    await updatePermissionsService(founderCtx, {
+      expectedVersion: afterFirst.version,
+      reason: "Flip to REQUIRE_APPROVAL, forgot to resend conditions",
+      mutations: [
+        {
+          kind: "SET_ROLE_PERMISSION",
+          roleId,
+          permissionKey: "finance.request.create",
+          effect: "REQUIRE_APPROVAL",
+        },
+      ],
+    });
+
+    const [row] = await db
+      .select()
+      .from(coreRolePermissions)
+      .where(
+        and(
+          eq(coreRolePermissions.roleId, roleId),
+          eq(coreRolePermissions.permissionKey, "finance.request.create")
+        )
+      );
+    expect(row.effect).toBe("REQUIRE_APPROVAL");
+    expect(row.conditions).toEqual({ maxAmountMinor: "1000000", currency: "VND" });
   });
 });

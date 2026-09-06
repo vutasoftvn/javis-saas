@@ -296,20 +296,27 @@ export async function updatePermissionsService(
           throw APIError.notFound(`Role ${m.roleId} not found in workspace`);
         }
 
-        // Upsert role permission
+        // Upsert role permission. IA15: khi caller chỉ đổi effect và KHÔNG
+        // gửi conditions (vd Flutter chỉ PUT effect), bản update trước đây
+        // luôn ghi đè conditions thành {} — xóa mất maxAmountMinor/currency
+        // đang áp dụng của rule cũ. Row đã tồn tại (conflict) mà thiếu
+        // conditions trong payload thì GIỮ NGUYÊN conditions cũ (tham chiếu
+        // thẳng cột hiện có trong SET, không phải giá trị ứng dụng tự suy
+        // diễn) — chỉ row MỚI (chưa tồn tại) mới mặc định {}.
         await tx
           .insert(coreRolePermissions)
           .values({
             roleId: m.roleId,
             permissionKey: m.permissionKey,
             effect: m.effect,
-            conditions: m.conditions || {},
+            conditions: m.conditions ?? {},
           })
           .onConflictDoUpdate({
             target: [coreRolePermissions.roleId, coreRolePermissions.permissionKey],
             set: {
               effect: m.effect,
-              conditions: m.conditions || {},
+              conditions:
+                m.conditions !== undefined ? m.conditions : sql`${coreRolePermissions.conditions}`,
             },
           });
       } else if (m.kind === "ASSIGN_ROLE") {
