@@ -148,11 +148,35 @@ async def _execute_run_task_inner(
 ) -> None:
     run_id = payload["run_id"]
     conversation_id = payload["conversation_id"]
-    user_prompt = payload["user_prompt"]
     agent_profile = payload.get("agent_profile") or "operations"
     principal = payload["principal"]
     workspace_id = payload["workspace_id"]
     stream_repo = plane.stream_event_repository
+
+    # IA24: trước đây payload["user_prompt"] truy cập trực tiếp — một payload
+    # event-driven thiếu field này (vd producer/adapter cũ, hoặc lỗi upstream)
+    # sẽ raise KeyError chưa được bắt, làm hỏng cả task thay vì fail-closed có
+    # kiểm soát như đường thiếu delegation_token ngay bên dưới.
+    user_prompt = payload.get("user_prompt")
+    if not user_prompt:
+        logger.error("run_id=%s missing user_prompt in payload, failing closed", run_id)
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content="Missing user_prompt — run rejected",
+            run_id=run_id,
+            status_="failed",
+        )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": "missing_user_prompt"},
+        )
+        return
+
     bearer_token = payload.get("delegation_token")
     if not bearer_token:
         await _append_message(

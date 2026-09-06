@@ -196,6 +196,45 @@ async def test_same_event_two_rules_schedule_two_distinct_runs():
 
 
 @pytest.mark.asyncio
+async def test_operations_event_trigger_gets_a_synthesized_user_prompt():
+    """IA24: event-driven run cho agent_profile khác copilot (vd 'operations')
+    không có ai gõ user_prompt — trước đây payload thiếu hẳn field này, khiến
+    apps/cosa/worker/handlers.py::_execute_run_task_inner KeyError trước khi
+    chạm nghiệp vụ. adapt_event_task_payload phải tổng hợp 1 prompt tối thiểu
+    nêu rõ aggregate đã kích hoạt run."""
+    scheduler = RunScheduler()
+    plane = _build_plane(scheduler=scheduler)
+
+    raw_payload = {
+        "schema_version": 1,
+        "task_type": "run",
+        "run_id": "run_ops_event_001",
+        "workspace_id": "ws_1",
+        "event_id": "evt_ops_1",
+        "trigger_rule_id": "rule_ops_1",
+        "agent_profile": "operations",
+        "agent_spec_id": "cosa.agents.operations",
+        "agent_spec_version": "1.0.0",
+        "agent_spec_hash": "hash_ops",
+        "aggregate_type": "operations.task",
+        "aggregate_id": "task_777",
+        "correlation_id": "corr_ops_1",
+    }
+    await scheduler.schedule(target_spec_id="cosa.agents.operations", input_payload=raw_payload)
+
+    tasks = await scheduler.poll_due_tasks()
+    assert len(tasks) == 1
+    task = tasks[0]
+
+    with patch("apps.cosa.worker.main.execute_run_task", new_callable=AsyncMock) as mock_exec:
+        await dispatch_one_task(plane, task)
+        mock_exec.assert_called_once()
+        call_payload = mock_exec.call_args[0][2]
+        assert call_payload.get("user_prompt")
+        assert "task_777" in call_payload["user_prompt"]
+
+
+@pytest.mark.asyncio
 async def test_unsupported_profile_rejected_no_side_effects():
     """Unsupported agent profile bị từ chối sạch sẽ, không fallback, không side effect."""
     scheduler = RunScheduler()

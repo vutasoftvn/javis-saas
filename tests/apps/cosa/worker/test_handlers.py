@@ -164,6 +164,32 @@ async def test_execute_run_task_dispatches_correct_spec_per_agent_profile(
 
 
 @pytest.mark.asyncio
+async def test_execute_run_task_fails_gracefully_when_user_prompt_is_missing():
+    """IA24: payload["user_prompt"] trước đây truy cập trực tiếp — thiếu field
+    này (payload event-driven chưa được adapter tổng hợp) raise KeyError chưa
+    bắt thay vì fail-closed có kiểm soát như đường thiếu delegation_token."""
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    stream_mgr = CosaEventStreamManager()
+
+    payload = _payload()
+    del payload["user_prompt"]
+
+    await execute_run_task(plane, stream_mgr, payload)
+
+    run = await plane.run_repository.get_run("run_handler_test_1")
+    assert run is None
+    events = await plane.stream_event_repository.list_since("run_handler_test_1")
+    assert any(
+        e.event_type == "run.failed" and e.payload.get("error") == "missing_user_prompt"
+        for e in events
+    )
+
+
+@pytest.mark.asyncio
 async def test_execute_run_task_rejects_unsupported_profile():
     plane = _plane()
     await seed_cosa_runtime_specs(

@@ -155,4 +155,20 @@ def adapt_event_task_payload(
     if "conversation_id" not in adapted:
         adapted["conversation_id"] = f"conv_{run_id}"
 
+    # IA24: event Operations/Finance/Marketing không có ai "gõ" user_prompt —
+    # trước đây payload này thiếu hẳn field user_prompt, và
+    # apps/cosa/worker/handlers.py::_execute_run_task_inner đọc
+    # payload["user_prompt"] trực tiếp (không .get()), nên run KeyError trước
+    # khi chạm nghiệp vụ. Tổng hợp một prompt tối thiểu nêu rõ aggregate nào
+    # đã kích hoạt run — agent tự dùng capability đọc phù hợp (đã đăng ký cho
+    # từng agent_profile) để lấy chi tiết đầy đủ, thay vì nhồi toàn bộ dữ liệu
+    # aggregate vào đây (điều đó cần "shared preparation" resolve theo từng
+    # loại aggregate — phạm vi lớn hơn, chưa làm ở đây).
+    if "user_prompt" not in adapted or not adapted.get("user_prompt"):
+        adapted["user_prompt"] = (
+            f"Sự kiện nghiệp vụ đã kích hoạt run này: aggregate_type={agg_type!r}, "
+            f"aggregate_id={agg_id!r}, trigger_rule_id={payload.get('trigger_rule_id')!r}. "
+            "Dùng capability đọc phù hợp để lấy đầy đủ chi tiết trước khi hành động."
+        )
+
     return adapted, None
