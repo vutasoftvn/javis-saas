@@ -8,6 +8,7 @@ import { EvidenceItem } from "./gate-evaluation.service";
 import { JsonObject, toJsonObject } from "./strategy-json";
 
 const { decisionRecords, gateEvaluations, evidence } = schema;
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type StrategyDecision = "proceed" | "pivot" | "kill" | "hold";
 
@@ -294,7 +295,7 @@ export interface RecordTowsDecisionInput {
 
 export async function recordTowsDecision(
   input: RecordTowsDecisionInput,
-  txClient?: any
+  txClient?: Tx
 ): Promise<string> {
   const client = txClient ?? db;
   const id = generateSnowflake();
@@ -338,4 +339,3 @@ export async function recordTowsDecision(
 
   return id.toString();
 }
-
