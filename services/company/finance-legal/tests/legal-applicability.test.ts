@@ -212,7 +212,7 @@ describe("legal-applicability service", () => {
       id: verId,
       regulationSourceId: sourceId,
       version: "2026",
-      effectiveFrom: "2026-01-01" as any,
+      effectiveFrom: "2026-01-01",
     });
 
     const tplId = generateSnowflake();
