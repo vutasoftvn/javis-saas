@@ -3,6 +3,7 @@ import '../../../../data/models/twelve_wy_model.dart';
 import '../../../../modules/strategy/services/twelve_wy_service.dart';
 import '../../../../modules/strategy/services/strategy_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../hologram_hub/widgets/twelve_wy/weekly_execution_gauge.dart';
 import '../../../hologram_hub/widgets/twelve_wy/tactical_item_card.dart';
 import '../../../hologram_hub/widgets/twelve_wy/twelve_week_timeline_bar.dart';
@@ -135,15 +136,23 @@ class _TwelveWyLoopTabState extends State<TwelveWyLoopTab> {
                 if (titleCtrl.text.trim().isEmpty || _selectedProjectId == null) return;
                 Navigator.pop(ctx);
                 final target = int.tryParse(targetCtrl.text.trim()) ?? 1;
-                await _twelveWyService.createTactic(
-                  projectId: _selectedProjectId!,
-                  cycleId: _dashboard?.cycle.id,
-                  weekNumber: weekNum,
-                  title: titleCtrl.text.trim(),
-                  leadIndicatorName: leadIndicatorCtrl.text.trim().isEmpty ? 'Hoàn thành nhiệm vụ' : leadIndicatorCtrl.text.trim(),
-                  targetCount: target,
-                );
-                _loadDashboard(_selectedProjectId!);
+                // IA05 — trước đây gọi xong luôn coi như đã lưu và reload,
+                // dù _service.createTactic() không thực sự lưu gì (xem chú
+                // thích tại TwelveWyService.createTactic). Giờ service throw
+                // rõ ràng khi chưa khả dụng — báo lỗi thay vì im lặng.
+                try {
+                  await _twelveWyService.createTactic(
+                    projectId: _selectedProjectId!,
+                    cycleId: _dashboard?.cycle.id,
+                    weekNumber: weekNum,
+                    title: titleCtrl.text.trim(),
+                    leadIndicatorName: leadIndicatorCtrl.text.trim().isEmpty ? 'Hoàn thành nhiệm vụ' : leadIndicatorCtrl.text.trim(),
+                    targetCount: target,
+                  );
+                  _loadDashboard(_selectedProjectId!);
+                } catch (e) {
+                  AppToast.error('Chưa thể lưu Tactic: tính năng này chưa khả dụng.');
+                }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE879F9), foregroundColor: Colors.black),
               child: const Text('Tạo Tactic'),
@@ -372,13 +381,21 @@ class _TwelveWyLoopTabState extends State<TwelveWyLoopTab> {
                     return TacticalItemCard(
                       tactic: t,
                       onCountChanged: (count) async {
-                        await _twelveWyService.updateTactic(tacticId: t.id, actualCount: count);
-                        if (_selectedProjectId != null) _loadDashboard(_selectedProjectId!);
+                        try {
+                          await _twelveWyService.updateTactic(tacticId: t.id, actualCount: count);
+                          if (_selectedProjectId != null) _loadDashboard(_selectedProjectId!);
+                        } catch (e) {
+                          AppToast.error('Chưa thể cập nhật Tactic: tính năng này chưa khả dụng.');
+                        }
                       },
                       onToggleDone: (done) async {
                         final newStatus = done ? 'DONE' : 'IN_PROGRESS';
-                        await _twelveWyService.updateTactic(tacticId: t.id, status: newStatus);
-                        if (_selectedProjectId != null) _loadDashboard(_selectedProjectId!);
+                        try {
+                          await _twelveWyService.updateTactic(tacticId: t.id, status: newStatus);
+                          if (_selectedProjectId != null) _loadDashboard(_selectedProjectId!);
+                        } catch (e) {
+                          AppToast.error('Chưa thể cập nhật Tactic: tính năng này chưa khả dụng.');
+                        }
                       },
                     );
                   },

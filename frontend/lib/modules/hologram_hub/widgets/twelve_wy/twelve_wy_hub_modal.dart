@@ -102,56 +102,86 @@ class _TwelveWyHubModalState extends State<TwelveWyHubModal>
     _loadDashboard();
   }
 
+  // IA05 — trước đây gọi xong LUÔN báo thành công + clear form, bất kể
+  // _service.createTactic() có thực sự lưu được gì hay không (thực ra
+  // không lưu gì cả — xem chú thích tại TwelveWyService.createTactic).
+  // Giờ service throw rõ ràng khi chưa khả dụng; bắt lỗi ở đây để báo đúng
+  // thất bại và KHÔNG xoá dữ liệu form đã nhập của founder.
   Future<void> _addTactic() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isCreatingTactic = true);
-    await _service.createTactic(
-      projectId: widget.projectId,
-      cycleId: _dashboard?.cycle.id,
-      weekNumber: _weekForNewTactic,
-      title: _titleCtrl.text.trim(),
-      description: _descCtrl.text.trim(),
-      leadIndicatorName: _leadNameCtrl.text.trim().isEmpty
-          ? 'Lead Indicator'
-          : _leadNameCtrl.text.trim(),
-      targetCount: int.tryParse(_targetCtrl.text) ?? 1,
-      ownerRole: _ownerCtrl.text.trim().isEmpty ? 'Founder' : _ownerCtrl.text.trim(),
-    );
-    _titleCtrl.clear();
-    _descCtrl.clear();
-    _leadNameCtrl.clear();
-    _targetCtrl.text = '1';
-    setState(() => _isCreatingTactic = false);
-    _loadDashboard();
-    if (mounted) {
-      AppToast.success(
-        'Đã thêm Tactic mới',
-        duration: const Duration(seconds: 2),
+    try {
+      await _service.createTactic(
+        projectId: widget.projectId,
+        cycleId: _dashboard?.cycle.id,
+        weekNumber: _weekForNewTactic,
+        title: _titleCtrl.text.trim(),
+        description: _descCtrl.text.trim(),
+        leadIndicatorName: _leadNameCtrl.text.trim().isEmpty
+            ? 'Lead Indicator'
+            : _leadNameCtrl.text.trim(),
+        targetCount: int.tryParse(_targetCtrl.text) ?? 1,
+        ownerRole: _ownerCtrl.text.trim().isEmpty ? 'Founder' : _ownerCtrl.text.trim(),
       );
+      _titleCtrl.clear();
+      _descCtrl.clear();
+      _leadNameCtrl.clear();
+      _targetCtrl.text = '1';
+      _loadDashboard();
+      if (mounted) {
+        AppToast.success(
+          'Đã thêm Tactic mới',
+          duration: const Duration(seconds: 2),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error('Chưa thể lưu Tactic: tính năng này chưa khả dụng.');
+      }
+    } finally {
+      if (mounted) setState(() => _isCreatingTactic = false);
     }
   }
 
   Future<void> _updateTacticCount(TacticalItemModel tactic, int newCount) async {
-    await _service.updateTactic(tacticId: tactic.id, actualCount: newCount);
-    _loadDashboard();
+    try {
+      await _service.updateTactic(tacticId: tactic.id, actualCount: newCount);
+      _loadDashboard();
+    } catch (e) {
+      if (mounted) {
+        AppToast.error('Chưa thể cập nhật Tactic: tính năng này chưa khả dụng.');
+      }
+    }
   }
 
   Future<void> _toggleTacticDone(TacticalItemModel tactic, bool done) async {
-    await _service.updateTactic(
-      tacticId: tactic.id,
-      status: done ? 'DONE' : 'IN_PROGRESS',
-    );
-    _loadDashboard();
+    try {
+      await _service.updateTactic(
+        tacticId: tactic.id,
+        status: done ? 'DONE' : 'IN_PROGRESS',
+      );
+      _loadDashboard();
+    } catch (e) {
+      if (mounted) {
+        AppToast.error('Chưa thể cập nhật Tactic: tính năng này chưa khả dụng.');
+      }
+    }
   }
 
   Future<void> _generateReview() async {
     if (_dashboard == null) return;
-    await _service.generateWeeklyReview(
-      cycleId: _dashboard!.cycle.id,
-      weekNumber: _selectedWeek,
-    );
-    _loadDashboard();
-    _tabController.animateTo(2);
+    try {
+      await _service.generateWeeklyReview(
+        cycleId: _dashboard!.cycle.id,
+        weekNumber: _selectedWeek,
+      );
+      _loadDashboard();
+      _tabController.animateTo(2);
+    } catch (e) {
+      if (mounted) {
+        AppToast.error('Chưa thể tạo Weekly Review: tính năng này chưa khả dụng.');
+      }
+    }
   }
 
   @override

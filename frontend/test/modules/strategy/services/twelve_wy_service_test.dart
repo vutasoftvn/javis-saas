@@ -330,88 +330,56 @@ void main() {
     });
   });
 
-  group('TwelveWyService - Tactics', () {
-    test('createTactic creates TacticalItemModel with provided data', () async {
+  // IA05 — trước đây createTactic dựng 1 TacticalItemModel tại client (id =
+  // timestamp) và trả về như thể đã lưu thành công, dù KHÔNG hề gọi backend
+  // (backend chưa có khái niệm "tactic" — towsOptionId/leadIndicatorName/
+  // targetCount... không tồn tại ở schema nào). UI dựa vào giá trị trả về
+  // "không null" để báo thành công + xoá form, khiến founder tưởng đã lưu
+  // trong khi dữ liệu biến mất ngay khi reload. Giờ throw rõ ràng (cùng
+  // pattern FinanceTT58Service) để không còn giả vờ đã lưu.
+  group('TwelveWyService - Tactics (chưa có backend — IA05)', () {
+    test('createTactic throws UnimplementedError instead of fabricating a fake saved tactic', () async {
       final service = TwelveWyService();
 
-      final tactic = await service.createTactic(
-        projectId: 1,
-        cycleId: 1,
-        weekNumber: 3,
-        title: 'User Research',
-        description: 'Interview 10 customers',
-        leadIndicatorName: 'Interviews Completed',
-        targetCount: 10,
-        actualCount: 0,
-        status: 'PLANNED',
-        ownerRole: 'Founder',
+      expect(
+        () => service.createTactic(
+          projectId: 1,
+          cycleId: 1,
+          weekNumber: 3,
+          title: 'User Research',
+          description: 'Interview 10 customers',
+          leadIndicatorName: 'Interviews Completed',
+          targetCount: 10,
+        ),
+        throwsA(isA<UnimplementedError>()),
       );
-
-      expect(tactic, isNotNull);
-      expect(tactic!.title, 'User Research');
-      expect(tactic.weekNumber, 3);
-      expect(tactic.leadIndicatorName, 'Interviews Completed');
-      expect(tactic.targetCount, 10);
-      expect(tactic.status, 'PLANNED');
     });
 
-    test('createTactic uses default values for optional fields', () async {
+    test('updateTactic throws UnimplementedError instead of silently returning null', () async {
       final service = TwelveWyService();
 
-      final tactic = await service.createTactic(
-        projectId: 1,
-        weekNumber: 1,
-        title: 'Quick Task',
-        leadIndicatorName: 'Task Count',
+      expect(
+        () => service.updateTactic(
+          tacticId: 1,
+          actualCount: 5,
+          status: 'DONE',
+        ),
+        throwsA(isA<UnimplementedError>()),
       );
-
-      expect(tactic, isNotNull);
-      expect(tactic!.description, ''); // empty default
-      expect(tactic.targetCount, 1); // default
-      expect(tactic.actualCount, 0); // default
-      expect(tactic.status, 'PLANNED'); // default
-      expect(tactic.ownerRole, 'Founder'); // default
-    });
-
-    test('createTactic handles dynamic projectId conversion', () async {
-      final service = TwelveWyService();
-
-      final tactic = await service.createTactic(
-        projectId: '123', // string
-        weekNumber: 1,
-        title: 'Task',
-        leadIndicatorName: 'Count',
-      );
-
-      expect(tactic, isNotNull);
-      expect(tactic!.projectId, 123); // converted to int
     });
   });
 
-  group('TwelveWyService - Tactic Updates', () {
-    test('updateTactic returns null (not implemented)', () async {
+  group('TwelveWyService - Weekly Review (chưa có backend — IA05)', () {
+    test('generateWeeklyReview throws UnimplementedError instead of silently returning null', () async {
       final service = TwelveWyService();
 
-      final result = await service.updateTactic(
-        tacticId: 1,
-        actualCount: 5,
-        status: 'DONE',
+      expect(
+        () => service.generateWeeklyReview(
+          cycleId: 1,
+          weekNumber: 5,
+        ),
+        throwsA(isA<UnimplementedError>()),
       );
-
-      expect(result, isNull);
-    });
-  });
-
-  group('TwelveWyService - Weekly Review', () {
-    test('generateWeeklyReview returns null (not implemented)', () async {
-      final service = TwelveWyService();
-
-      final result = await service.generateWeeklyReview(
-        cycleId: 1,
-        weekNumber: 5,
-      );
-
-      expect(result, isNull);
     });
   });
 

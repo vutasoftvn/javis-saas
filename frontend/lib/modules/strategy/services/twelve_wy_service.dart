@@ -57,6 +57,15 @@ class TwelveWyService {
     return null;
   }
 
+  // IA05 — trước đây hàm này trả về 1 TacticalItemModel dựng tại client
+  // (id = timestamp), KHÔNG hề gọi backend: UI báo "Đã thêm Tactic mới"
+  // thành công nhưng dữ liệu chỉ tồn tại trong bộ nhớ của lần build hiện
+  // tại — reload (kể cả gọi lại getDashboard() ngay sau đó, vốn luôn trả
+  // tacticsByWeek rỗng) là mất trắng. Backend hiện KHÔNG có khái niệm
+  // "tactic" (towsOptionId/leadIndicatorName/targetCount...) — đây là tính
+  // năng F11 chưa xây, không phải lỗi wiring đơn giản. Throw rõ ràng
+  // (cùng pattern đã dùng ở FinanceTT58Service cho tính năng chưa khả dụng)
+  // để caller BẮT BUỘC xử lý thất bại thay vì âm thầm coi là đã lưu.
   Future<TacticalItemModel?> createTactic({
     required dynamic projectId,
     dynamic cycleId,
@@ -71,20 +80,8 @@ class TwelveWyService {
     String status = 'PLANNED',
     String ownerRole = 'Founder',
   }) async {
-    return TacticalItemModel(
-      id: DateTime.now().millisecondsSinceEpoch,
-      workspaceId: 0,
-      projectId: int.tryParse(projectId?.toString() ?? '') ?? 0,
-      cycleId: int.tryParse(cycleId?.toString() ?? '') ?? 0,
-      weekNumber: weekNumber,
-      title: title,
-      description: description,
-      leadIndicatorName: leadIndicatorName,
-      targetCount: targetCount,
-      actualCount: actualCount,
-      status: status,
-      ownerRole: ownerRole,
-      createdAt: DateTime.now(),
+    throw UnimplementedError(
+      'Tính năng Tactic (12-Tuần) chưa có backend lưu trữ — chưa thể tạo/lưu tactic.',
     );
   }
 
@@ -95,14 +92,18 @@ class TwelveWyService {
     String? title,
     String? description,
   }) async {
-    return null;
+    throw UnimplementedError(
+      'Tính năng Tactic (12-Tuần) chưa có backend lưu trữ — chưa thể cập nhật tactic.',
+    );
   }
 
   Future<WeeklyReviewModel?> generateWeeklyReview({
     required int cycleId,
     required int weekNumber,
   }) async {
-    return null;
+    throw UnimplementedError(
+      'Tính năng Weekly Review (12-Tuần) chưa có backend lưu trữ — chưa thể tạo weekly review.',
+    );
   }
 
   Future<ApiResult<List<MvpWeeklyPlan>>> getWeeklyPlans() async {
