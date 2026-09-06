@@ -21,3 +21,4 @@ export * from "./pmf-scoreboard.handler";
 export * from "./maturity-assessment.handler";
 export * from "./weekly-goal.handler";
 export * from "./workspace-strategy-settings.handler";
+export * from "./strategic-objective.handler";

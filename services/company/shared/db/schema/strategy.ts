@@ -506,3 +506,45 @@ export const workspaceStrategySettings = strategySchema.table("workspace_strateg
   updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// 24. Strategic Objectives
+export const strategicObjectives = strategySchema.table("strategic_objectives", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .notNull()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  projectId: bigint("project_id", { mode: "bigint" })
+    .references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  successDefinition: text("success_definition"),
+  timeHorizonEnd: timestamp("time_horizon_end", { withTimezone: true }),
+  status: text("status").default("DRAFT").notNull(), // DRAFT | ACTIVE | ARCHIVED
+  ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
+  settingsRevision: integer("settings_revision"),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
+  revision: integer("revision").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 25. BSC Focus Scopes
+export const bscFocusScopes = strategySchema.table("bsc_focus_scopes", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .notNull()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
+    .notNull()
+    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
+  perspective: text("perspective").notNull(), // FINANCIAL | CUSTOMER | INTERNAL_PROCESS | LEARNING_AND_GROWTH
+  focusQuestion: text("focus_question"),
+  focusStatement: text("focus_statement").notNull(),
+  priority: integer("priority").default(1).notNull(),
+  status: text("status").default("ACTIVE").notNull(), // ACTIVE | INACTIVE | ARCHIVED
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
+  revision: integer("revision").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
