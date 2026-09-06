@@ -1,4 +1,4 @@
-import { api, Header } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import {
   Initiative,
   InitiativeMilestone,
@@ -14,7 +14,7 @@ export { Initiative, InitiativeMilestone };
 
 export interface CreateInitiativeParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId?: string;
   strategicObjectiveId?: string;
   sourceTowsOptionId?: string;
@@ -43,7 +43,6 @@ export interface UpdateInitiativeParams {
   targetDate?: string;
   milestones?: InitiativeMilestone[];
   status?: string;
-  approvalStatus?: string;
   ownerMemberId?: string;
   keyResultIds?: string[];
   expectedRevision?: number;
@@ -87,6 +86,11 @@ export const getInitiative = api(
 export const updateInitiative = api(
   { method: "PUT", path: "/operations/initiatives/:id", expose: true },
   async (params: UpdateInitiativeParams): Promise<Initiative> => {
+    if ("approvalStatus" in params) {
+      throw APIError.invalidArgument(
+        "approvalStatus may only be changed through the initiative approval command"
+      );
+    }
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return updateInitiativeService(params, ctx);
   }

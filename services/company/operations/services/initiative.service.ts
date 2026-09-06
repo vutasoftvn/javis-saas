@@ -79,7 +79,6 @@ export interface UpdateInitiativeParams {
   targetDate?: string;
   milestones?: InitiativeMilestone[];
   status?: string;
-  approvalStatus?: string;
 
   ownerMemberId?: string;
   keyResultIds?: string[];
@@ -176,10 +175,8 @@ export async function createInitiativeService(
   params: CreateInitiativeParams,
   authorization: string | undefined
 ): Promise<Initiative> {
-  if (authorization) {
-    await requireWorkspaceAccess(authorization, params.workspaceId);
-    await getWorkspace({ id: params.workspaceId });
-  }
+  await requireWorkspaceAccess(authorization, params.workspaceId);
+  await getWorkspace({ id: params.workspaceId });
 
   const wsId = BigInt(params.workspaceId);
 
@@ -494,10 +491,7 @@ export async function updateInitiativeService(
           ? params.milestones
           : existing.milestones,
       status: params.status !== undefined ? params.status : existing.status,
-      approvalStatus:
-        params.approvalStatus !== undefined
-          ? params.approvalStatus
-          : existing.approvalStatus,
+      approvalStatus: existing.approvalStatus,
       ownerMemberId:
         params.ownerMemberId !== undefined
           ? params.ownerMemberId
@@ -507,8 +501,20 @@ export async function updateInitiativeService(
       revision: existing.revision + 1,
       updatedAt: new Date(),
     })
-    .where(eq(initiatives.id, existing.id))
+    .where(
+      and(
+        eq(initiatives.id, existing.id),
+        eq(initiatives.workspaceId, wsId),
+        eq(initiatives.revision, existing.revision)
+      )
+    )
     .returning();
+
+  if (!updated) {
+    throw APIError.aborted(
+      `Revision conflict: initiative ${params.id} changed before the update completed`
+    );
+  }
 
   return toInitiative(updated, finalKrIds);
 }

@@ -203,6 +203,19 @@ describe("strategy-analysis service", () => {
     });
     expect(signal.id).toBeDefined();
     expect(signal.bscPerspectives).toEqual(["FINANCIAL"]);
+
+    // BSC is a write-time filter. Once an artefact has passed that filter,
+    // reads and SWOT derivation must remain available in REQUIRED mode.
+    await expect(listPestelSignals(ctx, obj.id)).resolves.toMatchObject({
+      items: [expect.objectContaining({ id: signal.id })],
+    });
+    await expect(listResourceCapabilityAssessments(ctx, obj.id)).resolves.toEqual({
+      items: [],
+    });
+    await expect(listSwotItems(ctx, obj.id)).resolves.toEqual({ items: [] });
+    await expect(deriveSwotDrafts(ctx, obj.id)).resolves.toMatchObject({
+      items: [expect.objectContaining({ sourceId: signal.id })],
+    });
   });
 
   it("preserves source-to-SWOT provenance and derives DRAFT SWOT items", async () => {

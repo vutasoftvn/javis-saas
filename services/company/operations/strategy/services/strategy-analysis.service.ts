@@ -130,15 +130,10 @@ export interface SwotItem {
   updatedAt: string;
 }
 
-/**
- * Validates that an objective exists in workspace and is ACTIVE,
- * and validates that provided BSC perspectives intersect with enabled/active BSC focus scopes
- * when bscMode is REQUIRED.
- */
-export async function assertActiveObjectiveAndBscIntersection(
+/** Validates that an objective exists in the workspace and is ACTIVE. */
+export async function assertActiveStrategicObjective(
   workspaceId: bigint | string,
-  strategicObjectiveId: bigint | string,
-  bscPerspectives: string[] = []
+  strategicObjectiveId: bigint | string
 ): Promise<void> {
   const wsId = BigInt(workspaceId);
   const objId = BigInt(strategicObjectiveId);
@@ -165,6 +160,23 @@ export async function assertActiveObjectiveAndBscIntersection(
       `Strategic objective must be ACTIVE before creating or listing analysis artefacts (current: ${obj.status})`
     );
   }
+
+}
+
+/**
+ * Validates the active objective and BSC focus intersection for analysis writes.
+ * BSC is deliberately a write-time filter: reads and derivation operate on
+ * artefacts that have already passed this validation.
+ */
+export async function assertActiveObjectiveAndBscIntersection(
+  workspaceId: bigint | string,
+  strategicObjectiveId: bigint | string,
+  bscPerspectives: string[] = []
+): Promise<void> {
+  const wsId = BigInt(workspaceId);
+  const objId = BigInt(strategicObjectiveId);
+
+  await assertActiveStrategicObjective(workspaceId, strategicObjectiveId);
 
   // Validate perspectives syntax
   for (const p of bscPerspectives) {
@@ -305,8 +317,7 @@ export async function listPestelSignals(
   const wsId = BigInt(ctx.workspaceId);
   const objId = BigInt(strategicObjectiveId);
 
-  // Must validate active objective
-  await assertActiveObjectiveAndBscIntersection(ctx.workspaceId, strategicObjectiveId, []);
+  await assertActiveStrategicObjective(ctx.workspaceId, strategicObjectiveId);
 
   const conditions = [
     eq(pestelSignals.workspaceId, wsId),
@@ -494,7 +505,7 @@ export async function listResourceCapabilityAssessments(
   const wsId = BigInt(ctx.workspaceId);
   const objId = BigInt(strategicObjectiveId);
 
-  await assertActiveObjectiveAndBscIntersection(ctx.workspaceId, strategicObjectiveId, []);
+  await assertActiveStrategicObjective(ctx.workspaceId, strategicObjectiveId);
 
   const conditions = [
     eq(resourceCapabilityAssessments.workspaceId, wsId),
@@ -748,7 +759,7 @@ export async function listSwotItems(
   const wsId = BigInt(ctx.workspaceId);
   const objId = BigInt(strategicObjectiveId);
 
-  await assertActiveObjectiveAndBscIntersection(ctx.workspaceId, strategicObjectiveId, []);
+  await assertActiveStrategicObjective(ctx.workspaceId, strategicObjectiveId);
 
   const conditions = [
     eq(swotItems.workspaceId, wsId),
@@ -870,7 +881,7 @@ export async function deriveSwotDrafts(
   const wsId = BigInt(ctx.workspaceId);
   const objId = BigInt(strategicObjectiveId);
 
-  await assertActiveObjectiveAndBscIntersection(ctx.workspaceId, strategicObjectiveId, []);
+  await assertActiveStrategicObjective(ctx.workspaceId, strategicObjectiveId);
 
   // Fetch active PESTEL signals
   const signals = await db

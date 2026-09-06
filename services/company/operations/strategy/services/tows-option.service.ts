@@ -329,8 +329,20 @@ export async function updateTowsOption(
       revision: existing.revision + 1,
       updatedAt: new Date(),
     })
-    .where(eq(towsOptions.id, id))
+    .where(
+      and(
+        eq(towsOptions.id, id),
+        eq(towsOptions.workspaceId, wsId),
+        eq(towsOptions.revision, existing.revision)
+      )
+    )
     .returning();
+
+  if (!updated) {
+    throw APIError.aborted(
+      `Revision conflict: TOWS option ${input.id} changed before the update completed`
+    );
+  }
 
   return getTowsOption(id, wsId);
 }

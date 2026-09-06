@@ -316,13 +316,32 @@ export async function publishObjectiveService(
 
 export async function addKeyResultService(params: AddKeyResultParams): Promise<KeyResult> {
   const [objective] = await db
-    .select({ workspaceId: okrObjectives.workspaceId })
+    .select({
+      workspaceId: okrObjectives.workspaceId,
+    })
     .from(okrObjectives)
     .where(eq(okrObjectives.id, BigInt(params.objectiveId)))
     .limit(1);
 
   if (!objective) throw APIError.notFound(`objective ${params.objectiveId} not found`);
   await requireWorkspaceAccess(params.authorization, objective.workspaceId.toString());
+
+  const existingKeyResults = await db
+    .select({ id: keyResults.id })
+    .from(keyResults)
+    .where(
+      and(
+        eq(keyResults.workspaceId, objective.workspaceId),
+        eq(keyResults.objectiveId, BigInt(params.objectiveId)),
+        isNull(keyResults.deletedAt)
+      )
+    );
+
+  if (existingKeyResults.length >= 3) {
+    throw APIError.failedPrecondition(
+      "Objective already has the maximum of 3 Key Results"
+    );
+  }
 
   const [row] = await db
     .insert(keyResults)

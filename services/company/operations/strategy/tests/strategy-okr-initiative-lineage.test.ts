@@ -173,7 +173,7 @@ describe("strategy-okr-initiative-lineage service", () => {
     expect(published.publishedAt).toBeDefined();
     expect(published.publishedByMemberId).toBeDefined();
 
-    // Create another objective and add 4 KRs -> Publish rejected
+    // The fourth KR is rejected immediately, keeping the OKR measurable.
     const objWith4Krs = await createObjectiveService({
       workspaceId: ws.workspaceId,
       cycleId: cycle.id,
@@ -181,7 +181,7 @@ describe("strategy-okr-initiative-lineage service", () => {
       authorization: ws.bearerToken,
     });
 
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 3; i++) {
       await addKeyResultService({
         objectiveId: objWith4Krs.id,
         title: `KR ${i}`,
@@ -194,8 +194,16 @@ describe("strategy-okr-initiative-lineage service", () => {
     }
 
     await expect(
-      publishObjectiveService({ id: objWith4Krs.id }, ctx)
-    ).rejects.toThrow("between 1 and 3 Key Results");
+      addKeyResultService({
+        objectiveId: objWith4Krs.id,
+        title: "KR 4",
+        targetValue: 400,
+        baselineValue: 0,
+        scoringType: "LINEAR_INCREASE",
+        unit: "count",
+        authorization: ws.bearerToken,
+      })
+    ).rejects.toThrow("maximum of 3 Key Results");
   });
 
   it("rejects cross-workspace Key Result links when creating an Initiative", async () => {

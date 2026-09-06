@@ -191,6 +191,40 @@ describe("workspace-strategy-settings", () => {
   });
 
   describe("update & revision conflict", () => {
+    it("allows only one concurrent write for the same settings revision", async () => {
+      const ws = await createTestWorkspaceWithMember({ role: "founder" });
+      const ctx = createMockTenantContext({
+        workspaceId: ws.workspaceId,
+        userId: ws.userId,
+        membershipRole: "founder",
+        permissions: ["*"],
+      });
+
+      await updateWorkspaceStrategySettings(ctx, {
+        workspaceId: ws.workspaceId,
+        strategyMethod: "BSC_FILTER",
+        bscMode: "OPTIONAL",
+        enabledBscPerspectives: ["FINANCIAL"],
+        expectedRevision: 1,
+      });
+
+      const results = await Promise.allSettled([
+        updateWorkspaceStrategySettings(ctx, {
+          workspaceId: ws.workspaceId,
+          towsSelectionLimit: 1,
+          expectedRevision: 1,
+        }),
+        updateWorkspaceStrategySettings(ctx, {
+          workspaceId: ws.workspaceId,
+          towsSelectionLimit: 2,
+          expectedRevision: 1,
+        }),
+      ]);
+
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    });
+
     it("updates settings atomically and detects revision conflict", async () => {
       const ws = await createTestWorkspaceWithMember({ role: "founder" });
       const ctx = createMockTenantContext({

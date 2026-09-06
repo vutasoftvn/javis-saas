@@ -37,7 +37,10 @@ class StrategyWorkflowService extends WorkspaceScopedService {
           currentRevision = body['currentRevision'];
         }
       } catch (_) {}
-      throw RevisionConflictException(message, currentRevision: currentRevision);
+      throw RevisionConflictException(
+        message,
+        currentRevision: currentRevision,
+      );
     }
     if (response.statusCode >= 400) {
       String message = 'Request failed with status ${response.statusCode}';
@@ -50,7 +53,6 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       throw StateError(message);
     }
   }
-
 
   List<dynamic> _extractItems(dynamic decoded, [String primaryKey = 'items']) {
     if (decoded is List) return decoded;
@@ -105,7 +107,9 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     final body = <String, dynamic>{
       'strategyMethod': ?method?.toApiString(),
       'bscMode': ?bsc?.toApiString(),
-      'enabledBscPerspectives': ?(bscPersp?.map((p) => p.toApiString()).toList()),
+      'enabledBscPerspectives': ?(bscPersp
+          ?.map((p) => p.toApiString())
+          .toList()),
       'towsSelectionLimit': ?towsLimit,
       'weeklyReviewEnabled': ?weekly,
       'midCycleReviewPolicy': ?mid?.toApiString(),
@@ -128,7 +132,6 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     }
     return WorkspaceStrategySettingsModel.fromJson(settingsMap);
   }
-
 
   // --------------------------------------------------------------------------
   // 2. STRATEGIC OBJECTIVES & BSC FOCUS SCOPES
@@ -221,11 +224,13 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   ) async {
     final body = {
       'scopes': scopes
-          .map((s) => {
-                'perspective': s.perspective.toApiString(),
-                'focusDescription': s.focusDescription,
-                'weight': s.weight,
-              })
+          .map(
+            (s) => {
+              'perspective': s.perspective.toApiString(),
+              'focusDescription': s.focusDescription,
+              'weight': s.weight,
+            },
+          )
           .toList(),
     };
     final res = await ApiClient.put(
@@ -290,7 +295,9 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'impact': impact,
       'certainty': certainty,
       'evidenceRefs': ?evidenceRefs,
-      'bscPerspectives': ?(bscPerspectives?.map((p) => p.toApiString()).toList()),
+      'bscPerspectives': ?(bscPerspectives
+          ?.map((p) => p.toApiString())
+          .toList()),
       'status': ?status,
     };
     final res = await ApiClient.post(
@@ -319,7 +326,9 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'impact': ?impact,
       'certainty': ?certainty,
       'evidenceRefs': ?evidenceRefs,
-      'bscPerspectives': ?(bscPerspectives?.map((p) => p.toApiString()).toList()),
+      'bscPerspectives': ?(bscPerspectives
+          ?.map((p) => p.toApiString())
+          .toList()),
       'status': ?status,
     };
     final res = await ApiClient.put(
@@ -349,7 +358,11 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
     return items
-        .map((i) => ResourceCapabilityAssessmentModel.fromJson(i as Map<String, dynamic>))
+        .map(
+          (i) => ResourceCapabilityAssessmentModel.fromJson(
+            i as Map<String, dynamic>,
+          ),
+        )
         .toList();
   }
 
@@ -374,7 +387,9 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'statement': statement,
       'strengthLevel': strengthLevel,
       'evidenceRefs': ?evidenceRefs,
-      'bscPerspectives': ?(bscPerspectives?.map((p) => p.toApiString()).toList()),
+      'bscPerspectives': ?(bscPerspectives
+          ?.map((p) => p.toApiString())
+          .toList()),
       'status': ?status,
     };
     final res = await ApiClient.post(
@@ -421,7 +436,9 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'statement': ?statement,
       'strengthLevel': ?strengthLevel,
       'evidenceRefs': ?evidenceRefs,
-      'bscPerspectives': ?(bscPerspectives?.map((p) => p.toApiString()).toList()),
+      'bscPerspectives': ?(bscPerspectives
+          ?.map((p) => p.toApiString())
+          .toList()),
       'status': ?status,
     };
     final res = await ApiClient.put(
@@ -623,12 +640,13 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'scorerKind': scorerKind,
     };
     final res = await ApiClient.post(
-      '/operations/strategy/tows-options/$id/evaluate',
+      '/operations/strategy/tows-options/$id/evaluations',
       body: body,
     );
     _checkResponse(res);
-    final data = _decodeBody(res) as Map<String, dynamic>;
-    return TowsOptionModel.fromJson(data);
+    // The evaluation command returns an evaluation record. Reload the option
+    // so callers receive the canonical option with its latest priority score.
+    return getTowsOption(id);
   }
 
   Future<TowsOptionModel> selectTowsOption(
@@ -655,9 +673,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     String id, {
     String? rejectionReason,
   }) async {
-    final body = <String, dynamic>{
-      'reason': ?rejectionReason,
-    };
+    final body = <String, dynamic>{'reason': ?rejectionReason};
     final res = await ApiClient.post(
       '/operations/strategy/tows-options/$id/reject',
       body: body,
@@ -685,7 +701,9 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   }) async {
     final queryParams = <String>[];
     if (strategicObjectiveId != null && strategicObjectiveId.isNotEmpty) {
-      queryParams.add('strategicObjectiveId=${Uri.encodeQueryComponent(strategicObjectiveId)}');
+      queryParams.add(
+        'strategicObjectiveId=${Uri.encodeQueryComponent(strategicObjectiveId)}',
+      );
     }
     if (projectId != null && projectId.isNotEmpty) {
       queryParams.add('projectId=${Uri.encodeQueryComponent(projectId)}');
@@ -712,6 +730,8 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     String? intendedOutcome,
     String? targetDate,
     List<dynamic>? milestones,
+    String? ownerMemberId,
+    List<String>? keyResultIds,
   }) async {
     final body = <String, dynamic>{
       'title': title,
@@ -722,11 +742,10 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'intendedOutcome': ?intendedOutcome,
       'targetDate': ?targetDate,
       'milestones': ?milestones,
+      'ownerMemberId': ?ownerMemberId,
+      'keyResultIds': ?keyResultIds,
     };
-    final res = await ApiClient.post(
-      '/operations/initiatives',
-      body: body,
-    );
+    final res = await ApiClient.post('/operations/initiatives', body: body);
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
@@ -756,10 +775,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       'milestones': ?milestones,
       'expectedRevision': ?expectedRevision,
     };
-    final res = await ApiClient.put(
-      '/operations/initiatives/$id',
-      body: body,
-    );
+    final res = await ApiClient.put('/operations/initiatives/$id', body: body);
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
@@ -781,6 +797,32 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
+  }
+
+  Future<String> createExecutionTask({
+    required String title,
+    String? initiativeId,
+  }) async {
+    final activeWorkspaceId = await workspaceId();
+    if (activeWorkspaceId == null || activeWorkspaceId.isEmpty) {
+      throw StateError('Chưa chọn workspace để tạo công việc');
+    }
+
+    final res = await ApiClient.post(
+      '/operations/tasks',
+      body: {
+        'workspaceId': activeWorkspaceId,
+        'title': title,
+        'initiativeId': ?initiativeId,
+      },
+    );
+    _checkResponse(res);
+    final data = _decodeBody(res) as Map<String, dynamic>;
+    final id = data['id']?.toString();
+    if (id == null || id.isEmpty) {
+      throw StateError('API không trả về mã công việc vừa tạo');
+    }
+    return id;
   }
 
   // --------------------------------------------------------------------------
@@ -805,7 +847,9 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   }
 
   Future<CycleReviewModel> startCycleReview(String reviewId) async {
-    final res = await ApiClient.post('/operations/cycle-reviews/$reviewId/start');
+    final res = await ApiClient.post(
+      '/operations/cycle-reviews/$reviewId/start',
+    );
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
@@ -815,9 +859,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     String reviewId, {
     String? conclusion,
   }) async {
-    final body = <String, dynamic>{
-      'conclusion': ?conclusion,
-    };
+    final body = <String, dynamic>{'conclusion': ?conclusion};
     final res = await ApiClient.patch(
       '/operations/cycle-reviews/$reviewId',
       body: body,

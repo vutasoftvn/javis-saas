@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
 import { db } from "../../models/db";
 import { workspaceStrategySettings } from "../../../shared/db/schema/strategy";
@@ -375,9 +375,18 @@ export async function updateWorkspaceStrategySettings(
         updatedAt: now,
       })
       .where(
-        eq(workspaceStrategySettings.workspaceId, wsId)
+        and(
+          eq(workspaceStrategySettings.workspaceId, wsId),
+          eq(workspaceStrategySettings.revision, currentRevision)
+        )
       )
       .returning();
+
+    if (!row) {
+      throw APIError.aborted(
+        `Settings revision conflict: expected revision ${currentRevision}, but it changed before the update completed`
+      );
+    }
 
     return {
       workspaceId: row.workspaceId.toString(),
@@ -412,7 +421,14 @@ export async function updateWorkspaceStrategySettings(
         updatedByMemberId,
         updatedAt: now,
       })
+      .onConflictDoNothing({ target: workspaceStrategySettings.workspaceId })
       .returning();
+
+    if (!row) {
+      throw APIError.aborted(
+        "Settings revision conflict: settings were created by another request"
+      );
+    }
 
     return {
       workspaceId: row.workspaceId.toString(),

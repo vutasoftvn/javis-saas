@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createWorkspace } from "../../identity/handlers/workspace.handler";
-import { createOkrCycle, createObjective, addKeyResult, checkin, getObjectiveProgress, getObjective, linkObjectiveProjects_Endpoint, getObjectiveProjects, unlinkObjectiveProject_Endpoint } from "../handlers/okr.handler";
+import { createOkrCycle, createObjective, addKeyResult, checkin, getObjectiveProgress, getObjective, linkObjectiveProjects_Endpoint, getObjectiveProjects, unlinkObjectiveProject_Endpoint, publishObjective } from "../handlers/okr.handler";
 import { createProject } from "../handlers/project.handler";
 import { countOutbox } from "./helpers/outbox";
 
@@ -9,6 +9,7 @@ async function makeCycle() {
   const user = await createTestSession({
     email: `okr-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName: "OKR Test",
+    role: "founder",
   });
   const authorization = `Bearer ${user.accessToken}`;
   const workspace = { id: user.workspaceId };
@@ -68,6 +69,41 @@ describe("createObjective", () => {
 });
 
 describe("addKeyResult + checkin + getObjectiveProgress", () => {
+  it("does not allow a fourth KR to be added after an objective is published", async () => {
+    const { workspace, cycle, authorization } = await makeCycle();
+    const objective = await createObjective({
+      workspaceId: workspace.id,
+      cycleId: cycle.id,
+      title: "Keep published OKR measurable",
+      authorization,
+    });
+
+    for (let index = 1; index <= 3; index += 1) {
+      await addKeyResult({
+        objectiveId: objective.id,
+        title: `KR ${index}`,
+        targetValue: index * 10,
+        baselineValue: 0,
+        authorization,
+      });
+    }
+
+    await publishObjective({
+      id: objective.id,
+      workspaceId: workspace.id,
+      authorization,
+    });
+
+    await expect(
+      addKeyResult({
+        objectiveId: objective.id,
+        title: "KR 4 must be rejected",
+        targetValue: 40,
+        authorization,
+      })
+    ).rejects.toThrow("Objective already has the maximum of 3 Key Results");
+  });
+
   it("scores an objective from its key results after check-ins", async () => {
     const { workspace, cycle, authorization } = await makeCycle();
     const objective = await createObjective({ workspaceId: workspace.id, cycleId: cycle.id, title: "Grow revenue", authorization });

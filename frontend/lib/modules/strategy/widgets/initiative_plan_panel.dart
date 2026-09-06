@@ -111,7 +111,9 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
     setState(() => _isLoading = true);
     try {
       final milestones = _milestoneController.text.trim().isNotEmpty
-          ? [_milestoneController.text.trim()]
+          ? [
+              {'title': _milestoneController.text.trim()},
+            ]
           : <dynamic>[];
 
       final created = await _service.createInitiative(
@@ -125,31 +127,14 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
             ? _targetDateController.text.trim()
             : null,
         milestones: milestones,
-      );
-
-      // Add KR links and owner if supported
-      final withDetails = InitiativeModel(
-        id: created.id,
-        workspaceId: created.workspaceId,
-        projectId: created.projectId,
-        title: created.title,
-        status: created.status,
-        approvalStatus: 'DRAFT',
-        strategicObjectiveId: created.strategicObjectiveId,
-        sourceTowsOptionId: created.sourceTowsOptionId,
-        description: created.description,
-        intendedOutcome: created.intendedOutcome,
-        targetDate: created.targetDate,
         ownerMemberId: _ownerController.text.trim().isNotEmpty
             ? _ownerController.text.trim()
             : null,
-        milestones: created.milestones,
         keyResultIds: _selectedKrs.toList(),
-        revision: created.revision,
       );
 
       setState(() {
-        _initiatives = [withDetails, ..._initiatives];
+        _initiatives = [created, ..._initiatives];
         _showCreateDialog = false;
         _isLoading = false;
         _titleController.clear();
@@ -174,33 +159,13 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
         init.id,
         reason: 'Chấp thuận kế hoạch thực thi chiến lược',
       );
-      final updated = InitiativeModel(
-        id: approved.id,
-        workspaceId: approved.workspaceId,
-        projectId: approved.projectId,
-        title: approved.title,
-        status: approved.status,
-        approvalStatus: 'APPROVED',
-        strategicObjectiveId: approved.strategicObjectiveId,
-        sourceTowsOptionId: approved.sourceTowsOptionId,
-        description: approved.description,
-        intendedOutcome: approved.intendedOutcome,
-        targetDate: approved.targetDate,
-        ownerMemberId: init.ownerMemberId,
-        approvedByMemberId: approved.approvedByMemberId ?? 'current_user',
-        approvedAt: DateTime.now().toIso8601String(),
-        approvalReason: 'Chấp thuận kế hoạch thực thi chiến lược',
-        decisionId: approved.decisionId ?? 'decision-${DateTime.now().millisecondsSinceEpoch}',
-        milestones: approved.milestones.isNotEmpty ? approved.milestones : init.milestones,
-        keyResultIds: init.keyResultIds,
-        revision: approved.revision,
-      );
-
       setState(() {
-        _initiatives = _initiatives.map((i) => i.id == init.id ? updated : i).toList();
+        _initiatives = _initiatives
+            .map((i) => i.id == init.id ? approved : i)
+            .toList();
         _isLoading = false;
       });
-      widget.onInitiativeApproved?.call(updated);
+      widget.onInitiativeApproved?.call(approved);
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -209,56 +174,64 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
     }
   }
 
-  void _createTask() {
+  Future<void> _createTask() async {
     final title = _taskTitleController.text.trim();
     if (title.isEmpty) {
       setState(() => _taskError = 'Vui lòng nhập tên công việc');
       return;
     }
 
-    if (_isBauTask) {
-      // BAU task does not require an approved initiative
-      final task = InitiativeTaskItem(
-        id: 'task-${DateTime.now().millisecondsSinceEpoch}',
-        title: title,
-        isBau: true,
+    InitiativeModel? targetInit;
+    if (!_isBauTask) {
+      if (_selectedTaskInitiativeId == null) {
+        setState(
+          () => _taskError =
+              'Vui lòng chọn một Sáng kiến đã được duyệt hoặc đánh dấu là BAU',
+        );
+        return;
+      }
+
+      targetInit = _initiatives.firstWhere(
+        (i) => i.id == _selectedTaskInitiativeId,
+        orElse: () => throw StateError('Initiative not found'),
       );
+
+      if (!targetInit.isApproved) {
+        setState(
+          () => _taskError =
+              'Sáng kiến "${targetInit!.title}" chưa được phê duyệt (Approval: DRAFT). Không thể gán công việc!',
+        );
+        return;
+      }
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final taskId = await _service.createExecutionTask(
+        title: title,
+        initiativeId: targetInit?.id,
+      );
+      if (!mounted) return;
       setState(() {
-        _tasks.add(task);
+        _tasks.add(
+          InitiativeTaskItem(
+            id: taskId,
+            title: title,
+            initiativeId: targetInit?.id,
+            isBau: _isBauTask,
+          ),
+        );
         _taskTitleController.clear();
         _taskError = null;
+        _isLoading = false;
       });
-      return;
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _taskError = e.toString();
+        _isLoading = false;
+      });
     }
-
-    // Non-BAU task requires an approved initiative
-    if (_selectedTaskInitiativeId == null) {
-      setState(() => _taskError = 'Vui lòng chọn một Sáng kiến đã được duyệt hoặc đánh dấu là BAU');
-      return;
-    }
-
-    final targetInit = _initiatives.firstWhere(
-      (i) => i.id == _selectedTaskInitiativeId,
-      orElse: () => throw StateError('Initiative not found'),
-    );
-
-    if (!targetInit.isApproved) {
-      setState(() => _taskError = 'Sáng kiến "${targetInit.title}" chưa được phê duyệt (Approval: DRAFT). Không thể gán công việc!');
-      return;
-    }
-
-    final task = InitiativeTaskItem(
-      id: 'task-${DateTime.now().millisecondsSinceEpoch}',
-      title: title,
-      initiativeId: targetInit.id,
-      isBau: false,
-    );
-
-    setState(() {
-      _tasks.add(task);
-      _taskTitleController.clear();
-      _taskError = null;
-    });
   }
 
   @override
@@ -277,7 +250,11 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
           // Header
           Row(
             children: [
-              const Icon(Icons.assignment_turned_in_outlined, color: AppTheme.primary, size: 20),
+              const Icon(
+                Icons.assignment_turned_in_outlined,
+                color: AppTheme.primary,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               const Expanded(
                 child: Column(
@@ -285,19 +262,30 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
                   children: [
                     Text(
                       'Kế Hoạch Sáng Kiến (Initiatives Plan)',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                     Text(
                       'Cầu nối trực tiếp giữa OKR và cam kết hành động tuần. Sáng kiến phải được duyệt trước khi gắn việc.',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textMutedDark,
+                      ),
                     ),
                   ],
                 ),
               ),
               ElevatedButton.icon(
                 key: const ValueKey('open_create_initiative_button'),
-                onPressed: () => setState(() => _showCreateDialog = !_showCreateDialog),
-                icon: Icon(_showCreateDialog ? Icons.close : Icons.add, size: 16),
+                onPressed: () =>
+                    setState(() => _showCreateDialog = !_showCreateDialog),
+                icon: Icon(
+                  _showCreateDialog ? Icons.close : Icons.add,
+                  size: 16,
+                ),
                 label: Text(_showCreateDialog ? 'Hủy' : 'Tạo Sáng Kiến'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
@@ -321,7 +309,10 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
                   const Icon(Icons.error_outline, color: Colors.red, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -351,15 +342,24 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.02),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: AppTheme.borderDark.withValues(alpha: 0.5),
+                ),
               ),
               child: const Column(
                 children: [
-                  Icon(Icons.lightbulb_outline, size: 32, color: Colors.white30),
+                  Icon(
+                    Icons.lightbulb_outline,
+                    size: 32,
+                    color: Colors.white30,
+                  ),
                   SizedBox(height: 8),
                   Text(
                     'Chưa có sáng kiến nào được tạo cho mục tiêu này.',
-                    style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                    style: TextStyle(
+                      color: AppTheme.textMutedDark,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -389,7 +389,11 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
         children: [
           const Text(
             'Tạo Sáng Kiến Mới (Bản Nháp)',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -470,7 +474,10 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
               children: widget.availableKrIds.map((krId) {
                 final isSelected = _selectedKrs.contains(krId);
                 return FilterChip(
-                  label: Text('KR: $krId', style: const TextStyle(fontSize: 11)),
+                  label: Text(
+                    'KR: $krId',
+                    style: const TextStyle(fontSize: 11),
+                  ),
                   selected: isSelected,
                   onSelected: (selected) {
                     setState(() {
@@ -497,7 +504,10 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
               ElevatedButton(
                 key: const ValueKey('submit_create_initiative_button'),
                 onPressed: _createInitiativeDraft,
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.black),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.black,
+                ),
                 child: const Text('Lưu bản nháp'),
               ),
             ],
@@ -509,7 +519,9 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
 
   Widget _buildInitiativeCard(InitiativeModel init) {
     final isApproved = init.isApproved;
-    final downstreamTasks = _tasks.where((t) => t.initiativeId == init.id).toList();
+    final downstreamTasks = _tasks
+        .where((t) => t.initiativeId == init.id)
+        .toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -518,7 +530,9 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
         color: AppTheme.surfaceDarkLighter,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isApproved ? Colors.green.withValues(alpha: 0.4) : AppTheme.borderDark,
+          color: isApproved
+              ? Colors.green.withValues(alpha: 0.4)
+              : AppTheme.borderDark,
         ),
       ),
       child: Column(
@@ -539,11 +553,15 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
                         color: Colors.white,
                       ),
                     ),
-                    if (init.intendedOutcome != null && init.intendedOutcome!.isNotEmpty) ...[
+                    if (init.intendedOutcome != null &&
+                        init.intendedOutcome!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Kỳ vọng: ${init.intendedOutcome}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textMutedDark),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMutedDark,
+                        ),
                       ),
                     ],
                   ],
@@ -567,7 +585,9 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isApproved ? Icons.verified_rounded : Icons.pending_actions_rounded,
+                      isApproved
+                          ? Icons.verified_rounded
+                          : Icons.pending_actions_rounded,
                       size: 13,
                       color: isApproved ? Colors.green : Colors.amber,
                     ),
@@ -594,11 +614,20 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
             runSpacing: 6,
             children: [
               if (init.ownerMemberId != null && init.ownerMemberId!.isNotEmpty)
-                _metaChip(Icons.person_outline, 'Phụ trách: ${init.ownerMemberId}'),
+                _metaChip(
+                  Icons.person_outline,
+                  'Phụ trách: ${init.ownerMemberId}',
+                ),
               if (init.targetDate != null && init.targetDate!.isNotEmpty)
-                _metaChip(Icons.calendar_today_outlined, 'Hạn: ${init.targetDate}'),
+                _metaChip(
+                  Icons.calendar_today_outlined,
+                  'Hạn: ${init.targetDate}',
+                ),
               if (init.keyResultIds.isNotEmpty)
-                _metaChip(Icons.link_rounded, 'KRs liên kết: ${init.keyResultIds.join(", ")}'),
+                _metaChip(
+                  Icons.link_rounded,
+                  'KRs liên kết: ${init.keyResultIds.join(", ")}',
+                ),
               if (init.milestones.isNotEmpty)
                 _metaChip(Icons.flag_outlined, 'Mốc: ${init.milestones.first}'),
             ],
@@ -608,7 +637,11 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.gavel_rounded, size: 14, color: AppTheme.primary),
+                const Icon(
+                  Icons.gavel_rounded,
+                  size: 14,
+                  color: AppTheme.primary,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   'Biên bản quyết định #${init.decisionId} · Phê duyệt bởi: ${init.approvedByMemberId ?? "Founder"}',
@@ -637,8 +670,14 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
             ],
@@ -647,24 +686,42 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
           // Downstream task items
           if (downstreamTasks.isNotEmpty) ...[
             const SizedBox(height: 8),
-            ...downstreamTasks.map((t) => Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_box_outline_blank, size: 14, color: AppTheme.primary),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(t.title, style: const TextStyle(fontSize: 12, color: Colors.white)),
+            ...downstreamTasks.map(
+              (t) => Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_box_outline_blank,
+                      size: 14,
+                      color: AppTheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        t.title,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
                       ),
-                      const Text('Gắn sáng kiến', style: TextStyle(fontSize: 10, color: Colors.green)),
-                    ],
-                  ),
-                )),
+                    ),
+                    const Text(
+                      'Gắn sáng kiến',
+                      style: TextStyle(fontSize: 10, color: Colors.green),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -677,7 +734,10 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
       children: [
         Icon(icon, size: 13, color: AppTheme.textMutedDark),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(fontSize: 11, color: AppTheme.textMutedDark)),
+        Text(
+          text,
+          style: const TextStyle(fontSize: 11, color: AppTheme.textMutedDark),
+        ),
       ],
     );
   }
@@ -690,11 +750,19 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
       children: [
         const Row(
           children: [
-            Icon(Icons.directions_run_outlined, color: AppTheme.primary, size: 18),
+            Icon(
+              Icons.directions_run_outlined,
+              color: AppTheme.primary,
+              size: 18,
+            ),
             SizedBox(width: 8),
             Text(
               'Gắn Kết Hành Động Tuần (Weekly Sprint Planning)',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -740,13 +808,15 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
                   ),
                   initialValue: _selectedTaskInitiativeId,
                   items: _initiatives.map((init) {
-                    final label = '${init.title} (${init.isApproved ? "DUYỆT" : "NHÁP"})';
+                    final label =
+                        '${init.title} (${init.isApproved ? "DUYỆT" : "NHÁP"})';
                     return DropdownMenuItem<String>(
                       value: init.id,
                       child: Text(label, overflow: TextOverflow.ellipsis),
                     );
                   }).toList(),
-                  onChanged: (val) => setState(() => _selectedTaskInitiativeId = val),
+                  onChanged: (val) =>
+                      setState(() => _selectedTaskInitiativeId = val),
                 ),
               ),
             const SizedBox(width: 8),
@@ -756,7 +826,10 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
               ),
               child: const Text('Thêm việc'),
             ),
@@ -791,7 +864,11 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
           Text(
             _taskError!,
             key: const ValueKey('task_assignment_error_message'),
-            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.redAccent,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
 
@@ -800,27 +877,39 @@ class _InitiativePlanPanelState extends State<InitiativePlanPanel> {
           const SizedBox(height: 12),
           const Text(
             'Công việc thường nhật (BAU):',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+            ),
           ),
           const SizedBox(height: 4),
-          ...bauTasks.map((t) => Container(
-                margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.repeat, size: 14, color: Colors.blueGrey),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(t.title, style: const TextStyle(fontSize: 12, color: Colors.white)),
+          ...bauTasks.map(
+            (t) => Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.repeat, size: 14, color: Colors.blueGrey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t.title,
+                      style: const TextStyle(fontSize: 12, color: Colors.white),
                     ),
-                    const Text('BAU', style: TextStyle(fontSize: 10, color: Colors.amberAccent)),
-                  ],
-                ),
-              )),
+                  ),
+                  const Text(
+                    'BAU',
+                    style: TextStyle(fontSize: 10, color: Colors.amberAccent),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ],
     );

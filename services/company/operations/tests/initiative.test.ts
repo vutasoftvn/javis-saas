@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
-import { approveInitiative, createInitiative, getInitiative } from "../handlers/initiative.handler";
+import {
+  approveInitiative,
+  createInitiative,
+  getInitiative,
+  updateInitiative,
+} from "../handlers/initiative.handler";
 import { createTask } from "../handlers/task.handler";
 
 async function makeAuthedWorkspace(displayName: string) {
@@ -24,6 +29,34 @@ describe("createInitiative", () => {
   it("rejects an initiative for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Initiative Test");
     await expect(createInitiative({ workspaceId: "999999999", title: "Orphan", authorization })).rejects.toThrow();
+  });
+
+  it("requires authentication before creating an initiative", async () => {
+    const { workspaceId } = await makeAuthedWorkspace("Unauthenticated Initiative Test");
+
+    await expect(
+      createInitiative({ workspaceId, title: "Unauthenticated write" })
+    ).rejects.toThrow();
+  });
+});
+
+describe("initiative approval transition", () => {
+  it("rejects approvalStatus changes through the general update endpoint", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Protected Initiative Approval");
+    const initiative = await createInitiative({
+      workspaceId,
+      title: "Approval must use governed command",
+      authorization,
+    });
+
+    await expect(
+      updateInitiative({
+        id: initiative.id,
+        workspaceId,
+        authorization,
+        approvalStatus: "APPROVED",
+      } as any)
+    ).rejects.toThrow();
   });
 });
 
@@ -57,4 +90,3 @@ describe("Task.initiativeId FK", () => {
     ).rejects.toThrow();
   });
 });
-

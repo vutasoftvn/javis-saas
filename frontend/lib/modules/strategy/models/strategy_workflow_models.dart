@@ -595,23 +595,32 @@ class WorkspaceStrategySettingsModel {
   }) : towsSelectionLimit = towsSelectionLimit ?? maxTowsSelections ?? 1;
 
   factory WorkspaceStrategySettingsModel.fromJson(Map<String, dynamic> json) {
-    final perspectivesRaw = (json['enabledBscPerspectives'] as List<dynamic>?) ?? [];
+    final perspectivesRaw =
+        (json['enabledBscPerspectives'] as List<dynamic>?) ?? [];
     final profilesRaw = (json['allowedAgentProfiles'] as List<dynamic>?) ?? [];
 
     return WorkspaceStrategySettingsModel(
       workspaceId: json['workspaceId']?.toString() ?? '',
-      strategyMethod: StrategyMethod.fromString(json['strategyMethod']?.toString()),
+      strategyMethod: StrategyMethod.fromString(
+        json['strategyMethod']?.toString(),
+      ),
       bscMode: BscMode.fromString(json['bscMode']?.toString()),
       enabledBscPerspectives: perspectivesRaw
           .map((p) => BscPerspective.fromString(p?.toString()))
           .where((p) => p != BscPerspective.unknown)
           .toList(),
-      towsSelectionLimit: json['towsSelectionLimit'] is int ? json['towsSelectionLimit'] as int : 1,
+      towsSelectionLimit: json['towsSelectionLimit'] is int
+          ? json['towsSelectionLimit'] as int
+          : 1,
       weeklyReviewEnabled: json['weeklyReviewEnabled'] == true,
-      midCycleReviewPolicy: MidCycleReviewPolicy.fromString(json['midCycleReviewPolicy']?.toString()),
+      midCycleReviewPolicy: MidCycleReviewPolicy.fromString(
+        json['midCycleReviewPolicy']?.toString(),
+      ),
       endCycleReviewEnabled: json['endCycleReviewEnabled'] != false,
       allowedAgentProfiles: profilesRaw.map((p) => p.toString()).toList(),
-      approvalPolicy: ApprovalPolicy.fromString(json['approvalPolicy']?.toString()),
+      approvalPolicy: ApprovalPolicy.fromString(
+        json['approvalPolicy']?.toString(),
+      ),
       revision: json['revision'] is int ? json['revision'] as int : 1,
       canEdit: json['canEdit'] != false,
       updatedByMemberId: json['updatedByMemberId']?.toString(),
@@ -624,7 +633,9 @@ class WorkspaceStrategySettingsModel {
       'workspaceId': workspaceId,
       'strategyMethod': strategyMethod.toApiString(),
       'bscMode': bscMode.toApiString(),
-      'enabledBscPerspectives': enabledBscPerspectives.map((p) => p.toApiString()).toList(),
+      'enabledBscPerspectives': enabledBscPerspectives
+          .map((p) => p.toApiString())
+          .toList(),
       'towsSelectionLimit': towsSelectionLimit,
       'weeklyReviewEnabled': weeklyReviewEnabled,
       'midCycleReviewPolicy': midCycleReviewPolicy.toApiString(),
@@ -658,7 +669,9 @@ class BscFocusScopeModel {
       strategicObjectiveId: json['strategicObjectiveId']?.toString() ?? '',
       perspective: BscPerspective.fromString(json['perspective']?.toString()),
       focusDescription: json['focusDescription']?.toString() ?? '',
-      weight: (json['weight'] is num) ? (json['weight'] as num).toDouble() : 1.0,
+      weight: (json['weight'] is num)
+          ? (json['weight'] as num).toDouble()
+          : 1.0,
     );
   }
 
@@ -835,7 +848,9 @@ class ResourceCapabilityAssessmentModel {
     required this.revision,
   });
 
-  factory ResourceCapabilityAssessmentModel.fromJson(Map<String, dynamic> json) {
+  factory ResourceCapabilityAssessmentModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
     final refsRaw = (json['evidenceRefs'] as List<dynamic>?) ?? [];
     final bscRaw = (json['bscPerspectives'] as List<dynamic>?) ?? [];
 
@@ -843,10 +858,19 @@ class ResourceCapabilityAssessmentModel {
       id: json['id']?.toString() ?? '',
       workspaceId: json['workspaceId']?.toString() ?? '',
       strategicObjectiveId: json['strategicObjectiveId']?.toString() ?? '',
-      category: ResourceCapabilityCategory.fromString(json['category']?.toString()),
+      category: ResourceCapabilityCategory.fromString(
+        json['category']?.toString(),
+      ),
       statement: json['statement']?.toString() ?? '',
-      maturityLevel: json['maturityLevel']?.toString() ?? 'BASIC',
-      isStrength: json['isStrength'] == true,
+      // The API models a capability as STRONG/ADEQUATE/WEAK. Retain the
+      // existing presentation fields while reading the canonical contract.
+      maturityLevel:
+          json['strengthLevel']?.toString() ??
+          json['maturityLevel']?.toString() ??
+          'ADEQUATE',
+      isStrength:
+          json['isStrength'] == true ||
+          json['strengthLevel']?.toString() == 'STRONG',
       evidenceRefs: refsRaw.map((e) => e.toString()).toList(),
       bscPerspectives: bscRaw
           .map((p) => BscPerspective.fromString(p?.toString()))
@@ -901,17 +925,26 @@ class SwotItemModel {
   factory SwotItemModel.fromJson(Map<String, dynamic> json) {
     final refsRaw = (json['evidenceRefs'] as List<dynamic>?) ?? [];
     final bscRaw = (json['bscPerspectives'] as List<dynamic>?) ?? [];
+    final sourceType = json['sourceType']?.toString();
+    final sourceId = json['sourceId']?.toString();
 
     return SwotItemModel(
       id: json['id']?.toString() ?? '',
       workspaceId: json['workspaceId']?.toString() ?? '',
       strategicObjectiveId: json['strategicObjectiveId']?.toString() ?? '',
       itemType: SwotItemType.fromString(
-        json['itemType']?.toString() ?? json['kind']?.toString() ?? json['category']?.toString(),
+        json['itemType']?.toString() ??
+            json['kind']?.toString() ??
+            json['category']?.toString(),
       ),
-      content: json['content']?.toString() ?? json['statement']?.toString() ?? '',
-      sourcePestelSignalId: json['sourcePestelSignalId']?.toString(),
-      sourceResourceCapabilityId: json['sourceResourceCapabilityId']?.toString(),
+      content:
+          json['content']?.toString() ?? json['statement']?.toString() ?? '',
+      sourcePestelSignalId:
+          json['sourcePestelSignalId']?.toString() ??
+          (sourceType == 'PESTEL_SIGNAL' ? sourceId : null),
+      sourceResourceCapabilityId:
+          json['sourceResourceCapabilityId']?.toString() ??
+          (sourceType == 'RESOURCE_CAPABILITY' ? sourceId : null),
       evidenceRefs: refsRaw.map((e) => e.toString()).toList(),
       bscPerspectives: bscRaw
           .map((p) => BscPerspective.fromString(p?.toString()))
@@ -976,9 +1009,14 @@ class TowsOptionModel {
   });
 
   factory TowsOptionModel.fromJson(Map<String, dynamic> json) {
-    final linksRaw = (json['swotLinkIds'] as List<dynamic>?) ??
+    final linksRaw =
+        (json['swotLinkIds'] as List<dynamic>?) ??
         (json['swotItemIds'] as List<dynamic>?) ??
         [];
+    final evaluations = (json['evaluations'] as List<dynamic>?) ?? const [];
+    final latestEvaluation = evaluations.isNotEmpty && evaluations.first is Map
+        ? Map<String, dynamic>.from(evaluations.first as Map)
+        : const <String, dynamic>{};
 
     return TowsOptionModel(
       id: json['id']?.toString() ?? '',
@@ -988,14 +1026,28 @@ class TowsOptionModel {
         json['optionType']?.toString() ?? json['quadrant']?.toString(),
       ),
       title: json['title']?.toString() ?? '',
-      description: json['description']?.toString() ?? json['rationale']?.toString(),
+      description:
+          json['description']?.toString() ?? json['rationale']?.toString(),
       swotLinkIds: linksRaw.map((l) => l.toString()).toList(),
       status: TowsOptionStatus.fromString(json['status']?.toString()),
-      rankingScore: (json['rankingScore'] is num) ? (json['rankingScore'] as num).toDouble() : null,
-      impactScore: (json['impactScore'] is num) ? (json['impactScore'] as num).toDouble() : null,
-      difficultyScore: (json['difficultyScore'] is num) ? (json['difficultyScore'] as num).toDouble() : null,
-      evaluationNotes: json['evaluationNotes']?.toString(),
-      evaluatedByMemberId: json['evaluatedByMemberId']?.toString(),
+      rankingScore: (json['priorityScore'] is num)
+          ? (json['priorityScore'] as num).toDouble()
+          : (json['rankingScore'] is num)
+          ? (json['rankingScore'] as num).toDouble()
+          : null,
+      impactScore: (json['impactScore'] is num)
+          ? (json['impactScore'] as num).toDouble()
+          : null,
+      difficultyScore: (json['difficultyScore'] is num)
+          ? (json['difficultyScore'] as num).toDouble()
+          : null,
+      evaluationNotes:
+          json['evaluationNotes']?.toString() ??
+          latestEvaluation['rationale']?.toString(),
+      evaluatedByMemberId:
+          json['scoredByMemberId']?.toString() ??
+          json['evaluatedByMemberId']?.toString() ??
+          latestEvaluation['scoredByMemberId']?.toString(),
       selectedAt: json['selectedAt']?.toString(),
       decisionId: json['decisionId']?.toString(),
       revision: json['revision'] is int ? json['revision'] as int : 1,
@@ -1093,7 +1145,8 @@ class InitiativeModel {
       ownerMemberId: json['ownerMemberId']?.toString(),
       approvedByMemberId: json['approvedByMemberId']?.toString(),
       approvedAt: json['approvedAt']?.toString(),
-      approvalReason: json['approvalReason']?.toString() ?? json['reason']?.toString(),
+      approvalReason:
+          json['approvalReason']?.toString() ?? json['reason']?.toString(),
       decisionId: json['decisionId']?.toString(),
       milestones: (json['milestones'] as List<dynamic>?) ?? const [],
       keyResultIds: krRaw.map((k) => k.toString()).toList(),
@@ -1179,7 +1232,8 @@ class CycleReviewModel {
     final status = CycleReviewStatus.fromString(json['status']?.toString());
     final canEditVal = json['canEdit'] is bool
         ? json['canEdit'] as bool
-        : (status != CycleReviewStatus.completed && status != CycleReviewStatus.superseded);
+        : (status != CycleReviewStatus.completed &&
+              status != CycleReviewStatus.superseded);
     final canCloseVal = json['canClose'] is bool
         ? json['canClose'] as bool
         : (status == CycleReviewStatus.inProgress);
@@ -1193,11 +1247,14 @@ class CycleReviewModel {
       projectId: json['projectId']?.toString(),
       cycleId: json['cycleId']?.toString() ?? '',
       kind: CycleReviewKind.fromString(json['kind']?.toString()),
-      scheduledWeekNo: json['scheduledWeekNo'] is int ? json['scheduledWeekNo'] as int : 1,
+      scheduledWeekNo: json['scheduledWeekNo'] is int
+          ? json['scheduledWeekNo'] as int
+          : 1,
       scheduledAt: json['scheduledAt']?.toString(),
       status: status,
       krSnapshots: (json['krSnapshots'] as List<dynamic>?) ?? const [],
-      initiativeSnapshots: (json['initiativeSnapshots'] as List<dynamic>?) ?? const [],
+      initiativeSnapshots:
+          (json['initiativeSnapshots'] as List<dynamic>?) ?? const [],
       pestelSnapshots: (json['pestelSnapshots'] as List<dynamic>?) ?? const [],
       decisionId: json['decisionId']?.toString(),
       conclusion: json['conclusion']?.toString(),
@@ -1236,4 +1293,3 @@ class CycleReviewModel {
     };
   }
 }
-
