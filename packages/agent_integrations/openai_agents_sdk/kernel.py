@@ -456,7 +456,9 @@ class RealOpenAIAgentsSDKKernel:
                     if isinstance(ctx_data, (dict, list))
                     else str(ctx_data)
                 )
-                prompt_content = f"{prompt}\n\n--- CONTEXT (provenance: verified_gateway) ---\n{ctx_str}"
+                prompt_content = (
+                    f"{prompt}\n\n--- CONTEXT (provenance: verified_gateway) ---\n{ctx_str}"
+                )
             elif prompt:
                 prompt_content = prompt
             elif ctx_data:

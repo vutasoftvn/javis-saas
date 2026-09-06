@@ -7,7 +7,6 @@ into a deterministic, truthful business outcome: completed, failed, waiting_appr
 from __future__ import annotations
 
 from typing import Any
-from agent.contracts.run import RunStatus
 
 
 def normalize_status(status: Any) -> str:

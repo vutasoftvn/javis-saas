@@ -89,7 +89,9 @@ def create_knowledge_profile_read_handler(
         include_untrusted = bool(args.get("include_untrusted", False))
 
         if snapshot_repo is None:
-            logger.warning("KnowledgeSnapshotRepository chưa được inject cho knowledge.profile.read")
+            logger.warning(
+                "KnowledgeSnapshotRepository chưa được inject cho knowledge.profile.read"
+            )
             return {
                 "workspace_id": workspace_id,
                 "profile_id": profile_id,
@@ -169,21 +171,26 @@ def create_knowledge_profile_read_handler(
             s_pub = ref.get("published_at") or ref.get("publishedAt")
             s_fresh = ref.get("fresh_until") or ref.get("freshUntil")
             s_trust = str(ref.get("trust", "T0"))
-            is_untrusted = bool(ref.get("untrusted", False)) or s_trust in ("untrusted", "T_UNTRUSTED")
+            is_untrusted = bool(ref.get("untrusted", False)) or s_trust in (
+                "untrusted",
+                "T_UNTRUSTED",
+            )
 
             # Nếu untrusted và caller KHÔNG cho phép include_untrusted -> bỏ qua
             if is_untrusted and not include_untrusted:
                 continue
 
-            sections.append({
-                "sourceId": s_id,
-                "version": s_ver,
-                "publishedAt": s_pub,
-                "freshUntil": s_fresh,
-                "trust": s_trust,
-                "untrusted": is_untrusted,  # Giữ nguyên giá trị untrusted thật
-                "content": ref.get("content", {}),
-            })
+            sections.append(
+                {
+                    "sourceId": s_id,
+                    "version": s_ver,
+                    "publishedAt": s_pub,
+                    "freshUntil": s_fresh,
+                    "trust": s_trust,
+                    "untrusted": is_untrusted,  # Giữ nguyên giá trị untrusted thật
+                    "content": ref.get("content", {}),
+                }
+            )
 
         # 7. Nếu không có sections nào -> EMPTY
         if not sections:

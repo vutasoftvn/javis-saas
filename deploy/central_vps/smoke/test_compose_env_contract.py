@@ -40,3 +40,18 @@ def test_observability_pipeline_in_compose():
     worker_env = dict(doc["services"]["cosa-worker"]["environment"])
     assert worker_env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://otel-collector:4318"
 
+
+def test_local_session_secret_reaches_issuer_and_verifiers():
+    for service in ("services-company", "cosa-api", "cosa-worker"):
+        assert "${JWT_SECRET:?" in _env(service)["JWT_SECRET"]
+
+
+def test_control_delegation_secret_reaches_signers_and_verifier():
+    for service in ("services-cosa", "cosa-api", "cosa-worker"):
+        assert "${COSA_CONTROL_DELEGATION_SECRET:?" in _env(service)[
+            "COSA_CONTROL_DELEGATION_SECRET"
+        ]
+
+
+def test_company_membership_rpc_uses_container_control_plane():
+    assert _env("services-company")["PLATFORM_API_BASE_URL"] == "http://services-cosa:4001"

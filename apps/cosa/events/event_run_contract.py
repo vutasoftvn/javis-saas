@@ -7,6 +7,7 @@ control plane scheduler, and worker execution plane.
 from __future__ import annotations
 
 from typing import Any, Literal
+
 import fastuuid
 from pydantic import BaseModel, ConfigDict
 
@@ -145,9 +146,12 @@ def adapt_event_task_payload(
     if not agg_id and isinstance(payload.get("aggregate_ref"), dict):
         agg_id = payload["aggregate_ref"].get("id")
 
-    if agg_type in ("engagement.thread", "engagement_thread", "thread") and agg_id:
-        if "thread_ref" not in adapted:
-            adapted["thread_ref"] = {"thread_id": agg_id}
+    if (
+        agg_type in ("engagement.thread", "engagement_thread", "thread")
+        and agg_id
+        and "thread_ref" not in adapted
+    ):
+        adapted["thread_ref"] = {"thread_id": agg_id}
 
     if "principal" not in adapted:
         adapted["principal"] = f"system:{agent_profile}:{workspace_id}"

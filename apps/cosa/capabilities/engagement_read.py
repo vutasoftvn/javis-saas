@@ -58,9 +58,7 @@ def create_engagement_thread_read_handler(
 def _resolve_token(ctx: Any) -> str | None:
     if isinstance(ctx, dict):
         return (
-            ctx.get("delegation_token")
-            or ctx.get("company_delegation_token")
-            or ctx.get("token")
+            ctx.get("delegation_token") or ctx.get("company_delegation_token") or ctx.get("token")
         )
     return getattr(ctx, "delegation_token", None) or getattr(ctx, "token", None)
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import inspect
 import logging
 import re
@@ -392,9 +391,8 @@ async def run_customer_support_copilot(
                             artifact_persisted = retrieved is not None
                         elif callable(get_fn):
                             res = get_fn(workspace_id, artifact_ref)
-                            if inspect.isawaitable(res):
-                                res = await res
-                            artifact_persisted = res is not None
+                            resolved_artifact = await res if inspect.isawaitable(res) else res
+                            artifact_persisted = resolved_artifact is not None
                         else:
                             # Có thuộc tính "get" nhưng không callable — không
                             # thể xác minh đã persist, fail-closed.

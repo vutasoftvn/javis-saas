@@ -164,6 +164,55 @@ describe("POST /api/early-access", () => {
     expect(json.accessCode).toBe(existingRegistration.accessCode);
   });
 
+  it("keeps a duplicate simulated registration explicitly simulated", async () => {
+    vi.useFakeTimers();
+    vi.mocked(store.findByEmail).mockResolvedValue({ ...existingRegistration, emailDeliveryStatus: "simulated" });
+    const responsePromise = post(JSON.stringify(validBody));
+    await vi.advanceTimersByTimeAsync(10_000);
+    const response = await responsePromise;
+    expect(await response.json()).toMatchObject({ success: false, simulated: true });
+    expect(sendEarlyAccessEmails).not.toHaveBeenCalled();
+  });
+
+  it("does not send a new registration when another request already owns its delivery", async () => {
+    vi.mocked(store.claimEmailAttempt).mockResolvedValue(false);
+    const response = await post(JSON.stringify(validBody));
+    expect(response.status).toBe(202);
+    expect(sendEarlyAccessEmails).not.toHaveBeenCalled();
+  });
+
+  it("sends once when a duplicate arrives during the initial provider call", async () => {
+    const { InMemoryEarlyAccessStore } = await vi.importActual<typeof import("@/lib/early-access-store")>("@/lib/early-access-store");
+    const realStore = new InMemoryEarlyAccessStore();
+    vi.mocked(store.findByEmail).mockImplementation(realStore.findByEmail.bind(realStore));
+    vi.mocked(store.create).mockImplementation(realStore.create.bind(realStore));
+    vi.mocked(store.claimEmailAttempt).mockImplementation(realStore.claimEmailAttempt.bind(realStore));
+    vi.mocked(store.markEmailQueued).mockImplementation(realStore.markEmailQueued.bind(realStore));
+
+    let signalStarted!: () => void;
+    let releaseProvider!: () => void;
+    const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+    const pending = new Promise<void>((resolve) => { releaseProvider = resolve; });
+    vi.mocked(sendEarlyAccessEmails).mockImplementation(async () => {
+      signalStarted();
+      await pending;
+      return { userEmailSent: true, adminEmailSent: true, providerMessageId: "msg-concurrent" };
+    });
+
+    const first = post(JSON.stringify(validBody));
+    await started;
+    const second = post(JSON.stringify(validBody));
+    // Cho request thứ hai đi tới claim; giải phóng provider để test luôn kết thúc
+    // kể cả khi code cũ gửi trùng và cả hai request cùng chờ provider.
+    await vi.waitFor(() => expect(store.findByEmail).toHaveBeenCalledTimes(2));
+    releaseProvider();
+    const [firstResponse, secondResponse] = await Promise.all([first, second]);
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(202);
+    expect(sendEarlyAccessEmails).toHaveBeenCalledTimes(1);
+    expect((await realStore.findByEmail(validBody.email))?.emailDeliveryStatus).toBe("queued");
+  });
+
   it("pads the response latency for an already-queued duplicate so it isn't trivially faster than a fresh registration", async () => {
     // Bằng chứng cho fix Important #2: nhánh duplicate (queued/simulated)
     // KHÔNG được resolve ngay lập tức — nếu không có độ trễ giả lập, promise

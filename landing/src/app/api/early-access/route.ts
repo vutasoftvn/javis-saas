@@ -185,10 +185,13 @@ export async function POST(req: NextRequest) {
     if (existing) {
       if (existing.emailDeliveryStatus === "queued" || existing.emailDeliveryStatus === "simulated") {
         await padDuplicateResponseLatency();
+        if (existing.emailDeliveryStatus === "simulated") {
+          return simulatedResponse(existing.accessCode);
+        }
         return successResponse(existing.accessCode, {
-          simulated: existing.emailDeliveryStatus === "simulated",
-          userEmailSent: existing.emailDeliveryStatus === "queued",
-          adminEmailSent: existing.emailDeliveryStatus === "queued",
+          simulated: false,
+          userEmailSent: true,
+          adminEmailSent: true,
         });
       }
 
@@ -292,6 +295,15 @@ export async function POST(req: NextRequest) {
       // isEarlyAccessEmailSimulated() chỉ đọc cấu hình env đồng bộ.
       emailDeliveryStatus: simulated ? "simulated" : "pending",
     });
+
+    // Lần gửi đầu cũng phải claim: request trùng có thể tới ngay sau create,
+    // trong khi provider chưa trả về và bản ghi vẫn đang pending.
+    if (!simulated && !(await earlyAccessStore.claimEmailAttempt(registration.id))) {
+      return NextResponse.json(
+        { success: false, error: CONCURRENT_ATTEMPT_ERROR },
+        { status: 202 }
+      );
+    }
 
     const emailResult = await sendEarlyAccessEmails({
       fullName: registration.fullName,

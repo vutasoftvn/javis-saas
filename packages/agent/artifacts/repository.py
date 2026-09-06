@@ -82,8 +82,7 @@ class InMemoryArtifactRepository:
             results = [
                 a.model_copy(deep=True)
                 for a in self._artifacts.values()
-                if a.workspace_id == workspace_id
-                and (include_archived or a.status != "archived")
+                if a.workspace_id == workspace_id and (include_archived or a.status != "archived")
             ]
             results.sort(key=lambda x: x.created_at, reverse=True)
             return results[:limit]
