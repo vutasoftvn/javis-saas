@@ -159,6 +159,30 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
     expect(updatedKr!.currentValue).toBe(75);
   });
 
+  it("rejects a garbage-suffixed numeric string instead of silently truncating it (IA27)", async () => {
+    const { workspaceId, krId } = await seedOkrFixture();
+    const ctx = {
+      workspaceId,
+      userId: "1",
+      membershipRole: "founder",
+      permissions: [],
+      correlationId: "obs-garbage",
+    };
+
+    // parseFloat("12junk") === 12 — trước đây được chấp nhận âm thầm.
+    await expect(
+      recordKrObservation(ctx, {
+        krId,
+        value: "12junk",
+        measurementAt: "2026-09-07T10:00:00Z",
+      })
+    ).rejects.toThrow(/Invalid numeric observation value/);
+
+    // KR không bị đổi bởi observation rác đã bị từ chối.
+    const [kr] = await db.select().from(keyResults).where(eq(keyResults.id, BigInt(krId)));
+    expect(kr!.currentValue).toBe(100);
+  });
+
   it("does not roll back currentValue on late-arriving observation", async () => {
     const { workspaceId, krId } = await seedOkrFixture();
     const ctx = {

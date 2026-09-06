@@ -46,7 +46,20 @@ export async function recordKrObservation(
   const wsId = BigInt(ctx.workspaceId);
   const krIdBig = BigInt(input.krId);
 
-  const numVal = typeof input.value === "string" ? parseFloat(input.value) : input.value;
+  // IA27: parseFloat() chỉ đọc phần số ở ĐẦU chuỗi rồi bỏ qua phần còn lại —
+  // parseFloat("12junk") = 12 thay vì bị từ chối. Validate strict bằng regex
+  // (cùng pattern parseDecimalToMoney đã dùng cho Money) trước khi convert
+  // sang number, để observation rác không bị âm thầm nhận một phần giá trị.
+  let numVal: number;
+  if (typeof input.value === "string") {
+    const trimmed = input.value.trim();
+    if (!/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      throw APIError.invalidArgument(`Invalid numeric observation value: ${input.value}`);
+    }
+    numVal = Number(trimmed);
+  } else {
+    numVal = input.value;
+  }
   if (!Number.isFinite(numVal)) {
     throw APIError.invalidArgument(`Invalid numeric observation value: ${input.value}`);
   }
