@@ -6,9 +6,11 @@ import { requireFounderCommand } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { computeCanonicalSha256 } from "./compliance/canonical-hasher";
 import { listBookEntriesService } from "./accounting-books.service";
+import { getAccountingPolicyService } from "./accounting-policy.service";
 import {
   classifyBookEntry,
   computeMappingDefinitionHash,
+  DerivedLineKind,
   LedgerBucket,
   RegimeMapping,
   TT58_2026_MAPPING,
@@ -26,22 +28,38 @@ const {
  * cùng pattern SpecResolver/skillpack registry đã dùng cho AgentSpec (không
  * tin trực tiếp object TS đang import). Idempotent: chỉ ghi lại khi hash
  * đổi (nội dung mapping trong code thay đổi).
+ *
+ * Kiểm tra không chỉ definitionHash mà cả số dòng đã persist khớp
+ * `derivedKind` mong đợi — hash tính từ `mapping.lines` trong code nên
+ * không tự phát hiện được một bug insert cũ (thiếu ghi cột derived_kind)
+ * từng làm dữ liệu persisted lệch khỏi mapping dù hash so khớp; chỉ so
+ * hash sẽ khiến registry "trông như mới" trong khi rows cũ thực ra thiếu
+ * cột, gây lỗi "missing ledger bucket" khi generateReportService đọc lại.
  */
 export async function ensureMappingSeeded(mapping: RegimeMapping = TT58_2026_MAPPING): Promise<void> {
   const definitionHash = computeMappingDefinitionHash(mapping);
 
   const existing = await db
-    .select({ definitionHash: accountingReportMappings.definitionHash })
+    .select({
+      definitionHash: accountingReportMappings.definitionHash,
+      derivedKind: accountingReportMappings.derivedKind,
+    })
     .from(accountingReportMappings)
     .where(
       and(
         eq(accountingReportMappings.regimeCode, mapping.regimeCode),
         eq(accountingReportMappings.mappingVersion, mapping.mappingVersion)
       )
-    )
-    .limit(1);
+    );
 
-  if (existing[0]?.definitionHash === definitionHash) {
+  const expectedDerivedCount = mapping.lines.filter((line) => line.derivedKind).length;
+  const actualDerivedCount = existing.filter((row) => row.derivedKind != null).length;
+  const isFresh =
+    existing.length === mapping.lines.length &&
+    existing.every((row) => row.definitionHash === definitionHash) &&
+    actualDerivedCount === expectedDerivedCount;
+
+  if (isFresh) {
     return;
   }
 
@@ -67,6 +85,7 @@ export async function ensureMappingSeeded(mapping: RegimeMapping = TT58_2026_MAP
         sourceRef: line.sourceRef,
         ruleType: line.ruleType,
         bucket: line.bucket,
+        derivedKind: line.derivedKind ?? null,
         sign: line.sign,
         rounding: line.rounding,
         definitionHash,
@@ -94,7 +113,10 @@ export function requireReportMappingBucket(bucket: string | null): LedgerBucket 
     case "loan":
     case "advance":
     case "capital":
-    case "profit":
+    case "revenue":
+    case "cogs":
+    case "opex":
+    case "inventory":
       return bucket;
     case null:
       throw APIError.failedPrecondition("report mapping line is missing ledger bucket");
@@ -121,6 +143,48 @@ export function computeReportStatus(input: ReportStatusInput): ReportStatusResul
     status: issues.length === 0 ? "VERIFIED" : "INCOMPLETE",
     issues,
   };
+}
+
+export interface DerivedLineResult {
+  amountMinor: bigint;
+  issue?: string;
+}
+
+/**
+ * 3 công thức derived cố định cho B01/B02 — không xây formula-engine tổng
+ * quát (YAGNI). Thuế TNDN không bao giờ âm (lỗ -> thuế = 0). Khi tax rate
+ * chưa cấu hình, trả issue rõ ràng thay vì giả định thuế suất bất kỳ.
+ */
+export function computeDerivedLine(
+  kind: DerivedLineKind,
+  bucketTotals: Map<LedgerBucket, bigint>,
+  taxRateBps: number | null
+): DerivedLineResult {
+  const revenue = bucketTotals.get("revenue") ?? 0n;
+  const cogs = bucketTotals.get("cogs") ?? 0n;
+  const opex = bucketTotals.get("opex") ?? 0n;
+  const grossProfit = revenue - cogs;
+
+  if (kind === "gross_profit") {
+    return { amountMinor: grossProfit };
+  }
+
+  const preTax = grossProfit - opex;
+  const base = preTax > 0n ? preTax : 0n;
+
+  if (kind === "corporate_income_tax") {
+    if (taxRateBps == null) {
+      return { amountMinor: 0n, issue: "corporate_income_tax_rate_not_configured" };
+    }
+    return { amountMinor: (base * BigInt(taxRateBps)) / 10000n };
+  }
+
+  // net_profit_after_tax
+  if (taxRateBps == null) {
+    return { amountMinor: preTax, issue: "corporate_income_tax_rate_not_configured" };
+  }
+  const tax = (base * BigInt(taxRateBps)) / 10000n;
+  return { amountMinor: preTax - tax };
 }
 
 export interface ReportLineView {
@@ -229,20 +293,35 @@ export async function generateReportService(
     }
   }
 
-  const reportMappingLines = mappingLines.map((row) => ({
-    ...row,
-    bucket: requireReportMappingBucket(row.bucket),
-  }));
+  const policy = await getAccountingPolicyService(ctx, input.legalEntityId);
+  const taxRateBps = policy?.corporateIncomeTaxRateBps ?? null;
 
-  const lines: ReportLineView[] = reportMappingLines.map((row) => ({
-    lineCode: row.lineCode,
-    officialCode: row.officialCode,
-    name: row.name,
-    sourceRef: row.sourceRef,
-    amountMinor: String((bucketTotals.get(row.bucket) ?? 0n) * BigInt(row.sign)),
-  }));
+  const derivedIssues = new Set<string>();
+  const lines: ReportLineView[] = mappingLines.map((row) => {
+    if (row.derivedKind) {
+      const result = computeDerivedLine(row.derivedKind as DerivedLineKind, bucketTotals, taxRateBps);
+      if (result.issue) derivedIssues.add(result.issue);
+      return {
+        lineCode: row.lineCode,
+        officialCode: row.officialCode,
+        name: row.name,
+        sourceRef: row.sourceRef,
+        amountMinor: String(result.amountMinor * BigInt(row.sign)),
+      };
+    }
+    const bucket = requireReportMappingBucket(row.bucket);
+    return {
+      lineCode: row.lineCode,
+      officialCode: row.officialCode,
+      name: row.name,
+      sourceRef: row.sourceRef,
+      amountMinor: String((bucketTotals.get(bucket) ?? 0n) * BigInt(row.sign)),
+    };
+  });
 
-  const requiredBuckets = reportMappingLines.map((row) => row.bucket);
+  const requiredBuckets = mappingLines
+    .filter((row) => !row.derivedKind)
+    .map((row) => requireReportMappingBucket(row.bucket));
   const coveredBuckets = requiredBuckets.filter((bucket) => bucketTotals.has(bucket));
 
   const { status, issues } = computeReportStatus({
@@ -250,6 +329,8 @@ export async function generateReportService(
     coveredBuckets,
     mappingConfirmed: Boolean(confirmation),
   });
+  for (const issue of derivedIssues) issues.push(issue);
+  const finalStatus = issues.length === 0 ? status : "INCOMPLETE";
 
   const inputWatermark = computeCanonicalSha256({
     mappingVersion: mapping.mappingVersion,
@@ -269,7 +350,7 @@ export async function generateReportService(
       mappingVersion: mapping.mappingVersion,
       inputWatermark,
       lines,
-      status,
+      status: finalStatus,
       issues,
     })
     .returning();

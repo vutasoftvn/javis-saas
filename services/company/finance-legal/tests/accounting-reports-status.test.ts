@@ -15,9 +15,22 @@ describe("accounting-reports.service — computeReportStatus", () => {
     expect(requireReportMappingBucket("cash")).toBe("cash");
   });
 
+  it("rejects the old 'profit' bucket literal — no longer valid after the F6b bucket split", () => {
+    expect(() => requireReportMappingBucket("profit")).toThrow(
+      /invalid ledger bucket/i
+    );
+  });
+
+  it("preserves each of the new post-split buckets", () => {
+    expect(requireReportMappingBucket("revenue")).toBe("revenue");
+    expect(requireReportMappingBucket("cogs")).toBe("cogs");
+    expect(requireReportMappingBucket("opex")).toBe("opex");
+    expect(requireReportMappingBucket("inventory")).toBe("inventory");
+  });
+
   it("is INCOMPLETE when a required bucket has no covering line", () => {
     const result = computeReportStatus({
-      requiredBuckets: ["cash", "receivable", "loan", "capital", "profit"],
+      requiredBuckets: ["cash", "receivable", "loan", "capital", "revenue"],
       coveredBuckets: ["cash", "receivable"],
       mappingConfirmed: true,
     });

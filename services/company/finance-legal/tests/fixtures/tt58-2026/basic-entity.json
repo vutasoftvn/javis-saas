@@ -5,7 +5,7 @@
     { "item": "Vay ngân hàng", "category": "loan", "amountMinor": "20000000", "effectiveDate": "2026-02-02" },
     { "item": "Doanh thu dịch vụ hoàn tất", "category": "revenue", "amountMinor": "10000000", "effectiveDate": "2026-03-01" },
     { "item": "Thu tiền dịch vụ (một phần)", "category": "receivable", "amountMinor": "6000000", "effectiveDate": "2026-03-10" },
-    { "item": "Chi phí dịch vụ mua đã nhận", "category": "cost", "amountMinor": "2000000", "effectiveDate": "2026-03-05" },
+    { "item": "Chi phí dịch vụ mua đã nhận", "category": "opex", "amountMinor": "2000000", "effectiveDate": "2026-03-05" },
     { "item": "Trả tiền chi phí đã nhận", "category": "payable", "amountMinor": "2000000", "effectiveDate": "2026-03-06" }
   ],
   "expected": {
