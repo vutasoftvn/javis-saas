@@ -10,10 +10,26 @@ export const initiatives = strategySchema.table("initiatives", {
   title: text("title").notNull(),
   status: text("status").default("active").notNull(),
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
+  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" }),
+  sourceTowsOptionId: bigint("source_tows_option_id", { mode: "bigint" }),
+  description: text("description"),
+  intendedOutcome: text("intended_outcome"),
+  startDate: timestamp("start_date", { withTimezone: true }),
+  targetDate: timestamp("target_date", { withTimezone: true }),
+  milestones: jsonb("milestones").default([]).notNull(),
+  approvalStatus: text("approval_status").default("DRAFT").notNull(), // DRAFT | PENDING_APPROVAL | APPROVED | REJECTED | CLOSED
+  approvedByMemberId: bigint("approved_by_member_id", { mode: "bigint" }),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  decisionId: bigint("decision_id", { mode: "bigint" }),
+  settingsRevision: integer("settings_revision"),
+  revision: integer("revision").default(1).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
+}, (t) => ({
+  uixIdWorkspace: uniqueIndex("uix_initiatives_id_workspace").on(t.id, t.workspaceId),
+}));
+
 
 export const tasks = operatingSchema.table("tasks", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
@@ -84,10 +100,13 @@ export const okrObjectives = strategySchema.table("okr_objectives", {
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => okrCycles.id, { onDelete: "cascade" }),
   strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" }),
+  towsOptionId: bigint("tows_option_id", { mode: "bigint" }),
   title: text("title").notNull(),
   why: text("why"),
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
   status: text("status").default("draft").notNull(),
+  publishedByMemberId: bigint("published_by_member_id", { mode: "bigint" }),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -114,7 +133,10 @@ export const keyResults = strategySchema.table("key_results", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
+}, (t) => ({
+  uixIdWorkspace: uniqueIndex("uix_key_results_id_workspace").on(t.id, t.workspaceId),
+}));
+
 
 export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
@@ -215,6 +237,16 @@ export const commitmentKeyResults = operatingSchema.table("commitment_key_result
 }, (t) => ({
   pk: primaryKey({ columns: [t.workspaceId, t.commitmentId, t.keyResultId] }),
 }));
+
+export const initiativeKeyResults = strategySchema.table("initiative_key_results", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  initiativeId: bigint("initiative_id", { mode: "bigint" }).notNull().references(() => initiatives.id, { onDelete: "cascade" }),
+  keyResultId: bigint("key_result_id", { mode: "bigint" }).notNull().references(() => keyResults.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.workspaceId, t.initiativeId, t.keyResultId] }),
+}));
+
 
 export const krObservations = operatingSchema.table("kr_observations", {
   id: uuid("id").primaryKey().defaultRandom(),

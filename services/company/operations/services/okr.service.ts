@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
@@ -7,8 +7,9 @@ import { computeKeyResultProgress, computeObjectiveScore, KrScoringType } from "
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { mvpList, mvpItem, MvpSuccess } from "../../shared/contracts/mvp-response";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { requireStrategyGovernanceAuthority } from "../strategy/services/strategy-governance-authorization.service";
 
-const { okrCycles, okrObjectives, keyResults } = schema;
+const { okrCycles, okrObjectives, keyResults, strategicObjectives, towsOptions } = schema;
 
 export interface OkrCycle {
   id: string;
@@ -28,10 +29,14 @@ export interface Objective {
   id: string;
   workspaceId: string;
   cycleId: string;
+  strategicObjectiveId?: string | null;
+  towsOptionId?: string | null;
   title: string;
   why: string | null;
   ownerMemberId: string | null;
   status: string;
+  publishedByMemberId?: string | null;
+  publishedAt?: string | null;
   projectIds: string[];
   createdAt: string;
 }
@@ -42,8 +47,15 @@ export interface CreateObjectiveParams {
   title: string;
   why?: string;
   ownerMemberId?: string;
+  strategicObjectiveId?: string;
+  towsOptionId?: string;
   authorization?: string;
 }
+
+export interface PublishObjectiveParams {
+  id: string;
+}
+
 
 export interface KeyResult {
   id: string;
@@ -107,10 +119,14 @@ function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
     cycleId: row.cycleId.toString(),
+    strategicObjectiveId: row.strategicObjectiveId ? row.strategicObjectiveId.toString() : null,
+    towsOptionId: row.towsOptionId ? row.towsOptionId.toString() : null,
     title: row.title,
     why: row.why,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     status: row.status,
+    publishedByMemberId: row.publishedByMemberId ? row.publishedByMemberId.toString() : null,
+    publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
     projectIds,
     createdAt: row.createdAt.toISOString(),
   };
@@ -141,12 +157,70 @@ export async function createOkrCycleService(params: CreateOkrCycleParams): Promi
 export async function createObjectiveService(params: CreateObjectiveParams): Promise<Objective> {
   await requireWorkspaceAccess(params.authorization, params.workspaceId);
   await getWorkspace({ id: params.workspaceId });
+
+  const wsId = BigInt(params.workspaceId);
+  const cycleId = BigInt(params.cycleId);
+
+  // Validate cycle belongs to workspace
+  const [cycle] = await db
+    .select()
+    .from(okrCycles)
+    .where(and(eq(okrCycles.id, cycleId), eq(okrCycles.workspaceId, wsId)))
+    .limit(1);
+
+  if (!cycle) {
+    throw APIError.notFound(`OKR cycle ${params.cycleId} not found in workspace`);
+  }
+
+  let stratObjId: bigint | null = null;
+  let towsOptId: bigint | null = null;
+
+  if (params.strategicObjectiveId) {
+    stratObjId = BigInt(params.strategicObjectiveId);
+    const [stratObj] = await db
+      .select()
+      .from(strategicObjectives)
+      .where(and(eq(strategicObjectives.id, stratObjId), eq(strategicObjectives.workspaceId, wsId)))
+      .limit(1);
+
+    if (!stratObj) {
+      throw APIError.notFound(`Strategic objective ${params.strategicObjectiveId} not found in workspace`);
+    }
+
+    if (!params.towsOptionId) {
+      throw APIError.invalidArgument("towsOptionId is required when strategicObjectiveId is provided");
+    }
+
+    towsOptId = BigInt(params.towsOptionId);
+    const [towsOpt] = await db
+      .select()
+      .from(towsOptions)
+      .where(and(eq(towsOptions.id, towsOptId), eq(towsOptions.workspaceId, wsId)))
+      .limit(1);
+
+    if (!towsOpt) {
+      throw APIError.notFound(`TOWS option ${params.towsOptionId} not found in workspace`);
+    }
+
+    if (towsOpt.strategicObjectiveId !== stratObjId) {
+      throw APIError.invalidArgument("TOWS option does not belong to specified strategic objective");
+    }
+
+    if (towsOpt.status !== "SELECTED") {
+      throw APIError.failedPrecondition(
+        `TOWS option must be SELECTED to create a strategic OKR objective (current status: ${towsOpt.status})`
+      );
+    }
+  }
+
   const [row] = await db
     .insert(okrObjectives)
     .values({
       id: generateSnowflake(),
-      workspaceId: BigInt(params.workspaceId),
-      cycleId: BigInt(params.cycleId),
+      workspaceId: wsId,
+      cycleId,
+      strategicObjectiveId: stratObjId,
+      towsOptionId: towsOptId,
       title: params.title,
       why: params.why || null,
       ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
@@ -156,6 +230,89 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
   if (!row) throw APIError.internal("failed to create objective");
   return toObjective(row);
 }
+
+export async function publishObjectiveService(
+  params: PublishObjectiveParams,
+  ctx: TenantContext
+): Promise<Objective> {
+  const wsId = BigInt(ctx.workspaceId);
+  const objId = BigInt(params.id);
+
+  // Require governance authority strategy.okr.publish
+  await requireStrategyGovernanceAuthority(ctx, "strategy.okr.publish", {
+    workspaceId: ctx.workspaceId,
+  });
+
+  const [obj] = await db
+    .select()
+    .from(okrObjectives)
+    .where(and(eq(okrObjectives.id, objId), eq(okrObjectives.workspaceId, wsId)))
+    .limit(1);
+
+  if (!obj) {
+    throw APIError.notFound(`Objective ${params.id} not found in workspace`);
+  }
+
+  const krs = await db
+    .select()
+    .from(keyResults)
+    .where(
+      and(
+        eq(keyResults.objectiveId, objId),
+        eq(keyResults.workspaceId, wsId),
+        isNull(keyResults.deletedAt)
+      )
+    );
+
+  if (krs.length < 1 || krs.length > 3) {
+    throw APIError.failedPrecondition(
+      `Objective must have between 1 and 3 Key Results to be published (found ${krs.length})`
+    );
+  }
+
+  for (const kr of krs) {
+    if (!kr.title || kr.title.trim().length === 0) {
+      throw APIError.failedPrecondition(`Key Result ${kr.id} must have a non-empty title`);
+    }
+    if (kr.targetValue === null || kr.targetValue === undefined || Number.isNaN(kr.targetValue)) {
+      throw APIError.failedPrecondition(`Key Result '${kr.title}' must have a valid targetValue`);
+    }
+    if (kr.currentValue === null || kr.currentValue === undefined || Number.isNaN(kr.currentValue)) {
+      throw APIError.failedPrecondition(`Key Result '${kr.title}' must have a valid currentValue`);
+    }
+    if (kr.baselineValue === null || kr.baselineValue === undefined || Number.isNaN(kr.baselineValue)) {
+      throw APIError.failedPrecondition(`Key Result '${kr.title}' must have a valid baselineValue`);
+    }
+    if (!kr.unit || kr.unit.trim().length === 0) {
+      throw APIError.failedPrecondition(`Key Result '${kr.title}' must have a valid unit`);
+    }
+    if (!kr.scoringType || kr.scoringType.trim().length === 0) {
+      throw APIError.failedPrecondition(`Key Result '${kr.title}' must have a valid scoringType contract`);
+    }
+  }
+
+  const publisherId = ctx.workforceMemberId
+    ? BigInt(ctx.workforceMemberId)
+    : ctx.userId
+    ? BigInt(ctx.userId)
+    : null;
+
+  const [updated] = await db
+    .update(okrObjectives)
+    .set({
+      status: "published",
+      publishedByMemberId: publisherId,
+      publishedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(okrObjectives.id, objId))
+    .returning();
+
+  const { listObjectiveProjects } = await import("./project-link.service");
+  const pIds = await listObjectiveProjects(ctx, updated.id.toString());
+  return toObjective(updated, pIds);
+}
+
 
 export async function addKeyResultService(params: AddKeyResultParams): Promise<KeyResult> {
   const [objective] = await db

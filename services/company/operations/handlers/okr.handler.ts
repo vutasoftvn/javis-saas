@@ -16,11 +16,14 @@ import {
   listOkrCyclesService,
   listObjectivesService,
   deleteObjectiveService,
+  publishObjectiveService,
+  PublishObjectiveParams,
 } from "../services/okr.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { linkObjectiveProjects, listObjectiveProjects, unlinkObjectiveProject } from "../services/project-link.service";
 
-export { OkrCycle, CreateOkrCycleParams, Objective, CreateObjectiveParams, KeyResult, AddKeyResultParams };
+export { OkrCycle, CreateOkrCycleParams, Objective, CreateObjectiveParams, KeyResult, AddKeyResultParams, PublishObjectiveParams };
+
 
 // M1 §4 — các endpoint OKR create/checkin trước đây không xác thực caller.
 type WithAuth<T> = Omit<T, "authorization"> & { authorization?: Header<"Authorization"> };
@@ -193,3 +196,20 @@ export const unlinkObjectiveProject_Endpoint = api(
     return { success: true };
   }
 );
+
+export const publishObjective = api(
+  { method: "POST", path: "/operations/objectives/:id/publish", expose: true },
+  async ({
+    id,
+    authorization,
+    workspaceId,
+  }: {
+    id: string;
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+  }): Promise<Objective> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return publishObjectiveService({ id }, ctx);
+  }
+);
+
