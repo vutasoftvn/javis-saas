@@ -84,7 +84,8 @@ export async function computeProjectBudgetPosition(
       and(
         eq(paymentRequests.workspaceId, wsId),
         eq(paymentRequests.projectId, projectId),
-        eq(paymentRequests.currency, params.currency)
+        eq(paymentRequests.currency, params.currency),
+        isNull(paymentRequests.deletedAt)
       )
     );
 
