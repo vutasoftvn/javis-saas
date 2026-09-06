@@ -187,18 +187,6 @@ class ApiClient {
     if (normalized.startsWith('/api/v1/sales/')) {
       return '/commercial/${normalized.substring(14)}';
     }
-    if (normalized.startsWith('/finance/')) {
-      return '/finance-legal/${normalized.substring(9)}';
-    }
-    if (normalized.startsWith('/api/v1/finance/')) {
-      return '/finance-legal/${normalized.substring(16)}';
-    }
-    if (normalized.startsWith('/legal/')) {
-      return '/finance-legal/${normalized.substring(7)}';
-    }
-    if (normalized.startsWith('/api/v1/legal/')) {
-      return '/finance-legal/${normalized.substring(14)}';
-    }
     if (normalized.startsWith('/marketing/context/')) {
       return '/commercial/marketing-context/${normalized.substring(19)}';
     }
