@@ -71,7 +71,11 @@ export interface ProjectActionContext {
     dueDate: string | null;
     source: string;
   }>>;
-  cashSummary: ContextPart<{ cashBalance: number; monthlyBurn: number; runwayMonths: number }>;
+  // runwayMonths là `number | null` có chủ đích: null nghĩa là cash-flow
+  // DƯƠNG (không có trần runway để báo), KHÔNG phải "còn 0 tháng tiền" —
+  // xem financial-snapshot.service.ts (`runwayMonths: number | null; // null
+  // khi cashFlowPositive`). Zero-fill ở đây sẽ đảo ngược ý nghĩa.
+  cashSummary: ContextPart<{ cashBalance: number; monthlyBurn: number; runwayMonths: number | null }>;
   budgetSummary: ContextPart<{ totalBudget: number; spent: number; remaining: number }>;
 }
 
@@ -299,14 +303,19 @@ export async function getProjectActionContext(
   // budget envelope, không còn stub cứng).
   const snapshots = await getFinancialSnapshotsService(BigInt(ctx.workspaceId));
   const latestSnapshot = snapshots[0];
-  const cashSummary: ContextPart<{ cashBalance: number; monthlyBurn: number; runwayMonths: number }> =
+  const cashSummary: ContextPart<{ cashBalance: number; monthlyBurn: number; runwayMonths: number | null }> =
     latestSnapshot
       ? {
           availability: "READY",
           data: {
+            // currentCash/monthlyNetBurn luôn được calculateAndSaveSnapshotService
+            // ghi bằng số thật (nguồn ghi duy nhất của bảng) — null chỉ còn
+            // ở dữ liệu trước migration 26, nên 0 là mặc định vô hại.
             cashBalance: latestSnapshot.currentCash != null ? Number(latestSnapshot.currentCash) : 0,
             monthlyBurn: latestSnapshot.monthlyNetBurn != null ? Number(latestSnapshot.monthlyNetBurn) : 0,
-            runwayMonths: latestSnapshot.runwayMonths != null ? Number(latestSnapshot.runwayMonths) : 0,
+            // Giữ NGUYÊN null: null = cash-flow dương (không có trần runway),
+            // khác hoàn toàn 0 = hết tiền.
+            runwayMonths: latestSnapshot.runwayMonths != null ? Number(latestSnapshot.runwayMonths) : null,
           },
           asOf: latestSnapshot.snapshotDate,
           sourceVersion: latestSnapshot.id,

@@ -389,7 +389,12 @@ describe("F6a — budget envelope enforcement on approve", () => {
     });
     expect(approved.approvalState).toBe("APPROVED");
     expect(approved.budgetOverrideReason).toBe("Founder chấp nhận chi vượt để giữ tiến độ dự án");
-    expect(approved.budgetOverrideByMemberId).not.toBeNull();
+    // Cột audit override phải theo ĐÚNG quy ước id của approvedByMemberId
+    // trong cùng câu UPDATE (workforce member id, hoặc null khi session chưa
+    // có workforce member) — không được fallback sang ctx.userId, vì userId
+    // và workforceMemberId là 2 spine thực thể khác nhau (ADR-ID-MODEL-001)
+    // và trộn chúng làm bẩn audit trail của cột *_by_member_id.
+    expect(approved.budgetOverrideByMemberId).toBe(approved.approvedByMemberId);
   });
 
   it("does not require override when the request stays within the budget limit", async () => {
@@ -429,7 +434,7 @@ describe("F6a — budget envelope enforcement on approve", () => {
     expect(approved.budgetOverrideByMemberId).toBeNull();
   });
 
-  it("rejects an actual non-founder session attempting to approve over the budget limit, with the BUDGET_LIMIT_EXCEEDED marker", async () => {
+  it("rejects an actual non-founder session attempting to approve over the budget limit, propagating requireFounderCommand's own permissionDenied", async () => {
     const { session, authorization, legalEntityId } = await foundersSetup("Budget Non-Founder Ws");
     const { createProject } = await import("../../operations/handlers/project.handler");
     const project = await createProject({
@@ -502,15 +507,94 @@ describe("F6a — budget envelope enforcement on approve", () => {
     });
 
     // Non-founder có quyền finance.request.approve nói chung (qua role
-    // assignment ở trên) và thậm chí gửi kèm overrideReason — vẫn phải bị
-    // chặn với đúng marker BUDGET_LIMIT_EXCEEDED vì chỉ founder mới được
-    // duyệt vượt ngân sách (Finding 1 fix).
+    // assignment ở trên) và thậm chí gửi kèm overrideReason — vẫn bị chặn ở
+    // requireFounderCommand. Theo spec (mục 3.4): giữ NGUYÊN lỗi của helper,
+    // không tự chế message khác. Lỗi đúng là permissionDenied "Missing
+    // authority for finance.budget.override" (403 "thiếu thẩm quyền"), KHÔNG
+    // phải failedPrecondition/BUDGET_LIMIT_EXCEEDED (412 "vi phạm luật
+    // nghiệp vụ") — 2 tình huống khác nhau phải giữ 2 mã lỗi khác nhau.
     await expect(
       approvePaymentRequest({
         id: submitted.id, expectedVersion: submitted.version,
         authorization: member.bearerToken, workspaceId: session.workspaceId,
         overrideReason: "Non-founder co gang override nhung khong co quyen founder",
       })
-    ).rejects.toThrow(/BUDGET_LIMIT_EXCEEDED/);
+    ).rejects.toThrow(/Missing authority for finance\.budget\.override/);
+  });
+
+  it("serialises two concurrent over-limit approvals via the envelope row lock — exactly one is APPROVED", async () => {
+    const { session, authorization, legalEntityId } = await foundersSetup("Budget Concurrent Ws");
+    const { createProject } = await import("../../operations/handlers/project.handler");
+    const project = await createProject({
+      authorization, workspaceId: session.workspaceId, title: "Budget concurrency project",
+    });
+    const { createBudgetEnvelopeService } = await import("../services/budget-summary.service");
+    const { resolveTenantContext } = await import("../../identity/services/tenant-context.service");
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    await createBudgetEnvelopeService(ctx, {
+      projectId: project.id,
+      legalEntityId,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+      limitMinor: "1000000",
+    });
+
+    // 2 request, MỖI cái nằm trong hạn mức (600k < 1tr) nhưng TỔNG thì vượt
+    // (1.2tr > 1tr) — đúng ca đua mà `.for("update")` trên dòng envelope sinh
+    // ra để chặn.
+    const submittedPair = [];
+    for (const [idx, account] of [["1", "601"], ["2", "602"]] as const) {
+      const created = await createPaymentRequest({
+        authorization, workspaceId: session.workspaceId,
+        legalEntityId, projectId: project.id,
+        amountMinor: "600000", currency: "VND",
+        beneficiaryBankBin: "970415", beneficiaryAccountNumber: account,
+        beneficiaryName: `NCC Concurrent ${idx}`, purpose: `duyet dong thoi ${idx}`,
+        idempotencyKey: `budget-concurrent-${idx}`,
+      });
+      submittedPair.push(
+        await submitPaymentRequest({
+          id: created.id, expectedVersion: created.version, authorization, workspaceId: session.workspaceId,
+        })
+      );
+    }
+
+    // Làm nóng pool trước: nếu 1 trong 2 transaction phải MỞ connection mới
+    // (bắt tay TCP/auth vài ms) thì nó luôn chậm hơn hẳn cái kia và 2 lệnh
+    // duyệt tự "xếp hàng" ngẫu nhiên — test sẽ xanh cả khi row lock bị gỡ.
+    // Ép pool có sẵn connection rảnh để 2 transaction chạy đúng lockstep.
+    const { db: financeDb } = await import("../models/db");
+    const { sql } = await import("drizzle-orm");
+    await Promise.all(Array.from({ length: 4 }, () => financeDb.execute(sql`select 1`)));
+
+    // Duyệt THẬT SỰ đồng thời (không await tuần tự) — nếu thiếu row lock, cả
+    // hai cùng đọc "còn dư 1tr" và cùng được APPROVED, tổng chi 1.2tr vượt
+    // ngân sách mà không ai override.
+    const results = await Promise.allSettled(
+      submittedPair.map((s) =>
+        approvePaymentRequest({
+          id: s.id, expectedVersion: s.version, authorization, workspaceId: session.workspaceId,
+        })
+      )
+    );
+
+    const approvedResults = results.filter(
+      (r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof approvePaymentRequest>>> =>
+        r.status === "fulfilled"
+    );
+    const rejectedResults = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected"
+    );
+
+    // Đúng 1 cái qua, 1 cái trượt — không bao giờ cả hai cùng ALLOW.
+    expect(approvedResults.length).toBe(1);
+    expect(rejectedResults.length).toBe(1);
+    expect(approvedResults[0]!.value.approvalState).toBe("APPROVED");
+    // Cái thứ hai chiếm được lock nhìn thấy tổng đã vượt limit; founder gọi
+    // mà không gửi overrideReason nên bị chặn ở nhánh thiếu override — đúng
+    // thiết kế row-lock, không phải lỗi.
+    expect(String(rejectedResults[0]!.reason?.message ?? rejectedResults[0]!.reason)).toMatch(
+      /BUDGET_LIMIT_EXCEEDED/
+    );
   });
 });

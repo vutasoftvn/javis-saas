@@ -425,20 +425,24 @@ export async function approvePaymentRequestService(
       if (position.coverage === "COMPLETE") {
         const wouldBeTotal = position.committedUnpaidMinor + position.actualPaidMinor + BigInt(current.amountMinor);
         if (wouldBeTotal > position.limitMinor) {
-          try {
-            requireFounderCommand(ctx, "finance.budget.override");
-          } catch {
-            throw APIError.failedPrecondition(
-              "BUDGET_LIMIT_EXCEEDED: chỉ founder mới có thể duyệt vượt ngân sách"
-            );
-          }
+          // Không phải founder thì throw NGAY bằng chính lỗi của helper
+          // (permissionDenied "Missing authority for ...") — giữ đúng ngữ
+          // nghĩa HTTP: 403 "anh không có thẩm quyền" khác 412 "vi phạm luật
+          // nghiệp vụ". Bọc try/catch ở đây còn nuốt cả lỗi khác loại
+          // (vd. unauthenticated khi thiếu ctx).
+          requireFounderCommand(ctx, "finance.budget.override");
           if (!p.overrideReason?.trim()) {
             throw APIError.failedPrecondition(
               "BUDGET_LIMIT_EXCEEDED: cần overrideReason khi duyệt vượt ngân sách"
             );
           }
           budgetOverrideReason = p.overrideReason.trim();
-          budgetOverrideByMemberId = BigInt(ctx.workforceMemberId ?? ctx.userId);
+          // Cùng quy ước id với approvedByMemberId ngay dưới (cột nullable,
+          // chỉ nhận workforce member id) — KHÔNG fallback sang ctx.userId vì
+          // userId và workforceMemberId là 2 spine thực thể khác nhau
+          // (ADR-ID-MODEL-001); trộn chúng vào cột *_by_member_id làm hỏng
+          // audit trail.
+          budgetOverrideByMemberId = ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null;
         }
       }
     }

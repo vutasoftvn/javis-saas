@@ -159,6 +159,78 @@ describe("Project Action Context & Live Proposals (S4)", () => {
     }
   });
 
+  it("keeps runwayMonths NULL (cash-flow dương) instead of zero-filling it to 0 (hết tiền)", async () => {
+    const { ctx, project } = await seedProjectFixture();
+
+    // Không có bank transaction nào => monthlyNetBurn = 0 => cashFlowPositive
+    // => financial-snapshot.service ghi runway_months = NULL có chủ đích
+    // ("null khi cashFlowPositive; BỎ hard-code 99").
+    const { calculateAndSaveSnapshotService } = await import(
+      "../../../finance-legal/services/financial-snapshot.service"
+    );
+    const snapshot = await calculateAndSaveSnapshotService({
+      workspaceId: BigInt(ctx.workspaceId),
+      snapshotDate: "2026-09-01",
+      openingBalance: "50000000",
+    });
+    expect(snapshot.cashFlowPositive).toBe(true);
+    expect(snapshot.runwayMonths).toBeNull();
+
+    const context = await getProjectActionContext(ctx, project.id);
+    expect(context.cashSummary.availability).toBe("READY");
+    if (context.cashSummary.availability === "READY") {
+      // Đây là điểm mấu chốt: map null -> 0 sẽ nói NGƯỢC sự thật với người
+      // hoặc agent đọc context ("còn 0 tháng tiền" thay vì "dòng tiền dương,
+      // không có trần runway").
+      expect(context.cashSummary.data.runwayMonths).toBeNull();
+      expect(context.cashSummary.data.cashBalance).toBe(50000000);
+      expect(context.cashSummary.data.monthlyBurn).toBe(0);
+    }
+  });
+
+  it("passes through a real runwayMonths number when the workspace is burning cash", async () => {
+    const { ctx, project } = await seedProjectFixture();
+    const wsId = BigInt(ctx.workspaceId);
+
+    const { createBankConnectionService } = await import(
+      "../../../finance-legal/services/bank-connection.service"
+    );
+    const conn = await createBankConnectionService({ workspaceId: wsId, provider: "manual" });
+    await db.insert(schema.bankTransactions).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      bankConnectionId: BigInt(conn.id),
+      externalTransactionId: `ext-burn-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      postedAt: new Date("2026-09-10T00:00:00Z"),
+      amount: "3000000.00",
+      currency: "VND",
+      direction: "OUT",
+      description: "Chi phi van hanh thang 9",
+      status: "UNRECONCILED",
+    });
+
+    const { calculateAndSaveSnapshotService } = await import(
+      "../../../finance-legal/services/financial-snapshot.service"
+    );
+    // Cửa sổ burn mặc định 3 tháng: 3.000.000 / 3 = 1.000.000/tháng;
+    // currentCash = 50.000.000 - 3.000.000 = 47.000.000 => runway 47 tháng.
+    const snapshot = await calculateAndSaveSnapshotService({
+      workspaceId: wsId,
+      snapshotDate: "2026-09-30",
+      openingBalance: "50000000",
+    });
+    expect(snapshot.cashFlowPositive).toBe(false);
+    expect(Number(snapshot.runwayMonths)).toBe(47);
+
+    const context = await getProjectActionContext(ctx, project.id);
+    expect(context.cashSummary.availability).toBe("READY");
+    if (context.cashSummary.availability === "READY") {
+      expect(context.cashSummary.data.runwayMonths).toBe(47);
+      expect(context.cashSummary.data.cashBalance).toBe(47000000);
+      expect(context.cashSummary.data.monthlyBurn).toBe(1000000);
+    }
+  });
+
   it("marks budgetSummary UNAVAILABLE when the project has no budget envelope, READY with real numbers once one exists", async () => {
     const { ctx, project } = await seedProjectFixture();
 
