@@ -21,6 +21,10 @@ import type { TenantContext } from "../types/tenant_context";
 export const WGA_CAP_EXECUTION_PLAN_CREATE = "operations.execution_plan.create";
 export const WGA_CAP_TASK_ADVANCE = "operations.task.advance";
 export const WGA_CAP_TASK_LIST = "operations.task.list";
+// IA02 phần 2 — capability nội bộ dùng để scope delegation JWT khi
+// CapabilityGateway phía Python đọc raw business-policy rules (không phải
+// 1 business capability thật, chỉ là nhãn scope cho token đọc quyền).
+export const CAP_BUSINESS_POLICY_RULES_READ = "identity.business_policy.rules_read";
 
 function extractBearer(authorization: string | undefined): string {
   const m = /^Bearer\s+(.+)$/i.exec((authorization ?? "").trim());

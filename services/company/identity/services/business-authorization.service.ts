@@ -182,6 +182,131 @@ export async function authorizeBusinessAction(
   };
 }
 
+export interface BusinessPolicyRuleGroup {
+  rules: PermissionRule[];
+}
+
+export interface BusinessPolicyRuleSet {
+  isFounder: boolean;
+  policyVersion: number;
+  ruleGroups: BusinessPolicyRuleGroup[];
+}
+
+/**
+ * IA02 phần 2 — trả RAW rule set (không evaluate 1 action cụ thể) để
+ * CapabilityGateway phía Python (apps/cosa) có thể tự evaluate đồng bộ
+ * ngay trong hot path tool-call, không cần gọi HTTP mỗi lần thực thi
+ * capability (điều này KHÔNG khả thi — evaluate() trong gateway chạy đồng
+ * bộ). Rules được nhóm theo TỪNG role assignment (không flatten phẳng)
+ * để bên gọi có thể tái tạo đúng thuật toán combinePermissionRules gốc:
+ * matchBestRuleInRole riêng cho từng role rồi combine kết quả across roles
+ * — flatten phẳng trước rồi match 1 lần có thể chọn nhầm 1 rule cụ thể
+ * hơn từ role A trong khi role B có rule cùng độ cụ thể nhưng effect khác
+ * (vd. DENY) mà đáng ra phải thắng theo combinePermissionRules.
+ *
+ * LƯU Ý phạm vi (đã XÁC NHẬN qua FK constraint thật, không chỉ suy đoán):
+ * coreRolePermissions.permission_key có FK tới permission_definitions
+ * (permission-catalog.ts, PERMISSION_CATALOG) — CHỈ những key đã đăng ký
+ * trong catalog mới insert được. Muốn 1 rule áp dụng cho 1 capability_id cụ
+ * thể phía Python agent (vd. "finance.write.transaction_record"), key đó
+ * phải được thêm vào PERMISSION_CATALOG + migration seed permission_definitions
+ * TRƯỚC — không thể tự ý dùng string tuỳ ý ở coreRolePermissions ngay cả
+ * khi workspace muốn. Hàm này KHÔNG tự thêm catalog entry mới hay suy đoán
+ * mapping capability_id -> permissionKey; chỉ trả nguyên rule đã cấu hình
+ * hợp lệ theo catalog hiện có. Việc mở rộng catalog để phủ capability_id
+ * phía agent là quyết định sản phẩm/kiến trúc riêng (catalog hiện chỉ có
+ * các key nghiệp vụ cấp cao như "finance.request.approve", không có key
+ * theo capability_id chi tiết của từng Python capability).
+ */
+export async function getBusinessPolicyRulesForMemberService(p: {
+  workspaceId: bigint;
+  workforceMemberId?: bigint;
+  projectId?: bigint;
+  legalEntityId?: bigint;
+}): Promise<BusinessPolicyRuleSet> {
+  const policyVersion = await getLatestPolicyVersion(p.workspaceId);
+
+  let isFounder = false;
+  if (p.workforceMemberId) {
+    const { identityWorkforceMembers } = await import("../../shared/db/schema/identity");
+    const [member] = await db
+      .select({ humanUserId: identityWorkforceMembers.humanUserId })
+      .from(identityWorkforceMembers)
+      .where(
+        and(
+          eq(identityWorkforceMembers.id, p.workforceMemberId),
+          eq(identityWorkforceMembers.workspaceId, p.workspaceId)
+        )
+      );
+    if (member?.humanUserId) {
+      const [membership] = await db
+        .select({ role: identityWorkspaceMemberships.role })
+        .from(identityWorkspaceMemberships)
+        .where(
+          and(
+            eq(identityWorkspaceMemberships.workspaceId, p.workspaceId),
+            eq(identityWorkspaceMemberships.userId, member.humanUserId)
+          )
+        );
+      isFounder = ["founder", "co-founder"].includes((membership?.role || "").toLowerCase());
+    }
+  }
+
+  const ruleGroups: BusinessPolicyRuleGroup[] = [];
+
+  if (p.workforceMemberId) {
+    const now = new Date();
+    const assignments = await db
+      .select({
+        assignmentId: coreMemberRoleAssignments.id,
+        roleId: coreMemberRoleAssignments.roleId,
+        projectId: coreMemberRoleAssignments.projectId,
+        legalEntityId: coreMemberRoleAssignments.legalEntityId,
+      })
+      .from(coreMemberRoleAssignments)
+      .where(
+        and(
+          eq(coreMemberRoleAssignments.workspaceId, p.workspaceId),
+          eq(coreMemberRoleAssignments.workforceMemberId, p.workforceMemberId),
+          lte(coreMemberRoleAssignments.validFrom, now),
+          or(
+            isNull(coreMemberRoleAssignments.validUntil),
+            gt(coreMemberRoleAssignments.validUntil, now)
+          )
+        )
+      );
+
+    for (const a of assignments) {
+      if (a.projectId !== null) {
+        if (!p.projectId || String(a.projectId) !== String(p.projectId)) continue;
+      }
+      if (a.legalEntityId !== null) {
+        if (!p.legalEntityId || String(a.legalEntityId) !== String(p.legalEntityId)) continue;
+      }
+
+      const rolePerms = await db
+        .select({
+          permissionKey: coreRolePermissions.permissionKey,
+          effect: coreRolePermissions.effect,
+          conditions: coreRolePermissions.conditions,
+        })
+        .from(coreRolePermissions)
+        .where(eq(coreRolePermissions.roleId, a.roleId));
+
+      ruleGroups.push({
+        rules: rolePerms.map((rp) => ({
+          id: `${a.roleId}:${rp.permissionKey}`,
+          effect: rp.effect as PermissionEffect,
+          permissionKey: rp.permissionKey,
+          conditions: (rp.conditions as any) || {},
+        })),
+      });
+    }
+  }
+
+  return { isFounder, policyVersion, ruleGroups };
+}
+
 export async function requireBusinessAction(
   ctx: TenantContext,
   action: string,

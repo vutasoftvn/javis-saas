@@ -5,9 +5,9 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | Lớp | Occurrences | Files |
 |---|---|---|
-| LEGACY_TENANCY (M2 xóa) | 139 | 36 |
+| LEGACY_TENANCY (M2 xóa) | 140 | 36 |
 | VALID_KEEP (giữ nguyên) | 101 | 32 |
-| REVIEW (chưa phân loại) | 978 | 281 |
+| REVIEW (chưa phân loại) | 990 | 283 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -27,6 +27,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/migrations/29_cleanup_legacy_companies_and_rename_workspaces.up.sql | 3 |
 | services/cosa/migrations/retired_pre_baseline_v1/4_add_agent_policy.up.sql | 3 |
 | apps/cosa/api/workforce_routes.py | 2 |
+| apps/cosa/policies/evaluator.py | 2 |
 | apps/cosa/policies/snapshot.py | 2 |
 | frontend/lib/modules/auth/services/auth_service.dart | 2 |
 | frontend/lib/modules/auth/views/register_view.dart | 2 |
@@ -39,7 +40,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/migrations/20_backfill_platform_workspaces.up.sql | 2 |
 | services/cosa/services/auth.service.ts | 2 |
 | apps/cosa/policies/company_policy_client.py | 1 |
-| apps/cosa/policies/evaluator.py | 1 |
 | frontend/lib/modules/hologram_hub/views/hologram_hub_view.dart | 1 |
 | frontend/lib/modules/sales/views/widgets/deal_kanban_board.dart | 1 |
 | services/company/finance-legal/migrations/13_legal_applicability_obligations.up.sql | 1 |
@@ -56,11 +56,11 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|
 | apps/cosa/auth/jwt.py | 35 |
 | frontend/lib/core/network/mvp_endpoints.g.dart | 35 |
+| apps/cosa/policies/company_policy_client.py | 27 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
 | services/company/operations/migrations/7_create_strategy_domain.up.sql | 22 |
 | apps/cosa/auth/dependency.py | 21 |
 | frontend/lib/modules/auth/services/auth_service.dart | 21 |
-| apps/cosa/policies/company_policy_client.py | 20 |
 | apps/cosa/worker/copilot_run.py | 19 |
 | apps/cosa/worker/wga_run.py | 18 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 18 |
@@ -134,6 +134,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/compliance/data_egress_context.py | 3 |
 | apps/cosa/composition/capability_registration.py | 3 |
 | apps/cosa/knowledge_ingestion/publish.py | 3 |
+| apps/cosa/policies/evaluator.py | 3 |
 | apps/cosa/worker/handlers.py | 3 |
 | frontend/lib/core/manifest/test_capability_manifest.dart | 3 |
 | frontend/lib/core/runtime/mutation_gate.dart | 3 |
@@ -162,7 +163,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/compliance/data_model_gate.py | 2 |
 | apps/cosa/config/planes.py | 2 |
 | apps/cosa/events/router.py | 2 |
-| apps/cosa/policies/evaluator.py | 2 |
+| apps/cosa/policies/business_permission_evaluator.py | 2 |
+| apps/cosa/policies/snapshot.py | 2 |
 | apps/cosa/worker/autopilot_run.py | 2 |
 | frontend/lib/core/routing/app_routes.dart | 2 |
 | frontend/lib/modules/agents/services/agents_service.dart | 2 |

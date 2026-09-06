@@ -6,7 +6,12 @@ from typing import Any
 import httpx
 
 from apps.cosa.config.planes import resolve_platform_control_plane_url
-from apps.cosa.policies.snapshot import PolicySnapshot, TenantPolicyRule
+from apps.cosa.policies.snapshot import (
+    BusinessPermissionRule,
+    BusinessPolicyRuleSet,
+    PolicySnapshot,
+    TenantPolicyRule,
+)
 
 __all__ = ["CosaTenantPolicyClient", "CosaTenantPolicyError"]
 
@@ -146,6 +151,72 @@ class CosaTenantPolicyClient:
             )
 
         return resp.json()
+
+    async def get_business_policy_rules(
+        self,
+        delegation_token: str,
+        workspace_id: str,
+        workforce_member_id: str | None = None,
+        project_id: str | None = None,
+        legal_entity_id: str | None = None,
+    ) -> BusinessPolicyRuleSet:
+        """IA02 phần 2 — gọi `GET /identity/business-policy/rules` trên
+        services/company để lấy RAW rule set (chưa evaluate) của 1 workforce
+        member, resolve tại boundary run-start/trước resume (CÙNG lúc với
+        get_snapshot) rồi nhúng vào PolicySnapshot — CapabilityGateway.evaluate()
+        chạy ĐỒNG BỘ nên không thể gọi HTTP tại thời điểm thực thi từng
+        capability. `delegation_token` PHẢI mint bởi
+        `apps.cosa.auth.jwt.mint_company_delegation()` với capability_ids chứa
+        `CAP_BUSINESS_POLICY_RULES_READ` (xem cosa-task-delegation.ts phía
+        services/company) — route phía company verify bằng
+        verifyCosaDelegationForCapability, không có session fallback.
+        """
+        params: dict[str, str] = {}
+        if workforce_member_id:
+            params["workforceMemberId"] = workforce_member_id
+        if project_id:
+            params["projectId"] = project_id
+        if legal_entity_id:
+            params["legalEntityId"] = legal_entity_id
+
+        try:
+            resp = await self._company_client.get(
+                "/identity/business-policy/rules",
+                params=params,
+                headers={
+                    "Authorization": f"Bearer {delegation_token}",
+                    "X-Workspace-Id": workspace_id,
+                },
+            )
+        except httpx.HTTPError as exc:
+            raise CosaTenantPolicyError(f"không gọi được Company service: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise CosaTenantPolicyError(
+                f"Company business policy rules trả lỗi {resp.status_code}: {resp.text[:200]}"
+            )
+
+        try:
+            data = resp.json()
+            return BusinessPolicyRuleSet(
+                is_founder=data["isFounder"],
+                policy_version=data["policyVersion"],
+                rule_groups=[
+                    [
+                        BusinessPermissionRule(
+                            permission_key=r["permissionKey"],
+                            effect=r["effect"],
+                            conditions=r.get("conditions") or {},
+                        )
+                        for r in group["rules"]
+                    ]
+                    for group in data["ruleGroups"]
+                ],
+            )
+        except (KeyError, ValueError) as exc:
+            raise CosaTenantPolicyError(
+                f"Company business policy rules response thiếu field bắt buộc: {exc}"
+            ) from exc
 
     async def aclose(self) -> None:
         await self._client.aclose()

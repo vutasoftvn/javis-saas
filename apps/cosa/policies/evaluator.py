@@ -34,7 +34,17 @@ class CosaPolicyEngine:
         context, không qua snapshot) — giữ làm fallback tương thích ngược,
         không phải đường chính.
     2. Tenant-configured override (`PolicySnapshot.match()`) — ưu tiên TRƯỚC
-       rule hardcode bên dưới nếu company đã tự cấu hình.
+       rule hardcode bên dưới nếu company đã tự cấu hình qua
+       cosa.company_agent_policy (hệ thống rule tool-pattern cũ, coarse).
+    2b. IA02 phần 2 — business-policy rules mới (core.role_permissions,
+        services/company/identity, fine-grained theo role/member, xem
+        BusinessPolicyRuleSet ở snapshot.py) — resolve sẵn tại boundary
+        run-start (KHÔNG gọi HTTP đồng bộ ở đây). CHỈ short-circuit khi kết
+        quả là DENY/REQUIRE_APPROVAL (governance chỉ được SIẾT thêm, không
+        tự nới lỏng — CLAUDE.md quy tắc 5: "Constraint lịch sử không tự mất
+        khi policy sau nới lỏng"); nếu ALLOW hoặc chưa fetch được rule set,
+        rơi xuống rule hardcode bên dưới như cũ — hệ thống mới không tự ý
+        bỏ qua safety net cứng đã có.
     3. Rule hardcode (fallback explicitly versioned khi tenant chưa cấu hình
        hoặc không có snapshot):
        - Action có risk = HIGH hoặc có từ khoá 'payout' / 'wire' -> REQUIRE_APPROVAL.
@@ -132,6 +142,36 @@ class CosaPolicyEngine:
                             or f"Tenant policy REQUIRE_APPROVAL for {matched.tool_pattern}",
                         ),
                     )
+
+        # 2b. IA02 phần 2 — business-policy rules mới (xem docstring class).
+        if snapshot is not None and snapshot.business_policy_rules is not None:
+            from apps.cosa.policies.business_permission_evaluator import (
+                evaluate_business_policy_ruleset,
+            )
+
+            # KHÔNG tự dựng facts["amount"] từ payload["amount"] — capability
+            # payload (vd. finance.transaction.record) chỉ có "amount" dạng
+            # number THUẦN, không kèm currency, trong khi maxAmountMinor
+            # condition cần Money {minor, currency} chuẩn (đơn vị minor, có
+            # currency — xem parseDecimalToMoney/IA13). Đoán currency mặc
+            # định (vd. VND) có thể sai lệch đơn vị 100x với ý định workspace
+            # cấu hình — nguy hiểm hơn là không check. Rule có điều kiện hạn
+            # mức vẫn tự fail-closed DENY khi facts=None (match_best_rule_in_role,
+            # cùng hành vi IA16) — chỉ rule KHÔNG điều kiện hạn mức mới evaluate
+            # được chính xác qua đường này hiện tại.
+            bp_effect, bp_reasons = evaluate_business_policy_ruleset(
+                snapshot.business_policy_rules, capability_id, facts=None
+            )
+            if bp_effect == "DENY":
+                return PolicyDecision(outcome=PolicyOutcome.DENY, reasons=tuple(bp_reasons))
+            if bp_effect == "REQUIRE_APPROVAL":
+                return PolicyDecision(
+                    outcome=PolicyOutcome.REQUIRE_APPROVAL,
+                    requirement=RoleApproval(role="admin"),
+                    reasons=tuple(bp_reasons),
+                )
+            # ALLOW (kể cả FOUNDER_DEFAULT_ALLOW) -> rơi xuống rule hardcode
+            # bên dưới, không short-circuit ALLOW ở đây.
 
         # 3. Rule hardcode — fallback explicitly versioned.
         # 3a. Risk check theo action và payload
