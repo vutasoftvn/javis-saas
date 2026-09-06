@@ -474,6 +474,24 @@ export const paymentRequests = financeSchema.table("payment_requests", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  budgetOverrideReason: text("budget_override_reason"),
+  budgetOverrideByMemberId: bigint("budget_override_by_member_id", { mode: "bigint" }),
+});
+
+export const projectBudgetEnvelopes = financeSchema.table("project_budget_envelopes", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("VND").notNull(),
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  limitMinor: numeric("limit_minor", { precision: 38, scale: 0 }).notNull(),
+  version: integer("version").default(1).notNull(),
+  ownerMemberId: bigint("owner_member_id", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 // F4 phần 2 — khớp payment_requests với bank_transactions thật. Xem
