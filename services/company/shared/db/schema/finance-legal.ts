@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, date, numeric } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, date, numeric, smallint } from "drizzle-orm/pg-core";
 import { legalSchema } from "./legal";
 
 export const financeSchema = pgSchema("finance");
@@ -141,7 +141,7 @@ export const accountingReportMappings = financeSchema.table("accounting_report_m
   sourceRef: text("source_ref").notNull(),
   ruleType: varchar("rule_type", { length: 20 }).notNull(),
   bucket: varchar("bucket", { length: 20 }).notNull(),
-  sign: integer("sign").notNull(),
+  sign: smallint("sign").notNull(),
   rounding: varchar("rounding", { length: 20 }).notNull(),
   definitionHash: text("definition_hash").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
