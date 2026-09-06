@@ -1,10 +1,27 @@
+# R4 (audit 2026-09-06) — CẢNH BÁO: các test trong file này KHÔNG chứng minh
+# durability runtime thật. Chúng chỉ truyền 1 dict checkpoint qua
+# multiprocessing.Queue rồi chạy lại logic quyết định (takeover/autopilot)
+# THUẦN TRONG BỘ NHỚ của process con — không hề chạm CapabilityGateway,
+# RunRepository, ApprovalGateDecider hay Postgres thật. 2 PID khác nhau chỉ
+# chứng minh multiprocessing.Queue hoạt động, không chứng minh resume sau
+# crash đọc lại đúng state từ nguồn sự thật durable (theo CLAUDE.md quy tắc
+# 6: "Một test 'resume sau restart' chỉ tạo instance thứ hai trong cùng
+# process không được coi là chứng minh").
+#
+# Bằng chứng durability THẬT (real Postgres, real PostgresRunRepository,
+# real subprocess độc lập, verify qua connection MỚI) nằm ở
+# tests/agent/runs/test_postgres_cross_process_resume.py — chạy được khi có
+# AGENT_TEST_DATABASE_URL trỏ tới Postgres thật (`make agent-test
+# AGENT_TEST_DATABASE_URL=...`). File này được GIỮ LẠI (không xoá — cần xác
+# nhận người dùng trước khi xoá test theo quy tắc 10 CLAUDE.md) vì vẫn có
+# giá trị kiểm tra RIÊNG: đúng logic quyết định founder-takeover/
+# autopilot-disabled khi resume nhận 1 checkpoint cho trước — nhưng KHÔNG
+# được trích dẫn như bằng chứng cho task R4 (durable runtime).
 from __future__ import annotations
 
 import multiprocessing
 import os
-import time
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -12,7 +29,9 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.cross_plane]
 
 
 def _worker_process_a(checkpoint_queue: multiprocessing.Queue, pid_queue: multiprocessing.Queue) -> None:
-    """Process A: Bắt đầu run, gặp checkpoint WAITING_APPROVAL, persist checkpoint rồi thoát."""
+    """Process A (SIMULATION, không phải durability thật — xem cảnh báo đầu
+    file): giả lập checkpoint WAITING_APPROVAL và đưa qua Queue cho process B,
+    KHÔNG persist vào bất kỳ repository/DB thật nào."""
     pid = os.getpid()
     pid_queue.put(pid)
 
@@ -35,7 +54,9 @@ def _worker_process_b(
     result_queue: multiprocessing.Queue,
     pid_queue: multiprocessing.Queue,
 ) -> None:
-    """Process B: Resume từ checkpoint đã persist, kiểm tra policy/takeover/autopilot và hoàn tất run."""
+    """Process B (SIMULATION, không phải durability thật — xem cảnh báo đầu
+    file): nhận checkpoint QUA QUEUE (không đọc từ DB thật), áp logic quyết
+    định policy/takeover/autopilot thuần trong bộ nhớ."""
     pid = os.getpid()
     pid_queue.put(pid)
 
@@ -75,9 +96,12 @@ def _worker_process_b(
 
 
 @pytest.mark.asyncio
-async def test_event_approval_restart_cross_process_durability():
-    """R4 / Master Plan: Process A và Process B chạy trên 2 PID thực tế khác nhau.
-    Process A persist WAITING_APPROVAL -> terminate -> Process B resume và hoàn tất.
+async def test_event_approval_restart_simulation_two_pids_ipc_only():
+    """SIMULATION — không phải bằng chứng R4 (xem cảnh báo đầu file).
+    Chỉ chứng minh multiprocessing.Queue chuyển 1 dict giữa 2 PID khác nhau
+    và logic quyết định ở process nhận đúng — KHÔNG chạm Postgres/repository
+    thật. Bằng chứng durability thật: xem
+    tests/agent/runs/test_postgres_cross_process_resume.py.
     """
     ctx = multiprocessing.get_context("spawn")
     chk_queue = ctx.Queue()
@@ -118,8 +142,9 @@ async def test_event_approval_restart_cross_process_durability():
 
 
 @pytest.mark.asyncio
-async def test_event_approval_restart_founder_takeover():
-    """R4: Founder takeover trước resume phải delivered_message_count=0."""
+async def test_event_approval_restart_founder_takeover_decision_logic():
+    """SIMULATION (xem cảnh báo đầu file) — kiểm logic thuần: founder takeover
+    trước resume phải delivered_message_count=0. Không chứng minh durability."""
     ctx = multiprocessing.get_context("spawn")
     res_queue = ctx.Queue()
     pid_queue = ctx.Queue()
@@ -145,8 +170,10 @@ async def test_event_approval_restart_founder_takeover():
 
 
 @pytest.mark.asyncio
-async def test_event_approval_restart_autopilot_disabled_in_company():
-    """R4: Không re-enable autopilot nếu trạng thái đã disabled trong Company."""
+async def test_event_approval_restart_autopilot_disabled_decision_logic():
+    """SIMULATION (xem cảnh báo đầu file) — kiểm logic thuần: không re-enable
+    autopilot nếu trạng thái đã disabled trong Company. Không chứng minh
+    durability."""
     ctx = multiprocessing.get_context("spawn")
     res_queue = ctx.Queue()
     pid_queue = ctx.Queue()
