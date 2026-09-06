@@ -15,6 +15,15 @@ import { EvidenceSourceType } from "../services/evidence-scoring.service";
 
 export type { Evidence };
 
+export interface EvidenceRef {
+  id: string;
+  claim: string;
+  strength: number;
+  confidence: number;
+  artifactRef?: string | null;
+  sourceUrl?: string | null;
+}
+
 export interface RecordEvidenceParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;

@@ -548,3 +548,72 @@ export const bscFocusScopes = strategySchema.table("bsc_focus_scopes", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// 26. PESTEL Signals
+export const pestelSignals = strategySchema.table("pestel_signals", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .notNull()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
+    .notNull()
+    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
+  dimension: text("dimension").notNull(), // POLITICAL | ECONOMIC | SOCIAL | TECHNOLOGICAL | ENVIRONMENTAL | LEGAL
+  statement: text("statement").notNull(),
+  impact: text("impact").notNull(), // HIGH | MEDIUM | LOW | POSITIVE | NEGATIVE
+  certainty: text("certainty").notNull(), // HIGH | MEDIUM | LOW
+  evidenceRefs: jsonb("evidence_refs").$type<string[]>().default([]).notNull(),
+  bscPerspectives: jsonb("bsc_perspectives").$type<string[]>().default([]).notNull(),
+  status: text("status").default("DRAFT").notNull(), // DRAFT | ACTIVE | ARCHIVED
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
+  revision: integer("revision").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 27. Resource & Capability Assessments
+export const resourceCapabilityAssessments = strategySchema.table("resource_capability_assessments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .notNull()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
+    .notNull()
+    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
+  category: text("category").notNull(), // FINANCIAL_RESOURCE | HUMAN_ORGANIZATIONAL_CAPABILITY | INTELLECTUAL_DATA_IP_ASSET | TECHNOLOGY_OPERATIONAL_ASSET | MARKET_RELATIONSHIP_ASSET | GOVERNANCE_LEGAL_RISK_CAPABILITY
+  statement: text("statement").notNull(),
+  strengthLevel: text("strength_level").notNull(), // STRONG | ADEQUATE | WEAK
+  evidenceRefs: jsonb("evidence_refs").$type<string[]>().default([]).notNull(),
+  bscPerspectives: jsonb("bsc_perspectives").$type<string[]>().default([]).notNull(),
+  status: text("status").default("DRAFT").notNull(), // DRAFT | ACTIVE | ARCHIVED
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
+  revision: integer("revision").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 28. SWOT Items
+export const swotItems = strategySchema.table("swot_items", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .notNull()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
+    .notNull()
+    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // STRENGTH | WEAKNESS | OPPORTUNITY | THREAT
+  statement: text("statement").notNull(),
+  sourceType: text("source_type").notNull(), // PESTEL_SIGNAL | RESOURCE_CAPABILITY | MANUAL
+  sourceId: bigint("source_id", { mode: "bigint" }),
+  evidenceRefs: jsonb("evidence_refs").$type<string[]>().default([]).notNull(),
+  bscPerspectives: jsonb("bsc_perspectives").$type<string[]>().default([]).notNull(),
+  status: text("status").default("DRAFT").notNull(), // DRAFT | ACTIVE | ARCHIVED
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
+  revision: integer("revision").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
