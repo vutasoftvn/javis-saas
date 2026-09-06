@@ -371,5 +371,39 @@ export const casWebhookInbox = financeSchema.table("cas_webhook_inbox", {
   processedAt: timestamp("processed_at", { withTimezone: true }),
 });
 
+// F4 — chỉ phần state machine đề nghị chi (payment_requests). Xem migration
+// 40 để biết phạm vi CHƯA làm (payment_allocations, QR provider integration).
+export const paymentRequests = financeSchema.table("payment_requests", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }),
+  ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
+  amountMinor: numeric("amount_minor", { precision: 38, scale: 0 }).notNull(),
+  currency: text("currency").default("VND").notNull(),
+  beneficiaryBankBin: text("beneficiary_bank_bin").notNull(),
+  beneficiaryAccountNumber: text("beneficiary_account_number").notNull(),
+  beneficiaryName: text("beneficiary_name").notNull(),
+  purpose: text("purpose").notNull(),
+  documentRefs: jsonb("document_refs").default([]).notNull(),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  transferReference: text("transfer_reference"),
+  approvalState: text("approval_state").default("DRAFT").notNull(), // DRAFT | SUBMITTED | APPROVED | REJECTED | CANCELLED
+  settlementState: text("settlement_state").default("UNPAID").notNull(), // UNPAID | REPORTED | PARTIAL | PAID | EXCEPTION
+  accountingState: text("accounting_state").default("UNCLASSIFIED").notNull(), // UNCLASSIFIED | DRAFT | POSTED | REVIEW_REQUIRED
+  version: integer("version").default(1).notNull(),
+  approvalHash: text("approval_hash"),
+  approvedVersion: integer("approved_version"),
+  approvedByMemberId: bigint("approved_by_member_id", { mode: "bigint" }),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  reportedByMemberId: bigint("reported_by_member_id", { mode: "bigint" }),
+  reportedAt: timestamp("reported_at", { withTimezone: true }),
+  idempotencyKey: text("idempotency_key").notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
 
 
