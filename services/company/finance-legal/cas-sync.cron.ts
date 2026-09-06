@@ -34,8 +34,20 @@ export const casSyncTickEndpoint = api(
     await runCasSyncTick({
       getTransactions: async (connection: ConnectionRef, opts) => {
         const accessToken = await resolveCasAccessToken(connection.id);
+        const clientId = process.env.CAS_CLIENT_ID ?? "";
+        const secretKey = process.env.CAS_SECRET_KEY ?? "";
+        if (!clientId || !secretKey) {
+          throw APIError.failedPrecondition(
+            "CAS_CREDENTIALS_MISSING: CAS_CLIENT_ID, CAS_SECRET_KEY must be configured"
+          );
+        }
         return casGetTransactions(
-          { accessToken, environment: connection.providerEnvironment as "sandbox" | "production" },
+          {
+            accessToken,
+            environment: connection.providerEnvironment as "sandbox" | "production",
+            clientId,
+            secretKey,
+          },
           opts
         );
       },

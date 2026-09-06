@@ -3,9 +3,15 @@ import { CAS_CONTRACT, type CasRawTransaction } from "./cas-contract";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
+// IA09 — xác nhận qua tài liệu công khai thật của cas.so (WebFetch, không
+// đoán): MỌI request tới cas.so (kể cả GET /transactions bằng accessToken)
+// đều cần thêm 2 header developer credentials + version header, KHÔNG chỉ
+// dùng Authorization. Trước đây cas-client.ts hoàn toàn thiếu 3 header này.
 export interface CasClientConfig {
   accessToken: string;
   environment: "sandbox" | "production";
+  clientId: string;
+  secretKey: string;
 }
 
 function getCasBaseUrl(env: "sandbox" | "production"): string {
@@ -19,12 +25,11 @@ function getCasBaseUrl(env: "sandbox" | "production"): string {
 }
 
 async function casRequest<T>(
-  accessToken: string,
-  env: "sandbox" | "production",
+  config: Pick<CasClientConfig, "accessToken" | "environment" | "clientId" | "secretKey">,
   path: string,
   opts?: { method?: string; body?: unknown }
 ): Promise<T> {
-  const baseUrl = getCasBaseUrl(env);
+  const baseUrl = getCasBaseUrl(config.environment);
   const url = `${baseUrl}${path}`;
 
   const controller = new AbortController();
@@ -34,7 +39,12 @@ async function casRequest<T>(
     const response = await fetch(url, {
       method: opts?.method || "GET",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        // IA09 — tài liệu curl mẫu xác nhận Authorization là accessToken
+        // TRẦN, KHÔNG có tiền tố "Bearer " (khác quy ước JWT thông thường).
+        Authorization: config.accessToken,
+        [CAS_CONTRACT.apiVersionHeader]: CAS_CONTRACT.contractVersion,
+        [CAS_CONTRACT.auth.developerHeaders.clientId]: config.clientId,
+        [CAS_CONTRACT.auth.developerHeaders.secretKey]: config.secretKey,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
@@ -99,10 +109,15 @@ export async function casGetTransactions(
 
   const path = `/transactions${params.size > 0 ? `?${params.toString()}` : ""}`;
 
+  // IA09 — response body/pagination fields của GET /transactions KHÔNG xác
+  // nhận được qua tài liệu công khai (trang docs dùng UI tương tác, không
+  // trả về ví dụ raw JSON qua WebFetch). Giữ nguyên parse "data"/"pagination"
+  // như cũ (chưa xác nhận đúng/sai) — KHÔNG đoán field mới để tránh thay một
+  // giả định chưa kiểm chứng bằng một giả định chưa kiểm chứng khác.
   const raw = await casRequest<{
     data: CasRawTransaction[];
     pagination?: { next_cursor?: string; has_more?: boolean };
-  }>(config.accessToken, config.environment, path);
+  }>(config, path);
 
   return {
     transactions: raw.data || [],
@@ -114,20 +129,36 @@ export async function casGetTransactions(
 /**
  * Token exchange — KHÔNG retry mù sau kết quả không chắc.
  * Chỉ gọi một lần; lưu kết quả vào secret store.
+ *
+ * IA09 — path/body xác nhận qua tài liệu công khai thật (WebFetch):
+ * POST /grant/exchange (KHÔNG phải /tokens/exchange), body {publicToken}
+ * camelCase (KHÔNG phải {public_token} snake_case), kèm 3 header developer
+ * credentials như mọi endpoint khác. Response field casing của endpoint NÀY
+ * cụ thể không có ví dụ raw JSON xác nhận được — nhưng endpoint chị em
+ * /grant/token (đã xác nhận, xem createCasLinkSessionService) trả về
+ * camelCase (`grantToken`), nên ưu tiên đọc camelCase, fallback snake_case
+ * để không vỡ nếu provider dùng casing khác — không loại trừ khả năng nào
+ * khi chưa có evidence trực tiếp.
  */
 export async function casExchangePublicToken(
   publicToken: string,
-  environment: "sandbox" | "production"
+  environment: "sandbox" | "production",
+  credentials: { clientId: string; secretKey: string }
 ): Promise<{ accessToken: string; grantId: string; expiresAt: string }> {
   // NOTE: Đây là idempotent exchange chỉ dùng một lần sau OAuth redirect.
   // Không retry nếu kết quả không chắc (e.g., 200 nhưng không có token).
   const baseUrl = getCasBaseUrl(environment);
-  const url = `${baseUrl}/tokens/exchange`;
+  const url = `${baseUrl}/grant/exchange`;
 
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ public_token: publicToken }),
+    headers: {
+      "Content-Type": "application/json",
+      [CAS_CONTRACT.apiVersionHeader]: CAS_CONTRACT.contractVersion,
+      [CAS_CONTRACT.auth.developerHeaders.clientId]: credentials.clientId,
+      [CAS_CONTRACT.auth.developerHeaders.secretKey]: credentials.secretKey,
+    },
+    body: JSON.stringify({ publicToken }),
   });
 
   if (!response.ok) {
@@ -136,15 +167,18 @@ export async function casExchangePublicToken(
     );
   }
 
-  const data = await response.json() as any;
+  const data = (await response.json()) as any;
+  const accessToken = data.accessToken ?? data.access_token;
+  const grantId = data.grantId ?? data.grant_id;
+  const expiresAt = data.expiresAt ?? data.expires_at;
 
-  if (!data.access_token || !data.grant_id) {
-    throw APIError.internal("CAS_EXCHANGE_INCOMPLETE: Missing access_token or grant_id in response");
+  if (!accessToken || !grantId) {
+    throw APIError.internal("CAS_EXCHANGE_INCOMPLETE: Missing accessToken or grantId in response");
   }
 
   return {
-    accessToken: data.access_token,
-    grantId: data.grant_id,
-    expiresAt: data.expires_at || new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+    accessToken,
+    grantId,
+    expiresAt: expiresAt || new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
   };
 }

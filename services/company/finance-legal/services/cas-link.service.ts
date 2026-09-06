@@ -4,6 +4,7 @@ import { db, schema } from "../models/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { CAS_CONTRACT } from "./cas-contract";
+import { casExchangePublicToken } from "./cas-client";
 
 const { bankConnections, casLinkSessions } = schema;
 
@@ -145,7 +146,21 @@ export async function exchangeCasTokenService(p: {
   stateHash: string;
   callerWorkspaceId: bigint;
   callerUserId: bigint;
+  // Optional override cho test — cùng pattern với createCasLinkSessionService.
+  _clientId?: string;
+  _secretKey?: string;
+  _exchangeFn?: typeof casExchangePublicToken;
 }): Promise<ExchangeTokenResult> {
+  // IA08 — trước đây hàm này KHÔNG có guard trạng thái contract (khác hẳn
+  // createCasLinkSessionService cùng file, vốn đã chặn khi provider chưa
+  // SANDBOX_READY) — nghĩa là lỗ hổng "mint kết nối giả" hoạt động ở MỌI
+  // environment kể cả production. Thêm guard tương tự cho nhất quán.
+  if (CAS_CONTRACT.status !== "SANDBOX_READY") {
+    throw APIError.failedPrecondition(
+      "CAS_PROVIDER_NOT_READY: Cas.so provider contract not verified. Only sandbox flows allowed."
+    );
+  }
+
   const now = new Date();
 
   // 1. Resolve session — state hash, expiry, single-use
@@ -190,18 +205,33 @@ export async function exchangeCasTokenService(p: {
     throw APIError.failedPrecondition("CAS_SESSION_CONSUMED: Link session already used");
   }
 
-  // 3. CAS contract NOT_READY → trả provider_not_ready
-  // Khi sandbox credential được cấp, đây là nơi gọi casExchangePublicToken
-  // Hiện tại: mock minimal grant info cho contract tests
-  const mockGrantInfo = {
-    grantId: `grant_mock_${Date.now()}`,
-    externalAccountId: `acc_mock_${Date.now()}`,
-    institutionId: "VCB",
-    expiresAt: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
-    scopes: (session.scopes as string[]) || [],
-    secretRef: `secret://cosa-connectors/cas/grant-${p.callerWorkspaceId}`,
-    needsReview: !!session.legalEntityId, // chưa verify identity → cần review
-  };
+  // 3. IA08 — trước đây bước này KHÔNG gọi Cas.so thật: mint sẵn
+  // grantId/accountId giả (`grant_mock_*`/`acc_mock_*`) cho BẤT KỲ publicToken
+  // nào, nghĩa là 1 chuỗi rác với session/state hợp lệ vẫn tạo được kết nối
+  // "đã cấp quyền". Fix: gọi thật POST /grant/exchange (casExchangePublicToken,
+  // path/body đã xác nhận qua tài liệu công khai) — publicToken không hợp lệ
+  // sẽ bị provider từ chối (CAS_EXCHANGE_FAILED), không còn luôn thành công.
+  const clientId = p._clientId ?? process.env.CAS_CLIENT_ID ?? "";
+  const secretKey = p._secretKey ?? process.env.CAS_SECRET_KEY ?? "";
+  if (!clientId || !secretKey) {
+    throw APIError.failedPrecondition(
+      "CAS_CREDENTIALS_MISSING: CAS_CLIENT_ID, CAS_SECRET_KEY must be configured"
+    );
+  }
+  const exchangeFn = p._exchangeFn ?? casExchangePublicToken;
+  const exchangeResult = await exchangeFn(p.publicToken, "sandbox", { clientId, secretKey });
+
+  // NOTE (gap đã biết, xem cas-sync.cron.ts::resolveCasAccessToken): chưa có
+  // secret vault thật ở services/company để lưu exchangeResult.accessToken —
+  // secretRef ở đây CHỈ là 1 chuỗi tham chiếu định danh grant thật, KHÔNG
+  // phải nơi lưu giá trị token thật. Không tự bịa cơ chế lưu trữ khi cross-
+  // plane vault (packages/agent/vault, phía Python) chưa có API ghi từ
+  // services/company — để lại như 1 follow-up gap rõ ràng, không giả vờ đã
+  // xong. Tương tự, tài liệu công khai không xác nhận field `accounts` của
+  // response /grant/exchange nên KHÔNG bịa externalAccountId/institutionId —
+  // để null cho tới khi có evidence thật, thay vì "VCB"/"acc_mock_*" giả.
+  const secretRef = `secret://cosa-connectors/cas/grant-${exchangeResult.grantId}`;
+  const needsReview = !!session.legalEntityId; // chưa verify identity → cần review
 
   // 4. Tạo bank connection
   const connId = generateSnowflake();
@@ -214,13 +244,13 @@ export async function exchangeCasTokenService(p: {
       provider: "cas",
       providerEnvironment: "sandbox",
       consentState: "GRANTED",
-      secretRef: mockGrantInfo.secretRef,
+      secretRef,
       scopes: (session.scopes || []) as any,
-      providerGrantId: mockGrantInfo.grantId,
-      externalAccountId: mockGrantInfo.externalAccountId,
-      institutionId: mockGrantInfo.institutionId,
-      grantedScopes: mockGrantInfo.scopes as any,
-      grantExpiresAt: new Date(mockGrantInfo.expiresAt),
+      providerGrantId: exchangeResult.grantId,
+      externalAccountId: null,
+      institutionId: null,
+      grantedScopes: (session.scopes || []) as any,
+      grantExpiresAt: new Date(exchangeResult.expiresAt),
       providerContractVersion: CAS_CONTRACT.contractVersion,
     })
     .returning();
@@ -235,7 +265,7 @@ export async function exchangeCasTokenService(p: {
     institutionId: created.institutionId,
     grantedScopes: (created.grantedScopes as string[]) || [],
     grantExpiresAt: created.grantExpiresAt ? created.grantExpiresAt.toISOString() : null,
-    needsReview: mockGrantInfo.needsReview,
+    needsReview,
     createdAt: created.createdAt.toISOString(),
   };
 

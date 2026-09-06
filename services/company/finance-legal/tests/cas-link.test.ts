@@ -11,6 +11,18 @@ import { CAS_CONTRACT } from "../services/cas-contract";
 
 const { casLinkSessions, bankConnections } = schema;
 
+// IA08 — exchangeCasTokenService giờ gọi thật casExchangePublicToken (POST
+// /grant/exchange). Test không được gọi mạng thật — inject `_exchangeFn`
+// giả lập kết quả provider, giống cách `_clientId`/`_secretKey` đã inject
+// credentials cho createCasLinkSessionService.
+function fakeExchangeFn(overrides?: Partial<{ accessToken: string; grantId: string; expiresAt: string }>) {
+  return async (_publicToken: string, _environment: "sandbox" | "production", _creds: { clientId: string; secretKey: string }) => ({
+    accessToken: overrides?.accessToken ?? "fake_access_token",
+    grantId: overrides?.grantId ?? `grant_fake_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    expiresAt: overrides?.expiresAt ?? new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+  });
+}
+
 async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
@@ -124,6 +136,9 @@ describe("F2 Cas Link Session & Grant Binding", () => {
       stateHash,
       callerWorkspaceId: BigInt(ws.workspaceId),
       callerUserId: BigInt(ws.userId),
+      _clientId: "test-client-id",
+      _secretKey: "test-secret-key",
+      _exchangeFn: fakeExchangeFn(),
     });
     expect(result1.bankConnections).toHaveLength(1);
 
@@ -135,6 +150,9 @@ describe("F2 Cas Link Session & Grant Binding", () => {
         stateHash,
         callerWorkspaceId: BigInt(ws.workspaceId),
         callerUserId: BigInt(ws.userId),
+        _clientId: "test-client-id",
+        _secretKey: "test-secret-key",
+        _exchangeFn: fakeExchangeFn(),
       })
     ).rejects.toThrow(/CAS_SESSION_CONSUMED/);
   });
@@ -168,6 +186,97 @@ describe("F2 Cas Link Session & Grant Binding", () => {
         callerUserId: BigInt(ws.userId),
       })
     ).rejects.toThrow(/CAS_SESSION_EXPIRED/);
+  });
+
+  it("IA08: rejects an invalid publicToken instead of always minting a fake GRANTED connection", async () => {
+    const ws = await makeAuthedWorkspace("Invalid PublicToken Ws");
+
+    const { generateSnowflake } = await import("../../shared/services/snowflake.service");
+    const { createHash } = await import("node:crypto");
+    const { APIError } = await import("encore.dev/api");
+
+    const stateHash = createHash("sha256").update(`invalid_token_${Date.now()}`).digest("hex");
+    const sessionId = generateSnowflake();
+
+    await db.insert(casLinkSessions).values({
+      id: sessionId,
+      workspaceId: BigInt(ws.workspaceId),
+      createdBy: BigInt(ws.userId),
+      stateHash,
+      scopes: ["transaction"] as any,
+      allowedRedirect: "/finance",
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    });
+
+    // Trước IA08: bất kỳ publicToken nào (kể cả rác) với session/hash hợp lệ
+    // đều tạo được bank connection GRANTED, vì exchangeCasTokenService chưa
+    // bao giờ thực sự gọi provider để xác minh publicToken. Giả lập provider
+    // TỪ CHỐI publicToken rác (giống thật: casExchangePublicToken throw khi
+    // response không ok).
+    const rejectingExchangeFn = async () => {
+      throw APIError.failedPrecondition("CAS_EXCHANGE_FAILED: 400 Bad Request");
+    };
+
+    await expect(
+      exchangeCasTokenService({
+        sessionId: String(sessionId),
+        publicToken: "garbage_token_should_be_rejected",
+        stateHash,
+        callerWorkspaceId: BigInt(ws.workspaceId),
+        callerUserId: BigInt(ws.userId),
+        _clientId: "test-client-id",
+        _secretKey: "test-secret-key",
+        _exchangeFn: rejectingExchangeFn as any,
+      })
+    ).rejects.toThrow(/CAS_EXCHANGE_FAILED/);
+
+    // Không có bank connection nào được tạo cho workspace này.
+    const conns = await db
+      .select()
+      .from(bankConnections)
+      .where(eq(bankConnections.workspaceId, BigInt(ws.workspaceId)));
+    expect(conns).toHaveLength(0);
+  });
+
+  it("IA08: fails closed when Cas developer credentials are not configured, does not create a connection", async () => {
+    const ws = await makeAuthedWorkspace("Missing Creds Ws");
+
+    const { generateSnowflake } = await import("../../shared/services/snowflake.service");
+    const { createHash } = await import("node:crypto");
+
+    const stateHash = createHash("sha256").update(`missing_creds_${Date.now()}`).digest("hex");
+    const sessionId = generateSnowflake();
+
+    await db.insert(casLinkSessions).values({
+      id: sessionId,
+      workspaceId: BigInt(ws.workspaceId),
+      createdBy: BigInt(ws.userId),
+      stateHash,
+      scopes: ["transaction"] as any,
+      allowedRedirect: "/finance",
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    });
+
+    const prevClientId = process.env.CAS_CLIENT_ID;
+    const prevSecretKey = process.env.CAS_SECRET_KEY;
+    delete process.env.CAS_CLIENT_ID;
+    delete process.env.CAS_SECRET_KEY;
+    try {
+      await expect(
+        exchangeCasTokenService({
+          sessionId: String(sessionId),
+          publicToken: "any_token",
+          stateHash,
+          callerWorkspaceId: BigInt(ws.workspaceId),
+          callerUserId: BigInt(ws.userId),
+        })
+      ).rejects.toThrow(/CAS_CREDENTIALS_MISSING/);
+    } finally {
+      if (prevClientId === undefined) delete process.env.CAS_CLIENT_ID;
+      else process.env.CAS_CLIENT_ID = prevClientId;
+      if (prevSecretKey === undefined) delete process.env.CAS_SECRET_KEY;
+      else process.env.CAS_SECRET_KEY = prevSecretKey;
+    }
   });
 
   it("revoke connection updates consent state and stops sync", async () => {
