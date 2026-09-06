@@ -357,3 +357,23 @@ export const postConfirmAccountingMapping = api(
     return confirmMappingService(ctx, params.regimeCode, params.mappingVersion);
   }
 );
+
+// 8. Void Accounting Document
+export interface VoidAccountingDocumentApiRequest {
+  id: string;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  reason: string;
+}
+
+export const postVoidAccountingDocument = api(
+  { method: "POST", path: "/finance/accounting-documents/:id/void", expose: true },
+  async (params: VoidAccountingDocumentApiRequest): Promise<AccountingDocumentView> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return voidAccountingDocumentService({
+      documentId: BigInt(params.id),
+      workspaceId: BigInt(ctx.workspaceId),
+      voidReason: params.reason,
+    });
+  }
+);

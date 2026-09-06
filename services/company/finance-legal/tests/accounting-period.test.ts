@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
-import { openAccountingPeriod, getAccountingPeriod, closeAccountingPeriod } from "../handlers/accounting-period.handler";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
+import {
+  openAccountingPeriod,
+  getAccountingPeriod,
+  closeAccountingPeriod,
+  listAccountingPeriods,
+} from "../handlers/accounting-period.handler";
 
 async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
@@ -41,6 +47,33 @@ describe("openAccountingPeriod", () => {
         authorization: outsider.authorization,
       })
     ).rejects.toThrow();
+  });
+});
+
+describe("listAccountingPeriods", () => {
+  it("lists periods for a workspace, optionally filtered by legal entity", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Period List Ws");
+    const legalEntityId = String(generateSnowflake());
+    await openAccountingPeriod({
+      workspaceId,
+      legalEntityId,
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      authorization,
+    });
+    await openAccountingPeriod({
+      workspaceId,
+      startDate: "2026-01-01",
+      endDate: "2026-06-30",
+      authorization,
+    });
+
+    const { periods: all } = await listAccountingPeriods({ workspaceId, authorization });
+    expect(all.length).toBeGreaterThanOrEqual(2);
+
+    const { periods: filtered } = await listAccountingPeriods({ workspaceId, authorization, legalEntityId });
+    expect(filtered.length).toBeGreaterThanOrEqual(1);
+    expect(filtered.every((p) => p.legalEntityId === legalEntityId)).toBe(true);
   });
 });
 

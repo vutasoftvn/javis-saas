@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
@@ -80,6 +80,26 @@ export async function getAccountingPeriodService(
   const row = await getAccountingPeriodRow(id);
   await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toAccountingPeriod(row);
+}
+
+export async function listAccountingPeriodsService(
+  workspaceId: string,
+  authorization: string | undefined,
+  legalEntityId?: string
+): Promise<AccountingPeriod[]> {
+  await requireWorkspaceAccess(authorization, workspaceId);
+
+  const conditions = [eq(accountingPeriods.workspaceId, BigInt(workspaceId))];
+  if (legalEntityId) {
+    conditions.push(eq(accountingPeriods.legalEntityId, BigInt(legalEntityId)));
+  }
+
+  const rows = await db
+    .select()
+    .from(accountingPeriods)
+    .where(and(...conditions));
+
+  return rows.map(toAccountingPeriod);
 }
 
 export async function closeAccountingPeriodService(
