@@ -175,7 +175,30 @@ export async function createInitiativeService(
   params: CreateInitiativeParams,
   authorization: string | undefined
 ): Promise<Initiative> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
+  const ctx = await requireWorkspaceAccess(authorization, params.workspaceId);
+  return createInitiativeInWorkspace(ctx, params);
+}
+
+/**
+ * Tạo Initiative từ một command đã hoàn tất tenant authorization. Hàm này
+ * chỉ dùng nội bộ sau khi caller đã có TenantContext; public API phải đi qua
+ * createInitiativeService để resolve token trước.
+ */
+export async function createInitiativeInWorkspace(
+  ctx: TenantContext,
+  params: CreateInitiativeParams
+): Promise<Initiative> {
+  if (ctx.workspaceId !== params.workspaceId) {
+    throw APIError.permissionDenied(
+      "workspace context does not match initiative workspace"
+    );
+  }
+  return createInitiativeAuthorized(params);
+}
+
+async function createInitiativeAuthorized(
+  params: CreateInitiativeParams
+): Promise<Initiative> {
   await getWorkspace({ id: params.workspaceId });
 
   const wsId = BigInt(params.workspaceId);

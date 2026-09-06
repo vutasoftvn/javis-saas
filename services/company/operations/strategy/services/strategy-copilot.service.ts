@@ -28,7 +28,7 @@ import {
   getTowsOption,
 } from "./tows-option.service";
 import {
-  createInitiativeService,
+  createInitiativeInWorkspace,
   Initiative,
 } from "../../services/initiative.service";
 
@@ -425,7 +425,8 @@ export async function proposeInitiativesService(
 
   const proposed: Initiative[] = [];
   for (const init of params.initiatives) {
-    const created = await createInitiativeService(
+    const created = await createInitiativeInWorkspace(
+      ctx,
       {
         workspaceId: wsIdStr,
         strategicObjectiveId: params.strategicObjectiveId,
@@ -436,8 +437,7 @@ export async function proposeInitiativesService(
         startDate: init.startDate,
         targetDate: init.targetDate,
         keyResultIds: init.keyResultIds,
-      },
-      undefined
+      }
     );
     proposed.push(created);
   }

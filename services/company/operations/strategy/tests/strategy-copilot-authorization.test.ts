@@ -39,6 +39,7 @@ import {
 } from "../../services/okr.service";
 import {
   approveInitiativeService,
+  createInitiativeInWorkspace,
   createInitiativeService,
 } from "../../services/initiative.service";
 import {
@@ -188,6 +189,19 @@ describe("strategy copilot roles & human-in-the-loop governance", () => {
   });
 
   describe("3. Proposal APIs with explicit DRAFT/PROPOSED state", () => {
+    it("rejects an internal initiative create when its workspace differs from the verified context", async () => {
+      const source = await createTestWorkspaceWithMember({ role: "founder" });
+      const destination = await createTestWorkspaceWithMember({ role: "founder" });
+      const founderCtx = makeTenantContext(source.workspaceId, source.userId, "founder");
+
+      await expect(
+        createInitiativeInWorkspace(founderCtx, {
+          workspaceId: destination.workspaceId,
+          title: "Cross-workspace initiative",
+        })
+      ).rejects.toThrow(/workspace context does not match initiative workspace/i);
+    });
+
     it("proposes PESTEL signals in DRAFT status with evidence refs", async () => {
       const ws = await createTestWorkspaceWithMember({ role: "founder" });
       const founderCtx = makeTenantContext(ws.workspaceId, ws.userId, "founder");
