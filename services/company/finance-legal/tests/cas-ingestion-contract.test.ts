@@ -331,6 +331,63 @@ describe("durable inbox: crash-then-resume, retry of FAILED, DLQ, two workers no
     expect(txn).toBeDefined();
   });
 
+  it("IA10: reclaims a row stuck in PROCESSING after its lease expires (worker died after claim, before complete/fail)", async () => {
+    const wsId = generateSnowflake();
+    const conn = await insertConnection({ workspaceId: wsId, externalAccountId: "sub_acc_stuck_processing" });
+    const rawTxn = {
+      tid: "tid_stuck_1",
+      amount: 50000,
+      when: "2026-08-29T07:00:00Z",
+      bank_sub_acc_id: "sub_acc_stuck_processing",
+    };
+    const identity = computeCasEventIdentity({
+      bankConnectionId: String(conn.id),
+      bankSubAccId: rawTxn.bank_sub_acc_id,
+      externalTransactionId: rawTxn.tid,
+      eventKind: "transaction",
+      contractVersion: CAS_CONTRACT.contractVersion,
+    });
+    await enqueueCasInboxEvent({
+      bankConnectionId: conn.id,
+      provider: "cas",
+      environment: "sandbox",
+      source: "poll",
+      eventIdentity: identity,
+      rawPayload: rawTxn,
+    });
+
+    // Worker A claim (RECEIVED -> PROCESSING), rồi "chết" — không gọi
+    // completeCasInboxEvent/failCasInboxEvent với leaseToken của nó.
+    const now = new Date();
+    const [claimedByA] = await claimDueCasInboxEvents({ limit: 5, bankConnectionId: conn.id, now });
+    expect(claimedByA.status).toBe("PROCESSING");
+
+    // Trước khi lease hết hạn: 1 worker khác claim cùng lúc KHÔNG được nhận
+    // lại dòng này (lease còn hiệu lực) — hành vi cũ vẫn phải giữ nguyên.
+    const stillLeased = await claimDueCasInboxEvents({ limit: 5, bankConnectionId: conn.id, now });
+    expect(stillLeased).toHaveLength(0);
+
+    // Sau khi lease hết hạn (worker A coi như đã chết) — "worker B" (tiến
+    // trình mới, không giữ leaseToken của A) phải reclaim được dòng này.
+    const afterLeaseExpiry = new Date(now.getTime() + 3 * 60 * 1000); // > INBOX_LEASE_MS (2 phút)
+    const [claimedByB] = await claimDueCasInboxEvents({ limit: 5, bankConnectionId: conn.id, now: afterLeaseExpiry });
+    expect(claimedByB).toBeDefined();
+    expect(claimedByB.status).toBe("PROCESSING");
+    expect(claimedByB.leaseToken).not.toBe(claimedByA.leaseToken);
+
+    // Worker A "sống lại" và cố complete bằng leaseToken cũ — fencing token
+    // phải chặn, không được ghi đè kết quả của worker B.
+    const staleComplete = await completeCasInboxEvent(BigInt(claimedByA.id), claimedByA.leaseToken);
+    expect(staleComplete).toBe(false);
+
+    // Worker B hoàn tất bằng leaseToken thật của nó — phải thành công.
+    const realComplete = await completeCasInboxEvent(BigInt(claimedByB.id), claimedByB.leaseToken);
+    expect(realComplete).toBe(true);
+
+    const [finalRow] = await db.select().from(casSyncInbox).where(eq(casSyncInbox.id, BigInt(claimedByB.id)));
+    expect(finalRow.status).toBe("PROCESSED");
+  });
+
   it("retries a FAILED item on the next due claim instead of silently skipping it because it already has an event", async () => {
     const wsId = generateSnowflake();
     const conn = await insertConnection({ workspaceId: wsId, externalAccountId: "sub_acc_retry_1" });

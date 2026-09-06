@@ -179,9 +179,22 @@ export async function enqueueCasInboxEvent(p: {
 
 /**
  * Claim tối đa `limit` dòng đến hạn xử lý (RECEIVED hoặc FAILED đã hết
- * next_attempt_at) và không đang bị lease bởi worker khác. FOR UPDATE SKIP
- * LOCKED để 2 worker chạy đồng thời không claim trùng dòng (test
- * "hai worker claim không double ingest").
+ * next_attempt_at, HOẶC PROCESSING nhưng lease đã hết hạn — IA10) và không
+ * đang bị lease CÒN HIỆU LỰC bởi worker khác. FOR UPDATE SKIP LOCKED để 2
+ * worker chạy đồng thời không claim trùng dòng (test "hai worker claim
+ * không double ingest").
+ *
+ * IA10 — trước đây chỉ chọn RECEIVED/FAILED: nếu 1 worker claim xong (đổi
+ * PROCESSING) rồi CHẾT trước khi complete/fail, dòng đó vĩnh viễn không bao
+ * giờ được query này chọn lại dù lease_until đã qua — kẹt mãi ở PROCESSING,
+ * giao dịch coi như "đã ACK nhưng không bao giờ ghi sổ". Điều kiện lease
+ * (`leaseUntil IS NULL OR leaseUntil <= now`) đã áp dụng chung cho MỌI
+ * status ở dưới nên chỉ cần thêm PROCESSING vào danh sách trạng thái hợp lệ
+ * là đủ — hàng PROCESSING còn lease hiệu lực vẫn bị loại như cũ, chỉ hàng đã
+ * hết lease (worker cũ coi như chết) mới được reclaim. completeCasInboxEvent/
+ * failCasInboxEvent đã có fencing token (so leaseToken) nên worker cũ nếu
+ * "sống lại" và cố complete bằng leaseToken cũ sẽ không ghi đè được kết quả
+ * của worker mới đã reclaim.
  */
 export async function claimDueCasInboxEvents(opts: {
   limit: number;
@@ -197,7 +210,7 @@ export async function claimDueCasInboxEvents(opts: {
       .from(casSyncInbox)
       .where(
         and(
-          inArray(casSyncInbox.status, ["RECEIVED", "FAILED"]),
+          inArray(casSyncInbox.status, ["RECEIVED", "FAILED", "PROCESSING"]),
           lte(casSyncInbox.nextAttemptAt, now),
           or(isNull(casSyncInbox.leaseUntil), lte(casSyncInbox.leaseUntil, now)),
           opts.bankConnectionId !== undefined
