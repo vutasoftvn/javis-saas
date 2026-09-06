@@ -13,6 +13,8 @@ import { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { requireCommandAuthority } from "../../identity/services/command-authority.service";
 import { computeCanonicalSha256 } from "./compliance/canonical-hasher";
+import { requireFounderCommand } from "../../shared/auth/workspace-access";
+import { computeProjectBudgetPosition } from "./budget-summary.service";
 
 const { paymentRequests } = schema;
 
@@ -44,6 +46,8 @@ export interface PaymentRequestView {
   idempotencyKey: string;
   createdAt: string;
   updatedAt: string;
+  budgetOverrideReason: string | null;
+  budgetOverrideByMemberId: string | null;
 }
 
 function toView(r: typeof paymentRequests.$inferSelect): PaymentRequestView {
@@ -75,6 +79,8 @@ function toView(r: typeof paymentRequests.$inferSelect): PaymentRequestView {
     idempotencyKey: r.idempotencyKey,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
+    budgetOverrideReason: r.budgetOverrideReason ?? null,
+    budgetOverrideByMemberId: r.budgetOverrideByMemberId ? String(r.budgetOverrideByMemberId) : null,
   };
 }
 
@@ -373,7 +379,7 @@ export async function submitPaymentRequestService(
  */
 export async function approvePaymentRequestService(
   ctx: TenantContext,
-  p: { id: string; expectedVersion: number }
+  p: { id: string; expectedVersion: number; overrideReason?: string }
 ): Promise<PaymentRequestView> {
   const wsId = BigInt(ctx.workspaceId);
   const id = BigInt(p.id);
@@ -386,61 +392,95 @@ export async function approvePaymentRequestService(
     { amount: { minor: current.amountMinor, currency: current.currency } }
   );
 
-  if (current.version !== p.expectedVersion) {
-    const err = APIError.aborted(
-      `CAS mismatch: expected version ${p.expectedVersion} but current is ${current.version}`
-    );
-    (err as any).code = "CONCURRENT_MODIFICATION";
-    throw err;
-  }
-  if (current.approvalState !== "SUBMITTED") {
-    throw APIError.invalidArgument(
-      `Invalid payment request transition from ${current.approvalState} to APPROVED`
-    );
-  }
+  return db.transaction(async (tx) => {
+    if (current.version !== p.expectedVersion) {
+      const err = APIError.aborted(
+        `CAS mismatch: expected version ${p.expectedVersion} but current is ${current.version}`
+      );
+      (err as any).code = "CONCURRENT_MODIFICATION";
+      throw err;
+    }
+    if (current.approvalState !== "SUBMITTED") {
+      throw APIError.invalidArgument(
+        `Invalid payment request transition from ${current.approvalState} to APPROVED`
+      );
+    }
 
-  const nextVersion = current.version + 1;
-  const approvalHash = computeApprovalHash({
-    workspaceId: String(current.workspaceId),
-    legalEntityId: String(current.legalEntityId),
-    requestId: String(current.id),
-    version: nextVersion,
-    beneficiaryBankBin: current.beneficiaryBankBin,
-    beneficiaryAccountNumber: current.beneficiaryAccountNumber,
-    beneficiaryName: current.beneficiaryName,
-    amountMinor: current.amountMinor,
-    currency: current.currency,
-    transferReference: current.transferReference,
-  });
+    const nextVersion = current.version + 1;
+    let budgetOverrideReason: string | null = null;
+    let budgetOverrideByMemberId: bigint | null = null;
 
-  const now = new Date();
-  const [updated] = await db
-    .update(paymentRequests)
-    .set({
-      approvalState: "APPROVED",
+    if (current.projectId) {
+      const position = await computeProjectBudgetPosition(
+        tx,
+        {
+          workspaceId: String(current.workspaceId),
+          projectId: String(current.projectId),
+          currency: current.currency,
+          asOf: new Date(),
+        },
+        true
+      );
+
+      if (position.coverage === "COMPLETE") {
+        const wouldBeTotal = position.committedUnpaidMinor + position.actualPaidMinor + BigInt(current.amountMinor);
+        if (wouldBeTotal > position.limitMinor) {
+          requireFounderCommand(ctx, "finance.budget.override");
+          if (!p.overrideReason?.trim()) {
+            throw APIError.failedPrecondition(
+              "BUDGET_LIMIT_EXCEEDED: cần overrideReason khi duyệt vượt ngân sách"
+            );
+          }
+          budgetOverrideReason = p.overrideReason;
+          budgetOverrideByMemberId = BigInt(ctx.workforceMemberId ?? ctx.userId);
+        }
+      }
+    }
+
+    const approvalHash = computeApprovalHash({
+      workspaceId: String(current.workspaceId),
+      legalEntityId: String(current.legalEntityId),
+      requestId: String(current.id),
       version: nextVersion,
-      approvalHash,
-      approvedVersion: nextVersion,
-      approvedByMemberId: ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null,
-      approvedAt: now,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(paymentRequests.id, id),
-        eq(paymentRequests.workspaceId, wsId),
-        eq(paymentRequests.version, current.version)
+      beneficiaryBankBin: current.beneficiaryBankBin,
+      beneficiaryAccountNumber: current.beneficiaryAccountNumber,
+      beneficiaryName: current.beneficiaryName,
+      amountMinor: current.amountMinor,
+      currency: current.currency,
+      transferReference: current.transferReference,
+    });
+
+    const now = new Date();
+    const [updated] = await tx
+      .update(paymentRequests)
+      .set({
+        approvalState: "APPROVED",
+        version: nextVersion,
+        approvalHash,
+        approvedVersion: nextVersion,
+        approvedByMemberId: ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null,
+        approvedAt: now,
+        updatedAt: now,
+        budgetOverrideReason,
+        budgetOverrideByMemberId,
+      })
+      .where(
+        and(
+          eq(paymentRequests.id, id),
+          eq(paymentRequests.workspaceId, wsId),
+          eq(paymentRequests.version, current.version)
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  if (!updated) {
-    const err = APIError.aborted("Concurrent modification during payment request approval");
-    (err as any).code = "CONCURRENT_MODIFICATION";
-    throw err;
-  }
+    if (!updated) {
+      const err = APIError.aborted("Concurrent modification during payment request approval");
+      (err as any).code = "CONCURRENT_MODIFICATION";
+      throw err;
+    }
 
-  return toView(updated);
+    return toView(updated);
+  });
 }
 
 export async function rejectPaymentRequestService(

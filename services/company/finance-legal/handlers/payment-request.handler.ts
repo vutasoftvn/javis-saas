@@ -90,9 +90,13 @@ export const submitPaymentRequest = api(
   }
 );
 
+export interface ApprovePaymentRequestApiRequest extends PaymentRequestActionApiRequest {
+  overrideReason?: string;
+}
+
 export const approvePaymentRequest = api(
   { method: "POST", path: "/finance-legal/payment-requests/:id/approve", expose: true },
-  async (req: PaymentRequestActionApiRequest): Promise<PaymentRequestView> => {
+  async (req: ApprovePaymentRequestApiRequest): Promise<PaymentRequestView> => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return approvePaymentRequestService(ctx, req);
   }

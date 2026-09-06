@@ -344,3 +344,88 @@ describe("F4 — payment request state machine", () => {
     expect(fetched.beneficiaryName).toBe("NHA CUNG CAP");
   });
 });
+
+describe("F6a — budget envelope enforcement on approve", () => {
+  it("rejects approval over the budget limit for a non-founder, requires overrideReason for a founder", async () => {
+    const { session, authorization, legalEntityId } = await foundersSetup("Budget Enforce Ws");
+    const { createProject } = await import("../../operations/handlers/project.handler");
+    const project = await createProject({
+      authorization, workspaceId: session.workspaceId, title: "Budget enforce project",
+    });
+    const { createBudgetEnvelopeService } = await import("../services/budget-summary.service");
+    const { resolveTenantContext } = await import("../../identity/services/tenant-context.service");
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    await createBudgetEnvelopeService(ctx, {
+      projectId: project.id,
+      legalEntityId,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+      limitMinor: "1000000",
+    });
+
+    const created = await createPaymentRequest({
+      authorization, workspaceId: session.workspaceId,
+      legalEntityId, projectId: project.id,
+      amountMinor: "1500000", currency: "VND",
+      beneficiaryBankBin: "970415", beneficiaryAccountNumber: "999",
+      beneficiaryName: "NCC Over Limit", purpose: "vuot ngan sach",
+      idempotencyKey: "budget-enforce-over-limit",
+    });
+    const submitted = await submitPaymentRequest({
+      id: created.id, expectedVersion: created.version, authorization, workspaceId: session.workspaceId,
+    });
+
+    // Không có overrideReason -> founder vẫn bị chặn
+    await expect(
+      approvePaymentRequest({
+        id: submitted.id, expectedVersion: submitted.version, authorization, workspaceId: session.workspaceId,
+      })
+    ).rejects.toThrow(/BUDGET_LIMIT_EXCEEDED/);
+
+    // Có overrideReason -> qua, ghi đúng cột override
+    const approved = await approvePaymentRequest({
+      id: submitted.id, expectedVersion: submitted.version, authorization, workspaceId: session.workspaceId,
+      overrideReason: "Founder chấp nhận chi vượt để giữ tiến độ dự án",
+    });
+    expect(approved.approvalState).toBe("APPROVED");
+    expect(approved.budgetOverrideReason).toBe("Founder chấp nhận chi vượt để giữ tiến độ dự án");
+    expect(approved.budgetOverrideByMemberId).not.toBeNull();
+  });
+
+  it("does not require override when the request stays within the budget limit", async () => {
+    const { session, authorization, legalEntityId } = await foundersSetup("Budget Within Limit Ws");
+    const { createProject } = await import("../../operations/handlers/project.handler");
+    const project = await createProject({
+      authorization, workspaceId: session.workspaceId, title: "Budget within-limit project",
+    });
+    const { createBudgetEnvelopeService } = await import("../services/budget-summary.service");
+    const { resolveTenantContext } = await import("../../identity/services/tenant-context.service");
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    await createBudgetEnvelopeService(ctx, {
+      projectId: project.id,
+      legalEntityId,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+      limitMinor: "10000000",
+    });
+
+    const created = await createPaymentRequest({
+      authorization, workspaceId: session.workspaceId,
+      legalEntityId, projectId: project.id,
+      amountMinor: "1000000", currency: "VND",
+      beneficiaryBankBin: "970415", beneficiaryAccountNumber: "888",
+      beneficiaryName: "NCC Within Limit", purpose: "trong han muc",
+      idempotencyKey: "budget-within-limit",
+    });
+    const submitted = await submitPaymentRequest({
+      id: created.id, expectedVersion: created.version, authorization, workspaceId: session.workspaceId,
+    });
+    const approved = await approvePaymentRequest({
+      id: submitted.id, expectedVersion: submitted.version, authorization, workspaceId: session.workspaceId,
+    });
+
+    expect(approved.approvalState).toBe("APPROVED");
+    expect(approved.budgetOverrideReason).toBeNull();
+    expect(approved.budgetOverrideByMemberId).toBeNull();
+  });
+});
