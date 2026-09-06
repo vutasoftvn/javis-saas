@@ -2,6 +2,7 @@ import { api, Header, Query } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import {
   getTaxObligationsService,
+  syncComputedCorporateIncomeTaxService,
   upsertManualTaxObligationService,
   TaxObligationSummaryView,
   TaxObligationView,
@@ -20,6 +21,22 @@ export const getTaxObligations = api(
   async (req: GetTaxObligationsApiRequest): Promise<TaxObligationSummaryView> => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return getTaxObligationsService(ctx, req.legalEntityId, req.periodId);
+  }
+);
+
+export interface SyncTaxObligationApiRequest {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  legalEntityId: string;
+  periodId: string;
+}
+
+export const postSyncTaxObligation = api(
+  { method: "POST", path: "/finance/tax-obligations/sync", expose: true },
+  async (req: SyncTaxObligationApiRequest): Promise<{ synced: TaxObligationView | null }> => {
+    const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+    const synced = await syncComputedCorporateIncomeTaxService(ctx, req.legalEntityId, req.periodId);
+    return { synced };
   }
 );
 

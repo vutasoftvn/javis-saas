@@ -7,6 +7,7 @@ import { setAccountingPolicyService } from "../services/accounting-policy.servic
 import { createBookEntryService } from "../services/accounting-books.service";
 import {
   getTaxObligationsService,
+  syncComputedCorporateIncomeTaxService,
   upsertManualTaxObligationService,
 } from "../services/tax-obligation.service";
 
@@ -49,10 +50,19 @@ describe("tax-obligation.service", () => {
       legalEntityId, periodId, taxName: "Thuế GTGT", incurredMinor: "500000", paidMinor: "500000",
     });
 
-    const summary = await getTaxObligationsService(ctx, legalEntityId, periodId);
-    const cit = summary.taxes.find((t) => t.taxName === "Thuế TNDN");
+    // Đọc thuần túy trước khi sync: chưa có dòng CIT nào, vì chưa từng gọi sync.
+    const before = await getTaxObligationsService(ctx, legalEntityId, periodId);
+    expect(before.taxes.find((t) => t.taxName === "Thuế TNDN")).toBeUndefined();
+
+    // Sync là hành động RIÊNG, tường minh — không phải side-effect của đọc.
+    const synced = await syncComputedCorporateIncomeTaxService(ctx, legalEntityId, periodId);
     // gross_profit = 10,000,000 (revenue - cogs=0); preTax = 10,000,000 - 2,000,000 = 8,000,000
     // tax = 8,000,000 * 2000/10000 = 1,600,000
+    expect(synced?.incurredMinor).toBe("1600000");
+    expect(synced?.source).toBe("COMPUTED_CIT");
+
+    const summary = await getTaxObligationsService(ctx, legalEntityId, periodId);
+    const cit = summary.taxes.find((t) => t.taxName === "Thuế TNDN");
     expect(cit?.incurredMinor).toBe("1600000");
     expect(cit?.source).toBe("COMPUTED_CIT");
 
@@ -60,5 +70,14 @@ describe("tax-obligation.service", () => {
     expect(vat?.closingDebtMinor).toBe("0");
 
     expect(summary.totalBalanceDueMinor).toBe("1600000"); // CIT chưa nộp + VAT đã nộp hết
+  });
+
+  it("getTaxObligationsService never writes a report snapshot as a side effect", async () => {
+    const { ctx, legalEntityId, periodId } = await foundersSetup("Tax Pure Read Ws");
+    await getTaxObligationsService(ctx, legalEntityId, periodId);
+    await getTaxObligationsService(ctx, legalEntityId, periodId);
+    const { listReportSnapshotsService } = await import("../services/accounting-reports.service");
+    const snapshots = await listReportSnapshotsService(ctx, { legalEntityId, periodId });
+    expect(snapshots.length).toBe(0);
   });
 });

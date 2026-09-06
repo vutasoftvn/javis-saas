@@ -35,20 +35,23 @@ function toView(row: typeof taxObligationInstances.$inferSelect): TaxObligationV
   };
 }
 
-// Đồng bộ dòng thuế TNDN từ report B02 (giá trị derived tính từ sổ sách +
-// chính sách thuế suất) — đây là dòng DUY NHẤT trong bảng nghĩa vụ thuế
-// không do người dùng nhập tay, luôn ghi đè theo giá trị report mới nhất
-// mỗi lần đọc để tránh lệch khi sổ sách/chính sách thay đổi sau đó.
-async function syncComputedCorporateIncomeTax(
+/**
+ * Hành động RIÊNG, tường minh — KHÔNG gọi từ getTaxObligationsService.
+ * generateReportService luôn ghi 1 dòng mới vào accounting_report_snapshots,
+ * nên việc gọi nó phải là một sự kiện có chủ đích (giống POST
+ * /finance/reports/generate đã có), không phải side-effect của một lần đọc —
+ * nếu không, mỗi lần tải màn hình F01 sẽ âm thầm phình audit log vô hạn.
+ */
+export async function syncComputedCorporateIncomeTaxService(
   ctx: TenantContext,
   legalEntityId: string,
   periodId: string
-): Promise<void> {
+): Promise<TaxObligationView | null> {
   const b02 = await generateReportService(ctx, { legalEntityId, periodId, reportCode: "B02" });
   const citLine = b02.lines.find((l) => l.lineCode === "THUE_TNDN");
-  if (!citLine) return;
+  if (!citLine) return null;
 
-  await db
+  const [row] = await db
     .insert(taxObligationInstances)
     .values({
       id: generateSnowflake(),
@@ -67,16 +70,23 @@ async function syncComputedCorporateIncomeTax(
         taxObligationInstances.taxName,
       ],
       set: { incurredMinor: citLine.amountMinor, updatedAt: new Date() },
-    });
+    })
+    .returning();
+
+  if (!row) throw APIError.internal("Failed to sync computed CIT tax obligation");
+  return toView(row);
 }
 
+/**
+ * ĐỌC THUẦN TÚY — không gọi generateReportService, không ghi gì. Muốn số
+ * thuế TNDN mới nhất, caller phải gọi syncComputedCorporateIncomeTaxService
+ * riêng trước (xem doc comment ở trên).
+ */
 export async function getTaxObligationsService(
   ctx: TenantContext,
   legalEntityId: string,
   periodId: string
 ): Promise<TaxObligationSummaryView> {
-  await syncComputedCorporateIncomeTax(ctx, legalEntityId, periodId);
-
   const rows = await db
     .select()
     .from(taxObligationInstances)
