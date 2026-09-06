@@ -3,7 +3,9 @@ from __future__ import annotations
 import re
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
+from agent.capabilities.gateway import GatewayExecutionResult
 
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
 from apps.cosa.api.event_stream import redact_ux_event_payload
@@ -57,7 +59,9 @@ async def test_matrix_unverified_customer_redaction_flow():
     plane = MagicMock()
     plane.spec_registry = MagicMock()
     plane.spec_registry.get = AsyncMock(
-        return_value=SimpleNamespace(content=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_dump(mode="json"))
+        return_value=SimpleNamespace(
+            content=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_dump(mode="json")
+        )
     )
 
     mock_thread_read = AsyncMock(
@@ -77,13 +81,31 @@ async def test_matrix_unverified_customer_redaction_flow():
     )
     mock_draft = AsyncMock(return_value={"artifact_kind": "message_draft"})
 
-    cap_registry = MagicMock()
-    cap_registry.get_handler.side_effect = lambda cap_id: {
+    handlers_by_capability = {
         "engagement.thread.read": mock_thread_read,
         "commercial.customer_360.read": mock_customer_read,
         "engagement.message.draft": mock_draft,
-    }.get(cap_id)
+    }
+    cap_registry = MagicMock()
+    cap_registry.get_handler.side_effect = handlers_by_capability.get
     plane.capability_registry = cap_registry
+
+    # IA25 phần 2 — copilot_run.py gọi capability qua plane.gateway.execute().
+    async def _fake_gateway_execute(req):
+        handler = handlers_by_capability.get(req.capability_id)
+        if handler is None:
+            return GatewayExecutionResult(
+                tool_call_id=req.tool_call_id,
+                status="failed",
+                error_message=f"Capability '{req.capability_id}' not found in registry",
+            )
+        output = await handler(req.input_payload, req.context)
+        return GatewayExecutionResult(
+            tool_call_id=req.tool_call_id, status="completed", output_payload=output
+        )
+
+    plane.gateway = MagicMock()
+    plane.gateway.execute = AsyncMock(side_effect=_fake_gateway_execute)
 
     mock_kernel = MagicMock()
     mock_kernel.run = AsyncMock(
@@ -117,7 +139,9 @@ async def test_matrix_unverified_customer_redaction_flow():
         "delegation_token": "test-delegation-token",
     }
 
-    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock) as mock_cb:
+    with patch(
+        "apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock
+    ) as mock_cb:
         await run_customer_support_copilot(plane, stream_mgr, payload)
 
         # Verify commercial.customer_360.read was invoked with identity_verified=False and context

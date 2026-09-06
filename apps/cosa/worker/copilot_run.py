@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 from agent.artifacts import WorkspaceArtifact
-from agent.capabilities.registry import CapabilityHandler
+from agent.capabilities.gateway import GatewayExecutionRequest
 from agent.contracts.run import RunRequest
 
 from apps.cosa.agents.registry_loader import load_registered_agent_spec
@@ -26,21 +26,54 @@ FORBIDDEN_CAP_RE = re.compile(
 )
 
 
-async def _require_handler(
+async def _execute_via_gateway(
     plane: Any,
     capability_id: str,
+    input_payload: dict[str, Any],
+    ctx: dict[str, Any],
     *,
     run_id: str,
+    workspace_id: str,
+    principal: str,
     correlation_id: str,
     stream_repo: Any,
     stream_mgr: CosaEventStreamManager,
-) -> CapabilityHandler | None:
-    """Trả handler hoặc None. Nếu None: emit run.failed có reason_code
-    và callback Company failed — caller phải return ngay."""
-    handler = plane.capability_registry.get_handler(capability_id)
-    if handler is not None:
-        return handler
-    logger.error("Copilot run %s: capability not registered: %s", run_id, capability_id)
+) -> Any:
+    """Thực thi 1 capability qua CapabilityGateway thật (idempotency/
+    governance/audit/connector-grant verify) — IA25 phần 2: trước đây
+    Copilot gọi `plane.capability_registry.get_handler(...)` rồi CALL
+    HANDLER TRỰC TIẾP, bỏ qua HOÀN TOÀN pipeline gateway mà mọi capability
+    khác trong hệ thống đều phải đi qua (không audit event, không
+    idempotency claim, không re-verify connector grant, không approval
+    gate). `plane.gateway` là CÙNG MỘT CapabilityGateway instance đã được
+    compose sẵn cho luồng tool-call bình thường (xem agent_plane.py) — dùng
+    lại, không tạo pipeline governance thứ hai.
+
+    Trả `None` (và đã emit run.failed + callback company failed) nếu gateway
+    không hoàn thành (denied/failed/waiting_approval/in_progress) — caller
+    phải `if result is None: return` ngay, không tiếp tục dùng output rỗng.
+    """
+    req = GatewayExecutionRequest(
+        run_id=run_id,
+        capability_id=capability_id,
+        input_payload=input_payload,
+        principal=principal,
+        workspace_id=workspace_id,
+        context=dict(ctx),
+    )
+    result = await plane.gateway.execute(req)
+
+    if result.status == "completed":
+        return result.output_payload
+
+    reason_code = f"capability_gateway_{result.status}"
+    logger.error(
+        "Copilot run %s: capability %s did not complete via gateway (status=%s, error=%s)",
+        run_id,
+        capability_id,
+        result.status,
+        result.error_message,
+    )
     if stream_repo:
         await stream_mgr.emit(
             stream_repo,
@@ -48,13 +81,13 @@ async def _require_handler(
             conversation_id="",
             event_type="run.failed",
             payload={
-                "error": f"capability not registered: {capability_id}",
-                "reason_code": "capability_not_registered",
+                "error": result.error_message or f"capability {capability_id} not completed",
+                "reason_code": reason_code,
                 "capability": capability_id,
             },
             correlation_id=correlation_id,
         )
-    await callback_company_result(run_id, "failed")
+    await callback_company_result(run_id, "failed", reason_code=reason_code)
     return None
 
 
@@ -167,7 +200,9 @@ async def run_customer_support_copilot(
     # tác dụng. Fail-closed thay vì mint một token chắc chắn không dùng được.
     delegation_token = payload.get("delegation_token")
     if not delegation_token:
-        logger.error("run_id=%s missing delegation_token in copilot payload, failing closed", run_id)
+        logger.error(
+            "run_id=%s missing delegation_token in copilot payload, failing closed", run_id
+        )
         if stream_repo:
             await stream_mgr.emit(
                 stream_repo,
@@ -195,49 +230,58 @@ async def run_customer_support_copilot(
         identity_verified = payload.get("identity_verified", False)
         knowledge_scope = payload.get("knowledge_scope", {})
 
+        principal = payload.get("principal", "system:copilot")
+
         thread_context = {}
         if thread_id:
-            thread_handler = await _require_handler(
+            thread_context = await _execute_via_gateway(
                 plane,
                 "engagement.thread.read",
+                {"thread_id": thread_id},
+                ctx,
                 run_id=run_id,
+                workspace_id=workspace_id,
+                principal=principal,
                 correlation_id=correlation_id,
                 stream_repo=stream_repo,
                 stream_mgr=stream_mgr,
             )
-            if thread_handler is None:
+            if thread_context is None:
                 return
-            thread_context = await thread_handler({"thread_id": thread_id}, ctx)
 
         customer_360 = {}
         if contact_id:
-            customer_handler = await _require_handler(
+            customer_360 = await _execute_via_gateway(
                 plane,
                 "commercial.customer_360.read",
+                {"contact_id": contact_id, "identity_verified": identity_verified},
+                ctx,
                 run_id=run_id,
+                workspace_id=workspace_id,
+                principal=principal,
                 correlation_id=correlation_id,
                 stream_repo=stream_repo,
                 stream_mgr=stream_mgr,
             )
-            if customer_handler is None:
+            if customer_360 is None:
                 return
-            customer_360 = await customer_handler(
-                {"contact_id": contact_id, "identity_verified": identity_verified}, ctx
-            )
 
         knowledge_profile = {}
         if knowledge_scope:
-            knowledge_handler = await _require_handler(
+            knowledge_profile = await _execute_via_gateway(
                 plane,
                 "knowledge.profile.read",
+                knowledge_scope,
+                ctx,
                 run_id=run_id,
+                workspace_id=workspace_id,
+                principal=principal,
                 correlation_id=correlation_id,
                 stream_repo=stream_repo,
                 stream_mgr=stream_mgr,
             )
-            if knowledge_handler is None:
+            if knowledge_profile is None:
                 return
-            knowledge_profile = await knowledge_handler(knowledge_scope, ctx)
 
         # 4. Build Model Input
         context_bundle = {
@@ -297,17 +341,9 @@ async def run_customer_support_copilot(
         summary_ref = f"sum_{run_id}"
 
         if output_valid:
-            draft_handler = await _require_handler(
+            draft_result = await _execute_via_gateway(
                 plane,
                 "engagement.message.draft",
-                run_id=run_id,
-                correlation_id=correlation_id,
-                stream_repo=stream_repo,
-                stream_mgr=stream_mgr,
-            )
-            if draft_handler is None:
-                return
-            await draft_handler(
                 {
                     "thread_id": str(thread_id),
                     "draft_body": str(draft_body),
@@ -315,7 +351,15 @@ async def run_customer_support_copilot(
                     "rationale": str(summary),
                 },
                 ctx,
+                run_id=run_id,
+                workspace_id=workspace_id,
+                principal=payload.get("principal", "system:copilot"),
+                correlation_id=correlation_id,
+                stream_repo=stream_repo,
+                stream_mgr=stream_mgr,
             )
+            if draft_result is None:
+                return
 
             # 5. Persist Artifact & verify readable
             if plane.artifact_repository is not None:
@@ -340,7 +384,10 @@ async def run_customer_support_copilot(
                         # được create() thành công phía trên — output hợp lệ
                         # bị báo thất bại oan.
                         get_fn = plane.artifact_repository.get
-                        if inspect.iscoroutinefunction(get_fn) or type(get_fn).__name__ == "AsyncMock":
+                        if (
+                            inspect.iscoroutinefunction(get_fn)
+                            or type(get_fn).__name__ == "AsyncMock"
+                        ):
                             retrieved = await get_fn(workspace_id, artifact_ref)
                             artifact_persisted = retrieved is not None
                         elif callable(get_fn):
@@ -367,6 +414,7 @@ async def run_customer_support_copilot(
                 artifact_persisted = False
 
         from apps.cosa.worker.run_outcome import normalize_status, resolve_run_outcome
+
         outcome = resolve_run_outcome(
             status=kernel_status,
             output_valid=output_valid,
