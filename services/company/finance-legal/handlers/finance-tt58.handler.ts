@@ -254,7 +254,7 @@ export interface CreateBookEntryParams {
   periodId: string;
   documentId?: string;
   item: string;
-  category: "capital" | "loan" | "internal_transfer" | "revenue" | "cost" | "advance" | "payable" | "receivable";
+  category: "capital" | "loan" | "internal_transfer" | "revenue" | "cogs" | "opex" | "inventory_purchase" | "advance" | "payable" | "receivable";
   amountMinor: string;
   currency?: string;
   effectiveDate: string;
