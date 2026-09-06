@@ -8,6 +8,8 @@ import '../../../data/models/project_operating_setup_model.dart';
 import '../controllers/project_kickoff_controller.dart';
 import '../domain/review_schedule.dart';
 
+import '../widgets/workspace_strategy_settings_sheet.dart';
+
 class ProjectKickoffView extends StatefulWidget {
   final String projectId;
   final VoidCallback onBack;
@@ -89,6 +91,17 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                 'Xác định khách hàng, vấn đề, vòng khởi đầu và cam kết hành động tuần đầu.',
             icon: Icons.flag_circle_outlined,
             actions: [
+              IconButton(
+                key: const ValueKey('project_kickoff_strategy_settings_button'),
+                icon: const Icon(
+                  Icons.settings_suggest_outlined,
+                  size: 20,
+                  color: AppTheme.primary,
+                ),
+                tooltip: 'Cài đặt khung quản trị chiến lược',
+                onPressed: () => WorkspaceStrategySettingsSheet.show(context),
+              ),
+              const SizedBox(width: 4),
               TextButton.icon(
                 onPressed: widget.onOpenAdvancedRoadmap,
                 icon: const Icon(
@@ -116,6 +129,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
               ),
             ],
           ),
+
           const SizedBox(height: 16),
           Expanded(
             // `LayoutBuilder` PHẢI ở ngoài `Obx`: builder của nó chạy ở pha

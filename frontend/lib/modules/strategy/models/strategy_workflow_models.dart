@@ -1036,11 +1036,20 @@ class InitiativeModel {
   final String? sourceTowsOptionId;
   final String? description;
   final String? intendedOutcome;
+  final String? startDate;
   final String? targetDate;
+  final String? ownerMemberId;
   final String? approvedByMemberId;
+  final String? approvedAt;
+  final String? approvalReason;
   final String? decisionId;
   final List<dynamic> milestones;
+  final List<String> keyResultIds;
+  final int? settingsRevision;
   final int revision;
+
+  bool get isApproved => approvalStatus.toUpperCase() == 'APPROVED';
+  bool get isDraft => approvalStatus.toUpperCase() == 'DRAFT';
 
   const InitiativeModel({
     required this.id,
@@ -1053,14 +1062,21 @@ class InitiativeModel {
     this.sourceTowsOptionId,
     this.description,
     this.intendedOutcome,
+    this.startDate,
     this.targetDate,
+    this.ownerMemberId,
     this.approvedByMemberId,
+    this.approvedAt,
+    this.approvalReason,
     this.decisionId,
     this.milestones = const [],
+    this.keyResultIds = const [],
+    this.settingsRevision,
     required this.revision,
   });
 
   factory InitiativeModel.fromJson(Map<String, dynamic> json) {
+    final krRaw = (json['keyResultIds'] as List<dynamic>?) ?? [];
     return InitiativeModel(
       id: json['id']?.toString() ?? '',
       workspaceId: json['workspaceId']?.toString() ?? '',
@@ -1072,10 +1088,16 @@ class InitiativeModel {
       sourceTowsOptionId: json['sourceTowsOptionId']?.toString(),
       description: json['description']?.toString(),
       intendedOutcome: json['intendedOutcome']?.toString(),
+      startDate: json['startDate']?.toString(),
       targetDate: json['targetDate']?.toString(),
+      ownerMemberId: json['ownerMemberId']?.toString(),
       approvedByMemberId: json['approvedByMemberId']?.toString(),
+      approvedAt: json['approvedAt']?.toString(),
+      approvalReason: json['approvalReason']?.toString() ?? json['reason']?.toString(),
       decisionId: json['decisionId']?.toString(),
       milestones: (json['milestones'] as List<dynamic>?) ?? const [],
+      keyResultIds: krRaw.map((k) => k.toString()).toList(),
+      settingsRevision: json['settingsRevision'] as int?,
       revision: json['revision'] is int ? json['revision'] as int : 1,
     );
   }
@@ -1092,10 +1114,16 @@ class InitiativeModel {
       'sourceTowsOptionId': sourceTowsOptionId,
       'description': description,
       'intendedOutcome': intendedOutcome,
+      'startDate': startDate,
       'targetDate': targetDate,
+      'ownerMemberId': ownerMemberId,
       'approvedByMemberId': approvedByMemberId,
+      'approvedAt': approvedAt,
+      'approvalReason': approvalReason,
       'decisionId': decisionId,
       'milestones': milestones,
+      'keyResultIds': keyResultIds,
+      'settingsRevision': settingsRevision,
       'revision': revision,
     };
   }
@@ -1120,6 +1148,9 @@ class CycleReviewModel {
   final String? conductedAt;
   final int? settingsRevision;
   final int revision;
+  final bool canEdit;
+  final bool canClose;
+  final bool canStart;
 
   const CycleReviewModel({
     required this.id,
@@ -1139,9 +1170,23 @@ class CycleReviewModel {
     this.conductedAt,
     this.settingsRevision,
     required this.revision,
+    this.canEdit = true,
+    this.canClose = true,
+    this.canStart = true,
   });
 
   factory CycleReviewModel.fromJson(Map<String, dynamic> json) {
+    final status = CycleReviewStatus.fromString(json['status']?.toString());
+    final canEditVal = json['canEdit'] is bool
+        ? json['canEdit'] as bool
+        : (status != CycleReviewStatus.completed && status != CycleReviewStatus.superseded);
+    final canCloseVal = json['canClose'] is bool
+        ? json['canClose'] as bool
+        : (status == CycleReviewStatus.inProgress);
+    final canStartVal = json['canStart'] is bool
+        ? json['canStart'] as bool
+        : (status == CycleReviewStatus.scheduled);
+
     return CycleReviewModel(
       id: json['id']?.toString() ?? '',
       workspaceId: json['workspaceId']?.toString() ?? '',
@@ -1150,7 +1195,7 @@ class CycleReviewModel {
       kind: CycleReviewKind.fromString(json['kind']?.toString()),
       scheduledWeekNo: json['scheduledWeekNo'] is int ? json['scheduledWeekNo'] as int : 1,
       scheduledAt: json['scheduledAt']?.toString(),
-      status: CycleReviewStatus.fromString(json['status']?.toString()),
+      status: status,
       krSnapshots: (json['krSnapshots'] as List<dynamic>?) ?? const [],
       initiativeSnapshots: (json['initiativeSnapshots'] as List<dynamic>?) ?? const [],
       pestelSnapshots: (json['pestelSnapshots'] as List<dynamic>?) ?? const [],
@@ -1160,6 +1205,9 @@ class CycleReviewModel {
       conductedAt: json['conductedAt']?.toString(),
       settingsRevision: json['settingsRevision'] as int?,
       revision: json['revision'] is int ? json['revision'] as int : 1,
+      canEdit: canEditVal,
+      canClose: canCloseVal,
+      canStart: canStartVal,
     );
   }
 
@@ -1182,6 +1230,10 @@ class CycleReviewModel {
       'conductedAt': conductedAt,
       'settingsRevision': settingsRevision,
       'revision': revision,
+      'canEdit': canEdit,
+      'canClose': canClose,
+      'canStart': canStart,
     };
   }
 }
+

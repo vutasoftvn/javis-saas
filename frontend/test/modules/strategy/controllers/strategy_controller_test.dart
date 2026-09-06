@@ -66,13 +66,13 @@ void main() {
     group('loadAllData', () {
       test('loads OKRs, execution, and projects concurrently', () async {
         ApiClient.client = MockClient((request) async {
-          if (request.url.path == '/okrs/cycles') {
+          if (request.url.path == '/operations/okr-cycles') {
             return http.Response(jsonEncode({'cycles': []}), 200);
           }
-          if (request.url.path == '/okrs/objectives') {
+          if (request.url.path == '/operations/objectives') {
             return http.Response(jsonEncode({'objectives': []}), 200);
           }
-          if (request.url.path == '/okrs/key-results') {
+          if (request.url.path == '/operations/key-results') {
             return http.Response(jsonEncode({'key_results': []}), 200);
           }
           if (request.url.path == '/execution/twelve-week-cycles') {
@@ -251,13 +251,13 @@ void main() {
             expect(body['key_results_per_objective_count'], 4);
             return http.Response(jsonEncode({}), 200);
           }
-          if (request.url.path == '/okrs/cycles') {
+          if (request.url.path == '/operations/okr-cycles') {
             return http.Response(jsonEncode({'cycles': []}), 200);
           }
-          if (request.url.path == '/okrs/objectives') {
+          if (request.url.path == '/operations/objectives') {
             return http.Response(jsonEncode({'objectives': []}), 200);
           }
-          if (request.url.path == '/okrs/key-results') {
+          if (request.url.path == '/operations/key-results') {
             return http.Response(jsonEncode({'key_results': []}), 200);
           }
           return http.Response('{}', 200);

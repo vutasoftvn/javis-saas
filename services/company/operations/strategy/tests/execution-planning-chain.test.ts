@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createTestSession } from "../../../identity/tests/helpers/test-session";
 import { createProject, listProjects } from "../../handlers/project.handler";
-import { createInitiative, getInitiative } from "../../handlers/initiative.handler";
+import { createInitiative, approveInitiative, getInitiative } from "../../handlers/initiative.handler";
 import { createOkrCycle, createObjective, addKeyResult, getObjectiveProgress } from "../../handlers/okr.handler";
 import {
   createCycle,
@@ -14,6 +14,7 @@ async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName,
+    role: "founder",
   });
   return { workspaceId: user.workspaceId, authorization: `Bearer ${user.accessToken}` };
 }
@@ -42,6 +43,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
       authorization,
     });
     expect(initiative.id).toBeDefined();
+    await approveInitiative({ id: initiative.id, workspaceId, authorization });
 
     // 4. OKR Cycle & Objectives (NOT guarded by Task 3 - keep original shape)
     const okrCycle = await createOkrCycle({

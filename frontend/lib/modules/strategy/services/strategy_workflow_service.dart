@@ -14,12 +14,24 @@ class RevisionConflictException implements Exception {
 }
 
 class StrategyWorkflowService extends WorkspaceScopedService {
+  dynamic _decodeBody(dynamic response) {
+    try {
+      return jsonDecode(utf8.decode(response.bodyBytes));
+    } catch (_) {
+      try {
+        return jsonDecode(response.body as String);
+      } catch (_) {
+        return <String, dynamic>{};
+      }
+    }
+  }
+
   void _checkResponse(dynamic response) {
     if (response.statusCode == 409) {
       String message = 'Revision conflict';
       int? currentRevision;
       try {
-        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        final body = _decodeBody(response);
         if (body is Map<String, dynamic>) {
           message = body['message'] ?? message;
           currentRevision = body['currentRevision'];
@@ -30,7 +42,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     if (response.statusCode >= 400) {
       String message = 'Request failed with status ${response.statusCode}';
       try {
-        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        final body = _decodeBody(response);
         if (body is Map<String, dynamic> && body['message'] != null) {
           message = body['message'];
         }
@@ -38,6 +50,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       throw StateError(message);
     }
   }
+
 
   List<dynamic> _extractItems(dynamic decoded, [String primaryKey = 'items']) {
     if (decoded is List) return decoded;
@@ -55,10 +68,13 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   Future<WorkspaceStrategySettingsModel> getWorkspaceSettings() async {
     final res = await ApiClient.get('/operations/strategy/settings');
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     final settingsMap = (data['settings'] is Map<String, dynamic>)
-        ? data['settings'] as Map<String, dynamic>
-        : data;
+        ? Map<String, dynamic>.from(data['settings'] as Map<String, dynamic>)
+        : Map<String, dynamic>.from(data);
+    if (data.containsKey('canEdit')) {
+      settingsMap['canEdit'] = data['canEdit'];
+    }
     return WorkspaceStrategySettingsModel.fromJson(settingsMap);
   }
 
@@ -103,12 +119,16 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     final settingsMap = (data['settings'] is Map<String, dynamic>)
-        ? data['settings'] as Map<String, dynamic>
-        : data;
+        ? Map<String, dynamic>.from(data['settings'] as Map<String, dynamic>)
+        : Map<String, dynamic>.from(data);
+    if (data.containsKey('canEdit')) {
+      settingsMap['canEdit'] = data['canEdit'];
+    }
     return WorkspaceStrategySettingsModel.fromJson(settingsMap);
   }
+
 
   // --------------------------------------------------------------------------
   // 2. STRATEGIC OBJECTIVES & BSC FOCUS SCOPES
@@ -128,7 +148,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     final q = queryParams.isEmpty ? '' : '?${queryParams.join('&')}';
     final res = await ApiClient.get('/operations/strategy/objectives$q');
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
     return items
         .map((i) => StrategicObjectiveModel.fromJson(i as Map<String, dynamic>))
@@ -156,14 +176,14 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return StrategicObjectiveModel.fromJson(data);
   }
 
   Future<StrategicObjectiveModel> getStrategicObjective(String id) async {
     final res = await ApiClient.get('/operations/strategy/objectives/$id');
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return StrategicObjectiveModel.fromJson(data);
   }
 
@@ -191,7 +211,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return StrategicObjectiveModel.fromJson(data);
   }
 
@@ -213,7 +233,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final scopesRaw = _extractItems(decoded, 'scopes');
     return scopesRaw
         .map((s) => BscFocusScopeModel.fromJson(s as Map<String, dynamic>))
@@ -245,7 +265,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       '/operations/strategy/objectives/$objectiveId/analysis/pestel$q',
     );
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
     return items
         .map((i) => PestelSignalModel.fromJson(i as Map<String, dynamic>))
@@ -278,7 +298,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return PestelSignalModel.fromJson(data);
   }
 
@@ -307,7 +327,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return PestelSignalModel.fromJson(data);
   }
 
@@ -326,7 +346,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       '/operations/strategy/objectives/$objectiveId/analysis/resources$q',
     );
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
     return items
         .map((i) => ResourceCapabilityAssessmentModel.fromJson(i as Map<String, dynamic>))
@@ -362,7 +382,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return ResourceCapabilityAssessmentModel.fromJson(data);
   }
 
@@ -409,7 +429,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return ResourceCapabilityAssessmentModel.fromJson(data);
   }
 
@@ -428,7 +448,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       '/operations/strategy/objectives/$objectiveId/analysis/swot$q',
     );
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
     return items
         .map((i) => SwotItemModel.fromJson(i as Map<String, dynamic>))
@@ -465,7 +485,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return SwotItemModel.fromJson(data);
   }
 
@@ -490,7 +510,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return SwotItemModel.fromJson(data);
   }
 
@@ -500,7 +520,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: {},
     );
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
     return items
         .map((i) => SwotItemModel.fromJson(i as Map<String, dynamic>))
@@ -528,7 +548,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       '/operations/strategy/objectives/$objectiveId/tows-options$q',
     );
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
     return items
         .map((i) => TowsOptionModel.fromJson(i as Map<String, dynamic>))
@@ -559,7 +579,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
   }
 
@@ -583,7 +603,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
   }
 
@@ -607,7 +627,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
   }
 
@@ -627,7 +647,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
   }
 
@@ -643,14 +663,14 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
   }
 
   Future<TowsOptionModel> getTowsOption(String id) async {
     final res = await ApiClient.get('/operations/strategy/tows-options/$id');
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
   }
 
@@ -676,7 +696,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     final q = queryParams.isEmpty ? '' : '?${queryParams.join('&')}';
     final res = await ApiClient.get('/operations/initiatives$q');
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final items = _extractItems(decoded, 'initiatives');
     return items
         .map((i) => InitiativeModel.fromJson(i as Map<String, dynamic>))
@@ -708,14 +728,14 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
   }
 
   Future<InitiativeModel> getInitiative(String id) async {
     final res = await ApiClient.get('/operations/initiatives/$id');
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
   }
 
@@ -741,7 +761,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
   }
 
@@ -759,7 +779,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
   }
 
@@ -770,7 +790,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   Future<List<CycleReviewModel>> listCycleReviews(String cycleId) async {
     final res = await ApiClient.get('/operations/cycles/$cycleId/reviews');
     _checkResponse(res);
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final decoded = _decodeBody(res);
     final items = _extractItems(decoded, 'reviews');
     return items
         .map((r) => CycleReviewModel.fromJson(r as Map<String, dynamic>))
@@ -780,14 +800,14 @@ class StrategyWorkflowService extends WorkspaceScopedService {
   Future<CycleReviewModel> getCycleReview(String reviewId) async {
     final res = await ApiClient.get('/operations/cycle-reviews/$reviewId');
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
   }
 
   Future<CycleReviewModel> startCycleReview(String reviewId) async {
     final res = await ApiClient.post('/operations/cycle-reviews/$reviewId/start');
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
   }
 
@@ -803,7 +823,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
   }
 
@@ -816,7 +836,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: {'scheduledWeekNo': scheduledWeekNo},
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
   }
 
@@ -834,7 +854,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
       body: body,
     );
     _checkResponse(res);
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
   }
 }

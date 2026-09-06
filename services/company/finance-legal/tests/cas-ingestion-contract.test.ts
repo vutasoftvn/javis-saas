@@ -171,14 +171,15 @@ describe("cas-normalizer: reject typed, không default 0/IN/now", () => {
 describe("GET-poll + webhook of the same transaction converge to one canonical row", () => {
   it("dedups at inbox level (same event_identity) and produces exactly 1 bank_transaction", async () => {
     const wsId = generateSnowflake();
-    const conn = await insertConnection({ workspaceId: wsId, externalAccountId: "sub_acc_dedup_1" });
+    const subAccId = `sub_acc_dedup_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const conn = await insertConnection({ workspaceId: wsId, externalAccountId: subAccId });
 
     const rawTxn = {
       id: 555001,
       tid: "cas_tid_dedup_1",
       description: "Chuyen khoan doi tac",
       amount: 3200000,
-      bank_sub_acc_id: "sub_acc_dedup_1",
+      bank_sub_acc_id: subAccId,
       when: "2026-08-29T09:30:00Z",
     };
 
@@ -226,12 +227,13 @@ describe("GET-poll + webhook of the same transaction converge to one canonical r
 describe("webhook: resolve tenant server-side, quarantine unknown grant, stale callback không đổi tenant", () => {
   it("resolves the correct connection from bank_sub_acc_id, not from any self-declared field", async () => {
     const wsId = generateSnowflake();
-    const conn = await insertConnection({ workspaceId: wsId, externalAccountId: "sub_acc_resolve_1" });
+    const subAccId = `sub_acc_resolve_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const conn = await insertConnection({ workspaceId: wsId, externalAccountId: subAccId });
 
     const payload = JSON.stringify({
       id: "evt_resolve_1",
       error: 0,
-      data: { tid: "tid_resolve_1", amount: 10000, when: "2026-08-29T08:00:00Z", bank_sub_acc_id: "sub_acc_resolve_1" },
+      data: { tid: "tid_resolve_1", amount: 10000, when: "2026-08-29T08:00:00Z", bank_sub_acc_id: subAccId },
     });
     const res = await receiveCasWebhookService({ rawPayload: payload, skipSigVerify: true });
     expect(res.quarantined).toBe(false);

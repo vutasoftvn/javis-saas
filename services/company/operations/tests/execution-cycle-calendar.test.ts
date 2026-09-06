@@ -200,9 +200,13 @@ describe("Execution Cycle Database Operations", () => {
     const wsId = BigInt(workspaceId);
     const pId = BigInt(projectId);
 
+    const id1 = `${Date.now()}01`;
+    const id2 = `${Date.now()}02`;
+    const id3 = `${Date.now()}03`;
+
     const initialActions = [
-      { id: "1001", title: "Phỏng vấn 3 khách hàng" },
-      { id: "1002", title: "Khảo sát thị trường" },
+      { id: id1, title: "Phỏng vấn 3 khách hàng" },
+      { id: id2, title: "Khảo sát thị trường" },
     ];
 
     await db.transaction(async (tx) => {
@@ -232,16 +236,16 @@ describe("Execution Cycle Database Operations", () => {
     await db
       .update(tasks)
       .set({ status: "done" })
-      .where(and(eq(tasks.id, BigInt("1002")), eq(tasks.workspaceId, wsId)));
+      .where(and(eq(tasks.id, BigInt(id2)), eq(tasks.workspaceId, wsId)));
 
     // Now update setup:
-    // - Action 1001 changed title: "Phỏng vấn 3 khách hàng" -> "Phỏng vấn 10 khách hàng"
-    // - Action 1002 changed title: "Khảo sát thị trường" -> "Khảo sát thị trường mới"
-    // - Action 1003 added: "Soạn proposal"
+    // - Action id1 changed title: "Phỏng vấn 3 khách hàng" -> "Phỏng vấn 10 khách hàng"
+    // - Action id2 changed title: "Khảo sát thị trường" -> "Khảo sát thị trường mới"
+    // - Action id3 added: "Soạn proposal"
     const revisedActions = [
-      { id: "1001", title: "Phỏng vấn 10 khách hàng" },
-      { id: "1002", title: "Khảo sát thị trường mới" },
-      { id: "1003", title: "Soạn proposal" },
+      { id: id1, title: "Phỏng vấn 10 khách hàng" },
+      { id: id2, title: "Khảo sát thị trường mới" },
+      { id: id3, title: "Soạn proposal" },
     ];
 
     await db.transaction(async (tx) => {
@@ -267,27 +271,27 @@ describe("Execution Cycle Database Operations", () => {
       );
     });
 
-    // Task 1001 (draft/todo): should have its title updated and revision incremented
+    // Task id1 (draft/todo): should have its title updated and revision incremented
     const [task1001] = await db
       .select()
       .from(tasks)
-      .where(and(eq(tasks.id, BigInt("1001")), eq(tasks.workspaceId, wsId)));
+      .where(and(eq(tasks.id, BigInt(id1)), eq(tasks.workspaceId, wsId)));
     expect(task1001!.title).toBe("Phỏng vấn 10 khách hàng");
     expect(task1001!.sourceRevision).toBe(2);
 
-    // Task 1002 (done): title should NOT be overwritten silently, preserving history
+    // Task id2 (done): title should NOT be overwritten silently, preserving history
     const [task1002] = await db
       .select()
       .from(tasks)
-      .where(and(eq(tasks.id, BigInt("1002")), eq(tasks.workspaceId, wsId)));
+      .where(and(eq(tasks.id, BigInt(id2)), eq(tasks.workspaceId, wsId)));
     expect(task1002!.title).toBe("Khảo sát thị trường"); // preserved!
     expect(task1002!.status).toBe("done");
 
-    // Task 1003 (added): created
+    // Task id3 (added): created
     const [task1003] = await db
       .select()
       .from(tasks)
-      .where(and(eq(tasks.id, BigInt("1003")), eq(tasks.workspaceId, wsId)));
+      .where(and(eq(tasks.id, BigInt(id3)), eq(tasks.workspaceId, wsId)));
     expect(task1003).toBeDefined();
     expect(task1003!.title).toBe("Soạn proposal");
   });

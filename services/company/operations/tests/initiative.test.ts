@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
-import { createInitiative, getInitiative } from "../handlers/initiative.handler";
+import { approveInitiative, createInitiative, getInitiative } from "../handlers/initiative.handler";
 import { createTask } from "../handlers/task.handler";
 
 async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName,
+    role: "founder",
   });
   return { workspaceId: user.workspaceId, authorization: `Bearer ${user.accessToken}` };
 }
@@ -44,6 +45,7 @@ describe("Task.initiativeId FK", () => {
   it("accepts a task linked to a real initiative", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Task Initiative Link Inc");
     const initiative = await createInitiative({ workspaceId, title: "Linked initiative", authorization });
+    await approveInitiative({ id: initiative.id, workspaceId, authorization });
     const task = await createTask({ workspaceId, title: "Linked task", initiativeId: initiative.id, authorization });
     expect(task.initiativeId).toBe(initiative.id);
   });

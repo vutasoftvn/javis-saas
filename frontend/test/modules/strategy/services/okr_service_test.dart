@@ -25,8 +25,7 @@ void main() {
   group('OKR Cycles', () {
     test('getOkrCycles returns cycles list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/okrs/cycles');
-        expect(request.url.queryParameters['workspace_id'], 'workspace-1');
+        expect(request.url.path, '/operations/okr-cycles');
         return http.Response(
           jsonEncode({
             'cycles': [
@@ -43,6 +42,26 @@ void main() {
       expect(result.items.first['name'], 'Q1 2026');
       expect(result.isUnavailable, isFalse);
       expect(result.errorMessage, isNull);
+    });
+
+    test('getOkrCycles returns cycles from MVP data wrapper', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.url.path, '/operations/okr-cycles');
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': [
+              {'id': 'cycle-1', 'name': 'Q1 2026', 'status': 'active'},
+            ],
+          }),
+          200,
+        );
+      });
+
+      final result = await OkrService().getOkrCycles();
+
+      expect(result.items, hasLength(1));
+      expect(result.items.first['name'], 'Q1 2026');
     });
 
     test('getOkrCycles returns failure on 500 error', () async {
@@ -91,10 +110,10 @@ void main() {
     test('createOkrCycle posts name and optional dates', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/okrs/cycles');
-        expect(request.url.queryParameters['workspace_id'], 'workspace-1');
+        expect(request.url.path, '/operations/okr-cycles');
         final body = jsonDecode(request.body);
         expect(body['name'], 'Q1 2026');
+        expect(body['workspaceId'], 'workspace-1');
         expect(body['start_date'], startsWith('2026-01-01'));
         return http.Response(
           jsonEncode({'id': 'cycle-1', 'name': 'Q1 2026', 'status': 'active'}),
@@ -134,8 +153,7 @@ void main() {
   group('Objectives', () {
     test('getObjectives returns objectives list', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/okrs/objectives');
-        expect(request.url.queryParameters['workspace_id'], 'workspace-1');
+        expect(request.url.path, '/operations/objectives');
         return http.Response(
           jsonEncode({
             'objectives': [
@@ -156,10 +174,20 @@ void main() {
     test('getObjectives filters by cycle_id when provided', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.url.queryParameters['cycle_id'], 'cycle-1');
-        return http.Response(jsonEncode({'objectives': []}), 200);
+        return http.Response(
+          jsonEncode({
+            'objectives': [
+              {'id': 'obj-1', 'cycleId': 'cycle-1', 'title': 'In cycle 1'},
+              {'id': 'obj-2', 'cycleId': 'cycle-2', 'title': 'In cycle 2'},
+            ],
+          }),
+          200,
+        );
       });
 
-      await OkrService().getObjectives(cycleId: 'cycle-1');
+      final result = await OkrService().getObjectives(cycleId: 'cycle-1');
+      expect(result.items, hasLength(1));
+      expect(result.items.first['id'], 'obj-1');
     });
 
     test('getObjectives returns failure on 500', () async {
@@ -171,28 +199,62 @@ void main() {
       expect(result.errorMessage, isNotEmpty);
     });
 
-    test('createObjective posts title and optional fields', () async {
+    test('createObjective posts title and lineage fields', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/okrs/objectives');
+        expect(request.url.path, '/operations/objectives');
         final body = jsonDecode(request.body);
-        expect(body['title'], 'New Objective');
-        expect(body['cycle_id'], 'cycle-1');
-        return http.Response(jsonEncode({'id': 'obj-2', 'title': 'New Objective'}), 200);
+        expect(body['title'], 'New Strategic Objective');
+        expect(body['cycleId'], 'cycle-1');
+        expect(body['strategicObjectiveId'], 'strat-obj-1');
+        expect(body['towsOptionId'], 'tows-opt-1');
+        return http.Response(
+          jsonEncode({
+            'id': 'obj-2',
+            'title': 'New Strategic Objective',
+            'strategicObjectiveId': 'strat-obj-1',
+            'towsOptionId': 'tows-opt-1',
+            'status': 'DRAFT',
+          }),
+          200,
+        );
       });
 
       final obj = await OkrService().createObjective(
-        title: 'New Objective',
+        title: 'New Strategic Objective',
         cycleId: 'cycle-1',
+        strategicObjectiveId: 'strat-obj-1',
+        towsOptionId: 'tows-opt-1',
       );
 
       expect(obj['id'], 'obj-2');
+      expect(obj['strategicObjectiveId'], 'strat-obj-1');
+      expect(obj['towsOptionId'], 'tows-opt-1');
+    });
+
+    test('publishObjective calls POST /operations/objectives/:id/publish', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/operations/objectives/obj-1/publish');
+        return http.Response(
+          jsonEncode({
+            'id': 'obj-1',
+            'status': 'PUBLISHED',
+            'publishedByMemberId': 'member-1',
+          }),
+          200,
+        );
+      });
+
+      final published = await OkrService().publishObjective('obj-1');
+      expect(published['status'], 'PUBLISHED');
     });
 
     test('createObjective omits empty optional fields from body', () async {
       ApiClient.client = MockClient((request) async {
         final body = jsonDecode(request.body);
-        expect(body.containsKey('cycle_id'), isFalse);
+        expect(body.containsKey('strategicObjectiveId'), isFalse);
+        expect(body.containsKey('towsOptionId'), isFalse);
         expect(body.containsKey('status'), isFalse);
         return http.Response(jsonEncode({'id': 'obj-3'}), 200);
       });
@@ -207,7 +269,7 @@ void main() {
     test('updateObjective puts title and status to the endpoint', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'PUT');
-        expect(request.url.path, '/okrs/objectives/obj-1');
+        expect(request.url.path, '/operations/objectives/obj-1');
         return http.Response(jsonEncode({'id': 'obj-1', 'title': 'Updated'}), 200);
       });
 
@@ -219,7 +281,7 @@ void main() {
     test('deleteObjective calls DELETE on the endpoint', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'DELETE');
-        expect(request.url.path, '/okrs/objectives/obj-1');
+        expect(request.url.path, '/operations/objectives/obj-1');
         return http.Response('', 204);
       });
 
@@ -230,8 +292,7 @@ void main() {
   group('Key Results', () {
     test('getKeyResults returns key results list', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/okrs/key-results');
-        expect(request.url.queryParameters['workspace_id'], 'workspace-1');
+        expect(request.url.path, '/operations/key-results');
         return http.Response(
           jsonEncode({
             'key_results': [
@@ -249,26 +310,16 @@ void main() {
       expect(result.isUnavailable, isFalse);
     });
 
-    test('getKeyResults filters by objective_id when provided', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.queryParameters['objective_id'], 'obj-1');
-        return http.Response(jsonEncode({'key_results': []}), 200);
-      });
-
-      await OkrService().getKeyResults(objectiveId: 'obj-1');
-    });
-
-    test('createKeyResult posts with defaults for numeric fields', () async {
+    test('createKeyResult posts with defaults for numeric fields to objective route', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
+        expect(request.url.path, '/operations/objectives/obj-1/key-results');
         final body = jsonDecode(request.body);
-        expect(body['objective_id'], 'obj-1');
-        expect(body['baseline_value'], 0.0);
-        expect(body['current_value'], 0.0);
-        expect(body['target_value'], 100.0);
+        expect(body['objectiveId'], 'obj-1');
+        expect(body['baselineValue'], 0);
+        expect(body['targetValue'], 100);
+        expect(body['scoringType'], 'LINEAR_INCREASE');
         expect(body['unit'], '%');
-        expect(body['cadence'], 'weekly');
-        expect(body['status'], 'active');
         return http.Response(jsonEncode({'id': 'kr-1'}), 200);
       });
 
@@ -278,9 +329,9 @@ void main() {
     test('createKeyResult allows custom values for numeric fields', () async {
       ApiClient.client = MockClient((request) async {
         final body = jsonDecode(request.body);
-        expect(body['baseline_value'], 500.0);
-        expect(body['current_value'], 600.0);
-        expect(body['target_value'], 1000.0);
+        expect(body['baselineValue'], 500);
+        expect(body['currentValue'], 600.0);
+        expect(body['targetValue'], 1000);
         expect(body['unit'], 'users');
         return http.Response(jsonEncode({'id': 'kr-2'}), 200);
       });
@@ -297,7 +348,7 @@ void main() {
     test('updateKeyResult puts new values', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'PUT');
-        expect(request.url.path, '/okrs/key-results/kr-1');
+        expect(request.url.path, '/operations/key-results/kr-1');
         final body = jsonDecode(request.body);
         expect(body['current_value'], 750.0);
         return http.Response(jsonEncode({'id': 'kr-1', 'current_value': 750.0}), 200);
@@ -311,7 +362,7 @@ void main() {
     test('deleteKeyResult calls DELETE on the endpoint', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'DELETE');
-        expect(request.url.path, '/okrs/key-results/kr-1');
+        expect(request.url.path, '/operations/key-results/kr-1');
         return http.Response('', 204);
       });
 
@@ -323,7 +374,7 @@ void main() {
     test('generateAiOkrs posts with default counts', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/okrs/generate-ai');
+        expect(request.url.path, '/operations/okrs/generate-ai');
         final body = jsonDecode(request.body);
         expect(body['objectives_count'], 2);
         expect(body['krs_per_objective_count'], 3);

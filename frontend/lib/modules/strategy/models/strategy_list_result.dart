@@ -35,4 +35,8 @@ final class StrategyListResult<T> {
   /// `true` khi có lỗi thật cần hiển thị (không tính trường hợp `unavailable`
   /// — đó là trạng thái hợp lệ, không phải lỗi).
   bool get isFailure => errorMessage != null;
+
+  /// `true` khi kết quả thành công
+  bool get isSuccess => !isFailure && !isUnavailable;
 }
+

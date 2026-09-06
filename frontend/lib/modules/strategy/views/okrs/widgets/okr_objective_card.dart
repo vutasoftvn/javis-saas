@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../controllers/strategy_controller.dart';
+import '../../../services/okr_service.dart';
 import '../dialogs/okr_dialogs.dart';
 import 'key_result_item_tile.dart';
 
@@ -81,13 +82,46 @@ class OkrObjectiveCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
 
-                            // Active Status Icon
-                            Tooltip(
-                              message: 'Trạng thái: ${status.toUpperCase()}',
-                              child: const Icon(
-                                Icons.check_circle_rounded,
-                                color: Color(0xFF10B981),
-                                size: 16,
+                            // Draft vs Published Status Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: (status.toUpperCase() == 'PUBLISHED')
+                                    ? Colors.green.withValues(alpha: 0.15)
+                                    : Colors.amber.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: (status.toUpperCase() == 'PUBLISHED')
+                                      ? Colors.green
+                                      : Colors.amber,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    (status.toUpperCase() == 'PUBLISHED')
+                                        ? Icons.verified_rounded
+                                        : Icons.edit_note_rounded,
+                                    size: 13,
+                                    color: (status.toUpperCase() == 'PUBLISHED')
+                                        ? Colors.green
+                                        : Colors.amber,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    (status.toUpperCase() == 'PUBLISHED')
+                                        ? 'ĐÃ CÔNG BỐ'
+                                        : 'BẢN NHÁP',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: (status.toUpperCase() == 'PUBLISHED')
+                                          ? Colors.green
+                                          : Colors.amber,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -105,6 +139,15 @@ class OkrObjectiveCard extends StatelessWidget {
                               icon: const Icon(Icons.more_vert_rounded, color: Colors.white54, size: 18),
                               color: AppTheme.surfaceDark,
                               itemBuilder: (ctx) => [
+                                if (status.toUpperCase() != 'PUBLISHED')
+                                  const PopupMenuItem(
+                                    value: 'publish',
+                                    child: Row(children: [
+                                      Icon(Icons.publish_rounded, color: Colors.green, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('Công bố OKR (Publish)', style: TextStyle(color: Colors.green)),
+                                    ]),
+                                  ),
                                 const PopupMenuItem(
                                   value: 'add_kr',
                                   child: Row(children: [Icon(Icons.add_chart_rounded, size: 16), SizedBox(width: 8), Text('Thêm Key Result')]),
@@ -114,14 +157,22 @@ class OkrObjectiveCard extends StatelessWidget {
                                   child: Row(children: [Icon(Icons.delete_outline_rounded, color: AppTheme.accent, size: 16), const SizedBox(width: 8), Text('Xóa Mục tiêu', style: TextStyle(color: AppTheme.accent))]),
                                 ),
                               ],
-                              onSelected: (val) {
-                                if (val == 'add_kr') {
+                              onSelected: (val) async {
+                                if (val == 'publish') {
+                                  try {
+                                    await OkrService().publishObjective(objectiveId);
+                                    controller.loadOkrs();
+                                  } catch (e) {
+                                    Get.snackbar('Lỗi công bố OKR', e.toString());
+                                  }
+                                } else if (val == 'add_kr') {
                                   OkrDialogs.showCreateKeyResultDialog(context, controller, objectiveId);
                                 } else if (val == 'delete') {
                                   controller.deleteObjective(objectiveId);
                                 }
                               },
                             ),
+
                           ],
                         ),
                       ],

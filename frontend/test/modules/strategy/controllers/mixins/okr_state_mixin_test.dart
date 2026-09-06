@@ -54,7 +54,7 @@ void main() {
     group('loadOkrs', () {
       test('loads OKR cycles, objectives, and key results', () async {
         ApiClient.client = MockClient((request) async {
-          if (request.url.path == '/okrs/cycles') {
+          if (request.url.path == '/operations/okr-cycles') {
             return http.Response(
               jsonEncode({
                 'cycles': [
@@ -64,17 +64,17 @@ void main() {
               200,
             );
           }
-          if (request.url.path == '/okrs/objectives') {
+          if (request.url.path == '/operations/objectives') {
             return http.Response(
               jsonEncode({
                 'objectives': [
-                  {'id': 'obj-1', 'title': 'Objective 1'},
+                  {'id': 'obj-1', 'title': 'Objective 1', 'cycle_id': 'cycle-1'},
                 ]
               }),
               200,
             );
           }
-          if (request.url.path == '/okrs/key-results') {
+          if (request.url.path == '/operations/key-results') {
             return http.Response(
               jsonEncode({
                 'key_results': [
@@ -97,7 +97,7 @@ void main() {
 
       test('sets selectedCycleId to first cycle if not set', () async {
         ApiClient.client = MockClient((request) async {
-          if (request.url.path == '/okrs/cycles') {
+          if (request.url.path == '/operations/okr-cycles') {
             return http.Response(
               jsonEncode({
                 'cycles': [
@@ -119,7 +119,7 @@ void main() {
 
       test('does not override selectedCycleId if already set', () async {
         ApiClient.client = MockClient((request) async {
-          if (request.url.path == '/okrs/cycles') {
+          if (request.url.path == '/operations/okr-cycles') {
             return http.Response(
               jsonEncode({
                 'cycles': [

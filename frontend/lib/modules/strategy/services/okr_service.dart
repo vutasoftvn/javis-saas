@@ -1,17 +1,54 @@
+import 'dart:convert';
 import '../../../core/network/api_client.dart';
 import '../models/strategy_list_result.dart';
 import 'strategy_service_base.dart';
 
-/// OKRs & Key Results
+/// OKRs & Key Results service using operating-strategy routes
 class OkrService extends StrategyServiceBase {
+  StrategyListResult<Map<String, dynamic>> _decodeFlexibleList(
+    dynamic response,
+    String key, {
+    bool optionalOn404 = false,
+  }) {
+    if (response.statusCode == 404) {
+      if (optionalOn404) return const StrategyListResult.unavailable();
+      return StrategyListResult.failure('Không tìm thấy dữ liệu (404)');
+    }
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.body.isEmpty) return const StrategyListResult.success([]);
+      try {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          final items = data
+              .map((e) => e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map))
+              .toList();
+          return StrategyListResult.success(items);
+        }
+        if (data is Map) {
+          final rawList = data[key] ?? data['data'] ?? data['items'] ?? data['cycles'] ?? data['objectives'] ?? data['key_results'];
+          if (rawList is List) {
+            final items = rawList
+                .map((e) => e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map))
+                .toList();
+            return StrategyListResult.success(items);
+          }
+        }
+        return const StrategyListResult.failure('Phản hồi không đúng định dạng mong đợi');
+      } catch (_) {
+        return const StrategyListResult.failure('Không thể đọc dữ liệu phản hồi từ máy chủ');
+      }
+    }
+    return StrategyListResult.failure('Yêu cầu thất bại (${response.statusCode})');
+  }
+
   Future<StrategyListResult<Map<String, dynamic>>> getOkrCycles() async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
       return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
     }
     try {
-      final response = await ApiClient.get('/okrs/cycles?workspace_id=$workspaceId');
-      return decodeList(response, 'cycles');
+      final response = await ApiClient.get('/operations/okr-cycles');
+      return _decodeFlexibleList(response, 'cycles');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
     }
@@ -25,11 +62,12 @@ class OkrService extends StrategyServiceBase {
   }) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post(
-      '/okrs/cycles?workspace_id=$workspaceId',
+      '/operations/okr-cycles',
       body: {
+        'workspaceId': workspaceId,
         'name': name,
-        'start_date': ?startDate?.toIso8601String(),
-        'end_date': ?endDate?.toIso8601String(),
+        if (startDate != null) 'start_date': startDate.toIso8601String(),
+        if (endDate != null) 'end_date': endDate.toIso8601String(),
         'status': ?status,
       },
     );
@@ -41,10 +79,15 @@ class OkrService extends StrategyServiceBase {
     if (workspaceId == null) {
       return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
     }
-    final query = cycleId != null ? 'workspace_id=$workspaceId&cycle_id=$cycleId' : 'workspace_id=$workspaceId';
     try {
-      final response = await ApiClient.get('/okrs/objectives?$query');
-      return decodeList(response, 'objectives');
+      final query = (cycleId != null && cycleId.isNotEmpty) ? '?cycle_id=$cycleId' : '';
+      final response = await ApiClient.get('/operations/objectives$query');
+      final result = _decodeFlexibleList(response, 'objectives');
+      if (cycleId != null && cycleId.isNotEmpty && result.isSuccess) {
+        final filtered = result.items.where((o) => o['cycleId']?.toString() == cycleId || o['cycle_id']?.toString() == cycleId).toList();
+        return StrategyListResult.success(filtered);
+      }
+      return result;
     } catch (e) {
       return StrategyListResult.failure(e.toString());
     }
@@ -54,15 +97,34 @@ class OkrService extends StrategyServiceBase {
     required String title,
     String? cycleId,
     String? status,
+    String? why,
+    String? ownerMemberId,
+    String? strategicObjectiveId,
+    String? towsOptionId,
   }) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post(
-      '/okrs/objectives?workspace_id=$workspaceId',
+      '/operations/objectives',
       body: {
+        'workspaceId': workspaceId,
+        'cycleId': cycleId ?? '',
         'title': title,
-        if (cycleId != null && cycleId.isNotEmpty) 'cycle_id': cycleId,
+        if (why != null && why.isNotEmpty) 'why': why,
+        if (ownerMemberId != null && ownerMemberId.isNotEmpty) 'ownerMemberId': ownerMemberId,
+        if (strategicObjectiveId != null && strategicObjectiveId.isNotEmpty)
+          'strategicObjectiveId': strategicObjectiveId,
+        if (towsOptionId != null && towsOptionId.isNotEmpty)
+          'towsOptionId': towsOptionId,
         if (status != null && status.isNotEmpty) 'status': status,
       },
+    );
+    return decode(response);
+  }
+
+  Future<Map<String, dynamic>> publishObjective(String objectiveId) async {
+    final response = await ApiClient.post(
+      '/operations/objectives/$objectiveId/publish',
+      body: {},
     );
     return decode(response);
   }
@@ -74,7 +136,7 @@ class OkrService extends StrategyServiceBase {
   }) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.put(
-      '/okrs/objectives/$objectiveId?workspace_id=$workspaceId',
+      '/operations/objectives/$objectiveId?workspace_id=$workspaceId',
       body: {
         'title': ?title,
         'status': ?status,
@@ -84,8 +146,8 @@ class OkrService extends StrategyServiceBase {
   }
 
   Future<void> deleteObjective(String objectiveId) async {
-    final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.delete('/okrs/objectives/$objectiveId?workspace_id=$workspaceId');
+    await requireWorkspaceId();
+    final response = await ApiClient.delete('/operations/objectives/$objectiveId');
     decode(response);
   }
 
@@ -94,10 +156,25 @@ class OkrService extends StrategyServiceBase {
     if (workspaceId == null) {
       return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
     }
-    final query = objectiveId != null ? 'workspace_id=$workspaceId&objective_id=$objectiveId' : 'workspace_id=$workspaceId';
+    if (objectiveId != null && objectiveId.isNotEmpty) {
+      try {
+        final response = await ApiClient.get('/operations/objectives/$objectiveId');
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final data = jsonDecode(response.body);
+          final krsRaw = data['keyResults'] ?? data['key_results'];
+          if (krsRaw is List) {
+            final items = krsRaw
+                .map((e) => e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map))
+                .toList();
+            return StrategyListResult.success(items);
+          }
+        }
+      } catch (_) {}
+    }
+    final query = objectiveId != null ? '?objective_id=$objectiveId' : '';
     try {
-      final response = await ApiClient.get('/okrs/key-results?$query');
-      return decodeList(response, 'key_results');
+      final response = await ApiClient.get('/operations/key-results$query');
+      return _decodeFlexibleList(response, 'key_results');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
     }
@@ -112,19 +189,32 @@ class OkrService extends StrategyServiceBase {
     String? unit,
     String? cadence,
     String? status,
+    String? scoringType,
   }) async {
-    final workspaceId = await requireWorkspaceId();
+    await requireWorkspaceId();
     final response = await ApiClient.post(
-      '/okrs/key-results?workspace_id=$workspaceId',
+      '/operations/objectives/$objectiveId/key-results',
       body: {
-        'objective_id': objectiveId,
-        if (title != null && title.isNotEmpty) 'title': title,
-        'baseline_value': baselineValue ?? 0.0,
-        'current_value': currentValue ?? 0.0,
-        'target_value': targetValue ?? 100.0,
+        'objectiveId': objectiveId,
+        'title': title ?? '',
+        'targetValue': (targetValue ?? 100.0).toInt(),
+        'baselineValue': (baselineValue ?? 0.0).toInt(),
+        'scoringType': scoringType ?? 'LINEAR_INCREASE',
         'unit': unit ?? '%',
-        'cadence': cadence ?? 'weekly',
-        'status': status ?? 'active',
+        'currentValue': ?currentValue,
+        'cadence': ?cadence,
+        'status': ?status,
+      },
+    );
+    return decode(response);
+  }
+
+  Future<Map<String, dynamic>> checkinKeyResult(String keyResultId, double value) async {
+    final response = await ApiClient.post(
+      '/operations/key-results/$keyResultId/checkin',
+      body: {
+        'id': keyResultId,
+        'value': value,
       },
     );
     return decode(response);
@@ -139,7 +229,7 @@ class OkrService extends StrategyServiceBase {
   }) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.put(
-      '/okrs/key-results/$keyResultId?workspace_id=$workspaceId',
+      '/operations/key-results/$keyResultId?workspace_id=$workspaceId',
       body: {
         'current_value': ?currentValue,
         'target_value': ?targetValue,
@@ -151,8 +241,8 @@ class OkrService extends StrategyServiceBase {
   }
 
   Future<void> deleteKeyResult(String keyResultId) async {
-    final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.delete('/okrs/key-results/$keyResultId?workspace_id=$workspaceId');
+    await requireWorkspaceId();
+    final response = await ApiClient.delete('/operations/key-results/$keyResultId');
     decode(response);
   }
 
@@ -175,9 +265,10 @@ class OkrService extends StrategyServiceBase {
     }
 
     final response = await ApiClient.post(
-      '/okrs/generate-ai?workspace_id=$workspaceId',
+      '/operations/okrs/generate-ai?workspace_id=$workspaceId',
       body: body,
     );
     return decode(response);
   }
 }
+

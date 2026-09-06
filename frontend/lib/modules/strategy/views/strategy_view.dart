@@ -12,6 +12,8 @@ import 'tabs/weekly_review_tab.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
+import '../widgets/workspace_strategy_settings_sheet.dart';
+
 class StrategyView extends GetView<StrategyController> {
   final int initialTabIndex;
   const StrategyView({super.key, this.initialTabIndex = 0});
@@ -35,7 +37,16 @@ class StrategyView extends GetView<StrategyController> {
               title: 'Không Gian Chiến Lược Toàn Diện (COSA Strategy Engine)',
               subtitle: '6 Trụ cột cốt lõi: Validation Studio, 4 Lăng kính, Trục giả định & bằng chứng, Bộ nhớ quyết định, Stage-Gate và Vòng lặp 12WY.',
               icon: Icons.lightbulb_outline,
+              actions: [
+                IconButton(
+                  key: const ValueKey('open_strategy_settings_button'),
+                  icon: const Icon(Icons.settings_suggest_outlined, color: AppTheme.primary, size: 22),
+                  tooltip: 'Cài đặt khung quản trị chiến lược',
+                  onPressed: () => WorkspaceStrategySettingsSheet.show(context),
+                ),
+              ],
             ),
+
 
             // 2. Separate Tab Navigation Bar (6 Modern Strategy Tabs)
             Padding(

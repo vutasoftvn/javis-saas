@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { createOkrCycle, createObjective, addKeyResult } from "../../operations/handlers/okr.handler";
-import { createInitiative } from "../../operations/handlers/initiative.handler";
+import { createInitiative, approveInitiative } from "../../operations/handlers/initiative.handler";
 import { createProject } from "../../operations/handlers/project.handler";
 import { createTask } from "../../operations/handlers/task.handler";
 import { createTaskDependency } from "../../operations/handlers/task-dependency.handler";
@@ -31,6 +31,7 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
     const session = await createTestSession({
       email,
       displayName: "Founder Quốc Gia Khởi Nghiệp",
+      role: "founder",
     });
     expect(session.workspaceId).toBeTruthy();
     expect(typeof session.workspaceId).toBe("string");
@@ -80,6 +81,7 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       authorization: auth,
     });
     expect(initiative.workspaceId).toBe(workspaceId);
+    await approveInitiative({ id: initiative.id, workspaceId, authorization: auth });
 
     const project = await createProject({
       authorization: auth,
