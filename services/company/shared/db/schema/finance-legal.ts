@@ -25,6 +25,8 @@ export const accountingPeriods = financeSchema.table("accounting_periods", {
   legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
+  fiscalProfileId: bigint("fiscal_profile_id", { mode: "bigint" }),
+  version: integer("version").default(1).notNull(),
   status: text("status").default("OPEN").notNull(),
   closedBy: bigint("closed_by", { mode: "bigint" }),
   closedAt: timestamp("closed_at", { withTimezone: true }),
@@ -92,6 +94,10 @@ export const accountingFiscalProfiles = financeSchema.table("accounting_fiscal_p
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   fiscalYear: integer("fiscal_year").notNull(),
   regulationCode: varchar("regulation_code", { length: 50 }).default("TT58_2026").notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
+  yearEnd: date("year_end"),
+  mappingVersion: varchar("mapping_version", { length: 50 }),
+  applicabilityDecisionId: bigint("applicability_decision_id", { mode: "bigint" }),
   mode: varchar("mode", { length: 50 }).default("TT58_MODE_1").notNull(),
   status: varchar("status", { length: 30 }).default("ACTIVE").notNull(),
   lockedAt: timestamp("locked_at", { withTimezone: true }),
@@ -122,6 +128,63 @@ export const accountingRegimeTransitionLogs = financeSchema.table("accounting_re
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const accountingReportMappings = financeSchema.table("accounting_report_mappings", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  regimeCode: varchar("regime_code", { length: 50 }).notNull(),
+  mappingVersion: varchar("mapping_version", { length: 50 }).notNull(),
+  reportCode: varchar("report_code", { length: 10 }).notNull(),
+  lineCode: varchar("line_code", { length: 20 }).notNull(),
+  officialCode: varchar("official_code", { length: 50 }).notNull(),
+  name: text("name").notNull(),
+  sourceRef: text("source_ref").notNull(),
+  ruleType: varchar("rule_type", { length: 20 }).notNull(),
+  bucket: varchar("bucket", { length: 20 }).notNull(),
+  sign: integer("sign").notNull(),
+  rounding: varchar("rounding", { length: 20 }).notNull(),
+  definitionHash: text("definition_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const accountingMappingConfirmations = financeSchema.table("accounting_mapping_confirmations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  regimeCode: varchar("regime_code", { length: 50 }).notNull(),
+  mappingVersion: varchar("mapping_version", { length: 50 }).notNull(),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }).notNull(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const accountingBookEntries = financeSchema.table("accounting_book_entries", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }).notNull(),
+  periodId: bigint("period_id", { mode: "bigint" }).notNull(),
+  documentId: bigint("document_id", { mode: "bigint" }),
+  item: text("item").notNull(),
+  category: varchar("category", { length: 30 }).notNull(),
+  amountMinor: numeric("amount_minor", { precision: 38, scale: 0 }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("VND").notNull(),
+  effectiveDate: date("effective_date").notNull(),
+  source: text("source").notNull(),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const accountingReportSnapshots = financeSchema.table("accounting_report_snapshots", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }).notNull(),
+  periodId: bigint("period_id", { mode: "bigint" }).notNull(),
+  reportCode: varchar("report_code", { length: 10 }).notNull(),
+  mappingVersion: varchar("mapping_version", { length: 50 }).notNull(),
+  inputWatermark: text("input_watermark").notNull(),
+  lines: jsonb("lines").default([]).notNull(),
+  status: varchar("status", { length: 20 }).notNull(),
+  issues: jsonb("issues").default([]).notNull(),
+  generatedAt: timestamp("generated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const legalChecklistItems = legalSchema.table("legal_checklist_items", {
