@@ -1139,17 +1139,31 @@ git commit -m "feat(company): thêm tax-obligation.service — F01 nửa tự đ
 
 ### Task 6: `accounting-reports.service.ts` — derived-line computation
 
+**⚠️ Plan-drift note:** this task's brief was originally written against an
+older snapshot of `accounting-reports.service.ts`. A concurrent, unrelated
+commit (`6279552f fix(finance): validate persisted report mapping buckets`)
+has since added a `requireReportMappingBucket(bucket): LedgerBucket` guard
+and a `reportMappingLines` intermediate step to `generateReportService`,
+which the steps below now account for. If the file has changed again since
+this plan was last read, re-read it in full before touching Step 6 — do not
+trust the "Replace this block" text blindly if it no longer matches.
+
 **Files:**
 - Modify: `services/company/finance-legal/services/accounting-reports.service.ts`
 - Modify: `services/company/finance-legal/tests/tt58-reports.test.ts`
   (the existing F5 fixture test)
+- Modify: `services/company/finance-legal/tests/accounting-reports-status.test.ts`
+  (existing unit test for `computeReportStatus`/`requireReportMappingBucket` —
+  broken by Task 3's bucket-vocabulary change; not fixed by any other task)
 
 **Interfaces:**
 - Consumes: `getAccountingPolicyService` from `./accounting-policy.service`
   (Task 4); `DerivedLineKind` from `./accounting-mapping` (Task 3).
 - Produces: `computeDerivedLine(kind, bucketTotals, taxRateBps)` (exported
   for its own unit test); `generateReportService` now handles
-  `derivedKind`-bearing mapping rows.
+  `derivedKind`-bearing mapping rows; `requireReportMappingBucket` now
+  validates against the new 9-value `LedgerBucket` set instead of the old
+  7-value set (no more `"profit"`).
 
 - [ ] **Step 1: Write the failing unit test for `computeDerivedLine`**
 
@@ -1281,29 +1295,52 @@ export function computeDerivedLine(
 Run: `cd services/company && npx vitest run finance-legal/tests/accounting-reports-derived.test.ts`
 Expected: PASS (6 tests).
 
-- [ ] **Step 5: Rewrite `generateReportService`'s line/status computation**
+- [ ] **Step 5: Update `requireReportMappingBucket` for the new bucket vocabulary**
 
-Replace this block:
+The current file has this function (added by an unrelated concurrent
+commit after this plan was first drafted — read the file to confirm it
+still looks like this before editing):
 ```ts
-  const lines: ReportLineView[] = mappingLines.map((row) => ({
-    lineCode: row.lineCode,
-    officialCode: row.officialCode,
-    name: row.name,
-    sourceRef: row.sourceRef,
-    amountMinor: String((bucketTotals.get(row.bucket) ?? 0n) * BigInt(row.sign)),
-  }));
-
-  const requiredBuckets = mappingLines.map((row) => row.bucket);
-  const coveredBuckets = requiredBuckets.filter((bucket) => bucketTotals.has(bucket));
-
-  const { status, issues } = computeReportStatus({
-    requiredBuckets,
-    coveredBuckets,
-    mappingConfirmed: Boolean(confirmation),
-  });
+export function requireReportMappingBucket(bucket: string | null): LedgerBucket {
+  switch (bucket) {
+    case "cash":
+    case "receivable":
+    case "payable":
+    case "loan":
+    case "advance":
+    case "capital":
+    case "profit":
+      return bucket;
+    case null:
+      throw APIError.failedPrecondition("report mapping line is missing ledger bucket");
+    default:
+      throw APIError.failedPrecondition(`report mapping line has invalid ledger bucket: ${bucket}`);
+  }
+}
 ```
 
-with:
+Replace the `case "profit":` line with the 4 new bucket literals (the old
+single `"profit"` bucket no longer exists per Task 3's `LedgerBucket`
+type):
+```ts
+    case "revenue":
+    case "cogs":
+    case "opex":
+    case "inventory":
+      return bucket;
+```
+(keep every other line of the function — including the `cash`/`receivable`/
+`payable`/`loan`/`advance`/`capital` cases and both error branches — exactly
+as they are).
+
+- [ ] **Step 6: Rewrite `generateReportService`'s line/status computation**
+
+Read the function's current body first — a concurrent commit added a
+`reportMappingLines = mappingLines.map((row) => ({...row, bucket:
+requireReportMappingBucket(row.bucket)}))` intermediate step that this plan
+was not originally written against. Replace the block starting at
+`const reportMappingLines = mappingLines.map(...)` through the
+`computeReportStatus({...})` call with:
 ```ts
   const policy = await getAccountingPolicyService(ctx, input.legalEntityId);
   const taxRateBps = policy?.corporateIncomeTaxRateBps ?? null;
@@ -1321,18 +1358,19 @@ with:
         amountMinor: String(result.amountMinor * BigInt(row.sign)),
       };
     }
+    const bucket = requireReportMappingBucket(row.bucket);
     return {
       lineCode: row.lineCode,
       officialCode: row.officialCode,
       name: row.name,
       sourceRef: row.sourceRef,
-      amountMinor: String((bucketTotals.get(row.bucket!) ?? 0n) * BigInt(row.sign)),
+      amountMinor: String((bucketTotals.get(bucket) ?? 0n) * BigInt(row.sign)),
     };
   });
 
   const requiredBuckets = mappingLines
     .filter((row) => !row.derivedKind)
-    .map((row) => row.bucket as LedgerBucket);
+    .map((row) => requireReportMappingBucket(row.bucket));
   const coveredBuckets = requiredBuckets.filter((bucket) => bucketTotals.has(bucket));
 
   const { status, issues } = computeReportStatus({
@@ -1344,11 +1382,44 @@ with:
   const finalStatus = issues.length === 0 ? status : "INCOMPLETE";
 ```
 
+Note: rows with `derivedKind` set legitimately have `bucket: null` in the
+DB (this is the intended, non-corrupted state for a derived line per
+migration 45) — `requireReportMappingBucket` must only ever be called on
+non-derived rows, which is why the derived branch above never calls it.
+
 Then change the `db.insert(accountingReportSnapshots)` call's `status`
 field from `status` to `finalStatus`, and the function's final returned
 object's `status: row.status` stays as-is (reads back what was persisted).
 
-- [ ] **Step 6: Update the existing F5 fixture test**
+- [ ] **Step 7: Update `accounting-reports-status.test.ts`**
+
+This existing unit test imports `computeReportStatus` and
+`requireReportMappingBucket` directly and currently uses the old bucket
+literal `"profit"`, which no longer typechecks after Task 3. Read the file
+first, then:
+1. Change the `requiredBuckets: ["cash", "receivable", "loan", "capital", "profit"]`
+   test case to use a valid new bucket in place of `"profit"` — replace it
+   with `"revenue"` (the test's intent — checking `INCOMPLETE` when the
+   `"loan"` bucket has no covering line — is unaffected by which extra
+   bucket literal fills out the list).
+2. Add 2 new test cases right after the existing
+   `"preserves a valid persisted ledger bucket"` test:
+```ts
+  it("rejects the old 'profit' bucket literal — no longer valid after the F6b bucket split", () => {
+    expect(() => requireReportMappingBucket("profit")).toThrow(
+      /invalid ledger bucket/i
+    );
+  });
+
+  it("preserves each of the new post-split buckets", () => {
+    expect(requireReportMappingBucket("revenue")).toBe("revenue");
+    expect(requireReportMappingBucket("cogs")).toBe("cogs");
+    expect(requireReportMappingBucket("opex")).toBe("opex");
+    expect(requireReportMappingBucket("inventory")).toBe("inventory");
+  });
+```
+
+- [ ] **Step 8: Update the existing F5 fixture test**
 
 In `services/company/finance-legal/tests/tt58-reports.test.ts`:
 1. Change every `category: "cost"` in the fixture JSON
@@ -1373,18 +1444,19 @@ In `services/company/finance-legal/tests/tt58-reports.test.ts`:
    hardcoded `"v1"` anywhere in this test file, fix it to read the
    constant instead).
 
-- [ ] **Step 7: Run tests to verify they pass**
+- [ ] **Step 9: Run tests to verify they pass**
 
-Run: `cd services/company && npx vitest run finance-legal/tests/tt58-reports.test.ts finance-legal/tests/accounting-reports-derived.test.ts finance-legal/tests/tax-obligation.test.ts`
-Expected: PASS (all 3 files — this is also when Task 5's
+Run: `cd services/company && npx vitest run finance-legal/tests/tt58-reports.test.ts finance-legal/tests/accounting-reports-derived.test.ts finance-legal/tests/accounting-reports-status.test.ts finance-legal/tests/tax-obligation.test.ts`
+Expected: PASS (all 4 files — this is also when Task 5's
 `tax-obligation.test.ts` should finally pass for real, since it depends on
 this task's derived-line logic).
 
-- [ ] **Step 8: Typecheck + boundary gates + commit**
+- [ ] **Step 10: Typecheck + boundary gates + commit**
 
 ```bash
 git add services/company/finance-legal/services/accounting-reports.service.ts \
         services/company/finance-legal/tests/accounting-reports-derived.test.ts \
+        services/company/finance-legal/tests/accounting-reports-status.test.ts \
         services/company/finance-legal/tests/tt58-reports.test.ts \
         services/company/finance-legal/tests/fixtures/tt58-2026/basic-entity.json
 git commit -m "feat(company): tính derived line (gross_profit/thuế TNDN/lợi nhuận sau thuế) trong report generation (F6b phần 6)"
