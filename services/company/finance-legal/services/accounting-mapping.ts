@@ -5,7 +5,9 @@ export type BookEntryCategory =
   | "loan"
   | "internal_transfer"
   | "revenue"
-  | "cost"
+  | "cogs"
+  | "opex"
+  | "inventory_purchase"
   | "advance"
   | "payable"
   | "receivable";
@@ -17,7 +19,10 @@ export type LedgerBucket =
   | "loan"
   | "advance"
   | "capital"
-  | "profit";
+  | "revenue"
+  | "cogs"
+  | "opex"
+  | "inventory";
 
 export interface BucketEffect {
   bucket: LedgerBucket;
@@ -49,12 +54,22 @@ export function classifyBookEntry(
     case "revenue":
       return [
         { bucket: "receivable", amountMinor },
-        { bucket: "profit", amountMinor },
+        { bucket: "revenue", amountMinor },
       ];
-    case "cost":
+    case "cogs":
+      return [
+        { bucket: "inventory", amountMinor: -amountMinor },
+        { bucket: "cogs", amountMinor },
+      ];
+    case "opex":
       return [
         { bucket: "payable", amountMinor },
-        { bucket: "profit", amountMinor: -amountMinor },
+        { bucket: "opex", amountMinor },
+      ];
+    case "inventory_purchase":
+      return [
+        { bucket: "cash", amountMinor: -amountMinor },
+        { bucket: "inventory", amountMinor },
       ];
     case "receivable":
       return [
@@ -78,6 +93,8 @@ export function classifyBookEntry(
 
 export type ReportRuleType = "opening" | "movement" | "closing";
 
+export type DerivedLineKind = "gross_profit" | "corporate_income_tax" | "net_profit_after_tax";
+
 export interface ReportMappingLine {
   reportCode: string;
   lineCode: string;
@@ -85,7 +102,8 @@ export interface ReportMappingLine {
   name: string;
   sourceRef: string;
   ruleType: ReportRuleType;
-  bucket: LedgerBucket;
+  bucket: LedgerBucket | null;
+  derivedKind?: DerivedLineKind;
   sign: 1 | -1;
   rounding: "VND_INTEGER";
 }
@@ -110,7 +128,7 @@ const UNVERIFIED_SOURCE =
  */
 export const TT58_2026_MAPPING: RegimeMapping = {
   regimeCode: "TT58_2026",
-  mappingVersion: "v1",
+  mappingVersion: "v2",
   lines: [
     {
       reportCode: "B01",
@@ -131,6 +149,17 @@ export const TT58_2026_MAPPING: RegimeMapping = {
       sourceRef: UNVERIFIED_SOURCE,
       ruleType: "closing",
       bucket: "receivable",
+      sign: 1,
+      rounding: "VND_INTEGER",
+    },
+    {
+      reportCode: "B01",
+      lineCode: "TON_KHO",
+      officialCode: "TON_KHO",
+      name: "Hàng tồn kho",
+      sourceRef: UNVERIFIED_SOURCE,
+      ruleType: "closing",
+      bucket: "inventory",
       sign: 1,
       rounding: "VND_INTEGER",
     },
@@ -157,13 +186,83 @@ export const TT58_2026_MAPPING: RegimeMapping = {
       rounding: "VND_INTEGER",
     },
     {
+      reportCode: "B01",
+      lineCode: "LOI_NHUAN_GIU_LAI",
+      officialCode: "LOI_NHUAN_GIU_LAI",
+      name: "Lợi nhuận giữ lại trong kỳ",
+      sourceRef: UNVERIFIED_SOURCE,
+      ruleType: "closing",
+      bucket: null,
+      derivedKind: "net_profit_after_tax",
+      sign: 1,
+      rounding: "VND_INTEGER",
+    },
+    {
       reportCode: "B02",
-      lineCode: "LOI_NHUAN",
-      officialCode: "LOI_NHUAN",
-      name: "Lợi nhuận kỳ (doanh thu - chi phí đã ghi nhận)",
+      lineCode: "DOANH_THU_THUAN",
+      officialCode: "DOANH_THU_THUAN",
+      name: "Doanh thu thuần",
       sourceRef: UNVERIFIED_SOURCE,
       ruleType: "movement",
-      bucket: "profit",
+      bucket: "revenue",
+      sign: 1,
+      rounding: "VND_INTEGER",
+    },
+    {
+      reportCode: "B02",
+      lineCode: "GIA_VON",
+      officialCode: "GIA_VON",
+      name: "Giá vốn hàng bán",
+      sourceRef: UNVERIFIED_SOURCE,
+      ruleType: "movement",
+      bucket: "cogs",
+      sign: 1,
+      rounding: "VND_INTEGER",
+    },
+    {
+      reportCode: "B02",
+      lineCode: "LOI_NHUAN_GOP",
+      officialCode: "LOI_NHUAN_GOP",
+      name: "Lợi nhuận gộp",
+      sourceRef: UNVERIFIED_SOURCE,
+      ruleType: "movement",
+      bucket: null,
+      derivedKind: "gross_profit",
+      sign: 1,
+      rounding: "VND_INTEGER",
+    },
+    {
+      reportCode: "B02",
+      lineCode: "CHI_PHI_HDKD",
+      officialCode: "CHI_PHI_HDKD",
+      name: "Chi phí hoạt động kinh doanh",
+      sourceRef: UNVERIFIED_SOURCE,
+      ruleType: "movement",
+      bucket: "opex",
+      sign: 1,
+      rounding: "VND_INTEGER",
+    },
+    {
+      reportCode: "B02",
+      lineCode: "THUE_TNDN",
+      officialCode: "THUE_TNDN",
+      name: "Thuế thu nhập doanh nghiệp",
+      sourceRef: UNVERIFIED_SOURCE,
+      ruleType: "movement",
+      bucket: null,
+      derivedKind: "corporate_income_tax",
+      sign: 1,
+      rounding: "VND_INTEGER",
+    },
+    {
+      reportCode: "B02",
+      lineCode: "LOI_NHUAN_SAU_THUE",
+      officialCode: "LOI_NHUAN_SAU_THUE",
+      name: "Lợi nhuận sau thuế",
+      sourceRef: UNVERIFIED_SOURCE,
+      ruleType: "movement",
+      bucket: null,
+      derivedKind: "net_profit_after_tax",
       sign: 1,
       rounding: "VND_INTEGER",
     },

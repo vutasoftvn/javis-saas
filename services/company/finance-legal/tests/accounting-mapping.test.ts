@@ -19,14 +19,28 @@ describe("accounting-mapping — classifyBookEntry", () => {
   it("revenue accrues to receivable and profit, not cash", () => {
     expect(classifyBookEntry("revenue", 10_000_000n)).toEqual([
       { bucket: "receivable", amountMinor: 10_000_000n },
-      { bucket: "profit", amountMinor: 10_000_000n },
+      { bucket: "revenue", amountMinor: 10_000_000n },
     ]);
   });
 
-  it("cost accrues to payable and reduces profit, not cash", () => {
-    expect(classifyBookEntry("cost", 2_000_000n)).toEqual([
+  it("opex accrues to payable and reduces profit-related opex bucket, not cash", () => {
+    expect(classifyBookEntry("opex", 2_000_000n)).toEqual([
       { bucket: "payable", amountMinor: 2_000_000n },
-      { bucket: "profit", amountMinor: -2_000_000n },
+      { bucket: "opex", amountMinor: 2_000_000n },
+    ]);
+  });
+
+  it("cogs reduces inventory and increases cogs bucket, not cash", () => {
+    expect(classifyBookEntry("cogs", 3_000_000n)).toEqual([
+      { bucket: "inventory", amountMinor: -3_000_000n },
+      { bucket: "cogs", amountMinor: 3_000_000n },
+    ]);
+  });
+
+  it("inventory_purchase reduces cash and increases inventory", () => {
+    expect(classifyBookEntry("inventory_purchase", 5_000_000n)).toEqual([
+      { bucket: "cash", amountMinor: -5_000_000n },
+      { bucket: "inventory", amountMinor: 5_000_000n },
     ]);
   });
 
