@@ -164,8 +164,10 @@ void main() {
     test('createKeyResult fills in numeric defaults', () async {
       ApiClient.client = MockClient((request) async {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(body['baseline_value'], 0.0);
-        expect(body['target_value'], 100.0);
+        expect(body['baselineValue'], 0.0);
+        expect(body['targetValue'], 100.0);
+        expect(body.containsKey('baseline_value'), isFalse);
+        expect(body.containsKey('target_value'), isFalse);
         expect(body['unit'], '%');
         return http.Response(jsonEncode({'id': 'kr-1'}), 200);
       });

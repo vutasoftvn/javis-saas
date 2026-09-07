@@ -499,18 +499,18 @@ git commit -m "fix(cosa): preflight pending migrations before service tests"
 **Files:**
 - Verify only: files changed in Tasks 1-7
 
-- [ ] **Step 1: Run static and contract gates**
+- [x] **Step 1: Run static and contract gates**
 
 Run: make frontend-boundary-check && make frontend-api-contract-check && make encore-type-safety-check && make contract-freeze-check && make mvp-surface-check && make mvp-e2e-purity-check && make check-docs
 
 Expected: every target exits 0.
 
-- [ ] **Step 2: Run changed-scope tests**
+- [x] **Step 2: Run changed-scope tests**
 
 Run: cd services/company && npm run typecheck && npx vitest run operations/strategy/tests/strategy-copilot-authorization.test.ts
 Run: cd frontend && flutter test test/strategy_service_test.dart test/stage_lenses_test.dart test/modules/hologram_hub/hologram_hub_view_module_switcher_test.dart && flutter analyze
 
-Expected: service typecheck, focused TypeScript/Flutter tests, and analyzer pass.
+Expected: service typecheck, focused TypeScript/Flutter tests, and analyzer pass. The legacy StrategyService assertion must validate camelCase OKR request fields, matching the backend DTO and OkrService contract.
 
 - [ ] **Step 3: Verify repository state**
 
