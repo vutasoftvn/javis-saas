@@ -14,13 +14,13 @@ Ngày rà soát: 2026-09-05. Code nền: `e4829b75`, nhánh `main`. Đây là ph
 
 | Bằng chứng code | Hệ quả |
 |---|---|
-| [Schema operations](/Volumes/SSD/javis-saas/services/company/shared/db/schema/operations.ts:67) có `okr_cycles → okr_objectives → key_results`; đồng thời `twelve_week_cycles → weekly_plans → weekly_commitments → tasks` | Có hai mô hình mục tiêu và thực thi, chưa có liên kết KR trực tiếp trong commitment. `initiativeId` không bù được vì initiative hiện cũng không có FK tới KR |
-| [Create cycle](/Volumes/SSD/javis-saas/services/company/operations/services/twelve-week-year.service.ts:108) nhận `durationWeeks`, mặc định 12; nhận start/end độc lập | Backend đã có nền tảng linh hoạt; còn thiếu xác thực số tuần nguyên dương và lịch nhất quán tại đường tạo này |
-| [Operating setup](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/project-operating-setup.service.ts:92) giới hạn P0 1–2 tuần, P1 2–4 tuần; kiểm lại khi kích hoạt | Lựa chọn độ dài chu kỳ đang bị buộc bởi thời lượng stage. Cần tách thời hạn kiểm chứng stage khỏi thời lượng chu kỳ |
-| [Weekly goal](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/weekly-goal.service.ts:59) chọn cycle mới nhất rồi upsert `weekNo: 1` | Sửa mục tiêu tuần sau có thể sửa tuần đầu; cycle mới nhất chưa chắc là cycle đang chạy |
-| [Modal chuyển chu kỳ](/Volumes/SSD/javis-saas/frontend/lib/modules/strategy/widgets/twelve_wy/twelve_wy_modals.dart:370) nói tuần 13 bắt buộc | UX chưa phù hợp chu kỳ 2, 6 hoặc 16 tuần |
-| [Weekly reviews](/Volumes/SSD/javis-saas/services/company/shared/db/schema/strategy.ts:322) gắn workspace/ngày đầu tuần, không gắn weekly plan | Cần phân biệt review tổng hợp của founder và review từng kế hoạch dự án |
-| [OKR scoring](/Volumes/SSD/javis-saas/services/company/operations/services/okr-scoring.service.ts:1) dùng `current / target` | Không phản ánh tiến bộ từ baseline và chấm sai chỉ số cần giảm |
+| [Schema operations](/services/company/shared/db/schema/operations.ts:67) có `okr_cycles → okr_objectives → key_results`; đồng thời `twelve_week_cycles → weekly_plans → weekly_commitments → tasks` | Có hai mô hình mục tiêu và thực thi, chưa có liên kết KR trực tiếp trong commitment. `initiativeId` không bù được vì initiative hiện cũng không có FK tới KR |
+| [Create cycle](/services/company/operations/services/twelve-week-year.service.ts:108) nhận `durationWeeks`, mặc định 12; nhận start/end độc lập | Backend đã có nền tảng linh hoạt; còn thiếu xác thực số tuần nguyên dương và lịch nhất quán tại đường tạo này |
+| [Operating setup](/services/company/operations/strategy/services/project-operating-setup.service.ts:92) giới hạn P0 1–2 tuần, P1 2–4 tuần; kiểm lại khi kích hoạt | Lựa chọn độ dài chu kỳ đang bị buộc bởi thời lượng stage. Cần tách thời hạn kiểm chứng stage khỏi thời lượng chu kỳ |
+| [Weekly goal](/services/company/operations/strategy/services/weekly-goal.service.ts:59) chọn cycle mới nhất rồi upsert `weekNo: 1` | Sửa mục tiêu tuần sau có thể sửa tuần đầu; cycle mới nhất chưa chắc là cycle đang chạy |
+| [Modal chuyển chu kỳ](/frontend/lib/modules/strategy/widgets/twelve_wy/twelve_wy_modals.dart:370) nói tuần 13 bắt buộc | UX chưa phù hợp chu kỳ 2, 6 hoặc 16 tuần |
+| [Weekly reviews](/services/company/shared/db/schema/strategy.ts:322) gắn workspace/ngày đầu tuần, không gắn weekly plan | Cần phân biệt review tổng hợp của founder và review từng kế hoạch dự án |
+| [OKR scoring](/services/company/operations/services/okr-scoring.service.ts:1) dùng `current / target` | Không phản ánh tiến bộ từ baseline và chấm sai chỉ số cần giảm |
 
 **Mô hình nghiệp vụ nên dùng**
 
@@ -45,7 +45,7 @@ Kết thúc chu kỳ phải dựa trên ngày kết thúc thực tế. Review cu
 
 Với KR tuyến tính, có thể dùng `clamp((current - baseline) / (target - baseline), 0, 1)` cho tiến bộ từ baseline, xử lý riêng khi target bằng baseline. Đây là đề xuất cách đo, cần phân biệt với chỉ số “mức đạt target” trên dashboard. KR milestone, giữ trong một khoảng hoặc duy trì SLA cần bộ đánh giá riêng. Ví dụ baseline churn 10%, target 5%, current 8% tương ứng tiến bộ 40%; hàm hiện tại trả 100%. Khi đo doanh thu, baseline 100, target 200, current 150 thì tiến bộ là 50%, còn target attainment là 75%: phải ghi rõ đang hiển thị loại nào.
 
-KR check-in nên có lịch sử observation: giá trị, kỳ đo, nguồn, evidence, người/hệ thống ghi nhận và thời điểm. Các chỉ số có độ trễ phải hiển thị độ mới dữ liệu. Không ghi đè currentValue rồi mất nguồn gốc. Score tuần nên suy ra từ cam kết đã chốt và kết quả đủ bằng chứng; nếu cho sửa thủ công thì phải là override có lý do. [Update weekly plan](/Volumes/SSD/javis-saas/services/company/operations/services/twelve-week-year.service.ts:187) hiện nhận trực tiếp executionScore/outcomeScore từ caller.
+KR check-in nên có lịch sử observation: giá trị, kỳ đo, nguồn, evidence, người/hệ thống ghi nhận và thời điểm. Các chỉ số có độ trễ phải hiển thị độ mới dữ liệu. Không ghi đè currentValue rồi mất nguồn gốc. Score tuần nên suy ra từ cam kết đã chốt và kết quả đủ bằng chứng; nếu cho sửa thủ công thì phải là override có lý do. [Update weekly plan](/services/company/operations/services/twelve-week-year.service.ts:187) hiện nhận trực tiếp executionScore/outcomeScore từ caller.
 
 Phần schema cần bổ sung có mục tiêu: liên kết cycle–KR, commitment–KR hoặc experiment/obligation; owner bằng WorkforceMember; observation KR. Weekly review tổng hợp workspace có thể tham chiếu nhiều weekly plan để phục vụ cuộc review chung của founder. Không nhất thiết biến mỗi màn hình thành một loại bảng mới.
 
@@ -61,10 +61,10 @@ QR Pay được mô tả là QR theo đơn hàng, có tài khoản ảo và nh�
 
 **Đối chiếu trực tiếp code với nhà cung cấp:**
 
-- [GET bank transactions](/Volumes/SSD/javis-saas/services/company/finance-legal/handlers/finance-tt58.handler.ts:96) chỉ đọc DB ứng dụng. [Bank connection service](/Volumes/SSD/javis-saas/services/company/finance-legal/services/bank-connection.service.ts:44) tạo connection PENDING và giữ secretRef. Chưa thấy client Cas.so thực hiện grant/exchange/transactions trong phạm vi đã rà.
-- [Webhook handler](/Volumes/SSD/javis-saas/services/company/finance-legal/handlers/cas-webhook.handler.ts:7) nhận trường rawPayload dạng string. [Webhook service](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-webhook.service.ts:11) chờ eventId/eventType/connectionId/workspaceId/data. Mẫu công bố của Cas.so là raw JSON chứa webhookType/webhookCode/grantId/transaction. Gửi mẫu đó trực tiếp vào contract hiện tại sẽ không đáp ứng đầu vào; nếu đã có adapter bên ngoài thì adapter cần được chứng minh và kiểm thử, chưa thấy trong code đã đọc. [Mẫu chính thức](https://cas.so/product/qr-pay/).
+- [GET bank transactions](/services/company/finance-legal/handlers/finance-tt58.handler.ts:96) chỉ đọc DB ứng dụng. [Bank connection service](/services/company/finance-legal/services/bank-connection.service.ts:44) tạo connection PENDING và giữ secretRef. Chưa thấy client Cas.so thực hiện grant/exchange/transactions trong phạm vi đã rà.
+- [Webhook handler](/services/company/finance-legal/handlers/cas-webhook.handler.ts:7) nhận trường rawPayload dạng string. [Webhook service](/services/company/finance-legal/services/cas-webhook.service.ts:11) chờ eventId/eventType/connectionId/workspaceId/data. Mẫu công bố của Cas.so là raw JSON chứa webhookType/webhookCode/grantId/transaction. Gửi mẫu đó trực tiếp vào contract hiện tại sẽ không đáp ứng đầu vào; nếu đã có adapter bên ngoài thì adapter cần được chứng minh và kiểm thử, chưa thấy trong code đã đọc. [Mẫu chính thức](https://cas.so/product/qr-pay/).
 - Code tự giả định header X-Cas-Signature với HMAC SHA256. Trang webhook công khai đã đọc chưa xác nhận cơ chế này. Cần xác nhận contract bảo vệ webhook cho môi trường triển khai, không bỏ xác thực để làm integration chạy. [Webhook Cas.so](https://cas.so/general/api/webhook/).
-- Mapping workspace phải được suy ra từ grant/connection đã liên kết ở server. Chuẩn hóa amount, chiều thu/chi, currency và thời gian từ schema provider; không mặc định direction=IN hoặc amount=0 khi dữ liệu chưa đủ như [ingestion hiện tại](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-webhook.service.ts:150).
+- Mapping workspace phải được suy ra từ grant/connection đã liên kết ở server. Chuẩn hóa amount, chiều thu/chi, currency và thời gian từ schema provider; không mặc định direction=IN hoặc amount=0 khi dữ liệu chưa đủ như [ingestion hiện tại](/services/company/finance-legal/services/cas-webhook.service.ts:150).
 - Inbox đã lưu dữ liệu và trạng thái, có nền tảng chống trùng. Cần worker retry cho bản ghi FAILED: handler hiện trả ok sau khi lỗi xử lý nội bộ và bỏ qua duplicate, nên provider retry không thay thế được cơ chế retry nội bộ.
 
 Luồng dữ liệu đề xuất: đồng bộ lịch sử khi kết nối; GET định kỳ để bù thiếu, phân trang/cursor theo contract thực; nhận webhook ở những scope/ngân hàng hỗ trợ; hợp nhất tất cả qua cùng ingestion idempotent. Không giả định scope transaction tự cấp mọi Balance Hook, vì hướng dẫn Balance Hook hiện nêu qrpay/virtual_account. Cần chốt hỗ trợ thực tế theo ngân hàng và grant. [Balance Hook](https://cas.so/product/balance-hook/).
@@ -83,7 +83,7 @@ Luồng dữ liệu đề xuất: đồng bộ lịch sử khi kết nối; GET 
 
 Nên có payment request và liên kết phân bổ thanh toán tới bank transaction/chứng từ. Tách trạng thái duyệt, trạng thái thanh toán và trạng thái ghi sổ: một khoản có thể được duyệt nhưng chưa trả, trả một phần, hoặc đã trả nhưng đang thiếu hồ sơ phân loại. Việc ghi nhận công nợ/chứng từ có thể xảy ra trước thanh toán; luồng trên không có nghĩa mọi nghiệp vụ kế toán đều đợi tiền ngân hàng.
 
-Với yêu cầu mới, sửa khuyến nghị audit trước: workflow [finance.payout.execute](/Volumes/SSD/javis-saas/apps/cosa/workflows/specs.py:28) nên ngừng quảng bá/không cho chạy hoặc thay bằng workflow đề nghị chi–QR–đối soát. Không ưu tiên xây executor chuyển khoản tự động. Finance agent đủ vai trò chuẩn bị hồ sơ, phân loại và đề xuất đối soát; founder thực hiện lệnh ngân hàng.
+Với yêu cầu mới, sửa khuyến nghị audit trước: workflow [finance.payout.execute](/apps/cosa/workflows/specs.py:28) nên ngừng quảng bá/không cho chạy hoặc thay bằng workflow đề nghị chi–QR–đối soát. Không ưu tiên xây executor chuyển khoản tự động. Finance agent đủ vai trò chuẩn bị hồ sơ, phân loại và đề xuất đối soát; founder thực hiện lệnh ngân hàng.
 
 **TT58 là lớp ghi sổ/báo cáo, CAS là nguồn dữ liệu ngân hàng.** Theo Bộ Tài chính, TT58/2026/TT-BTC hướng dẫn chế độ kế toán doanh nghiệp siêu nhỏ, hiệu lực từ 01/07/2026 và áp dụng cho năm tài chính bắt đầu từ ngày đó trở đi. Hướng dẫn đơn giản hóa sổ, không bắt buộc sử dụng hệ thống tài khoản kế toán; BCTC gồm Báo cáo tình hình tài chính và Báo cáo kết quả hoạt động kinh doanh. [Bộ Tài chính](https://www.mof.gov.vn/tin-tuc-tai-chinh/tin-chinh-sach-tai-chinh/quy-dinh-moi-ve-che-do-ke-toan-cho-doanh-nghiep-sieu-nho).
 
@@ -91,7 +91,7 @@ Hệ quả thiết kế đề xuất: cấu hình chế độ theo pháp nhân, 
 
 Không suy ra doanh thu từ mọi giao dịch tiền vào hay chi phí từ mọi giao dịch tiền ra. Tiền vay/góp vốn/chuyển nội bộ, tạm ứng, hoàn tiền, thanh toán công nợ cần phân loại theo hồ sơ. Dashboard cash và báo cáo kết quả kinh doanh có thể dùng cùng giao dịch nền nhưng khác quy tắc tổng hợp. Phần ngân hàng không thay chứng từ, công nợ, kỳ kế toán và các nghiệp vụ không qua ngân hàng.
 
-[FinanceTT58Service frontend](/Volumes/SSD/javis-saas/frontend/lib/modules/finance/services/finance_tt58_service.dart:1) đang throw UnimplementedError và còn nhắc TT58/2024; [controller](/Volumes/SSD/javis-saas/frontend/lib/modules/finance/controllers/finance_controller.dart:139) vẫn gọi nó. Cần nối UI tới nghiệp vụ thực và map bộ báo cáo đúng chế độ, không coi màn hình mang tên TT58 là đã tuân thủ. Các lỗi khóa kỳ, currency và đối soát cạnh tranh ở audit 07 vẫn cần xử lý.
+[FinanceTT58Service frontend](/frontend/lib/modules/finance/services/finance_tt58_service.dart:1) đang throw UnimplementedError và còn nhắc TT58/2024; [controller](/frontend/lib/modules/finance/controllers/finance_controller.dart:139) vẫn gọi nó. Cần nối UI tới nghiệp vụ thực và map bộ báo cáo đúng chế độ, không coi màn hình mang tên TT58 là đã tuân thủ. Các lỗi khóa kỳ, currency và đối soát cạnh tranh ở audit 07 vẫn cần xử lý.
 
 **3. Quyền hạn founder quản lý và agent thực thi**
 
@@ -99,11 +99,11 @@ Có, nên có permissions dạng dữ liệu. Nhưng hệ thống đã có nhi�
 
 | Hiện trạng | Phần cần điều chỉnh |
 |---|---|
-| [TenantContext](/Volumes/SSD/javis-saas/services/company/identity/services/tenant-context.service.ts:21) ánh xạ role sang read/write/* trong code | Bổ sung quyền hành động cụ thể; membership chỉ xác định thuộc workspace |
-| [workspace_capability_policy](/Volumes/SSD/javis-saas/services/company/shared/db/schema/operations.ts:309) lưu workspace/capability/decision | Thiếu chủ thể được cấp, phạm vi, điều kiện, version/lịch sử |
-| [workspace_agent_policy](/Volumes/SSD/javis-saas/services/cosa/storage/schema.ts:68) lưu tool pattern và decision riêng | Cần phân định policy business gốc và bản phân phối cho runtime; không hai nơi chỉnh cùng ý nghĩa độc lập |
-| [Engagement authority/grants](/Volumes/SSD/javis-saas/services/company/shared/db/schema/customer-engagement.ts:169) có WorkforceMember, thời hạn, policy version | Tái sử dụng nguyên tắc identity và ủy quyền; giữ binding chuyên biệt engagement khi cần |
-| [Policy mutation](/Volumes/SSD/javis-saas/services/company/operations/services/execution-plan.service.ts:689) chưa kiểm command permission tại service | Sửa ngay quyền agent.policy.manage/permissions.manage, không chỉ bổ sung UI quản trị |
+| [TenantContext](/services/company/identity/services/tenant-context.service.ts:21) ánh xạ role sang read/write/* trong code | Bổ sung quyền hành động cụ thể; membership chỉ xác định thuộc workspace |
+| [workspace_capability_policy](/services/company/shared/db/schema/operations.ts:309) lưu workspace/capability/decision | Thiếu chủ thể được cấp, phạm vi, điều kiện, version/lịch sử |
+| [workspace_agent_policy](/services/cosa/storage/schema.ts:68) lưu tool pattern và decision riêng | Cần phân định policy business gốc và bản phân phối cho runtime; không hai nơi chỉnh cùng ý nghĩa độc lập |
+| [Engagement authority/grants](/services/company/shared/db/schema/customer-engagement.ts:169) có WorkforceMember, thời hạn, policy version | Tái sử dụng nguyên tắc identity và ủy quyền; giữ binding chuyên biệt engagement khi cần |
+| [Policy mutation](/services/company/operations/services/execution-plan.service.ts:689) chưa kiểm command permission tại service | Sửa ngay quyền agent.policy.manage/permissions.manage, không chỉ bổ sung UI quản trị |
 
 Phân biệt ba khái niệm: permission cho phép chủ thể làm hành động nghiệp vụ trên tài nguyên; capability là công cụ agent có thể gọi; approval là chấp thuận một hành động cụ thể, không tự cấp quyền lâu dài. Agent được cài tool không có nghĩa được dùng với mọi workspace/project hoặc mọi số tiền.
 

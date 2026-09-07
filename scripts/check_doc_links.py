@@ -7,6 +7,7 @@ from pathlib import Path
 # Match markdown links: [text](target)
 # Exclude images ![](), external links (http, https, mailto), in-page anchors (#), and template placeholders
 MD_LINK_RE = re.compile(r'(?<!\!)\[([^\]]+)\]\(([^)]+)\)')
+CODE_LINE_SUFFIX_RE = re.compile(r":\d+$")
 
 def check_doc_links(repo_root: Path) -> int:
     broken_links = []
@@ -51,6 +52,10 @@ def check_doc_links(repo_root: Path) -> int:
 
                 # Strip anchor in target
                 file_target = target.split('#')[0].strip()
+                # Codex code links use `/path/to/file.ts:42`; the line
+                # suffix is navigation metadata, not part of the filesystem
+                # path that this integrity check must verify.
+                file_target = CODE_LINE_SUFFIX_RE.sub("", file_target)
                 if not file_target:
                     continue  # Anchor-only link
 

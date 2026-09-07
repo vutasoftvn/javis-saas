@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python/Pydantic/OpenAI Agents SDK adapter, Encore scheduler, pytest, PostgreSQL, Flutter views hiện có.
 
-**Spec:** [07](/Volumes/SSD/javis-saas/docs/architecture/overview/07-code-audit-business-agents-2026-09-05.md), [08](/Volumes/SSD/javis-saas/docs/architecture/overview/08-phan-tich-cycle-cas-permissions-2026-09-05.md), [plan tổng](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-master.md).
+**Spec:** [07](/docs/architecture/overview/07-code-audit-business-agents-2026-09-05.md), [08](/docs/architecture/overview/08-phan-tich-cycle-cas-permissions-2026-09-05.md), [plan tổng](/docs/superpowers/plans/2026-09-05-business-agents-master.md).
 
 ## Global Constraints
 
@@ -20,9 +20,9 @@
 
 ## R1 — Contract producer→scheduler→worker và run identity ổn định
 
-**Files sửa:** [execution_plane_client.py](/Volumes/SSD/javis-saas/apps/cosa/events/execution_plane_client.py), [main.py](/Volumes/SSD/javis-saas/apps/cosa/worker/main.py), [handlers.py](/Volumes/SSD/javis-saas/apps/cosa/worker/handlers.py), [control-plane-scheduler.service.ts](/Volumes/SSD/javis-saas/services/cosa/services/control-plane-scheduler.service.ts), [test_execution_plane_client.py](/Volumes/SSD/javis-saas/tests/apps/cosa/events/test_execution_plane_client.py), [test_main.py](/Volumes/SSD/javis-saas/tests/apps/cosa/worker/test_main.py).
+**Files sửa:** [execution_plane_client.py](/apps/cosa/events/execution_plane_client.py), [main.py](/apps/cosa/worker/main.py), [handlers.py](/apps/cosa/worker/handlers.py), [control-plane-scheduler.service.ts](/services/cosa/services/control-plane-scheduler.service.ts), [test_execution_plane_client.py](/tests/apps/cosa/events/test_execution_plane_client.py), [test_main.py](/tests/apps/cosa/worker/test_main.py).
 
-**Files tạo:** [event_run_contract.py](/Volumes/SSD/javis-saas/apps/cosa/events/event_run_contract.py), [test_event_worker_contract.py](/Volumes/SSD/javis-saas/tests/apps/cosa/events/test_event_worker_contract.py), [event-run-contract.test.ts](/Volumes/SSD/javis-saas/services/cosa/tests/event-run-contract.test.ts). Chỉ thêm bảng binding UUIDv7 ở local event storage nếu schedule/task record hiện có không lưu bền mapping event-rule→run; không tự dùng UUIDv5 trái quy tắc leaf ID.
+**Files tạo:** [event_run_contract.py](/apps/cosa/events/event_run_contract.py), [test_event_worker_contract.py](/tests/apps/cosa/events/test_event_worker_contract.py), [event-run-contract.test.ts](/services/cosa/tests/event-run-contract.test.ts). Chỉ thêm bảng binding UUIDv7 ở local event storage nếu schedule/task record hiện có không lưu bền mapping event-rule→run; không tự dùng UUIDv5 trái quy tắc leaf ID.
 
 **Thiết kế dispatch:** giữ task_type="run" đã hỗ trợ, bổ sung trigger metadata schema_version=1. Producer gọi builder contract chung; event adapter ở worker resolve aggregate dưới authority rồi đưa vào execute_run_task hiện có. Profile tra bảng tường minh theo pinned spec ID; unsupported profile từ chối có lý do.
 
@@ -54,9 +54,9 @@ class EventRunEnvelope(BaseModel):
 
 ## R2 — Một pipeline context/auth/output cho Copilot và WGA
 
-**Files sửa:** [copilot_run.py](/Volumes/SSD/javis-saas/apps/cosa/worker/copilot_run.py), [run_core.py](/Volumes/SSD/javis-saas/apps/cosa/worker/run_core.py), [wga_run.py](/Volumes/SSD/javis-saas/apps/cosa/worker/wga_run.py), [handlers.py](/Volumes/SSD/javis-saas/apps/cosa/worker/handlers.py), [engagement_read.py](/Volumes/SSD/javis-saas/apps/cosa/capabilities/engagement_read.py), [kernel.py](/Volumes/SSD/javis-saas/packages/agent_integrations/openai_agents_sdk/kernel.py), [Company copilot service](/Volumes/SSD/javis-saas/services/company/commercial/services/customer-engagement/copilot.service.ts).
+**Files sửa:** [copilot_run.py](/apps/cosa/worker/copilot_run.py), [run_core.py](/apps/cosa/worker/run_core.py), [wga_run.py](/apps/cosa/worker/wga_run.py), [handlers.py](/apps/cosa/worker/handlers.py), [engagement_read.py](/apps/cosa/capabilities/engagement_read.py), [kernel.py](/packages/agent_integrations/openai_agents_sdk/kernel.py), [Company copilot service](/services/company/commercial/services/customer-engagement/copilot.service.ts).
 
-**Files tạo:** [run_outcome.py](/Volumes/SSD/javis-saas/apps/cosa/worker/run_outcome.py), [test_run_outcome.py](/Volumes/SSD/javis-saas/tests/apps/cosa/worker/test_run_outcome.py); sửa [test_copilot_run.py](/Volumes/SSD/javis-saas/tests/apps/cosa/test_copilot_run.py), [test_copilot_p1_matrix.py](/Volumes/SSD/javis-saas/tests/apps/cosa/test_copilot_p1_matrix.py).
+**Files tạo:** [run_outcome.py](/apps/cosa/worker/run_outcome.py), [test_run_outcome.py](/tests/apps/cosa/worker/test_run_outcome.py); sửa [test_copilot_run.py](/tests/apps/cosa/test_copilot_run.py), [test_copilot_p1_matrix.py](/tests/apps/cosa/test_copilot_p1_matrix.py).
 
 **Interfaces:** run_core chuẩn hóa `prepare → gateway context reads → build model input → kernel → validate output → persist artifact → business callback`. `resolve_run_outcome(status,output_valid,artifact_persisted)` trả một trong completed/failed/waiting_approval/cancelled; status của RunStatus enum normalize tại adapter. DTO callback thêm reasonCode/artifactRef/evidenceRefs; không dùng final_output rỗng làm success.
 
@@ -78,9 +78,9 @@ def test_completed_requires_artifact():
 
 ## R3 — Knowledge thật, capability readiness và vai trò agent
 
-**Files sửa:** [knowledge_read.py](/Volumes/SSD/javis-saas/apps/cosa/capabilities/knowledge_read.py), [capability_registration.py](/Volumes/SSD/javis-saas/apps/cosa/composition/capability_registration.py), [AgentSpecs](/Volumes/SSD/javis-saas/apps/cosa/agents/specs.py), [finance_read.py](/Volumes/SSD/javis-saas/apps/cosa/capabilities/finance_read.py), [marketing_read.py](/Volumes/SSD/javis-saas/apps/cosa/capabilities/marketing_read.py), [snapshot_repository.py](/Volumes/SSD/javis-saas/packages/agent/knowledge/snapshot_repository.py). Reuse repository hiện có thay vì một store knowledge mới.
+**Files sửa:** [knowledge_read.py](/apps/cosa/capabilities/knowledge_read.py), [capability_registration.py](/apps/cosa/composition/capability_registration.py), [AgentSpecs](/apps/cosa/agents/specs.py), [finance_read.py](/apps/cosa/capabilities/finance_read.py), [marketing_read.py](/apps/cosa/capabilities/marketing_read.py), [snapshot_repository.py](/packages/agent/knowledge/snapshot_repository.py). Reuse repository hiện có thay vì một store knowledge mới.
 
-**Files tạo:** [capability_readiness.py](/Volumes/SSD/javis-saas/apps/cosa/agents/capability_readiness.py), [test_business_agent_readiness.py](/Volumes/SSD/javis-saas/tests/apps/cosa/agents/test_business_agent_readiness.py), [test_knowledge_profile_evidence.py](/Volumes/SSD/javis-saas/tests/apps/cosa/test_knowledge_profile_evidence.py). Sửa manifests/SKILL.md thực sự pin bởi AgentSpecs sau khi resolve danh sách ở code, không đổi toàn bộ skillpacks.
+**Files tạo:** [capability_readiness.py](/apps/cosa/agents/capability_readiness.py), [test_business_agent_readiness.py](/tests/apps/cosa/agents/test_business_agent_readiness.py), [test_knowledge_profile_evidence.py](/tests/apps/cosa/test_knowledge_profile_evidence.py). Sửa manifests/SKILL.md thực sự pin bởi AgentSpecs sau khi resolve danh sách ở code, không đổi toàn bộ skillpacks.
 
 **Interfaces:** `check_capability_readiness(required:set[str], available:set[str])->list[str]` trả sorted missing. Knowledge handler factory nhận repository đã inject từ plane composition; trả sections với sourceId/version/publishedAt/freshUntil/trust, không đổi untrusted=false vì include_untrusted=true. Read profile phải kiểm workspace và published state trên nguồn bên dưới, không chỉ wrapper.
 
@@ -92,17 +92,17 @@ def check_capability_readiness(required: set[str], available: set[str]) -> list[
 assert check_capability_readiness({"strategy.project.get"}, set()) == ["strategy.project.get"]
 ```
 
-- [ ] Chạy PYTEST hai file mới và [test_knowledge_production_wiring.py](/Volumes/SSD/javis-saas/tests/apps/cosa/test_knowledge_production_wiring.py), ghi RED cho stub/lỗi trust.
+- [ ] Chạy PYTEST hai file mới và [test_knowledge_production_wiring.py](/tests/apps/cosa/test_knowledge_production_wiring.py), ghi RED cho stub/lỗi trust.
 - [ ] Readiness chạy khi seed/publish và trước activation: skill required tool có trong registry + spec capability refs; quyền runtime vẫn kiểm riêng A3, không tự grant để readiness pass. Pin/hash cập nhật theo cơ chế hiện có, old run tiếp tục dùng old pin.
 - [ ] Operations nhận read cycle/weekly/metric/evidence/context và draft planning; Finance nhận read transaction/snapshot/document/budget, draft request/reconciliation theo F6; Marketing context nối experiment/evidence/CRM outcome bằng ID thực. Strategy/Legal compose read/advisory vào role thích hợp, không tạo agent mới. Send/publish chỉ theo workflow đã có approval, không mở vì đổi spec.
-- [ ] Knowledge không có dữ liệu trả EMPTY/UNAVAILABLE và nguồn thiếu; thử cross-workspace, unpublished, expired, include_untrusted. Frontend profile composition hiển thị missing capability/permission như hai vấn đề khác nhau tại [profile_composition_view.dart](/Volumes/SSD/javis-saas/frontend/lib/modules/settings/workforce/views/profile_composition_view.dart); tạo widget test [agent_readiness_test.dart](/Volumes/SSD/javis-saas/frontend/test/modules/settings/agent_readiness_test.dart).
+- [ ] Knowledge không có dữ liệu trả EMPTY/UNAVAILABLE và nguồn thiếu; thử cross-workspace, unpublished, expired, include_untrusted. Frontend profile composition hiển thị missing capability/permission như hai vấn đề khác nhau tại [profile_composition_view.dart](/frontend/lib/modules/settings/workforce/views/profile_composition_view.dart); tạo widget test [agent_readiness_test.dart](/frontend/test/modules/settings/agent_readiness_test.dart).
 - [ ] Chạy skillpacks-validate, contract-freeze-check, relevant pytest/Flutter và typecheck API nếu đổi; commit `feat: wire grounded knowledge and business agent capability readiness`.
 
 ## R4 — Evals nghiệp vụ và độ bền qua process thật
 
-**Files sửa:** [customer_support_autopilot_cases.py](/Volumes/SSD/javis-saas/apps/cosa/evals/customer_support_autopilot_cases.py), [test_autopilot_run.py](/Volumes/SSD/javis-saas/tests/apps/cosa/test_autopilot_run.py), [test_crash_recovery_subprocess.py](/Volumes/SSD/javis-saas/tests/apps/cosa/worker/test_crash_recovery_subprocess.py), [autopilot_run.py](/Volumes/SSD/javis-saas/apps/cosa/worker/autopilot_run.py).
+**Files sửa:** [customer_support_autopilot_cases.py](/apps/cosa/evals/customer_support_autopilot_cases.py), [test_autopilot_run.py](/tests/apps/cosa/test_autopilot_run.py), [test_crash_recovery_subprocess.py](/tests/apps/cosa/worker/test_crash_recovery_subprocess.py), [autopilot_run.py](/apps/cosa/worker/autopilot_run.py).
 
-**Files tạo:** [test_business_agent_evals.py](/Volumes/SSD/javis-saas/tests/apps/cosa/evals/test_business_agent_evals.py), [test_event_approval_restart.py](/Volumes/SSD/javis-saas/tests/e2e/test_event_approval_restart.py), [business-agent-evals.md](/Volumes/SSD/javis-saas/docs/testing/business-agent-evals.md).
+**Files tạo:** [test_business_agent_evals.py](/tests/apps/cosa/evals/test_business_agent_evals.py), [test_event_approval_restart.py](/tests/e2e/test_event_approval_restart.py), [business-agent-evals.md](/docs/testing/business-agent-evals.md).
 
 **Consumes:** A3 revoke/version, R1 envelope, R2 finalizer, R3 knowledge/readiness, S3 completion. **Produces:** eval gọi wrapper/kernel/gateway thật với model/provider fake và báo business output/side effects chính xác.
 

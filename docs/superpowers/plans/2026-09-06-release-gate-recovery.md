@@ -400,35 +400,35 @@ git commit -m "fix(quality): scope fixture and E2E purity checks correctly"
 ### Task 6: Chuẩn hóa link tài liệu portable
 
 **Files:**
-- Modify: nine Markdown files reported by make check-docs under docs/architecture/overview and docs/superpowers/plans
-- Verify: scripts/check_doc_links.py
+- Modify: Markdown files reported by make check-docs under docs/architecture/overview and docs/superpowers/plans
+- Modify: scripts/check_doc_links.py
+- Test: tests/quality/test_check_doc_links.py
 
 **Interfaces:**
 - Consumes: an internal Markdown target beginning with / as repository-root relative.
 - Produces: no target containing /Volumes/SSD/javis-saas/.
 
-- [ ] **Step 1: Run test to verify it fails**
+- [x] **Step 1: Run test to verify it fails**
 
 Run: make check-docs
 
 Expected: 406 broken links resolve as /Volumes/SSD/javis-saas/Volumes/SSD/javis-saas/....
 
-- [ ] **Step 2: Write minimal implementation**
+- [x] **Step 2: Write minimal implementation**
 
-Apply the exact mechanical replacement ](/Volumes/SSD/javis-saas/ -> ](/ in only the files named by checker output. Do not edit prose, code fences, or external links.
+Replace only the machine-local `/Volumes/SSD/javis-saas/` prefix in the reported Markdown targets. Teach the checker that a `:line` suffix in a source-file link is navigation metadata, and retain its failure for genuinely missing files. Where a historical plan names an uncreated artifact, preserve it as inline code rather than claiming it is a valid link.
 
-- [ ] **Step 3: Run test to verify it passes**
+- [x] **Step 3: Run test to verify it passes**
 
-Run: rg -n '](/Volumes/SSD/javis-saas/' --glob '*.md' && exit 1 || true
 Run: make check-docs
 
 Expected: no machine-local Markdown targets and all internal links pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ~~~
-git add docs/architecture/overview docs/superpowers/plans
-git commit -m "docs: replace machine-local repository links"
+git add docs/architecture/overview docs/superpowers/plans scripts/check_doc_links.py tests/quality/test_check_doc_links.py
+git commit -m "fix(docs): validate portable code links"
 ~~~
 
 ### Task 7: Add COSA read-only pending-migration preflight

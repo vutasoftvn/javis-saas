@@ -8,7 +8,7 @@
 
 **Tech Stack:** Encore/TypeScript/Drizzle, PostgreSQL, Flutter/GetX, Vitest và integration tests.
 
-**Spec:** [07](/Volumes/SSD/javis-saas/docs/architecture/overview/07-code-audit-business-agents-2026-09-05.md), [08](/Volumes/SSD/javis-saas/docs/architecture/overview/08-phan-tich-cycle-cas-permissions-2026-09-05.md), [plan tổng](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-master.md).
+**Spec:** [07](/docs/architecture/overview/07-code-audit-business-agents-2026-09-05.md), [08](/docs/architecture/overview/08-phan-tich-cycle-cas-permissions-2026-09-05.md), [plan tổng](/docs/superpowers/plans/2026-09-05-business-agents-master.md).
 
 ## Global Constraints
 
@@ -19,9 +19,9 @@
 
 ## L1 — Enum thống nhất và applicability theo pháp nhân
 
-**Files sửa:** [legal-applicability.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-applicability.service.ts), [legal-obligation.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-obligation.service.ts), [legal-entity-profile.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-entity-profile.service.ts), [regulation-catalog.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/regulation-catalog.service.ts), [next-best-action.service.ts](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/next-best-action.service.ts), [shared enums](/Volumes/SSD/javis-saas/shared/contracts/enums.json), [finance-legal schema](/Volumes/SSD/javis-saas/services/company/shared/db/schema/finance-legal.ts).
+**Files sửa:** [legal-applicability.service.ts](/services/company/finance-legal/services/legal-applicability.service.ts), [legal-obligation.service.ts](/services/company/finance-legal/services/legal-obligation.service.ts), [legal-entity-profile.service.ts](/services/company/finance-legal/services/legal-entity-profile.service.ts), [regulation-catalog.service.ts](/services/company/finance-legal/services/regulation-catalog.service.ts), [next-best-action.service.ts](/services/company/operations/strategy/services/next-best-action.service.ts), [shared enums](/shared/contracts/enums.json), [finance-legal schema](/services/company/shared/db/schema/finance-legal.ts).
 
-**Files tạo:** [legal-predicate.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-predicate.ts), [legal-applicability-integrity.test.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/tests/legal-applicability-integrity.test.ts), [32_legal_predicate_versions.up.sql](/Volumes/SSD/javis-saas/services/company/finance-legal/migrations/32_legal_predicate_versions.up.sql).
+**Files tạo:** [legal-predicate.ts](/services/company/finance-legal/services/legal-predicate.ts), [legal-applicability-integrity.test.ts](/services/company/finance-legal/tests/legal-applicability-integrity.test.ts), [32_legal_predicate_versions.up.sql](/services/company/finance-legal/migrations/32_legal_predicate_versions.up.sql).
 
 **Schema:** applicability result có workspace_id/legal_entity_id/rule_version/facts_version/result/reason_codes/evaluated_at/source_ref; unique theo entity/rule/facts version. Predicate discriminated union chỉ hỗ trợ field/operator được định nghĩa; unknown operator trả NEEDS_REVIEW. Canonical entity VERIFIED; obligation instance OPEN/IN_PROGRESS/FULFILLED/EXEMPT/CANCELLED; overdue là derived từ dueAt và nonterminal status. Legacy PENDING của instance map OPEN tại migration/adapter đã xác minh, không đổi mọi bảng có PENDING.
 
@@ -49,9 +49,9 @@ export type LegalFacts = {
 
 ## L2 — Authority thực của AI deployment và approval
 
-**Files sửa:** [ai-compliance-governance.handler.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/handlers/ai-compliance-governance.handler.ts), [ai-compliance-governance.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/ai-compliance-governance.service.ts), [ai-compliance-access.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/ai-compliance-access.service.ts), [ai-compliance-snapshot.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/ai-compliance-snapshot.service.ts), [ai_compliance_controller.dart](/Volumes/SSD/javis-saas/frontend/lib/modules/legal/controllers/ai_compliance_controller.dart), [compliance_center_panel.dart](/Volumes/SSD/javis-saas/frontend/lib/modules/legal/views/widgets/compliance_center_panel.dart).
+**Files sửa:** [ai-compliance-governance.handler.ts](/services/company/finance-legal/handlers/ai-compliance-governance.handler.ts), [ai-compliance-governance.service.ts](/services/company/finance-legal/services/ai-compliance-governance.service.ts), [ai-compliance-access.service.ts](/services/company/finance-legal/services/ai-compliance-access.service.ts), [ai-compliance-snapshot.service.ts](/services/company/finance-legal/services/ai-compliance-snapshot.service.ts), [ai_compliance_controller.dart](/frontend/lib/modules/legal/controllers/ai_compliance_controller.dart), [compliance_center_panel.dart](/frontend/lib/modules/legal/views/widgets/compliance_center_panel.dart).
 
-**Files tạo:** [deployment-authority.test.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/tests/deployment-authority.test.ts), [33_deployment_authority_versions.up.sql](/Volumes/SSD/javis-saas/services/company/finance-legal/migrations/33_deployment_authority_versions.up.sql), [deployment_authority_test.dart](/Volumes/SSD/javis-saas/frontend/test/modules/legal/deployment_authority_test.dart).
+**Files tạo:** [deployment-authority.test.ts](/services/company/finance-legal/tests/deployment-authority.test.ts), [33_deployment_authority_versions.up.sql](/services/company/finance-legal/migrations/33_deployment_authority_versions.up.sql), [deployment_authority_test.dart](/frontend/test/features/compliance/deployment_authority_test.dart).
 
 **Schema:** deployment phân biệt created_by_member_id, accountable_member_id, reviewer_member_id, approved_by_member_id, approved_version/policy_version; giữ founder_member_id cũ chỉ là legacy provenance, không dùng làm quyền. Approval mới gắn deployment version + assessment/source/compliance snapshot hash.
 
@@ -74,9 +74,9 @@ REQUIRE_APPROVAL phải kiểm proof từ workflow hiện có; ALLOW vẫn cần
 
 ## L3 — Vòng đời nghĩa vụ, evidence và weekly review
 
-**Files sửa:** [legal-obligation.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-obligation.service.ts), [legal-obligation.handler.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/handlers/legal-obligation.handler.ts), [legal_service.dart](/Volumes/SSD/javis-saas/frontend/lib/modules/legal/services/legal_service.dart), [legal_controller.dart](/Volumes/SSD/javis-saas/frontend/lib/modules/legal/controllers/legal_controller.dart), [legal_view.dart](/Volumes/SSD/javis-saas/frontend/lib/modules/legal/views/legal_view.dart), S4 project-action-context và weekly-review service.
+**Files sửa:** [legal-obligation.service.ts](/services/company/finance-legal/services/legal-obligation.service.ts), [legal-obligation.handler.ts](/services/company/finance-legal/handlers/legal-obligation.handler.ts), [legal_service.dart](/frontend/lib/modules/legal/services/legal_service.dart), [legal_controller.dart](/frontend/lib/modules/legal/controllers/legal_controller.dart), [legal_view.dart](/frontend/lib/modules/legal/views/legal_view.dart), S4 project-action-context và weekly-review service.
 
-**Files tạo:** [legal-obligation-lifecycle.test.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/tests/legal-obligation-lifecycle.test.ts), [34_obligation_lifecycle.up.sql](/Volumes/SSD/javis-saas/services/company/finance-legal/migrations/34_obligation_lifecycle.up.sql), [obligation_flow_test.dart](/Volumes/SSD/javis-saas/frontend/test/modules/legal/obligation_flow_test.dart).
+**Files tạo:** [legal-obligation-lifecycle.test.ts](/services/company/finance-legal/tests/legal-obligation-lifecycle.test.ts), [34_obligation_lifecycle.up.sql](/services/company/finance-legal/migrations/34_obligation_lifecycle.up.sql), [obligation_flow_test.dart](/frontend/test/modules/legal/obligation_flow_test.dart).
 
 **Schema:** obligation instance owner_member_id/legal_entity_id/rule_version/period_key/due_at/due_timezone/version; evidence relation và transition journal(actor/reason/from/to/source_version); unique(entity,rule,period_key) để retry scheduler không nhân nghĩa vụ. Dùng leaf UUID cho journal, giữ id instance hiện có.
 

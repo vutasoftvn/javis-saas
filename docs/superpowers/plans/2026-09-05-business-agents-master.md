@@ -8,7 +8,7 @@
 
 **Tech Stack:** Encore.ts, TypeScript, Drizzle/PostgreSQL, Python/Pydantic/pytest, Flutter/GetX, Vitest; Cas.so và adapter QR.
 
-**Spec:** [Overview 07](/Volumes/SSD/javis-saas/docs/architecture/overview/07-code-audit-business-agents-2026-09-05.md), [Overview 08](/Volumes/SSD/javis-saas/docs/architecture/overview/08-phan-tich-cycle-cas-permissions-2026-09-05.md). Hai bản là đầu vào phân tích, không chứng minh implementation đã tồn tại. Khi khác nhau, yêu cầu mới của founder trong 08 quyết định thiết kế cycle và payout; mọi nhận định hiện trạng phải kiểm lại code.
+**Spec:** [Overview 07](/docs/architecture/overview/07-code-audit-business-agents-2026-09-05.md), [Overview 08](/docs/architecture/overview/08-phan-tich-cycle-cas-permissions-2026-09-05.md). Hai bản là đầu vào phân tích, không chứng minh implementation đã tồn tại. Khi khác nhau, yêu cầu mới của founder trong 08 quyết định thiết kế cycle và payout; mọi nhận định hiện trạng phải kiểm lại code.
 
 ## Global Constraints
 
@@ -31,11 +31,11 @@
 
 | Plan | Task | Kết quả độc lập |
 |---|---|---|
-| [A — quyền và governance](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-permissions.md) | A1–A4 | Tenant guard đúng; founder quản lý quyền; agent bị kiểm tại mỗi lần thực thi |
-| [S — strategy và operating](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-strategy-operating.md) | S1–S5 | Gate có evidence; cycle N tuần, OKR, cam kết và review dùng dữ liệu thật |
-| [R — agent runtime](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-runtime.md) | R1–R4 | Event chạy qua worker; Copilot đúng auth/output; knowledge và readiness thật |
-| [L — legal](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-legal.md) | L1–L3 | Applicability theo pháp nhân; approver đúng quyền; nghĩa vụ có vòng đời |
-| [F — finance, Cas và QR](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-finance.md) | F1–F6 | Sổ/đối soát an toàn; Cas thật; chi QR; TT58 có mapping và UI thực |
+| [A — quyền và governance](/docs/superpowers/plans/2026-09-05-business-agents-permissions.md) | A1–A4 | Tenant guard đúng; founder quản lý quyền; agent bị kiểm tại mỗi lần thực thi |
+| [S — strategy và operating](/docs/superpowers/plans/2026-09-05-business-agents-strategy-operating.md) | S1–S5 | Gate có evidence; cycle N tuần, OKR, cam kết và review dùng dữ liệu thật |
+| [R — agent runtime](/docs/superpowers/plans/2026-09-05-business-agents-runtime.md) | R1–R4 | Event chạy qua worker; Copilot đúng auth/output; knowledge và readiness thật |
+| [L — legal](/docs/superpowers/plans/2026-09-05-business-agents-legal.md) | L1–L3 | Applicability theo pháp nhân; approver đúng quyền; nghĩa vụ có vòng đời |
+| [F — finance, Cas và QR](/docs/superpowers/plans/2026-09-05-business-agents-finance.md) | F1–F6 | Sổ/đối soát an toàn; Cas thật; chi QR; TT58 có mapping và UI thực |
 | Plan tổng này | H0, H1 | Môi trường test cô lập; kiểm thử xuyên các phần và rollout có kiểm soát |
 
 Thứ tự một người thực hiện: **H0 → A1 → A2 → A3 → A4 → R1 → R2 → L1 → L2 → S1 → S2 → S3 → S4 → S5 → L3 → F1 → F2 → F3 → F4 → F5 → F6 → R3 → R4 → H1**. Có thể tách phần guard/conditional update/currency của F1 thành bản vá sớm sau A1; phần migration mở rộng theo chuỗi L1–L3 rồi F1–F6. Đánh số task chỉ dùng nhận diện, không yêu cầu chạy theo alphabet.
@@ -94,7 +94,7 @@ Lỗi nghiệp vụ qua APIError kèm code ổn định trong response contract:
 
 ## 3. H0 — Harness kiểm thử và chuẩn bị migration
 
-**Files:** tạo [run_business_audit_tests.py](/Volumes/SSD/javis-saas/scripts/run_business_audit_tests.py), [test_business_audit_runner.py](/Volumes/SSD/javis-saas/tests/e2e/stack/test_business_audit_runner.py); tái sử dụng [disposable_postgres.py](/Volumes/SSD/javis-saas/tests/e2e/stack/disposable_postgres.py), [Makefile](/Volumes/SSD/javis-saas/Makefile). Không sửa password/env dev để làm test pass.
+**Files:** tạo [run_business_audit_tests.py](/scripts/run_business_audit_tests.py), [test_business_audit_runner.py](/tests/scripts/test_business_audit_runner.py); tái sử dụng [disposable_postgres.py](/tests/e2e/stack/disposable_postgres.py), [Makefile](/Makefile). Không sửa password/env dev để làm test pass.
 
 **Interfaces:** CLI `.venv/bin/python scripts/run_business_audit_tests.py company|cosa <vitest-file>...`; tạo cluster mới ngẫu nhiên, migrate Agent→COSA→Company, subprocess chạy Vitest với URL disposable, truyền nguyên exit code, teardown trong finally. Từ chối service lạ và đường test ra ngoài service root. Không in URL/secret.
 
@@ -139,7 +139,7 @@ Gate thay schema: `make migration-compat-check`, chạy migration hai lần trê
 
 ## 5. H1 — E2E nghiệp vụ và nghiệm thu
 
-**Files:** tạo [test_business_operating_loop.py](/Volumes/SSD/javis-saas/tests/e2e/test_business_operating_loop.py), [business_operating_loop.dart](/Volumes/SSD/javis-saas/frontend/integration_test/business_operating_loop.dart); tái sử dụng [subprocess_stack.py](/Volumes/SSD/javis-saas/tests/e2e/stack/subprocess_stack.py), [mvp_stack.py](/Volumes/SSD/javis-saas/tests/e2e/mvp_stack.py). Tạo [business-agents-release.md](/Volumes/SSD/javis-saas/docs/testing/business-agents-release.md) làm checklist evidence khi thực thi.
+**Files:** tạo `test_business_operating_loop.py`, `business_operating_loop.dart`; tái sử dụng [subprocess_stack.py](/tests/e2e/stack/subprocess_stack.py), [mvp_stack.py](/tests/e2e/mvp_stack.py). Tạo `business-agents-release.md` làm checklist evidence khi thực thi.
 
 **Consumes:** A1–A4, S1–S5, R1–R4, L1–L3, F1–F6. **Produces:** kết quả từng F01–F16, migration/backfill evidence, UI walkthrough và danh sách tính năng được bật.
 

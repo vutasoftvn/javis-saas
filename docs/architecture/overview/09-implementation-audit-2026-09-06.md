@@ -4,7 +4,7 @@ Ngày kiểm tra: 2026-09-06. Baseline trước triển khai: `e4829b75`. Mốc 
 
 **Kết luận: chưa triển khai đúng và đủ để nghiệm thu plan tổng.** Có nhiều cấu phần mới hữu ích, nhưng còn đường public bỏ qua quyền, helper không có caller production, UI vẫn dùng stub và test không chứng minh luồng thật. F4/F5/F6 và H1 chưa có các đầu ra chính. Không thể dùng tên commit hoặc số test pass để đánh dấu các task đã xong.
 
-Nguồn yêu cầu: [plan tổng](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-master.md), [permissions](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-permissions.md), [strategy/operating](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-strategy-operating.md), [runtime](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-runtime.md), [legal](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-legal.md), [finance](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-09-05-business-agents-finance.md).
+Nguồn yêu cầu: [plan tổng](/docs/superpowers/plans/2026-09-05-business-agents-master.md), [permissions](/docs/superpowers/plans/2026-09-05-business-agents-permissions.md), [strategy/operating](/docs/superpowers/plans/2026-09-05-business-agents-strategy-operating.md), [runtime](/docs/superpowers/plans/2026-09-05-business-agents-runtime.md), [legal](/docs/superpowers/plans/2026-09-05-business-agents-legal.md), [finance](/docs/superpowers/plans/2026-09-05-business-agents-finance.md).
 
 ## 1. Ma trận 24 task
 
@@ -41,7 +41,7 @@ Nguồn yêu cầu: [plan tổng](/Volumes/SSD/javis-saas/docs/superpowers/plans
 
 ### IA01 — P1: Auditor vẫn sửa được capability policy; F02 chưa được đóng
 
-[setCapabilityPolicyService](/Volumes/SSD/javis-saas/services/company/operations/services/execution-plan.service.ts:690) không gọi requireFounderCommand/requireCommandAuthority; lấy workspaceId từ tham số và ghi rule trực tiếp. [Handler](/Volumes/SSD/javis-saas/services/company/operations/handlers/execution-plan.handler.ts:202) chỉ xác thực membership.
+[setCapabilityPolicyService](/services/company/operations/services/execution-plan.service.ts:690) không gọi requireFounderCommand/requireCommandAuthority; lấy workspaceId từ tham số và ghi rule trực tiếp. [Handler](/services/company/operations/handlers/execution-plan.handler.ts:202) chỉ xác thực membership.
 
 Tình huống: auditor gọi POST `/operations/capability-policy` với decision ALLOW hoặc null vẫn tới insert/delete. Việc đã tạo command-authority helper không bảo vệ đường này. Direct service còn không so workspace tham số với ctx; public route thường lấy cùng workspace từ handler nên không gộp hai vấn đề thành kết luận public cross-tenant chưa được chứng minh.
 
@@ -49,7 +49,7 @@ Cần đưa authorization vào chính service, lấy workspace từ ctx và test
 
 ### IA02 — P1: Permissions mới chưa điều khiển runtime và nhiều command nghiệp vụ
 
-[requireFounderCommand](/Volumes/SSD/javis-saas/services/company/identity/services/command-authority.service.ts:12) vẫn chỉ kiểm tên role; evaluator đầy đủ là helper khác. Python [company_policy_client.py](/Volumes/SSD/javis-saas/apps/cosa/policies/company_policy_client.py) có evaluate_business_action nhưng chưa có caller production. `businessPolicyRef` được thêm vào snapshot nhưng chưa tạo quyết định Company bắt buộc ở gateway; bản client còn dùng base URL mặc định của control plane cho route evaluate thuộc Company.
+[requireFounderCommand](/services/company/identity/services/command-authority.service.ts:12) vẫn chỉ kiểm tên role; evaluator đầy đủ là helper khác. Python [company_policy_client.py](/apps/cosa/policies/company_policy_client.py) có evaluate_business_action nhưng chưa có caller production. `businessPolicyRef` được thêm vào snapshot nhưng chưa tạo quyết định Company bắt buộc ở gateway; bản client còn dùng base URL mặc định của control plane cho route evaluate thuộc Company.
 
 Tình huống: founder đặt DENY trong bảng permissions mới nhưng đường đang gọi guard role cũ hoặc policy cũ không đọc quyết định này; giao diện và quyền thực thi không đồng nhất. Không kết luận các hard floor/connector guard sẵn có đều bị vượt: vấn đề là lớp business policy mới chưa được nối.
 
@@ -57,65 +57,65 @@ Cần một writer/source cho quyền nghiệp vụ, client đúng plane/token, 
 
 ### IA03 — P1: W-stage vẫn dùng evidence chưa duyệt và bỏ cờ chặn edge; F03 còn nguyên
 
-[stage-lifecycle.service.ts:121](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/stage-lifecycle.service.ts:121) vẫn chọn tất cả evidence workspace, không lọc status/deletedAt/freshUntil. [Edge lookup](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/stage-lifecycle.service.ts:247) chỉ đọc policyVersion.
+[stage-lifecycle.service.ts:121](/services/company/operations/strategy/services/stage-lifecycle.service.ts:121) vẫn chọn tất cả evidence workspace, không lọc status/deletedAt/freshUntil. [Edge lookup](/services/company/operations/strategy/services/stage-lifecycle.service.ts:247) chỉ đọc policyVersion.
 
 Tình huống: candidate/expired evidence đủ điểm vẫn có thể góp vào assessment; edge allowed=false không được dùng ở luồng workspace transition. Evidence helper mới ở file khác không sửa được caller này. Cần test transition thật, gồm gate pass nhưng edge deny và candidate-only.
 
 ### IA04 — P1: Project transition chưa bắt buộc decision/gate hợp lệ; PMF chưa hiểu đơn vị đo đầy đủ
 
-[Project transition](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/project-stage-lifecycle.service.ts:142) chỉ kiểm decision khi caller có truyền `decisionId`. Có thể bỏ tham số và đi đường trước đây. Khi có decision, chưa resolve đầy đủ evaluation/policy/evidence freshness theo S1. PMF có sửa missing approved evidence nhưng vẫn chuẩn hóa giá trị metric bằng clamp [0,1] thay vì metric contract/cohort/direction.
+[Project transition](/services/company/operations/strategy/services/project-stage-lifecycle.service.ts:142) chỉ kiểm decision khi caller có truyền `decisionId`. Có thể bỏ tham số và đi đường trước đây. Khi có decision, chưa resolve đầy đủ evaluation/policy/evidence freshness theo S1. PMF có sửa missing approved evidence nhưng vẫn chuẩn hóa giá trị metric bằng clamp [0,1] thay vì metric contract/cohort/direction.
 
 Cần bắt buộc decision/evaluation phù hợp khi chuyển tới stage yêu cầu gate; không biến field optional thành biện pháp kiểm soát. Test tỷ lệ giảm, số đếm và stale contract bằng production evaluator.
 
 ### IA05 — P1: 12WY UI vẫn báo tạo công việc mà không lưu; F11 chưa sửa
 
-[getDashboard](/Volumes/SSD/javis-saas/frontend/lib/modules/strategy/services/twelve_wy_service.dart:35) vẫn bỏ projectId, chọn cycles.first, trả tacticsByWeek/weeklyScores rỗng. createTactic vẫn sinh ID timestamp tại client; updateTactic/generateWeeklyReview trả null. Method getExecutionCycleView mới chưa thay thế luồng UI đang dùng các method cũ.
+[getDashboard](/frontend/lib/modules/strategy/services/twelve_wy_service.dart:35) vẫn bỏ projectId, chọn cycles.first, trả tacticsByWeek/weeklyScores rỗng. createTactic vẫn sinh ID timestamp tại client; updateTactic/generateWeeklyReview trả null. Method getExecutionCycleView mới chưa thay thế luồng UI đang dùng các method cũ.
 
 Tình huống: tạo tactic rồi reload mất dữ liệu; đổi project có thể vẫn xem cycle đầu tiên. Test DTO/new endpoint riêng pass không chứng minh màn hình đã chuyển sang API thật. Cần thay caller/controller/mixin, kiểm request/persist/reload và stale response khi đổi project.
 
 ### IA06 — P1: Copilot gọi sai chữ ký repository, làm output hợp lệ bị báo thất bại
 
-[copilot_run.py:323](/Volumes/SSD/javis-saas/apps/cosa/worker/copilot_run.py:323) gọi `get(artifact_ref)`; [ArtifactRepository protocol](/Volumes/SSD/javis-saas/packages/agent/artifacts/repository.py:19) yêu cầu `get(workspace_id, artifact_id)`. Repository thật/InMemory sinh TypeError; exception bị bắt và artifact_persisted=false.
+[copilot_run.py:323](/apps/cosa/worker/copilot_run.py:323) gọi `get(artifact_ref)`; [ArtifactRepository protocol](/packages/agent/artifacts/repository.py:19) yêu cầu `get(workspace_id, artifact_id)`. Repository thật/InMemory sinh TypeError; exception bị bắt và artifact_persisted=false.
 
 Đã tái hiện offline bằng repository thật: `InMemoryArtifactRepository.get() missing 1 required positional argument: 'artifact_id'`. Mock AsyncMock nhận mọi argument che lỗi này. Ngoài ra branch không có artifact_repository lại đặt artifact_persisted=true, trái yêu cầu fail khi không có nơi lưu. Cần test protocol có spec/autospec và artifact content thực, không chỉ metadata/object_ref.
 
 ### IA07 — P1: Knowledge/readiness có code nhưng chưa được nối vào agent plane
 
-[register_cosa_capabilities](/Volumes/SSD/javis-saas/apps/cosa/composition/capability_registration.py:132) nhận knowledge_snapshot_repo tùy chọn; [build agent plane](/Volumes/SSD/javis-saas/apps/cosa/composition/agent_plane.py:236) không truyền repository. Runtime mặc định không có nguồn knowledge mới. [capability_readiness.py](/Volumes/SSD/javis-saas/apps/cosa/agents/capability_readiness.py) chưa có caller production thực thi readiness khi activation/run.
+[register_cosa_capabilities](/apps/cosa/composition/capability_registration.py:132) nhận knowledge_snapshot_repo tùy chọn; [build agent plane](/apps/cosa/composition/agent_plane.py:236) không truyền repository. Runtime mặc định không có nguồn knowledge mới. [capability_readiness.py](/apps/cosa/agents/capability_readiness.py) chưa có caller production thực thi readiness khi activation/run.
 
 Trả UNAVAILABLE trung thực hơn stub cũ, nhưng không đạt R3 “knowledge thật”. Cần inject storage repo, test boot composition và run tool thật; thiếu required tool phải chặn activation thay vì chỉ hiển thị helper output.
 
 ### IA08 — P1: Cas Link chưa thể hoàn tất grant thật; có đường tự cấp lại consent
 
-[Create link](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-link.service.ts:124) không đưa state vào link/callback hay trả state cho client, trong khi exchange bắt đúng stateHash đã lưu. Test có thể đọc hash từ DB, người dùng browser không có nguồn lấy hash đó.
+[Create link](/services/company/finance-legal/services/cas-link.service.ts:124) không đưa state vào link/callback hay trả state cho client, trong khi exchange bắt đúng stateHash đã lưu. Test có thể đọc hash từ DB, người dùng browser không có nguồn lấy hash đó.
 
-[Exchange](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-link.service.ts:193) không sử dụng publicToken để gọi Cas: tạo `grant_mock_*`, `acc_mock_*`, secretRef giả rồi ghi GRANTED. [Reauthorize handler](/Volumes/SSD/javis-saas/services/company/finance-legal/handlers/cas-link.handler.ts:102) truyền sameAccountVerified do caller nhập; [service](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-link.service.ts:299) dùng boolean đó để đưa connection về GRANTED mà không có provider proof.
+[Exchange](/services/company/finance-legal/services/cas-link.service.ts:193) không sử dụng publicToken để gọi Cas: tạo `grant_mock_*`, `acc_mock_*`, secretRef giả rồi ghi GRANTED. [Reauthorize handler](/services/company/finance-legal/handlers/cas-link.handler.ts:102) truyền sameAccountVerified do caller nhập; [service](/services/company/finance-legal/services/cas-link.service.ts:299) dùng boolean đó để đưa connection về GRANTED mà không có provider proof.
 
 Tình huống: cấp publicToken bất kỳ với session/hash hợp lệ vẫn tạo “đã kết nối”; member có membership gửi sameAccountVerified=true có thể tự đổi consent state của connection workspace. Đây là lỗi nghiệp vụ, không phải đơn thuần thiếu credential. Cần exchange thật, state roundtrip đúng, vault storage và server-side identity verification; revoke/reauthorize phải kiểm command permission.
 
 ### IA09 — P1: Contract Cas trong code không khớp tài liệu được chọn
 
-[cas-client.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-client.ts:122) dùng `/tokens/exchange` và public_token, trong khi Cas công bố `/grant/exchange` với publicToken và developer headers. GET client thiếu developer/version headers; client đọc data/cursor trong khi cas-contract.ts của chính repo khai records/page. [Nguồn Cas Transactions](https://cas.so/product/transactions/).
+[cas-client.ts](/services/company/finance-legal/services/cas-client.ts:122) dùng `/tokens/exchange` và public_token, trong khi Cas công bố `/grant/exchange` với publicToken và developer headers. GET client thiếu developer/version headers; client đọc data/cursor trong khi cas-contract.ts của chính repo khai records/page. [Nguồn Cas Transactions](https://cas.so/product/transactions/).
 
-[Webhook handler](/Volumes/SSD/javis-saas/services/company/finance-legal/handlers/cas-webhook.handler.ts:5) vẫn yêu cầu field rawPayload:string thay vì nhận body raw JSON. [Parser](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-webhook.service.ts:75) chờ error=0/data; mẫu Cas QR Pay dùng webhookType/grantId/transaction, nên nếu gửi nguyên mẫu đó qua adapter hiện tại sẽ thành IGNORED hoặc bị boundary từ chối. Cơ chế signature trong contract/handler cũng khác nhau và chưa có evidence nhà cung cấp xác nhận. [Mẫu Cas QR Pay](https://cas.so/product/qr-pay/).
+[Webhook handler](/services/company/finance-legal/handlers/cas-webhook.handler.ts:5) vẫn yêu cầu field rawPayload:string thay vì nhận body raw JSON. [Parser](/services/company/finance-legal/services/cas-webhook.service.ts:75) chờ error=0/data; mẫu Cas QR Pay dùng webhookType/grantId/transaction, nên nếu gửi nguyên mẫu đó qua adapter hiện tại sẽ thành IGNORED hoặc bị boundary từ chối. Cơ chế signature trong contract/handler cũng khác nhau và chưa có evidence nhà cung cấp xác nhận. [Mẫu Cas QR Pay](https://cas.so/product/qr-pay/).
 
 Không gọi API ngân hàng thật trong audit; kết luận là mismatch tĩnh với contract công khai và nội bộ, không suy diễn đã test live. Cần lưu fixture/provider version đã kiểm chứng rồi contract-test raw HTTP request thật.
 
 ### IA10 — P1: Inbox không khôi phục bản ghi đã claim khi worker chết
 
-[claimDueCasInboxEvents](/Volumes/SSD/javis-saas/services/company/finance-legal/services/ingestion.service.ts:200) chỉ chọn RECEIVED/FAILED; ngay sau claim đổi PROCESSING. Nếu process chết trước complete/fail, lease hết hạn nhưng status vẫn PROCESSING và không bao giờ được query này chọn lại. Không tìm thấy sweeper khác chuyển PROCESSING hết lease về trạng thái có thể claim.
+[claimDueCasInboxEvents](/services/company/finance-legal/services/ingestion.service.ts:200) chỉ chọn RECEIVED/FAILED; ngay sau claim đổi PROCESSING. Nếu process chết trước complete/fail, lease hết hạn nhưng status vẫn PROCESSING và không bao giờ được query này chọn lại. Không tìm thấy sweeper khác chuyển PROCESSING hết lease về trạng thái có thể claim.
 
 Test mang tên crash-then-resume hiện kiểm crash sau enqueue, trước claim; không chạm lỗi sau claim. Cần test worker thật chết sau PROCESSING rồi process khác reclaim với fencing token mới. Đây là gap F3 durability có thể làm giao dịch đã ACK bị kẹt vĩnh viễn.
 
 ### IA11 — P1: Correction cùng transaction ID bị dedup trước khi tới kiểm tra conflict
 
-[enqueueCasInboxEvent](/Volumes/SSD/javis-saas/services/company/finance-legal/services/ingestion.service.ts:158) onConflictDoNothing theo event identity; identity ghép connection/transaction/kind/contract version, không provider revision. Payload cùng ID đổi amount/status bị trả lại inbox cũ, payload mới không được lưu hoặc xử lý.
+[enqueueCasInboxEvent](/services/company/finance-legal/services/ingestion.service.ts:158) onConflictDoNothing theo event identity; identity ghép connection/transaction/kind/contract version, không provider revision. Payload cùng ID đổi amount/status bị trả lại inbox cũ, payload mới không được lưu hoặc xử lý.
 
-Worker có kiểm content hash khác ở [cas-inbox-worker.service.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-inbox-worker.service.ts:135), nhưng duplicate nói trên không tới worker. Cần tách delivery/event revision identity và transaction identity; luôn lưu correction evidence, không overwrite tiền đã đối soát.
+Worker có kiểm content hash khác ở [cas-inbox-worker.service.ts](/services/company/finance-legal/services/cas-inbox-worker.service.ts:135), nhưng duplicate nói trên không tới worker. Cần tách delivery/event revision identity và transaction identity; luôn lưu correction evidence, không overwrite tiền đã đối soát.
 
 ### IA12 — P1: Finance snapshot gắn nhãn pháp nhân nhưng cộng toàn workspace
 
-[calculateAndSaveSnapshotService](/Volumes/SSD/javis-saas/services/company/finance-legal/services/financial-snapshot.service.ts:181) chỉ lọc bank transactions theo workspace/currency, không join connection/entity, sau đó gắn legalEntityId vào snapshot. Migration [35](/Volumes/SSD/javis-saas/services/company/finance-legal/migrations/35_financial_integrity.up.sql:18) unique(workspace,date,currency) không gồm entity. Hai entity cùng ngày/currency không lưu riêng được; query không có entity còn có thể lấy snapshot một entity rồi đổi thành workspace aggregate.
+[calculateAndSaveSnapshotService](/services/company/finance-legal/services/financial-snapshot.service.ts:181) chỉ lọc bank transactions theo workspace/currency, không join connection/entity, sau đó gắn legalEntityId vào snapshot. Migration [35](/services/company/finance-legal/migrations/35_financial_integrity.up.sql:18) unique(workspace,date,currency) không gồm entity. Hai entity cùng ngày/currency không lưu riêng được; query không có entity còn có thể lấy snapshot một entity rồi đổi thành workspace aggregate.
 
 computeSnapshot vẫn parseFloat, missing opening balance mặc định 0; bank rows thực tế không mang classification được helper dùng để loại transfer/capital. Vì vậy test truyền category vào hàm thuần không chứng minh burn từ DB đã đúng. Đã tái hiện offline: không truyền opening balance, chỉ giao dịch IN=100 vẫn trả currentCash=100, không thể hiện coverage/unknown.
 
@@ -123,85 +123,85 @@ Cần entity-scoped query/unique key, source balance/coverage và classification
 
 ### IA13 — P1: Amount string bị đổi qua Number trước khi vào Money, mất chính xác
 
-[cas-normalizer.ts](/Volumes/SSD/javis-saas/services/company/finance-legal/services/cas-normalizer.ts:148) đổi string sang Number rồi Math.abs trước parseDecimalToMoney. Probe chạy chính hàm production với dependency DB/provider không hoạt động: input `9007199254740993` VND → output amountMinor `9007199254740992`.
+[cas-normalizer.ts](/services/company/finance-legal/services/cas-normalizer.ts:148) đổi string sang Number rồi Math.abs trước parseDecimalToMoney. Probe chạy chính hàm production với dependency DB/provider không hoạt động: input `9007199254740993` VND → output amountMinor `9007199254740992`.
 
 Cần parse dấu và decimal bằng string/NUMERIC, không đi qua float; kiểm currency decimals và reject fraction không hợp lệ thay vì cắt âm thầm. Đây là sai số tái hiện được, dù ví dụ lớn hơn giao dịch thường gặp.
 
 ### IA14 — P1: Chưa có luồng chi QR, sổ TT58 và budget/UI theo plan
 
-Tìm toàn code không thấy payment-request/payment-allocation/payment-qr/book-report mapping/budget summary tương đương F4–F6. [FinanceTT58Service](/Volumes/SSD/javis-saas/frontend/lib/modules/finance/services/finance_tt58_service.dart:1) vẫn throw UnimplementedError; [workflow payout](/Volumes/SSD/javis-saas/apps/cosa/workflows/specs.py:28) vẫn tham chiếu finance.payout.execute.
+Tìm toàn code không thấy payment-request/payment-allocation/payment-qr/book-report mapping/budget summary tương đương F4–F6. [FinanceTT58Service](/frontend/lib/modules/finance/services/finance_tt58_service.dart:1) vẫn throw UnimplementedError; [workflow payout](/apps/cosa/workflows/specs.py:28) vẫn tham chiếu finance.payout.execute.
 
 Không thể nghiệm thu yêu cầu founder duyệt/quét QR/đối soát hoặc TT58 theo pháp nhân/kỳ. Cần thực hiện F4–F6 sau khi F1–F3 được sửa; không triển khai executor tự chuyển tiền thay cho yêu cầu đã thống nhất.
 
 ### IA15 — P1: Roles chưa được cấp phát; lưu permissions có thể xóa hạn mức
 
-[Migration permissions](/Volumes/SSD/javis-saas/services/company/identity/migrations/8_business_permissions.up.sql) tạo bảng và seed permission definitions, nhưng không seed/backfill roles/assignments. Không tìm thấy production writer tạo coreWorkspaceRoles; tests tự insert. PUT chỉ chấp nhận role đã có tại [permissions.service.ts:284](/Volumes/SSD/javis-saas/services/company/identity/services/permissions.service.ts:284). Workspace sạch mở Settings sẽ không có role để chỉnh/assign.
+[Migration permissions](/services/company/identity/migrations/8_business_permissions.up.sql) tạo bảng và seed permission definitions, nhưng không seed/backfill roles/assignments. Không tìm thấy production writer tạo coreWorkspaceRoles; tests tự insert. PUT chỉ chấp nhận role đã có tại [permissions.service.ts:284](/services/company/identity/services/permissions.service.ts:284). Workspace sạch mở Settings sẽ không có role để chỉnh/assign.
 
-[Flutter controller:84](/Volumes/SSD/javis-saas/frontend/lib/modules/settings/controllers/permissions_controller.dart:84) gửi effect mà không giữ conditions; [backend:310](/Volumes/SSD/javis-saas/services/company/identity/services/permissions.service.ts:310) thay conditions thiếu bằng `{}`. Đổi effect rồi Save có thể làm mất maxAmountMinor/currency đang áp dụng. Cần bootstrap/backfill có kiểm chứng và semantics patch bảo toàn fields không được chỉnh; thêm UI assignment/scope/expiry/limit.
+[Flutter controller:84](/frontend/lib/modules/settings/controllers/permissions_controller.dart:84) gửi effect mà không giữ conditions; [backend:310](/services/company/identity/services/permissions.service.ts:310) thay conditions thiếu bằng `{}`. Đổi effect rồi Save có thể làm mất maxAmountMinor/currency đang áp dụng. Cần bootstrap/backfill có kiểm chứng và semantics patch bảo toàn fields không được chỉnh; thêm UI assignment/scope/expiry/limit.
 
 ### IA16 — P1: Rule có hạn mức vẫn ALLOW khi thiếu amount facts
 
-[permission-evaluator.ts:55](/Volumes/SSD/javis-saas/services/company/identity/services/permission-evaluator.ts:55) chỉ kiểm conditions trong `if (bestRule.conditions && facts?.amount)`. [Business policy service:49](/Volumes/SSD/javis-saas/services/company/identity/services/business-policy.service.ts:49) forward facts, không resolve resourceRef thành amount/currency/version chuẩn từ DB; resourceVersion được echo lại.
+[permission-evaluator.ts:55](/services/company/identity/services/permission-evaluator.ts:55) chỉ kiểm conditions trong `if (bestRule.conditions && facts?.amount)`. [Business policy service:49](/services/company/identity/services/business-policy.service.ts:49) forward facts, không resolve resourceRef thành amount/currency/version chuẩn từ DB; resourceVersion được echo lại.
 
 Tình huống: role ALLOW maxAmountMinor=100, gọi evaluate cho resource giá trị 1000 nhưng không truyền facts vẫn ALLOW. Cần fail closed khi thiếu facts bắt buộc, resolve facts server-side và bind decision vào resource/policy version thật. Không được tin amount/version do agent tự khai.
 
 ### IA17 — P1: Resume deployment dùng quyền người duyệt cũ, bỏ qua revocation
 
-[Resume handler](/Volumes/SSD/javis-saas/services/company/finance-legal/handlers/ai-compliance-governance.handler.ts) không truyền ctx vào service. [Fallback:453](/Volumes/SSD/javis-saas/services/company/finance-legal/services/ai-compliance-governance.service.ts:453) chỉ so resumedByMemberId với founderMemberId/approvedByMemberId.
+[Resume handler](/services/company/finance-legal/handlers/ai-compliance-governance.handler.ts) không truyền ctx vào service. [Fallback:453](/services/company/finance-legal/services/ai-compliance-governance.service.ts:453) chỉ so resumedByMemberId với founderMemberId/approvedByMemberId.
 
 Người từng approve, sau đó bị thu hồi ai.deployment.approve nhưng vẫn là member, còn có thể resume deployment nếu không có CRITICAL incident. Review/suspend cũng chưa kiểm action permission. Cần bắt buộc ctx ở service và kiểm quyền hiện tại/proof/assessment version khi approve/resume; test revocation qua handler thật. approvedVersion hiện chỉ là counter, snapshot chưa bind business policy/authority version.
 
 ### IA18 — P1: Nghĩa vụ có thể được đóng bằng evidence rỗng hoặc miễn trừ không căn cứ
 
-[transitionObligationStatus:289](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-obligation.service.ts:289) không authorize legal.obligation.manage. Check FULFILLED chỉ cần evidenceRefs có phần tử; `[""]` cũng qua. EXEMPT không bắt rationale/căn cứ. Handler chỉ requireWorkspaceAccess.
+[transitionObligationStatus:289](/services/company/finance-legal/services/legal-obligation.service.ts:289) không authorize legal.obligation.manage. Check FULFILLED chỉ cần evidenceRefs có phần tử; `[""]` cũng qua. EXEMPT không bắt rationale/căn cứ. Handler chỉ requireWorkspaceAccess.
 
 Auditor có membership có thể đóng nghĩa vụ bằng các payload trên; không query artifact để kiểm tenant, review status, freshness hoặc quan hệ với nghĩa vụ. Cần authority ở service, kiểm evidence thật và căn cứ miễn trừ. Không dùng widget test mock transition thành công làm bằng chứng enforcement.
 
 ### IA19 — P1: Legal predicate cũ chưa sửa; kết quả NEEDS_REVIEW bị giấu
 
-[Migration 32](/Volumes/SSD/javis-saas/services/company/finance-legal/migrations/32_legal_predicate_versions.up.sql) chưa tạo corrected predicate version/supersedes/source cho literal entity_status=APPROVED. [Evaluator:67](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-predicate.ts:67) so literal trực tiếp nên entity VERIFIED vẫn không match rule cũ. Test tự seed VERIFIED không kiểm backfill này.
+[Migration 32](/services/company/finance-legal/migrations/32_legal_predicate_versions.up.sql) chưa tạo corrected predicate version/supersedes/source cho literal entity_status=APPROVED. [Evaluator:67](/services/company/finance-legal/services/legal-predicate.ts:67) so literal trực tiếp nên entity VERIFIED vẫn không match rule cũ. Test tự seed VERIFIED không kiểm backfill này.
 
-[Applicability:124](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-applicability.service.ts:124) đọc legalReviewConfirmed nhưng không dùng để chặn; version chưa review vẫn có thể APPLIES. [Dòng 189](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-applicability.service.ts:189) bỏ qua NEEDS_REVIEW khi trả API, khiến UI không phân biệt thiếu facts với không có nghĩa vụ.
+[Applicability:124](/services/company/finance-legal/services/legal-applicability.service.ts:124) đọc legalReviewConfirmed nhưng không dùng để chặn; version chưa review vẫn có thể APPLIES. [Dòng 189](/services/company/finance-legal/services/legal-applicability.service.ts:189) bỏ qua NEEDS_REVIEW khi trả API, khiến UI không phân biệt thiếu facts với không có nghĩa vụ.
 
 Fiscal profile mặc định còn chọn bản ghi đầu workspace tại dòng 83, không bind entity/năm hiện hành; factsVersion hardcode 1.0 và evaluation conflict ghi đè provenance. Cần correction version có nguồn, reviewed-only rule activation, trả trạng thái cần review và fiscal facts có lịch sử theo entity.
 
 ### IA20 — P1: Accept proposal chưa kiểm cycle tenant/project và chưa chống accept đồng thời
 
-[project-action-context.service.ts:526](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/project-action-context.service.ts:526) dùng cycleId input để insert weekly plan mà không resolve twelveWeekCycles.workspaceId/projectId hoặc kiểm week range. Biết cycle ID workspace B có thể tạo weekly plan workspace A tham chiếu B nếu FK hiện tại cho phép; project A cũng gắn cycle project B. weekNo=999 không bị chặn ở đường này.
+[project-action-context.service.ts:526](/services/company/operations/strategy/services/project-action-context.service.ts:526) dùng cycleId input để insert weekly plan mà không resolve twelveWeekCycles.workspaceId/projectId hoặc kiểm week range. Biết cycle ID workspace B có thể tạo weekly plan workspace A tham chiếu B nếu FK hiện tại cho phép; project A cũng gắn cycle project B. weekNo=999 không bị chặn ở đường này.
 
-[UPDATE:512](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/project-action-context.service.ts:512) không có revision/source status predicate và SELECT không lock. Hai request cùng đọc PROPOSED có thể cùng tạo decision/commitment/outbox. Đường execution plan accept tương tự: [execution-plan.service.ts:471](/Volumes/SSD/javis-saas/services/company/operations/services/execution-plan.service.ts:471) đọc draft rồi UPDATE chỉ theo id. Đây là trace SQL tĩnh, chưa chạy race DB trong audit.
+[UPDATE:512](/services/company/operations/strategy/services/project-action-context.service.ts:512) không có revision/source status predicate và SELECT không lock. Hai request cùng đọc PROPOSED có thể cùng tạo decision/commitment/outbox. Đường execution plan accept tương tự: [execution-plan.service.ts:471](/services/company/operations/services/execution-plan.service.ts:471) đọc draft rồi UPDATE chỉ theo id. Đây là trace SQL tĩnh, chưa chạy race DB trong audit.
 
 Cần resolve cycle cùng tenant/project, kiểm tuần/lịch/owner/purpose và transaction CAS/unique idempotency. Test concurrent phải đi public service mới, không legacy acceptActionProposalService có handler khác.
 
 ### IA21 — P1: Weekly API chưa hỗ trợ N tuần đầy đủ; vẫn fallback ghi tuần 1
 
-[weekly-goal.handler.ts:7](/Volumes/SSD/javis-saas/services/company/operations/strategy/handlers/weekly-goal.handler.ts:7) thiếu cycleId/weekNo/expectedVersion mới; setup handler cũng không forward cycleDurationWeeks. [weekly-goal.service.ts:78](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/weekly-goal.service.ts:78) mặc định tuần 1 khi không resolve được tuần hiện tại. Cycle kết thúc hoặc NEEDS_SETUP có thể tiếp tục upsert tuần 1.
+[weekly-goal.handler.ts:7](/services/company/operations/strategy/handlers/weekly-goal.handler.ts:7) thiếu cycleId/weekNo/expectedVersion mới; setup handler cũng không forward cycleDurationWeeks. [weekly-goal.service.ts:78](/services/company/operations/strategy/services/weekly-goal.service.ts:78) mặc định tuần 1 khi không resolve được tuần hiện tại. Cycle kết thúc hoặc NEEDS_SETUP có thể tiếp tục upsert tuần 1.
 
 Cần đưa contract chọn cycle/tuần/version qua handler thực; ngoài cycle phải trả trạng thái rõ, không tự chọn tuần 1. N tuần là độ dài cycle do founder quyết định; 12 chỉ là mặc định/phương pháp. Phải test 2/6/12/16 tuần từ setup đến weekly/review thay vì chỉ helper date.
 
 ### IA22 — P1: Outcome thật vẫn current/target; execution score giả định DONE đủ evidence
 
-[okr.service.ts:200](/Volumes/SSD/javis-saas/services/company/operations/services/okr.service.ts:200) vẫn ghi currentValue trực tiếp, dòng 250 dùng current/target. Baseline churn=10, target=5, current=8 có thể score 1 thay vì progress 0.4. Helper progress mới và recordKrObservation chỉ có test callers; KR links mới cũng chưa có flow production hoàn chỉnh.
+[okr.service.ts:200](/services/company/operations/services/okr.service.ts:200) vẫn ghi currentValue trực tiếp, dòng 250 dùng current/target. Baseline churn=10, target=5, current=8 có thể score 1 thay vì progress 0.4. Helper progress mới và recordKrObservation chỉ có test callers; KR links mới cũng chưa có flow production hoàn chỉnh.
 
-[execution-cycle-view.service.ts:283](/Volumes/SSD/javis-saas/services/company/operations/services/execution-cycle-view.service.ts:283) truyền hasEligibleEvidence=true cho mọi commitment, không đọc evidence. Denominator là danh sách hiện tại, không frozen committed scope đầu tuần. DONE thiếu chứng cứ vẫn đóng góp điểm hoàn thành; xóa việc chưa xong có thể đổi score lịch sử.
+[execution-cycle-view.service.ts:283](/services/company/operations/services/execution-cycle-view.service.ts:283) truyền hasEligibleEvidence=true cho mọi commitment, không đọc evidence. Denominator là danh sách hiện tại, không frozen committed scope đầu tuần. DONE thiếu chứng cứ vẫn đóng góp điểm hoàn thành; xóa việc chưa xong có thể đổi score lịch sử.
 
 Cần nối measured observation vào OKR, tách outcome và execution, khóa denominator của tuần, tính eligibility từ evidence thật. Không cộng/trộn điểm làm việc với mức đạt kết quả.
 
 ### IA23 — P1/P2: Completion validator chưa kiểm evidence, còn endpoint WGA gọi chưa có
 
-[execution-outcome.service.ts:169](/Volumes/SSD/javis-saas/services/company/operations/services/execution-outcome.service.ts:169) set task DONE không query evidence/criteria; dòng 184 set parent commitment DONE mà không kiểm các task anh em, không revision CAS. Service này chưa có production caller, nên đây là lỗi cần sửa trước khi nối, không khẳng định đang là đường completion production.
+[execution-outcome.service.ts:169](/services/company/operations/services/execution-outcome.service.ts:169) set task DONE không query evidence/criteria; dòng 184 set parent commitment DONE mà không kiểm các task anh em, không revision CAS. Service này chưa có production caller, nên đây là lỗi cần sửa trước khi nối, không khẳng định đang là đường completion production.
 
-[wga_run.py:117](/Volumes/SSD/javis-saas/apps/cosa/worker/wga_run.py:117) gọi `/operations/tasks/:id/validate-completion`, nhưng chưa có handler endpoint tương ứng. Run hoàn tất đi exception và giữ completion_pending. Điểm đúng: initial/resume dùng chung finalizer và đã ngừng tự đánh DONE. Cần hoàn thành cả validator lẫn HTTP integration để luồng kết thúc được.
+[wga_run.py:117](/apps/cosa/worker/wga_run.py:117) gọi `/operations/tasks/:id/validate-completion`, nhưng chưa có handler endpoint tương ứng. Run hoàn tất đi exception và giữ completion_pending. Điểm đúng: initial/resume dùng chung finalizer và đã ngừng tự đánh DONE. Cần hoàn thành cả validator lẫn HTTP integration để luồng kết thúc được.
 
 ### IA24 — P1: Event mới vẫn không đủ input cho worker run thật
 
-[event_run_contract.py:132](/Volumes/SSD/javis-saas/apps/cosa/events/event_run_contract.py:132) thêm run/profile/principal/conversation nhưng không resolve aggregate thành user_prompt/delegation. [handlers.py:151](/Volumes/SSD/javis-saas/apps/cosa/worker/handlers.py:151) đọc ngay payload["user_prompt"]. Payload event Operations/Finance/Marketing mới tới đây sẽ KeyError trước nghiệp vụ.
+[event_run_contract.py:132](/apps/cosa/events/event_run_contract.py:132) thêm run/profile/principal/conversation nhưng không resolve aggregate thành user_prompt/delegation. [handlers.py:151](/apps/cosa/worker/handlers.py:151) đọc ngay payload["user_prompt"]. Payload event Operations/Finance/Marketing mới tới đây sẽ KeyError trước nghiệp vụ.
 
-Test contract mock execute_run_task, nên không chạm lỗi. Envelope pin/hash cũng chưa dùng để chọn spec ở [handlers.py:233](/Volumes/SSD/javis-saas/apps/cosa/worker/handlers.py:233). Legacy thiếu run ID còn mint lại mỗi adapter invocation. Cần producer→scheduler→worker thật, resolve aggregate/principal có quyền, dùng shared preparation và pin spec/hash.
+Test contract mock execute_run_task, nên không chạm lỗi. Envelope pin/hash cũng chưa dùng để chọn spec ở [handlers.py:233](/apps/cosa/worker/handlers.py:233). Legacy thiếu run ID còn mint lại mỗi adapter invocation. Cần producer→scheduler→worker thật, resolve aggregate/principal có quyền, dùng shared preparation và pin spec/hash.
 
 ### IA25 — P1: Copilot gọi capability trực tiếp, chưa qua shared auth/compliance pipeline
 
-[copilot_run.py:158](/Volumes/SSD/javis-saas/apps/cosa/worker/copilot_run.py:158) tự mint delegation, fallback actor "0"; các dòng 196/210/226 gọi capability handler trực tiếp dù comment nói via gateway. Kernel call tại dòng 255 không qua run_core chuẩn hóa compliance context. [Company dispatch:78](/Volumes/SSD/javis-saas/services/company/commercial/services/customer-engagement/copilot.service.ts:78) không truyền actor/delegation.
+[copilot_run.py:158](/apps/cosa/worker/copilot_run.py:158) tự mint delegation, fallback actor "0"; các dòng 196/210/226 gọi capability handler trực tiếp dù comment nói via gateway. Kernel call tại dòng 255 không qua run_core chuẩn hóa compliance context. [Company dispatch:78](/services/company/commercial/services/customer-engagement/copilot.service.ts:78) không truyền actor/delegation.
 
 Thêm Authorization read không chứng minh principal đúng hoặc policy/audit gateway được thực thi. Callback HTTP lỗi chỉ log, chưa có retry durable; Company callback overwrite status thiếu completion version/CAS và không lưu đầy đủ reasonCode/evidenceRefs. Cần shared preparation/gateway và callback outbox/idempotency, test từ dispatch thực tới artifact và terminal state.
 
@@ -209,27 +209,27 @@ Thêm Authorization read không chứng minh principal đúng hoặc policy/audi
 
 | Đường code | Sai lệch còn lại | Điều kiện nghiệm thu |
 |---|---|---|
-| [Cycle update:283](/Volumes/SSD/javis-saas/services/company/operations/services/twelve-week-year.service.ts:283) | Đổi local dates/duration không reconcile legacy dates/weekly plans; rút 6→2 vẫn còn tuần 3–6 | Revision/change request, giữ tuần đã chốt, xử lý phần lịch tương lai rõ ràng |
-| [Weekly dates:357](/Volumes/SSD/javis-saas/services/company/operations/services/twelve-week-year.service.ts:357) | Client truyền đủ dates thì server không derive/validate chúng trong cycle; weekNo chưa kiểm integer | Server là nguồn lịch; validate integer/timezone/date bounds |
-| [Kickoff:95](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/project-kickoff-materialize.service.ts:95) | Caller không bind cycleId; fallback latest cycle; upsert lại tuần 1; removal còn cancel in_progress | Bind cycle/revision từ đầu; thay đổi việc đã chạy qua change request |
-| [Projection:102](/Volumes/SSD/javis-saas/services/company/operations/services/execution-cycle-view.service.ts:102) | Explicit cycle không kiểm project, fallback newest không lọc ACTIVE/READY | Chọn đúng project/cycle, xử lý multiple ACTIVE và NEEDS_SETUP |
-| [Review handler:26](/Volumes/SSD/javis-saas/services/company/operations/strategy/handlers/weekly-review.handler.ts:26) | Không nhận weeklyPlanIds/decisionIds nên link luôn rỗng | Contract/API/UI lưu và reload các link đã kiểm tenant |
+| [Cycle update:283](/services/company/operations/services/twelve-week-year.service.ts:283) | Đổi local dates/duration không reconcile legacy dates/weekly plans; rút 6→2 vẫn còn tuần 3–6 | Revision/change request, giữ tuần đã chốt, xử lý phần lịch tương lai rõ ràng |
+| [Weekly dates:357](/services/company/operations/services/twelve-week-year.service.ts:357) | Client truyền đủ dates thì server không derive/validate chúng trong cycle; weekNo chưa kiểm integer | Server là nguồn lịch; validate integer/timezone/date bounds |
+| [Kickoff:95](/services/company/operations/strategy/services/project-kickoff-materialize.service.ts:95) | Caller không bind cycleId; fallback latest cycle; upsert lại tuần 1; removal còn cancel in_progress | Bind cycle/revision từ đầu; thay đổi việc đã chạy qua change request |
+| [Projection:102](/services/company/operations/services/execution-cycle-view.service.ts:102) | Explicit cycle không kiểm project, fallback newest không lọc ACTIVE/READY | Chọn đúng project/cycle, xử lý multiple ACTIVE và NEEDS_SETUP |
+| [Review handler:26](/services/company/operations/strategy/handlers/weekly-review.handler.ts:26) | Không nhận weeklyPlanIds/decisionIds nên link luôn rỗng | Contract/API/UI lưu và reload các link đã kiểm tenant |
 
 ### IA27 — P2: Measurement/context freshness chưa đủ để agent quyết định
 
-[kr-observation.service.ts:49](/Volumes/SSD/javis-saas/services/company/operations/services/kr-observation.service.ts:49) parseFloat nhận "12junk" thành 12 và mất exact decimals; latest projection đọc trước insert không lock KR nên observation cũ có thể overwrite bản mới khi concurrent. Chưa validate evidence/window/contract version; idempotency chưa phân source và chưa xử lý concurrent duplicate thành replay.
+[kr-observation.service.ts:49](/services/company/operations/services/kr-observation.service.ts:49) parseFloat nhận "12junk" thành 12 và mất exact decimals; latest projection đọc trước insert không lock KR nên observation cũ có thể overwrite bản mới khi concurrent. Chưa validate evidence/window/contract version; idempotency chưa phân source và chưa xử lý concurrent duplicate thành replay.
 
-[Action context:181](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/project-action-context.service.ts:181) trả metrics READY `[]` mà không đọc metrics, nhiều sourceVersion là "1", outside cycle fallback tuần 1. [GET next-best-actions:74](/Volumes/SSD/javis-saas/services/company/operations/strategy/handlers/next-best-action.handler.ts:74) gọi proposeNextActions có INSERT không dedupe, refresh có thể tạo lặp proposals. Cần provenance/version/freshness thật, readiness trung thực và tách read khỏi tạo proposal.
+[Action context:181](/services/company/operations/strategy/services/project-action-context.service.ts:181) trả metrics READY `[]` mà không đọc metrics, nhiều sourceVersion là "1", outside cycle fallback tuần 1. [GET next-best-actions:74](/services/company/operations/strategy/handlers/next-best-action.handler.ts:74) gọi proposeNextActions có INSERT không dedupe, refresh có thể tạo lặp proposals. Cần provenance/version/freshness thật, readiness trung thực và tách read khỏi tạo proposal.
 
 ### IA28 — P2: Obligation history và active context còn thiếu
 
-[Transition map:280](/Volumes/SSD/javis-saas/services/company/finance-legal/services/legal-obligation.service.ts:280) cho EXEMPT/CANCELLED→OPEN cùng instance, không tạo revision mới. CAS chỉ status, không expectedVersion cho thay đổi owner/evidence. [Project context:264](/Volumes/SSD/javis-saas/services/company/operations/strategy/services/project-action-context.service.ts:264) chỉ lấy OPEN nên chuyển IN_PROGRESS làm nghĩa vụ biến mất khỏi active context. Chưa có scheduler/reminder/outbox dedup như L3.
+[Transition map:280](/services/company/finance-legal/services/legal-obligation.service.ts:280) cho EXEMPT/CANCELLED→OPEN cùng instance, không tạo revision mới. CAS chỉ status, không expectedVersion cho thay đổi owner/evidence. [Project context:264](/services/company/operations/strategy/services/project-action-context.service.ts:264) chỉ lấy OPEN nên chuyển IN_PROGRESS làm nghĩa vụ biến mất khỏi active context. Chưa có scheduler/reminder/outbox dedup như L3.
 
 Cần giữ terminal history, đưa OPEN/IN_PROGRESS vào active context phù hợp, reminder theo due date/timezone và quyền owner. Weekly review đếm tổng chưa thay được obligation details/action/evidence.
 
 ## 3. Các khoảng trống kiểm chứng và tích hợp cần xử lý tiếp
 
-- **R4 chưa chứng minh durable runtime:** [test_event_approval_restart.py](/Volumes/SSD/javis-saas/tests/e2e/test_event_approval_restart.py:65) tăng delivered_count trực tiếp và chuyển checkpoint dict qua multiprocessing.Queue. Có hai PID nhưng không có production run repository/checkpoint/lease/gateway. Giữ test như simulation nếu muốn, nhưng không dùng làm bằng chứng restart.
+- **R4 chưa chứng minh durable runtime:** [test_event_approval_restart.py](/tests/e2e/test_event_approval_restart.py:65) tăng delivered_count trực tiếp và chuyển checkpoint dict qua multiprocessing.Queue. Có hai PID nhưng không có production run repository/checkpoint/lease/gateway. Giữ test như simulation nếu muốn, nhưng không dùng làm bằng chứng restart.
 - **H1 thiếu:** không thấy test_business_operating_loop.py, business_operating_loop.dart hoặc release evidence tương đương. Existing cross-plane smoke có phạm vi riêng, không thay được business loop mới.
 - **Company typecheck đang fail:** 9 lỗi ở deployment-authority/legal-applicability-integrity/legal-obligation-lifecycle tests. Có fixture legalName không tồn tại trong schema và TenantContext thiếu permissions/correlationId. Không thể ghi “full checks passed”.
 - **F1 mới khóa kỳ một phần:** close kỳ vẫn chỉ requireWorkspaceAccess, không finance.period.close; closedBy chưa được ghi. Guard có legalEntityId tùy chọn trong khi document confirm/void không truyền entity; open kỳ chưa chặn overlap bằng constraint/validation. Row SHARE/UPDATE là cải tiến thật nhưng chưa hoàn thành scope/authority/invariants.
