@@ -30,6 +30,10 @@ EXPLICIT_UNAUTHENTICATED_ALLOWLIST = {
     # (control-plane delegation, fallback platform token + verifyWorkspaceMembership)
     # rồi mới build snapshot. auth:false có chủ đích, đã kiểm tra.
     ("cosa", "GET", "/platform/auth/me/agent-policy-snapshot"),
+    # Task 1 (vi-en-localization): Caller (apps/cosa) mang control-plane delegation
+    # token để lấy preferred_locale snapshot. Handler tự verify qua
+    # resolveCallerAuthorizedForWorkspace. auth:false có chủ đích, đã kiểm tra.
+    ("cosa", "GET", "/platform/auth/me/locale-snapshot"),
 }
 
 

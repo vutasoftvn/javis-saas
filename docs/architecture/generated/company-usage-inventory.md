@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 140 | 36 |
 | VALID_KEEP (giữ nguyên) | 101 | 32 |
-| REVIEW (chưa phân loại) | 1036 | 283 |
+| REVIEW (chưa phân loại) | 1047 | 285 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -88,6 +88,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/engagement_assignment_write.py | 7 |
 | apps/cosa/capabilities/operations_read.py | 7 |
 | apps/cosa/worker/kickoff_suggestion_run.py | 7 |
+| apps/cosa/worker/run_core.py | 7 |
 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart | 7 |
 | packages/agent_integrations/openai_agents_sdk/kernel.py | 7 |
 | services/cosa/migrations/13_workspace_only_product_scope.down.sql | 7 |
@@ -99,9 +100,10 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/migrations/11_workspace_connectors_and_schedules.up.sql | 6 |
 | apps/cosa/capabilities/engagement_message_send.py | 5 |
 | apps/cosa/capabilities/marketing_write.py | 5 |
+| apps/cosa/capabilities/workspace_context_read.py | 5 |
+| apps/cosa/composition/capability_registration.py | 5 |
 | apps/cosa/events/runtime_signal.py | 5 |
 | apps/cosa/worker/main.py | 5 |
-| apps/cosa/worker/run_core.py | 5 |
 | frontend/lib/core/network/api_client.dart | 5 |
 | frontend/lib/data/models/company_pulse_model.dart | 5 |
 | frontend/lib/modules/hologram_hub/widgets/company_activation_card.dart | 5 |
@@ -132,7 +134,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/finance_read.py | 3 |
 | apps/cosa/capabilities/operations_write.py | 3 |
 | apps/cosa/compliance/data_egress_context.py | 3 |
-| apps/cosa/composition/capability_registration.py | 3 |
 | apps/cosa/knowledge_ingestion/publish.py | 3 |
 | apps/cosa/policies/evaluator.py | 3 |
 | apps/cosa/worker/handlers.py | 3 |
@@ -164,6 +165,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/compliance/data_model_gate.py | 2 |
 | apps/cosa/config/planes.py | 2 |
 | apps/cosa/events/router.py | 2 |
+| apps/cosa/graphql/resolvers.py | 2 |
 | apps/cosa/policies/business_permission_evaluator.py | 2 |
 | apps/cosa/policies/snapshot.py | 2 |
 | apps/cosa/worker/autopilot_run.py | 2 |
