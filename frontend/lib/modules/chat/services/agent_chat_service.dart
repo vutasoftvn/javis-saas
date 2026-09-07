@@ -136,17 +136,22 @@ class AgentChatService {
     required String content,
     required DataAccessDeclaration dataAccess,
     List<Map<String, dynamic>>? attachments,
+    String? responseLocaleOverride,
   }) async {
     try {
       final url = _endpoint('/agent/conversations/$conversationId/messages');
+      final body = <String, dynamic>{
+        'content': content,
+        'role': 'user',
+        'attachments': ?attachments,
+        'data_access': dataAccess.toJson(),
+      };
+      if (responseLocaleOverride != null) {
+        body['response_locale_override'] = responseLocaleOverride;
+      }
       final res = await ApiClient.post(
         url,
-        body: {
-          'content': content,
-          'role': 'user',
-          'attachments': ?attachments,
-          'data_access': dataAccess.toJson(),
-        },
+        body: body,
       );
       if (res.statusCode == 202 || res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;

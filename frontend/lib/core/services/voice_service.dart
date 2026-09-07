@@ -5,12 +5,15 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:get/get.dart';
 import 'secure_storage_service.dart';
+import '../localization/locale_controller.dart';
+import '../localization/supported_locale.dart';
 import '../network/api_client.dart';
 
 abstract class IVoiceService {
   Future<bool> startRecording();
-  Future<String?> stopRecordingAndTranscribe({String language = 'vi'});
+  Future<String?> stopRecordingAndTranscribe({String? language});
   bool get isRecording;
 }
 
@@ -57,7 +60,7 @@ class VoiceService implements IVoiceService {
   }
 
   @override
-  Future<String?> stopRecordingAndTranscribe({String language = 'vi'}) async {
+  Future<String?> stopRecordingAndTranscribe({String? language}) async {
     if (!_isRecording) return null;
     _isRecording = false;
 
@@ -84,7 +87,16 @@ class VoiceService implements IVoiceService {
         return null;
       }
 
-      return await uploadAndTranscribe(audioBytes, workspaceId: workspaceId, language: language);
+      final resolvedLanguage = language ??
+          (Get.isRegistered<LocaleController>()
+              ? Get.find<LocaleController>().current.value.transcriptionLanguage
+              : 'vi');
+
+      return await uploadAndTranscribe(
+        audioBytes,
+        workspaceId: workspaceId,
+        language: resolvedLanguage,
+      );
     } catch (e) {
       debugPrint('[VoiceService] Transcription exception: $e');
       return null;

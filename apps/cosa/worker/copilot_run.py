@@ -291,11 +291,19 @@ async def run_customer_support_copilot(
             "identity_verified": identity_verified,
         }
 
-        user_prompt = (
-            f"Hãy phân tích thread {thread_id} với intent '{payload.get('intent', 'summarize')}'. "
-            f"Khách hàng identity_verified={identity_verified}. "
-            "Tạo artifact tóm tắt, trích xuất căn cứ, và bản nháp phản hồi đề xuất."
-        )
+        locale = payload.get("locale") or "vi-VN"
+        if locale.startswith("en"):
+            user_prompt = (
+                f"Analyze thread {thread_id} with intent '{payload.get('intent', 'summarize')}'. "
+                f"Customer identity_verified={identity_verified}. "
+                "Generate a summary artifact, extract evidence, and draft a recommended response."
+            )
+        else:
+            user_prompt = (
+                f"Hãy phân tích thread {thread_id} với intent '{payload.get('intent', 'summarize')}'. "
+                f"Khách hàng identity_verified={identity_verified}. "
+                "Tạo artifact tóm tắt, trích xuất căn cứ, và bản nháp phản hồi đề xuất."
+            )
 
         run_req = RunRequest(
             run_id=run_id,
@@ -306,6 +314,8 @@ async def run_customer_support_copilot(
             input={"prompt": user_prompt, "context": context_bundle},
             workspace_id=workspace_id,
             correlation_id=correlation_id,
+            locale=locale,
+            metadata={"locale": locale},
         )
 
         if hasattr(plane.kernel, "run"):

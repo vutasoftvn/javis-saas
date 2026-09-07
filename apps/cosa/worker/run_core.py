@@ -81,6 +81,7 @@ async def prepare_request(
     workspace_id: str,
     conversation_id: str,
     policy_snapshot: Any | None,
+    locale: str = "vi-VN",
     extra_metadata: dict[str, Any] | None = None,
 ) -> RunCorePrep:
     """Dựng RunRequest + resolve compliance (mint company delegation).
@@ -94,6 +95,7 @@ async def prepare_request(
         run_metadata["policy_snapshot"] = policy_snapshot.model_dump()
     if extra_metadata:
         run_metadata.update(extra_metadata)
+    run_metadata["locale"] = locale
 
     req = RunRequest(
         run_id=run_id,
@@ -102,6 +104,7 @@ async def prepare_request(
         input={"prompt": prompt},
         workspace_id=workspace_id,
         conversation_id=conversation_id,
+        locale=locale,
         metadata=run_metadata,
     )
 
@@ -135,6 +138,7 @@ async def prepare_run(
     workspace_id: str,
     conversation_id: str,
     policy_snapshot: Any | None = None,
+    locale: str = "vi-VN",
     extra_metadata: dict[str, Any] | None = None,
 ) -> RunCorePrep:
     """Tiện ích cho headless caller (WGA task) — resolve_spec + prepare_request
@@ -149,6 +153,7 @@ async def prepare_run(
         workspace_id=workspace_id,
         conversation_id=conversation_id,
         policy_snapshot=policy_snapshot,
+        locale=locale,
         extra_metadata=extra_metadata,
     )
 

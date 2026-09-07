@@ -2,12 +2,38 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Literal
 import logging
 import uuid
 
 from agent.conversations.models import ConversationRecord, MessageAttachmentRecord, MessageRecord
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import ValidationError
+
+from apps.cosa.policies.profile_locale_client import ProfileLocaleUnavailable
+
+SUPPORTED_LOCALES = frozenset({"vi-VN", "en-US"})
+
+
+@dataclass(frozen=True)
+class ResolvedLocale:
+    value: str
+    source: Literal["profile", "turn_override", "system_fallback"]
+
+
+def resolve_response_locale(
+    *, profile_locale: str | None, response_locale_override: str | None, has_principal: bool
+) -> ResolvedLocale:
+    if response_locale_override is not None:
+        if response_locale_override not in SUPPORTED_LOCALES:
+            raise ValueError(f"unsupported response_locale_override: {response_locale_override}")
+        return ResolvedLocale(value=response_locale_override, source="turn_override")
+    if has_principal and profile_locale is not None:
+        if profile_locale not in SUPPORTED_LOCALES:
+            raise ValueError(f"unsupported profile_locale: {profile_locale}")
+        return ResolvedLocale(value=profile_locale, source="profile")
+    return ResolvedLocale(value="vi-VN", source="system_fallback")
 
 from apps.cosa.api.event_stream import (
     UX_EVENT_TYPES,
@@ -226,6 +252,36 @@ async def create_message(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
 
+    # Resolve response locale TRƯỚC side effect (lưu message / schedule run)
+    resolved_locale: ResolvedLocale
+    if req.response_locale_override is not None:
+        try:
+            resolved_locale = resolve_response_locale(
+                profile_locale=None,
+                response_locale_override=req.response_locale_override,
+                has_principal=True,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+    else:
+        try:
+            snapshot = await plane.profile_locale_client.get_snapshot(
+                control_plane_delegation_token,
+                identity.workspace_id,
+            )
+            resolved_locale = resolve_response_locale(
+                profile_locale=snapshot.preferred_locale,
+                response_locale_override=None,
+                has_principal=True,
+            )
+        except ProfileLocaleUnavailable as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Profile locale unavailable",
+            ) from exc
+
     run_id = f"run_{uuid.uuid4().hex[:16]}"
     stream_mgr = get_cosa_event_stream_manager()
     stream_mgr.start_run(run_id)
@@ -280,6 +336,8 @@ async def create_message(
             "workspace_id": identity.workspace_id,
             "delegation_token": control_plane_delegation_token,
             "direct_message_data_access": direct_message_data_access.model_dump(mode="json"),
+            "locale": resolved_locale.value,
+            "locale_source": resolved_locale.source,
         },
     )
 

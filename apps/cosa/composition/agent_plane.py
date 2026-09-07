@@ -46,6 +46,7 @@ from apps.cosa.config.planes import (
 from apps.cosa.knowledge_ingestion.dependencies import KnowledgeIngestionDependencies
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine
+from apps.cosa.policies.profile_locale_client import ProfileLocaleClient
 from apps.cosa.workflows.specs import COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC
 
 __all__ = ["CosaAgentPlane", "build_cosa_agent_plane", "close_cosa_agent_plane"]
@@ -88,6 +89,7 @@ class CosaAgentPlane:
         workforce_repository: WorkforceRepository | None = None,
         vault_repository: VaultRepository | None = None,
         workspace_settings_client: WorkspaceSettingsClient | None = None,
+        profile_locale_client: ProfileLocaleClient | None = None,
         knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
         knowledge_ingestion_deps: KnowledgeIngestionDependencies | None = None,
     ) -> None:
@@ -105,6 +107,7 @@ class CosaAgentPlane:
         self.workflow_engine = workflow_engine
         self.company_client = company_client
         self.tenant_policy_client = tenant_policy_client
+        self.profile_locale_client = profile_locale_client or ProfileLocaleClient()
         # Task 4 — thin HTTP client gọi COSA Control Plane (services/cosa) để
         # đọc/ghi workspace_skill_policies. Mặc định luôn có instance (không
         # None) để settings_routes.py fail rõ ràng (503) khi control plane
@@ -176,6 +179,7 @@ async def close_cosa_agent_plane(plane: CosaAgentPlane) -> None:
         plane.lease_client,
         plane.company_client,
         plane.tenant_policy_client,
+        getattr(plane.profile_locale_client, "_client", None),
     ):
         aclose = getattr(obj, "aclose", None)
         if callable(aclose):
@@ -207,6 +211,7 @@ def build_cosa_agent_plane(
     workforce_repository: WorkforceRepository | None = None,
     vault_repository: VaultRepository | None = None,
     workspace_settings_client: WorkspaceSettingsClient | None = None,
+    profile_locale_client: ProfileLocaleClient | None = None,
     knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     knowledge_ingestion_deps: KnowledgeIngestionDependencies | None = None,
 ) -> CosaAgentPlane:
@@ -357,4 +362,5 @@ def build_cosa_agent_plane(
         knowledge_ingestion_deps=resolved_knowledge_ingestion_deps,
         compliance_resolver=compliance_resolver,
         workspace_settings_client=workspace_settings_client,
+        profile_locale_client=profile_locale_client,
     )

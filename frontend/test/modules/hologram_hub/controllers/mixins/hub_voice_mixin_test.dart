@@ -367,7 +367,7 @@ class _FakeVoiceService implements IVoiceService {
   }
 
   @override
-  Future<String?> stopRecordingAndTranscribe({String language = 'vi'}) async {
+  Future<String?> stopRecordingAndTranscribe({String? language}) async {
     stopRecordingCalled = true;
     _isRecording = false;
     return _stopRecordingResult;

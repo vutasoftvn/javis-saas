@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 __all__ = [
     "ApprovalDecisionRequest",
@@ -98,6 +98,14 @@ class MessageCreate(BaseModel):
     # (Task 5 — đóng gap DATA_ACCESS_CLAIM_MISSING cho luồng chat thật, khác
     # tool-only run vốn không set field metadata này — xem resolver.py Task 4).
     data_access: MessageDataAccess
+    response_locale_override: str | None = None
+
+    @field_validator("response_locale_override")
+    @classmethod
+    def validate_response_locale_override(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("vi-VN", "en-US"):
+            raise ValueError("response_locale_override must be 'vi-VN' or 'en-US'")
+        return v
 
 
 class MessageResponse(BaseModel):

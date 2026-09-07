@@ -113,6 +113,7 @@ async def run_customer_support_autopilot(
     thread_ref = payload.get("thread_ref", {})
     thread_id = thread_ref.get("thread_id")
     contact_id = thread_ref.get("contact_id")
+    locale = payload.get("locale") or "vi-VN"
 
     req = RunRequest(
         run_id=run_id,
@@ -126,9 +127,11 @@ async def run_customer_support_autopilot(
         },
         workspace_id=workspace_id,
         conversation_id=payload.get("conversation_id", f"conv_ap_{run_id}"),
+        locale=locale,
         metadata={
             "trigger_rule_id": trigger_rule_id,
             "thread_id": thread_id,
+            "locale": locale,
         },
     )
 

@@ -313,6 +313,11 @@ async def _execute_run_task_inner(
     if role_id:
         extra_md["role_id"] = role_id
 
+    locale = payload.get("locale") or "vi-VN"
+    locale_source = payload.get("locale_source")
+    if locale_source:
+        extra_md["locale_source"] = locale_source
+
     try:
         prep = await prepare_request(
             plane,
@@ -323,6 +328,7 @@ async def _execute_run_task_inner(
             workspace_id=workspace_id,
             conversation_id=conversation_id,
             policy_snapshot=snapshot,
+            locale=locale,
             extra_metadata=extra_md or None,
         )
     except RunCoreError as exc:
