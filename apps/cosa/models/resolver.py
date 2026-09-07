@@ -98,6 +98,7 @@ class ModelRouteResolver:
                 base_url=sd.base_url,
                 allowed_models=sd.allowed_models,
                 fallback_profile_ids=(),
+                is_system_default=True,
             )
 
         for candidate_id in (policy.primary_profile_id, *policy.fallback_profile_ids):

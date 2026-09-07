@@ -93,6 +93,10 @@ def redact_sensitive_text(text: str) -> str:
 # Che cả "authorization" header, "api_key"/token-style field, và
 # prompt/message/content — tuyệt đối không log nguyên văn prompt người dùng
 # hay nội dung request/response thật của provider.
+# Cố ý rộng tay ("content"/"input"/"system" khớp nhiều field vô hại hơn là
+# chỉ khớp field prompt) — over-redact 1 field business data không nhạy cảm
+# (mất 1 dòng debug) an toàn hơn nhiều so với under-redact và lộ prompt/api
+# key thật ra log. Trade-off này là chủ đích, không phải thiếu cân nhắc.
 PROVIDER_PAYLOAD_SENSITIVE_KEYS = frozenset(
     {
         "authorization",

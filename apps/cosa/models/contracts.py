@@ -125,6 +125,14 @@ class ResolvedModelRoute(BaseModel):
     base_url: str | None = None
     allowed_models: tuple[str, ...] = Field(default_factory=tuple)
     fallback_profile_ids: tuple[str, ...] = Field(default_factory=tuple)
+    # True khi route này đến từ `SystemDefaultModelProfile` (bootstrap
+    # env-injected, dùng lúc workspace CHƯA cấu hình policy/profile nào) chứ
+    # KHÔNG phải từ 1 row thật trong `models.model_provider_profiles`. Caller
+    # (vd `ModelProviderFactory`) cần biết điều này để KHÔNG tra cứu lại
+    # profile qua repository — system-default vốn không có row nào để tra,
+    # tra sẽ luôn ra None và bị hiểu lầm thành "profile bị xoá" (Task 2 review
+    # finding #1, xem task-2-report.md).
+    is_system_default: bool = False
 
 
 class ModelRouteNotFound(Exception):

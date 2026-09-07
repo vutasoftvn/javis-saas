@@ -28,10 +28,14 @@ ràng, không fallback ngầm sang provider khác.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from apps.cosa.models.contracts import ProviderType, ResolvedModelRoute
 from apps.cosa.models.credential_store import CredentialNotFound
+from apps.cosa.observability.logging import redact_provider_payload
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "ModelClient",
@@ -82,16 +86,52 @@ class ModelProviderFactory:
                 "xem Task 3 (docs/superpowers/plans/2026-09-07-local-first-model-routing.md)."
             )
 
-        if route.provider_type == ProviderType.LOCAL_OPENAI_COMPATIBLE:
-            return await self._create_local_openai_compatible(route)
+        if route.provider_type not in _LITELLM_PREFIX_BY_PROVIDER and (
+            route.provider_type != ProviderType.LOCAL_OPENAI_COMPATIBLE
+        ):
+            raise ModelProviderMisconfigured(
+                f"provider_type '{route.provider_type.value}' không được hỗ trợ bởi "
+                "ModelProviderFactory."
+            )
 
-        if route.provider_type in _LITELLM_PREFIX_BY_PROVIDER:
+        try:
+            if route.provider_type == ProviderType.LOCAL_OPENAI_COMPATIBLE:
+                return await self._create_local_openai_compatible(route)
             return await self._create_litellm_client(route)
-
-        raise ModelProviderMisconfigured(
-            f"provider_type '{route.provider_type.value}' không được hỗ trợ bởi "
-            "ModelProviderFactory."
-        )
+        except ModelProviderMisconfigured:
+            # Đã là lỗi cấu hình đã được validate rõ ràng ở trên (allowlist,
+            # credential thiếu/sai workspace) — không phải lỗi build client
+            # bất ngờ, không cần log lại/redact thêm.
+            raise
+        except Exception as exc:
+            # Task 2 review finding #3 — đây là call site thật (không phải
+            # test) dùng `redact_provider_payload`: log diagnostic TRƯỚC khi
+            # wrap lỗi thành `ModelProviderMisconfigured`, phòng trường hợp
+            # exception từ SDK bên dưới (litellm/agents) vô tình nhét
+            # authorization header/request body/api key vào message lỗi của
+            # chính nó. `route.credential_ref` chỉ là ID/reference (không phải
+            # secret — xem contracts.py) nên an toàn để đưa vào payload log,
+            # nhưng vẫn đi qua redact_provider_payload để nhất quán và chống
+            # trường hợp field lạ lọt vào sau này.
+            logger.error(
+                "model_provider_adapter_construction_failed: %s",
+                redact_provider_payload(
+                    {
+                        "workspace_id": route.workspace_id,
+                        "profile_id": route.profile_id,
+                        "provider_type": route.provider_type.value,
+                        "model_id": route.model_id,
+                        "credential_ref": route.credential_ref,
+                        "base_url": route.base_url,
+                        "error": str(exc),
+                    }
+                ),
+            )
+            raise ModelProviderMisconfigured(
+                f"không dựng được model client cho provider "
+                f"'{route.provider_type.value}' (profile='{route.profile_id}', "
+                f"workspace='{route.workspace_id}')."
+            ) from exc
 
     # ── validation trước khi build client ──
 
@@ -107,8 +147,17 @@ class ModelProviderFactory:
         `profile_repository`) để chặn budget/concurrency/status TRƯỚC khi
         build client — field này không có trên `ResolvedModelRoute` (Task 1
         cố ý chỉ giữ field tối thiểu, `extra="forbid"`), nên phải tra cứu lại
-        thay vì đọc thẳng từ route."""
-        if self._profile_repository is None:
+        thay vì đọc thẳng từ route.
+
+        Task 2 review finding #1: route đến từ `SystemDefaultModelProfile`
+        (bootstrap env-injected khi workspace CHƯA cấu hình policy/profile
+        nào — xem `resolver.py`) KHÔNG có row nào trong
+        `models.model_provider_profiles` để tra. Nếu không skip case này,
+        `get_profile()` sẽ luôn trả `None` và route hợp lệ (system-default,
+        đã được tin cậy/tiêm bởi composition layer) bị từ chối oan — phá vỡ
+        chính lý do system-default tồn tại (fail-open khi chưa cấu hình gì).
+        """
+        if self._profile_repository is None or route.is_system_default:
             return
 
         from apps.cosa.models.contracts import ProfileStatus
@@ -123,6 +172,13 @@ class ModelProviderFactory:
             raise ModelProviderMisconfigured(
                 f"profile '{route.profile_id}' không còn ACTIVE — từ chối build client."
             )
+        # Task 2 review finding #2 — đây CHỈ là kiểm tra dấu/trạng thái tĩnh
+        # (profile bị cấu hình sai thành budget/concurrency <= 0), KHÔNG PHẢI
+        # enforcement chi tiêu/đồng thời thật. Không có spend ledger (theo dõi
+        # đã chi bao nhiêu USD) hay concurrency semaphore (đếm request đang
+        # chạy) nào tồn tại trong repo hiện tại — 2 thứ đó cần xây riêng
+        # (ngoài phạm vi Task 2) để enforcement thật sự đúng nghĩa "trước mỗi
+        # request". Đừng đọc nhầm 2 check dưới đây là "đã enforce budget".
         if profile.budget_usd_limit is not None and profile.budget_usd_limit <= 0:
             raise ModelProviderMisconfigured(
                 f"profile '{route.profile_id}' đã hết budget_usd_limit — từ chối build client."
