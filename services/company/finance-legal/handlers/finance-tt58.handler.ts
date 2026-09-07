@@ -1,5 +1,5 @@
 import { api, Header, Query } from "encore.dev/api";
-import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
 import {
   getAccountingRegimePolicyService,
   setAccountingRegimePolicyService,
@@ -370,6 +370,10 @@ export const postVoidAccountingDocument = api(
   { method: "POST", path: "/finance/accounting-documents/:id/void", expose: true },
   async (params: VoidAccountingDocumentApiRequest): Promise<AccountingDocumentView> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    // Hủy chứng từ đã ghi sổ là hành động tài chính rủi ro cao (sinh bút toán
+    // đảo trên sổ) — phải chặn bằng code theo đúng quy tắc CLAUDE.md, cùng
+    // pattern founder-only với `confirmMappingService`.
+    requireFounderCommand(ctx, "finance.accounting_document.void");
     return voidAccountingDocumentService({
       documentId: BigInt(params.id),
       workspaceId: BigInt(ctx.workspaceId),
