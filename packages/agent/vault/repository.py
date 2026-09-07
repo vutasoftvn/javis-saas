@@ -43,6 +43,7 @@ class VaultRepository(Protocol):
         size_bytes: int,
         source_uri: str,
         created_by: str = "system",
+        version_id: UUID | None = None,
     ) -> VaultDocumentVersionRecord: ...
 
     async def get_document(
@@ -95,6 +96,21 @@ class VaultRepository(Protocol):
         document_id: UUID,
         grant: VaultAccessGrant,
     ) -> None: ...
+
+    async def revoke_access(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        subject_type: VaultGrantSubjectType,
+        subject_id: str,
+    ) -> None: ...
+
+    async def set_legal_hold(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        legal_hold: bool,
+    ) -> VaultDocumentRecord | None: ...
 
     async def resolve_accessible_document_ids(
         self,
@@ -192,8 +208,9 @@ class PostgresVaultRepository:
         size_bytes: int,
         source_uri: str,
         created_by: str = "system",
+        version_id: UUID | None = None,
     ) -> VaultDocumentVersionRecord:
-        version_id = uuid4()
+        version_id = version_id or uuid4()
         now = datetime.now(UTC)
         async with self._session_factory() as session:
             await session.execute(
@@ -492,6 +509,69 @@ class PostgresVaultRepository:
             )
             await session.commit()
 
+    async def revoke_access(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        subject_type: VaultGrantSubjectType,
+        subject_id: str,
+    ) -> None:
+        """Task 11 — xoá TOÀN BỘ grant (mọi permission) của đúng 1 subject trên
+        1 document. Retrieval đọc grant trực tiếp mỗi lần gọi (không cache) —
+        commit xong là ngay lập tức không còn match nữa, không cần bước
+        "invalidate" riêng."""
+        async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
+            await session.execute(
+                text(
+                    """
+                    DELETE FROM vault.document_access_grants
+                    WHERE workspace_id = :workspace_id AND document_id = :document_id
+                      AND subject_type = :subject_type AND subject_id = :subject_id
+                    """
+                ),
+                {
+                    "workspace_id": workspace_id,
+                    "document_id": document_id,
+                    "subject_type": subject_type.value,
+                    "subject_id": subject_id,
+                },
+            )
+            await session.commit()
+
+    async def set_legal_hold(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        legal_hold: bool,
+    ) -> VaultDocumentRecord | None:
+        now = datetime.now(UTC)
+        async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
+            await session.execute(
+                text(
+                    """
+                    UPDATE vault.documents
+                    SET legal_hold = :legal_hold, updated_at = :updated_at
+                    WHERE workspace_id = :workspace_id AND document_id = :document_id
+                    """
+                ),
+                {
+                    "workspace_id": workspace_id,
+                    "document_id": document_id,
+                    "legal_hold": legal_hold,
+                    "updated_at": now,
+                },
+            )
+            await session.commit()
+        return await self.get_document(workspace_id, document_id)
+
     async def resolve_accessible_document_ids(
         self,
         workspace_id: str,
@@ -709,6 +789,36 @@ class InMemoryVaultRepository:
         ):
             existing.append(grant)
 
+    async def revoke_access(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        subject_type: VaultGrantSubjectType,
+        subject_id: str,
+    ) -> None:
+        key = (workspace_id, document_id)
+        existing = self._grants.get(key)
+        if not existing:
+            return
+        self._grants[key] = [
+            g
+            for g in existing
+            if not (g.subject_type == subject_type and g.subject_id == subject_id)
+        ]
+
+    async def set_legal_hold(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        legal_hold: bool,
+    ) -> VaultDocumentRecord | None:
+        doc = self._documents.get((workspace_id, document_id))
+        if doc is None:
+            return None
+        updated = replace(doc, legal_hold=legal_hold, updated_at=datetime.now(UTC))
+        self._documents[(workspace_id, document_id)] = updated
+        return updated
+
     async def resolve_accessible_document_ids(
         self,
         workspace_id: str,
@@ -769,12 +879,13 @@ class InMemoryVaultRepository:
         size_bytes: int,
         source_uri: str,
         created_by: str = "system",
+        version_id: UUID | None = None,
     ) -> VaultDocumentVersionRecord:
         doc = self._documents.get((workspace_id, document_id))
         if doc is None:
             raise KeyError(f"Document {document_id} not found in workspace {workspace_id}")
 
-        version_id = uuid4()
+        version_id = version_id or uuid4()
         now = datetime.now(UTC)
         v_rec = VaultDocumentVersionRecord(
             version_id=version_id,

@@ -704,7 +704,7 @@ git commit -m "feat(agent): provide governed GraphQL context to founder chat"
 - Produces `request_purge() -> PurgeRequest`, `execute_purge_task()` and `revoke_access()`.
 - Consumes `legal_hold`, `retention_until`, local storage ref and source/version IDs.
 
-- [ ] **Step 1: Write failing revoke/purge tests.**
+- [x] **Step 1: Write failing revoke/purge tests.** Thực tế `tests/apps/cosa/knowledge_ingestion/test_purge.py` (5 test, `stack` fixture = InMemoryVaultRepository + KnowledgeIngestionService + WorkspaceDocumentStore(tmp_path) + VaultPurgeService thật) + 2 test HTTP thêm vào `tests/apps/cosa/test_vault_document_routes.py` (route thật, không phải file path `tests/apps/cosa/api/...` plan ghi — khớp tiền lệ Task 7).
 
 ```python
 async def test_revoke_removes_chunk_from_retrieval_before_physical_delete(stack):
@@ -717,32 +717,19 @@ async def test_legal_hold_blocks_purge(stack):
         await stack.request_purge("ws-a", "doc-1", "founder-1")
 ```
 
-- [ ] **Step 2: Run the test.**
+- [x] **Step 2: Run the test.** Xác nhận FAIL trước khi tạo `apps/cosa/knowledge_ingestion/purge.py` (ModuleNotFoundError), PASS sau Step 3.
 
-Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/knowledge_ingestion/test_purge.py -q`
+- [x] **Step 3: Implement two-stage purge.** `VaultPurgeService.request_purge()` — KHÔNG tự authorize `manage` bên trong (route `POST /agent/vault/documents/{id}/purge` resolve `KnowledgeAuthorization.resolve(identity, document_id).manage` TRƯỚC khi gọi, cùng pattern với publish/review Task 7 — authorization luôn ở tầng có đủ `AuthenticatedIdentity` thật). Set `vault.documents.state = 'PURGE_PENDING'` — `retrieve_authorized_citations()` (Task 8) đã lọc `state='PUBLISHED'` từ trước nên loại khỏi retrieval NGAY, không cần sửa gì thêm ở đó. `execute_purge_task()` (worker durable, `task_type="vault_purge"` mới trong `apps/cosa/worker/main.py`) xoá chunk/embedding/source (`KnowledgeIngestionService.delete_by_vault_document()`, mới) + file vật lý từng version (`WorkspaceDocumentStore.purge_version()`, đã có từ Task 3) + set `PURGED`. Idempotent thật (test xác nhận): gọi lại `execute_purge_task` khi đã PURGED là no-op, không raise, không hồi sinh.
 
-Expected: FAIL because there is no durable purge flow.
+  2 bug thật tìm thấy + sửa trong lúc làm bước này:
+  - `apps/cosa/api/vault_routes.py` publish route dùng `document.document_id` làm tên file vật lý (`promote_to_vault` version_id param) THAY VÌ version_id thật sinh trong `append_version()` — HẰNG SỐ qua mọi lần publish của cùng 1 document, nên republish ghi đè lên CÙNG 1 file vật lý mỗi lần dù DB tạo version_id mới mỗi lần khác nhau (version cũ mất nội dung gốc, checksum cũ không còn khớp). Sửa: sinh `version_id` TRƯỚC bằng `uuid4()`, dùng CHO CẢ file vật lý lẫn `append_version(version_id=...)` (thêm tham số optional này vào `VaultRepository.append_version()` Protocol + cả 2 implementation).
+  - `KnowledgeIngestionService.retrieve_authorized_citations()` compose fallback (InMemory) KHÔNG kiểm tra `vault.documents.state` — chỉ `PostgresKnowledgeStore` lọc đúng `state='PUBLISHED'` trong SQL. Một document archived/purge_pending vẫn lọt qua đường InMemory. Sửa bằng cách fetch vault document + check state trong vòng lặp lọc.
 
-- [ ] **Step 3: Implement two-stage purge.**
+- [x] **Step 4: Add archive/version replacement behavior.** Đã đúng từ Task 7 (publish chỉ đổi `current_version_id` sau khi `append_version()` + `update_document_state("PUBLISHED")` commit xong) — không cần sửa thêm cho Task 11. Archive (Task 7 `DELETE`) đã loại khỏi retrieval qua state check (không phải `PUBLISHED`), giữ nguyên provenance (không xoá file/DB row) — verify bằng test cũ `test_archive_does_not_delete_file_and_returns_accepted` vẫn PASS.
 
-On request, authorize `manage`, set document/version to `PURGE_PENDING` and immediately exclude it in retrieval SQL. Scheduler then removes embeddings/chunks/source rows, deletes local Vault/quarantine file with a workspace-bound reference, and writes `PURGED` audit event. Failed delete retries safely; no retry may resurrect a source.
+- [x] **Step 5: Run purge, retrieval and API tests.** `tests/apps/cosa/knowledge_ingestion/test_purge.py` (5) + `tests/agent/knowledge/test_authorized_retrieval.py` (14, thêm test archived-document-excluded) + `tests/apps/cosa/test_vault_document_routes.py` (9, thêm 2 test purge route) đều PASS; `make typecheck-py` sạch (352 file); `tests/apps/cosa/` đầy đủ 950 passed/27 skipped — không regression; `route-auth-allowlist-check`/`mvp-e2e-purity-check` PASS.
 
-- [ ] **Step 4: Add archive/version replacement behavior.**
-
-Publishing a newer version switches only the document's active published version after source persistence and authorization metadata are committed. Archive preserves audit/provenance but excludes the version from retrieval.
-
-- [ ] **Step 5: Run purge, retrieval and API tests.**
-
-Run:
-
-```bash
-PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/knowledge_ingestion/test_purge.py \
-  tests/agent/knowledge/test_authorized_retrieval.py tests/apps/cosa/api/test_vault_document_routes.py -q
-```
-
-Expected: PASS; revocation and purge remove results immediately, while physical cleanup remains durable/retryable.
-
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add apps/cosa/knowledge_ingestion/purge.py apps/cosa/knowledge_ingestion/local_repository.py \

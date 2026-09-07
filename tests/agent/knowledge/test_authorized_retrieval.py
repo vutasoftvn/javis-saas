@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from uuid import UUID
 
 import pytest
 from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
@@ -335,3 +336,33 @@ async def test_retrieval_never_crosses_workspace_boundary(store):
 
     results = await store.retrieve_authorized_citations(ws_b, "founder", {"founder"}, "salary", 5)
     assert results == []
+
+
+@pytest.mark.asyncio
+async def test_archived_document_excluded_from_retrieval(store):
+    """Task 11 (plan local-first-enterprise-knowledge) — 1 document không còn
+    `state='PUBLISHED'` (archived/purge_pending/purged) phải biến mất khỏi
+    retrieval NGAY, kể cả khi chunk cũ còn nguyên trong knowledge store (xoá
+    vật lý là việc bất đồng bộ riêng — Task 11 purge). Bug tìm thấy trong lúc
+    làm Task 11: compose fallback (InMemoryKnowledgeStore + VaultRepository)
+    trước đây KHÔNG kiểm tra state, chỉ PostgresKnowledgeStore lọc đúng."""
+    workspace_id = f"ws-a-{uuid.uuid4().hex[:8]}"
+    doc = await store.save_published_chunk(
+        workspace_id,
+        "handbook",
+        "salary bands are published quarterly",
+        created_by="founder",
+        visibility=VaultVisibility.WORKSPACE,
+    )
+
+    results_before = await store.retrieve_authorized_citations(
+        workspace_id, "founder", {"founder"}, "salary", 5
+    )
+    assert results_before
+
+    await store._vault.update_document_state(workspace_id, UUID(doc.vault_document_id), "ARCHIVED")
+
+    results_after = await store.retrieve_authorized_citations(
+        workspace_id, "founder", {"founder"}, "salary", 5
+    )
+    assert results_after == []

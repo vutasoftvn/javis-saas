@@ -20,6 +20,10 @@ class KnowledgeStore(Protocol):
         query: str,
         limit: int = 5,
     ) -> list[CitationProvenance]: ...
+    # Task 11 (plan local-first-enterprise-knowledge) — xoá vĩnh viễn mọi
+    # chunk/embedding/version/source thuộc 1 Vault document đã purge. Idempotent
+    # (gọi lại khi không còn gì để xoá vẫn không raise).
+    async def delete_by_vault_document(self, workspace_id: str, vault_document_id: str) -> None: ...
 
 
 class InMemoryKnowledgeStore:
@@ -79,6 +83,20 @@ class InMemoryKnowledgeStore:
                 )
             )
         return results
+
+    async def delete_by_vault_document(self, workspace_id: str, vault_document_id: str) -> None:
+        stale_doc_ids = [
+            doc_id
+            for doc_id, doc in self._docs.items()
+            if doc.workspace_id == workspace_id and doc.vault_document_id == vault_document_id
+        ]
+        for doc_id in stale_doc_ids:
+            del self._docs[doc_id]
+        self._chunks = {
+            chunk_id: chunk
+            for chunk_id, chunk in self._chunks.items()
+            if chunk.document_id not in stale_doc_ids
+        }
 
     async def search_chunks_semantic(
         self,

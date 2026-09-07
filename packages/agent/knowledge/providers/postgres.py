@@ -332,6 +332,66 @@ class PostgresKnowledgeStore:
                 for r in rows
             ]
 
+    async def delete_by_vault_document(self, workspace_id: str, vault_document_id: str) -> None:
+        """Task 11 — xoá vĩnh viễn chunk/embedding/version/source theo đúng
+        thứ tự FK (chunk_embeddings → knowledge_chunks → source_versions →
+        knowledge_sources). Idempotent — 0 row match không raise."""
+        async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
+            source_ids = (
+                (
+                    await session.execute(
+                        text(
+                            "SELECT id FROM knowledge.knowledge_sources "
+                            "WHERE workspace_id = :workspace_id AND vault_document_id = :vault_document_id"
+                        ),
+                        {"workspace_id": workspace_id, "vault_document_id": vault_document_id},
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not source_ids:
+                return
+
+            await session.execute(
+                text(
+                    """
+                    DELETE FROM knowledge.chunk_embeddings
+                    WHERE workspace_id = :workspace_id AND chunk_id IN (
+                        SELECT id FROM knowledge.knowledge_chunks
+                        WHERE workspace_id = :workspace_id AND source_id = ANY(:source_ids)
+                    )
+                    """
+                ),
+                {"workspace_id": workspace_id, "source_ids": list(source_ids)},
+            )
+            await session.execute(
+                text(
+                    "DELETE FROM knowledge.knowledge_chunks "
+                    "WHERE workspace_id = :workspace_id AND source_id = ANY(:source_ids)"
+                ),
+                {"workspace_id": workspace_id, "source_ids": list(source_ids)},
+            )
+            await session.execute(
+                text(
+                    "DELETE FROM knowledge.source_versions "
+                    "WHERE workspace_id = :workspace_id AND source_id = ANY(:source_ids)"
+                ),
+                {"workspace_id": workspace_id, "source_ids": list(source_ids)},
+            )
+            await session.execute(
+                text(
+                    "DELETE FROM knowledge.knowledge_sources "
+                    "WHERE workspace_id = :workspace_id AND id = ANY(:source_ids)"
+                ),
+                {"workspace_id": workspace_id, "source_ids": list(source_ids)},
+            )
+            await session.commit()
+
     _OPERATOR_ROLES = frozenset({"founder", "co-founder", "admin"})
 
     async def retrieve_authorized_citations(

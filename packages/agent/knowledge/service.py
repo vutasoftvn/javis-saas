@@ -120,6 +120,11 @@ class KnowledgeIngestionService:
         await self._store.save_document(document)
         return document
 
+    async def delete_by_vault_document(self, workspace_id: str, vault_document_id: str) -> None:
+        """Task 11 — passthrough xoá vĩnh viễn (không phải soft-delete) mọi
+        knowledge source/chunk/embedding trỏ về 1 Vault document đã purge."""
+        await self._store.delete_by_vault_document(workspace_id, vault_document_id)
+
     async def retrieve_citations(
         self,
         *,
@@ -190,6 +195,18 @@ class KnowledgeIngestionService:
             if doc is None or doc.ingest_status != "published" or not doc.vault_document_id:
                 continue
             if not is_operator and UUID(doc.vault_document_id) not in (accessible_ids or set()):
+                continue
+            # Bug tìm thấy trong lúc làm Task 11 (purge): compose fallback
+            # trước đây KHÔNG kiểm tra `vault.documents.state` — sau khi
+            # `request_purge()`/archive chuyển state khỏi PUBLISHED, citation
+            # vẫn lọt qua (chỉ visibility/grant/ownership được xét, không xét
+            # trạng thái vault document hiện tại). PostgresKnowledgeStore đã
+            # đúng từ đầu (`WHERE d.state = 'PUBLISHED'` trong SQL join) —
+            # đường compose này phải khớp cùng luật.
+            vault_doc = await self._vault_repository.get_document(
+                workspace_id, UUID(doc.vault_document_id)
+            )
+            if vault_doc is None or vault_doc.state != "PUBLISHED":
                 continue
             results.append(citation.model_copy(update={"vault_version_id": doc.vault_version_id}))
             if len(results) >= limit:

@@ -14,7 +14,7 @@ retrieval contract thật.
 from __future__ import annotations
 
 from typing import Any, NoReturn
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -62,7 +62,9 @@ def _get_plane(request: Request) -> Any:
 
 
 def _feature_disabled() -> HTTPException:
-    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Knowledge ingestion not enabled")
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN, detail="Knowledge ingestion not enabled"
+    )
 
 
 def _document_to_out(doc: Any) -> VaultDocumentOut:
@@ -119,7 +121,9 @@ async def create_document(
 
     try:
         classification = (
-            VaultClassification(req.classification) if req.classification else VaultClassification.INTERNAL
+            VaultClassification(req.classification)
+            if req.classification
+            else VaultClassification.INTERNAL
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail="invalid classification") from e
@@ -333,8 +337,21 @@ async def publish_document(
     if not quarantine_ref:
         raise HTTPException(status_code=500, detail="ingestion attempt missing storage reference")
 
-    version_id = str(document.document_id)
-    object_ref = await deps.store.promote_to_vault(identity.workspace_id, version_id, quarantine_ref)
+    # Bug tìm thấy trong lúc làm Task 11 (purge): trước đây dùng
+    # `document.document_id` làm "version_id" cho `promote_to_vault()` —
+    # HẰNG SỐ qua mọi lần publish của cùng 1 document, nên republish (1
+    # document nhiều version theo thời gian) ghi đè LÊN CÙNG 1 file vật lý
+    # mỗi lần, trong khi mỗi version DB row lại có version_id riêng — version
+    # cũ trong DB trỏ object_ref đúng "relative_ref" nhưng nội dung file đã bị
+    # version mới ghi đè (checksum cũ không còn khớp file thật). Generate
+    # đúng 1 UUID version_id TRƯỚC, dùng CHO CẢ physical filename lẫn DB row
+    # — mỗi version có file vật lý riêng biệt, và purge (Task 11) mới xoá
+    # đúng file theo version_id thật.
+    version_uuid = uuid4()
+    version_id = str(version_uuid)
+    object_ref = await deps.store.promote_to_vault(
+        identity.workspace_id, version_id, quarantine_ref
+    )
     source_sha256, size_bytes = await deps.local_repository.get_source_metadata(
         identity.workspace_id, upload_id
     )
@@ -347,6 +364,7 @@ async def publish_document(
         size_bytes=size_bytes or 0,
         source_uri=f"workspaces/{identity.workspace_id}/vault/{version_id}",
         created_by=identity.principal_id,
+        version_id=version_uuid,
     )
     await plane.vault_repository.update_document_state(identity.workspace_id, doc_uuid, "PUBLISHED")
 
@@ -382,6 +400,53 @@ async def delete_document(
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="not found")
+    return ArchiveOrPurgeOut(document_id=document_id, accepted=True)
+
+
+@router.post("/documents/{document_id}/purge", status_code=202, response_model=ArchiveOrPurgeOut)
+async def purge_document(
+    request: Request,
+    document_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> ArchiveOrPurgeOut:
+    """Task 11 — 2 giai đoạn: đồng bộ trong request chỉ chuyển
+    `PURGE_PENDING` (đã loại khỏi retrieval ngay — `retrieve_authorized_
+    citations()` chỉ đọc `state='PUBLISHED'`), dọn dẹp vật lý thật (chunk/
+    embedding/file) chạy sau qua scheduler durable. `legal_hold=true` chặn
+    hoàn toàn (409), không có cách nào bypass qua route này."""
+    plane = _get_plane(request)
+    doc_uuid = _parse_document_id(document_id)
+    auth = KnowledgeAuthorization(plane.vault_repository)
+    decision = await auth.resolve(identity, doc_uuid)
+    if not decision.manage:
+        raise HTTPException(status_code=404, detail="not found")
+
+    deps = getattr(plane, "knowledge_ingestion_deps", None)
+    if deps is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not ready")
+
+    from apps.cosa.knowledge_ingestion.purge import PurgeBlocked, VaultPurgeService
+
+    purge_service = VaultPurgeService(
+        plane.vault_repository, plane.knowledge_ingestion_service, deps.store
+    )
+    try:
+        await purge_service.request_purge(identity.workspace_id, doc_uuid, identity.principal_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail="not found") from e
+    except PurgeBlocked as e:
+        raise HTTPException(status_code=409, detail="document is under legal hold") from e
+
+    if getattr(plane, "scheduler", None) is not None:
+        await plane.scheduler.schedule(
+            target_spec_id="cosa.agents.operations",
+            input_payload={
+                "task_type": "vault_purge",
+                "workspace_id": identity.workspace_id,
+                "document_id": document_id,
+            },
+        )
+
     return ArchiveOrPurgeOut(document_id=document_id, accepted=True)
 
 
