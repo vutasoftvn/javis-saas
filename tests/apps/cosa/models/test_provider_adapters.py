@@ -1,7 +1,10 @@
 """Task 2 (plan 2026-09-07-local-first-model-routing) — `ModelProviderFactory`:
 ánh xạ `ResolvedModelRoute.provider_type` -> adapter cụ thể; validate allowlist
-model + credential thuộc đúng workspace TRƯỚC khi build client; CLI providers
-(claude_cli/codex_cli/gemini_cli) chưa triển khai (Task 3)."""
+model + credential thuộc đúng workspace TRƯỚC khi build client. CLI providers
+(claude_cli/codex_cli/gemini_cli) triển khai thật ở Task 3 — dispatch sang
+`CliBridge`/`CliBridgeModel` (apps/cosa/models/cli_bridge.py), xem
+tests/apps/cosa/models/test_cli_bridge.py cho hành vi allowlist/timeout chi
+tiết của bridge."""
 
 from __future__ import annotations
 
@@ -147,11 +150,17 @@ async def test_allowed_models_enforced_before_client_build(factory: ModelProvide
     [ProviderType.CLAUDE_CLI, ProviderType.CODEX_CLI, ProviderType.GEMINI_CLI],
 )
 @pytest.mark.asyncio
-async def test_cli_providers_not_yet_implemented(
+async def test_cli_providers_dispatch_to_cli_bridge_model(
     factory: ModelProviderFactory, provider_type: ProviderType
 ) -> None:
-    with pytest.raises(NotImplementedError):
-        await factory.create(route(provider_type=provider_type, credential_id=None))
+    """Task 3 — CLI provider không còn raise NotImplementedError; factory trả
+    1 `CliBridgeModel` (không cần credential_ref — CLI auth qua login session
+    cục bộ của chính CLI, không phải API key COSA quản lý)."""
+    from apps.cosa.models.cli_bridge import CliBridgeModel
+
+    client = await factory.create(route(provider_type=provider_type, credential_id=None))
+
+    assert isinstance(client, CliBridgeModel)
 
 
 @pytest.mark.asyncio

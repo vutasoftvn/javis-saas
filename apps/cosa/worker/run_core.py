@@ -26,6 +26,8 @@ from agent.registry.resolver import SpecResolver
 
 from apps.cosa.compliance.contracts import ComplianceDenied
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.models.contracts import ResolvedModelRoute
+from apps.cosa.models.providers import ModelProviderMisconfigured
 from apps.cosa.observability.otel import trace_span
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,7 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "RunCoreError",
     "RunCorePrep",
+    "bind_route_to_run",
     "prepare_request",
     "prepare_run",
     "resolve_spec",
@@ -158,6 +161,90 @@ async def prepare_run(
     )
 
 
+async def bind_route_to_run(
+    resolver: Any, request: RunRequest, spec: AgentSpec
+) -> ResolvedModelRoute:
+    """Resolve `ResolvedModelRoute` (Task 1) cho 1 run cụ thể.
+
+    Lệch khỏi chữ ký gốc trong task-3 brief
+    (`bind_route_to_run(request, spec)`, 2 tham số): resolve thật cần 1
+    `ModelRouteResolver` (Task 1) cụ thể để tra cứu policy/profile theo
+    workspace, và repo này không có global singleton nào giữ resolver — đúng
+    theo composition-root pattern dùng xuyên suốt (CLAUDE.md). Vì vậy hàm
+    nhận `resolver` tường minh làm tham số đầu; caller duy nhất (`run_kernel`
+    dưới đây) luôn truyền `plane.model_route_resolver`.
+    """
+    workspace_id = request.workspace_id or ""
+    agent_spec_id = getattr(spec, "id", None) or getattr(spec, "spec_id", None) or ""
+    return await resolver.resolve_route(workspace_id, agent_spec_id)
+
+
+def _route_provenance(route: ResolvedModelRoute) -> dict[str, Any]:
+    """Provenance ghi vào `RunRequest.model_policy` (persist tới
+    `RunRecord.model_policy` — packages/agent/kernel/openai_agents_kernel.py,
+    `model_policy=request.model_policy or spec.model_policy`) — CHỈ
+    profile_id/provider_type/model_id/fallback/is_system_default, KHÔNG BAO
+    GIỜ prompt hay credential (route đã resolve chỉ mang `credential_ref`,
+    không phải secret thô — xem apps/cosa/models/contracts.py)."""
+    return {
+        "workspace_model_route": {
+            "profile_id": route.profile_id,
+            "provider_type": route.provider_type.value,
+            "model_id": route.model_id,
+            "fallback_profile_ids": list(route.fallback_profile_ids),
+            "is_system_default": route.is_system_default,
+        }
+    }
+
+
+async def _build_routed_kernel(plane: CosaAgentPlane, route: ResolvedModelRoute) -> Any:
+    """Dựng lại 1 `ExecutionKernel` PER-RUN với model client của
+    `route` — tái dùng repository/spec_registry/capability_registry/gateway/
+    policy_engine/company_client/compliance_resolver ĐÃ có trên `plane` (rẻ,
+    không dựng lại), chỉ đổi `model=`. Xem
+    `apps/cosa/composition/kernel_factory.py::build_execution_kernel` param
+    `compliance_resolver_override` — bắt buộc truyền `plane.compliance_resolver`
+    thật ở đây, KHÔNG để nhánh mặc định của factory tự chuyển sang compliance
+    resolver giả chỉ vì `model is not None` (nhánh đó dành cho test/dev).
+
+    `plane.model_provider_factory` được dựng LAZY + cache lại lên plane ngay
+    tại đây (không phải lúc `build_cosa_agent_plane()`) — xem ghi chú ở
+    `CosaAgentPlane.__init__`.
+    """
+    factory = plane.model_provider_factory
+    if factory is None:
+        session_factory = getattr(plane, "model_routing_session_factory", None)
+        if session_factory is None:
+            raise RunCoreError("model_provider_factory_unavailable")
+
+        from apps.cosa.composition.model_provider import build_model_provider_factory
+
+        factory = build_model_provider_factory(
+            session_factory, profile_repository=getattr(plane, "model_routing_repository", None)
+        )
+        plane.model_provider_factory = factory
+
+    try:
+        model_client = await factory.create(route)
+    except ModelProviderMisconfigured as exc:
+        raise RunCoreError("model_provider_misconfigured") from exc
+
+    from apps.cosa.composition.kernel_factory import build_execution_kernel
+
+    kernel, _ = build_execution_kernel(
+        runtime="openai_agents",
+        repository=plane.repository,
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+        gateway=plane.gateway,
+        policy_engine=plane.policy_engine,
+        company_client=plane.company_client,
+        model=model_client,
+        compliance_resolver_override=plane.compliance_resolver,
+    )
+    return kernel
+
+
 async def run_kernel(
     plane: CosaAgentPlane,
     prep: RunCorePrep,
@@ -165,7 +252,35 @@ async def run_kernel(
     workspace_id: str,
     run_id: str,
 ) -> tuple[Any, float]:
-    """Gọi `plane.kernel.run` trong trace span; trả (run_result, duration_sec)."""
+    """Gọi kernel.run trong trace span; trả (run_result, duration_sec).
+
+    Task 3 (plan 2026-09-07-local-first-model-routing) — nếu `plane` có
+    `model_route_resolver` (mọi plane build qua `build_cosa_agent_plane()`
+    kể từ Task 3 đều có; `SimpleNamespace` test double không set field này ->
+    `getattr(..., None)` giữ nguyên hành vi CŨ, dùng thẳng `plane.kernel`),
+    resolve route TRƯỚC khi chạy và ghi provenance vào `prep.req.model_policy`.
+    Route `is_system_default=True` (workspace CHƯA cấu hình policy/profile
+    nào) tiếp tục dùng `plane.kernel` KHÔNG THAY ĐỔI — model client của nó đã
+    được `build_execution_kernel()` dựng đúng 1 lần lúc khởi động process
+    (system-default bootstrap, xem `apps/cosa/composition/model_provider.py`).
+    Chỉ khi route KHÔNG phải system-default (workspace đã cấu hình
+    policy/profile thật) mới dựng 1 kernel per-run mới qua
+    `_build_routed_kernel()`.
+
+    QUAN TRỌNG: hàm này chỉ được gọi SAU khi `prepare_request()` đã compliance-
+    approve run (raise `RunCoreError("compliance_denied", ...)` nếu deny,
+    caller — `apps/cosa/worker/handlers.py` — return sớm không bao giờ gọi
+    tới đây) — route resolution + model client construction (kể cả subprocess
+    CLI bridge) luôn nằm SAU compliance gate, không bao giờ trước.
+    """
+    kernel = plane.kernel
+    resolver = getattr(plane, "model_route_resolver", None)
+    if resolver is not None:
+        route = await bind_route_to_run(resolver, prep.req, prep.spec)
+        prep.req.model_policy = _route_provenance(route)
+        if not route.is_system_default:
+            kernel = await _build_routed_kernel(plane, route)
+
     _start = time.monotonic()
     async with trace_span(
         "kernel.run",
@@ -175,5 +290,5 @@ async def run_kernel(
             "workspace_id": workspace_id,
         },
     ):
-        run_result = await plane.kernel.run(prep.req, prep.spec)
+        run_result = await kernel.run(prep.req, prep.spec)
     return run_result, time.monotonic() - _start

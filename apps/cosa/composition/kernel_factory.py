@@ -87,11 +87,21 @@ def build_execution_kernel(
     policy_engine: CosaPolicyEngine,
     company_client: CompanyServiceClient,
     model: Any | None = None,
+    compliance_resolver_override: Any | None = None,
 ) -> tuple[ExecutionKernel, Any | None]:
     """Khởi tạo ExecutionKernel và ComplianceResolver theo runtime configuration.
 
     Trả về tuple (kernel, compliance_resolver).
-    """
+
+    `compliance_resolver_override` (Task 3, plan 2026-09-07-local-first-model-
+    routing) — dùng khi caller dựng lại 1 kernel PER-RUN với `model=` khác
+    (vd `apps/cosa/worker/run_core.py` rebind model theo workspace routing)
+    nhưng muốn TÁI DÙNG đúng compliance_resolver THẬT plane đã có, thay vì để
+    nhánh mặc định bên dưới tự chuyển sang `_MockComplianceResolverWithDefaultClaim`
+    chỉ vì `model is not None` (nhánh đó vốn chỉ dành cho test/dev truyền
+    `model=FakeSDKModel()` — không phải để dùng lại cho 1 model client THẬT
+    theo workspace). Khi field này được truyền, bỏ qua hoàn toàn logic
+    use_mock_compliance_client, dùng thẳng resolver được truyền vào."""
     compliance_resolver: Any | None = None
 
     if runtime == "langchain":
@@ -112,24 +122,28 @@ def build_execution_kernel(
 
             resolved_model = build_deepseek_model()
 
-        from apps.cosa.compliance import AiComplianceClient, ComplianceResolver
         from apps.cosa.compliance.data_model_gate import CosaDataModelGate
 
-        use_mock_compliance_client = model is not None or os.getenv(
-            "COSA_COMPLIANCE_MOCK", ""
-        ).strip().lower() in ("1", "true", "yes")
-
-        if use_mock_compliance_client:
-            compliance_resolver = _MockComplianceResolverWithDefaultClaim(
-                ComplianceResolver(client=_MockAiComplianceClient())  # type: ignore[arg-type]
-            )
+        if compliance_resolver_override is not None:
+            compliance_resolver = compliance_resolver_override
         else:
-            base_url = getattr(company_client, "base_url", None) or getattr(
-                company_client, "_base_url", None
-            )
-            if base_url is None:
-                base_url = os.getenv("COMPANY_SERVICE_URL", "http://127.0.0.1:4000")
-            compliance_resolver = ComplianceResolver(AiComplianceClient(base_url=str(base_url)))
+            from apps.cosa.compliance import AiComplianceClient, ComplianceResolver
+
+            use_mock_compliance_client = model is not None or os.getenv(
+                "COSA_COMPLIANCE_MOCK", ""
+            ).strip().lower() in ("1", "true", "yes")
+
+            if use_mock_compliance_client:
+                compliance_resolver = _MockComplianceResolverWithDefaultClaim(
+                    ComplianceResolver(client=_MockAiComplianceClient())  # type: ignore[arg-type]
+                )
+            else:
+                base_url = getattr(company_client, "base_url", None) or getattr(
+                    company_client, "_base_url", None
+                )
+                if base_url is None:
+                    base_url = os.getenv("COMPANY_SERVICE_URL", "http://127.0.0.1:4000")
+                compliance_resolver = ComplianceResolver(AiComplianceClient(base_url=str(base_url)))
 
         model_input_guard = CosaDataModelGate(client=company_client)
 

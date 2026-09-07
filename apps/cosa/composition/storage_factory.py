@@ -45,6 +45,11 @@ from agent.workforce.repository import (
     WorkforceRepository,
 )
 
+from apps.cosa.models.repository import (
+    InMemoryModelRoutingRepository,
+    PostgresModelRoutingRepository,
+)
+
 
 def build_postgres_session_factory(database_url: str) -> tuple[Any, Any]:
     """Tạo AsyncEngine và async_sessionmaker từ database_url."""
@@ -70,6 +75,13 @@ class PlaneStorageBundle:
     memory_service: Any
     knowledge_ingestion_service: Any
     knowledge_snapshot_repo: KnowledgeSnapshotRepository
+    # Task 3 (plan 2026-09-07-local-first-model-routing) — repository cho
+    # `models.model_provider_profiles`/`models.workspace_model_policies`.
+    # `model_routing_session_factory` = None khi InMemory fallback (không có
+    # AsyncEngine/session_factory thật để tái dùng cho credential store lazy
+    # ở `apps/cosa/worker/run_core.py`).
+    model_routing_repository: Any
+    model_routing_session_factory: Any | None
     created_engines: list[Any]
 
 
@@ -88,6 +100,7 @@ def init_plane_storage(
     knowledge_ingestion_service: Any | None = None,
     knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     database_url: str | None = None,
+    model_routing_repository: Any | None = None,
 ) -> PlaneStorageBundle:
     """Khởi tạo toàn bộ database sessions và repositories cho CosaAgentPlane.
 
@@ -239,6 +252,27 @@ def init_plane_storage(
     else:
         knowledge_snap_repo = InMemoryKnowledgeSnapshotRepository()
 
+    # Task 3 — model routing repository. Cùng pattern "soft" như artifact/
+    # workforce/vault ở trên: KHÔNG fail-fast nếu thiếu resolved_url (khác
+    # run_repository/conversation/spec_registry/governance/stream_event —
+    # routing theo workspace là tính năng opt-in mới, chưa phải core path bắt
+    # buộc mọi run phải có). `model_routing_session_factory` giữ lại
+    # session_factory THẬT (không phải chỉ engine) để
+    # `apps/cosa/worker/run_core.py` tái dùng lúc dựng credential store LAZY
+    # (không dựng credential store — vốn eagerly đọc/tạo key file cục bộ —
+    # ngay ở đây cho MỌI plane build; xem task-3-report.md phần rủi ro side
+    # effect).
+    model_routing_session_factory: Any | None = None
+    if model_routing_repository is not None:
+        model_routing_repo: Any = model_routing_repository
+    elif resolved_url:
+        mr_engine, mr_session_factory = build_postgres_session_factory(resolved_url)
+        created_engines.append(mr_engine)
+        model_routing_repo = PostgresModelRoutingRepository(mr_session_factory)
+        model_routing_session_factory = mr_session_factory
+    else:
+        model_routing_repo = InMemoryModelRoutingRepository()
+
     # Web search budget store
     if web_search_budget_store is not None:
         search_budget: WebSearchBudgetStore = web_search_budget_store
@@ -262,5 +296,7 @@ def init_plane_storage(
         memory_service=memory_service,
         knowledge_ingestion_service=knowledge_ingestion_service,
         knowledge_snapshot_repo=knowledge_snap_repo,
+        model_routing_repository=model_routing_repo,
+        model_routing_session_factory=model_routing_session_factory,
         created_engines=created_engines,
     )

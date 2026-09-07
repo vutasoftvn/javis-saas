@@ -22,8 +22,11 @@ không rò rỉ vào error/log, và route không được build client nếu thi
 credential bắt buộc.
 
 CLI providers (`claude_cli`/`codex_cli`/`gemini_cli`) là bridge subprocess —
-Task 3 sở hữu implementation thật. Factory raise `NotImplementedError` rõ
-ràng, không fallback ngầm sang provider khác.
+Task 3 (`apps/cosa/models/cli_bridge.py::CliBridge`) triển khai thật, dispatch
+qua `_create_cli_client()` bên dưới. `CliBridge` không biết gì về
+`ProviderType` (giữ độc lập/dễ test) — module này là nơi map
+`ProviderType.CLAUDE_CLI/CODEX_CLI/GEMINI_CLI` -> role string ("claude"/
+"codex"/"gemini") -> executable path đã cấu hình trên bridge.
 """
 
 from __future__ import annotations
@@ -60,6 +63,12 @@ _CLI_PROVIDERS = frozenset(
     {ProviderType.CLAUDE_CLI, ProviderType.CODEX_CLI, ProviderType.GEMINI_CLI}
 )
 
+_CLI_ROLE_BY_PROVIDER: dict[ProviderType, str] = {
+    ProviderType.CLAUDE_CLI: "claude",
+    ProviderType.CODEX_CLI: "codex",
+    ProviderType.GEMINI_CLI: "gemini",
+}
+
 # openai_api là credential type RIÊNG — ChatGPT subscription (đăng nhập
 # CODEX_CLI qua tài khoản) KHÔNG phải credential OPENAI_API (ràng buộc toàn
 # cục của plan, xem task-2 brief). Không dùng chung nhánh với CODEX_CLI.
@@ -72,19 +81,26 @@ class ModelProviderMisconfigured(Exception):
 
 
 class ModelProviderFactory:
-    def __init__(self, credential_store: Any, *, profile_repository: Any | None = None) -> None:
+    def __init__(
+        self,
+        credential_store: Any,
+        *,
+        profile_repository: Any | None = None,
+        cli_bridge: Any | None = None,
+    ) -> None:
         self._credentials = credential_store
         self._profile_repository = profile_repository
+        # Lazy: dựng `CliBridge()` mặc định chỉ khi thật sự có 1 route CLI cần
+        # build (không phải mọi factory đều dùng CLI provider) — xem
+        # `_create_cli_client`.
+        self._cli_bridge = cli_bridge
 
     async def create(self, route: ResolvedModelRoute) -> ModelClient:
         self._validate_allowed_models(route)
         await self._validate_profile_limits(route)
 
         if route.provider_type in _CLI_PROVIDERS:
-            raise NotImplementedError(
-                f"{route.provider_type.value} CLI bridge chưa triển khai ở Task 2 — "
-                "xem Task 3 (docs/superpowers/plans/2026-09-07-local-first-model-routing.md)."
-            )
+            return await self._create_cli_client(route)
 
         if route.provider_type not in _LITELLM_PREFIX_BY_PROVIDER and (
             route.provider_type != ProviderType.LOCAL_OPENAI_COMPATIBLE
@@ -205,6 +221,25 @@ class ModelProviderFactory:
         return secret.get_secret_value()
 
     # ── adapter cụ thể ──
+
+    async def _create_cli_client(self, route: ResolvedModelRoute) -> ModelClient:
+        # CLI provider KHÔNG cần credential_ref bắt buộc (claude/codex CLI
+        # thường auth qua login session cục bộ của chính CLI, không phải API
+        # key COSA quản lý) — không gọi `_resolve_credential` ở đây, khác với
+        # nhánh litellm/local_openai_compatible.
+        from apps.cosa.models.cli_bridge import CliBridge, CliBridgeModel
+
+        if self._cli_bridge is None:
+            self._cli_bridge = CliBridge()
+
+        role = _CLI_ROLE_BY_PROVIDER[route.provider_type]
+        executable = self._cli_bridge.executable_for_role(role)
+        return CliBridgeModel(
+            self._cli_bridge,
+            executable=executable,
+            model_id=route.model_id,
+            profile_id=route.profile_id,
+        )
 
     async def _create_litellm_client(self, route: ResolvedModelRoute) -> ModelClient:
         api_key = await self._resolve_credential(route)

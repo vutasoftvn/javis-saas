@@ -92,6 +92,10 @@ class CosaAgentPlane:
         profile_locale_client: ProfileLocaleClient | None = None,
         knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
         knowledge_ingestion_deps: KnowledgeIngestionDependencies | None = None,
+        model_route_resolver: Any | None = None,
+        model_provider_factory: Any | None = None,
+        model_routing_session_factory: Any | None = None,
+        model_routing_repository: Any | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -132,6 +136,25 @@ class CosaAgentPlane:
         # attribute) để apps/cosa/worker/handlers.py có thể gọi
         # `resolve_for_run()` TRƯỚC `plane.kernel.run()`.
         self.compliance_resolver = compliance_resolver
+
+        # Task 3 (plan 2026-09-07-local-first-model-routing) — expose ở plane
+        # level cùng lý do với compliance_resolver ở trên: `run_kernel()`
+        # (apps/cosa/worker/run_core.py) cần resolve route + (khi cần) build
+        # model client THẬT trước khi gọi kernel.run(), không phải logic giấu
+        # trong 1 kernel implementation cụ thể.
+        #
+        # `model_provider_factory` mặc định None và được `run_core.py` dựng
+        # LAZY + cache lại lên plane ngay tại đây — KHÔNG dựng eagerly ở mọi
+        # lần build_cosa_agent_plane(), vì `LocalCredentialStore.__init__`
+        # (Task 2) eagerly đọc/tạo `COSA_LOCAL_SECRETS_KEY_FILE` (side effect
+        # ghi file dưới $HOME ở môi trường dev) — chỉ nên trả giá đó khi 1
+        # route THẬT không phải system-default cần build client, không phải
+        # cho mọi worker/API process khởi động hay mọi test gọi
+        # build_cosa_agent_plane().
+        self.model_route_resolver = model_route_resolver
+        self.model_provider_factory = model_provider_factory
+        self.model_routing_session_factory = model_routing_session_factory
+        self.model_routing_repository = model_routing_repository
 
         # SQLAlchemy AsyncEngine đã tạo trong build_cosa_agent_plane() (nếu
         # dùng Postgres*Repository mặc định) — đóng qua close_cosa_agent_plane()
@@ -214,6 +237,8 @@ def build_cosa_agent_plane(
     profile_locale_client: ProfileLocaleClient | None = None,
     knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     knowledge_ingestion_deps: KnowledgeIngestionDependencies | None = None,
+    model_routing_repository: Any | None = None,
+    model_route_resolver: Any | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -241,6 +266,7 @@ def build_cosa_agent_plane(
         knowledge_ingestion_service=knowledge_ingestion_service,
         knowledge_snapshot_repo=knowledge_snapshot_repo,
         database_url=database_url,
+        model_routing_repository=model_routing_repository,
     )
 
     client = company_client or CompanyServiceClient()
@@ -307,6 +333,32 @@ def build_cosa_agent_plane(
         model=model,
     )
 
+    # 5b. Model route resolver (Task 3, plan 2026-09-07-local-first-model-
+    # routing) — resolve `ResolvedModelRoute` theo (workspace_id,
+    # agent_spec_id), độc lập với việc build model client THẬT (lazy, xem
+    # `CosaAgentPlane.__init__`). `system_default` chỉ dùng làm PROVENANCE
+    # (persist vào RunRequest.model_policy) khi workspace chưa cấu hình
+    # policy/profile nào — KHÔNG dùng để build client (route
+    # `is_system_default=True` -> `run_core.run_kernel()` tiếp tục dùng
+    # `plane.kernel` (đã build model qua `build_execution_kernel()` ở bước 5
+    # phía trên) thay vì build lại, nên system_default ở đây không cần
+    # credential_ref/không cần DEEPSEEK_API_KEY hợp lệ).
+    resolved_model_route_resolver = model_route_resolver
+    if resolved_model_route_resolver is None:
+        from apps.cosa.models.contracts import ProviderType, SystemDefaultModelProfile
+        from apps.cosa.models.resolver import ModelRouteResolver
+
+        system_default = SystemDefaultModelProfile(
+            profile_id="system-default",
+            provider_type=ProviderType.DEEPSEEK_API,
+            model_id=os.environ.get("DEEPSEEK_DEFAULT_MODEL", "deepseek-chat"),
+            credential_ref=None,
+        )
+        resolved_model_route_resolver = ModelRouteResolver(
+            repository=storage.model_routing_repository,
+            system_default=system_default,
+        )
+
     # 6. Workflow Engine & Definition Registry
     wf_registry = WorkflowDefinitionRegistry()
     wf_registry.register_version(COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC)
@@ -363,4 +415,7 @@ def build_cosa_agent_plane(
         compliance_resolver=compliance_resolver,
         workspace_settings_client=workspace_settings_client,
         profile_locale_client=profile_locale_client,
+        model_route_resolver=resolved_model_route_resolver,
+        model_routing_session_factory=storage.model_routing_session_factory,
+        model_routing_repository=storage.model_routing_repository,
     )
