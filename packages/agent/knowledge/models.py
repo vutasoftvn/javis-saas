@@ -72,3 +72,8 @@ class CitationProvenance(BaseModel):
     page_or_section: str | None = None
     snippet: str
     similarity_score: float = 1.0
+    # Task 8 (plan local-first-enterprise-knowledge) — provenance bắt buộc để
+    # citation trả về LLM có thể trace về đúng 1 Vault document version cụ
+    # thể (không suy diễn ngầm). None với citation không qua
+    # `retrieve_authorized_citations` (vd. `search_chunks` cũ, pre-Vault).
+    vault_version_id: str | None = None

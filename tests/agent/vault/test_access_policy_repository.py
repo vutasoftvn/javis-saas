@@ -13,6 +13,7 @@ import uuid
 import pytest
 from agent.vault.models import (
     VaultAccessGrant,
+    VaultClassification,
     VaultGrantSubjectType,
     VaultPermission,
     VaultVisibility,
@@ -115,8 +116,68 @@ async def test_workspace_visibility_document_readable_by_any_workspace_member(ki
         workspace_id, "Handbook", created_by="founder", visibility=VaultVisibility.WORKSPACE
     )
 
-    accessible_ids = await repo.resolve_accessible_document_ids(workspace_id, "member-1", {"member"})
+    accessible_ids = await repo.resolve_accessible_document_ids(
+        workspace_id, "member-1", {"member"}
+    )
     assert doc.document_id in accessible_ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+async def test_restricted_workspace_visibility_document_not_readable_by_member(kind: str):
+    """Bug tìm thấy trong lúc làm Task 8 (retrieval): `visibility=WORKSPACE`
+    KHÔNG được cấp read workspace-wide nếu `classification=RESTRICTED` — trước
+    fix, `resolve_accessible_document_ids` (dùng bởi GET /documents và giờ là
+    retrieve_authorized_citations) chỉ nhìn `visibility`, bỏ qua
+    `classification`, khác với KnowledgeAuthorization.resolve() vốn đã áp
+    đúng luật này ở tầng HTTP — gây leak RESTRICTED document vào danh sách
+    của member không có grant tường minh."""
+    repo = _make_repo(kind)
+    workspace_id = f"ws-a-{uuid.uuid4().hex[:8]}"
+
+    doc = await repo.create_draft(
+        workspace_id,
+        "Board Salary Table",
+        created_by="founder",
+        classification=VaultClassification.RESTRICTED,
+        visibility=VaultVisibility.WORKSPACE,
+    )
+
+    accessible_ids = await repo.resolve_accessible_document_ids(
+        workspace_id, "member-1", {"member"}
+    )
+    assert doc.document_id not in accessible_ids
+
+    owner_ids = await repo.resolve_accessible_document_ids(workspace_id, "founder", set())
+    assert doc.document_id in owner_ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+async def test_update_document_state_preserves_classification_and_visibility(kind: str):
+    """Bug tìm thấy trong lúc làm Task 8 (retrieval): `InMemoryVaultRepository.
+    update_document_state()` từng dựng lại `VaultDocumentRecord` không copy
+    classification/visibility/access_policy_version — publish một document
+    RESTRICTED/WORKSPACE sẽ âm thầm reset nó về INTERNAL/PRIVATE mặc định,
+    khác hành vi thật của `PostgresVaultRepository` (chỉ UPDATE đúng cột
+    state/knowledge_source_id)."""
+    repo = _make_repo(kind)
+    workspace_id = f"ws-a-{uuid.uuid4().hex[:8]}"
+
+    doc = await repo.create_draft(
+        workspace_id,
+        "Board Salary Table",
+        created_by="founder",
+        classification=VaultClassification.RESTRICTED,
+        visibility=VaultVisibility.WORKSPACE,
+    )
+
+    updated = await repo.update_document_state(workspace_id, doc.document_id, "PUBLISHED")
+
+    assert updated is not None
+    assert updated.state == "PUBLISHED"
+    assert updated.classification == VaultClassification.RESTRICTED
+    assert updated.visibility == VaultVisibility.WORKSPACE
 
 
 @pytest.mark.asyncio

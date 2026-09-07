@@ -257,6 +257,9 @@ def build_cosa_agent_plane(
         # IA07: trước đây không truyền -> luôn None -> knowledge.read capability
         # không có nguồn dữ liệu thật, kể cả khi AGENT_DATABASE_URL đã cấu hình.
         knowledge_snapshot_repo=storage.knowledge_snapshot_repo,
+        # Task 8 — knowledge.enterprise.read cần KnowledgeIngestionService thật
+        # (đã wire vault_repository cho path InMemory, xem storage_factory.py).
+        knowledge_ingestion_service=storage.knowledge_ingestion_service,
     )
 
     # 3. Policy Engine & Approval Service

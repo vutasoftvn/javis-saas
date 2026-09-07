@@ -211,14 +211,20 @@ def init_plane_storage(
     if knowledge_ingestion_service is None:
         from agent.knowledge.service import KnowledgeIngestionService as _KIS
 
+        # Task 8 (plan local-first-enterprise-knowledge) — vault_repository
+        # cần cho KnowledgeIngestionService.retrieve_authorized_citations()
+        # khi store không tự implement join thật (InMemoryKnowledgeStore);
+        # PostgresKnowledgeStore bỏ qua tham số này (tự SQL join).
         if resolved_url:
             from agent.knowledge.store import get_knowledge_store as _get_kstore
 
-            knowledge_ingestion_service = _KIS(_get_kstore(resolved_url))
+            knowledge_ingestion_service = _KIS(
+                _get_kstore(resolved_url), vault_repository=vault_repo
+            )
         else:
             from agent.knowledge.store import InMemoryKnowledgeStore as _InMemKStore
 
-            knowledge_ingestion_service = _KIS(_InMemKStore())
+            knowledge_ingestion_service = _KIS(_InMemKStore(), vault_repository=vault_repo)
 
     # IA07: knowledge_snapshot_repo trước đây không có trong bundle này nên
     # register_cosa_capabilities() luôn nhận None, khiến knowledge.read

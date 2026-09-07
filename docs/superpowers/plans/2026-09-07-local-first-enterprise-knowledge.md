@@ -518,7 +518,7 @@ async def test_create_upload_then_complete_queues_local_ingestion(client, founde
 - Produces `retrieve_authorized_citations(workspace_id, principal_id, role_ids, query, limit) -> list[CitationProvenance]`.
 - Produces capability id `knowledge.enterprise.read`.
 
-- [ ] **Step 1: Write leakage tests before ranking tests.**
+- [x] **Step 1: Write leakage tests before ranking tests.** Thực tế `tests/agent/knowledge/test_authorized_retrieval.py` — parametrize cả `InMemoryKnowledgeStore`+`InMemoryVaultRepository` (qua `KnowledgeIngestionService`) và `PostgresKnowledgeStore` (skip nếu thiếu `AGENT_TEST_DATABASE_URL`) qua 1 harness chung, không phải `store` fixture đơn theo đúng chữ pseudocode.
 
 ```python
 async def test_retrieval_never_returns_restricted_chunk_to_member(store):
@@ -531,17 +531,17 @@ async def test_founder_receives_citation_with_version_provenance(store):
     assert results[0].vault_version_id is not None
 ```
 
-- [ ] **Step 2: Run focused retrieval tests.**
+- [x] **Step 2: Run focused retrieval tests.** Xác nhận FAIL trước khi implement (`retrieve_authorized_citations` chưa tồn tại → AttributeError), PASS sau Step 3/4 (113 test, gồm cả `tests/agent/vault/` liên đới).
 
-Run: `AGENT_TEST_DATABASE_URL="$AGENT_TEST_DATABASE_URL" PYTHONPATH=. .venv/bin/python -m pytest tests/agent/knowledge/test_authorized_retrieval.py tests/apps/cosa/capabilities/test_enterprise_knowledge_read.py -q`
+- [x] **Step 3: Query only already-authorized, published versions.** `PostgresKnowledgeStore.retrieve_authorized_citations()` join thẳng `knowledge.knowledge_chunks`→`knowledge_sources`→`vault.document_versions`+`vault.documents` trong 1 câu SQL (không fetch-rồi-lọc), lọc `s.status='published'`, `d.state='PUBLISHED'`, `d.current_version_id = dv.version_id` (loại version cũ/archive) TRƯỚC `ILIKE`+`LIMIT`. `KnowledgeIngestionService.retrieve_authorized_citations()` compose fallback cho backend không tự implement (vd. `InMemoryKnowledgeStore`) qua `VaultRepository.resolve_accessible_document_ids()` — cần `vault_repository` inject lúc khởi tạo service (đã wire ở `storage_factory.py::init_plane_storage`).
 
-Expected: FAIL because current query filters only workspace and content.
+  Phát hiện + sửa thêm trong lúc làm bước này (không phải scope creep — cùng file/hàm, ảnh hưởng trực tiếp đúng nghĩa "authorization-first"):
+  - `VaultRepository.resolve_accessible_document_ids()` (cả Postgres và InMemory) trước đây cấp read workspace-wide cho `visibility=WORKSPACE` mà KHÔNG loại trừ `classification=RESTRICTED` — khác luật đã đúng ở `KnowledgeAuthorization.resolve()` (Task 6, tầng HTTP). Đây là leak thật ảnh hưởng cả `GET /agent/vault/documents` (Task 7) lẫn retrieval mới — đã sửa cả 2 implementation, thêm regression test `test_restricted_workspace_visibility_document_not_readable_by_member`.
+  - `InMemoryVaultRepository.update_document_state()` và `.append_version()` dựng lại `VaultDocumentRecord` KHÔNG copy `classification`/`visibility`/`access_policy_version`/`retention_until`/`legal_hold` — mỗi lần publish/thêm version sẽ âm thầm reset các cột này về default (khác `PostgresVaultRepository` chỉ UPDATE đúng cột cần đổi). Sửa bằng `dataclasses.replace()`, thêm regression test `test_update_document_state_preserves_classification_and_visibility`.
 
-- [ ] **Step 3: Query only already-authorized, published versions.**
+- [x] **Step 4: Make capability output prompt-safe and attributable.** `apps/cosa/capabilities/enterprise_knowledge_read.py` — capability `knowledge.enterprise.read`, description khai rõ snippet là untrusted reference material. Output KHÔNG có `policy_version` top-level như pseudocode (không có 1 "decision" đơn cho nhiều document khác nhau) — mỗi citation tự mang provenance qua `vault_version_id`.
 
-Build the allowed document set in SQL by joining Vault version state, current grants/classification policy and the current principal/role IDs. Apply that CTE before `ILIKE` or pgvector distance ordering. Return no title/score/count for denied sources. Filter out archived/purged versions even if old chunks remain during asynchronous deletion.
-
-- [ ] **Step 4: Make capability output prompt-safe and attributable.**
+  Gap biết trước, không phải thiếu sót: `ctx` hiện tại của capability handler (`InvocationContext.metadata`) chỉ mang `workspace_id`+`principal` (=principal_id), KHÔNG mang role — chat run chưa bind role thật (đó là việc của Task 10). Handler mặc định `role_ids=set()` (fail-closed: chỉ owner/workspace-non-restricted/grant tường minh theo principal_id, không operator bypass) trừ khi `role_ids_resolver` được inject — điểm nối cho Task 10.
 
 ```python
 return {
@@ -557,19 +557,9 @@ return {
 
 Declare retrieved text as untrusted reference material in the capability description; no chunk may grant instructions or capability authority to the model.
 
-- [ ] **Step 5: Run retrieval, tenancy and capability tests.**
+- [x] **Step 5: Run retrieval, tenancy and capability tests.** `tests/agent/knowledge/test_authorized_retrieval.py` + `tests/apps/cosa/capabilities/test_enterprise_knowledge_read.py` + `tests/agent/vault/` (113 test) PASS trên cả InMemory và Postgres thật; `make tenancy-check` PASS (890 passed — 2 lỗi tiền tồn tại không liên quan, env-format psycopg2 DSN của `test_source_version_ingestion_run_id.py`, xác nhận bằng chạy riêng với DSN đúng format); `make typecheck-py` (345 file) và `make route-auth-allowlist-check`/`make mvp-e2e-purity-check` PASS; `tests/apps/cosa/` đầy đủ (931 passed, 27 skipped) — không có regression.
 
-Run:
-
-```bash
-PYTHONPATH=. .venv/bin/python -m pytest tests/agent/knowledge/test_authorized_retrieval.py \
-  tests/apps/cosa/capabilities/test_enterprise_knowledge_read.py -q
-make tenancy-check
-```
-
-Expected: PASS; member cannot retrieve a denied source even when its chunk is the strongest lexical/semantic match.
-
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add packages/agent/knowledge apps/cosa/capabilities apps/cosa/composition/capability_registration.py \

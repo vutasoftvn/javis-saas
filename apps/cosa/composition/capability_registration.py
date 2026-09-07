@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from agent.artifacts import ArtifactRepository
 from agent.capabilities.registry import CapabilityRegistry
 from agent.capabilities.web_search import (
@@ -29,6 +31,10 @@ from apps.cosa.capabilities.engagement_message_send import (
 from apps.cosa.capabilities.engagement_read import (
     ENGAGEMENT_THREAD_READ_SPEC,
     create_engagement_thread_read_handler,
+)
+from apps.cosa.capabilities.enterprise_knowledge_read import (
+    ENTERPRISE_KNOWLEDGE_READ_SPEC,
+    create_enterprise_knowledge_read_handler,
 )
 from apps.cosa.capabilities.finance_read import (
     FINANCE_CONNECTION_READ_SPEC,
@@ -131,6 +137,7 @@ def register_cosa_capabilities(
     artifact_repo: ArtifactRepository,
     knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     web_search_provider: WebSearchProvider | None = None,
+    knowledge_ingestion_service: Any | None = None,
 ) -> None:
     """Đăng ký toàn bộ capability specs và handlers cho CosaAgentPlane."""
     # Operations
@@ -201,6 +208,15 @@ def register_cosa_capabilities(
             client=client,
         ),
     )
+    # Task 8 — knowledge.enterprise.read chỉ đăng ký khi có KnowledgeIngestionService
+    # thật (luôn có, xem storage_factory.py::init_plane_storage — build InMemory/
+    # Postgres mặc định nếu caller không tự inject).
+    if knowledge_ingestion_service is not None:
+        cap_registry.register(
+            ENTERPRISE_KNOWLEDGE_READ_SPEC,
+            create_enterprise_knowledge_read_handler(knowledge_ingestion_service),
+        )
+
     cap_registry.register(
         LEGAL_APPLICABILITY_ASSESS_SPEC, create_legal_applicability_assess_handler(client)
     )

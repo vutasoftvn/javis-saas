@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
@@ -509,7 +510,7 @@ class PostgresVaultRepository:
                     FROM vault.documents d
                     WHERE d.workspace_id = :workspace_id
                       AND (
-                        d.visibility = 'WORKSPACE'
+                        (d.visibility = 'WORKSPACE' AND d.classification != 'RESTRICTED')
                         OR d.created_by = :principal_id
                         OR EXISTS (
                             SELECT 1 FROM vault.document_access_grants g
@@ -718,16 +719,26 @@ class InMemoryVaultRepository:
         for (ws, doc_id), doc in self._documents.items():
             if ws != workspace_id:
                 continue
-            if doc.visibility == VaultVisibility.WORKSPACE or doc.created_by == principal_id:
+            workspace_wide_read = (
+                doc.visibility == VaultVisibility.WORKSPACE
+                and doc.classification != VaultClassification.RESTRICTED
+            )
+            if workspace_wide_read or doc.created_by == principal_id:
                 accessible.add(doc_id)
                 continue
             for grant in self._grants.get((workspace_id, doc_id), []):
                 if grant.permission != VaultPermission.READ:
                     continue
-                if grant.subject_type == VaultGrantSubjectType.USER and grant.subject_id == principal_id:
+                if (
+                    grant.subject_type == VaultGrantSubjectType.USER
+                    and grant.subject_id == principal_id
+                ):
                     accessible.add(doc_id)
                     break
-                if grant.subject_type == VaultGrantSubjectType.ROLE and grant.subject_id in role_ids:
+                if (
+                    grant.subject_type == VaultGrantSubjectType.ROLE
+                    and grant.subject_id in role_ids
+                ):
                     accessible.add(doc_id)
                     break
         return accessible
@@ -778,17 +789,12 @@ class InMemoryVaultRepository:
         )
         self._versions[(workspace_id, version_id)] = v_rec
 
-        # Update doc
-        self._documents[(workspace_id, document_id)] = VaultDocumentRecord(
-            document_id=doc.document_id,
-            workspace_id=doc.workspace_id,
-            title=doc.title,
-            kind=doc.kind,
-            state=doc.state,
+        # Cùng bug với update_document_state (Task 8) — dùng replace() để
+        # không reset classification/visibility/access_policy_version khi
+        # gán current_version_id mới.
+        self._documents[(workspace_id, document_id)] = replace(
+            doc,
             current_version_id=version_id,
-            knowledge_source_id=doc.knowledge_source_id,
-            created_by=doc.created_by,
-            created_at=doc.created_at,
             updated_at=now,
         )
         return v_rec
@@ -825,16 +831,18 @@ class InMemoryVaultRepository:
         if doc is None:
             return None
         now = datetime.now(UTC)
-        updated = VaultDocumentRecord(
-            document_id=doc.document_id,
-            workspace_id=doc.workspace_id,
-            title=doc.title,
-            kind=doc.kind,
+        # Bug tìm thấy trong lúc làm Task 8: bản build cũ dựng lại
+        # VaultDocumentRecord KHÔNG copy classification/visibility/
+        # access_policy_version/retention_until/legal_hold — mỗi lần đổi state
+        # (vd. publish) sẽ âm thầm reset các cột này về default (INTERNAL/
+        # PRIVATE/1/None/False), khác hành vi PostgresVaultRepository (chỉ
+        # UPDATE đúng state/knowledge_source_id/updated_at, không đụng cột
+        # khác). Dùng dataclasses.replace() để không lặp lại lỗi tương tự nếu
+        # sau này thêm field mới vào VaultDocumentRecord.
+        updated = replace(
+            doc,
             state=state,
-            current_version_id=doc.current_version_id,
             knowledge_source_id=knowledge_source_id or doc.knowledge_source_id,
-            created_by=doc.created_by,
-            created_at=doc.created_at,
             updated_at=now,
         )
         self._documents[(workspace_id, document_id)] = updated
@@ -906,7 +914,10 @@ class InMemoryVaultRepository:
         for grant in self._grants.get((workspace_id, document_id), []):
             if grant.permission != permission:
                 continue
-            if grant.subject_type == VaultGrantSubjectType.USER and grant.subject_id == principal_id:
+            if (
+                grant.subject_type == VaultGrantSubjectType.USER
+                and grant.subject_id == principal_id
+            ):
                 return True
             if grant.subject_type == VaultGrantSubjectType.ROLE and grant.subject_id in role_ids:
                 return True

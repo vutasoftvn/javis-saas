@@ -332,6 +332,102 @@ class PostgresKnowledgeStore:
                 for r in rows
             ]
 
+    _OPERATOR_ROLES = frozenset({"founder", "co-founder", "admin"})
+
+    async def retrieve_authorized_citations(
+        self,
+        *,
+        workspace_id: str,
+        principal_id: str,
+        role_ids: set[str],
+        query: str,
+        limit: int = 5,
+    ) -> list[CitationProvenance]:
+        """Task 8 (plan local-first-enterprise-knowledge) — lọc theo authorization
+        TRƯỚC KHI ranking/limit, join thẳng knowledge.* với vault.* trong 1 câu
+        SQL (không fetch-rồi-lọc phía Python — tránh rò rỉ 1 batch lớn hơn qua
+        log/trace trung gian). Chỉ trả chunk của:
+        - `knowledge_sources.status = 'published'` VÀ trỏ đúng 1
+          `vault.document_versions` còn là `current_version_id` của document đó
+          (loại version cũ/đã archive dù chunk cũ còn sót lại lúc xoá bất đồng bộ).
+        - `vault.documents.state = 'PUBLISHED'` (loại ARCHIVED).
+        - Principal có quyền đọc: workspace operator, chủ sở hữu document,
+          `visibility=WORKSPACE` VÀ KHÔNG `classification=RESTRICTED`, hoặc có
+          grant `read` tường minh (user hoặc role) — cùng luật với
+          `apps.cosa.knowledge_ingestion.authorization.KnowledgeAuthorization`,
+          triển khai lại ở tầng SQL vì đây là packages/agent (không import
+          apps.cosa — packages/agent phải độc lập compose-được)."""
+        is_operator = bool(role_ids & self._OPERATOR_ROLES)
+        async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
+            rows = (
+                (
+                    await session.execute(
+                        text(
+                            """
+                        SELECT c.id AS chunk_id, c.content, c.chunk_index,
+                               s.id AS source_id, s.title AS source_title, s.uri AS source_uri,
+                               s.vault_version_id, s.access_policy_version
+                        FROM knowledge.knowledge_chunks c
+                        JOIN knowledge.knowledge_sources s ON s.id = c.source_id
+                        JOIN vault.document_versions dv
+                            ON dv.workspace_id = :workspace_id AND dv.version_id = s.vault_version_id
+                        JOIN vault.documents d
+                            ON d.workspace_id = :workspace_id AND d.document_id = s.vault_document_id
+                        WHERE c.workspace_id = :workspace_id
+                          AND s.status = 'published'
+                          AND s.vault_version_id IS NOT NULL
+                          AND d.state = 'PUBLISHED'
+                          AND d.current_version_id = dv.version_id
+                          AND c.content ILIKE :query
+                          AND (
+                            :is_operator
+                            OR d.created_by = :principal_id
+                            OR (d.visibility = 'WORKSPACE' AND d.classification != 'RESTRICTED')
+                            OR EXISTS (
+                                SELECT 1 FROM vault.document_access_grants g
+                                WHERE g.workspace_id = :workspace_id AND g.document_id = d.document_id
+                                  AND g.permission = 'read'
+                                  AND (
+                                    (g.subject_type = 'user' AND g.subject_id = :principal_id)
+                                    OR (g.subject_type = 'role' AND g.subject_id = ANY(:role_ids))
+                                  )
+                            )
+                          )
+                        ORDER BY c.chunk_index ASC
+                        LIMIT :limit
+                        """
+                        ),
+                        {
+                            "workspace_id": workspace_id,
+                            "principal_id": principal_id,
+                            "role_ids": list(role_ids),
+                            "is_operator": is_operator,
+                            "query": f"%{query}%",
+                            "limit": limit,
+                        },
+                    )
+                )
+                .mappings()
+                .all()
+            )
+
+            return [
+                CitationProvenance(
+                    chunk_id=r["chunk_id"],
+                    document_id=r["source_id"],
+                    document_title=r["source_title"],
+                    source_uri=r["source_uri"],
+                    snippet=r["content"],
+                    similarity_score=1.0,
+                    vault_version_id=str(r["vault_version_id"]),
+                )
+                for r in rows
+            ]
+
     async def search_chunks_semantic(
         self,
         *,

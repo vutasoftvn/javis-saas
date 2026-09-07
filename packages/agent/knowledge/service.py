@@ -2,19 +2,37 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from typing import TYPE_CHECKING
+from uuid import UUID
 
 from agent.knowledge.chunking import chunk_text
 from agent.knowledge.models import CitationProvenance, KnowledgeChunk, KnowledgeDocument
 from agent.knowledge.store import InMemoryKnowledgeStore, KnowledgeStore
 
+if TYPE_CHECKING:
+    from agent.vault.repository import VaultRepository
+
 __all__ = ["KnowledgeIngestionService"]
+
+_OPERATOR_ROLES = frozenset({"founder", "co-founder", "admin"})
 
 
 class KnowledgeIngestionService:
     """Service chịu trách nhiệm ingest, chunk và retrieve Knowledge theo Master Guide §26."""
 
-    def __init__(self, store: KnowledgeStore | None = None) -> None:
+    def __init__(
+        self,
+        store: KnowledgeStore | None = None,
+        vault_repository: VaultRepository | None = None,
+    ) -> None:
         self._store = store or InMemoryKnowledgeStore()
+        # Task 8 (plan local-first-enterprise-knowledge) — chỉ cần cho
+        # `retrieve_authorized_citations()` khi `store` KHÔNG tự implement nó
+        # (InMemoryKnowledgeStore không mang dữ liệu vault) — compose bằng
+        # cách lọc qua `VaultRepository.resolve_accessible_document_ids()`.
+        # PostgresKnowledgeStore tự làm join thật trong 1 câu SQL, không cần
+        # tham số này.
+        self._vault_repository = vault_repository
 
     async def ingest_raw_text(
         self,
@@ -114,3 +132,66 @@ class KnowledgeIngestionService:
             query=query,
             limit=limit,
         )
+
+    async def retrieve_authorized_citations(
+        self,
+        *,
+        workspace_id: str,
+        principal_id: str,
+        role_ids: set[str],
+        query: str,
+        limit: int = 5,
+    ) -> list[CitationProvenance]:
+        """Task 8 (plan local-first-enterprise-knowledge) — filter theo
+        authorization TRƯỚC KHI ranking/limit áp dụng cho caller (không trả
+        rồi lọc phía trên, tránh 1 caller quên lọc lộ citation bị deny).
+
+        `PostgresKnowledgeStore` tự implement method này bằng 1 câu SQL join
+        thật (tránh N+1). Với backend khác (vd. `InMemoryKnowledgeStore` dùng
+        cho test/dev) compose bằng `VaultRepository.resolve_accessible_document_ids()`
+        — cần `vault_repository` được inject lúc khởi tạo service.
+        """
+        native = getattr(self._store, "retrieve_authorized_citations", None)
+        if native is not None:
+            return await native(
+                workspace_id=workspace_id,
+                principal_id=principal_id,
+                role_ids=role_ids,
+                query=query,
+                limit=limit,
+            )
+
+        if self._vault_repository is None:
+            raise RuntimeError(
+                "retrieve_authorized_citations() cần vault_repository khi store "
+                "không tự implement method này (vd. InMemoryKnowledgeStore)."
+            )
+
+        is_operator = bool(role_ids & _OPERATOR_ROLES)
+        accessible_ids: set[UUID] | None = None
+        if not is_operator:
+            accessible_ids = await self._vault_repository.resolve_accessible_document_ids(
+                workspace_id, principal_id, role_ids
+            )
+            if not accessible_ids:
+                return []
+
+        # Over-fetch trước khi lọc theo authorization — kết quả cuối có thể
+        # ít hơn `limit` dù còn match khác chưa authorized bị bỏ qua ở đây
+        # (giới hạn đã biết của cách compose 2 bước; PostgresKnowledgeStore
+        # không có giới hạn này vì lọc ngay trong SQL trước LIMIT).
+        candidates = await self._store.search_chunks(
+            workspace_id=workspace_id, query=query, limit=limit * 5
+        )
+
+        results: list[CitationProvenance] = []
+        for citation in candidates:
+            doc = await self._store.get_document(citation.document_id, workspace_id)
+            if doc is None or doc.ingest_status != "published" or not doc.vault_document_id:
+                continue
+            if not is_operator and UUID(doc.vault_document_id) not in (accessible_ids or set()):
+                continue
+            results.append(citation.model_copy(update={"vault_version_id": doc.vault_version_id}))
+            if len(results) >= limit:
+                break
+        return results
