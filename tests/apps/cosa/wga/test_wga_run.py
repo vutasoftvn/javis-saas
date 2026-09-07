@@ -5,8 +5,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-
 from agent.contracts.run import RunStatus
+
 from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.worker import wga_run
 
@@ -228,6 +228,38 @@ async def test_sweep_skips_non_auto_tasks():
         plane, None, {"run_id": "s", "workspace_id": "ws1"}
     )
     company.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_sweep_fails_closed_on_unsupported_owner_agent_profile():
+    """Bug 1.4: ownerAgentProfile không có trong _SPEC_BY_PROFILE trước đây âm
+    thầm fallback về COSA_OPERATIONS_AGENT_SPEC — task chạy nhầm agent. Phải
+    fail-closed: không chạy kernel, task chuyển 'blocked'."""
+    company = AsyncMock()
+    company.get.return_value = {
+        "tasks": [
+            {
+                "taskId": "t1",
+                "autonomyClass": "AUTO",
+                "ownerAgentProfile": "unknown_bogus_profile",
+                "expectedCapability": "operations.task.list",
+                "title": "x",
+                "decisionReason": "y",
+                "planItemId": "i1",
+            }
+        ]
+    }
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "done"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "wga_sweep_bad_profile", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    plane.kernel.run.assert_not_awaited()
+    advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    assert len(advance_calls) == 1
+    assert advance_calls[0].kwargs["json"]["toStatus"] == "blocked"
+    assert advance_calls[0].kwargs["json"]["note"] == "unsupported_owner_agent_profile_unknown_bogus_profile"
 
 
 @pytest.mark.asyncio

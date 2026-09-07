@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.governance.contracts import AutonomyLevel
@@ -56,6 +55,8 @@ async def test_case_b_agent_spec_privilege_widening():
     assert len(res1.interruptions_waits) == 1
     ckpt_ref = res1.interruptions_waits[0].checkpoint_ref
     appr_id = res1.interruptions_waits[0].related_ref
+    tool_calls = await repo.list_tool_calls(res1.run_id)
+    call_id = tool_calls[0].tool_call_id
 
     # 2. Xuất bản v2 với autonomy L3 (rộng hơn)
     spec_v2 = AgentSpec(
@@ -76,16 +77,18 @@ async def test_case_b_agent_spec_privilege_widening():
     res_unapproved = await kernel.resume(
         run_id=res1.run_id,
         checkpoint_ref=ckpt_ref,
-        updates={"approved": False},  # Chưa approve
+        updates={"approved_tool_calls": {}},  # Chưa approve
     )
     # Vẫn bị chặn, không tự động chuyển thành completed của L3
     assert res_unapproved.status == RunStatus.WAITING_APPROVAL
 
-    # 5. Reviewer approve chính thức -> Resume hoàn tất theo đúng quy trình của v1
+    # 5. Reviewer approve chính thức -> Resume hoàn tất theo đúng quy trình của v1.
+    # approved_tool_calls (per-call_id) là API duy nhất có hiệu lực từ Bug 1.2
+    # fix; field "approved": True/False blanket đã bị bỏ.
     await repo.decide_approval(appr_id, reviewer="founder_1", approved=True)
     res_approved = await kernel.resume(
         run_id=res1.run_id,
         checkpoint_ref=ckpt_ref,
-        updates={"approved": True},
+        updates={"approved_tool_calls": {call_id: True}},
     )
     assert res_approved.status == RunStatus.COMPLETED

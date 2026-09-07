@@ -260,59 +260,118 @@ class ManualToolLoopKernel:
         state = KernelRunState.from_dict(checkpoint.serialized_state)
         state.context.update(updates)
 
-        # Xử lý các tool calls đã được approved/updated trong updates
+        # Xử lý các tool calls đã được approved/updated trong updates.
+        # Bug 1.2 fix (defense-in-depth, đồng bộ với RealOpenAIAgentsSDKKernel) —
+        # bỏ hẳn field "approved": True/False mơ hồ, chỉ approved_tool_calls
+        # (per-call_id) mới có hiệu lực. Blanket "approved": True từng approve
+        # CHÉO mọi tool call khác đang pending trong cùng checkpoint, vi phạm
+        # CLAUDE.md rule 5 (approval phải bind đúng run_id + tool_call_id +
+        # checkpoint_ref).
         approved_calls = updates.get("approved_tool_calls", {})
         remaining_pending = []
-        for call in state.pending_tool_calls:
-            call_id = str(call.get("id") or call.get("tool_call_id") or "")
-            if call_id in approved_calls or updates.get("approved") is True:
-                # Thực thi tool call sau khi được approve
-                tool_name = call.get("name") or call.get("function", {}).get("name", "")
-                args_str = call.get("arguments") or call.get("function", {}).get("arguments", "{}")
-                args = json.loads(args_str) if isinstance(args_str, str) else args_str
+        try:
+            for call in state.pending_tool_calls:
+                call_id = str(call.get("id") or call.get("tool_call_id") or "")
+                if call_id in approved_calls:
+                    # Thực thi tool call sau khi được approve
+                    tool_name = call.get("name") or call.get("function", {}).get("name", "")
+                    args_str = call.get("arguments") or call.get("function", {}).get(
+                        "arguments", "{}"
+                    )
+                    args = json.loads(args_str) if isinstance(args_str, str) else args_str
 
-                await self._emit_event(
-                    run_id,
-                    "tool.started",
-                    {"tool_call_id": call_id, "tool": tool_name},
-                    correlation_id,
-                )
-                tool_res = await self._execute_tool(
-                    tool_name,
-                    args,
-                    run_id=run_id,
-                    tool_call_id=call_id,
-                    run_record=run_record,
-                    checkpoint_ref=checkpoint_ref,
-                )
-                # Audit event chỉ lưu hash — cùng nguyên tắc Task 9 áp dụng cho
-                # CapabilityGateway/RealOpenAIAgentsSDKKernel (đều ghi vào chung
-                # bảng `agent.run_events`). `tool_res` thô vẫn đi vào
-                # `state.messages`/`completed_tool_calls` ngay dưới đây để tiếp
-                # tục reasoning loop — không bị ảnh hưởng.
-                await self._emit_event(
-                    run_id,
-                    "tool.completed",
-                    {
-                        "tool_call_id": call_id,
-                        "output_hash": compute_payload_hash(tool_res),
-                        "output_present": tool_res is not None,
-                    },
-                    correlation_id,
-                )
+                    await self._emit_event(
+                        run_id,
+                        "tool.started",
+                        {"tool_call_id": call_id, "tool": tool_name},
+                        correlation_id,
+                    )
+                    tool_res = await self._execute_tool(
+                        tool_name,
+                        args,
+                        run_id=run_id,
+                        tool_call_id=call_id,
+                        run_record=run_record,
+                        checkpoint_ref=checkpoint_ref,
+                    )
+                    # Audit event chỉ lưu hash — cùng nguyên tắc Task 9 áp dụng cho
+                    # CapabilityGateway/RealOpenAIAgentsSDKKernel (đều ghi vào chung
+                    # bảng `agent.run_events`). `tool_res` thô vẫn đi vào
+                    # `state.messages`/`completed_tool_calls` ngay dưới đây để tiếp
+                    # tục reasoning loop — không bị ảnh hưởng.
+                    await self._emit_event(
+                        run_id,
+                        "tool.completed",
+                        {
+                            "tool_call_id": call_id,
+                            "output_hash": compute_payload_hash(tool_res),
+                            "output_present": tool_res is not None,
+                        },
+                        correlation_id,
+                    )
 
-                state.messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": call_id,
-                        "content": json.dumps(tool_res, default=str),
-                    }
-                )
-                state.completed_tool_calls.append({"id": call_id, "result": tool_res})
-            else:
-                remaining_pending.append(call)
+                    state.messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call_id,
+                            "content": json.dumps(tool_res, default=str),
+                        }
+                    )
+                    state.completed_tool_calls.append({"id": call_id, "result": tool_res})
+                else:
+                    remaining_pending.append(call)
+        except AgentRuntimeError as err:
+            # Cùng nguyên tắc fail-closed với _execute_reasoning_loop — một
+            # gateway denial/waiting_approval trong lúc resume không được để
+            # exception thoát ra ngoài làm crash task worker gọi resume().
+            return await self._fail_from_runtime_error(run_id, err, correlation_id)
 
         state.pending_tool_calls = remaining_pending
+
+        if remaining_pending:
+            # Bug 1.2 fix (phần 2) — vẫn còn tool call pending chưa có quyết
+            # định trong lượt resume này (approve 1/N). KHÔNG được âm thầm
+            # tiến vào 1 turn reasoning mới (mất dấu các call còn pending) —
+            # phải re-affirm WAITING_APPROVAL với checkpoint MỚI. Mint ref
+            # mới (không tái dùng checkpoint_ref cũ): Postgres repository
+            # dùng ON CONFLICT DO NOTHING khi save_checkpoint, ghi đè lên ref
+            # cũ sẽ silently no-op trên production.
+            new_ckpt_ref = f"ckpt_{run_id}_{uuid.uuid4().hex[:8]}"
+            await self._repo.save_checkpoint(
+                RunCheckpointRecord(
+                    checkpoint_ref=new_ckpt_ref,
+                    run_id=run_id,
+                    sequence_no=state.step_index,
+                    state_kind="kernel_run_state",
+                    serialized_state=state.to_dict(),
+                )
+            )
+            await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
+            waits: list[WaitDescriptor] = []
+            for call in remaining_pending:
+                call_id = str(call.get("id") or call.get("tool_call_id") or "")
+                existing_appr = await self._repo.get_approval(f"appr_{run_id}_{call_id}")
+                appr_id = existing_appr.approval_id if existing_appr else f"appr_{run_id}_{call_id}"
+                tool_name = call.get("name") or call.get("function", {}).get("name", "")
+                waits.append(
+                    WaitDescriptor(
+                        kind=WaitKind.APPROVAL,
+                        reason=f"Action '{tool_name}' still awaiting a separate approval",
+                        checkpoint_ref=new_ckpt_ref,
+                        related_ref=appr_id,
+                        resume_trigger="approval.decided",
+                    )
+                )
+            await self._emit_event(
+                run_id,
+                "run.waiting",
+                {"waits": [w.model_dump() for w in waits]},
+                correlation_id,
+            )
+            return RunResult(
+                run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits
+            )
+
         spec = AgentSpec(
             id=run_record.root_executable_id,
             version=run_record.root_executable_version,
@@ -380,14 +439,20 @@ class ManualToolLoopKernel:
                 run_id, state, spec, correlation_id, max_turns, run_record=run_record
             )
         except AgentRuntimeError as err:
-            # Typed runtime failure — Run phải FAILED tường minh, không âm thầm
-            # biến lỗi provider thành assistant content COMPLETED.
-            error_details = err.to_error_details()
-            await self._repo.update_run_status(
-                run_id, status=RunStatus.FAILED, error_details=error_details
-            )
-            await self._emit_event(run_id, "run.failed", error_details, correlation_id)
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[err.message])
+            return await self._fail_from_runtime_error(run_id, err, correlation_id)
+
+    async def _fail_from_runtime_error(
+        self, run_id: str, err: AgentRuntimeError, correlation_id: str
+    ) -> RunResult:
+        # Typed runtime failure — Run phải FAILED tường minh, không âm thầm
+        # biến lỗi provider/gateway thành assistant content COMPLETED, và không
+        # để exception thoát ra ngoài làm crash task gọi kernel (worker resume).
+        error_details = err.to_error_details()
+        await self._repo.update_run_status(
+            run_id, status=RunStatus.FAILED, error_details=error_details
+        )
+        await self._emit_event(run_id, "run.failed", error_details, correlation_id)
+        return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[err.message])
 
     async def _run_reasoning_turns(
         self,
@@ -793,6 +858,22 @@ class ManualToolLoopKernel:
                     res = await self._capability_executor(req)
                 else:
                     res = self._capability_executor(req)
+                res_status = getattr(res, "status", "completed")
+                if res_status != "completed":
+                    # Bug 1.1 fix: gateway đã chặn/hoãn (waiting_approval) hoặc
+                    # từ chối/thất bại (denied/failed) — KHÔNG được trả
+                    # output_payload=None như thể tool đã chạy thành công.
+                    code = (
+                        RuntimeErrorCode.APPROVAL_REQUIRED
+                        if res_status == "waiting_approval"
+                        else RuntimeErrorCode.CAPABILITY_DENIED
+                    )
+                    raise AgentRuntimeError(
+                        code,
+                        f"Capability '{tool_name}' did not complete "
+                        f"(status={res_status}): {getattr(res, 'error_message', '') or ''}",
+                        details={"status": res_status, "tool_call_id": tool_call_id},
+                    ) from None
                 return res.output_payload if hasattr(res, "output_payload") else res
 
         # Production KHÔNG được silently trả "success" giả khi thiếu

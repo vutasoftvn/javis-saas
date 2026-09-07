@@ -557,7 +557,25 @@ async def execute_resume_task(
     bearer_token = payload["delegation_token"]
     stream_repo = plane.stream_event_repository
 
-    resume_updates: dict[str, Any] = {"approved": True}
+    # Bug 1.2 fix — KHÔNG dùng blanket "approved": True (approve nhầm mọi tool
+    # call khác đang pending trong cùng checkpoint, vi phạm CLAUDE.md rule 5:
+    # approval phải bind đúng run_id + tool_call_id + checkpoint_ref). Payload
+    # phải mang đúng tool_call_id của approval vừa quyết định
+    # (decide_approval::apps/cosa/api/workforce_routes.py).
+    tool_call_id = payload.get("tool_call_id")
+    if not tool_call_id:
+        logger.error(
+            "resume task missing tool_call_id for run_id=%s, failing closed", run_id
+        )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": "missing_tool_call_id_on_resume"},
+        )
+        return
+    resume_updates: dict[str, Any] = {"approved_tool_calls": {tool_call_id: True}}
     if workspace_id:
         try:
             fresh_snapshot = await plane.tenant_policy_client.get_snapshot(
@@ -577,6 +595,39 @@ async def execute_resume_task(
                 conversation_id=conversation_id,
                 event_type="run.failed",
                 payload={"error": "policy_snapshot_unavailable_on_resume"},
+            )
+            return
+
+        # Bug 1.3 fix — verify_and_prepare_resume() (Master Guide §18: re-check
+        # tenant/principal ambient governance + target drift TRƯỚC khi cho
+        # resume một approval cũ) trước đây tồn tại nhưng không có call site
+        # production nào gọi. "APPROVED" không phải bypass token vĩnh viễn —
+        # workspace có thể đã bị suspend/principal bị revoke GIỮA lúc approve
+        # và lúc resume thật sự chạy.
+        verify_result = await plane.approval_service.verify_and_prepare_resume(
+            run_id=run_id,
+            tool_call_id=tool_call_id,
+            checkpoint_ref=checkpoint_ref,
+            ambient_context={
+                "tenant_status": fresh_snapshot.workspace_status,
+                "principal_status": fresh_snapshot.principal_status,
+                # emergency_lock: không có ambient signal wired production nào
+                # khác cho field này hiện nay — gap đã biết, không phải
+                # regression từ fix này.
+                "emergency_lock": False,
+            },
+        )
+        if not verify_result.can_resume:
+            logger.warning(
+                "resume blocked by verify_and_prepare_resume run_id=%s tool_call_id=%s reason=%s",
+                run_id, tool_call_id, verify_result.reason,
+            )
+            await stream_mgr.emit(
+                stream_repo,
+                run_id=run_id,
+                conversation_id=conversation_id,
+                event_type="run.failed",
+                payload={"error": "resume_verification_failed", "reason": verify_result.reason},
             )
             return
 

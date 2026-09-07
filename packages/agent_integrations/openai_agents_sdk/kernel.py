@@ -10,6 +10,7 @@ from agent.capabilities.canonicalization import compute_payload_hash
 from agent.capabilities.gateway import GatewayExecutionRequest
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
+from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent.contracts.invocation import InvocationContext
 from agent.contracts.output import ValidationFailure, validate_output_payload
 from agent.contracts.run import RunRequest, RunResult, RunStatus
@@ -321,6 +322,22 @@ class RealOpenAIAgentsSDKKernel:
                             res = await self._capability_executor(req)
                         else:
                             res = self._capability_executor(req)
+                        res_status = getattr(res, "status", "completed")
+                        if res_status != "completed":
+                            # Bug 1.1 fix: gateway đã chặn/hoãn (waiting_approval)
+                            # hoặc từ chối (denied/failed) hành động này — KHÔNG
+                            # được fabricate thành công giả cho model/RunResult.
+                            code = (
+                                RuntimeErrorCode.APPROVAL_REQUIRED
+                                if res_status == "waiting_approval"
+                                else RuntimeErrorCode.CAPABILITY_DENIED
+                            )
+                            raise AgentRuntimeError(
+                                code,
+                                f"Capability '{tool_name}' did not complete "
+                                f"(status={res_status}): {getattr(res, 'error_message', '') or ''}",
+                                details={"status": res_status, "tool_call_id": tool_call_id},
+                            ) from None
                         result = res.output_payload if hasattr(res, "output_payload") else res
         finally:
             reset_outbound_headers(headers_token)
@@ -577,20 +594,47 @@ class RealOpenAIAgentsSDKKernel:
             compliance_metadata = await self._compliance_resolver.resolve_for_run(dummy_req, spec)
             updates.update(compliance_metadata)
 
+        # Bug 1.5 fix — context của resume() trước đây chỉ là dict(updates),
+        # KHÔNG mang workspace_id/principal/conversation_id như context lúc
+        # kernel.run() (dòng ~419-424 ở trên). _execute_tool() đọc các field
+        # này từ context để build InvocationContext -> mọi tool call thực thi
+        # trong lúc resume chạy với workspace_id='' + principal='system' mặc
+        # định, khiến CapabilityGateway thật từ chối với lỗi tenancy unresolved.
+        # Bug này từng bị Bug 1.1 (fake-success khi gateway denied) che giấu —
+        # sau khi Bug 1.1 fail-closed đúng, action đã approve KHÔNG thực thi
+        # được nữa nếu thiếu fix này (P0: chặn toàn bộ resume-after-approval
+        # cho hành động rủi ro cao).
         context: dict[str, Any] = dict(updates)
+        context["workspace_id"] = run_record.workspace_id
+        context["principal"] = run_record.principal
+        context["correlation_id"] = correlation_id
+        context["conversation_id"] = run_record.conversation_id
+        # checkpoint_ref THẬT của lần resume này — thiếu field này khiến
+        # _execute_tool() fallback sang f"ckpt_{run_id}_{tool_call_id}" giả,
+        # lệch với checkpoint_ref approval record đã ghi lúc pause ban đầu.
+        # ApprovalGateDecider (gateway) coi đây là checkpoint_mismatch và tạo
+        # YÊU CẦU APPROVAL THỨ HAI cho cùng 1 tool call đã được duyệt.
+        context["checkpoint_ref"] = checkpoint_ref
         tools = self._build_tools(spec, run_id, context)
 
         agent = Agent(name=spec.id, instructions="", tools=tools, model=self._model)
 
         state = await RunState.from_json(agent, checkpoint.serialized_state)
 
-        approved_calls = updates.get("approved_tool_calls", {})
+        # Bug 1.2 fix — chỉ approved_tool_calls (per-call_id) mới có hiệu lực.
+        # Bỏ hẳn field "approved": True/False mơ hồ (từng approve/reject
+        # CHÉO mọi interruption khác đang pending trong cùng checkpoint, vi
+        # phạm CLAUDE.md rule 5). call_id vắng mặt trong approved_tool_calls =
+        # chưa có quyết định — để SDK tự re-interrupt (partial resolution
+        # native, xem resolve_interrupted_turn trong SDK).
+        decisions: dict[str, bool] = updates.get("approved_tool_calls", {})
         for interruption in state.get_interruptions():
             call_id = interruption.call_id
-            if call_id in approved_calls or updates.get("approved") is True:
-                state.approve(interruption)
-            elif updates.get("approved") is False:
-                state.reject(interruption)
+            if call_id in decisions:
+                if decisions[call_id]:
+                    state.approve(interruption)
+                else:
+                    state.reject(interruption)
 
         from opentelemetry import trace
 
@@ -672,6 +716,17 @@ class RealOpenAIAgentsSDKKernel:
             await self._repo.update_run_status(run_id, RunStatus.CANCELLED)
             await self._emit_event(run_id, "run.cancelled", {}, correlation_id)
             return RunResult(run_id=run_id, status=RunStatus.CANCELLED)
+        except AgentRuntimeError as err:
+            # Typed runtime failure (vd. gateway denied/waiting_approval bị lộ ra
+            # từ _execute_tool) — Run phải FAILED tường minh với error_details
+            # structured, không rơi vào nhánh Exception chung bên dưới (chỉ ghi
+            # error_type/error_hash, không có code/retryable/details).
+            error_details = err.to_error_details()
+            await self._repo.update_run_status(
+                run_id, status=RunStatus.FAILED, error_details=error_details
+            )
+            await self._emit_event(run_id, "run.failed", error_details, correlation_id)
+            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[err.message])
         except Exception as e:
             await self._repo.update_run_status(run_id, RunStatus.FAILED)
             # Exception từ Runner.run() có thể echo model output/tool result/prompt

@@ -333,7 +333,7 @@ async def execute_workspace_task_sweep_task(
     for t in claimable:
         task_id = str(t["taskId"])
         owner_profile = t.get("ownerAgentProfile") or "operations"
-        spec = _SPEC_BY_PROFILE.get(owner_profile, COSA_OPERATIONS_AGENT_SPEC)
+        spec = _SPEC_BY_PROFILE.get(owner_profile)
         # run_id mã hoá task_id để execute_resume_task khôi phục được task nào
         # cần advance(done) sau khi founder duyệt checkpoint (WGA #1).
         task_run_id = f"wga_task_{task_id}_{uuid.uuid4().hex[:8]}"
@@ -344,6 +344,26 @@ async def execute_workspace_task_sweep_task(
         adv_token = mint_company_delegation(
             sub=sub, workspace_id=workspace_id, run_id=task_run_id, capability_ids=caps
         )
+
+        if spec is None:
+            # Fail-closed: không có spec tường minh cho profile này thì KHÔNG
+            # được âm thầm chạy bằng Operations spec (đúng bug lịch sử đã sửa ở
+            # handlers.py::_AGENT_PROFILE_SPECS — wga_run.py trước đây chưa áp
+            # dụng cùng nguyên tắc).
+            logger.error(
+                "unsupported ownerAgentProfile %r for task=%s ws=%s, failing closed",
+                owner_profile, task_id, workspace_id,
+            )
+            await _advance_task(
+                plane,
+                workspace_id=workspace_id,
+                task_id=task_id,
+                to_status="blocked",
+                run_id=task_run_id,
+                token=adv_token,
+                note=f"unsupported_owner_agent_profile_{owner_profile}",
+            )
+            continue
 
         try:
             await plane.company_client.post(

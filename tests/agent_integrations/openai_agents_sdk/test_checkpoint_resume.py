@@ -10,12 +10,14 @@ Covers:
 
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
 
 pytest.importorskip("agents")
 
+from agent.capabilities.gateway import GatewayExecutionRequest, GatewayExecutionResult
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.run import RunRequest, RunStatus
@@ -187,11 +189,12 @@ async def test_checkpoint_resume_approval_rejected_path():
     assert result.status == RunStatus.WAITING_APPROVAL
     wait_desc = result.interruptions_waits[0]
 
-    # Resume with rejection
+    # Resume with rejection — approved_tool_calls (per-call_id) là API duy nhất
+    # có hiệu lực từ Bug 1.2 fix; field "approved": True/False blanket đã bị bỏ.
     resumed = await kernel.resume(
         result.run_id,
         wait_desc.checkpoint_ref,
-        {"approved": False},
+        {"approved_tool_calls": {call_id: False}},
     )
 
     # Tool handler must NOT have been executed
@@ -290,9 +293,11 @@ async def test_checkpoint_resume_fails_closed_when_pinned_spec_content_is_stale(
             spec_id=spec.id,
             version=spec.version,
             definition_hash=spec.definition_hash or spec.compute_hash(),
-            content=spec.model_dump(
-                mode="json", exclude={"model_input_capability_ref"}
-            ),
+            # "id" là field bắt buộc duy nhất không có default trên AgentSpec
+            # (model_input_capability_ref đã là str | None = None nên loại nó
+            # ra không còn tạo ValidationError) — exclude "id" để content thật
+            # sự thiếu field bắt buộc, mô phỏng đúng kịch bản stale/corrupt.
+            content=spec.model_dump(mode="json", exclude={"id"}),
             status="published",
         )
     )
@@ -301,11 +306,198 @@ async def test_checkpoint_resume_fails_closed_when_pinned_spec_content_is_stale(
     resumed = await kernel.resume(
         result.run_id,
         result.interruptions_waits[0].checkpoint_ref,
-        {"approved": True, "approved_tool_calls": {call_id: True}},
+        {"approved_tool_calls": {call_id: True}},
     )
 
     assert resumed.status == RunStatus.FAILED
     assert resumed.errors == ["PINNED_AGENT_SPEC_INVALID"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_run_fails_closed_when_gateway_denies_instead_of_fake_success():
+    """Bug 1.1: khi capability_executor thật (chữ ký GatewayExecutionRequest ->
+    GatewayExecutionResult, đường mà production dùng qua CapabilityGateway) trả
+    status != "completed" (denied/waiting_approval/failed), kernel KHÔNG được
+    fabricate {"status": "success", ...} — phải fail closed."""
+    repo = InMemoryRunRepository()
+    registry = CapabilityRegistry()
+    cap = CapabilitySpec(
+        id="finance.payout.execute",
+        description="Execute financial payout",
+        input_schema={
+            "type": "object",
+            "properties": {"amount": {"type": "number"}, "vendor": {"type": "string"}},
+            "required": ["amount", "vendor"],
+        },
+    )
+    registry.register(cap, lambda args: {})
+
+    async def capability_executor(req: GatewayExecutionRequest) -> GatewayExecutionResult:
+        # Chữ ký chỉ nhận 1 GatewayExecutionRequest -> gọi kiểu (tool_name, args,
+        # inv_ctx) và (tool_name, args) đều TypeError, buộc kernel rơi vào nhánh
+        # gateway thật (kernel.py dòng ~307-324) thay vì nhánh shim 2-arg.
+        return GatewayExecutionResult(
+            tool_call_id=req.tool_call_id,
+            status="denied",
+            error_message="blocked by ambient governance",
+        )
+
+    call_id = "call_payout_denied_1"
+    model = FakeSDKModel(
+        responses=[
+            tool_call_response(
+                call_id,
+                "finance.payout.execute",
+                arguments='{"amount": 500, "vendor": "Acme Corp"}',
+            ),
+        ]
+    )
+
+    kernel = RealOpenAIAgentsSDKKernel(
+        repository=repo,
+        capability_registry=registry,
+        capability_executor=capability_executor,
+        model=model,
+        policy_evaluator=lambda name, args, ctx=None: "ALLOW",
+    )
+    spec = _build_finance_spec()
+    request = _build_request(spec=spec)
+
+    result = await kernel.run(request, spec)
+
+    assert result.status == RunStatus.FAILED
+    assert result.final_output is None or "success" not in json.dumps(result.final_output)
+    run_record = await repo.get_run(result.run_id)
+    assert run_record.status == RunStatus.FAILED
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_resume_does_not_approve_other_pending_tool_call_in_same_checkpoint():
+    """Bug 1.2: 1 turn sinh 2 tool call cùng cần approval, cùng checkpoint_ref.
+    Duyệt tool call 1 KHÔNG được tự động chạy luôn tool call 2 chưa từng được
+    reviewer quyết định."""
+    from agents.models.interface import ModelResponse
+    from agents.usage import Usage
+    from openai.types.responses import ResponseFunctionToolCall
+
+    repo = InMemoryRunRepository()
+    registry = CapabilityRegistry()
+    cap = CapabilitySpec(
+        id="finance.payout.execute",
+        description="Execute financial payout",
+        input_schema={
+            "type": "object",
+            "properties": {"amount": {"type": "number"}, "vendor": {"type": "string"}},
+        },
+    )
+    registry.register(cap, lambda args: {})
+
+    executed_tools: list[dict] = []
+
+    async def capability_executor(tool_name: str, args: dict) -> dict:
+        executed_tools.append({"tool": tool_name, "args": args})
+        return {"status": "paid"}
+
+    call_id_1 = "call_multi_1"
+    call_id_2 = "call_multi_2"
+    two_calls_response = ModelResponse(
+        output=[
+            ResponseFunctionToolCall(
+                id="fc_1", call_id=call_id_1, name="finance.payout.execute",
+                arguments='{"amount": 100, "vendor": "Vendor A"}', type="function_call", status="completed",
+            ),
+            ResponseFunctionToolCall(
+                id="fc_2", call_id=call_id_2, name="finance.payout.execute",
+                arguments='{"amount": 200, "vendor": "Vendor B"}', type="function_call", status="completed",
+            ),
+        ],
+        usage=Usage(input_tokens=10, output_tokens=5, total_tokens=15),
+        response_id="resp_multi",
+    )
+    model = FakeSDKModel(responses=[two_calls_response, text_response("both handled")])
+
+    kernel = RealOpenAIAgentsSDKKernel(
+        repository=repo,
+        capability_registry=registry,
+        capability_executor=capability_executor,
+        model=model,
+        policy_evaluator=lambda name, args, ctx=None: "REQUIRE_APPROVAL",
+    )
+    spec = _build_finance_spec()
+    request = _build_request(spec=spec)
+
+    result = await kernel.run(request, spec)
+    assert result.status == RunStatus.WAITING_APPROVAL
+    assert len(result.interruptions_waits) == 2
+    ckpt_ref = result.interruptions_waits[0].checkpoint_ref
+    assert result.interruptions_waits[1].checkpoint_ref == ckpt_ref
+
+    # Duyệt CHỈ call_id_1
+    resumed = await kernel.resume(
+        result.run_id, ckpt_ref, {"approved_tool_calls": {call_id_1: True}}
+    )
+
+    assert len(executed_tools) == 1
+    assert executed_tools[0]["args"]["vendor"] == "Vendor A"
+    # call_id_2 vẫn pending — kernel phải re-interrupt, KHÔNG âm thầm bỏ qua
+    # hay tự chạy luôn.
+    assert resumed.status == RunStatus.WAITING_APPROVAL
+    remaining_call_ids = {w.related_ref for w in resumed.interruptions_waits}
+    assert any(f"appr_{result.run_id}_{call_id_2}" in ref for ref in remaining_call_ids)
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_resume_blanket_approved_flag_does_not_approve_other_pending_call():
+    """Bug 1.2 (kernel-level defense-in-depth): kernel.resume() không còn được
+    tin field "approved": True mơ hồ như "duyệt hết mọi interruption trong
+    checkpoint" — chỉ approved_tool_calls mới có hiệu lực. Gọi kernel.resume
+    trực tiếp với {"approved": True} (bỏ qua handlers.py — mô phỏng 1 caller
+    khác trong tương lai vô tình gửi field cũ) không được chạy tool call nào
+    chưa nằm trong approved_tool_calls."""
+    repo = InMemoryRunRepository()
+    registry = CapabilityRegistry()
+    cap = CapabilitySpec(
+        id="finance.payout.execute",
+        description="Execute financial payout",
+        input_schema={"type": "object", "properties": {}},
+    )
+    registry.register(cap, lambda args: {})
+
+    executed_tools: list[dict] = []
+
+    async def capability_executor(tool_name: str, args: dict) -> dict:
+        executed_tools.append({"tool": tool_name, "args": args})
+        return {"status": "paid"}
+
+    call_id = "call_blanket_flag_1"
+    model = FakeSDKModel(
+        responses=[
+            tool_call_response(
+                call_id, "finance.payout.execute", arguments='{"amount": 500, "vendor": "Acme"}'
+            ),
+        ]
+    )
+    kernel = RealOpenAIAgentsSDKKernel(
+        repository=repo,
+        capability_registry=registry,
+        capability_executor=capability_executor,
+        model=model,
+        policy_evaluator=lambda name, args, ctx=None: "REQUIRE_APPROVAL",
+    )
+    spec = _build_finance_spec()
+    result = await kernel.run(_build_request(spec=spec), spec)
+    assert result.status == RunStatus.WAITING_APPROVAL
+    wait_desc = result.interruptions_waits[0]
+
+    resumed = await kernel.resume(
+        result.run_id, wait_desc.checkpoint_ref, {"approved": True}
+    )
+
+    assert len(executed_tools) == 0
+    assert resumed.status == RunStatus.WAITING_APPROVAL
 
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")

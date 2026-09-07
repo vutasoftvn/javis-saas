@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from agent.contracts.run import RunStatus
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.registry.repository import InMemorySpecRegistryRepository, SpecDependencyMissingError
@@ -17,6 +19,7 @@ from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.worker.handlers import execute_resume_task, execute_run_task
 from tests.apps.cosa.policy_test_helpers import (
+    allow_all_policy_snapshot,
     configure_mock_client_allows_data_use,
     fake_active_tenant_policy_client,
 )
@@ -290,6 +293,194 @@ async def test_tenant_policy_error_is_not_sent_to_client():
 
 
 @pytest.mark.asyncio
+async def test_resume_scopes_approval_to_tool_call_id_not_blanket():
+    """Bug 1.2: trước fix, execute_resume_task luôn gửi {"approved": True} vô
+    điều kiện xuống kernel.resume — approve chéo MỌI tool call khác đang
+    pending trong cùng checkpoint, không chỉ tool call vừa được duyệt. Payload
+    resume phải scope đúng qua approved_tool_calls={tool_call_id: True}.
+
+    Bug 1.3's verify_and_prepare_resume() giờ chạy trước kernel.resume nên cần
+    seed Run/ToolCall/Checkpoint/Approval thật (cùng pattern với
+    test_resume_blocked_when_tenant_suspended_via_verify_and_prepare_resume)
+    để verification không fail-closed vì thiếu record."""
+    from agent.runs.models import (
+        RunApprovalRecord,
+        RunCheckpointRecord,
+        RunRecord,
+        RunToolCallRecord,
+    )
+
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    stream_mgr = CosaEventStreamManager()
+    plane.kernel.resume = AsyncMock(
+        return_value=SimpleNamespace(
+            run_id="run_resume_scoped_1",
+            status=RunStatus.COMPLETED,
+            final_output=None,
+            errors=[],
+            usage=None,
+        )
+    )
+
+    run_id = "run_resume_scoped_1"
+    checkpoint_ref = "checkpoint_1"
+    tool_call_id = "tc_scoped_call"
+
+    await plane.repository.create_run(
+        RunRecord(
+            run_id=run_id,
+            workspace_id="ws_1",
+            principal="user_1",
+            root_executable_id="cosa.agents.operations",
+        )
+    )
+    await plane.repository.save_tool_call(
+        RunToolCallRecord(
+            tool_call_id=tool_call_id,
+            run_id=run_id,
+            checkpoint_ref=checkpoint_ref,
+            capability_id="finance.accounting_document.confirm",
+            payload_hash="hash1",
+        )
+    )
+    await plane.repository.save_checkpoint(
+        RunCheckpointRecord(checkpoint_ref=checkpoint_ref, run_id=run_id, sequence_no=1, serialized_state={})
+    )
+    await plane.repository.create_approval(
+        RunApprovalRecord(
+            approval_id="appr_scoped_1",
+            run_id=run_id,
+            tool_call_id=tool_call_id,
+            checkpoint_ref=checkpoint_ref,
+            status="approved",
+            action="finance.accounting_document.confirm",
+        )
+    )
+
+    payload = {
+        "run_id": run_id,
+        "checkpoint_ref": checkpoint_ref,
+        "conversation_id": "conv_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "operations",
+        "delegation_token": "fake-token",
+        "tool_call_id": tool_call_id,
+        "approval_id": "appr_scoped_1",
+    }
+    await execute_resume_task(plane, stream_mgr, payload)
+
+    plane.kernel.resume.assert_awaited_once()
+    call = plane.kernel.resume.await_args
+    updates = call.kwargs["updates"]
+    assert updates.get("approved_tool_calls") == {"tc_scoped_call": True}
+    assert "approved" not in updates
+
+
+@pytest.mark.asyncio
+async def test_resume_fails_closed_when_tool_call_id_missing():
+    """Không có tool_call_id trong payload -> KHÔNG được fallback về blanket
+    approve; phải fail-closed và không gọi kernel.resume."""
+    plane = _plane()
+    stream_mgr = CosaEventStreamManager()
+    plane.kernel.resume = AsyncMock()
+
+    payload = {
+        "run_id": "run_resume_missing_tcid",
+        "checkpoint_ref": "checkpoint_1",
+        "conversation_id": "conv_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "operations",
+        "delegation_token": "fake-token",
+    }
+    await execute_resume_task(plane, stream_mgr, payload)
+
+    plane.kernel.resume.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_resume_blocked_when_tenant_suspended_via_verify_and_prepare_resume():
+    """Bug 1.3: DurableApprovalService.verify_and_prepare_resume() (kiểm tenant
+    suspend/principal revoked/drift trước resume) trước đây là dead code —
+    không ai gọi trên đường resume thật. Dùng service THẬT (không mock) — nếu
+    workspace đã bị suspend giữa lúc approve và lúc resume thật sự chạy,
+    kernel.resume KHÔNG được gọi."""
+    from agent.runs.models import (
+        RunApprovalRecord,
+        RunCheckpointRecord,
+        RunRecord,
+        RunToolCallRecord,
+    )
+
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    stream_mgr = CosaEventStreamManager()
+    plane.kernel.resume = AsyncMock()
+
+    run_id = "run_resume_suspended_1"
+    tool_call_id = "tc_suspended_1"
+    checkpoint_ref = "ckpt_suspended_1"
+
+    await plane.repository.create_run(
+        RunRecord(
+            run_id=run_id,
+            workspace_id="ws_1",
+            principal="user_1",
+            root_executable_id="cosa.agents.operations",
+        )
+    )
+    await plane.repository.save_tool_call(
+        RunToolCallRecord(
+            tool_call_id=tool_call_id,
+            run_id=run_id,
+            checkpoint_ref=checkpoint_ref,
+            capability_id="finance.accounting_document.confirm",
+            payload_hash="hash1",
+        )
+    )
+    await plane.repository.save_checkpoint(
+        RunCheckpointRecord(checkpoint_ref=checkpoint_ref, run_id=run_id, sequence_no=1, serialized_state={})
+    )
+    approval = RunApprovalRecord(
+        approval_id="appr_suspended_1",
+        run_id=run_id,
+        tool_call_id=tool_call_id,
+        checkpoint_ref=checkpoint_ref,
+        status="approved",
+        action="finance.accounting_document.confirm",
+    )
+    await plane.repository.create_approval(approval)
+
+    suspended_snapshot = allow_all_policy_snapshot()
+    suspended_snapshot.workspace_status = "suspended"
+    plane.tenant_policy_client.get_snapshot = AsyncMock(return_value=suspended_snapshot)
+
+    payload = {
+        "run_id": run_id,
+        "checkpoint_ref": checkpoint_ref,
+        "conversation_id": "conv_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "operations",
+        "delegation_token": "fake-token",
+        "tool_call_id": tool_call_id,
+        "approval_id": approval.approval_id,
+    }
+    await execute_resume_task(plane, stream_mgr, payload)
+
+    plane.kernel.resume.assert_not_awaited()
+    visible_text = await _all_client_visible_text(
+        plane, run_id=run_id, conversation_id=payload["conversation_id"]
+    )
+    assert "resume_verification_failed" in visible_text
+
+
+@pytest.mark.asyncio
 async def test_resume_tenant_policy_error_is_not_sent_to_client():
     """Final-review Finding 2 — second, structurally identical
     `CosaTenantPolicyError` branch in `execute_resume_task` (resume-after-
@@ -314,6 +505,7 @@ async def test_resume_tenant_policy_error_is_not_sent_to_client():
         "workspace_id": "ws_1",
         "agent_profile": "operations",
         "delegation_token": "fake-token",
+        "tool_call_id": "tc_policy_error_test",
     }
     await execute_resume_task(plane, stream_mgr, payload)
 

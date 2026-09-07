@@ -980,6 +980,11 @@ async def decide_approval(
                     "conversation_id": resume_conversation_id,
                     "workspace_id": run_record.workspace_id if run_record else None,
                     "delegation_token": control_plane_delegation_token,
+                    # Bug 1.2 fix — scope resume đúng 1 tool_call_id, không
+                    # blanket "approved": True (approve nhầm mọi tool call
+                    # khác đang pending trong cùng checkpoint).
+                    "tool_call_id": decided.tool_call_id,
+                    "approval_id": approval_id,
                 },
             )
 

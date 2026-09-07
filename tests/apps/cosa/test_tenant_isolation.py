@@ -4,15 +4,15 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.leases import RunLeaseManager
-from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
+
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -125,6 +125,49 @@ async def test_tenant_b_cannot_cancel_or_read_events_of_tenant_a_run(test_app):
 
 
 @pytest.mark.asyncio
+async def test_decide_approval_dispatches_resume_scoped_to_tool_call_id(test_app):
+    """Bug 1.2: decide_approval trước đây dispatch resume chỉ với run_id +
+    checkpoint_ref, KHÔNG có tool_call_id — khiến handlers.py phải dùng
+    approved:True (blanket), approve nhầm mọi tool call khác đang pending
+    trong cùng checkpoint. Payload dispatch phải mang đúng tool_call_id của
+    approval vừa quyết định."""
+    override_authenticated_identity(test_app, workspace_id="ws_a")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        plane = test_app.state.plane
+        from agent.runs.models import RunRecord
+
+        run = RunRecord(
+            company_id="ws_a",
+            workspace_id="ws_a",
+            principal="user:test_user",
+            root_executable_id="test-spec",
+        )
+        await plane.repository.create_run(run)
+
+        approval, _wait_desc = await plane.approval_service.create_approval_request(
+            run_id=run.run_id,
+            tool_call_id="tc_target_call",
+            checkpoint_ref="ckpt_shared_1",
+            requirement={"risk_level": "high"},
+            requester="user:test_user",
+            action="finance.payout.execute",
+            subject="Acme Corp",
+        )
+
+        res_decide = await ac.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": True},
+        )
+        assert res_decide.status_code == 200
+
+        due = await plane.scheduler.poll_due_tasks()
+        resume_tasks = [t for t in due if t.target_spec_id == "cosa.resume"]
+        assert len(resume_tasks) == 1
+        assert resume_tasks[0].input_payload.get("tool_call_id") == "tc_target_call"
+        assert resume_tasks[0].input_payload.get("approval_id") == approval.approval_id
+
+
+@pytest.mark.asyncio
 async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
     """approval_id không tự mang tenant scope — phải tra run liên kết trước
     khi cho quyết định (xem _get_owned_run_or_404 trong routes.py)."""
@@ -173,11 +216,11 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
 
     import jwt as pyjwt
 
-    from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
     from apps.cosa.auth.dependency import (
         get_authenticated_identity,
         set_workspace_tenant_context_client,
     )
+    from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
 
     SECRET = (
         os.environ.get("PLATFORM_JWT_SECRET")

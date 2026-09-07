@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from agent.capabilities.gateway import CapabilityGateway
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
@@ -84,14 +83,205 @@ async def test_kernel_approval_pause_and_resume():
     # 2. Decide approval
     await repo.decide_approval(appr_id, reviewer="founder_1", approved=True)
 
-    # 3. Resume với checkpoint_ref
+    # 3. Resume với checkpoint_ref — approved_tool_calls (per-call_id) là API
+    # duy nhất có hiệu lực từ Bug 1.2 fix; field "approved": True blanket đã
+    # bị bỏ (approve chéo mọi pending call khác trong cùng checkpoint).
+    call_id = appr_record.tool_call_id
     resumed = await kernel.resume(
         run_id=result.run_id,
         checkpoint_ref=ckpt_ref,
-        updates={"approved": True},
+        updates={"approved_tool_calls": {call_id: True}},
     )
 
     assert resumed.status == RunStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_kernel_resume_fails_closed_instead_of_crashing_when_gateway_denies():
+    """Bug 1.1 (resume path): resume()'s tool-execution loop (dòng ~280) trước
+    đây KHÔNG bọc try/except AgentRuntimeError như _execute_reasoning_loop —
+    một gateway denial trong lúc resume làm crash cả task thay vì trả về
+    RunResult FAILED có cấu trúc."""
+    repo = InMemoryRunRepository()
+
+    registry = CapabilityRegistry()
+    payout_spec = CapabilitySpec(
+        id="finance.payout.execute",
+        risk=CapabilityRisk.HIGH,
+        input_schema={"type": "object", "properties": {}},
+    )
+
+    def failing_handler(payload, ctx):
+        raise RuntimeError("connector grant revoked between approval and resume")
+
+    registry.register(payout_spec, failing_handler)
+    gateway = CapabilityGateway(registry=registry, repository=repo)
+
+    kernel = ManualToolLoopKernel(
+        repository=repo, capability_executor=gateway.execute, model_client=MockToolLoopModelClient()
+    )
+
+    spec = AgentSpec(
+        id="finance_agent_resume_denied",
+        instructions="Handle payouts.",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
+    request = RunRequest(
+        principal="finance_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "Transfer $1,000 to vendor_1"},
+    )
+
+    result = await kernel.run(request, spec)
+    assert result.status == RunStatus.WAITING_APPROVAL
+    wait = result.interruptions_waits[0]
+    tool_calls = await repo.list_tool_calls(result.run_id)
+    call_id = tool_calls[0].tool_call_id
+
+    resumed = await kernel.resume(
+        run_id=result.run_id,
+        checkpoint_ref=wait.checkpoint_ref,
+        updates={"approved_tool_calls": {call_id: True}},
+    )
+
+    assert resumed.status == RunStatus.FAILED
+
+
+@pytest.mark.asyncio
+async def test_kernel_resume_does_not_cross_approve_other_pending_call():
+    """Bug 1.2 (ManualToolLoopKernel): 2 tool call cùng pending trong 1
+    checkpoint. Duyệt call_1 KHÔNG được tự động chạy luôn call_2 (trước đây
+    `updates.get("approved") is True` là blanket, approve mọi pending call)."""
+    from agent.kernel.openai_agents_kernel import KernelRunState
+    from agent.runs.models import RunApprovalRecord, RunCheckpointRecord, RunRecord
+
+    repo = InMemoryRunRepository()
+
+    executed: list[dict] = []
+
+    async def capability_executor(tool_name, args, ctx=None):
+        executed.append({"tool": tool_name, "args": args})
+        return {"status": "success"}
+
+    kernel = ManualToolLoopKernel(
+        repository=repo, capability_executor=capability_executor, model_client=MockToolLoopModelClient()
+    )
+
+    run_id = "run_multi_pending_1"
+    await repo.create_run(
+        RunRecord(
+            run_id=run_id,
+            principal="test_user",
+            root_executable_id="test.agent.multi_pending",
+            root_executable_version="1.0.0",
+        )
+    )
+
+    call_id_1, call_id_2 = "call_p_1", "call_p_2"
+    state = KernelRunState(
+        run_id=run_id,
+        messages=[{"role": "user", "content": "do two things"}],
+        pending_tool_calls=[
+            {"id": call_id_1, "name": "finance.payout.execute", "arguments": '{"vendor": "A"}'},
+            {"id": call_id_2, "name": "finance.payout.execute", "arguments": '{"vendor": "B"}'},
+        ],
+        completed_tool_calls=[],
+        context={},
+        step_index=1,
+    )
+    ckpt_ref = f"ckpt_{run_id}_1"
+    await repo.save_checkpoint(
+        RunCheckpointRecord(checkpoint_ref=ckpt_ref, run_id=run_id, sequence_no=1, serialized_state=state.to_dict())
+    )
+    for cid in (call_id_1, call_id_2):
+        await repo.create_approval(
+            RunApprovalRecord(
+                approval_id=f"appr_{run_id}_{cid}",
+                run_id=run_id,
+                tool_call_id=cid,
+                checkpoint_ref=ckpt_ref,
+                status="pending",
+                action="finance.payout.execute",
+            )
+        )
+
+    resumed = await kernel.resume(
+        run_id=run_id, checkpoint_ref=ckpt_ref, updates={"approved_tool_calls": {call_id_1: True}}
+    )
+
+    assert len(executed) == 1
+    assert executed[0]["args"]["vendor"] == "A"
+    assert resumed.status == RunStatus.WAITING_APPROVAL
+    remaining_call_ids = {w.related_ref for w in resumed.interruptions_waits}
+    assert f"appr_{run_id}_{call_id_2}" in remaining_call_ids
+
+    appr_2 = await repo.get_approval(f"appr_{run_id}_{call_id_2}")
+    assert appr_2.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_kernel_resume_blanket_approved_flag_does_not_approve_other_pending_call():
+    """Bug 1.2 (ManualToolLoopKernel, defense-in-depth — đồng bộ với
+    RealOpenAIAgentsSDKKernel): kernel.resume() không còn được tin field
+    "approved": True mơ hồ như "duyệt hết mọi pending call trong checkpoint" —
+    chỉ approved_tool_calls mới có hiệu lực. Gọi kernel.resume trực tiếp với
+    {"approved": True} (mô phỏng 1 caller khác trong tương lai vô tình gửi
+    field cũ) không được chạy tool call nào chưa nằm trong approved_tool_calls."""
+    from agent.kernel.openai_agents_kernel import KernelRunState
+    from agent.runs.models import RunApprovalRecord, RunCheckpointRecord, RunRecord
+
+    repo = InMemoryRunRepository()
+
+    executed: list[dict] = []
+
+    async def capability_executor(tool_name, args, ctx=None):
+        executed.append({"tool": tool_name, "args": args})
+        return {"status": "success"}
+
+    kernel = ManualToolLoopKernel(
+        repository=repo, capability_executor=capability_executor, model_client=MockToolLoopModelClient()
+    )
+
+    run_id = "run_blanket_flag_1"
+    await repo.create_run(
+        RunRecord(
+            run_id=run_id,
+            principal="test_user",
+            root_executable_id="test.agent.blanket_flag",
+            root_executable_version="1.0.0",
+        )
+    )
+
+    call_id = "call_blanket_1"
+    state = KernelRunState(
+        run_id=run_id,
+        messages=[{"role": "user", "content": "do one thing"}],
+        pending_tool_calls=[
+            {"id": call_id, "name": "finance.payout.execute", "arguments": '{"vendor": "A"}'},
+        ],
+        completed_tool_calls=[],
+        context={},
+        step_index=1,
+    )
+    ckpt_ref = f"ckpt_{run_id}_1"
+    await repo.save_checkpoint(
+        RunCheckpointRecord(checkpoint_ref=ckpt_ref, run_id=run_id, sequence_no=1, serialized_state=state.to_dict())
+    )
+    await repo.create_approval(
+        RunApprovalRecord(
+            approval_id=f"appr_{run_id}_{call_id}",
+            run_id=run_id,
+            tool_call_id=call_id,
+            checkpoint_ref=ckpt_ref,
+            status="pending",
+            action="finance.payout.execute",
+        )
+    )
+
+    resumed = await kernel.resume(run_id=run_id, checkpoint_ref=ckpt_ref, updates={"approved": True})
+
+    assert len(executed) == 0
+    assert resumed.status == RunStatus.WAITING_APPROVAL
 
 
 @pytest.mark.asyncio
@@ -192,7 +382,7 @@ class _CapturingModelClient:
         self.captured_messages: list[dict] = []
 
     class _Completions:
-        def __init__(self, outer: "_CapturingModelClient") -> None:
+        def __init__(self, outer: _CapturingModelClient) -> None:
             self._outer = outer
 
         async def create(self, model="deepseek-chat", messages=None, temperature=0.0, **kwargs):
@@ -214,7 +404,7 @@ class _CapturingModelClient:
     @property
     def chat(self):
         class _Chat:
-            def __init__(self, outer: "_CapturingModelClient") -> None:
+            def __init__(self, outer: _CapturingModelClient) -> None:
                 self.completions = _CapturingModelClient._Completions(outer)
 
         return _Chat(self)
@@ -295,6 +485,50 @@ async def test_kernel_allow_path_tool_execution_preserves_real_run_and_tool_call
     assert len(tool_calls) == 1
     assert tool_calls[0].run_id == result.run_id  # KHÔNG phải "run_tool_xxxxxxxx" ngẫu nhiên
     assert tool_calls[0].status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_kernel_fails_closed_when_gateway_denies_instead_of_fake_success():
+    """Bug 1.1 (ManualToolLoopKernel): policy_evaluator/decision ở kernel là ALLOW
+    (LOW risk, không cần approval), nhưng CapabilityGateway THẬT lại từ chối/thất
+    bại khi thực thi — trước fix, _execute_tool trả res.output_payload nguyên
+    trạng (None nếu handler raise, không set) mà không kiểm res.status, khiến
+    reasoning loop tưởng tool đã chạy thành công."""
+    repo = InMemoryRunRepository()
+
+    registry = CapabilityRegistry()
+    read_spec = CapabilitySpec(
+        id="operations.task.list",
+        risk=CapabilityRisk.LOW,
+        input_schema={"type": "object", "properties": {}},
+    )
+
+    def failing_handler(payload, ctx):
+        raise RuntimeError("connector grant revoked")
+
+    registry.register(read_spec, failing_handler)
+    gateway = CapabilityGateway(registry=registry, repository=repo)
+
+    kernel = ManualToolLoopKernel(
+        repository=repo, capability_executor=gateway.execute, model_client=MockToolLoopModelClient()
+    )
+
+    spec = AgentSpec(
+        id="test.agent.gateway_denied_1",
+        version="1.0.0",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "List operations tasks please"},
+    )
+
+    result = await kernel.run(request, spec)
+
+    assert result.status == RunStatus.FAILED
+    tool_calls = await repo.list_tool_calls(result.run_id)
+    assert tool_calls[0].status == "failed"
 
 
 @pytest.mark.asyncio
