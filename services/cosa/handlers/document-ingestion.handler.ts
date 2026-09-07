@@ -171,7 +171,10 @@ export const completeDocumentIngestionUploadEndpoint = api(
 );
 
 // Internal helper to sanitize records before returning to public callers
-// NEVER expose originalObjectKey to public callers
+// NEVER expose originalObjectKey or claimToken to public callers — both are
+// worker-fencing internals (Task 1, ADR-LOCAL-FIRST-001): a public caller
+// that learned another actor's claimToken could forge worker-authenticated
+// transitions for that ingestion.
 function sanitizeRecordForPublic(record: ingestionSvc.DocumentIngestionRecord): any {
   return {
     id: record.id,
@@ -188,10 +191,9 @@ function sanitizeRecordForPublic(record: ingestionSvc.DocumentIngestionRecord): 
     converterSpecId: record.converterSpecId,
     manifestJson: record.manifestJson,
     failureCode: record.failureCode,
-    claimToken: record.claimToken,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
-    // NOTE: originalObjectKey is intentionally NOT included
+    // NOTE: originalObjectKey and claimToken are intentionally NOT included
   };
 }
 

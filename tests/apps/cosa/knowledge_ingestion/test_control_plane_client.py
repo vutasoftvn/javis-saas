@@ -1,6 +1,6 @@
-"""Tests cho DocumentIngestionControlPlaneClient — test lớp REAL, không AsyncMock.
+"""Tests cho LocalDocumentIngestionClient — test lớp REAL, không AsyncMock.
 
-Các test này verify rằng DocumentIngestionControlPlaneClient:
+Các test này verify rằng LocalDocumentIngestionClient:
 1. Makes correct HTTP POST calls tới control plane endpoints
 2. Builds proper request bodies với headers auth
 3. Parses successful responses (200, 202)
@@ -21,16 +21,16 @@ import httpx
 import pytest
 
 from apps.cosa.knowledge_ingestion.control_plane_client import (
-    DocumentIngestionControlPlaneClient,
+    LocalDocumentIngestionClient,
 )
 
 
-def _client_with_transport(handler) -> DocumentIngestionControlPlaneClient:
+def _client_with_transport(handler) -> LocalDocumentIngestionClient:
     """Tạo client với mock HTTP transport."""
     transport = httpx.MockTransport(handler)
     inner = httpx.AsyncClient(transport=transport)
-    return DocumentIngestionControlPlaneClient(
-        control_plane_url="http://control-plane.internal",
+    return LocalDocumentIngestionClient(
+        execution_plane_url="http://control-plane.internal",
         worker_service_token="test-token-12345",
         http_client=inner,
     )
@@ -376,8 +376,8 @@ async def test_mark_rejected_http_error():
 @pytest.mark.asyncio
 async def test_connection_error_on_claim_for_conversion():
     """Network error → httpx.ConnectError (not caught, propagates)."""
-    client = DocumentIngestionControlPlaneClient(
-        control_plane_url="http://127.0.0.1:59999"  # Port không có ai nghe
+    client = LocalDocumentIngestionClient(
+        execution_plane_url="http://127.0.0.1:59999"  # Port không có ai nghe
     )
 
     with pytest.raises(httpx.ConnectError):
@@ -387,8 +387,8 @@ async def test_connection_error_on_claim_for_conversion():
 @pytest.mark.asyncio
 async def test_connection_error_on_record_candidate():
     """Network error → httpx.ConnectError."""
-    client = DocumentIngestionControlPlaneClient(
-        control_plane_url="http://127.0.0.1:59999"
+    client = LocalDocumentIngestionClient(
+        execution_plane_url="http://127.0.0.1:59999"
     )
 
     with pytest.raises(httpx.ConnectError):
@@ -398,8 +398,8 @@ async def test_connection_error_on_record_candidate():
 @pytest.mark.asyncio
 async def test_connection_error_on_mark_rejected():
     """Network error → httpx.ConnectError."""
-    client = DocumentIngestionControlPlaneClient(
-        control_plane_url="http://127.0.0.1:59999"
+    client = LocalDocumentIngestionClient(
+        execution_plane_url="http://127.0.0.1:59999"
     )
 
     with pytest.raises(httpx.ConnectError):
@@ -420,8 +420,8 @@ async def test_uses_provided_http_client():
 
     transport = httpx.MockTransport(handler)
     inner = httpx.AsyncClient(transport=transport)
-    client = DocumentIngestionControlPlaneClient(
-        control_plane_url="http://control-plane.internal",
+    client = LocalDocumentIngestionClient(
+        execution_plane_url="http://control-plane.internal",
         worker_service_token="token-abc",
         http_client=inner,
     )
@@ -437,8 +437,8 @@ async def test_creates_temporary_client_when_none_provided():
     """Nếu http_client=None, một client tạm thời được tạo cho mỗi gọi."""
     # Không thể easily test with MockTransport nếu không có client,
     # nhưng verify constructor logic không crash
-    client = DocumentIngestionControlPlaneClient(
-        control_plane_url="http://127.0.0.1:9999",
+    client = LocalDocumentIngestionClient(
+        execution_plane_url="http://127.0.0.1:9999",
         worker_service_token="token-123",
     )
 
@@ -458,8 +458,8 @@ async def test_authorization_header_set_from_worker_service_token():
 
     transport = httpx.MockTransport(handler)
     inner = httpx.AsyncClient(transport=transport)
-    client = DocumentIngestionControlPlaneClient(
-        control_plane_url="http://control-plane.internal",
+    client = LocalDocumentIngestionClient(
+        execution_plane_url="http://control-plane.internal",
         worker_service_token="my-secret-token-xyz",
         http_client=inner,
     )
@@ -470,9 +470,11 @@ async def test_authorization_header_set_from_worker_service_token():
 
 
 @pytest.mark.asyncio
-async def test_uses_default_control_plane_url_if_not_provided(monkeypatch):
-    """Nếu control_plane_url không cho, resolve_platform_control_plane_url() được gọi."""
-    monkeypatch.setenv("COSA_PLATFORM_CONTROL_PLANE_URL", "http://resolved-url.internal")
+async def test_uses_default_execution_plane_url_if_not_provided(monkeypatch):
+    """Nếu execution_plane_url không cho, resolve_execution_plane_url() được gọi
+    (Task 1 — ADR-LOCAL-FIRST-001: KHÔNG BAO GIỜ resolve platform control-plane URL)."""
+    monkeypatch.setenv("COSA_EXECUTION_PLANE_URL", "http://resolved-url.internal")
+    monkeypatch.setenv("COSA_PLATFORM_CONTROL_PLANE_URL", "http://platform-should-not-be-used.internal")
 
     captured = {}
 
@@ -483,14 +485,14 @@ async def test_uses_default_control_plane_url_if_not_provided(monkeypatch):
     transport = httpx.MockTransport(handler)
     inner = httpx.AsyncClient(transport=transport)
 
-    client = DocumentIngestionControlPlaneClient(
+    client = LocalDocumentIngestionClient(
         http_client=inner,
         worker_service_token="token",
     )
 
     await client.claim_for_conversion("ing_123", "claim_token")
 
-    # URL should use resolved value
+    # URL should use resolved execution-plane value, never the platform one
     assert "http://resolved-url.internal" in captured["url"]
 
 

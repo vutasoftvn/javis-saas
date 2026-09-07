@@ -25,7 +25,7 @@ from apps.cosa.knowledge_ingestion.contracts import (
     knowledge_ingestion_enabled,
 )
 from apps.cosa.knowledge_ingestion.control_plane_client import (
-    DocumentIngestionControlPlaneClient,
+    LocalDocumentIngestionClient,
 )
 from apps.cosa.knowledge_ingestion.conversion_sandbox import (
     DocumentConversionSandbox,
@@ -88,7 +88,7 @@ async def execute_knowledge_ingestion_task(
     scanner: DocumentMalwareScanner | None = None,
     sandbox: DocumentConversionSandbox | None = None,
     knowledge_service: KnowledgeIngestionService | None = None,
-    control_plane_client: DocumentIngestionControlPlaneClient | None = None,
+    control_plane_client: LocalDocumentIngestionClient | None = None,
 ) -> None:
     """Execute knowledge ingestion for a single scheduled task.
 
@@ -169,7 +169,7 @@ async def execute_knowledge_ingestion_task(
         knowledge_service = KnowledgeIngestionService()
 
     if control_plane_client is None:
-        control_plane_client = DocumentIngestionControlPlaneClient()
+        control_plane_client = LocalDocumentIngestionClient()
 
     failure_code: FailureCode | None = None
     # Khởi tạo sớm để metric luôn phát được kể cả khi claim fail trước khi có metadata.

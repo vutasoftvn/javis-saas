@@ -1,6 +1,10 @@
-"""Control plane client for document ingestion state management.
+"""Local execution-plane client for document ingestion state management.
 
-Lệnh gọi từ worker (apps/cosa) đến control plane (services/cosa) để:
+Lệnh gọi từ worker (apps/cosa) đến `services/cosa` document-ingestion handler
+— theo ADR-LOCAL-FIRST-001, đây là orchestration CHẠY TRÊN Workspace Runtime
+Node (execution plane), không phải VPS Platform Control Plane
+(identity/license/connector policy). Client này KHÔNG BAO GIỜ được resolve
+`COSA_PLATFORM_CONTROL_PLANE_URL`:
 - Claim ingestion cho conversion (QUEUED → VALIDATING)
 - Record candidate sau khi normalized (VALIDATING → REVIEW_PENDING + set knowledge_source_id)
 - Mark rejected hoặc failed (terminal states + failure_code)
@@ -15,29 +19,30 @@ from typing import get_args
 
 import httpx
 
-from apps.cosa.config.planes import resolve_platform_control_plane_url
+from apps.cosa.config.planes import resolve_execution_plane_url
 from apps.cosa.knowledge_ingestion.contracts import FailureCode
 
-__all__ = ["DocumentIngestionControlPlaneClient"]
+__all__ = ["LocalDocumentIngestionClient"]
 
 
-class DocumentIngestionControlPlaneClient:
-    """Client for document ingestion orchestration via services/cosa."""
+class LocalDocumentIngestionClient:
+    """Client for document ingestion orchestration on the local execution plane."""
 
     def __init__(
         self,
-        control_plane_url: str | None = None,
+        execution_plane_url: str | None = None,
         worker_service_token: str | None = None,
         http_client: httpx.AsyncClient | None = None,
     ):
-        """Initialize control plane client.
+        """Initialize the local execution-plane client.
 
         Args:
-            control_plane_url: Base URL of services/cosa (default via resolve_platform_control_plane_url()).
+            execution_plane_url: Base URL of services/cosa on the local
+                Workspace Runtime Node (default via resolve_execution_plane_url()).
             worker_service_token: Worker service auth token (default from COSA_WORKER_SERVICE_TOKEN env).
             http_client: Optional reusable AsyncClient; if None, creates one for each call.
         """
-        self.control_plane_url = control_plane_url or resolve_platform_control_plane_url()
+        self.base_url = (execution_plane_url or resolve_execution_plane_url()).rstrip("/")
         self.worker_service_token = worker_service_token or os.environ.get(
             "COSA_WORKER_SERVICE_TOKEN", ""
         )
@@ -63,7 +68,7 @@ class DocumentIngestionControlPlaneClient:
         Raises:
             ValueError: On HTTP error or invalid response
         """
-        url = f"{self.control_plane_url}{path}"
+        url = f"{self.base_url}{path}"
         headers = {"Authorization": f"Bearer {self.worker_service_token}"}
 
         client = self._http_client

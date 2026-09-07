@@ -371,8 +371,10 @@ describe("Document Ingestion Lifecycle", () => {
       expect(completed.detectedMediaType).toBe("text/markdown");
       expect(completed.sizeBytes).toBe(2048);
       expect(completed.sourceSha256).toBe("abc123def456");
-      // Verify private field is NOT exposed
+      // Verify private fields are NOT exposed (Task 1 — claimToken is a
+      // worker-fencing internal, same sensitivity class as originalObjectKey)
       expect(completed.originalObjectKey).toBeUndefined();
+      expect(completed.claimToken).toBeUndefined();
     });
 
     it("persists object details and creates audit events for both transitions", async () => {
@@ -682,6 +684,41 @@ describe("Document Ingestion Lifecycle", () => {
       // In real scenario, verifyWorkspaceMembership would throw permissionDenied
       const record = await getDocumentIngestion(created.id);
       expect(record).toBeDefined();
+    });
+  });
+
+  describe("Public response never exposes worker fencing fields (Task 1)", () => {
+    it("transitionDocumentIngestionForWorkerEndpoint response has no claimToken", async () => {
+      const created = await createDocumentIngestion({
+        workspaceId: "ws-test-1",
+        createdBy: "user-alice",
+        originalFilename: "document.md",
+        declaredMediaType: "text/markdown",
+        idempotencyKey: "sanitize-transition-1",
+      });
+      const completed = await completeUpload({
+        ingestionId: created.id,
+        actorId: "broker",
+        detectedMediaType: "text/markdown",
+        sizeBytes: 1024,
+        sourceSha256: "abc123",
+        objectKey: "quarantine/ws-test-1/ing_xxx",
+      });
+
+      const workerToken = signWorkerServiceToken("worker-1");
+      const transitioned = await transitionDocumentIngestionForWorkerEndpoint({
+        ingestionId: completed.id,
+        claimToken: "claim-token-sanitize-1",
+        expectedStates: ["QUEUED"],
+        nextState: "VALIDATING",
+        patch: {},
+        authorization: `Bearer ${workerToken}`,
+      });
+
+      // originalObjectKey stays worker-only (needed for object store access);
+      // claimToken must never round-trip back, on either sanitizer.
+      expect(transitioned.originalObjectKey).toBeDefined();
+      expect(transitioned).not.toHaveProperty("claimToken");
     });
   });
 });

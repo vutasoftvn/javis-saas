@@ -19,7 +19,7 @@ from apps.cosa.api.schemas import (
 )
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
 from apps.cosa.composition.agent_plane import CosaAgentPlane
-from apps.cosa.config.planes import resolve_platform_control_plane_url
+from apps.cosa.config.planes import resolve_execution_plane_url
 from apps.cosa.knowledge_ingestion.contracts import knowledge_ingestion_enabled
 
 __all__ = ["create_knowledge_router"]
@@ -73,7 +73,7 @@ async def create_knowledge_upload(
         raise HTTPException(status_code=500, detail="Object store not initialized")
 
     # Create control-plane record via services/cosa
-    control_plane_url = resolve_platform_control_plane_url()
+    execution_plane_url = resolve_execution_plane_url()
     try:
         # Use member bearer token for public endpoint
         token = identity.bearer_token
@@ -86,7 +86,7 @@ async def create_knowledge_upload(
 
         try:
             resp = await http_client.post(
-                f"{control_plane_url}/cosa/document-ingestions",
+                f"{execution_plane_url}/cosa/document-ingestions",
                 json={
                     "workspaceId": identity.workspace_id,
                     "originalFilename": req.file_name,
@@ -181,7 +181,7 @@ async def complete_knowledge_upload(
 
     # Call services/cosa to complete upload and transition UPLOADING→QUARANTINED→QUEUED
     # Use worker service token (broker is a trusted internal caller)
-    control_plane_url = resolve_platform_control_plane_url()
+    execution_plane_url = resolve_execution_plane_url()
     try:
         # Use worker service token for this internal endpoint
         worker_token = os.environ.get("COSA_WORKER_SERVICE_TOKEN", "")
@@ -197,7 +197,7 @@ async def complete_knowledge_upload(
 
         try:
             resp = await http_client.post(
-                f"{control_plane_url}/cosa/document-ingestions/{ingestion_id}/complete",
+                f"{execution_plane_url}/cosa/document-ingestions/{ingestion_id}/complete",
                 json={
                     "detectedMediaType": quarantined.detected_media_type,
                     "sizeBytes": quarantined.size_bytes,
@@ -255,7 +255,7 @@ async def review_knowledge_ingestion(
     if not knowledge_ingestion_enabled():
         raise HTTPException(status_code=403, detail="Knowledge ingestion not enabled")
 
-    control_plane_url = resolve_platform_control_plane_url()
+    execution_plane_url = resolve_execution_plane_url()
     try:
         # Use member bearer token for member-only review endpoint
         token = identity.bearer_token
@@ -272,7 +272,7 @@ async def review_knowledge_ingestion(
 
         try:
             resp = await http_client.post(
-                f"{control_plane_url}/cosa/document-ingestions/{ingestion_id}/review",
+                f"{execution_plane_url}/cosa/document-ingestions/{ingestion_id}/review",
                 json={
                     "workspaceId": identity.workspace_id,
                     "decision": ts_decision,
