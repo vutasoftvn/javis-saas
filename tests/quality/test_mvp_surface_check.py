@@ -102,6 +102,15 @@ def test_runtime_fixture_import_is_rejected(runtime_import: str, tmp_path: Path)
     assert len(find_runtime_fixture_imports(tmp_path)) > 0
 
 
+def test_runtime_fixture_metadata_is_not_an_import(tmp_path: Path) -> None:
+    runtime_file = tmp_path / "runtime.ts"
+    runtime_file.write_text(
+        'export const evidence = { note: "Fixtures stored in tests/fixtures/cas-so/" };\n'
+    )
+
+    assert find_runtime_fixture_imports(tmp_path) == []
+
+
 def test_acceptance_ledger_validation_flags_missing_proofs(tmp_path: Path) -> None:
     ledger_file = tmp_path / "ledger.md"
     ledger_file.write_text(

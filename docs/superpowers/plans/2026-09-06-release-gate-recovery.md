@@ -354,7 +354,7 @@ git commit -m "fix(frontend): preserve KR precision and stabilize strategy tests
 - Consumes: runtime import syntax and cross-plane harness paths.
 - Produces: only runtime fixture imports are violations; every scenario, stack, and seed helper remains pure.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ~~~
 runtime_file.write_text(
@@ -363,17 +363,17 @@ runtime_file.write_text(
 assert find_runtime_fixture_imports(tmp_path) == []
 ~~~
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/quality/test_mvp_surface_check.py -q
 
 Expected: new metadata test fails because the broad fixtures/ string pattern matches.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Remove the pattern matching any quoted fixtures/ string. Retain import patterns; if an actual runtime file loader exists, match only that loader call. Existing import-fixture parameterized tests must remain red against prohibited imports.
 
-- [ ] **Step 4: Move the runner unit test and preserve harness coverage**
+- [x] **Step 4: Move the runner unit test and preserve harness coverage**
 
 ~~~
 mkdir -p tests/scripts
@@ -382,13 +382,15 @@ git mv tests/e2e/stack/test_business_audit_runner.py tests/scripts/test_business
 
 Add an assertion that run_check still flags stack/helper.py containing MagicMock. Do not add a filename exception to the scanner.
 
-- [ ] **Step 5: Run test to verify it passes**
+`test_mvp_e2e_purity_cross_plane.py` đã có assertion đúng cho `stack/helper.py` và `seed/helper.py` chứa `MagicMock`; giữ nguyên assertion này thay vì tạo bản sao.
+
+- [x] **Step 5: Run test to verify it passes**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/quality/test_mvp_surface_check.py tests/quality/test_mvp_e2e_purity.py tests/quality/test_mvp_e2e_purity_cross_plane.py -q && make mvp-surface-check && make mvp-e2e-purity-check
 
 Expected: metadata is valid, runtime imports/mocks are still rejected, current E2E tree is clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ~~~
 git add scripts/mvp_surface_check.py tests/quality/test_mvp_surface_check.py tests/quality/test_mvp_e2e_purity_cross_plane.py tests/e2e/stack/test_business_audit_runner.py tests/scripts/test_business_audit_runner.py

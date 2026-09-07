@@ -38,7 +38,6 @@ FIXTURE_IMPORT_PATTERNS = [
     re.compile(r"import\s+[\w\.]*fixtures"),
     re.compile(r"import\s+['\"][^'\"]*(?:fixtures|__fixtures__|mock_data|demo_data)[^'\"]*['\"]"),
     re.compile(r"from\s+__fixtures__"),
-    re.compile(r"['\"][^'\"]*fixtures/[^'\"]+['\"]"),
 ]
 
 
