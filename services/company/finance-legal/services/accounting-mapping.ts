@@ -120,11 +120,24 @@ const UNVERIFIED_SOURCE =
   "trước khi coi report dùng mapping này là VERIFIED.";
 
 /**
- * Nội dung mapping TT58 rút gọn — chỉ đủ 5 dòng cần cho bộ fixture chính
- * thức trong spec (cash/receivable/loan/capital+profit/assets). Founder
- * PHẢI xác nhận qua POST /finance/accounting-mapping/:regimeCode/:mappingVersion/confirm
- * trước khi report dùng mapping_version này đạt status=VERIFIED — cho tới
- * lúc đó report vẫn INCOMPLETE dù mọi dòng có đủ data.
+ * Nội dung mapping TT58 rút gọn — 12 dòng, phiên bản `v2`:
+ *
+ * - B01 (cân đối kế toán), 6 dòng: TS (cash), PHAI_THU (receivable),
+ *   TON_KHO (inventory), NO_VAY (loan), VON_GOP (capital) và
+ *   LOI_NHUAN_GIU_LAI (derived `net_profit_after_tax`).
+ * - B02 (kết quả kinh doanh), 6 dòng: DOANH_THU_THUAN (revenue),
+ *   GIA_VON (cogs), LOI_NHUAN_GOP (derived `gross_profit`),
+ *   CHI_PHI_HDKD (opex), THUE_TNDN (derived `corporate_income_tax`) và
+ *   LOI_NHUAN_SAU_THUE (derived `net_profit_after_tax`).
+ *
+ * Dòng derived có `bucket: null` và lấy số từ `computeDerivedLine` thay vì
+ * từ một bucket sổ cái; bucket `profit` của v1 không còn tồn tại, đã tách
+ * thành revenue/cogs/opex cộng các dòng derived ở trên.
+ *
+ * Founder PHẢI xác nhận qua POST
+ * /finance/accounting-mapping/:regimeCode/:mappingVersion/confirm trước khi
+ * report dùng mapping_version này đạt status=VERIFIED — cho tới lúc đó
+ * report vẫn INCOMPLETE dù mọi dòng có đủ data.
  */
 export const TT58_2026_MAPPING: RegimeMapping = {
   regimeCode: "TT58_2026",
