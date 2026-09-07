@@ -13,6 +13,8 @@ import '../../modules/hologram_hub/controllers/founder_command_center_controller
 import '../../modules/hologram_hub/controllers/hologram_hub_controller.dart';
 import '../../modules/remote_access/controllers/remote_access_controller.dart';
 import '../../modules/remote_access/models/runtime_status.dart';
+import '../localization/locale_controller.dart';
+import '../localization/supported_locale.dart';
 import '../network/api_client.dart';
 import '../network/realtime_service.dart';
 import '../routing/app_routes.dart';
@@ -209,6 +211,12 @@ class SessionController extends GetxController {
     final userId = (identity.user?['id'] ?? identity.user?['userId'] ?? '')
         .toString();
     final snapshot = fetched.withUserId(userId);
+
+    final rawLocale = identity.user?['preferred_locale'] ?? identity.user?['preferredLocale'];
+    if (rawLocale != null && Get.isRegistered<LocaleController>()) {
+      final loc = SupportedLocaleWire.parse(rawLocale.toString());
+      await Get.find<LocaleController>().applyServerLocale(loc);
+    }
 
     await _commit(snapshot);
     await _realtime.restartFor(snapshot.workspaceId);

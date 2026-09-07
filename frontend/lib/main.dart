@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_pages.dart';
@@ -8,6 +7,10 @@ import 'core/routing/app_routes.dart';
 import 'core/services/secure_storage_service.dart';
 import 'core/session/session_binding.dart';
 import 'core/session/session_controller.dart';
+import 'core/localization/app_translations.dart';
+import 'core/localization/locale_controller.dart';
+import 'core/localization/supported_locale.dart';
+import 'l10n/app_localizations.dart';
 import './modules/auth/services/auth_service.dart';
 import './modules/remote_access/controllers/remote_access_controller.dart';
 
@@ -17,6 +20,9 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  final localeController = Get.put(LocaleController(), permanent: true);
+  await localeController.hydrateFromCache();
 
   // Task 4 — SessionController đăng ký permanent TRƯỚC khi quyết định
   // initial route: mọi trang sau (workspace picker, hub, ...) đều cần
@@ -84,25 +90,20 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(
+    final localeController = Get.find<LocaleController>();
+    return Obx(() => GetMaterialApp(
       title: 'COSA - Hệ điều hành doanh nghiệp AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme, // We only use dark theme for now
       initialRoute: initialRoute,
       initialBinding: SessionBinding(),
       getPages: AppPages.routes,
-      locale: const Locale('vi', 'VN'),
+      translations: AppTranslations(),
+      locale: localeController.current.value.flutterLocale,
       fallbackLocale: const Locale('vi', 'VN'),
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('vi', 'VN'),
-        Locale('en', 'US'),
-      ],
-    );
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+    ));
   }
 }
 

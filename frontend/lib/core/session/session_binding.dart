@@ -15,12 +15,16 @@ library;
 
 import 'package:get/get.dart';
 
+import '../localization/locale_controller.dart';
 import '../../modules/remote_access/controllers/remote_access_controller.dart';
 import 'session_controller.dart';
 
 class SessionBinding extends Bindings {
   @override
   void dependencies() {
+    if (!Get.isRegistered<LocaleController>()) {
+      Get.put(LocaleController(), permanent: true);
+    }
     if (!Get.isRegistered<SessionController>()) {
       Get.put(SessionController(), permanent: true);
     }

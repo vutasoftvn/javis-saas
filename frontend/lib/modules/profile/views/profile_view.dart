@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../controllers/profile_controller.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -201,6 +204,40 @@ class ProfileView extends GetView<ProfileController> {
                     );
                   }),
                 ),
+                const SizedBox(height: 16),
+
+                Obx(() {
+                  final lc = Get.isRegistered<LocaleController>()
+                      ? Get.find<LocaleController>()
+                      : null;
+                  final current = lc?.current.value ?? SupportedLocale.viVN;
+                  final saving = controller.isSavingLocale.value;
+
+                  return _SectionCard(
+                    title: L10nKey.profileLanguageTitle.tr,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _LanguageOptionButton(
+                            label: 'Tiếng Việt',
+                            isSelected: current == SupportedLocale.viVN,
+                            isDisabled: saving,
+                            onTap: () => controller.selectLocale(SupportedLocale.viVN),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _LanguageOptionButton(
+                            label: 'English',
+                            isSelected: current == SupportedLocale.enUS,
+                            isDisabled: saving,
+                            onTap: () => controller.selectLocale(SupportedLocale.enUS),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
                 const SizedBox(height: 32),
 
                 OutlinedButton.icon(
@@ -275,6 +312,63 @@ class _MessageBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: TextStyle(color: color, fontSize: 13))),
         ],
+      ),
+    );
+  }
+}
+
+class _LanguageOptionButton extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  const _LanguageOptionButton({
+    required this.label,
+    required this.isSelected,
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSelected ? AppTheme.primary : AppTheme.textMutedDark;
+    return InkWell(
+      onTap: isDisabled ? null : onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.primary.withValues(alpha: 0.15)
+              : AppTheme.surfaceDark,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.primary
+                : AppTheme.borderDark,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              size: 16,
+              color: color,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : AppTheme.textMutedDark,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

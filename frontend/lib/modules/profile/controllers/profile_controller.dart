@@ -4,11 +4,21 @@ import '../../auth/services/auth_service.dart';
 import '../../../core/network/realtime_service.dart';
 import '../../../core/routing/app_routes.dart';
 
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
+
 class ProfileController extends GetxController {
-  final AuthService _authService = AuthService();
+  ProfileController({
+    AuthService? authService,
+    this.localeController,
+  })  : _authService = authService ?? AuthService();
+
+  final AuthService _authService;
+  final LocaleController? localeController;
 
   final isLoading = true.obs;
   final isSaving = false.obs;
+  final isSavingLocale = false.obs;
   final errorMessage = ''.obs;
   final successMessage = ''.obs;
 
@@ -98,6 +108,27 @@ class ProfileController extends GetxController {
     }
     successMessage.value = 'Đã cập nhật hồ sơ';
     return true;
+  }
+
+  Future<void> selectLocale(SupportedLocale newLocale) async {
+    final lc = localeController ??
+        (Get.isRegistered<LocaleController>() ? Get.find<LocaleController>() : null);
+    if (lc == null || lc.current.value == newLocale) return;
+    isSavingLocale.value = true;
+    errorMessage.value = '';
+    successMessage.value = '';
+
+    final ok = await lc.updatePreference(newLocale);
+    isSavingLocale.value = false;
+    if (ok) {
+      successMessage.value = newLocale == SupportedLocale.viVN
+          ? 'Đã cập nhật ngôn ngữ sang Tiếng Việt'
+          : 'Language updated to English';
+    } else {
+      errorMessage.value = lc.current.value == SupportedLocale.viVN
+          ? 'Cập nhật ngôn ngữ thất bại. Vui lòng thử lại.'
+          : 'Failed to update language. Please try again.';
+    }
   }
 
   Future<void> logout() async {

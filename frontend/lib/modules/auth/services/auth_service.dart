@@ -497,11 +497,13 @@ class AuthService {
   Future<Map<String, dynamic>?> updateProfile({
     String? phone,
     String? displayName,
+    String? preferredLocale,
   }) async {
     try {
       final body = <String, dynamic>{};
       if (phone != null) body['phone'] = phone;
       if (displayName != null) body['display_name'] = displayName;
+      if (preferredLocale != null) body['preferred_locale'] = preferredLocale;
 
       final response = await ApiClient.patch('/identity/me', body: body);
       if (response.statusCode == 200) {
