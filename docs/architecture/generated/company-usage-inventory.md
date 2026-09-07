@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 140 | 36 |
 | VALID_KEEP (giữ nguyên) | 101 | 32 |
-| REVIEW (chưa phân loại) | 990 | 283 |
+| REVIEW (chưa phân loại) | 1036 | 283 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -54,8 +54,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | File | Hits |
 |---|---|
+| frontend/lib/core/network/mvp_endpoints.g.dart | 80 |
 | apps/cosa/auth/jwt.py | 35 |
-| frontend/lib/core/network/mvp_endpoints.g.dart | 35 |
 | apps/cosa/policies/company_policy_client.py | 27 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
 | services/company/operations/migrations/7_create_strategy_domain.up.sql | 22 |
@@ -151,6 +151,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/migrations/6_add_cosa_delegation_replay.up.sql | 3 |
 | services/company/identity/services/platform.client.ts | 3 |
 | services/company/operations/application/runtime/runtime-overview-query.ts | 3 |
+| services/company/operations/services/okr.service.ts | 3 |
 | services/company/operations/services/twelve-week-year.service.ts | 3 |
 | services/company/shared/auth/cosa-task-delegation.ts | 3 |
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
@@ -185,7 +186,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/tests/helpers/test-session.ts | 2 |
 | services/company/operations/application/runtime/runtime-signal-projector.ts | 2 |
 | services/company/operations/services/executive-context.service.ts | 2 |
-| services/company/operations/services/okr.service.ts | 2 |
 | services/company/package-lock.json | 2 |
 | services/company/shared/contracts/mvp-response.ts | 2 |
 | services/company/shared/db/schema/identity.ts | 2 |
