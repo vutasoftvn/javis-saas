@@ -118,6 +118,15 @@ class ArchiveOrPurgeOut(BaseModel):
     accepted: bool
 
 
+class LegalHoldRequest(BaseModel):
+    legal_hold: bool
+
+
+class LegalHoldOut(BaseModel):
+    document_id: str
+    legal_hold: bool
+
+
 class KnowledgeGraphNodeOut(BaseModel):
     id: str
     label: str

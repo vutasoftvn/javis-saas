@@ -24,6 +24,8 @@ from apps.cosa.api.vault_schemas import (
     CompleteUploadOut,
     CreateDocumentRequest,
     CreateDocumentUploadOut,
+    LegalHoldOut,
+    LegalHoldRequest,
     RetrievalQueryRequest,
     ReviewDocumentOut,
     ReviewDocumentRequest,
@@ -472,6 +474,43 @@ async def purge_document(
         )
 
     return mvp_item(ArchiveOrPurgeOut(document_id=document_id, accepted=True), [_VAULT_SOURCE])
+
+
+@router.post("/documents/{document_id}/legal-hold", response_model=MvpSuccess[LegalHoldOut])
+async def set_legal_hold(
+    request: Request,
+    document_id: str,
+    req: LegalHoldRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[LegalHoldOut]:
+    """Gap ghi nhận ở Task 11 (`docs/operations/local-knowledge-runbook.md`)
+    — trước đây `VaultPurgeService.set_legal_hold()` chỉ gọi được qua script
+    nội bộ, không có route HTTP nào. `legal_hold=true` chặn `purge` hoàn
+    toàn (409, xem `purge_document`) — cùng mức quyền `manage` với archive/
+    purge, không có role "legal/compliance" riêng trong hệ thống hiện tại."""
+    plane = _get_plane(request)
+    doc_uuid = _parse_document_id(document_id)
+    auth = KnowledgeAuthorization(plane.vault_repository)
+    decision = await auth.resolve(identity, doc_uuid)
+    if not decision.manage:
+        raise HTTPException(status_code=404, detail="not found")
+
+    deps = getattr(plane, "knowledge_ingestion_deps", None)
+    if deps is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not ready")
+
+    from apps.cosa.knowledge_ingestion.purge import VaultPurgeService
+
+    purge_service = VaultPurgeService(
+        plane.vault_repository, plane.knowledge_ingestion_service, deps.store
+    )
+    await purge_service.set_legal_hold(
+        identity.workspace_id, doc_uuid, req.legal_hold, set_by=identity.principal_id
+    )
+
+    return mvp_item(
+        LegalHoldOut(document_id=document_id, legal_hold=req.legal_hold), [_VAULT_SOURCE]
+    )
 
 
 # ─── Knowledge Graph & Sources & Retrieval ───

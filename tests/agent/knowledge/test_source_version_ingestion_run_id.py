@@ -45,6 +45,17 @@ def _asyncpg_url(url: str) -> str:
     return url.replace("postgresql://", "postgresql+asyncpg://").split("?", 1)[0]
 
 
+def _psycopg_url(url: str) -> str:
+    """`psycopg2` cần scheme `postgresql://` trần — `AGENT_TEST_DATABASE_URL`
+    trong nhiều test file khác (vd. test_authorized_retrieval.py) lại quy ước
+    scheme `postgresql+asyncpg://` (SQLAlchemy). Chuẩn hoá ở đây để file này
+    chạy đúng bất kể caller export biến môi trường theo format nào — trước
+    fix, set `AGENT_TEST_DATABASE_URL` theo format asyncpg (cần cho các test
+    Postgres khác trong cùng lần chạy `make agent-test`) làm psycopg2.connect()
+    ở đây raise `invalid dsn`."""
+    return url.replace("postgresql+asyncpg://", "postgresql://")
+
+
 def _make_normalized_doc(ingestion_id: str):
     """Dựng `KnowledgeDocument` qua ĐÚNG `normalize_conversion` thật của
     `apps/cosa/knowledge_ingestion` (không tự tay set metadata)."""
@@ -90,7 +101,7 @@ def _select_ingestion_run_id(source_id: str, workspace_id: str):
     # Task 2 — knowledge.source_versions giờ có RLS FORCE (không nhánh bypass).
     # Verification query cũng phải set cosa.workspace_id, không chỉ code path
     # đang test.
-    conn = psycopg2.connect(_PSYCOPG_URL, connect_timeout=5)
+    conn = psycopg2.connect(_psycopg_url(_PSYCOPG_URL), connect_timeout=5)
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT set_config('cosa.workspace_id', %s, false)", (workspace_id,))
@@ -158,17 +169,13 @@ def test_worker_dispatch_threads_real_knowledge_service_and_persists_run_id(monk
 
     # Handler được import lazy bên trong `_dispatch_knowledge_ingestion_task`
     # ("avoid circular dependency") → patch tại module nguồn, không phải worker.main.
-    monkeypatch.setattr(
-        ingestion_handler, "execute_knowledge_ingestion_task", _stub_handler
-    )
+    monkeypatch.setattr(ingestion_handler, "execute_knowledge_ingestion_task", _stub_handler)
 
     async def _run():
         service, engine = _real_pg_service()
         try:
             plane = _FakePlane(service)
-            await worker_main._dispatch_knowledge_ingestion_task(
-                plane, _FakeTask(payload), payload
-            )
+            await worker_main._dispatch_knowledge_ingestion_task(plane, _FakeTask(payload), payload)
         finally:
             await engine.dispose()
 

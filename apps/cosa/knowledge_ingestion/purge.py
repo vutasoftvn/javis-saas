@@ -63,13 +63,45 @@ class VaultPurgeService:
         subject_id: str,
         *,
         subject_type: VaultGrantSubjectType = VaultGrantSubjectType.USER,
+        revoked_by: str | None = None,
     ) -> None:
         await self._vault_repository.revoke_access(
             workspace_id, document_id, subject_type, subject_id
         )
+        logger.info(
+            "vault.access_revoked",
+            extra={
+                "workspace_id": workspace_id,
+                "document_id": str(document_id),
+                "subject_type": subject_type.value,
+                "subject_id": subject_id,
+                "revoked_by": revoked_by,
+            },
+        )
 
-    async def set_legal_hold(self, workspace_id: str, document_id: UUID, legal_hold: bool) -> None:
+    async def set_legal_hold(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        legal_hold: bool,
+        *,
+        set_by: str | None = None,
+    ) -> None:
+        """Task 11/13 runbook gap đã ghi nhận — trước đây method này không có
+        audit trail nào ngoài `updated_at` trên `vault.documents`. Thêm log
+        có cấu trúc (workspace/document/giá trị mới/ai đặt) — chưa phải bảng
+        audit riêng trong DB (đó vẫn là việc tương lai nếu cần truy vấn lại
+        lịch sử), nhưng đủ để trace qua log pipeline hiện có."""
         await self._vault_repository.set_legal_hold(workspace_id, document_id, legal_hold)
+        logger.info(
+            "vault.legal_hold_changed",
+            extra={
+                "workspace_id": workspace_id,
+                "document_id": str(document_id),
+                "legal_hold": legal_hold,
+                "set_by": set_by,
+            },
+        )
 
     async def request_purge(
         self, workspace_id: str, document_id: UUID, principal_id: str

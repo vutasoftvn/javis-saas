@@ -709,6 +709,14 @@ enum MvpEndpoint {
     path: '/agent/vault/documents/:id',
     requiresWorkspace: true,
   ),
+  vaultDocumentLegalHold(
+    id: 'vault.document.legal_hold',
+    enabled: false,
+    plane: ApiPlane.agent,
+    method: 'POST',
+    path: '/agent/vault/documents/:id/legal-hold',
+    requiresWorkspace: true,
+  ),
   vaultDocumentList(
     id: 'vault.document.list',
     enabled: true,

@@ -171,6 +171,33 @@ async def test_handler_uses_injected_role_ids_resolver():
 
 
 @pytest.mark.asyncio
+async def test_handler_default_resolver_reads_real_role_id_from_ctx():
+    """Task 10 wired `role_id` thật vào ctx (conversation_routes.py ->
+    worker/handlers.py -> InvocationContext.metadata) — resolver mặc định
+    (không inject gì) giờ phải ĐỌC ĐƯỢC field đó, không còn luôn rỗng như
+    trước khi đóng gap này."""
+    vault_repo = InMemoryVaultRepository()
+    knowledge_store = InMemoryKnowledgeStore()
+    workspace_id = f"ws-{uuid.uuid4().hex[:8]}"
+    await _seed_published_doc(
+        vault_repo,
+        knowledge_store,
+        workspace_id,
+        created_by="founder-owner",
+        visibility=VaultVisibility.WORKSPACE,
+        classification=VaultClassification.RESTRICTED,
+    )
+    service = KnowledgeIngestionService(store=knowledge_store, vault_repository=vault_repo)
+    handler = create_enterprise_knowledge_read_handler(service)
+
+    result = await handler(
+        {"query": "salary"},
+        {"workspace_id": workspace_id, "principal": "some-other-member", "role_id": "founder"},
+    )
+    assert len(result["citations"]) == 1
+
+
+@pytest.mark.asyncio
 async def test_handler_requires_workspace_id_and_principal():
     service = KnowledgeIngestionService()
     handler = create_enterprise_knowledge_read_handler(service)

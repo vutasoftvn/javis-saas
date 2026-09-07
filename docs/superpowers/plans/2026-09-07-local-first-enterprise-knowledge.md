@@ -541,7 +541,9 @@ async def test_founder_receives_citation_with_version_provenance(store):
 
 - [x] **Step 4: Make capability output prompt-safe and attributable.** `apps/cosa/capabilities/enterprise_knowledge_read.py` — capability `knowledge.enterprise.read`, description khai rõ snippet là untrusted reference material. Output KHÔNG có `policy_version` top-level như pseudocode (không có 1 "decision" đơn cho nhiều document khác nhau) — mỗi citation tự mang provenance qua `vault_version_id`.
 
-  Gap biết trước, không phải thiếu sót: `ctx` hiện tại của capability handler (`InvocationContext.metadata`) chỉ mang `workspace_id`+`principal` (=principal_id), KHÔNG mang role — chat run chưa bind role thật (đó là việc của Task 10). Handler mặc định `role_ids=set()` (fail-closed: chỉ owner/workspace-non-restricted/grant tường minh theo principal_id, không operator bypass) trừ khi `role_ids_resolver` được inject — điểm nối cho Task 10.
+  Gap biết trước, không phải thiếu sót (LÚC LÀM Task 8): `ctx` hiện tại của capability handler (`InvocationContext.metadata`) chỉ mang `workspace_id`+`principal` (=principal_id), KHÔNG mang role — chat run chưa bind role thật (đó là việc của Task 10). Handler mặc định `role_ids=set()` (fail-closed: chỉ owner/workspace-non-restricted/grant tường minh theo principal_id, không operator bypass) trừ khi `role_ids_resolver` được inject — điểm nối cho Task 10.
+
+  **Đã đóng sau khi Task 10 xong** (phát hiện lúc rà soát lại toàn phiên): Task 10 wired `role_id` thật vào ctx nhưng `enterprise_knowledge_read.py` (capability của Task 8) chưa từng được cập nhật để ĐỌC field đó — resolver mặc định vẫn luôn trả rỗng dù ctx đã có `role_id` thật từ lâu. Sửa: resolver mặc định giờ đọc thẳng `ctx.get("role_id")` (cùng cách `workspace_context_read.py` đã làm từ Task 10), rỗng nếu ctx không mang field này (run headless không qua HTTP chat). Test mới: `test_handler_default_resolver_reads_real_role_id_from_ctx`.
 
 ```python
 return {

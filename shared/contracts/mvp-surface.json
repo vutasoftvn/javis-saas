@@ -1352,6 +1352,21 @@
       "integration_test": "tests/integration/test_mvp_vault_in_process.py"
     },
     {
+      "id": "vault.document.legal_hold",
+      "enabled": false,
+      "owner": "agent-platform",
+      "plane": "agent",
+      "method": "POST",
+      "path": "/agent/vault/documents/:id/legal-hold",
+      "schema": "vault.document.legal_hold.v1",
+      "source_kind": "agent_db",
+      "requires_workspace": true,
+      "frontend_symbol": "VaultService.setLegalHold",
+      "backend_test": "tests/apps/cosa/test_vault_document_routes.py",
+      "flutter_test": "frontend/test/modules/vault/vault_service_test.dart",
+      "integration_test": "tests/integration/test_mvp_vault_in_process.py"
+    },
+    {
       "id": "vault.knowledge.graph",
       "enabled": false,
       "owner": "agent-platform",

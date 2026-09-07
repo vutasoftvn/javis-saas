@@ -3,19 +3,19 @@ tri thức doanh nghiệp đã lọc theo authorization TRƯỚC KHI trả cho m
 
 `agent.knowledge.service.KnowledgeIngestionService.retrieve_authorized_citations()`
 (packages/agent, không phụ thuộc apps.cosa) làm phần lọc thật; capability này
-chỉ resolve `workspace_id`/`principal_id` từ ctx và gọi qua.
+chỉ resolve `workspace_id`/`principal_id`/`role_id` từ ctx và gọi qua.
 
-Gap biết trước, không phải thiếu sót: `ctx` hiện tại (InvocationContext.metadata,
-xem apps.cosa.composition.kernel_factory + RealOpenAIAgentsSDKKernel._execute_tool)
-KHÔNG mang role_id/role_ids — chat run chỉ truyền `principal` (=principal_id),
-không có role membership. Founder chat context chưa bind role thật (đó là việc
-của Task 10 — "Bind founder chat context to the governed GraphQL capability").
-Cho tới lúc đó, role_ids mặc định RỖNG (fail-closed): capability này chỉ trả
-citation mà principal là chủ sở hữu document, hoặc document
-`visibility=WORKSPACE` không `RESTRICTED`, hoặc có grant tường minh theo
-đúng principal_id — KHÔNG BAO GIỜ suy diễn role operator/founder từ ctx hiện
-tại (an toàn hơn là suy đoán sai, đúng rule 5 CLAUDE.md — governance là code
-xác định)."""
+Gap đã đóng (Task 10 — "Bind founder chat context to the governed GraphQL
+capability"): `apps.cosa.api.conversation_routes` giờ forward
+`identity.role_id` thật vào payload dispatch → `apps.cosa.worker.handlers`
+đưa vào `request.metadata["role_id"]` → `InvocationContext.metadata` (kernel
+forward nguyên `dict(request.metadata)`, không cần sửa kernel.py) → capability
+handler đọc được `ctx.get("role_id")`. Handler này giờ đọc field đó theo mặc
+định — cùng cách `apps.cosa.capabilities.workspace_context_read` đã làm.
+`role_id` vẫn có thể vắng cho run KHÔNG khởi từ chat HTTP (vd. autopilot/
+scheduled task headless) — khi đó role_ids rỗng (fail-closed: chỉ owner/
+workspace-non-restricted/grant tường minh theo principal_id, không suy diễn
+operator), không raise lỗi."""
 
 from __future__ import annotations
 
@@ -65,12 +65,14 @@ def create_enterprise_knowledge_read_handler(
     *,
     role_ids_resolver: Callable[[dict[str, Any]], set[str]] | None = None,
 ) -> Callable[[dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]]:
-    """`role_ids_resolver` cho phép inject cách resolve role thật khi Task 10
-    bind founder chat context — mặc định trả set() (fail-closed, xem module
-    docstring)."""
+    """`role_ids_resolver` cho phép ghi đè cách resolve role (vd. test, hoặc
+    caller có nguồn role phong phú hơn 1 field đơn) — mặc định đọc thẳng
+    `ctx.get("role_id")` (đã có từ Task 10), rỗng nếu ctx không mang field
+    này (fail-closed, không raise)."""
 
-    def _default_role_ids(_ctx: dict[str, Any]) -> set[str]:
-        return set()
+    def _default_role_ids(ctx: dict[str, Any]) -> set[str]:
+        role_id = ctx.get("role_id")
+        return {str(role_id)} if role_id else set()
 
     resolve_role_ids = role_ids_resolver or _default_role_ids
 

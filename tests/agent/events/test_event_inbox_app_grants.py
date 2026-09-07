@@ -1,4 +1,5 @@
 """agent_app phải INSERT được vào event_inbox sau migrate-all (bug B2)."""
+
 from __future__ import annotations
 
 import os
@@ -11,9 +12,17 @@ import pytest
 # export biến — `dict.get(key, default)` KHÔNG trả default cho chuỗi rỗng, nên
 # phải fallback bằng `or` để không vô tình gọi psycopg2.connect("") (→ unix
 # socket mặc định, luôn fail trên máy dev dùng TCP).
-_APP_URL = os.environ.get("AGENT_TEST_DATABASE_URL") or (
-    "postgresql://agent_app:change-me-agent-app@127.0.0.1:5432/agent?sslmode=disable"
-)
+#
+# `psycopg2` cần scheme `postgresql://` trần — nhiều test file Postgres khác
+# trong cùng lần chạy `make agent-test` lại quy ước `AGENT_TEST_DATABASE_URL`
+# theo scheme `postgresql+asyncpg://` (SQLAlchemy). Chuẩn hoá scheme ở đây
+# (KHÔNG đổi role/credentials — test này cố tình cần đúng role trong biến môi
+# trường được truyền, không tự ý đổi sang role khác) để chạy đúng bất kể
+# caller export theo format nào.
+_APP_URL = (
+    os.environ.get("AGENT_TEST_DATABASE_URL")
+    or "postgresql://agent_app:change-me-agent-app@127.0.0.1:5432/agent?sslmode=disable"
+).replace("postgresql+asyncpg://", "postgresql://")
 
 
 @pytest.mark.integration

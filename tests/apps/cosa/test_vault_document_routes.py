@@ -266,6 +266,57 @@ async def test_archive_does_not_delete_file_and_returns_accepted(test_app) -> No
 
 
 @pytest.mark.asyncio
+async def test_legal_hold_route_sets_flag_and_blocks_purge(test_app) -> None:
+    """Gap ghi nhận ở Task 11 nay đã đóng: route HTTP cho set_legal_hold, và
+    document trở về purge-able bình thường khi tắt legal_hold lại."""
+    app, plane = test_app
+    doc = await plane.vault_repository.create_draft("ws_1001", "Doc", created_by="founder-1")
+    override_authenticated_identity(
+        app, workspace_id="ws_1001", role_id="founder", principal_id="founder-1"
+    )
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        set_resp = await client.post(
+            f"/agent/vault/documents/{doc.document_id}/legal-hold", json={"legal_hold": True}
+        )
+        assert set_resp.status_code == 200
+        assert _data(set_resp)["legal_hold"] is True
+
+        purge_resp = await client.post(f"/agent/vault/documents/{doc.document_id}/purge")
+        assert purge_resp.status_code == 409
+
+        unset_resp = await client.post(
+            f"/agent/vault/documents/{doc.document_id}/legal-hold", json={"legal_hold": False}
+        )
+        assert unset_resp.status_code == 200
+        assert _data(unset_resp)["legal_hold"] is False
+
+        purge_resp2 = await client.post(f"/agent/vault/documents/{doc.document_id}/purge")
+        assert purge_resp2.status_code == 202
+
+
+@pytest.mark.asyncio
+async def test_legal_hold_route_requires_manage(test_app) -> None:
+    app, plane = test_app
+    doc = await plane.vault_repository.create_draft(
+        "ws_1001", "Founder doc", created_by="founder-1"
+    )
+    override_authenticated_identity(
+        app, workspace_id="ws_1001", role_id="member", principal_id="member-1"
+    )
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            f"/agent/vault/documents/{doc.document_id}/legal-hold", json={"legal_hold": True}
+        )
+        assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_purge_route_blocked_by_legal_hold(test_app) -> None:
     """Task 11 — legal_hold=true chặn hoàn toàn qua route, không có cách bypass."""
     app, plane = test_app
