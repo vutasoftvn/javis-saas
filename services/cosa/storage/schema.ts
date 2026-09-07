@@ -156,3 +156,39 @@ export const workspaceSkillPolicies = controlPlaneSchema.table(
     wsUpdatedIdx: index("idx_workspace_skill_policies_ws_updated").on(t.workspaceId, t.updatedAt.desc()),
   })
 );
+
+export const workspaceModuleConfigs = cosaSchema.table(
+  "workspace_module_configs",
+  {
+    workspaceId: bigint("workspace_id", { mode: "bigint" })
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    moduleKey: text("module_key").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    updatedBy: text("updated_by").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.workspaceId, t.moduleKey] }),
+  })
+);
+
+export const userWorkspaceModulePreferences = cosaSchema.table(
+  "user_workspace_module_preferences",
+  {
+    workspaceId: bigint("workspace_id", { mode: "bigint" })
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: bigint("user_id", { mode: "bigint" })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    moduleKey: text("module_key").notNull(),
+    visible: boolean("visible").default(true).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.workspaceId, t.userId, t.moduleKey] }),
+  })
+);
+
+

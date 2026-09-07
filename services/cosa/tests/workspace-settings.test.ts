@@ -14,6 +14,9 @@ import {
   listWorkspaceRuntimeNodes,
   putWorkspaceSkillPolicy,
   revokeWorkspaceConnector,
+  listWorkspaceModuleVisibility,
+  setWorkspaceModuleEnabled,
+  setUserModulePreference,
 } from "../handlers/workspace-settings.handler";
 
 describe("Workspace Settings Endpoints", () => {
@@ -313,3 +316,123 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
     expect(ctx.runtimeModeSource).toBe("inferred");
   });
 });
+
+describe("Workspace Module Visibility", () => {
+  let wsId: string;
+  let operatorToken: string;
+  let memberToken: string;
+
+  beforeAll(async () => {
+    const operator = await registerPlatformUser({
+      email: `mod-op-${Date.now()}@test.io`,
+      password: "SecurePassword123",
+      workspace_name: "Module Visibility Workspace",
+    });
+    wsId = operator.platform_workspace_id!;
+    operatorToken = operator.access_token;
+
+    const member = await registerPlatformUser({
+      email: `mod-mem-${Date.now()}@test.io`,
+      password: "SecurePassword123",
+      workspace_name: "Member Other Workspace",
+    });
+
+    await db.insert(schema.workspaceMemberships).values({
+      id: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
+      workspaceId: BigInt(wsId),
+      userId: BigInt(member.user!.id),
+      roleId: "member",
+    });
+
+    memberToken = signPlatformToken(member.user!.id);
+  });
+
+  it("defaults to finance: true, legal: true, crm: true", async () => {
+    const res = await listWorkspaceModuleVisibility({
+      workspaceId: wsId,
+      authorization: `Bearer ${operatorToken}`,
+    });
+    expect(res.data.workspaceId).toBe(wsId);
+    expect(res.data.modules).toEqual([
+      { moduleKey: "finance", workspaceEnabled: true, userVisible: true, effectiveVisible: true },
+      { moduleKey: "legal", workspaceEnabled: true, userVisible: true, effectiveVisible: true },
+      { moduleKey: "crm", workspaceEnabled: true, userVisible: true, effectiveVisible: true },
+    ]);
+  });
+
+  it("workspace operator can disable finance at workspace level with audit event", async () => {
+    const res = await setWorkspaceModuleEnabled({
+      workspaceId: wsId,
+      moduleKey: "finance",
+      enabled: false,
+      authorization: `Bearer ${operatorToken}`,
+    });
+
+    const financeMod = res.data.modules.find((m) => m.moduleKey === "finance");
+    expect(financeMod?.workspaceEnabled).toBe(false);
+    expect(financeMod?.effectiveVisible).toBe(false);
+
+    // Verify audit event
+    const auditRes = await listWorkspaceAuditEvents({
+      workspaceId: wsId,
+      authorization: `Bearer ${operatorToken}`,
+    });
+    const event = auditRes.data.find(
+      (e) => e.eventType === "module_visibility.workspace_changed" && e.targetId === "finance"
+    );
+    expect(event).toBeDefined();
+    expect((event?.details as any).enabled).toBe(false);
+  });
+
+  it("member can toggle personal visibility for legal without creating workspace audit event", async () => {
+    const auditBefore = await listWorkspaceAuditEvents({
+      workspaceId: wsId,
+      authorization: `Bearer ${operatorToken}`,
+    });
+
+    const res = await setUserModulePreference({
+      workspaceId: wsId,
+      moduleKey: "legal",
+      visible: false,
+      authorization: `Bearer ${memberToken}`,
+    });
+
+    const legalMod = res.data.modules.find((m) => m.moduleKey === "legal");
+    expect(legalMod?.workspaceEnabled).toBe(true);
+    expect(legalMod?.userVisible).toBe(false);
+    expect(legalMod?.effectiveVisible).toBe(false);
+
+    // Verify no new workspace audit event
+    const auditAfter = await listWorkspaceAuditEvents({
+      workspaceId: wsId,
+      authorization: `Bearer ${operatorToken}`,
+    });
+    expect(auditAfter.data.length).toBe(auditBefore.data.length);
+  });
+
+  it("personal toggle cannot enable a module disabled at workspace level", async () => {
+    // finance is disabled at workspace level
+    const res = await setUserModulePreference({
+      workspaceId: wsId,
+      moduleKey: "finance",
+      visible: true,
+      authorization: `Bearer ${memberToken}`,
+    });
+    const financeMod = res.data.modules.find((m) => m.moduleKey === "finance");
+    expect(financeMod?.workspaceEnabled).toBe(false);
+    expect(financeMod?.userVisible).toBe(true);
+    expect(financeMod?.effectiveVisible).toBe(false);
+  });
+
+  it("member role cannot mutate workspace-level module setting", async () => {
+    await expect(
+      setWorkspaceModuleEnabled({
+        workspaceId: wsId,
+        moduleKey: "legal",
+        enabled: false,
+        authorization: `Bearer ${memberToken}`,
+      })
+    ).rejects.toThrow(/operator role required/i);
+  });
+});
+

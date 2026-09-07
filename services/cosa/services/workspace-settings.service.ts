@@ -7,6 +7,8 @@ import {
   workspaceMemberships,
   workspaceSettingsAuditEvents,
   workspaceSkillPolicies,
+  workspaceModuleConfigs,
+  userWorkspaceModulePreferences,
 } from "../storage/schema";
 import {
   workspaceConnectorInstallations,
@@ -624,3 +626,145 @@ export async function putWorkspaceSkillPolicyService(
 
   return mvpItem(out, [SOURCE_CONTROL_PLANE]);
 }
+
+// ─── Module Visibility (2026-09-07 Localization & Shell Customization) ───
+
+export type OptionalModuleKey = "finance" | "legal" | "crm";
+export const OPTIONAL_MODULE_KEYS: readonly OptionalModuleKey[] = ["finance", "legal", "crm"] as const;
+
+export function parseOptionalModuleKey(key: string): OptionalModuleKey {
+  if (key === "finance" || key === "legal" || key === "crm") {
+    return key;
+  }
+  throw APIError.invalidArgument(`unsupported module_key '${key}', supported modules are: ${OPTIONAL_MODULE_KEYS.join(", ")}`);
+}
+
+export interface ModuleVisibilityItem {
+  readonly moduleKey: OptionalModuleKey;
+  readonly workspaceEnabled: boolean;
+  readonly userVisible: boolean;
+  readonly effectiveVisible: boolean;
+}
+
+export interface WorkspaceModuleVisibilityDTO {
+  readonly workspaceId: string;
+  readonly modules: readonly ModuleVisibilityItem[];
+}
+
+export async function listWorkspaceModuleVisibilityService(
+  workspaceId: string,
+  authorization?: string
+): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> {
+  const actorId = await verifyWorkspaceMembership(authorization, workspaceId);
+  const wsIdBigInt = BigInt(workspaceId);
+  const userIdBigInt = BigInt(actorId);
+
+  const [wsConfigs, userPrefs] = await Promise.all([
+    db
+      .select()
+      .from(workspaceModuleConfigs)
+      .where(eq(workspaceModuleConfigs.workspaceId, wsIdBigInt)),
+    db
+      .select()
+      .from(userWorkspaceModulePreferences)
+      .where(
+        and(
+          eq(userWorkspaceModulePreferences.workspaceId, wsIdBigInt),
+          eq(userWorkspaceModulePreferences.userId, userIdBigInt)
+        )
+      ),
+  ]);
+
+  const wsMap = new Map(wsConfigs.map((c) => [c.moduleKey, c.enabled]));
+  const userMap = new Map(userPrefs.map((p) => [p.moduleKey, p.visible]));
+
+  const modules: ModuleVisibilityItem[] = OPTIONAL_MODULE_KEYS.map((key) => {
+    const workspaceEnabled = wsMap.has(key) ? wsMap.get(key)! : true;
+    const userVisible = userMap.has(key) ? userMap.get(key)! : true;
+    return {
+      moduleKey: key,
+      workspaceEnabled,
+      userVisible,
+      effectiveVisible: workspaceEnabled && userVisible,
+    };
+  });
+
+  return mvpItem({ workspaceId, modules }, [SOURCE_CONTROL_PLANE]);
+}
+
+export async function setWorkspaceModuleEnabledService(
+  workspaceId: string,
+  rawModuleKey: string,
+  enabled: boolean,
+  authorization?: string
+): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> {
+  const actorId = await requireWorkspaceOperator(authorization, workspaceId);
+  const moduleKey = parseOptionalModuleKey(rawModuleKey);
+  const wsIdBigInt = BigInt(workspaceId);
+
+  await db
+    .insert(workspaceModuleConfigs)
+    .values({
+      workspaceId: wsIdBigInt,
+      moduleKey,
+      enabled,
+      updatedBy: actorId,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [workspaceModuleConfigs.workspaceId, workspaceModuleConfigs.moduleKey],
+      set: {
+        enabled,
+        updatedBy: actorId,
+        updatedAt: new Date(),
+      },
+    });
+
+  await db.insert(workspaceSettingsAuditEvents).values({
+    eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
+    workspaceId: wsIdBigInt,
+    actorId,
+    eventType: "module_visibility.workspace_changed",
+    targetKind: "workspace_module",
+    targetId: moduleKey,
+    details: { moduleKey, enabled },
+  });
+
+  return listWorkspaceModuleVisibilityService(workspaceId, authorization);
+}
+
+export async function setUserModulePreferenceService(
+  workspaceId: string,
+  rawModuleKey: string,
+  visible: boolean,
+  authorization?: string
+): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> {
+  const actorId = await verifyWorkspaceMembership(authorization, workspaceId);
+  const moduleKey = parseOptionalModuleKey(rawModuleKey);
+  const wsIdBigInt = BigInt(workspaceId);
+  const userIdBigInt = BigInt(actorId);
+
+  await db
+    .insert(userWorkspaceModulePreferences)
+    .values({
+      workspaceId: wsIdBigInt,
+      userId: userIdBigInt,
+      moduleKey,
+      visible,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [
+        userWorkspaceModulePreferences.workspaceId,
+        userWorkspaceModulePreferences.userId,
+        userWorkspaceModulePreferences.moduleKey,
+      ],
+      set: {
+        visible,
+        updatedAt: new Date(),
+      },
+    });
+
+  return listWorkspaceModuleVisibilityService(workspaceId, authorization);
+}
+

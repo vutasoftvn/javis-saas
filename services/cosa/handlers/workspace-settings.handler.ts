@@ -17,6 +17,10 @@ import {
   WorkspaceSessionContextView,
   WorkspaceSkillPolicyView,
   getWorkspaceSessionContextService,
+  listWorkspaceModuleVisibilityService,
+  setWorkspaceModuleEnabledService,
+  setUserModulePreferenceService,
+  WorkspaceModuleVisibilityDTO,
 } from "../services/workspace-settings.service";
 
 export interface WorkspaceSettingsHeaderRequest {
@@ -116,3 +120,36 @@ export const putWorkspaceSkillPolicy = api(
     return putWorkspaceSkillPolicyService(workspaceId, skillKey, enabled, config ?? {}, authorization);
   }
 );
+
+// 7. Module Visibility (2026-09-07 Localization & Shell Customization)
+export interface SetWorkspaceModuleRequest extends WorkspaceSettingsHeaderRequest {
+  moduleKey: string;
+  enabled: boolean;
+}
+
+export interface SetUserModulePreferenceRequest extends WorkspaceSettingsHeaderRequest {
+  moduleKey: string;
+  visible: boolean;
+}
+
+export const listWorkspaceModuleVisibility = api(
+  { expose: true, method: "GET", path: "/platform/workspaces/:workspaceId/module-visibility" },
+  async ({ workspaceId, authorization }: WorkspaceSettingsHeaderRequest): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> => {
+    return listWorkspaceModuleVisibilityService(workspaceId, authorization);
+  }
+);
+
+export const setWorkspaceModuleEnabled = api(
+  { expose: true, method: "PUT", path: "/platform/workspaces/:workspaceId/module-visibility/:moduleKey" },
+  async ({ workspaceId, moduleKey, enabled, authorization }: SetWorkspaceModuleRequest): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> => {
+    return setWorkspaceModuleEnabledService(workspaceId, moduleKey, enabled, authorization);
+  }
+);
+
+export const setUserModulePreference = api(
+  { expose: true, method: "PUT", path: "/platform/workspaces/:workspaceId/module-visibility/:moduleKey/preference" },
+  async ({ workspaceId, moduleKey, visible, authorization }: SetUserModulePreferenceRequest): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> => {
+    return setUserModulePreferenceService(workspaceId, moduleKey, visible, authorization);
+  }
+);
+
