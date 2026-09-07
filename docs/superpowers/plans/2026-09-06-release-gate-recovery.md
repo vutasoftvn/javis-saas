@@ -31,7 +31,7 @@
 - Consumes: TenantContext, requireWorkspaceAccess, CreateInitiativeParams.
 - Produces: createInitiativeInWorkspace(ctx: TenantContext, params: CreateInitiativeParams): Promise<Initiative>.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ~~~
 const proposal = await proposeInitiativesService(founderCtx, validProposal);
@@ -45,13 +45,13 @@ await expect(
 ).rejects.toThrow(/workspace/i);
 ~~~
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: cd services/company && npx vitest run operations/strategy/tests/strategy-copilot-authorization.test.ts
 
 Expected: proposal test fails with missing authorization header or token.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ~~~
 export async function createInitiativeInWorkspace(
@@ -72,17 +72,59 @@ export async function createInitiativeService(params, authorization) {
 
 Move the old validation and DB write body into createInitiativeAuthorized. Replace the Copilot call with createInitiativeInWorkspace(ctx, params); public handler remains unchanged.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: cd services/company && npx vitest run operations/strategy/tests/strategy-copilot-authorization.test.ts && npm run typecheck
 
 Expected: proposal and cross-workspace tests pass; TypeScript has no error.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ~~~
 git add services/company/operations/services/initiative.service.ts services/company/operations/strategy/services/strategy-copilot.service.ts services/company/operations/strategy/tests/strategy-copilot-authorization.test.ts
 git commit -m "fix(strategy): preserve tenant context for initiative proposals"
+~~~
+
+### Task 1a: Chặn mapping report thiếu ledger bucket
+
+**Files:**
+- Modify: services/company/finance-legal/services/accounting-reports.service.ts:84-120,215-230
+- Modify: services/company/finance-legal/tests/accounting-reports-status.test.ts:1-20
+
+**Interfaces:**
+- Consumes: persisted mapping bucket typed as string | null by Drizzle.
+- Produces: requireReportMappingBucket(bucket: string | null): LedgerBucket.
+
+- [x] **Step 1: Write the failing test**
+
+~~~
+expect(() => requireReportMappingBucket(null)).toThrow(
+  /report mapping line is missing ledger bucket/i,
+);
+expect(requireReportMappingBucket("cash")).toBe("cash");
+~~~
+
+- [x] **Step 2: Run test to verify it fails**
+
+Run: cd services/company && npx vitest run finance-legal/tests/accounting-reports-status.test.ts
+
+Expected: import fails until the bucket guard exists.
+
+- [x] **Step 3: Write minimal implementation**
+
+Implement an exhaustive switch over the seven LedgerBucket values. Null and unknown values raise APIError.failedPrecondition. Map persisted rows through this guard before computing totals, required buckets, and coverage.
+
+- [x] **Step 4: Run test to verify it passes**
+
+Run: cd services/company && npx vitest run finance-legal/tests/accounting-reports-status.test.ts && npm run typecheck
+
+Expected: report status test and entire Company typecheck pass.
+
+- [x] **Step 5: Commit**
+
+~~~
+git add services/company/finance-legal/services/accounting-reports.service.ts services/company/finance-legal/tests/accounting-reports-status.test.ts
+git commit -m "fix(finance): validate persisted report mapping buckets"
 ~~~
 
 ### Task 2: Loại explicit any trong ghi nhận quyết định TOWS
@@ -95,7 +137,7 @@ git commit -m "fix(strategy): preserve tenant context for initiative proposals"
 - Consumes: transaction type inferred from db.transaction.
 - Produces: recordTowsDecision(input, txClient?: Tx).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ~~~
 text = (service_dir / "decision-recording.service.ts").read_text()
@@ -103,13 +145,13 @@ assert "txClient?: any" not in text
 assert "type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];" in text
 ~~~
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/quality/test_strategy_type_safety.py -q
 
 Expected: fail because txClient?: any is present.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ~~~
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -120,13 +162,13 @@ export async function recordTowsDecision(
 ): Promise<string> {
 ~~~
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: make encore-type-safety-check && cd services/company && npx vitest run operations/strategy/tests/tows-option.test.ts
 
 Expected: no explicit any; TOWS transaction tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ~~~
 git add services/company/operations/strategy/services/decision-recording.service.ts tests/quality/test_strategy_type_safety.py
@@ -137,7 +179,10 @@ git commit -m "refactor(strategy): type TOWS decision transaction"
 
 **Files:**
 - Modify: shared/contracts/mvp-surface.json
+- Modify: services/company/operations/handlers/okr.handler.ts
+- Modify: services/company/operations/services/okr.service.ts
 - Modify: frontend/lib/modules/strategy/services/strategy_workflow_service.dart:1-45
+- Modify: frontend/lib/modules/finance/services/finance_tt58_service.dart
 - Generate: services/company/shared/contracts/mvp-surface.generated.ts
 - Generate: apps/cosa/api/mvp_contracts_generated.py
 - Generate: frontend/lib/core/network/mvp_endpoints.g.dart
@@ -149,7 +194,7 @@ git commit -m "refactor(strategy): type TOWS decision transaction"
 - Consumes: actual handlers under services/company/operations/handlers and services/company/operations/strategy/handlers.
 - Produces: an enabled manifest capability per frontend-used method/path and StrategyWorkflowService extends StrategyServiceBase.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ~~~
 source.write_text(
@@ -161,13 +206,13 @@ result = run_checker(tmp_path)
 assert result.returncode == 0
 ~~~
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: make frontend-api-contract-check
 
 Expected: 41 unknown_literal_route findings in okr_service.dart and strategy_workflow_service.dart.
 
-- [ ] **Step 3: Add only contracts backed by handlers**
+- [x] **Step 3: Add only contracts backed by handlers**
 
 Add enabled entries, owner company-operations, plane company, source_kind company_db, requires_workspace true, schema strategy.*.v1, and real proof fields for the following method/path matrix:
 
@@ -177,7 +222,7 @@ POST /operations/objectives/:id/publish
 POST /operations/objectives/:id/key-results
 POST /operations/key-results/:id/checkin
 PUT|DELETE /operations/key-results/:id
-POST /operations/okrs/generate-ai
+GET /operations/key-results
 GET|PUT /operations/strategy/settings
 GET|POST /operations/strategy/objectives
 GET|PUT /operations/strategy/objectives/:id
@@ -206,7 +251,9 @@ POST /operations/cycle-reviews/:id/close
 
 Verify each row with rg before adding it. Do not add endpoint templates for string-concatenation calls the contract checker cannot parse.
 
-- [ ] **Step 4: Remove legacy base without changing raw response protocol**
+`POST /operations/okrs/generate-ai` có frontend call nhưng không có capability/handler Company; không được khai báo giả. Client fail-closed và nút UI bị disable cho tới khi một capability AI được quản trị riêng được triển khai. `PUT /operations/objectives/:id`, `PUT|DELETE /operations/key-results/:id`, và `GET /operations/key-results` cũng thiếu handler nên được bổ sung với workspace authorization và test DB trước khi đưa vào manifest.
+
+- [x] **Step 4: Remove legacy base without changing raw response protocol**
 
 ~~~
 import 'strategy_service_base.dart';
@@ -216,19 +263,21 @@ class StrategyWorkflowService extends StrategyServiceBase {
 
 Remove workspace_scoped_service.dart. Keep ApiClient, _checkResponse, and raw decoding: MvpRequestClient requires data/meta envelopes that these handlers do not all return.
 
-- [ ] **Step 5: Generate artifacts and route inventory**
+FinanceTT58Service cũng được chuyển khỏi legacy base bằng adapter cục bộ tối thiểu dùng ApiClient/SecureStorage, giữ nguyên hành vi request scoped và response raw đã có test.
+
+- [x] **Step 5: Generate artifacts and route inventory**
 
 Run: node scripts/gen-mvp-contracts.mjs && make route-inventory
 
 Expected: generated files only are modified by their generators.
 
-- [ ] **Step 6: Run test to verify it passes**
+- [x] **Step 6: Run test to verify it passes**
 
 Run: make frontend-api-contract-check && make frontend-boundary-check && make contract-freeze-check
 
 Expected: frontend routes match enabled contracts, legacy import is gone, and inventory snapshot matches.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ~~~
 git add shared/contracts/mvp-surface.json frontend/lib/modules/strategy/services/strategy_workflow_service.dart services/company/shared/contracts/mvp-surface.generated.ts apps/cosa/api/mvp_contracts_generated.py frontend/lib/core/network/mvp_endpoints.g.dart docs/architecture/generated/route-inventory.md docs/architecture/generated/route-inventory.snapshot.json tests/quality/test_frontend_api_contracts.py
@@ -469,4 +518,3 @@ Expected: no whitespace error and every source change belongs to a committed tas
 - [ ] **Step 4: Report verification limit**
 
 Report that real disposable Postgres/process E2E was not run if the environment cannot start the required stack. Do not interpret a sandbox denial as a product failure.
-

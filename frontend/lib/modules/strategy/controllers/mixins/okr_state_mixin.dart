@@ -7,7 +7,10 @@ mixin OkrStateMixin on GetxController {
   RxBool get isSaving;
   RxnString get errorMessage;
 
-  Future<void> runGuarded(Future<void> Function() action, {bool showSnackbar = false});
+  Future<void> runGuarded(
+    Future<void> Function() action, {
+    bool showSnackbar = false,
+  });
 
   final okrCycles = <dynamic>[].obs;
   final selectedCycleId = RxnString();
@@ -19,23 +22,34 @@ mixin OkrStateMixin on GetxController {
     await runGuarded(() async {
       final cyclesResult = await strategyService.getOkrCycles();
       okrCycles.value = cyclesResult.items;
-      if (cyclesResult.errorMessage != null) errorMessage.value = cyclesResult.errorMessage;
+      if (cyclesResult.errorMessage != null)
+        errorMessage.value = cyclesResult.errorMessage;
       if (cyclesResult.items.isNotEmpty && selectedCycleId.value == null) {
         selectedCycleId.value = cyclesResult.items.first['id']?.toString();
       }
 
-      final objsResult = await strategyService.getObjectives(cycleId: selectedCycleId.value);
+      final objsResult = await strategyService.getObjectives(
+        cycleId: selectedCycleId.value,
+      );
       objectives.value = objsResult.items;
-      if (objsResult.errorMessage != null) errorMessage.value = objsResult.errorMessage;
+      if (objsResult.errorMessage != null)
+        errorMessage.value = objsResult.errorMessage;
 
       final krsResult = await strategyService.getKeyResults();
       keyResults.value = krsResult.items;
-      if (krsResult.errorMessage != null) errorMessage.value = krsResult.errorMessage;
+      if (krsResult.errorMessage != null)
+        errorMessage.value = krsResult.errorMessage;
     });
   }
 
   List<dynamic> getKeyResultsForObjective(String objectiveId) {
-    return keyResults.where((kr) => kr['objective_id']?.toString() == objectiveId).toList();
+    return keyResults
+        .where(
+          (kr) =>
+              (kr['objectiveId'] ?? kr['objective_id'])?.toString() ==
+              objectiveId,
+        )
+        .toList();
   }
 
   double calculateObjectiveProgress(String objectiveId) {
@@ -43,9 +57,15 @@ mixin OkrStateMixin on GetxController {
     if (krs.isEmpty) return 0.0;
     double totalProgress = 0.0;
     for (final kr in krs) {
-      final baseline = (kr['baseline_value'] as num?)?.toDouble() ?? 0.0;
-      final target = (kr['target_value'] as num?)?.toDouble() ?? 100.0;
-      final current = (kr['current_value'] as num?)?.toDouble() ?? 0.0;
+      final baseline =
+          ((kr['baselineValue'] ?? kr['baseline_value']) as num?)?.toDouble() ??
+          0.0;
+      final target =
+          ((kr['targetValue'] ?? kr['target_value']) as num?)?.toDouble() ??
+          100.0;
+      final current =
+          ((kr['currentValue'] ?? kr['current_value']) as num?)?.toDouble() ??
+          0.0;
       if (target > baseline) {
         final ratio = (current - baseline) / (target - baseline);
         totalProgress += ratio.clamp(0.0, 1.0);
@@ -56,10 +76,18 @@ mixin OkrStateMixin on GetxController {
     return (totalProgress / krs.length).clamp(0.0, 1.0);
   }
 
-  Future<void> createOkrCycle(String name, {DateTime? startDate, DateTime? endDate}) async {
+  Future<void> createOkrCycle(
+    String name, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     isSaving.value = true;
     await runGuarded(() async {
-      final cycle = await strategyService.createOkrCycle(name: name, startDate: startDate, endDate: endDate);
+      final cycle = await strategyService.createOkrCycle(
+        name: name,
+        startDate: startDate,
+        endDate: endDate,
+      );
       await loadOkrs();
       selectedCycleId.value = cycle['id']?.toString();
       AppToast.success('Đã tạo chu kỳ OKR mới');
@@ -70,7 +98,11 @@ mixin OkrStateMixin on GetxController {
   Future<void> createObjective(String title, {String? status}) async {
     isSaving.value = true;
     await runGuarded(() async {
-      await strategyService.createObjective(title: title, cycleId: selectedCycleId.value, status: status);
+      await strategyService.createObjective(
+        title: title,
+        cycleId: selectedCycleId.value,
+        status: status,
+      );
       await loadOkrs();
       AppToast.success('Đã thêm mục tiêu OKR');
     }, showSnackbar: true);
@@ -85,10 +117,18 @@ mixin OkrStateMixin on GetxController {
     }
   }
 
-  Future<void> updateObjective(String objectiveId, {String? title, String? status}) async {
+  Future<void> updateObjective(
+    String objectiveId, {
+    String? title,
+    String? status,
+  }) async {
     isSaving.value = true;
     await runGuarded(() async {
-      await strategyService.updateObjective(objectiveId, title: title, status: status);
+      await strategyService.updateObjective(
+        objectiveId,
+        title: title,
+        status: status,
+      );
       await loadOkrs();
     }, showSnackbar: true);
     isSaving.value = false;
@@ -130,10 +170,20 @@ mixin OkrStateMixin on GetxController {
     isSaving.value = false;
   }
 
-  Future<void> updateKeyResult(String keyResultId, {double? currentValue, double? targetValue, String? status}) async {
+  Future<void> updateKeyResult(
+    String keyResultId, {
+    double? currentValue,
+    double? targetValue,
+    String? status,
+  }) async {
     isSaving.value = true;
     await runGuarded(() async {
-      await strategyService.updateKeyResult(keyResultId, currentValue: currentValue, targetValue: targetValue, status: status);
+      await strategyService.updateKeyResult(
+        keyResultId,
+        currentValue: currentValue,
+        targetValue: targetValue,
+        status: status,
+      );
       await loadOkrs();
       AppToast.success('Đã cập nhật tiến độ Key Result');
     }, showSnackbar: true);

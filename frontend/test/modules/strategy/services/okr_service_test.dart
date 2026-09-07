@@ -350,13 +350,13 @@ void main() {
         expect(request.method, 'PUT');
         expect(request.url.path, '/operations/key-results/kr-1');
         final body = jsonDecode(request.body);
-        expect(body['current_value'], 750.0);
-        return http.Response(jsonEncode({'id': 'kr-1', 'current_value': 750.0}), 200);
+        expect(body['currentValue'], 750.0);
+        return http.Response(jsonEncode({'id': 'kr-1', 'currentValue': 750.0}), 200);
       });
 
       final kr = await OkrService().updateKeyResult('kr-1', currentValue: 750.0);
 
-      expect(kr['current_value'], 750.0);
+      expect(kr['currentValue'], 750.0);
     });
 
     test('deleteKeyResult calls DELETE on the endpoint', () async {
@@ -371,67 +371,14 @@ void main() {
   });
 
   group('AI OKR Generation', () {
-    test('generateAiOkrs posts with default counts', () async {
+    test('generateAiOkrs fails closed while no governed backend capability exists', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(request.url.path, '/operations/okrs/generate-ai');
-        final body = jsonDecode(request.body);
-        expect(body['objectives_count'], 2);
-        expect(body['krs_per_objective_count'], 3);
-        return http.Response(
-          jsonEncode({
-            'objectives': [
-              {'id': 'obj-1', 'title': 'Generated Objective'},
-            ],
-          }),
-          200,
-        );
-      });
-
-      final result = await OkrService().generateAiOkrs();
-
-      expect(result['objectives'], isNotEmpty);
-    });
-
-    test('generateAiOkrs includes towsId when provided', () async {
-      ApiClient.client = MockClient((request) async {
-        final body = jsonDecode(request.body);
-        expect(body['tows_id'], 'tows-1');
-        return http.Response(jsonEncode({'objectives': []}), 200);
-      });
-
-      await OkrService().generateAiOkrs(towsId: 'tows-1');
-    });
-
-    test('generateAiOkrs omits empty towsId', () async {
-      ApiClient.client = MockClient((request) async {
-        final body = jsonDecode(request.body);
-        expect(body.containsKey('tows_id'), isFalse);
-        return http.Response(jsonEncode({'objectives': []}), 200);
-      });
-
-      await OkrService().generateAiOkrs(towsId: '');
-    });
-
-    test('generateAiOkrs includes cycleId when provided', () async {
-      ApiClient.client = MockClient((request) async {
-        final body = jsonDecode(request.body);
-        expect(body['cycle_id'], 'cycle-1');
-        return http.Response(jsonEncode({'objectives': []}), 200);
-      });
-
-      await OkrService().generateAiOkrs(cycleId: 'cycle-1');
-    });
-
-    test('generateAiOkrs throws exception when workspace_id is missing', () async {
-      SharedPreferences.setMockInitialValues({});
-      ApiClient.client = MockClient((request) async {
-        fail('should not call API without workspace_id');
+        fail('AI generation must not call an undeclared backend endpoint');
       });
 
       expect(
         () => OkrService().generateAiOkrs(),
-        throwsA(isA<StrategyApiException>()),
+        throwsA(isA<UnsupportedError>()),
       );
     });
   });

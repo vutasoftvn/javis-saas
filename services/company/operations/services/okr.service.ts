@@ -56,6 +56,13 @@ export interface PublishObjectiveParams {
   id: string;
 }
 
+export interface UpdateObjectiveParams {
+  id: string;
+  title?: string;
+  status?: string;
+  authorization?: string;
+}
+
 
 export interface KeyResult {
   id: string;
@@ -80,6 +87,20 @@ export interface AddKeyResultParams {
   baselineValue?: number;
   scoringType?: KrScoringType;
   unit?: string;
+  authorization?: string;
+}
+
+export interface UpdateKeyResultParams {
+  id: string;
+  currentValue?: number;
+  targetValue?: number;
+  unit?: string;
+  status?: string;
+  authorization?: string;
+}
+
+export interface DeleteKeyResultParams {
+  id: string;
   authorization?: string;
 }
 
@@ -367,29 +388,140 @@ export async function checkinService(
   value: number,
   authorization?: string
 ): Promise<KeyResult> {
-  // Resolve workspace của key result qua objective rồi mới cho ghi.
+  if (!Number.isFinite(value)) {
+    throw APIError.invalidArgument("key result check-in value must be finite");
+  }
+
+  // Resolve workspace từ chính key result, đồng thời loại bỏ bản ghi đã xóa mềm.
   const [kr] = await db
-    .select({ objectiveId: keyResults.objectiveId })
+    .select({ workspaceId: keyResults.workspaceId })
     .from(keyResults)
-    .where(eq(keyResults.id, BigInt(id)))
+    .where(and(eq(keyResults.id, BigInt(id)), isNull(keyResults.deletedAt)))
     .limit(1);
   if (!kr) throw APIError.notFound(`key result ${id} not found`);
-  const [obj] = await db
-    .select({ workspaceId: okrObjectives.workspaceId })
-    .from(okrObjectives)
-    .where(eq(okrObjectives.id, kr.objectiveId))
-    .limit(1);
-  if (!obj) throw APIError.notFound(`objective for key result ${id} not found`);
-  await requireWorkspaceAccess(authorization, obj.workspaceId.toString());
+  await requireWorkspaceAccess(authorization, kr.workspaceId.toString());
 
   const [row] = await db
     .update(keyResults)
-    .set({ currentValue: value })
-    .where(eq(keyResults.id, BigInt(id)))
+    .set({ currentValue: value, updatedAt: new Date() })
+    .where(and(eq(keyResults.id, BigInt(id)), isNull(keyResults.deletedAt)))
     .returning();
 
   if (!row) throw APIError.notFound(`key result ${id} not found`);
   return toKeyResult(row);
+}
+
+export async function updateObjectiveService(params: UpdateObjectiveParams): Promise<Objective> {
+  const objectiveId = BigInt(params.id);
+  const [existing] = await db
+    .select()
+    .from(okrObjectives)
+    .where(and(eq(okrObjectives.id, objectiveId), isNull(okrObjectives.deletedAt)))
+    .limit(1);
+
+  if (!existing) throw APIError.notFound(`objective ${params.id} not found`);
+  await requireWorkspaceAccess(params.authorization, existing.workspaceId.toString());
+
+  const updates: { title?: string; status?: string; updatedAt: Date } = {
+    updatedAt: new Date(),
+  };
+  if (params.title !== undefined) {
+    const title = params.title.trim();
+    if (!title) throw APIError.invalidArgument("objective title cannot be empty");
+    updates.title = title;
+  }
+  if (params.status !== undefined) {
+    updates.status = params.status;
+  }
+
+  const [updated] = await db
+    .update(okrObjectives)
+    .set(updates)
+    .where(
+      and(
+        eq(okrObjectives.id, objectiveId),
+        eq(okrObjectives.workspaceId, existing.workspaceId),
+        isNull(okrObjectives.deletedAt),
+      ),
+  )
+    .returning();
+
+  if (!updated) throw APIError.notFound(`objective ${params.id} not found`);
+  return toObjective(updated);
+}
+
+export async function updateKeyResultService(params: UpdateKeyResultParams): Promise<KeyResult> {
+  const keyResultId = BigInt(params.id);
+  const [existing] = await db
+    .select()
+    .from(keyResults)
+    .where(and(eq(keyResults.id, keyResultId), isNull(keyResults.deletedAt)))
+    .limit(1);
+
+  if (!existing) throw APIError.notFound(`key result ${params.id} not found`);
+  await requireWorkspaceAccess(params.authorization, existing.workspaceId.toString());
+
+  for (const [field, value] of Object.entries({
+    currentValue: params.currentValue,
+    targetValue: params.targetValue,
+  })) {
+    if (value !== undefined && !Number.isFinite(value)) {
+      throw APIError.invalidArgument(`key result ${field} must be finite`);
+    }
+  }
+
+  const updates: {
+    currentValue?: number;
+    targetValue?: number;
+    unit?: string;
+    status?: string;
+    updatedAt: Date;
+  } = { updatedAt: new Date() };
+  if (params.currentValue !== undefined) updates.currentValue = params.currentValue;
+  if (params.targetValue !== undefined) updates.targetValue = params.targetValue;
+  if (params.unit !== undefined) updates.unit = params.unit;
+  if (params.status !== undefined) updates.status = params.status;
+
+  const [updated] = await db
+    .update(keyResults)
+    .set(updates)
+    .where(
+      and(
+        eq(keyResults.id, keyResultId),
+        eq(keyResults.workspaceId, existing.workspaceId),
+        isNull(keyResults.deletedAt),
+      ),
+    )
+    .returning();
+
+  if (!updated) throw APIError.notFound(`key result ${params.id} not found`);
+  return toKeyResult(updated);
+}
+
+export async function deleteKeyResultService(params: DeleteKeyResultParams): Promise<void> {
+  const keyResultId = BigInt(params.id);
+  const [existing] = await db
+    .select({ workspaceId: keyResults.workspaceId })
+    .from(keyResults)
+    .where(and(eq(keyResults.id, keyResultId), isNull(keyResults.deletedAt)))
+    .limit(1);
+
+  if (!existing) throw APIError.notFound(`key result ${params.id} not found`);
+  await requireWorkspaceAccess(params.authorization, existing.workspaceId.toString());
+
+  const [deleted] = await db
+    .update(keyResults)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(keyResults.id, keyResultId),
+        eq(keyResults.workspaceId, existing.workspaceId),
+        isNull(keyResults.deletedAt),
+      ),
+    )
+    .returning({ id: keyResults.id });
+
+  if (!deleted) throw APIError.notFound(`key result ${params.id} not found`);
 }
 
 export async function getObjectiveService(id: string, authorization: string | undefined): Promise<Objective> {
@@ -484,6 +616,20 @@ export async function listObjectivesService(ctx: TenantContext): Promise<MvpSucc
   return mvpList(
     objectivesList,
     [{ kind: "company_db", ref: "operating.okr_objectives" }]
+  );
+}
+
+export async function listKeyResultsService(ctx: TenantContext): Promise<MvpSuccess<readonly KeyResult[]>> {
+  const wsId = BigInt(ctx.workspaceId);
+  const rows = await db
+    .select()
+    .from(keyResults)
+    .where(and(eq(keyResults.workspaceId, wsId), isNull(keyResults.deletedAt)))
+    .orderBy(desc(keyResults.createdAt));
+
+  return mvpList(
+    rows.map(toKeyResult),
+    [{ kind: "company_db", ref: "operating.key_results" }],
   );
 }
 

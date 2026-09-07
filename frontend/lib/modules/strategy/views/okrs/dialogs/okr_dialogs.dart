@@ -5,13 +5,17 @@ import '../../../../../core/widgets/app_modal_dialog.dart';
 import '../../../controllers/strategy_controller.dart';
 
 class OkrDialogs {
-  static void showCreateObjectiveDialog(BuildContext context, StrategyController controller) {
+  static void showCreateObjectiveDialog(
+    BuildContext context,
+    StrategyController controller,
+  ) {
     final titleController = TextEditingController();
 
     AppModalDialog.show(
       context: context,
       title: 'Tạo Mục Tiêu (Objective)',
-      subtitle: 'Xác định mục tiêu định tính, truyền cảm hứng và rõ ràng cho tổ chức',
+      subtitle:
+          'Xác định mục tiêu định tính, truyền cảm hứng và rõ ràng cho tổ chức',
       icon: Icons.flag_rounded,
       maxWidth: 600,
       content: Column(
@@ -21,14 +25,18 @@ class OkrDialogs {
             controller: titleController,
             decoration: const InputDecoration(
               labelText: 'Tiêu đề Mục tiêu',
-              hintText: 'Ví dụ: Tăng trưởng doanh thu định kỳ MRR vượt mốc 50,000 USD',
+              hintText:
+                  'Ví dụ: Tăng trưởng doanh thu định kỳ MRR vượt mốc 50,000 USD',
               prefixIcon: Icon(Icons.title_rounded, size: 20),
             ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Huỷ', style: TextStyle(color: Colors.white60)),
+        ),
         const SizedBox(width: 12),
         ElevatedButton(
           onPressed: () {
@@ -47,7 +55,11 @@ class OkrDialogs {
     );
   }
 
-  static void showCreateKeyResultDialog(BuildContext context, StrategyController controller, String objectiveId) {
+  static void showCreateKeyResultDialog(
+    BuildContext context,
+    StrategyController controller,
+    String objectiveId,
+  ) {
     final titleController = TextEditingController();
     final currentController = TextEditingController(text: '0');
     final targetController = TextEditingController(text: '100');
@@ -56,7 +68,8 @@ class OkrDialogs {
     AppModalDialog.show(
       context: context,
       title: 'Thêm Kết Quả Then Chốt (Key Result)',
-      subtitle: 'Xác định phát biểu kết quả đầu ra kèm theo các con số đo lường định lượng',
+      subtitle:
+          'Xác định phát biểu kết quả đầu ra kèm theo các con số đo lường định lượng',
       icon: Icons.add_chart_rounded,
       maxWidth: 620,
       content: Column(
@@ -85,14 +98,19 @@ class OkrDialogs {
                 child: TextField(
                   controller: targetController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Giá trị mục tiêu'),
+                  decoration: const InputDecoration(
+                    labelText: 'Giá trị mục tiêu',
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: TextField(
                   controller: unitController,
-                  decoration: const InputDecoration(labelText: 'Đơn vị', hintText: '%, USD, user...'),
+                  decoration: const InputDecoration(
+                    labelText: 'Đơn vị',
+                    hintText: '%, USD, user...',
+                  ),
                 ),
               ),
             ],
@@ -100,17 +118,23 @@ class OkrDialogs {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Huỷ', style: TextStyle(color: Colors.white60)),
+        ),
         const SizedBox(width: 12),
         ElevatedButton(
           onPressed: () {
             final title = titleController.text.trim();
             final curr = double.tryParse(currentController.text.trim()) ?? 0.0;
-            final target = double.tryParse(targetController.text.trim()) ?? 100.0;
+            final target =
+                double.tryParse(targetController.text.trim()) ?? 100.0;
             final unit = unitController.text.trim();
             controller.createKeyResult(
               objectiveId: objectiveId,
-              title: title.isNotEmpty ? title : 'Đạt $target ${unit.isNotEmpty ? unit : '%'}',
+              title: title.isNotEmpty
+                  ? title
+                  : 'Đạt $target ${unit.isNotEmpty ? unit : '%'}',
               baselineValue: 0.0,
               currentValue: curr,
               targetValue: target,
@@ -128,7 +152,11 @@ class OkrDialogs {
     );
   }
 
-  static void showCheckinKeyResultDialog(BuildContext context, StrategyController controller, dynamic kr) {
+  static void showCheckinKeyResultDialog(
+    BuildContext context,
+    StrategyController controller,
+    dynamic kr,
+  ) {
     final currentVal = (kr['current_value'] as num?)?.toDouble() ?? 0.0;
     final valController = TextEditingController(text: currentVal.toString());
 
@@ -147,7 +175,10 @@ class OkrDialogs {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Huỷ', style: TextStyle(color: Colors.white60)),
+        ),
         const SizedBox(width: 12),
         ElevatedButton(
           onPressed: () {
@@ -167,13 +198,19 @@ class OkrDialogs {
     );
   }
 
-  static void showCreateCycleDialog(BuildContext context, StrategyController controller) {
-    final nameController = TextEditingController(text: 'Chu kỳ Thực thi 12 Tuần (Đợt ${DateTime.now().month ~/ 3 + 1})');
+  static void showCreateCycleDialog(
+    BuildContext context,
+    StrategyController controller,
+  ) {
+    final nameController = TextEditingController(
+      text: 'Chu kỳ Thực thi 12 Tuần (Đợt ${DateTime.now().month ~/ 3 + 1})',
+    );
 
     AppModalDialog.show(
       context: context,
       title: 'Thiết Lập Chu Kỳ OKR 12 Tuần',
-      subtitle: 'Đặt tên cho khung thời gian thực thi 12 tuần của doanh nghiệp (Mô hình 12-Week Year)',
+      subtitle:
+          'Đặt tên cho khung thời gian thực thi 12 tuần của doanh nghiệp (Mô hình 12-Week Year)',
       icon: Icons.cached_rounded,
       maxWidth: 560,
       content: TextField(
@@ -184,7 +221,10 @@ class OkrDialogs {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Huỷ', style: TextStyle(color: Colors.white60)),
+        ),
         const SizedBox(width: 12),
         ElevatedButton(
           onPressed: () {
@@ -203,7 +243,10 @@ class OkrDialogs {
     );
   }
 
-  static void showAiOkrModal(BuildContext context, StrategyController controller) {
+  static void showAiOkrModal(
+    BuildContext context,
+    StrategyController controller,
+  ) {
     int objectivesCount = 2;
     int krsPerObjectiveCount = 4;
     String? selectedCycleId;
@@ -215,7 +258,8 @@ class OkrDialogs {
     AppModalDialog.show(
       context: context,
       title: 'Tạo tự động OKRs bằng AI',
-      subtitle: 'Phân tích Nền tảng Doanh nghiệp và Chu kỳ để đề xuất các Mục tiêu & Kết quả Then chốt đo lường được.',
+      subtitle:
+          'Phân tích Nền tảng Doanh nghiệp và Chu kỳ để đề xuất các Mục tiêu & Kết quả Then chốt đo lường được.',
       icon: Icons.auto_awesome_rounded,
       maxWidth: 620,
       content: StatefulBuilder(
@@ -228,19 +272,35 @@ class OkrDialogs {
               children: [
                 const Text(
                   'Số lượng Mục tiêu (Objectives) cần sinh:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<int>(
                   initialValue: objectivesCount,
                   dropdownColor: AppTheme.surfaceDark,
                   decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.format_list_numbered_rounded, size: 18),
+                    prefixIcon: Icon(
+                      Icons.format_list_numbered_rounded,
+                      size: 18,
+                    ),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 1, child: Text('1 Mục tiêu (Tập trung trọng điểm)')),
-                    DropdownMenuItem(value: 2, child: Text('2 Mục tiêu (Cân bằng & Tối ưu - Mặc định)')),
-                    DropdownMenuItem(value: 3, child: Text('3 Mục tiêu (Chi tiết toàn diện các chiều)')),
+                    DropdownMenuItem(
+                      value: 1,
+                      child: Text('1 Mục tiêu (Tập trung trọng điểm)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 2,
+                      child: Text('2 Mục tiêu (Cân bằng & Tối ưu - Mặc định)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 3,
+                      child: Text('3 Mục tiêu (Chi tiết toàn diện các chiều)'),
+                    ),
                   ],
                   onChanged: (v) {
                     if (v != null) setState(() => objectivesCount = v);
@@ -250,7 +310,11 @@ class OkrDialogs {
 
                 const Text(
                   'Số lượng Kết quả Then chốt (Key Results) / Mục tiêu:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<int>(
@@ -260,10 +324,24 @@ class OkrDialogs {
                     prefixIcon: Icon(Icons.checklist_rounded, size: 18),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 2, child: Text('2 Key Results / Mục tiêu (Tinh gọn)')),
-                    DropdownMenuItem(value: 3, child: Text('3 Key Results / Mục tiêu (Chuẩn OKRs - Mặc định)')),
-                    DropdownMenuItem(value: 4, child: Text('4 Key Results / Mục tiêu (Nâng cao)')),
-                    DropdownMenuItem(value: 5, child: Text('5 Key Results / Mục tiêu (Tối đa)')),
+                    DropdownMenuItem(
+                      value: 2,
+                      child: Text('2 Key Results / Mục tiêu (Tinh gọn)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 3,
+                      child: Text(
+                        '3 Key Results / Mục tiêu (Chuẩn OKRs - Mặc định)',
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 4,
+                      child: Text('4 Key Results / Mục tiêu (Nâng cao)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 5,
+                      child: Text('5 Key Results / Mục tiêu (Tối đa)'),
+                    ),
                   ],
                   onChanged: (v) {
                     if (v != null) setState(() => krsPerObjectiveCount = v);
@@ -274,7 +352,11 @@ class OkrDialogs {
                 if (cyclesList.isNotEmpty) ...[
                   const Text(
                     'Chu kỳ OKR áp dụng:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String?>(
@@ -283,12 +365,16 @@ class OkrDialogs {
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.cached_rounded, size: 18),
                     ),
-                    items: cyclesList.map(
-                      (c) => DropdownMenuItem<String?>(
-                        value: c['id'].toString(),
-                        child: Text('${c['name']} (${c['status'] ?? 'active'})'),
-                      ),
-                    ).toList(),
+                    items: cyclesList
+                        .map(
+                          (c) => DropdownMenuItem<String?>(
+                            value: c['id'].toString(),
+                            child: Text(
+                              '${c['name']} (${c['status'] ?? 'active'})',
+                            ),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (v) => setState(() => selectedCycleId = v),
                   ),
                   const SizedBox(height: 16),
@@ -299,11 +385,17 @@ class OkrDialogs {
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.lightbulb_outline_rounded, size: 16, color: AppTheme.primary),
+                      Icon(
+                        Icons.lightbulb_outline_rounded,
+                        size: 16,
+                        color: AppTheme.primary,
+                      ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -325,21 +417,18 @@ class OkrDialogs {
           child: const Text('Huỷ', style: TextStyle(color: Colors.white60)),
         ),
         const SizedBox(width: 12),
-        ElevatedButton.icon(
-          onPressed: () {
-            Get.back();
-            controller.generateAiOkrs(
-              objectivesCount: objectivesCount,
-              krsPerObjectiveCount: krsPerObjectiveCount,
-              cycleId: selectedCycleId,
-            );
-          },
-          icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-          label: const Text('Bắt đầu Sinh OKRs bằng AI'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primary,
-            foregroundColor: const Color(0xFF04070E),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        Tooltip(
+          message:
+              'Sinh OKR bằng AI đang chờ capability backend được phê duyệt.',
+          child: ElevatedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+            label: const Text('Sinh OKRs bằng AI (chưa sẵn sàng)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: const Color(0xFF04070E),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
           ),
         ),
       ],

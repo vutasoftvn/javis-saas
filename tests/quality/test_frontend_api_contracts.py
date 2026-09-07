@@ -79,6 +79,20 @@ def test_checker_matches_dynamic_path_segment_against_enabled_template(tmp_path:
     assert result.returncode == 0
 
 
+def test_checker_accepts_enabled_strategy_workflow_routes(tmp_path: Path) -> None:
+    source = tmp_path / "frontend/lib/strategy_workflow.dart"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        "await ApiClient.post('/operations/objectives/$objectiveId/key-results');\n"
+        "await ApiClient.post('/operations/strategy/tows-options/$id/select');\n"
+        "await ApiClient.patch('/operations/cycle-reviews/$id');\n"
+    )
+
+    result = run_checker(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_checker_catches_reintroduced_dynamic_vault_route(tmp_path: Path) -> None:
     # Ca cụ thể reviewer yêu cầu: nếu route đã bị Task 5 disable (vault.*)
     # quay lại dưới dạng call site DYNAMIC (`$id`) — style cực kỳ phổ biến

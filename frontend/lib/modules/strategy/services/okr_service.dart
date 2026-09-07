@@ -20,31 +20,53 @@ class OkrService extends StrategyServiceBase {
         final data = jsonDecode(response.body);
         if (data is List) {
           final items = data
-              .map((e) => e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map))
+              .map(
+                (e) => e is Map<String, dynamic>
+                    ? e
+                    : Map<String, dynamic>.from(e as Map),
+              )
               .toList();
           return StrategyListResult.success(items);
         }
         if (data is Map) {
-          final rawList = data[key] ?? data['data'] ?? data['items'] ?? data['cycles'] ?? data['objectives'] ?? data['key_results'];
+          final rawList =
+              data[key] ??
+              data['data'] ??
+              data['items'] ??
+              data['cycles'] ??
+              data['objectives'] ??
+              data['key_results'];
           if (rawList is List) {
             final items = rawList
-                .map((e) => e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map))
+                .map(
+                  (e) => e is Map<String, dynamic>
+                      ? e
+                      : Map<String, dynamic>.from(e as Map),
+                )
                 .toList();
             return StrategyListResult.success(items);
           }
         }
-        return const StrategyListResult.failure('Phản hồi không đúng định dạng mong đợi');
+        return const StrategyListResult.failure(
+          'Phản hồi không đúng định dạng mong đợi',
+        );
       } catch (_) {
-        return const StrategyListResult.failure('Không thể đọc dữ liệu phản hồi từ máy chủ');
+        return const StrategyListResult.failure(
+          'Không thể đọc dữ liệu phản hồi từ máy chủ',
+        );
       }
     }
-    return StrategyListResult.failure('Yêu cầu thất bại (${response.statusCode})');
+    return StrategyListResult.failure(
+      'Yêu cầu thất bại (${response.statusCode})',
+    );
   }
 
   Future<StrategyListResult<Map<String, dynamic>>> getOkrCycles() async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
-      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+      return const StrategyListResult.failure(
+        'Chưa xác định workspace hiện tại',
+      );
     }
     try {
       final response = await ApiClient.get('/operations/okr-cycles');
@@ -74,17 +96,29 @@ class OkrService extends StrategyServiceBase {
     return decode(response);
   }
 
-  Future<StrategyListResult<Map<String, dynamic>>> getObjectives({String? cycleId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getObjectives({
+    String? cycleId,
+  }) async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
-      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+      return const StrategyListResult.failure(
+        'Chưa xác định workspace hiện tại',
+      );
     }
     try {
-      final query = (cycleId != null && cycleId.isNotEmpty) ? '?cycle_id=$cycleId' : '';
+      final query = (cycleId != null && cycleId.isNotEmpty)
+          ? '?cycle_id=$cycleId'
+          : '';
       final response = await ApiClient.get('/operations/objectives$query');
       final result = _decodeFlexibleList(response, 'objectives');
       if (cycleId != null && cycleId.isNotEmpty && result.isSuccess) {
-        final filtered = result.items.where((o) => o['cycleId']?.toString() == cycleId || o['cycle_id']?.toString() == cycleId).toList();
+        final filtered = result.items
+            .where(
+              (o) =>
+                  o['cycleId']?.toString() == cycleId ||
+                  o['cycle_id']?.toString() == cycleId,
+            )
+            .toList();
         return StrategyListResult.success(filtered);
       }
       return result;
@@ -110,7 +144,8 @@ class OkrService extends StrategyServiceBase {
         'cycleId': cycleId ?? '',
         'title': title,
         if (why != null && why.isNotEmpty) 'why': why,
-        if (ownerMemberId != null && ownerMemberId.isNotEmpty) 'ownerMemberId': ownerMemberId,
+        if (ownerMemberId != null && ownerMemberId.isNotEmpty)
+          'ownerMemberId': ownerMemberId,
         if (strategicObjectiveId != null && strategicObjectiveId.isNotEmpty)
           'strategicObjectiveId': strategicObjectiveId,
         if (towsOptionId != null && towsOptionId.isNotEmpty)
@@ -137,34 +172,43 @@ class OkrService extends StrategyServiceBase {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.put(
       '/operations/objectives/$objectiveId?workspace_id=$workspaceId',
-      body: {
-        'title': ?title,
-        'status': ?status,
-      },
+      body: {'title': ?title, 'status': ?status},
     );
     return decode(response);
   }
 
   Future<void> deleteObjective(String objectiveId) async {
     await requireWorkspaceId();
-    final response = await ApiClient.delete('/operations/objectives/$objectiveId');
+    final response = await ApiClient.delete(
+      '/operations/objectives/$objectiveId',
+    );
     decode(response);
   }
 
-  Future<StrategyListResult<Map<String, dynamic>>> getKeyResults({String? objectiveId}) async {
+  Future<StrategyListResult<Map<String, dynamic>>> getKeyResults({
+    String? objectiveId,
+  }) async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
-      return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
+      return const StrategyListResult.failure(
+        'Chưa xác định workspace hiện tại',
+      );
     }
     if (objectiveId != null && objectiveId.isNotEmpty) {
       try {
-        final response = await ApiClient.get('/operations/objectives/$objectiveId');
+        final response = await ApiClient.get(
+          '/operations/objectives/$objectiveId',
+        );
         if (response.statusCode >= 200 && response.statusCode < 300) {
           final data = jsonDecode(response.body);
           final krsRaw = data['keyResults'] ?? data['key_results'];
           if (krsRaw is List) {
             final items = krsRaw
-                .map((e) => e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map))
+                .map(
+                  (e) => e is Map<String, dynamic>
+                      ? e
+                      : Map<String, dynamic>.from(e as Map),
+                )
                 .toList();
             return StrategyListResult.success(items);
           }
@@ -209,13 +253,13 @@ class OkrService extends StrategyServiceBase {
     return decode(response);
   }
 
-  Future<Map<String, dynamic>> checkinKeyResult(String keyResultId, double value) async {
+  Future<Map<String, dynamic>> checkinKeyResult(
+    String keyResultId,
+    double value,
+  ) async {
     final response = await ApiClient.post(
       '/operations/key-results/$keyResultId/checkin',
-      body: {
-        'id': keyResultId,
-        'value': value,
-      },
+      body: {'id': keyResultId, 'value': value},
     );
     return decode(response);
   }
@@ -231,8 +275,8 @@ class OkrService extends StrategyServiceBase {
     final response = await ApiClient.put(
       '/operations/key-results/$keyResultId?workspace_id=$workspaceId',
       body: {
-        'current_value': ?currentValue,
-        'target_value': ?targetValue,
+        'currentValue': ?currentValue,
+        'targetValue': ?targetValue,
         'unit': ?unit,
         'status': ?status,
       },
@@ -242,7 +286,9 @@ class OkrService extends StrategyServiceBase {
 
   Future<void> deleteKeyResult(String keyResultId) async {
     await requireWorkspaceId();
-    final response = await ApiClient.delete('/operations/key-results/$keyResultId');
+    final response = await ApiClient.delete(
+      '/operations/key-results/$keyResultId',
+    );
     decode(response);
   }
 
@@ -251,24 +297,9 @@ class OkrService extends StrategyServiceBase {
     int objectivesCount = 2,
     int krsPerObjectiveCount = 3,
     String? cycleId,
-  }) async {
-    final workspaceId = await requireWorkspaceId();
-    final body = <String, dynamic>{
-      'objectives_count': objectivesCount,
-      'krs_per_objective_count': krsPerObjectiveCount,
-    };
-    if (towsId != null && towsId.isNotEmpty) {
-      body['tows_id'] = towsId;
-    }
-    if (cycleId != null && cycleId.isNotEmpty) {
-      body['cycle_id'] = cycleId;
-    }
-
-    final response = await ApiClient.post(
-      '/operations/okrs/generate-ai?workspace_id=$workspaceId',
-      body: body,
+  }) {
+    throw UnsupportedError(
+      'Sinh OKR bằng AI chưa có capability đã được phê duyệt ở backend.',
     );
-    return decode(response);
   }
 }
-

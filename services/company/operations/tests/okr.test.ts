@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createWorkspace } from "../../identity/handlers/workspace.handler";
-import { createOkrCycle, createObjective, addKeyResult, checkin, getObjectiveProgress, getObjective, linkObjectiveProjects_Endpoint, getObjectiveProjects, unlinkObjectiveProject_Endpoint, publishObjective } from "../handlers/okr.handler";
+import { createOkrCycle, createObjective, addKeyResult, checkin, getObjectiveProgress, getObjective, linkObjectiveProjects_Endpoint, getObjectiveProjects, unlinkObjectiveProject_Endpoint, publishObjective, updateObjective, updateKeyResult, deleteKeyResult, listKeyResults } from "../handlers/okr.handler";
 import { createProject } from "../handlers/project.handler";
 import { countOutbox } from "./helpers/outbox";
 
@@ -69,6 +69,54 @@ describe("createObjective", () => {
 });
 
 describe("addKeyResult + checkin + getObjectiveProgress", () => {
+  it("updates and soft-deletes a key result only within the caller workspace", async () => {
+    const owner = await makeAuthedWorkspace("OKR Edit Owner");
+    const outsider = await makeAuthedWorkspace("OKR Edit Outsider");
+    const cycle = await createOkrCycle({ workspaceId: owner.workspaceId, name: "Q1", authorization: owner.authorization });
+    const objective = await createObjective({
+      workspaceId: owner.workspaceId,
+      cycleId: cycle.id,
+      title: "Retain customers",
+      authorization: owner.authorization,
+    });
+    const keyResult = await addKeyResult({
+      objectiveId: objective.id,
+      title: "Monthly churn",
+      targetValue: 5,
+      baselineValue: 10,
+      authorization: owner.authorization,
+    });
+
+    const renamed = await updateObjective({
+      id: objective.id,
+      title: "Retain more customers",
+      authorization: owner.authorization,
+    });
+    expect(renamed.title).toBe("Retain more customers");
+
+    const updated = await updateKeyResult({
+      id: keyResult.id,
+      currentValue: 7.5,
+      targetValue: 4.5,
+      authorization: owner.authorization,
+    });
+    expect(updated.currentValue).toBe(7.5);
+    expect(updated.targetValue).toBe(4.5);
+
+    const listed = await listKeyResults({
+      workspaceId: owner.workspaceId,
+      authorization: owner.authorization,
+    });
+    expect(listed.data.map((keyResult) => keyResult.id)).toContain(keyResult.id);
+
+    await expect(
+      updateKeyResult({ id: keyResult.id, currentValue: 6, authorization: outsider.authorization }),
+    ).rejects.toThrow();
+
+    await deleteKeyResult({ id: keyResult.id, authorization: owner.authorization });
+    await expect(checkin({ id: keyResult.id, value: 4, authorization: owner.authorization })).rejects.toThrow();
+  });
+
   it("does not allow a fourth KR to be added after an objective is published", async () => {
     const { workspace, cycle, authorization } = await makeCycle();
     const objective = await createObjective({

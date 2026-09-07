@@ -1,7 +1,7 @@
 import 'dart:convert';
 import '../../../core/network/api_client.dart';
-import '../../../core/network/workspace_scoped_service.dart';
 import '../models/strategy_workflow_models.dart';
+import 'strategy_service_base.dart';
 
 class RevisionConflictException implements Exception {
   final String message;
@@ -13,7 +13,7 @@ class RevisionConflictException implements Exception {
   String toString() => 'RevisionConflictException: $message';
 }
 
-class StrategyWorkflowService extends WorkspaceScopedService {
+class StrategyWorkflowService extends StrategyServiceBase {
   dynamic _decodeBody(dynamic response) {
     try {
       return jsonDecode(utf8.decode(response.bodyBytes));
@@ -803,7 +803,7 @@ class StrategyWorkflowService extends WorkspaceScopedService {
     required String title,
     String? initiativeId,
   }) async {
-    final activeWorkspaceId = await workspaceId();
+    final activeWorkspaceId = await getWorkspaceId();
     if (activeWorkspaceId == null || activeWorkspaceId.isEmpty) {
       throw StateError('Chưa chọn workspace để tạo công việc');
     }

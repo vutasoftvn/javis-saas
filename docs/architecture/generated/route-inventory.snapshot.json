@@ -33,14 +33,6 @@
       "resolved": false,
       "owner": null
     },
-    "DELETE /okrs/key-results": {
-      "resolved": false,
-      "owner": null
-    },
-    "DELETE /okrs/objectives": {
-      "resolved": false,
-      "owner": null
-    },
     "DELETE /strategy/canvases": {
       "resolved": false,
       "owner": null
@@ -213,23 +205,31 @@
       "resolved": false,
       "owner": null
     },
-    "GET /okrs/cycles": {
-      "resolved": false,
+    "GET /operations/cycle-reviews": {
+      "resolved": true,
       "owner": null
     },
-    "GET /okrs/key-results": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /okrs/objectives": {
-      "resolved": false,
+    "GET /operations/cycles": {
+      "resolved": true,
       "owner": null
     },
     "GET /operations/execution-settings": {
       "resolved": true,
       "owner": null
     },
+    "GET /operations/initiatives": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/key-results": {
+      "resolved": true,
+      "owner": null
+    },
     "GET /operations/objectives": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/okr-cycles": {
       "resolved": true,
       "owner": null
     },
@@ -265,6 +265,10 @@
       "resolved": true,
       "owner": null
     },
+    "GET /operations/strategy/objectives": {
+      "resolved": true,
+      "owner": null
+    },
     "GET /operations/strategy/pilots": {
       "resolved": true,
       "owner": null
@@ -277,6 +281,10 @@
       "resolved": true,
       "owner": "M4"
     },
+    "GET /operations/strategy/settings": {
+      "resolved": true,
+      "owner": null
+    },
     "GET /operations/strategy/stage-context": {
       "resolved": true,
       "owner": null
@@ -286,6 +294,10 @@
       "owner": null
     },
     "GET /operations/strategy/stage-transitions": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/tows-options": {
       "resolved": true,
       "owner": null
     },
@@ -330,26 +342,6 @@
       "owner": null
     },
     "GET /strategy/initiatives": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/lenses/bsc": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/lenses/pestel": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/lenses/summary": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/lenses/swot": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/lenses/tows": {
       "resolved": false,
       "owner": null
     },
@@ -541,6 +533,10 @@
       "resolved": true,
       "owner": null
     },
+    "POST /operations/initiatives": {
+      "resolved": true,
+      "owner": null
+    },
     "POST /operations/strategy/assumptions": {
       "resolved": true,
       "owner": null
@@ -595,6 +591,10 @@
     },
     "POST /workforce/tools/webhook": {
       "resolved": false,
+      "owner": null
+    },
+    "PUT /operations/initiatives": {
+      "resolved": true,
       "owner": null
     }
   }

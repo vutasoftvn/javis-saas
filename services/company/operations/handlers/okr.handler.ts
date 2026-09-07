@@ -15,14 +15,32 @@ import {
   getObjectiveProgressService,
   listOkrCyclesService,
   listObjectivesService,
+  listKeyResultsService,
   deleteObjectiveService,
   publishObjectiveService,
   PublishObjectiveParams,
+  UpdateObjectiveParams,
+  UpdateKeyResultParams,
+  DeleteKeyResultParams,
+  updateObjectiveService,
+  updateKeyResultService,
+  deleteKeyResultService,
 } from "../services/okr.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { linkObjectiveProjects, listObjectiveProjects, unlinkObjectiveProject } from "../services/project-link.service";
 
-export { OkrCycle, CreateOkrCycleParams, Objective, CreateObjectiveParams, KeyResult, AddKeyResultParams, PublishObjectiveParams };
+export {
+  OkrCycle,
+  CreateOkrCycleParams,
+  Objective,
+  CreateObjectiveParams,
+  KeyResult,
+  AddKeyResultParams,
+  PublishObjectiveParams,
+  UpdateObjectiveParams,
+  UpdateKeyResultParams,
+  DeleteKeyResultParams,
+};
 
 
 // M1 §4 — các endpoint OKR create/checkin trước đây không xác thực caller.
@@ -71,6 +89,28 @@ export const getObjective = api(
   }
 );
 
+export const updateObjective = api(
+  { method: "PUT", path: "/operations/objectives/:id", expose: true },
+  async (params: WithAuth<UpdateObjectiveParams>): Promise<Objective> => {
+    return updateObjectiveService(params);
+  },
+);
+
+export const updateKeyResult = api(
+  { method: "PUT", path: "/operations/key-results/:id", expose: true },
+  async (params: WithAuth<UpdateKeyResultParams>): Promise<KeyResult> => {
+    return updateKeyResultService(params);
+  },
+);
+
+export const deleteKeyResult = api(
+  { method: "DELETE", path: "/operations/key-results/:id", expose: true },
+  async (params: WithAuth<DeleteKeyResultParams>): Promise<{ success: boolean }> => {
+    await deleteKeyResultService(params);
+    return { success: true };
+  },
+);
+
 export const listOkrCycles = api(
   { method: "GET", path: "/operations/okr-cycles", expose: true },
   async ({
@@ -97,6 +137,20 @@ export const listObjectives = api(
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     return listObjectivesService(ctx);
   }
+);
+
+export const listKeyResults = api(
+  { method: "GET", path: "/operations/key-results", expose: true },
+  async ({
+    authorization,
+    workspaceId,
+  }: {
+    authorization?: Header<"Authorization">;
+    workspaceId: Header<"X-Workspace-Id">;
+  }) => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return listKeyResultsService(ctx);
+  },
 );
 
 export const deleteObjective = api(
@@ -212,4 +266,3 @@ export const publishObjective = api(
     return publishObjectiveService({ id }, ctx);
   }
 );
-

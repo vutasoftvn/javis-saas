@@ -1,9 +1,45 @@
-import '../../../core/network/workspace_scoped_service.dart';
+import 'dart:convert';
+
+import '../../../core/network/api_client.dart';
+import '../../../core/services/secure_storage_service.dart';
 import 'finance_service.dart';
 
-class FinanceTT58Service extends WorkspaceService {
-  Future<Map<String, dynamic>?> getReport(String legalEntityId, String periodId, String reportCode) async {
-    final data = await postJson('/finance/reports/generate', {
+class FinanceTT58Service {
+  Future<String?> _workspaceId() => SecureStorageService.read('workspace_id');
+
+  String _scopedPath(String path, String workspaceId) {
+    if (path.contains('workspaceId=') || path.contains('workspace_id=')) {
+      return path;
+    }
+    final separator = path.contains('?') ? '&' : '?';
+    return '$path${separator}workspace_id=${Uri.encodeQueryComponent(workspaceId)}';
+  }
+
+  Future<dynamic> _getJson(String path) async {
+    final workspaceId = await _workspaceId();
+    if (workspaceId == null || workspaceId.isEmpty) return null;
+    final response = await ApiClient.get(_scopedPath(path, workspaceId));
+    if (response.statusCode < 200 || response.statusCode >= 300) return null;
+    return jsonDecode(utf8.decode(response.bodyBytes));
+  }
+
+  Future<dynamic> _postJson(String path, Map<String, dynamic> body) async {
+    final workspaceId = await _workspaceId();
+    if (workspaceId == null || workspaceId.isEmpty) return null;
+    final response = await ApiClient.post(
+      _scopedPath(path, workspaceId),
+      body: body,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) return null;
+    return jsonDecode(utf8.decode(response.bodyBytes));
+  }
+
+  Future<Map<String, dynamic>?> getReport(
+    String legalEntityId,
+    String periodId,
+    String reportCode,
+  ) async {
+    final data = await _postJson('/finance/reports/generate', {
       'legalEntityId': legalEntityId,
       'periodId': periodId,
       'reportCode': reportCode,
@@ -12,7 +48,10 @@ class FinanceTT58Service extends WorkspaceService {
     return _transformReport(reportCode, data as Map<String, dynamic>);
   }
 
-  Map<String, dynamic> _transformReport(String reportCode, Map<String, dynamic> report) {
+  Map<String, dynamic> _transformReport(
+    String reportCode,
+    Map<String, dynamic> report,
+  ) {
     final lines = ((report['lines'] as List<dynamic>?) ?? [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
@@ -63,13 +102,18 @@ class FinanceTT58Service extends WorkspaceService {
     };
   }
 
-  Future<Map<String, dynamic>?> getAccountingPolicy(String legalEntityId) async {
-    final data = await getJson('/finance/accounting-policies?legalEntityId=$legalEntityId');
+  Future<Map<String, dynamic>?> getAccountingPolicy(
+    String legalEntityId,
+  ) async {
+    final data = await _getJson(
+      '/finance/accounting-policies?legalEntityId=$legalEntityId',
+    );
     if (data == null || data['policy'] == null) return null;
     final policy = Map<String, dynamic>.from(data['policy'] as Map);
     return {
       'is_statutory_required': true,
-      'compliance_note': 'Chế độ kế toán đang áp dụng theo Thông tư 58/2026/TT-BTC.',
+      'compliance_note':
+          'Chế độ kế toán đang áp dụng theo Thông tư 58/2026/TT-BTC.',
       'accounting_policies': {
         'currency': 'VND (Đồng Việt Nam)',
         'inventory_valuation': policy['inventoryValuationMethod'],
@@ -79,15 +123,20 @@ class FinanceTT58Service extends WorkspaceService {
     };
   }
 
-  Future<Map<String, dynamic>?> getTaxObligations(String legalEntityId, String periodId) async {
+  Future<Map<String, dynamic>?> getTaxObligations(
+    String legalEntityId,
+    String periodId,
+  ) async {
     // Đồng bộ thuế TNDN là hành động RIÊNG, tường minh (không phải side-effect
     // của đọc) — gọi trước, bỏ qua kết quả trả về nếu lỗi (không chặn việc đọc
     // dữ liệu đã có sẵn khi sync tạm thời thất bại).
-    await postJson('/finance/tax-obligations/sync', {
+    await _postJson('/finance/tax-obligations/sync', {
       'legalEntityId': legalEntityId,
       'periodId': periodId,
     });
-    final data = await getJson('/finance/tax-obligations?legalEntityId=$legalEntityId&periodId=$periodId');
+    final data = await _getJson(
+      '/finance/tax-obligations?legalEntityId=$legalEntityId&periodId=$periodId',
+    );
     if (data == null) return null;
     final taxesRaw = (data['taxes'] as List<dynamic>?) ?? [];
     return {
@@ -97,25 +146,35 @@ class FinanceTT58Service extends WorkspaceService {
           'tax_name': m['taxName'],
           'incurred': num.tryParse(m['incurredMinor']?.toString() ?? '0') ?? 0,
           'paid': num.tryParse(m['paidMinor']?.toString() ?? '0') ?? 0,
-          'closing_debt': num.tryParse(m['closingDebtMinor']?.toString() ?? '0') ?? 0,
+          'closing_debt':
+              num.tryParse(m['closingDebtMinor']?.toString() ?? '0') ?? 0,
         };
       }).toList(),
-      'total_balance_due': num.tryParse(data['totalBalanceDueMinor']?.toString() ?? '0') ?? 0,
+      'total_balance_due':
+          num.tryParse(data['totalBalanceDueMinor']?.toString() ?? '0') ?? 0,
     };
   }
 
-  Future<Map<String, dynamic>?> getFounderLiteMetrics(String legalEntityId, String periodId) async {
+  Future<Map<String, dynamic>?> getFounderLiteMetrics(
+    String legalEntityId,
+    String periodId,
+  ) async {
     final service = FinanceService();
     final snapshots = await service.getFinancialSnapshots();
     final b02 = await getReport(legalEntityId, periodId, 'B02');
 
-    final latestSnapshot = snapshots.isNotEmpty ? Map<String, dynamic>.from(snapshots.first as Map) : null;
-    final cashBalance = num.tryParse(latestSnapshot?['currentCash']?.toString() ?? '') ?? 0;
+    final latestSnapshot = snapshots.isNotEmpty
+        ? Map<String, dynamic>.from(snapshots.first as Map)
+        : null;
+    final cashBalance =
+        num.tryParse(latestSnapshot?['currentCash']?.toString() ?? '') ?? 0;
     final runwayMonths = latestSnapshot?['runwayMonths'] == null
         ? null
         : num.tryParse(latestSnapshot!['runwayMonths'].toString());
-    final monthlyBurn = num.tryParse(latestSnapshot?['monthlyNetBurn']?.toString() ?? '') ?? 0;
-    final cashFlowPositive = latestSnapshot?['cashFlowPositive'] as bool? ?? true;
+    final monthlyBurn =
+        num.tryParse(latestSnapshot?['monthlyNetBurn']?.toString() ?? '') ?? 0;
+    final cashFlowPositive =
+        latestSnapshot?['cashFlowPositive'] as bool? ?? true;
 
     final items = b02?['items'] as Map<String, dynamic>? ?? {};
     final revenue = (items['net_revenue'] as num?) ?? 0;
@@ -124,7 +183,8 @@ class FinanceTT58Service extends WorkspaceService {
     final netProfit = (items['net_profit_after_tax'] as num?) ?? 0;
 
     String healthStatus;
-    if (!cashFlowPositive && (runwayMonths == null || runwayMonths < 1) || cashBalance < 0) {
+    if (!cashFlowPositive && (runwayMonths == null || runwayMonths < 1) ||
+        cashBalance < 0) {
       healthStatus = 'CRITICAL';
     } else if (!cashFlowPositive && runwayMonths != null && runwayMonths < 3) {
       healthStatus = 'WARNING';
