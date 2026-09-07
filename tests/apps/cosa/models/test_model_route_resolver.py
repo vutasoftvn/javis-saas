@@ -151,3 +151,34 @@ async def test_resolved_route_never_contains_secret_field(resolver: ModelRouteRe
     )
     with pytest.raises(ValueError):
         ResolvedModelRoute(**{**route.model_dump(), "api_key": "sk-should-not-exist"})
+
+
+async def test_base_url_round_trips_through_repository_and_resolver(
+    resolver: ModelRouteResolver,
+) -> None:
+    """`base_url` (fast-follow field cho LOCAL_OPENAI_COMPATIBLE — endpoint tự
+    host không phải secret, xem contracts.py) phải sống sót qua
+    create_profile() -> repository -> resolve_route(), không bị rớt ở bất kỳ
+    tầng nào."""
+    await resolver.create_profile(
+        "ws-a",
+        "local-ollama",
+        ProviderType.LOCAL_OPENAI_COMPATIBLE,
+        base_url="http://localhost:11434/v1",
+    )
+    await resolver.set_workspace_default("ws-a", "local-ollama")
+
+    route = await resolver.resolve_route("ws-a", "cosa.agents.operations")
+
+    assert route.base_url == "http://localhost:11434/v1"
+
+
+async def test_base_url_defaults_to_none_when_not_configured(
+    resolver: ModelRouteResolver,
+) -> None:
+    await resolver.create_profile("ws-a", "claude-fast", ProviderType.ANTHROPIC_API)
+    await resolver.set_workspace_default("ws-a", "claude-fast")
+
+    route = await resolver.resolve_route("ws-a", "cosa.agents.operations")
+
+    assert route.base_url is None

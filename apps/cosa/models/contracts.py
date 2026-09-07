@@ -63,6 +63,10 @@ class ModelProviderProfile(BaseModel):
     provider_type: ProviderType
     model_id: str
     credential_ref: str | None = None
+    # Endpoint cho provider tự host (LOCAL_OPENAI_COMPATIBLE) — không phải
+    # secret, chỉ là routing metadata cùng loại với model_id. None cho các
+    # provider API bên thứ 3 (đã có base_url cố định của chính provider đó).
+    base_url: str | None = None
     allowed_models: tuple[str, ...] = Field(default_factory=tuple)
     budget_usd_limit: float | None = None
     max_concurrency: int | None = None
@@ -97,6 +101,8 @@ class SystemDefaultModelProfile(BaseModel):
     provider_type: ProviderType
     model_id: str
     credential_ref: str | None = None
+    # Xem ghi chú ở ModelProviderProfile.base_url.
+    base_url: str | None = None
     allowed_models: tuple[str, ...] = Field(default_factory=tuple)
 
 
@@ -114,6 +120,9 @@ class ResolvedModelRoute(BaseModel):
     provider_type: ProviderType
     model_id: str
     credential_ref: str | None = None
+    # Xem ghi chú ở ModelProviderProfile.base_url — không phải secret, chỉ
+    # endpoint routing cho LOCAL_OPENAI_COMPATIBLE.
+    base_url: str | None = None
     allowed_models: tuple[str, ...] = Field(default_factory=tuple)
     fallback_profile_ids: tuple[str, ...] = Field(default_factory=tuple)
 

@@ -53,6 +53,7 @@ class PostgresModelRoutingRepository:
         *,
         model_id: str | None = None,
         credential_ref: str | None = None,
+        base_url: str | None = None,
         allowed_models: tuple[str, ...] = (),
         budget_usd_limit: float | None = None,
         max_concurrency: int | None = None,
@@ -70,17 +71,18 @@ class PostgresModelRoutingRepository:
                     """
                     INSERT INTO models.model_provider_profiles (
                         workspace_id, profile_id, provider_type, model_id,
-                        credential_ref, allowed_models, budget_usd_limit,
+                        credential_ref, base_url, allowed_models, budget_usd_limit,
                         max_concurrency, status
                     ) VALUES (
                         :workspace_id, :profile_id, :provider_type, :model_id,
-                        :credential_ref, :allowed_models, :budget_usd_limit,
+                        :credential_ref, :base_url, :allowed_models, :budget_usd_limit,
                         :max_concurrency, :status
                     )
                     ON CONFLICT (workspace_id, profile_id) DO UPDATE SET
                         provider_type = EXCLUDED.provider_type,
                         model_id = EXCLUDED.model_id,
                         credential_ref = EXCLUDED.credential_ref,
+                        base_url = EXCLUDED.base_url,
                         allowed_models = EXCLUDED.allowed_models,
                         budget_usd_limit = EXCLUDED.budget_usd_limit,
                         max_concurrency = EXCLUDED.max_concurrency,
@@ -94,6 +96,7 @@ class PostgresModelRoutingRepository:
                     "provider_type": provider_type.value,
                     "model_id": resolved_model_id,
                     "credential_ref": credential_ref,
+                    "base_url": base_url,
                     "allowed_models": _json.dumps(list(allowed_models)),
                     "budget_usd_limit": budget_usd_limit,
                     "max_concurrency": max_concurrency,
@@ -107,6 +110,7 @@ class PostgresModelRoutingRepository:
             provider_type=provider_type,
             model_id=resolved_model_id,
             credential_ref=credential_ref,
+            base_url=base_url,
             allowed_models=tuple(allowed_models),
             budget_usd_limit=budget_usd_limit,
             max_concurrency=max_concurrency,
@@ -122,7 +126,7 @@ class PostgresModelRoutingRepository:
                 text(
                     """
                     SELECT workspace_id, profile_id, provider_type, model_id,
-                           credential_ref, allowed_models, budget_usd_limit,
+                           credential_ref, base_url, allowed_models, budget_usd_limit,
                            max_concurrency, status
                     FROM models.model_provider_profiles
                     WHERE workspace_id = :workspace_id AND profile_id = :profile_id
@@ -139,6 +143,7 @@ class PostgresModelRoutingRepository:
                 provider_type=ProviderType(row["provider_type"]),
                 model_id=row["model_id"],
                 credential_ref=row["credential_ref"],
+                base_url=row["base_url"],
                 allowed_models=tuple(row["allowed_models"] or []),
                 budget_usd_limit=(
                     float(row["budget_usd_limit"]) if row["budget_usd_limit"] is not None else None
@@ -257,6 +262,7 @@ class InMemoryModelRoutingRepository:
         *,
         model_id: str | None = None,
         credential_ref: str | None = None,
+        base_url: str | None = None,
         allowed_models: tuple[str, ...] = (),
         budget_usd_limit: float | None = None,
         max_concurrency: int | None = None,
@@ -268,6 +274,7 @@ class InMemoryModelRoutingRepository:
             provider_type=provider_type,
             model_id=model_id or profile_id,
             credential_ref=credential_ref,
+            base_url=base_url,
             allowed_models=tuple(allowed_models),
             budget_usd_limit=budget_usd_limit,
             max_concurrency=max_concurrency,

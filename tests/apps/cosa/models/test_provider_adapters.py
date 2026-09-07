@@ -23,6 +23,7 @@ def route(
     credential_id: str | None,
     model_id: str = "some-model",
     allowed_models: tuple[str, ...] = (),
+    base_url: str | None = None,
 ) -> ResolvedModelRoute:
     return ResolvedModelRoute(
         workspace_id="ws-a",
@@ -31,6 +32,7 @@ def route(
         provider_type=provider_type,
         model_id=model_id,
         credential_ref=credential_id,
+        base_url=base_url,
         allowed_models=allowed_models,
         fallback_profile_ids=(),
     )
@@ -104,6 +106,22 @@ async def test_local_openai_compatible_allows_missing_credential(
     )
 
     assert client is not None
+
+
+@pytest.mark.asyncio
+async def test_local_openai_compatible_uses_configured_base_url(
+    factory: ModelProviderFactory,
+) -> None:
+    client = await factory.create(
+        route(
+            provider_type=ProviderType.LOCAL_OPENAI_COMPATIBLE,
+            credential_id=None,
+            base_url="http://localhost:11434/v1",
+        )
+    )
+
+    assert client is not None
+    assert getattr(client, "base_url", None) == "http://localhost:11434/v1"
 
 
 @pytest.mark.asyncio

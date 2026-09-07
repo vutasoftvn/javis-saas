@@ -95,6 +95,7 @@ class ModelRouteResolver:
                 provider_type=sd.provider_type,
                 model_id=sd.model_id,
                 credential_ref=sd.credential_ref,
+                base_url=sd.base_url,
                 allowed_models=sd.allowed_models,
                 fallback_profile_ids=(),
             )
@@ -109,6 +110,7 @@ class ModelRouteResolver:
                     provider_type=profile.provider_type,
                     model_id=profile.model_id,
                     credential_ref=profile.credential_ref,
+                    base_url=profile.base_url,
                     allowed_models=profile.allowed_models,
                     fallback_profile_ids=policy.fallback_profile_ids,
                 )

@@ -160,11 +160,18 @@ class ModelProviderFactory:
     async def _create_local_openai_compatible(self, route: ResolvedModelRoute) -> ModelClient:
         # Self-hosted/local endpoint — credential là optional (mạng nội bộ
         # không cần auth). Nếu route có credential_ref thì vẫn resolve và
-        # validate workspace scoping giống các provider khác.
+        # validate workspace scoping giống các provider khác. `base_url` là
+        # routing metadata KHÔNG phải secret (xem contracts.py) — truyền
+        # thẳng vào LitellmModel khi route có cấu hình; không bịa default nào
+        # thay caller nếu thiếu (None -> LitellmModel dùng default của chính
+        # nó / caller phải tự cấu hình).
         api_key = "local-no-auth"
         if route.credential_ref:
             api_key = await self._resolve_credential(route)
 
         from agents.extensions.models.litellm_model import LitellmModel
 
-        return LitellmModel(model=f"openai/{route.model_id}", api_key=api_key)
+        kwargs: dict[str, Any] = {"model": f"openai/{route.model_id}", "api_key": api_key}
+        if route.base_url:
+            kwargs["base_url"] = route.base_url
+        return LitellmModel(**kwargs)
