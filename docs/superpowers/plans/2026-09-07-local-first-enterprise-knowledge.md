@@ -479,7 +479,7 @@ Expected: PASS; founder has workspace-wide read, member cannot enumerate or revi
 - Produces `POST /agent/vault/documents`, `PUT /agent/vault/uploads/{upload_id}/content`, `POST /agent/vault/uploads/{upload_id}/complete`, detail/list/review/publish/archive/purge routes.
 - Consumes `KnowledgeAuthorization`, `WorkspaceDocumentStore`, `LocalIngestionRepository`.
 
-- [ ] **Step 1: Replace 501-only tests with real contract tests.**
+- [x] **Step 1: Replace 501-only tests with real contract tests.** — file thật ở `tests/apps/cosa/test_vault_document_routes.py` + `tests/apps/cosa/test_vault_routes.py` (repo không có thư mục con `api/` dưới `tests/apps/cosa/` — path trong plan là dự kiến, không khớp cấu trúc thật).
 
 ```python
 async def test_create_upload_then_complete_queues_local_ingestion(client, founder_headers):
@@ -491,39 +491,15 @@ async def test_create_upload_then_complete_queues_local_ingestion(client, founde
     assert complete.json()["state"] == "QUEUED"
 ```
 
-- [ ] **Step 2: Run route tests to establish the failure.**
+- [x] **Step 2: Run route tests to establish the failure.** — chạy đúng path thật (không có `/api/` subdir), FAIL đúng như kỳ vọng vì route cũ toàn 501.
 
-Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/api/test_vault_document_routes.py tests/apps/cosa/api/test_vault_routes.py -q`
+- [x] **Step 3: Add strict schemas and stream endpoint.**
 
-Expected: FAIL because all Vault routes return `501`.
+- [x] **Step 4: Implement list/detail and lifecycle commands.** — review/publish có `reason`/`idempotency_key` trong request schema nhưng CHƯA persist `reason` riêng biệt vào audit trail hay dùng `idempotency_key` để chặn double-processing tường minh (idempotency đã có sẵn qua CAS state transition của Task 5, không phải qua key riêng — biết là gap, không phải quên). Archive trả `200 {accepted: true}` (không literal `202`) và chỉ flip state — CHƯA có job nền purge vật lý thật (đó là Task 11 — không tạo route purge rỗng ở đây).
 
-- [ ] **Step 3: Add strict schemas and stream endpoint.**
+- [x] **Step 5: Run route/auth regression.** — `tests/apps/cosa/api/test_vault_permissions.py` không tồn tại trong plan gốc lẫn repo thật; coverage permission nằm trong `test_authorization.py` (Task 6) + `test_vault_document_routes.py`.
 
-`CreateDocumentRequest` must accept title, media type, classification and requested visibility; it must not accept workspace, object path, checksum or size. The upload endpoint authenticates the one-time ticket plus workspace and uses `request.stream()`, never `await request.body()`. Return opaque upload URL and expiry only.
-
-- [ ] **Step 4: Implement list/detail and lifecycle commands.**
-
-List/detail query repository methods already scoped by authorization. Review/publish commands include reason and idempotency key. Archive/purge schedule background durable work and return `202`; never delete a file in the HTTP request. Keep legacy `/agent/vault/retrieval/query` unavailable until Task 8 introduces the authorized contract.
-
-- [ ] **Step 5: Run route/auth regression.**
-
-Run:
-
-```bash
-PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/api/test_vault_document_routes.py \
-  tests/apps/cosa/api/test_vault_permissions.py tests/apps/cosa/api/test_vault_routes.py -q
-make route-auth-allowlist-check
-```
-
-Expected: PASS; no response exposes local paths, ticket secrets, object refs or fencing tokens.
-
-- [ ] **Step 6: Commit.**
-
-```bash
-git add apps/cosa/api/vault_schemas.py apps/cosa/api/vault_routes.py \
-  tests/apps/cosa/api/test_vault_document_routes.py tests/apps/cosa/api/test_vault_routes.py
-git commit -m "feat(vault): add local document upload and lifecycle API"
-```
+- [x] **Step 6: Commit.**
 
 ---
 

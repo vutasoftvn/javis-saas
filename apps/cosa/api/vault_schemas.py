@@ -71,6 +71,46 @@ class DeleteDocumentOut(BaseModel):
     deleted: bool
 
 
+# ─── Task 7 — Local document upload + lifecycle (thay thế stub 501) ───
+
+
+class CreateDocumentRequest(BaseModel):
+    """KHÔNG nhận workspace/object path/checksum/size — server-owned."""
+
+    title: str
+    media_type: str
+    classification: str | None = None
+    visibility: str | None = None
+
+
+class CreateDocumentUploadOut(BaseModel):
+    document_id: str
+    upload_id: str
+    upload_url: str
+    expires_at: str
+    max_bytes: int
+
+
+class CompleteUploadOut(BaseModel):
+    upload_id: str
+    state: str
+
+
+class ReviewDocumentRequest(BaseModel):
+    reason: str
+    idempotency_key: str
+
+
+class ReviewDocumentOut(BaseModel):
+    upload_id: str
+    state: str
+
+
+class ArchiveOrPurgeOut(BaseModel):
+    document_id: str
+    accepted: bool
+
+
 class KnowledgeGraphNodeOut(BaseModel):
     id: str
     label: str

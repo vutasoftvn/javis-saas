@@ -1,40 +1,46 @@
 """Vault API Routes for COSA Agent Platform.
 
-Task 5 (Truthful MVP Hardening, 2026-09-01) — Vault (lưu trữ tài liệu + tri
-thức) chưa có storage layer thật: không có object store, không có pipeline
-scan/ingest, không có embedding/retrieval thật. Các route dưới đây TRƯỚC ĐÂY
-giả lập vòng đời "ticket → confirm → INDEXED → retrieval hit" bằng cách ghi
-row DB tạm và trả state giả (`state=INDEXED`, `score=0.95`,
-`content=f"Document content for {title}"`...) — khiến client tưởng nhầm có
-tài liệu thật đã được lưu trữ và index. Route giờ trả 501 trung thực, không
-tạo bất kỳ draft/version/index state giả nào, và không tin checksum/size do
-client tự khai báo (không còn storage thật để đối chiếu chúng).
+Task 7 (plan local-first-enterprise-knowledge) — reopen với local semantics
+thật: WorkspaceDocumentStore (Task 3) + LocalIngestionRepository (Task 5) +
+KnowledgeAuthorization (Task 6). Server-owned upload ticket (không nhận
+workspace/object path/checksum/size từ client), stream upload
+(`request.stream()`, không `await request.body()`), không bao giờ trả local
+path/object key/ticket secret ra khỏi response tạo ticket.
 
-Route vẫn được đăng ký (không bị gỡ khỏi router) vì `test_router_registration`
-xác nhận đường dẫn `/agent/vault/documents` còn tồn tại — endpoint tồn tại,
-chỉ hành vi trung thực hơn.
-
-Điều kiện mở lại tính năng: xem "Exit decision for reopening Vault" trong
-`.superpowers/sdd/2026-09-01-truthful-mvp-hardening/task-5-brief.md`.
+Retrieval (`/retrieval/query`) vẫn giữ 501 — Task 8 mới có authorized
+retrieval contract thật.
 """
 
 from __future__ import annotations
 
-from typing import NoReturn
+from typing import Any, NoReturn
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from apps.cosa.api.vault_schemas import (
-    ConfirmUploadRequest,
-    CreateUploadTicketRequest,
+    ArchiveOrPurgeOut,
+    CompleteUploadOut,
+    CreateDocumentRequest,
+    CreateDocumentUploadOut,
     RetrievalQueryRequest,
+    ReviewDocumentOut,
+    ReviewDocumentRequest,
+    VaultDocumentOut,
 )
 from apps.cosa.auth.dependency import (
     AuthenticatedIdentity,
     get_authenticated_identity,
 )
+from apps.cosa.knowledge_ingestion.authorization import KnowledgeAuthorization
+from apps.cosa.knowledge_ingestion.contracts import (
+    MIME_TYPE_LIMITS,
+    knowledge_ingestion_enabled,
+)
 
 router = APIRouter(prefix="/agent/vault", tags=["vault"])
+
+_WORKSPACE_OPERATOR_ROLES = frozenset({"founder", "co-founder", "admin"})
 
 # Message cố tình chung chung — không tiết lộ storage topology (tên bucket,
 # provider, schema DB...) cho client.
@@ -48,54 +54,335 @@ def _not_released() -> HTTPException:
     )
 
 
-# Mọi handler dưới đây chỉ `raise` (không bao giờ return) nên type hint đúng
-# là `NoReturn` (Task 10 — mypy `disallow_untyped_defs` cho module này).
-# FastAPI lại cố build response model Pydantic từ type hint đó ở import-time
-# và crash vì `NoReturn` không phải Pydantic field hợp lệ — `response_model=
-# None` tắt hành vi suy luận response model đó, không ảnh hưởng hành vi 501
-# thật đang trả về.
+def _get_plane(request: Request) -> Any:
+    plane = getattr(request.app.state, "plane", None)
+    if plane is None:
+        raise RuntimeError("CosaAgentPlane chưa sẵn sàng — app.state.plane rỗng.")
+    return plane
+
+
+def _feature_disabled() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Knowledge ingestion not enabled")
+
+
+def _document_to_out(doc: Any) -> VaultDocumentOut:
+    return VaultDocumentOut(
+        document_id=str(doc.document_id),
+        workspace_id=doc.workspace_id,
+        title=doc.title,
+        kind=doc.kind,
+        state=doc.state,
+        current_version_id=str(doc.current_version_id) if doc.current_version_id else None,
+        knowledge_source_id=str(doc.knowledge_source_id) if doc.knowledge_source_id else None,
+        created_by=doc.created_by,
+        created_at=doc.created_at.isoformat(),
+        updated_at=doc.updated_at.isoformat(),
+    )
+
+
+def _parse_document_id(document_id: str) -> UUID:
+    try:
+        return UUID(document_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found") from e
+
 
 # ─── Documents ───
 
 
-@router.get("/documents", response_model=None)
+@router.get("/documents", response_model=list[VaultDocumentOut])
 async def list_documents(
+    request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> NoReturn:
-    raise _not_released()
+) -> list[VaultDocumentOut]:
+    plane = _get_plane(request)
+    docs = await plane.vault_repository.list_authorized_documents(
+        identity.workspace_id, identity.principal_id, {identity.role_id}
+    )
+    return [_document_to_out(d) for d in docs]
 
 
-@router.post("/documents/upload-ticket", response_model=None)
-async def create_upload_ticket(
-    req: CreateUploadTicketRequest,
+@router.post("/documents", status_code=201, response_model=CreateDocumentUploadOut)
+async def create_document(
+    request: Request,
+    req: CreateDocumentRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> NoReturn:
-    raise _not_released()
+) -> CreateDocumentUploadOut:
+    if not knowledge_ingestion_enabled():
+        raise _feature_disabled()
+    plane = _get_plane(request)
+    deps = getattr(plane, "knowledge_ingestion_deps", None)
+    if deps is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not ready")
+
+    from agent.vault.models import VaultClassification, VaultVisibility
+
+    try:
+        classification = (
+            VaultClassification(req.classification) if req.classification else VaultClassification.INTERNAL
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail="invalid classification") from e
+
+    # Task 6 Step 4 — upload tạo document PRIVATE cho member trừ khi 1 manager
+    # (workspace operator) tường minh yêu cầu workspace/role visibility.
+    is_operator = (identity.role_id or "").lower() in _WORKSPACE_OPERATOR_ROLES
+    requested_visibility = req.visibility
+    if requested_visibility and is_operator:
+        try:
+            visibility = VaultVisibility(requested_visibility)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail="invalid visibility") from e
+    else:
+        visibility = VaultVisibility.PRIVATE
+
+    document = await plane.vault_repository.create_draft(
+        identity.workspace_id,
+        req.title,
+        created_by=identity.principal_id,
+        classification=classification,
+        visibility=visibility,
+    )
+
+    max_bytes = MIME_TYPE_LIMITS.get(req.media_type, 10 * 1024 * 1024)
+    upload_id = str(document.document_id)
+    ticket = await deps.store.issue_ticket(identity.workspace_id, upload_id, max_bytes=max_bytes)
+
+    upload_url = (
+        f"/agent/vault/uploads/{upload_id}/content"
+        f"?workspace_id={identity.workspace_id}&secret={ticket.secret}"
+    )
+    return CreateDocumentUploadOut(
+        document_id=upload_id,
+        upload_id=upload_id,
+        upload_url=upload_url,
+        expires_at=ticket.expires_at.isoformat(),
+        max_bytes=max_bytes,
+    )
 
 
-@router.get("/documents/{document_id}", response_model=None)
+@router.put("/uploads/{upload_id}/content", status_code=204, response_model=None)
+async def upload_content(request: Request, upload_id: str) -> None:
+    """Ticket secret (query param `secret`) LÀ authorization cho action này —
+    one-time, short-lived, không phải phiên đăng nhập thường. Stream thật qua
+    `request.stream()`, không buffer toàn bộ body trước."""
+    if not knowledge_ingestion_enabled():
+        raise _feature_disabled()
+    workspace_id = request.query_params.get("workspace_id")
+    secret = request.query_params.get("secret")
+    if not workspace_id or not secret:
+        raise HTTPException(status_code=400, detail="missing workspace_id or secret")
+
+    plane = _get_plane(request)
+    deps = getattr(plane, "knowledge_ingestion_deps", None)
+    if deps is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not ready")
+
+    chunks = [chunk async for chunk in request.stream()]
+    from apps.cosa.knowledge_ingestion.workspace_store import (
+        UploadTicketExpired,
+        UploadTicketNotFound,
+    )
+
+    try:
+        await deps.store.write_upload_stream(workspace_id, upload_id, secret, chunks)
+    except (UploadTicketNotFound, UploadTicketExpired) as e:
+        raise HTTPException(status_code=404, detail="upload ticket not found") from e
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail="upload too large") from e
+
+
+@router.post("/uploads/{upload_id}/complete", response_model=CompleteUploadOut)
+async def complete_upload(
+    request: Request,
+    upload_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> CompleteUploadOut:
+    if not knowledge_ingestion_enabled():
+        raise _feature_disabled()
+    plane = _get_plane(request)
+    deps = getattr(plane, "knowledge_ingestion_deps", None)
+    if deps is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not ready")
+
+    from apps.cosa.knowledge_ingestion.workspace_store import UploadTicketNotFound
+
+    try:
+        quarantined = await deps.store.finalize_upload(identity.workspace_id, upload_id)
+    except UploadTicketNotFound as e:
+        raise HTTPException(status_code=404, detail="upload not found") from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="upload not completed") from e
+
+    # Task 3's WorkspaceDocumentStore không tự sniff MIME (chỉ hash/size) —
+    # sniff từ magic bytes ở đây, cùng logic InMemoryDocumentObjectStore đã
+    # dùng trước Task 3 (server-derived, không tin client khai báo).
+    from apps.cosa.knowledge_ingestion.object_store import InMemoryDocumentObjectStore
+
+    content = await deps.store.read_quarantine_object(
+        identity.workspace_id, quarantined.quarantine_relative_path
+    )
+    detected_media_type = InMemoryDocumentObjectStore()._sniff_mime_type(content)
+
+    await deps.local_repository.create_queued(
+        identity.workspace_id,
+        upload_id,
+        quarantine_relative_path=quarantined.quarantine_relative_path,
+        declared_media_type=None,
+        detected_media_type=detected_media_type,
+        source_sha256=quarantined.source_sha256,
+        size_bytes=quarantined.size_bytes,
+        created_by=identity.principal_id,
+    )
+
+    if getattr(plane, "scheduler", None) is not None:
+        await plane.scheduler.schedule(
+            target_spec_id="cosa.agents.operations",
+            input_payload={
+                "task_type": "knowledge_ingestion",
+                "workspace_id": identity.workspace_id,
+                "upload_id": upload_id,
+            },
+        )
+
+    return CompleteUploadOut(upload_id=upload_id, state="QUEUED")
+
+
+@router.get("/documents/{document_id}", response_model=VaultDocumentOut)
 async def get_document(
+    request: Request,
     document_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> NoReturn:
-    raise _not_released()
+) -> VaultDocumentOut:
+    plane = _get_plane(request)
+    doc_uuid = _parse_document_id(document_id)
+    auth = KnowledgeAuthorization(plane.vault_repository)
+    decision = await auth.resolve(identity, doc_uuid)
+    if not decision.discover:
+        raise HTTPException(status_code=404, detail="not found")
+    document = await plane.vault_repository.get_document(identity.workspace_id, doc_uuid)
+    if document is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return _document_to_out(document)
 
 
-@router.post("/documents/{document_id}/confirm", response_model=None)
-async def confirm_upload(
+@router.post("/documents/{document_id}/review", response_model=ReviewDocumentOut)
+async def review_document(
+    request: Request,
     document_id: str,
-    req: ConfirmUploadRequest,
+    req: ReviewDocumentRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> NoReturn:
-    raise _not_released()
+) -> ReviewDocumentOut:
+    """Reject 1 candidate đang REVIEW_PENDING — publish dùng route riêng
+    `/documents/{document_id}/publish` (yêu cầu `publish`, không phải
+    `review`, đúng Task 6 Step 4: 2 permission tách biệt)."""
+    plane = _get_plane(request)
+    doc_uuid = _parse_document_id(document_id)
+    auth = KnowledgeAuthorization(plane.vault_repository)
+    decision = await auth.resolve(identity, doc_uuid)
+    if not decision.review:
+        raise HTTPException(status_code=404, detail="not found")
+
+    document = await plane.vault_repository.get_document(identity.workspace_id, doc_uuid)
+    if document is None:
+        raise HTTPException(status_code=404, detail="not found")
+
+    deps = getattr(plane, "knowledge_ingestion_deps", None)
+    if deps is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not ready")
+
+    upload_id = str(doc_uuid)
+    ok = await deps.local_repository.reject(identity.workspace_id, upload_id, "reviewer_rejected")
+    if not ok:
+        raise HTTPException(status_code=409, detail="candidate not in review_pending state")
+    return ReviewDocumentOut(upload_id=upload_id, state="REJECTED")
 
 
-@router.delete("/documents/{document_id}", response_model=None)
+@router.post("/documents/{document_id}/publish", response_model=ReviewDocumentOut)
+async def publish_document(
+    request: Request,
+    document_id: str,
+    req: ReviewDocumentRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> ReviewDocumentOut:
+    plane = _get_plane(request)
+    doc_uuid = _parse_document_id(document_id)
+    auth = KnowledgeAuthorization(plane.vault_repository)
+    decision = await auth.resolve(identity, doc_uuid)
+    if not decision.publish:
+        raise HTTPException(status_code=404, detail="not found")
+
+    document = await plane.vault_repository.get_document(identity.workspace_id, doc_uuid)
+    if document is None:
+        raise HTTPException(status_code=404, detail="not found")
+
+    deps = getattr(plane, "knowledge_ingestion_deps", None)
+    if deps is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not ready")
+
+    upload_id = str(doc_uuid)
+    attempt_state = await deps.local_repository.get_state(identity.workspace_id, upload_id)
+    if attempt_state is None or attempt_state.value != "REVIEW_PENDING":
+        raise HTTPException(status_code=409, detail="candidate not in review_pending state")
+
+    # Copy quarantine content vào Vault CÓ KIỂM CHỨNG trước khi ghi nhận
+    # version — publish() KHÔNG tự copy file (Task 5 docstring).
+    quarantine_ref = await deps.local_repository.get_quarantine_relative_path(
+        identity.workspace_id, upload_id
+    )
+    if not quarantine_ref:
+        raise HTTPException(status_code=500, detail="ingestion attempt missing storage reference")
+
+    version_id = str(document.document_id)
+    object_ref = await deps.store.promote_to_vault(identity.workspace_id, version_id, quarantine_ref)
+    source_sha256, size_bytes = await deps.local_repository.get_source_metadata(
+        identity.workspace_id, upload_id
+    )
+
+    version = await plane.vault_repository.append_version(
+        workspace_id=identity.workspace_id,
+        document_id=doc_uuid,
+        object_ref={"relative_ref": object_ref.relative_ref},
+        checksum_sha256=source_sha256 or "",
+        size_bytes=size_bytes or 0,
+        source_uri=f"workspaces/{identity.workspace_id}/vault/{version_id}",
+        created_by=identity.principal_id,
+    )
+    await plane.vault_repository.update_document_state(identity.workspace_id, doc_uuid, "PUBLISHED")
+
+    ok = await deps.local_repository.publish(
+        identity.workspace_id,
+        upload_id,
+        vault_document_id=str(doc_uuid),
+        vault_version_id=str(version.version_id),
+    )
+    if not ok:
+        raise HTTPException(status_code=409, detail="publish race — attempt already progressed")
+
+    return ReviewDocumentOut(upload_id=upload_id, state="PUBLISHED")
+
+
+@router.delete("/documents/{document_id}", response_model=ArchiveOrPurgeOut)
 async def delete_document(
+    request: Request,
     document_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> NoReturn:
-    raise _not_released()
+) -> ArchiveOrPurgeOut:
+    """Archive — KHÔNG xoá file trong request này (Task 7 Step 4: archive/
+    purge schedule background durable work, trả 202-style accepted)."""
+    plane = _get_plane(request)
+    doc_uuid = _parse_document_id(document_id)
+    auth = KnowledgeAuthorization(plane.vault_repository)
+    decision = await auth.resolve(identity, doc_uuid)
+    if not decision.manage:
+        raise HTTPException(status_code=404, detail="not found")
+
+    updated = await plane.vault_repository.update_document_state(
+        identity.workspace_id, doc_uuid, "ARCHIVED"
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return ArchiveOrPurgeOut(document_id=document_id, accepted=True)
 
 
 # ─── Knowledge Graph & Sources & Retrieval ───

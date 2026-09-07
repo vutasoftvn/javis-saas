@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-
 from agent.artifacts import InMemoryArtifactRepository
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
@@ -65,71 +64,42 @@ def _assert_honest_501(response: httpx.Response) -> None:
 
 
 @pytest.mark.asyncio
-async def test_legacy_upload_ticket_endpoint_returns_not_implemented(test_app) -> None:
-    """Task 5 (Truthful MVP Hardening) — Vault chưa có storage/ingestion thật ở
-    backend nên route legacy phải trả 501 trung thực, không giả lập ticket."""
-    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=test_app),
-        base_url="http://test",
-    ) as client:
-        response = await client.post(
-            "/agent/vault/documents/upload-ticket",
-            json={"file_name": "Product Spec.md", "media_type": "text/markdown", "size_bytes": 1024},
-        )
-        _assert_honest_501(response)
-
-
-@pytest.mark.asyncio
-async def test_list_documents_returns_not_implemented(test_app) -> None:
+async def test_list_documents_returns_empty_list_when_none_exist(test_app) -> None:
+    """Task 7 — list/get real thật rồi (xem test_vault_document_routes.py cho
+    coverage đầy đủ create→upload→complete→review→publish); route này chỉ
+    còn 501 cho phần chưa làm (retrieval/knowledge graph)."""
     override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
         response = await client.get("/agent/vault/documents")
-        _assert_honest_501(response)
+        assert response.status_code == 200
+        assert response.json() == []
 
 
 @pytest.mark.asyncio
-async def test_get_document_returns_not_implemented(test_app) -> None:
+async def test_get_unknown_document_returns_404_not_501(test_app) -> None:
     override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
-        # Không còn tài liệu thật nào tồn tại — dùng id bất kỳ, phải trả 501
-        # (không phải 404, vì 404 sẽ ngụ ý "route hoạt động nhưng không tìm
-        # thấy", trong khi sự thật là toàn bộ tính năng chưa được triển khai).
+        # ID không phải UUID hợp lệ -> 404 non-enumerating (không phân biệt
+        # "không tồn tại" với "không có quyền", đúng Task 6 Step 3).
         response = await client.get("/agent/vault/documents/doc_anything")
-        _assert_honest_501(response)
+        assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_confirm_upload_does_not_trust_client_declared_checksum(test_app) -> None:
-    """Không còn storage thật để đối chiếu checksum/size do client khai báo —
-    route phải trả 501 bất kể payload trông hợp lệ thế nào."""
-    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=test_app),
-        base_url="http://test",
-    ) as client:
-        response = await client.post(
-            "/agent/vault/documents/doc_anything/confirm",
-            json={"checksum_sha256": "sha256:deadbeef", "size_bytes": 1024},
-        )
-        _assert_honest_501(response)
-
-
-@pytest.mark.asyncio
-async def test_delete_document_returns_not_implemented(test_app) -> None:
+async def test_delete_unknown_document_returns_404_not_501(test_app) -> None:
     override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
         response = await client.delete("/agent/vault/documents/doc_anything")
-        _assert_honest_501(response)
+        assert response.status_code == 404
 
 
 @pytest.mark.asyncio

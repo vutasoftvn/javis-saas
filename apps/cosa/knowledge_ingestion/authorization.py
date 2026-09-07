@@ -15,6 +15,7 @@ Thứ tự resolve (đúng plan Step 3):
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 from uuid import UUID
 
 from agent.vault.models import VaultClassification, VaultPermission, VaultVisibility
@@ -63,7 +64,8 @@ class KnowledgeAccessDecision:
         )
 
 
-class _IdentityLike:
+@runtime_checkable
+class _IdentityLike(Protocol):
     """Duck-typed shape (AuthenticatedIdentity thật hoặc test double) — chỉ
     cần principal_id/role_id, tránh import trực tiếp gây phụ thuộc vòng."""
 

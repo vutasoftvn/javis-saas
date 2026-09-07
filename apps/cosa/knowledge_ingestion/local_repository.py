@@ -362,6 +362,49 @@ class LocalIngestionRepository:
                 return None
             return LocalIngestionState(row["state"])
 
+    async def get_quarantine_relative_path(self, workspace_id: str, upload_id: str) -> str | None:
+        """Task 7 — publish flow cần path để gọi
+        WorkspaceDocumentStore.promote_to_vault(); KHÔNG BAO GIỜ trả field
+        này ra khỏi 1 HTTP response cho client."""
+        from sqlalchemy import text
+
+        async with self._session_factory() as session:
+            await self._set_workspace(session, workspace_id)
+            res = await session.execute(
+                text(
+                    """
+                    SELECT quarantine_relative_path FROM agent.local_ingestion_attempts
+                    WHERE workspace_id = :workspace_id AND upload_id = :upload_id
+                    """
+                ),
+                {"workspace_id": workspace_id, "upload_id": upload_id},
+            )
+            row = res.mappings().first()
+            return row["quarantine_relative_path"] if row else None
+
+    async def get_source_metadata(
+        self, workspace_id: str, upload_id: str
+    ) -> tuple[str | None, int | None]:
+        """(source_sha256, size_bytes) đã xác thực từ lúc queue — dùng để ghi
+        vault.document_versions khi publish (tránh phải tính lại checksum)."""
+        from sqlalchemy import text
+
+        async with self._session_factory() as session:
+            await self._set_workspace(session, workspace_id)
+            res = await session.execute(
+                text(
+                    """
+                    SELECT source_sha256, size_bytes FROM agent.local_ingestion_attempts
+                    WHERE workspace_id = :workspace_id AND upload_id = :upload_id
+                    """
+                ),
+                {"workspace_id": workspace_id, "upload_id": upload_id},
+            )
+            row = res.mappings().first()
+            if row is None:
+                return None, None
+            return row["source_sha256"], row["size_bytes"]
+
 
 @dataclass
 class _Attempt:
@@ -480,3 +523,15 @@ class InMemoryLocalIngestionRepository:
     async def get_state(self, workspace_id: str, upload_id: str) -> LocalIngestionState | None:
         attempt = self._attempts.get((workspace_id, upload_id))
         return attempt.state if attempt else None
+
+    async def get_quarantine_relative_path(self, workspace_id: str, upload_id: str) -> str | None:
+        attempt = self._attempts.get((workspace_id, upload_id))
+        return attempt.quarantine_relative_path if attempt else None
+
+    async def get_source_metadata(
+        self, workspace_id: str, upload_id: str
+    ) -> tuple[str | None, int | None]:
+        attempt = self._attempts.get((workspace_id, upload_id))
+        if attempt is None:
+            return None, None
+        return attempt.source_sha256, attempt.size_bytes
