@@ -321,7 +321,7 @@ services-test-company:
 	cd services/company && encore test
 
 services-test-cosa:
-	cd services/cosa && encore test
+	cd services/cosa && node scripts/migrate.mjs --check-pending && encore test
 
 services-dev-company:
 	cd services/company && encore run --port=4000

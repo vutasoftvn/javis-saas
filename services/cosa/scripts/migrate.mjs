@@ -5,6 +5,7 @@
 // SQLDatabase), Encore không còn tự động áp migrations/*.up.sql nữa — script
 // này thay thế việc đó. Chạy:
 //   node scripts/migrate.mjs
+//   node scripts/migrate.mjs --check-pending
 // hoặc qua `docker compose run --rm migrate-cosa` (xem deploy/central_vps/docker-compose.yaml).
 //
 // Idempotent: track migration đã áp trong bảng public.schema_migrations
@@ -61,9 +62,44 @@ async function grantApplicationAccess(client, applicationRole) {
 
 const BASELINE_MODE = process.argv.includes("--baseline");
 const CHECK_MODE = process.argv.includes("--check");
+const CHECK_PENDING_MODE = process.argv.includes("--check-pending");
 const DOWN_FLAG_INDEX = process.argv.indexOf("--down");
 const DOWN_MODE = DOWN_FLAG_INDEX !== -1;
 const DOWN_STEPS = DOWN_MODE ? parseInt(process.argv[DOWN_FLAG_INDEX + 1] || "1", 10) || 1 : 0;
+
+async function pendingMigrationFiles(client, migrationDirs) {
+  // This mode must stay read-only. A newly provisioned database has no
+  // migration table yet, which means every on-disk migration is pending.
+  const { rows: relationRows } = await client.query(
+    "SELECT to_regclass('public.schema_migrations') AS relation_name"
+  );
+  const migrationTableExists = Boolean(relationRows[0]?.relation_name);
+  const appliedByService = new Map();
+
+  if (migrationTableExists) {
+    const { rows } = await client.query(
+      "SELECT service, filename FROM public.schema_migrations"
+    );
+    for (const { service, filename } of rows) {
+      if (!appliedByService.has(service)) {
+        appliedByService.set(service, new Set());
+      }
+      appliedByService.get(service).add(filename);
+    }
+  }
+
+  const pending = [];
+  for (const { service, dir } of migrationDirs) {
+    const applied = appliedByService.get(service) ?? new Set();
+    for (const filename of sortByNumericPrefix(readdirSync(dir).filter((file) => file.endsWith(".up.sql")))) {
+      if (!applied.has(filename)) {
+        pending.push(`${service}/${filename}`);
+      }
+    }
+  }
+
+  return pending;
+}
 
 async function checkMigrationChecksums(client, MIGRATION_DIRS) {
   // Verify that all applied migrations have matching checksums. Returns array of errors (empty if OK).
@@ -145,9 +181,25 @@ async function rollbackMigrations(client, MIGRATION_DIRS, steps) {
 async function main() {
   const client = new Client({ connectionString: DATABASE_URL });
   await client.connect();
+  let migrationLockHeld = false;
 
   try {
+    if (CHECK_PENDING_MODE) {
+      const pending = await pendingMigrationFiles(client, MIGRATION_DIRS);
+      if (pending.length > 0) {
+        console.error("[migrate:cosa] ❌ pending migrations:");
+        pending.forEach((filename) => console.error(`  - ${filename}`));
+        console.error("[migrate:cosa] Run `make services-migrate-cosa` before service tests.");
+        process.exitCode = 1;
+        return;
+      }
+
+      console.log("[migrate:cosa] ✓ no pending migrations");
+      return;
+    }
+
     await client.query("SELECT pg_advisory_lock(hashtext($1))", [MIGRATION_LOCK_NAME]);
+    migrationLockHeld = true;
     await client.query(`
       CREATE TABLE IF NOT EXISTS public.schema_migrations (
         service TEXT NOT NULL,
@@ -252,7 +304,9 @@ async function main() {
         : "[migrate:cosa] nothing to apply, already up to date"
     );
   } finally {
-    await client.query("SELECT pg_advisory_unlock(hashtext($1))", [MIGRATION_LOCK_NAME]);
+    if (migrationLockHeld) {
+      await client.query("SELECT pg_advisory_unlock(hashtext($1))", [MIGRATION_LOCK_NAME]);
+    }
     await client.end();
   }
 }

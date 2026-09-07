@@ -107,6 +107,29 @@ def test_migration_script_uses_migrator_url_without_fallback_credential():
     )
 
 
+def test_cosa_pending_migration_preflight_is_read_only_and_runs_before_tests():
+    """Service tests must stop before Encore starts when COSA migrations are pending."""
+    root = Path(__file__).parent.parent.parent
+    migration_text = (root / "services/cosa/scripts/migrate.mjs").read_text()
+    makefile_text = (root / "Makefile").read_text()
+
+    assert 'process.argv.includes("--check-pending")' in migration_text
+    assert "to_regclass('public.schema_migrations')" in migration_text
+    assert "pending migrations" in migration_text
+
+    preflight_branch = migration_text.index("if (CHECK_PENDING_MODE)")
+    first_write = min(
+        migration_text.index("pg_advisory_lock"),
+        migration_text.index("CREATE TABLE IF NOT EXISTS public.schema_migrations"),
+    )
+    assert preflight_branch < first_write, (
+        "--check-pending must resolve its result before taking a migration lock "
+        "or creating/modifying schema_migrations"
+    )
+
+    assert "node scripts/migrate.mjs --check-pending && encore test" in makefile_text
+
+
 def test_deploy_recipe_is_sequential():
     """
     Deploy recipe must explicitly call preflight, migrations, then app deployment

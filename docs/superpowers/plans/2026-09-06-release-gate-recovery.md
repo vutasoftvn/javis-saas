@@ -442,7 +442,7 @@ git commit -m "fix(docs): validate portable code links"
 - Consumes: COSA_MIGRATOR_DATABASE_URL, public.schema_migrations, migrations/*.up.sql.
 - Produces: node scripts/migrate.mjs --check-pending reports exact missing migration files without write; services-test-cosa invokes it before encore test.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ~~~
 assert "--check-pending" in migration_text
@@ -450,13 +450,13 @@ assert "pending migrations" in migration_text
 assert "node scripts/migrate.mjs --check-pending && encore test" in makefile_text
 ~~~
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/db_baseline_candidate/test_dev_bootstrap_contract.py -q
 
 Expected: new assertion fails because preflight does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ~~~
 const CHECK_PENDING_MODE = process.argv.includes("--check-pending");
@@ -473,14 +473,14 @@ async function pendingMigrationFiles(client) {
 
 Before CREATE TABLE, advisory lock, ALTER TABLE, or checksum work, use to_regclass('public.schema_migrations'). A missing table means all files pending. On pending files, print each filename plus make services-migrate-cosa and exit 1. On no pending files, print pass and exit 0.
 
-- [ ] **Step 4: Add preflight to the Make target**
+- [x] **Step 4: Add preflight to the Make target**
 
 ~~~
 services-test-cosa:
 	cd services/cosa && node scripts/migrate.mjs --check-pending && encore test
 ~~~
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/db_baseline_candidate/test_dev_bootstrap_contract.py -q
 Run: cd services/cosa && env -u COSA_MIGRATOR_DATABASE_URL node scripts/migrate.mjs --check-pending
