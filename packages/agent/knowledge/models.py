@@ -53,6 +53,13 @@ class KnowledgeDocument(BaseModel):
     chunks: list[KnowledgeChunk] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # Task 2 (plan local-first-enterprise-knowledge) — provenance bắt buộc khi
+    # `ingest_status == "published"`: một knowledge source đã publish PHẢI trỏ
+    # về đúng 1 Vault document version cụ thể, không suy diễn ngầm từ title/
+    # workspace. `PostgresKnowledgeStore.save_document` raise nếu thiếu.
+    vault_document_id: str | None = None
+    vault_version_id: str | None = None
+    access_policy_version: int | None = None
 
 
 class CitationProvenance(BaseModel):

@@ -3,7 +3,6 @@ import os
 import uuid
 
 import pytest
-
 from agent.knowledge.embedding import HashingEmbeddingProvider
 from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
 from agent.knowledge.retrieval import KnowledgeRetrievalConfig, retrieve
@@ -50,10 +49,9 @@ async def test_postgres_semantic_search_orders_by_cosine():
     dsn = _pg_dsn()
     if not dsn:
         pytest.skip("AGENT_TEST_DATABASE_URL not set")
+    from agent.knowledge.providers.postgres import PostgresKnowledgeStore
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-    from agent.knowledge.providers.postgres import PostgresKnowledgeStore
 
     engine = create_async_engine(
         dsn if "+asyncpg" in dsn else dsn.replace("postgresql://", "postgresql+asyncpg://")
@@ -68,6 +66,10 @@ async def test_postgres_semantic_search_orders_by_cosine():
 
     async with sf() as s:
         try:
+            # Task 2 — knowledge.knowledge_sources/knowledge_chunks giờ RLS FORCE.
+            await s.execute(
+                text("SELECT set_config('cosa.workspace_id', :ws, true)"), {"ws": ws}
+            )
             await s.execute(text(
                 "INSERT INTO knowledge.knowledge_sources (id, workspace_id, title, uri, source_type, "
                 "authority_class, status) VALUES (:id,:ws,'T','u','text','REFERENCE','published')"
@@ -84,6 +86,9 @@ async def test_postgres_semantic_search_orders_by_cosine():
             assert hits and hits[0].snippet == "c_near"
             assert hits[0].similarity_score >= hits[-1].similarity_score
         finally:
+            await s.execute(
+                text("SELECT set_config('cosa.workspace_id', :ws, true)"), {"ws": ws}
+            )
             await s.execute(text("DELETE FROM knowledge.knowledge_chunks WHERE workspace_id=:ws"), {"ws": ws})
             await s.execute(text("DELETE FROM knowledge.knowledge_sources WHERE workspace_id=:ws"), {"ws": ws})
             await s.commit()

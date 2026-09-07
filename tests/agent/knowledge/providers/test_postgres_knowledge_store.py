@@ -101,6 +101,12 @@ async def test_save_and_get_document_roundtrip_with_source_versioning(session_fa
     async with session_factory() as session:
         from sqlalchemy import text
 
+        # Task 2 — knowledge.source_versions giờ RLS FORCE, verification query
+        # trực tiếp cũng phải set cosa.workspace_id.
+        await session.execute(
+            text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+            {"workspace_id": "ws-knowledge-test"},
+        )
         rows = (
             await session.execute(
                 text("SELECT version FROM knowledge.source_versions WHERE source_id = :id ORDER BY version"),

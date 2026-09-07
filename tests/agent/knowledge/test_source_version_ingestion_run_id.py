@@ -86,10 +86,14 @@ def _real_pg_service():
     return KnowledgeIngestionService(PostgresKnowledgeStore(db_session_factory=factory)), engine
 
 
-def _select_ingestion_run_id(source_id: str):
+def _select_ingestion_run_id(source_id: str, workspace_id: str):
+    # Task 2 — knowledge.source_versions giờ có RLS FORCE (không nhánh bypass).
+    # Verification query cũng phải set cosa.workspace_id, không chỉ code path
+    # đang test.
     conn = psycopg2.connect(_PSYCOPG_URL, connect_timeout=5)
     try:
         with conn.cursor() as cur:
+            cur.execute("SELECT set_config('cosa.workspace_id', %s, false)", (workspace_id,))
             cur.execute(
                 "SELECT ingestion_run_id FROM knowledge.source_versions "
                 "WHERE source_id = %s ORDER BY created_at DESC LIMIT 1",
@@ -174,7 +178,7 @@ def test_worker_dispatch_threads_real_knowledge_service_and_persists_run_id(monk
         "worker dispatch phải truyền plane.knowledge_ingestion_service vào "
         "execute_knowledge_ingestion_task()"
     )
-    row = _select_ingestion_run_id(doc.id)
+    row = _select_ingestion_run_id(doc.id, doc.workspace_id)
     assert row is not None, "source_versions row phải tồn tại sau khi dispatch"
     assert row[0] == ingestion_id, (
         f"ingestion_run_id kỳ vọng {ingestion_id!r}, thực tế {row[0]!r} (NULL = bug B1)"
@@ -198,7 +202,7 @@ def test_postgres_store_persists_ingestion_run_id_from_metadata():
 
     asyncio.run(_run())
 
-    row = _select_ingestion_run_id(doc.id)
+    row = _select_ingestion_run_id(doc.id, doc.workspace_id)
     assert row is not None and row[0] == ingestion_id, (
         f"ingestion_run_id kỳ vọng {ingestion_id!r}, thực tế {row!r}"
     )

@@ -41,24 +41,43 @@ class PostgresKnowledgeStore:
         return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
     async def save_document(self, doc: KnowledgeDocument) -> None:
+        # Task 2 — knowledge đã "published" PHẢI trỏ về đúng 1 Vault document
+        # version cụ thể (provenance tường minh, không suy diễn ngầm). Chỉ gate
+        # ở trạng thái published: pipeline ingest raw/review_pending khác vẫn
+        # tự do không cần Vault (không phải mọi knowledge source đều từ Vault).
+        if doc.ingest_status == "published" and not doc.vault_version_id:
+            raise ValueError(
+                "published KnowledgeDocument requires vault_version_id "
+                "(provenance to the Vault document version it was promoted from)"
+            )
+
         content_hash = self._compute_document_content_hash(doc)
 
         async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": doc.workspace_id},
+            )
             await session.execute(
                 text(
                     """
                     INSERT INTO knowledge.knowledge_sources (
                         id, workspace_id, title, source_type, uri, authority_class,
-                        status, metadata, created_at
+                        status, metadata, created_at, vault_document_id, vault_version_id,
+                        access_policy_version
                     ) VALUES (
                         :id, :workspace_id, :title, :source_type, :uri, :authority_class,
-                        :status, :metadata, :created_at
+                        :status, :metadata, :created_at, :vault_document_id, :vault_version_id,
+                        :access_policy_version
                     )
                     ON CONFLICT (id) DO UPDATE SET
                         title = EXCLUDED.title,
                         authority_class = EXCLUDED.authority_class,
                         status = EXCLUDED.status,
-                        metadata = EXCLUDED.metadata;
+                        metadata = EXCLUDED.metadata,
+                        vault_document_id = EXCLUDED.vault_document_id,
+                        vault_version_id = EXCLUDED.vault_version_id,
+                        access_policy_version = EXCLUDED.access_policy_version;
                     """
                 ),
                 {
@@ -71,6 +90,9 @@ class PostgresKnowledgeStore:
                     "status": doc.ingest_status,
                     "metadata": json.dumps(doc.metadata),
                     "created_at": doc.created_at,
+                    "vault_document_id": doc.vault_document_id,
+                    "vault_version_id": doc.vault_version_id,
+                    "access_policy_version": doc.access_policy_version,
                 },
             )
 
@@ -108,14 +130,15 @@ class PostgresKnowledgeStore:
                 await session.execute(
                     text(
                         """
-                        INSERT INTO knowledge.source_versions (id, source_id, version, content_hash, ingestion_run_id, parser_name, parser_version, created_at)
-                        VALUES (:id, :source_id, :version, :content_hash, :ingestion_run_id, :parser_name, :parser_version, now())
+                        INSERT INTO knowledge.source_versions (id, source_id, workspace_id, version, content_hash, ingestion_run_id, parser_name, parser_version, created_at)
+                        VALUES (:id, :source_id, :workspace_id, :version, :content_hash, :ingestion_run_id, :parser_name, :parser_version, now())
                         ON CONFLICT (source_id, version) DO NOTHING;
                         """
                     ),
                     {
                         "id": source_version_id,
                         "source_id": doc.id,
+                        "workspace_id": doc.workspace_id,
                         "version": next_version,
                         "content_hash": content_hash,
                         "ingestion_run_id": ingestion_run_id,
@@ -166,14 +189,15 @@ class PostgresKnowledgeStore:
                         text(
                             """
                             INSERT INTO knowledge.chunk_embeddings (
-                                chunk_id, embedding_model, embedding_version, dimensions, embedding, created_at
-                            ) VALUES (:chunk_id, :embedding_model, :embedding_version, :dimensions, :embedding, now())
+                                chunk_id, workspace_id, embedding_model, embedding_version, dimensions, embedding, created_at
+                            ) VALUES (:chunk_id, :workspace_id, :embedding_model, :embedding_version, :dimensions, :embedding, now())
                             ON CONFLICT (chunk_id, embedding_model, embedding_version) DO UPDATE SET
                                 embedding = EXCLUDED.embedding;
                             """
                         ),
                         {
                             "chunk_id": chunk.id,
+                            "workspace_id": doc.workspace_id,
                             "embedding_model": chunk.embedding_model,
                             "embedding_version": chunk.embedding_version,
                             "dimensions": len(chunk.embedding),
@@ -185,6 +209,10 @@ class PostgresKnowledgeStore:
 
     async def get_document(self, doc_id: str, workspace_id: str) -> KnowledgeDocument | None:
         async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
             # M3 §4 — bind workspace ở tầng query, không fetch-rồi-so-sánh.
             src_row = (
                 (
@@ -267,6 +295,10 @@ class PostgresKnowledgeStore:
         cho lúc có embedding model thật/pgvector index tuning cụ thể, tránh
         xây 1 vector search chưa được benchmark)."""
         async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
             rows = (
                 (
                     await session.execute(
@@ -313,6 +345,10 @@ class PostgresKnowledgeStore:
         `retrieve()` gọi đường này chỉ khi eval score đạt ngưỡng."""
         vec_literal = "[" + ",".join(f"{float(x):.8f}" for x in query_embedding) + "]"
         async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
             rows = (
                 (
                     await session.execute(

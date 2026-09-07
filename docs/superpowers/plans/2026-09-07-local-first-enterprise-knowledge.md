@@ -130,7 +130,7 @@ git commit -m "refactor(knowledge): keep ingestion orchestration on local execut
 - Produces `KnowledgeDocument.vault_document_id`, `vault_version_id`, `access_policy_version`.
 - Consumes `set_config('cosa.workspace_id', workspace_id, true)` on every repository transaction.
 
-- [ ] **Step 1: Write failing repository/model tests.**
+- [x] **Step 1: Write failing repository/model tests.**
 
 ```python
 async def test_member_without_grant_cannot_list_document(postgres_vault_repo):
@@ -142,13 +142,13 @@ async def test_published_knowledge_requires_same_vault_version(postgres_knowledg
         await postgres_knowledge_store.save_document(KnowledgeDocument(workspace_id="ws-a", title="x"))
 ```
 
-- [ ] **Step 2: Run tests against disposable Postgres.**
+- [x] **Step 2: Run tests against disposable Postgres.**
 
 Run: `AGENT_TEST_DATABASE_URL="$AGENT_TEST_DATABASE_URL" PYTHONPATH=. .venv/bin/python -m pytest tests/agent/vault/test_access_policy_repository.py tests/agent/knowledge/test_vault_provenance.py -q`
 
 Expected: FAIL because grants/provenance and schema constraints do not exist.
 
-- [ ] **Step 3: Write expand-only migrations.**
+- [x] **Step 3: Write expand-only migrations.**
 
 Create `vault.document_access_grants` with a unique `(workspace_id, document_id, subject_type, subject_id, permission)` key. Add `classification`, `visibility`, `access_policy_version`, `retention_until`, `legal_hold` to documents/versions. Add `vault_document_id`, `vault_version_id`, `access_policy_version` to `knowledge.knowledge_sources` and a FK to the Vault version. Enable and force RLS on all Vault and Knowledge tables.
 
@@ -162,7 +162,7 @@ ALTER TABLE vault.documents FORCE ROW LEVEL SECURITY;
 
 Apply the same exact non-null policy shape to versions, grants, knowledge sources, chunks, source versions and embeddings. Do not preserve the existing `IS NULL OR = ''` bypass.
 
-- [ ] **Step 4: Add typed records and repository methods.**
+- [x] **Step 4: Add typed records and repository methods.**
 
 ```python
 async def grant_access(self, workspace_id: str, document_id: UUID, grant: VaultAccessGrant) -> None: ...
@@ -171,7 +171,7 @@ async def resolve_accessible_document_ids(self, workspace_id: str, principal_id:
 
 Every method sets the workspace transaction configuration before querying. Validate `classification` and `visibility` using `StrEnum`, never free text.
 
-- [ ] **Step 5: Run migration, repository and tenancy gates.**
+- [x] **Step 5: Run migration, repository and tenancy gates.**
 
 Run:
 
@@ -183,7 +183,7 @@ make tenancy-check
 
 Expected: PASS; a query made without workspace setting sees zero rows rather than all rows.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add packages/agent/migrations/024_vault_access_policy_and_local_ingestion.sql \

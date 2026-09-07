@@ -10,11 +10,16 @@ from uuid import UUID, uuid4
 from sqlalchemy import text
 
 from agent.vault.models import (
+    VaultAccessGrant,
+    VaultClassification,
     VaultDocumentRecord,
     VaultDocumentVersionRecord,
+    VaultGrantSubjectType,
     VaultKnowledgeGraph,
     VaultKnowledgeGraphEdge,
     VaultKnowledgeGraphNode,
+    VaultPermission,
+    VaultVisibility,
 )
 
 
@@ -83,6 +88,27 @@ class VaultRepository(Protocol):
         workspace_id: str,
     ) -> VaultKnowledgeGraph: ...
 
+    async def grant_access(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        grant: VaultAccessGrant,
+    ) -> None: ...
+
+    async def resolve_accessible_document_ids(
+        self,
+        workspace_id: str,
+        principal_id: str,
+        role_ids: set[str],
+    ) -> set[UUID]: ...
+
+    async def list_authorized_documents(
+        self,
+        workspace_id: str,
+        principal_id: str,
+        role_ids: set[str],
+    ) -> list[VaultDocumentRecord]: ...
+
 
 class PostgresVaultRepository:
     def __init__(self, session_factory: Any) -> None:
@@ -94,6 +120,8 @@ class PostgresVaultRepository:
         title: str,
         kind: str = "document",
         created_by: str = "system",
+        classification: VaultClassification = VaultClassification.INTERNAL,
+        visibility: VaultVisibility = VaultVisibility.PRIVATE,
     ) -> VaultDocumentRecord:
         document_id = uuid4()
         now = datetime.now(UTC)
@@ -108,10 +136,11 @@ class PostgresVaultRepository:
                     INSERT INTO vault.documents (
                         document_id, workspace_id, title, kind, state,
                         current_version_id, knowledge_source_id, created_by,
-                        created_at, updated_at
+                        created_at, updated_at, classification, visibility
                     ) VALUES (
                         :document_id, :workspace_id, :title, :kind, 'DRAFT',
-                        NULL, NULL, :created_by, :created_at, :updated_at
+                        NULL, NULL, :created_by, :created_at, :updated_at,
+                        :classification, :visibility
                     )
                     """
                 ),
@@ -123,6 +152,8 @@ class PostgresVaultRepository:
                     "created_by": created_by,
                     "created_at": now,
                     "updated_at": now,
+                    "classification": classification.value,
+                    "visibility": visibility.value,
                 },
             )
             await session.commit()
@@ -138,6 +169,8 @@ class PostgresVaultRepository:
             created_by=created_by,
             created_at=now,
             updated_at=now,
+            classification=classification,
+            visibility=visibility,
         )
 
     async def append_version(
@@ -227,7 +260,8 @@ class PostgresVaultRepository:
                     """
                     SELECT document_id, workspace_id, title, kind, state,
                            current_version_id, knowledge_source_id, created_by,
-                           created_at, updated_at
+                           created_at, updated_at, classification, visibility,
+                           access_policy_version, retention_until, legal_hold
                     FROM vault.documents
                     WHERE workspace_id = :workspace_id AND document_id = :document_id
                     """
@@ -256,7 +290,8 @@ class PostgresVaultRepository:
                         """
                         SELECT document_id, workspace_id, title, kind, state,
                                current_version_id, knowledge_source_id, created_by,
-                               created_at, updated_at
+                               created_at, updated_at, classification, visibility,
+                               access_policy_version, retention_until, legal_hold
                         FROM vault.documents
                         WHERE workspace_id = :workspace_id AND state = :state
                         ORDER BY updated_at DESC
@@ -271,7 +306,8 @@ class PostgresVaultRepository:
                         """
                         SELECT document_id, workspace_id, title, kind, state,
                                current_version_id, knowledge_source_id, created_by,
-                               created_at, updated_at
+                               created_at, updated_at, classification, visibility,
+                               access_policy_version, retention_until, legal_hold
                         FROM vault.documents
                         WHERE workspace_id = :workspace_id
                         ORDER BY updated_at DESC
@@ -410,6 +446,120 @@ class PostgresVaultRepository:
 
         return VaultKnowledgeGraph(nodes=nodes, edges=edges)
 
+    async def grant_access(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        grant: VaultAccessGrant,
+    ) -> None:
+        async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO vault.document_access_grants (
+                        workspace_id, document_id, subject_type, subject_id,
+                        permission, granted_by
+                    ) VALUES (
+                        :workspace_id, :document_id, :subject_type, :subject_id,
+                        :permission, :granted_by
+                    )
+                    ON CONFLICT (workspace_id, document_id, subject_type, subject_id, permission)
+                    DO NOTHING
+                    """
+                ),
+                {
+                    "workspace_id": workspace_id,
+                    "document_id": document_id,
+                    "subject_type": grant.subject_type.value,
+                    "subject_id": grant.subject_id,
+                    "permission": grant.permission.value,
+                    "granted_by": grant.granted_by,
+                },
+            )
+            await session.commit()
+
+    async def resolve_accessible_document_ids(
+        self,
+        workspace_id: str,
+        principal_id: str,
+        role_ids: set[str],
+    ) -> set[UUID]:
+        async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
+            res = await session.execute(
+                text(
+                    """
+                    SELECT DISTINCT d.document_id
+                    FROM vault.documents d
+                    WHERE d.workspace_id = :workspace_id
+                      AND (
+                        d.visibility = 'WORKSPACE'
+                        OR d.created_by = :principal_id
+                        OR EXISTS (
+                            SELECT 1 FROM vault.document_access_grants g
+                            WHERE g.workspace_id = d.workspace_id
+                              AND g.document_id = d.document_id
+                              AND g.permission = 'read'
+                              AND (
+                                (g.subject_type = 'user' AND g.subject_id = :principal_id)
+                                OR (g.subject_type = 'role' AND g.subject_id = ANY(:role_ids))
+                              )
+                        )
+                      )
+                    """
+                ),
+                {
+                    "workspace_id": workspace_id,
+                    "principal_id": principal_id,
+                    "role_ids": list(role_ids),
+                },
+            )
+            return {
+                row["document_id"]
+                if isinstance(row["document_id"], UUID)
+                else UUID(str(row["document_id"]))
+                for row in res.mappings().all()
+            }
+
+    async def list_authorized_documents(
+        self,
+        workspace_id: str,
+        principal_id: str,
+        role_ids: set[str],
+    ) -> list[VaultDocumentRecord]:
+        accessible_ids = await self.resolve_accessible_document_ids(
+            workspace_id, principal_id, role_ids
+        )
+        if not accessible_ids:
+            return []
+        async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
+            res = await session.execute(
+                text(
+                    """
+                    SELECT document_id, workspace_id, title, kind, state,
+                           current_version_id, knowledge_source_id, created_by,
+                           created_at, updated_at, classification, visibility,
+                           access_policy_version, retention_until, legal_hold
+                    FROM vault.documents
+                    WHERE workspace_id = :workspace_id AND document_id = ANY(:document_ids)
+                    ORDER BY updated_at DESC
+                    """
+                ),
+                {"workspace_id": workspace_id, "document_ids": list(accessible_ids)},
+            )
+            return [self._row_to_document(r) for r in res.mappings().all()]
+
     @staticmethod
     def _row_to_document(row: Any) -> VaultDocumentRecord:
         return VaultDocumentRecord(
@@ -429,6 +579,17 @@ class PostgresVaultRepository:
             created_by=row["created_by"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            classification=VaultClassification(row.get("classification"))
+            if row.get("classification")
+            else VaultClassification.INTERNAL,
+            visibility=VaultVisibility(row.get("visibility"))
+            if row.get("visibility")
+            else VaultVisibility.PRIVATE,
+            access_policy_version=row.get("access_policy_version")
+            if row.get("access_policy_version") is not None
+            else 1,
+            retention_until=row.get("retention_until"),
+            legal_hold=bool(row.get("legal_hold", False)),
         )
 
     @staticmethod
@@ -456,6 +617,7 @@ class InMemoryVaultRepository:
     def __init__(self) -> None:
         self._documents: dict[tuple[str, UUID], VaultDocumentRecord] = {}
         self._versions: dict[tuple[str, UUID], VaultDocumentVersionRecord] = {}
+        self._grants: dict[tuple[str, UUID], list[VaultAccessGrant]] = {}
 
     async def create_draft(
         self,
@@ -463,6 +625,8 @@ class InMemoryVaultRepository:
         title: str,
         kind: str = "document",
         created_by: str = "system",
+        classification: VaultClassification = VaultClassification.INTERNAL,
+        visibility: VaultVisibility = VaultVisibility.PRIVATE,
     ) -> VaultDocumentRecord:
         document_id = uuid4()
         now = datetime.now(UTC)
@@ -477,9 +641,68 @@ class InMemoryVaultRepository:
             created_by=created_by,
             created_at=now,
             updated_at=now,
+            classification=classification,
+            visibility=visibility,
         )
         self._documents[(workspace_id, document_id)] = rec
         return rec
+
+    async def grant_access(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        grant: VaultAccessGrant,
+    ) -> None:
+        key = (workspace_id, document_id)
+        existing = self._grants.setdefault(key, [])
+        if not any(
+            g.subject_type == grant.subject_type
+            and g.subject_id == grant.subject_id
+            and g.permission == grant.permission
+            for g in existing
+        ):
+            existing.append(grant)
+
+    async def resolve_accessible_document_ids(
+        self,
+        workspace_id: str,
+        principal_id: str,
+        role_ids: set[str],
+    ) -> set[UUID]:
+        accessible: set[UUID] = set()
+        for (ws, doc_id), doc in self._documents.items():
+            if ws != workspace_id:
+                continue
+            if doc.visibility == VaultVisibility.WORKSPACE or doc.created_by == principal_id:
+                accessible.add(doc_id)
+                continue
+            for grant in self._grants.get((workspace_id, doc_id), []):
+                if grant.permission != VaultPermission.READ:
+                    continue
+                if grant.subject_type == VaultGrantSubjectType.USER and grant.subject_id == principal_id:
+                    accessible.add(doc_id)
+                    break
+                if grant.subject_type == VaultGrantSubjectType.ROLE and grant.subject_id in role_ids:
+                    accessible.add(doc_id)
+                    break
+        return accessible
+
+    async def list_authorized_documents(
+        self,
+        workspace_id: str,
+        principal_id: str,
+        role_ids: set[str],
+    ) -> list[VaultDocumentRecord]:
+        accessible_ids = await self.resolve_accessible_document_ids(
+            workspace_id, principal_id, role_ids
+        )
+        docs = [
+            self._documents[(workspace_id, doc_id)]
+            for doc_id in accessible_ids
+            if (workspace_id, doc_id) in self._documents
+        ]
+        docs.sort(key=lambda x: x.updated_at, reverse=True)
+        return docs
 
     async def append_version(
         self,

@@ -126,7 +126,7 @@ class TestKnowledgeIngestionServiceIngestNormalizedDocument:
     @pytest.mark.asyncio
     async def test_ingest_normalized_document_persists_candidate(self, service):
         """Test ingest_normalized_document persists without re-chunking."""
-        from agent.knowledge.models import KnowledgeDocument, KnowledgeChunk
+        from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
 
         candidate = KnowledgeDocument(
             id="doc_candidate_1",
@@ -175,7 +175,7 @@ class TestKnowledgeIngestionServiceIngestNormalizedDocument:
     @pytest.mark.asyncio
     async def test_ingest_normalized_document_does_not_re_chunk(self, service):
         """Test that caller-provided chunks are preserved exactly."""
-        from agent.knowledge.models import KnowledgeDocument, KnowledgeChunk
+        from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
 
         # Create a candidate with specific chunks
         chunks = [
@@ -246,8 +246,8 @@ class TestPostgresKnowledgeStoreProvenance:
 
     def test_postgres_store_loads_and_populates_parser_metadata(self):
         """Test that source_versions can store parser metadata (via integration test mock)."""
+        from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
         from agent.knowledge.providers.postgres import PostgresKnowledgeStore
-        from agent.knowledge.models import KnowledgeDocument, KnowledgeChunk
 
         # Static test of the method signature — actual DB test below
         store = PostgresKnowledgeStore
@@ -297,8 +297,8 @@ class TestPostgresKnowledgeStoreProvenance:
     @pytest.mark.asyncio
     async def test_postgres_store_persists_parser_metadata(self, session_factory):
         """Test that parser metadata is written to source_versions columns."""
+        from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
         from agent.knowledge.providers.postgres import PostgresKnowledgeStore
-        from agent.knowledge.models import KnowledgeDocument, KnowledgeChunk
         from sqlalchemy import text
 
         store = PostgresKnowledgeStore(db_session_factory=session_factory)
@@ -318,9 +318,15 @@ class TestPostgresKnowledgeStoreProvenance:
                 )
             ],
             metadata={
-                "ingestion_run_id": "ing_prov_001",
-                "parser_name": "markitdown",
-                "parser_version": "0.1.7",
+                # Task 2 fix — key metadata đúng theo PostgresKnowledgeStore.save_document
+                # (doc.metadata.get("ingestion_id")/"converter_name"/"converter_version",
+                # xem docstring tests/agent/knowledge/test_source_version_ingestion_run_id.py).
+                # 3 key cũ ("ingestion_run_id"/"parser_name"/"parser_version" — tên cột DB,
+                # không phải tên key metadata) khiến extraction luôn đọc None, test chỉ
+                # chưa từng bị phát hiện vì AGENT_TEST_DATABASE_URL thường không được set.
+                "ingestion_id": "ing_prov_001",
+                "converter_name": "markitdown",
+                "converter_version": "0.1.7",
             },
         )
 
@@ -328,6 +334,11 @@ class TestPostgresKnowledgeStoreProvenance:
 
         # Verify columns were populated
         async with session_factory() as session:
+            # Task 2 — knowledge.source_versions giờ RLS FORCE.
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": doc.workspace_id},
+            )
             row = (
                 await session.execute(
                     text(
@@ -356,12 +367,13 @@ class TestPostgresKnowledgeStoreProvenance:
         Ensures parser_name/parser_version columns are actually populated from
         converter_name/converter_version keys set by normalize_conversion().
         """
-        from apps.cosa.knowledge_ingestion.normalization import normalize_conversion
-        from apps.cosa.knowledge_ingestion.markitdown_converter import ConversionResult
-        from apps.cosa.knowledge_ingestion.preflight import ValidatedDocument
-        from agent.knowledge.service import KnowledgeIngestionService
         from agent.knowledge.providers.postgres import PostgresKnowledgeStore
+        from agent.knowledge.service import KnowledgeIngestionService
         from sqlalchemy import text
+
+        from apps.cosa.knowledge_ingestion.markitdown_converter import ConversionResult
+        from apps.cosa.knowledge_ingestion.normalization import normalize_conversion
+        from apps.cosa.knowledge_ingestion.preflight import ValidatedDocument
 
         # 1. Create conversion result
         conversion = ConversionResult(
@@ -401,6 +413,11 @@ class TestPostgresKnowledgeStoreProvenance:
 
         # 5. Verify postgres columns were populated (the critical test)
         async with session_factory() as session:
+            # Task 2 — knowledge.source_versions giờ RLS FORCE.
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": persisted.workspace_id},
+            )
             row = (
                 await session.execute(
                     text(
