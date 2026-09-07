@@ -1,11 +1,16 @@
 """Task 7 (plan local-first-enterprise-knowledge) — Vault document upload +
 lifecycle API thật (thay thế stub 501): create → upload → complete → QUEUED,
 review/publish/archive theo KnowledgeAuthorization (Task 6), không response
-nào lộ local path/object ref/ticket secret/fencing token."""
+nào lộ local path/object ref/ticket secret/fencing token.
+
+Task 12 — mọi response giờ bọc MvpSuccess envelope ({"data":..., "meta":...})
+để MvpRequestClient (frontend Dart) parse được — `_data()` unwrap tiện cho
+test, không đổi ý nghĩa assertion."""
 
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock
 
 import httpx
@@ -32,6 +37,10 @@ from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
     fake_active_tenant_policy_client,
 )
+
+
+def _data(response: httpx.Response) -> Any:
+    return response.json()["data"]
 
 
 class _FakeSandbox:
@@ -80,7 +89,7 @@ async def test_create_upload_then_complete_queues_local_ingestion(test_app) -> N
             "/agent/vault/documents", json={"title": "Plan", "media_type": "text/plain"}
         )
         assert created.status_code == 201
-        body = created.json()
+        body = _data(created)
         assert "upload_url" in body and "upload_id" in body
 
         upload = await client.put(body["upload_url"], content=b"local plan")
@@ -88,7 +97,7 @@ async def test_create_upload_then_complete_queues_local_ingestion(test_app) -> N
 
         complete = await client.post(f"/agent/vault/uploads/{body['upload_id']}/complete")
         assert complete.status_code == 200
-        assert complete.json()["state"] == "QUEUED"
+        assert _data(complete)["state"] == "QUEUED"
 
 
 @pytest.mark.asyncio
@@ -101,7 +110,7 @@ async def test_upload_response_never_leaks_local_path_or_secret_field_names(test
         created = await client.post(
             "/agent/vault/documents", json={"title": "Plan", "media_type": "text/plain"}
         )
-        body = created.json()
+        body = _data(created)
         assert "quarantine_relative_path" not in body
         assert "object_key" not in body
 
@@ -125,7 +134,7 @@ async def test_upload_creates_private_document_for_member_ignoring_requested_vis
 
     from uuid import UUID
 
-    doc = await plane.vault_repository.get_document("ws_1001", UUID(created.json()["document_id"]))
+    doc = await plane.vault_repository.get_document("ws_1001", UUID(_data(created)["document_id"]))
     assert doc.visibility.value == "PRIVATE"
 
 
@@ -149,6 +158,35 @@ async def test_member_without_grant_gets_404_for_founder_document(test_app) -> N
 
 
 @pytest.mark.asyncio
+async def test_document_out_carries_action_grants_for_owner_not_for_stranger(test_app) -> None:
+    """Task 12 — frontend chỉ render nút review/publish/manage khi backend
+    trả grant tường minh. Owner (member tự tạo document) có manage; member
+    khác không owner/không grant thì document đã bị lọc khỏi list, không có
+    grant giả nào lộ ra."""
+    app, _plane = test_app
+    override_authenticated_identity(
+        app, workspace_id="ws_1001", role_id="member", principal_id="member-owner"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        created = await client.post(
+            "/agent/vault/documents", json={"title": "My notes", "media_type": "text/plain"}
+        )
+        doc_id = _data(created)["document_id"]
+
+        list_resp = await client.get("/agent/vault/documents")
+        entries = [d for d in _data(list_resp) if d["document_id"] == doc_id]
+        assert len(entries) == 1
+        assert entries[0]["can_manage"] is True
+        assert entries[0]["can_review"] is False
+        assert entries[0]["can_publish"] is False
+
+        get_resp = await client.get(f"/agent/vault/documents/{doc_id}")
+        assert _data(get_resp)["can_manage"] is True
+
+
+@pytest.mark.asyncio
 async def test_founder_can_review_reject_and_publish_flow(test_app) -> None:
     app, plane = test_app
     override_authenticated_identity(
@@ -160,7 +198,7 @@ async def test_founder_can_review_reject_and_publish_flow(test_app) -> None:
         created = await client.post(
             "/agent/vault/documents", json={"title": "Plan", "media_type": "text/plain"}
         )
-        body = created.json()
+        body = _data(created)
         await client.put(body["upload_url"], content=b"local plan content")
         await client.post(f"/agent/vault/uploads/{body['upload_id']}/complete")
 
@@ -181,11 +219,11 @@ async def test_founder_can_review_reject_and_publish_flow(test_app) -> None:
             json={"reason": "looks good", "idempotency_key": "idem-1"},
         )
         assert publish_resp.status_code == 200
-        assert publish_resp.json()["state"] == "PUBLISHED"
+        assert _data(publish_resp)["state"] == "PUBLISHED"
 
         get_resp = await client.get(f"/agent/vault/documents/{body['document_id']}")
         assert get_resp.status_code == 200
-        assert get_resp.json()["state"] == "PUBLISHED"
+        assert _data(get_resp)["state"] == "PUBLISHED"
 
 
 @pytest.mark.asyncio
@@ -221,7 +259,7 @@ async def test_archive_does_not_delete_file_and_returns_accepted(test_app) -> No
     ) as client:
         response = await client.delete(f"/agent/vault/documents/{doc.document_id}")
         assert response.status_code == 200
-        assert response.json()["accepted"] is True
+        assert _data(response)["accepted"] is True
 
     updated = await plane.vault_repository.get_document("ws_1001", doc.document_id)
     assert updated.state == "ARCHIVED"
@@ -261,7 +299,7 @@ async def test_purge_route_full_flow_excludes_retrieval_and_deletes_physical_fil
         created = await client.post(
             "/agent/vault/documents", json={"title": "Plan", "media_type": "text/plain"}
         )
-        body = created.json()
+        body = _data(created)
         await client.put(body["upload_url"], content=b"quarterly plan content")
         await client.post(f"/agent/vault/uploads/{body['upload_id']}/complete")
 
@@ -279,7 +317,7 @@ async def test_purge_route_full_flow_excludes_retrieval_and_deletes_physical_fil
 
         purge_resp = await client.post(f"/agent/vault/documents/{body['document_id']}/purge")
         assert purge_resp.status_code == 202
-        assert purge_resp.json()["accepted"] is True
+        assert _data(purge_resp)["accepted"] is True
 
     from uuid import UUID
 

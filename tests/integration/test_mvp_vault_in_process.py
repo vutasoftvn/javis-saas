@@ -88,29 +88,29 @@ async def test_vault_document_lifecycle_end_to_end_over_http(agent_app) -> None:
     ) as client:
         list_res = await client.get("/agent/vault/documents")
         assert list_res.status_code == 200
-        assert list_res.json() == []
+        assert list_res.json()["data"] == []
 
         created = await client.post(
             "/agent/vault/documents",
             json={"title": "Quarterly Strategy", "media_type": "application/pdf"},
         )
         assert created.status_code == 201
-        body = created.json()
+        body = created.json()["data"]
 
         upload_res = await client.put(body["upload_url"], content=b"%PDF-1.4 fake pdf bytes")
         assert upload_res.status_code == 204
 
         complete_res = await client.post(f"/agent/vault/uploads/{body['upload_id']}/complete")
         assert complete_res.status_code == 200
-        assert complete_res.json()["state"] == "QUEUED"
+        assert complete_res.json()["data"]["state"] == "QUEUED"
 
         detail_res = await client.get(f"/agent/vault/documents/{body['document_id']}")
         assert detail_res.status_code == 200
-        assert detail_res.json()["state"] == "DRAFT"
+        assert detail_res.json()["data"]["state"] == "DRAFT"
 
         delete_res = await client.delete(f"/agent/vault/documents/{body['document_id']}")
         assert delete_res.status_code == 200
-        assert delete_res.json()["accepted"] is True
+        assert delete_res.json()["data"]["accepted"] is True
 
 
 @pytest.mark.asyncio

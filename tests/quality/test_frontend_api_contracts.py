@@ -54,12 +54,15 @@ def test_checker_accepts_known_enabled_contract_literal(tmp_path: Path) -> None:
 
 
 def test_checker_flags_disabled_contract_literal_separately(tmp_path: Path) -> None:
-    # Task 5 đã disable 8 entry vault.* (enabled: false) — literal khớp path
-    # nhưng contract bị tắt phải là 'disabled_contract', không phải
+    # Task 12 (plan local-first-enterprise-knowledge) đã enable 8 entry
+    # vault.document.*/vault.upload.* (backend thật xong) — 3 entry
+    # vault.knowledge.* vẫn enabled:false (retrieval REST stub, Task 8 chỉ
+    # làm xong đường capability, chưa làm REST). Literal khớp path nhưng
+    # contract bị tắt phải là 'disabled_contract', không phải
     # 'unknown_literal_route' (khác nguyên nhân, khác hành động sửa).
     source = tmp_path / "frontend/lib/z.dart"
     source.parent.mkdir(parents=True)
-    source.write_text("await ApiClient.get('/agent/vault/documents');")
+    source.write_text("await ApiClient.get('/agent/vault/knowledge/graph');")
     result = run_checker(tmp_path)
     assert result.returncode == 1
     assert "disabled_contract" in result.stderr
@@ -94,13 +97,15 @@ def test_checker_accepts_enabled_strategy_workflow_routes(tmp_path: Path) -> Non
 
 
 def test_checker_catches_reintroduced_dynamic_vault_route(tmp_path: Path) -> None:
-    # Ca cụ thể reviewer yêu cầu: nếu route đã bị Task 5 disable (vault.*)
-    # quay lại dưới dạng call site DYNAMIC (`$id`) — style cực kỳ phổ biến
-    # thực tế (workspace_id/id luôn là biến, hiếm khi hard-code) — checker vẫn
-    # phải bắt được, không được báo "pass" vì lệnh gọi có nội suy.
+    # Ca cụ thể reviewer yêu cầu: nếu route CÒN bị disable (vault.knowledge.* —
+    # retrieval REST stub, Task 12 chỉ enable vault.document.*/vault.upload.*,
+    # 3 route vault.knowledge.* không có tham số path nào để dựng dynamic
+    # segment) quay lại kèm nội suy DYNAMIC ở query (`$id`) — style cực kỳ phổ
+    # biến thực tế (workspace_id/id luôn là biến, hiếm khi hard-code) —
+    # checker vẫn phải bắt được sau khi strip query, không được báo "pass".
     source = tmp_path / "frontend/lib/dyn_vault.dart"
     source.parent.mkdir(parents=True)
-    source.write_text("await ApiClient.get('/agent/vault/documents/$id');")
+    source.write_text("await ApiClient.get('/agent/vault/knowledge/graph?workspace_id=$id');")
     result = run_checker(tmp_path)
     assert result.returncode == 1
     assert "disabled_contract" in result.stderr

@@ -754,7 +754,7 @@ git commit -m "feat(vault): revoke and purge local knowledge safely"
 - Consumes the real Vault API only through `MvpRequestClient`.
 - Produces status/list/upload/review UI that never renders a source forbidden by backend.
 
-- [ ] **Step 1: Write failing frontend contract and role-state tests.**
+- [x] **Step 1: Write failing frontend contract and role-state tests.** `frontend/test/modules/vault/vault_view_test.dart` (5 test, `_FakeVaultService implements VaultService`) + `frontend/test/modules/vault/vault_service_test.dart` (4 test, HTTP mock qua `MvpRequestClient`/`ApiClient.putBytes`).
 
 ```dart
 testWidgets('member sees only documents returned by the authorized backend', (tester) async {
@@ -770,32 +770,21 @@ test('upload uses the opaque local upload URL from the server', () async {
 });
 ```
 
-- [ ] **Step 2: Run the frontend test.**
+- [x] **Step 2: Run the frontend test.** Xác nhận FAIL trước khi tạo `VaultService`/`VaultDocument` (compile error — file chưa tồn tại), PASS sau Step 3/4.
 
-Run: `cd frontend && flutter test test/modules/vault/vault_view_test.dart test/modules/vault/vault_service_test.dart -r compact`
+- [x] **Step 3: Generate and consume the canonical endpoint contract.** Thay 5 entry stale (`vault.document.confirm_upload`/`delete`/`get`/`list`/`upload_ticket` — trỏ route đã bị Task 7 xoá) bằng 8 entry đúng route thật, `enabled: true`: `vault.document.list/create/get`, `vault.upload.complete`, `vault.document.review/publish/archive/purge`. 3 entry `vault.knowledge.*` (retrieval REST stub) giữ `enabled: false`. Chạy `node scripts/gen-mvp-contracts.mjs` — sync cả 3 runtime.
 
-Expected: FAIL because the module remains intentionally unavailable.
+  Gap thật tìm thấy trong lúc làm bước này (không phải scope creep — chặn thẳng frontend hoạt động): 8 route vault (Task 7-11) trả Pydantic model TRẦN, không bọc `MvpSuccess` envelope (`{"data":..., "meta":...}`) như mọi route `enabled:true` khác đã dùng từ trước (`apps/cosa/api/mvp_response.py`, xem `workforce_routes.py`) — `MvpRequestClient` (Dart) reject THẲNG bất kỳ response nào thiếu `data`/`meta`. Chưa ai bắt được vì chưa từng có Dart client thật gọi các route này. Sửa: bọc cả 8 route bằng `mvp_item()`/`mvp_list()`, cập nhật toàn bộ test đọc response cũ (`test_vault_document_routes.py`, `test_vault_routes.py`, `test_mvp_vault_in_process.py`) sang `.json()["data"]`.
 
-- [ ] **Step 3: Generate and consume the canonical endpoint contract.**
+  Cũng thêm `can_review`/`can_publish`/`can_manage` vào `VaultDocumentOut` (tính từ `KnowledgeAuthorization.resolve()` đúng principal đang gọi) — cần cho Step 4 (frontend chỉ render nút khi backend nói có quyền), trước đây response không mang field này.
 
-Edit only `shared/contracts/mvp-surface.json`, mark endpoints enabled only after their backend tests are green, then run `node scripts/gen-mvp-contracts.mjs`. `VaultService` uses typed `MvpEndpoint`; no literal `/vault/*` legacy route and no guessed client-side permissions.
+- [x] **Step 4: Implement UI states truthfully.** `VaultDocumentState` enum map đúng 11 giá trị backend thật (`DRAFT`/`QUEUED`/`VALIDATING`/`CONVERTING`/`REVIEW_PENDING`/`PUBLISHED`/`REJECTED`/`FAILED`/`ARCHIVED`/`PURGE_PENDING`/`PURGED`), không suy diễn state riêng. Nút review/publish/archive/purge chỉ render khi `canReview`/`canPublish`/`canManage` đúng — không có logic role/permission nào phía Dart. `VaultController._handleActionResult()`: 403/404 gọi lại `loadDocuments()` thay vì giữ nguyên state cũ. Upload UI dùng dialog tiêu đề + nội dung text (KHÔNG thêm dependency `file_picker` mới — chưa có sẵn trong `pubspec.yaml`, tránh thêm phụ thuộc ngoài phạm vi task); flow create→upload→complete vẫn là bytes/HTTP thật, không giả lập.
 
-- [ ] **Step 4: Implement UI states truthfully.**
+- [x] **Step 5: Run frontend and API contract gates.** `flutter test test/modules/vault/` (9 test PASS) + `flutter test` đầy đủ (1487 passed — sửa 1 test khác hardcode `vaultDocumentList.enabled==false` làm fixture, nay route đã enabled, đổi sang `vaultKnowledgeGraph` còn disabled) + `flutter analyze` sạch; `make frontend-api-contract-check` (12 test Python, sửa 2 test tương tự hardcode literal `/agent/vault/documents` giờ đã enabled) + `make mvp-surface-check` + `make mvp-contracts-check` + `make contracts-check` PASS; backend `tests/apps/cosa/` đầy đủ 951 passed/27 skipped, `make typecheck-py` sạch (352 file).
 
-Show `UPLOADING`, `QUEUED`, `VALIDATING`, `REVIEW_PENDING`, `PUBLISHED`, `REJECTED`, `ARCHIVED`, `PURGE_PENDING`. Render review/publish/manage controls only when the backend response includes the corresponding action grant; a `403/404` refreshes the list rather than retaining stale document content.
+  Gap biết trước, không phải thiếu sót: `docs/superpowers/plans/2026-08-31-full-mvp-acceptance-ledger.md` (được `mvp_surface_check.py --ledger` kiểm, KHÔNG nằm trong `make mvp-surface-check` mặc định) không tồn tại từ trước — không phải lỗi do Task 12 gây ra, phát hiện lúc kiểm tra kỹ hơn ngoài phạm vi gate CI thật.
 
-- [ ] **Step 5: Run frontend and API contract gates.**
-
-Run:
-
-```bash
-cd frontend && flutter test test/modules/vault/vault_view_test.dart test/modules/vault/vault_service_test.dart -r compact
-cd .. && make frontend-api-contract-check
-```
-
-Expected: PASS; frontend cannot call retired fake routes or display fabricated retrieval results.
-
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add shared/contracts/mvp-surface.json apps/cosa/api/mvp_contracts_generated.py \

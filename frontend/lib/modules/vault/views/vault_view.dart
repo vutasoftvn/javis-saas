@@ -1,27 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/services/feature_flags_controller.dart';
-import '../controllers/vault_controller.dart';
 
-/// Task 5 (Truthful MVP Hardening) — Vault (Lưu trữ tri thức) chưa có storage/
-/// indexing/retrieval thật ở backend. Màn hình này CHỈ công khai lý do chưa
-/// khả dụng: KHÔNG gọi bất kỳ route `/vault/*` nào, không có nút chỉnh sửa,
-/// lưu, phê duyệt hay truy xuất tri thức — tất cả affordance đó đã bị gỡ bỏ
-/// cùng với `vault_folder_tree_sidebar.dart`, `vault_files_content_view.dart`,
-/// `vault_document_detail_view.dart`, `vault_knowledge_studio_panel.dart`.
-///
-/// Điều kiện mở lại (xem `.superpowers/sdd/2026-09-01-truthful-mvp-hardening/
-/// task-5-brief.md`): có E2E test thật upload byte, server verify MIME/size/
-/// SHA-256, scan/ingestion qua structured state, retrieval trả chunk text +
-/// citation, và cách ly workspace được chứng minh.
+import '../controllers/vault_controller.dart';
+import '../models/vault_document.dart';
+
+/// Task 12 (plan local-first-enterprise-knowledge) — Vault UI thật, thay thế
+/// màn hình "chưa khả dụng" (Task 5, Truthful MVP Hardening). Chỉ hiển thị
+/// document + action mà backend thật trả về — không có state/quyền giả lập.
 class VaultView extends GetView<VaultController> {
   const VaultView({super.key});
-
-  /// Flag key khớp với `KNOWLEDGE_INGESTION_ENABLED` ở backend
-  /// (`apps/cosa/knowledge_ingestion/contracts.py`) — canonical ingestion
-  /// path tạm thời cho M3, KHÔNG phải Vault/retrieval thật.
-  static const String _knowledgeIngestionFlagKey = 'knowledge_ingestion';
-  static const String _knowledgeIngestionDocsPath = 'docs/features/knowledge.md';
 
   @override
   Widget build(BuildContext context) {
@@ -29,79 +18,291 @@ class VaultView extends GetView<VaultController> {
       Get.put(VaultController());
     }
 
-    final knowledgeIngestionDocsEnabled = Get.isRegistered<FeatureFlagsController>() &&
-        Get.find<FeatureFlagsController>().isEnabled(_knowledgeIngestionFlagKey);
-
     return Container(
       color: const Color(0xFF040711),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0B1220),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFF1E293B)),
+      child: SafeArea(
+        child: Column(
+          children: [
+            _Header(onCreate: () => _showCreateDialog(context)),
+            Expanded(
+              child: Obx(() {
+                if (controller.isLoading.value && controller.documents.isEmpty) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
+                  );
+                }
+                if (controller.errorMessage.value != null && controller.documents.isEmpty) {
+                  return _ErrorState(
+                    message: controller.errorMessage.value!,
+                    onRetry: controller.loadDocuments,
+                  );
+                }
+                if (controller.documents.isEmpty) {
+                  return const _EmptyState();
+                }
+                return RefreshIndicator(
+                  onRefresh: controller.loadDocuments,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: controller.documents.length,
+                    itemBuilder: (context, index) =>
+                        _DocumentCard(document: controller.documents[index]),
                   ),
-                  child: const Icon(
-                    Icons.lock_clock_rounded,
-                    size: 40,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Vault chưa khả dụng',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  controller.featureState.message,
-                  textAlign: TextAlign.center,
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCreateDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0B1220),
+          title: const Text('Tài liệu mới', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: 'Tiêu đề'),
+              ),
+              TextField(
+                controller: contentController,
+                style: const TextStyle(color: Colors.white),
+                maxLines: 4,
+                decoration: const InputDecoration(labelText: 'Nội dung'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Huỷ'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final title = titleController.text.trim();
+                final content = contentController.text;
+                if (title.isEmpty || content.isEmpty) return;
+                Navigator.of(dialogContext).pop();
+                await controller.createAndUpload(
+                  title: title,
+                  mediaType: 'text/plain',
+                  bytes: utf8.encode(content),
+                );
+              },
+              child: const Text('Tạo & Upload'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.onCreate});
+
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          const Text(
+            'Vault',
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+          ),
+          const Spacer(),
+          FilledButton.icon(
+            onPressed: onCreate,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Tài liệu mới'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'Chưa có tài liệu nào trong Vault.',
+        style: TextStyle(color: Color(0xFF94A3B8)),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message, style: const TextStyle(color: Color(0xFFF87171))),
+          const SizedBox(height: 12),
+          TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+        ],
+      ),
+    );
+  }
+}
+
+String _stateLabel(VaultDocumentState state) {
+  switch (state) {
+    case VaultDocumentState.draft:
+      return 'Nháp';
+    case VaultDocumentState.queued:
+      return 'Đang xếp hàng';
+    case VaultDocumentState.validating:
+      return 'Đang kiểm tra';
+    case VaultDocumentState.converting:
+      return 'Đang chuyển đổi';
+    case VaultDocumentState.reviewPending:
+      return 'Chờ duyệt';
+    case VaultDocumentState.published:
+      return 'Đã xuất bản';
+    case VaultDocumentState.rejected:
+      return 'Đã từ chối';
+    case VaultDocumentState.failed:
+      return 'Lỗi';
+    case VaultDocumentState.archived:
+      return 'Đã lưu trữ';
+    case VaultDocumentState.purgePending:
+      return 'Đang chờ xoá';
+    case VaultDocumentState.purged:
+      return 'Đã xoá vĩnh viễn';
+    case VaultDocumentState.unknown:
+      return 'Không xác định';
+  }
+}
+
+Color _stateColor(VaultDocumentState state) {
+  switch (state) {
+    case VaultDocumentState.published:
+      return const Color(0xFF34D399);
+    case VaultDocumentState.rejected:
+    case VaultDocumentState.failed:
+      return const Color(0xFFF87171);
+    case VaultDocumentState.archived:
+    case VaultDocumentState.purgePending:
+    case VaultDocumentState.purged:
+      return const Color(0xFF94A3B8);
+    default:
+      return const Color(0xFF38BDF8);
+  }
+}
+
+class _DocumentCard extends StatelessWidget {
+  const _DocumentCard({required this.document});
+
+  final VaultDocument document;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<VaultController>();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1220),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF1E293B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  document.title,
                   style: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 13.5,
-                    height: 1.55,
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                if (knowledgeIngestionDocsEnabled) ...[
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0B1220),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF1E293B)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.description_outlined, size: 15, color: Color(0xFF38BDF8)),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            'Tài liệu Knowledge Ingestion (M3): $_knowledgeIngestionDocsPath',
-                            style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _stateColor(document.state).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _stateLabel(document.state),
+                  style: TextStyle(
+                    color: _stateColor(document.state),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
-                ],
+                ),
+              ),
+            ],
+          ),
+          if (document.canReview || document.canPublish || document.canManage) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (document.canReview && document.state == VaultDocumentState.reviewPending)
+                  OutlinedButton(
+                    onPressed: () => controller.reviewDocument(
+                      document.documentId,
+                      reason: 'Rejected from Vault UI',
+                    ),
+                    child: const Text('Từ chối'),
+                  ),
+                if (document.canPublish && document.state == VaultDocumentState.reviewPending)
+                  FilledButton(
+                    onPressed: () => controller.publishDocument(
+                      document.documentId,
+                      reason: 'Approved from Vault UI',
+                    ),
+                    child: const Text('Xuất bản'),
+                  ),
+                if (document.canManage &&
+                    document.state != VaultDocumentState.archived &&
+                    document.state != VaultDocumentState.purged &&
+                    document.state != VaultDocumentState.purgePending)
+                  TextButton(
+                    onPressed: () => controller.archiveDocument(document.documentId),
+                    child: const Text('Lưu trữ'),
+                  ),
+                if (document.canManage && document.state == VaultDocumentState.archived)
+                  TextButton(
+                    onPressed: () => controller.purgeDocument(document.documentId),
+                    child: const Text('Xoá vĩnh viễn'),
+                  ),
               ],
             ),
-          ),
-        ),
+          ],
+        ],
       ),
     );
   }

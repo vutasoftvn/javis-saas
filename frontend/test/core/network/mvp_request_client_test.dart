@@ -301,17 +301,20 @@ void main() {
     });
 
     // Fix-review (2026-09-02, final review I-4) — `shared/contracts/
-    // mvp-surface.json` đánh dấu 8 capability `vault.*` là `enabled: false`
-    // (Task 5) vì backend chưa tồn tại. Trước fix, `MvpEndpoint` (Dart) không
-    // mang field `enabled` nên client vẫn có thể gửi request thật tới một
-    // route đã biết trước là chưa khả dụng. Chứng minh request bị chặn
-    // TRƯỚC KHI chạm HTTP client.
+    // mvp-surface.json` đánh dấu capability `vault.knowledge.*` là
+    // `enabled: false` (retrieval REST stub — Task 12 đã enable
+    // vault.document.*/vault.upload.* nhưng 3 route knowledge/retrieval vẫn
+    // chưa xong REST). Trước fix, `MvpEndpoint` (Dart) không mang field
+    // `enabled` nên client vẫn có thể gửi request thật tới một route đã biết
+    // trước là chưa khả dụng. Chứng minh request bị chặn TRƯỚC KHI chạm HTTP
+    // client.
     test('a disabled endpoint is rejected before any HTTP call is attempted', () async {
-      expect(MvpEndpoint.vaultDocumentList.enabled, isFalse,
-          reason: 'vault.* phải còn enabled:false trong mvp-surface.json cho test này có ý nghĩa');
+      expect(MvpEndpoint.vaultKnowledgeGraph.enabled, isFalse,
+          reason:
+              'vault.knowledge.* phải còn enabled:false trong mvp-surface.json cho test này có ý nghĩa');
 
       final calls = <http.BaseRequest>[];
-      final result = await requestWithRecordingClient(calls, MvpEndpoint.vaultDocumentList);
+      final result = await requestWithRecordingClient(calls, MvpEndpoint.vaultKnowledgeGraph);
 
       expect(calls, isEmpty, reason: 'không được có traffic nào rời máy cho endpoint đã disable');
       expect(result, isA<ApiFailure<Object>>());

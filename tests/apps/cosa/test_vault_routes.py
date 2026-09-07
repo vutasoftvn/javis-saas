@@ -75,7 +75,7 @@ async def test_list_documents_returns_empty_list_when_none_exist(test_app) -> No
     ) as client:
         response = await client.get("/agent/vault/documents")
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json()["data"] == []
 
 
 @pytest.mark.asyncio

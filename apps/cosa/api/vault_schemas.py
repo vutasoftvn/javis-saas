@@ -18,6 +18,13 @@ class VaultDocumentOut(BaseModel):
     created_by: str
     created_at: str
     updated_at: str
+    # Task 12 (plan local-first-enterprise-knowledge) — frontend PHẢI render
+    # nút review/publish/manage(archive/purge) chỉ khi backend nói CÓ quyền,
+    # không tự suy diễn theo role client tự khai. Tính từ
+    # KnowledgeAuthorization.resolve() đúng principal đang gọi.
+    can_review: bool = False
+    can_publish: bool = False
+    can_manage: bool = False
 
 
 class VaultDocumentVersionOut(BaseModel):

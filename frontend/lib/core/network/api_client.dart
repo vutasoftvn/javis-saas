@@ -373,6 +373,28 @@ class ApiClient {
     return client.put(target.uri!, headers: headers, body: body != null ? jsonEncode(body) : null).timeout(defaultTimeout);
   }
 
+  /// Task 12 (plan local-first-enterprise-knowledge) — Vault upload PUT gửi
+  /// raw byte, không phải JSON, tới 1 URL OPAQUE server tự sinh (chứa
+  /// workspace_id + ticket secret trong query — secret LÀ authorization,
+  /// không phải bearer token thường) — không đi qua `MvpEndpoint` (route
+  /// không cố định theo template `:id`, path đổi mỗi lần theo upload_id).
+  /// `requiresAuth: false` mặc định vì backend route này KHÔNG có identity
+  /// dependency (xem apps/cosa/api/vault_routes.py::upload_content).
+  static Future<http.Response> putBytes(
+    String endpoint,
+    List<int> bytes, {
+    String contentType = 'application/octet-stream',
+    bool requiresAuth = false,
+  }) async {
+    final target = resolveRequestTarget(endpoint);
+    if (target.blockedResponse case final response?) return response;
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
+    headers['Content-Type'] = contentType;
+    return client
+        .put(target.uri!, headers: headers, body: bytes)
+        .timeout(uploadTimeout);
+  }
+
   static Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
     final target = resolveRequestTarget(endpoint);
     if (target.blockedResponse case final response?) return response;

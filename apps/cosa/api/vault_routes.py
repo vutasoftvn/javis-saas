@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from apps.cosa.api.mvp_response import MvpSourceRef, MvpSuccess, mvp_item, mvp_list
 from apps.cosa.api.vault_schemas import (
     ArchiveOrPurgeOut,
     CompleteUploadOut,
@@ -41,6 +42,14 @@ from apps.cosa.knowledge_ingestion.contracts import (
 router = APIRouter(prefix="/agent/vault", tags=["vault"])
 
 _WORKSPACE_OPERATOR_ROLES = frozenset({"founder", "co-founder", "admin"})
+
+# Task 12 (plan local-first-enterprise-knowledge) — mọi route enabled:true
+# phải trả MvpSuccess envelope ({"data":..., "meta":...}) — MvpRequestClient
+# (frontend Dart) reject thẳng bất kỳ response nào thiếu "data"/"meta", cùng
+# convention workforce_routes.py đã dùng từ trước (bug thật phát hiện lúc làm
+# Task 12: 8 route vault ban đầu trả Pydantic model trần, chưa từng test qua
+# MvpRequestClient thật nên không ai bắt được cho tới lúc build VaultService).
+_VAULT_SOURCE = MvpSourceRef(kind="agent_db", ref="vault.documents")
 
 # Message cố tình chung chung — không tiết lộ storage topology (tên bucket,
 # provider, schema DB...) cho client.
@@ -67,7 +76,7 @@ def _feature_disabled() -> HTTPException:
     )
 
 
-def _document_to_out(doc: Any) -> VaultDocumentOut:
+def _document_to_out(doc: Any, decision: Any | None = None) -> VaultDocumentOut:
     return VaultDocumentOut(
         document_id=str(doc.document_id),
         workspace_id=doc.workspace_id,
@@ -79,6 +88,9 @@ def _document_to_out(doc: Any) -> VaultDocumentOut:
         created_by=doc.created_by,
         created_at=doc.created_at.isoformat(),
         updated_at=doc.updated_at.isoformat(),
+        can_review=bool(decision.review) if decision is not None else False,
+        can_publish=bool(decision.publish) if decision is not None else False,
+        can_manage=bool(decision.manage) if decision is not None else False,
     )
 
 
@@ -92,24 +104,29 @@ def _parse_document_id(document_id: str) -> UUID:
 # ─── Documents ───
 
 
-@router.get("/documents", response_model=list[VaultDocumentOut])
+@router.get("/documents", response_model=MvpSuccess[list[VaultDocumentOut]])
 async def list_documents(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> list[VaultDocumentOut]:
+) -> MvpSuccess[list[VaultDocumentOut]]:
     plane = _get_plane(request)
     docs = await plane.vault_repository.list_authorized_documents(
         identity.workspace_id, identity.principal_id, {identity.role_id}
     )
-    return [_document_to_out(d) for d in docs]
+    auth = KnowledgeAuthorization(plane.vault_repository)
+    out: list[VaultDocumentOut] = []
+    for d in docs:
+        decision = await auth.resolve(identity, d.document_id)
+        out.append(_document_to_out(d, decision))
+    return mvp_list(out, [_VAULT_SOURCE])
 
 
-@router.post("/documents", status_code=201, response_model=CreateDocumentUploadOut)
+@router.post("/documents", status_code=201, response_model=MvpSuccess[CreateDocumentUploadOut])
 async def create_document(
     request: Request,
     req: CreateDocumentRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> CreateDocumentUploadOut:
+) -> MvpSuccess[CreateDocumentUploadOut]:
     if not knowledge_ingestion_enabled():
         raise _feature_disabled()
     plane = _get_plane(request)
@@ -156,12 +173,15 @@ async def create_document(
         f"/agent/vault/uploads/{upload_id}/content"
         f"?workspace_id={identity.workspace_id}&secret={ticket.secret}"
     )
-    return CreateDocumentUploadOut(
-        document_id=upload_id,
-        upload_id=upload_id,
-        upload_url=upload_url,
-        expires_at=ticket.expires_at.isoformat(),
-        max_bytes=max_bytes,
+    return mvp_item(
+        CreateDocumentUploadOut(
+            document_id=upload_id,
+            upload_id=upload_id,
+            upload_url=upload_url,
+            expires_at=ticket.expires_at.isoformat(),
+            max_bytes=max_bytes,
+        ),
+        [_VAULT_SOURCE],
     )
 
 
@@ -196,12 +216,12 @@ async def upload_content(request: Request, upload_id: str) -> None:
         raise HTTPException(status_code=413, detail="upload too large") from e
 
 
-@router.post("/uploads/{upload_id}/complete", response_model=CompleteUploadOut)
+@router.post("/uploads/{upload_id}/complete", response_model=MvpSuccess[CompleteUploadOut])
 async def complete_upload(
     request: Request,
     upload_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> CompleteUploadOut:
+) -> MvpSuccess[CompleteUploadOut]:
     if not knowledge_ingestion_enabled():
         raise _feature_disabled()
     plane = _get_plane(request)
@@ -249,15 +269,15 @@ async def complete_upload(
             },
         )
 
-    return CompleteUploadOut(upload_id=upload_id, state="QUEUED")
+    return mvp_item(CompleteUploadOut(upload_id=upload_id, state="QUEUED"), [_VAULT_SOURCE])
 
 
-@router.get("/documents/{document_id}", response_model=VaultDocumentOut)
+@router.get("/documents/{document_id}", response_model=MvpSuccess[VaultDocumentOut])
 async def get_document(
     request: Request,
     document_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> VaultDocumentOut:
+) -> MvpSuccess[VaultDocumentOut]:
     plane = _get_plane(request)
     doc_uuid = _parse_document_id(document_id)
     auth = KnowledgeAuthorization(plane.vault_repository)
@@ -267,16 +287,16 @@ async def get_document(
     document = await plane.vault_repository.get_document(identity.workspace_id, doc_uuid)
     if document is None:
         raise HTTPException(status_code=404, detail="not found")
-    return _document_to_out(document)
+    return mvp_item(_document_to_out(document, decision), [_VAULT_SOURCE])
 
 
-@router.post("/documents/{document_id}/review", response_model=ReviewDocumentOut)
+@router.post("/documents/{document_id}/review", response_model=MvpSuccess[ReviewDocumentOut])
 async def review_document(
     request: Request,
     document_id: str,
     req: ReviewDocumentRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> ReviewDocumentOut:
+) -> MvpSuccess[ReviewDocumentOut]:
     """Reject 1 candidate đang REVIEW_PENDING — publish dùng route riêng
     `/documents/{document_id}/publish` (yêu cầu `publish`, không phải
     `review`, đúng Task 6 Step 4: 2 permission tách biệt)."""
@@ -299,16 +319,16 @@ async def review_document(
     ok = await deps.local_repository.reject(identity.workspace_id, upload_id, "reviewer_rejected")
     if not ok:
         raise HTTPException(status_code=409, detail="candidate not in review_pending state")
-    return ReviewDocumentOut(upload_id=upload_id, state="REJECTED")
+    return mvp_item(ReviewDocumentOut(upload_id=upload_id, state="REJECTED"), [_VAULT_SOURCE])
 
 
-@router.post("/documents/{document_id}/publish", response_model=ReviewDocumentOut)
+@router.post("/documents/{document_id}/publish", response_model=MvpSuccess[ReviewDocumentOut])
 async def publish_document(
     request: Request,
     document_id: str,
     req: ReviewDocumentRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> ReviewDocumentOut:
+) -> MvpSuccess[ReviewDocumentOut]:
     plane = _get_plane(request)
     doc_uuid = _parse_document_id(document_id)
     auth = KnowledgeAuthorization(plane.vault_repository)
@@ -377,15 +397,15 @@ async def publish_document(
     if not ok:
         raise HTTPException(status_code=409, detail="publish race — attempt already progressed")
 
-    return ReviewDocumentOut(upload_id=upload_id, state="PUBLISHED")
+    return mvp_item(ReviewDocumentOut(upload_id=upload_id, state="PUBLISHED"), [_VAULT_SOURCE])
 
 
-@router.delete("/documents/{document_id}", response_model=ArchiveOrPurgeOut)
+@router.delete("/documents/{document_id}", response_model=MvpSuccess[ArchiveOrPurgeOut])
 async def delete_document(
     request: Request,
     document_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> ArchiveOrPurgeOut:
+) -> MvpSuccess[ArchiveOrPurgeOut]:
     """Archive — KHÔNG xoá file trong request này (Task 7 Step 4: archive/
     purge schedule background durable work, trả 202-style accepted)."""
     plane = _get_plane(request)
@@ -400,15 +420,19 @@ async def delete_document(
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="not found")
-    return ArchiveOrPurgeOut(document_id=document_id, accepted=True)
+    return mvp_item(ArchiveOrPurgeOut(document_id=document_id, accepted=True), [_VAULT_SOURCE])
 
 
-@router.post("/documents/{document_id}/purge", status_code=202, response_model=ArchiveOrPurgeOut)
+@router.post(
+    "/documents/{document_id}/purge",
+    status_code=202,
+    response_model=MvpSuccess[ArchiveOrPurgeOut],
+)
 async def purge_document(
     request: Request,
     document_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-) -> ArchiveOrPurgeOut:
+) -> MvpSuccess[ArchiveOrPurgeOut]:
     """Task 11 — 2 giai đoạn: đồng bộ trong request chỉ chuyển
     `PURGE_PENDING` (đã loại khỏi retrieval ngay — `retrieve_authorized_
     citations()` chỉ đọc `state='PUBLISHED'`), dọn dẹp vật lý thật (chunk/
@@ -447,7 +471,7 @@ async def purge_document(
             },
         )
 
-    return ArchiveOrPurgeOut(document_id=document_id, accepted=True)
+    return mvp_item(ArchiveOrPurgeOut(document_id=document_id, accepted=True), [_VAULT_SOURCE])
 
 
 # ─── Knowledge Graph & Sources & Retrieval ───
