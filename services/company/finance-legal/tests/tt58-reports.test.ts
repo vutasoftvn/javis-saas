@@ -266,6 +266,86 @@ describe("F5 — TT58 report generation (fixture-based)", () => {
     ).rejects.toThrow(/PERIOD_CLOSED/);
   });
 
+  /**
+   * GHIM hành vi HIỆN TẠI, đã biết là chưa hoàn chỉnh — KHÔNG phải mô tả
+   * hành vi mong muốn.
+   *
+   * B01 không có dòng/bucket nào cho `payable` (chi phí dồn tích chưa trả),
+   * `advance`, hay thuế phải nộp. Nên hễ kỳ kế toán kết thúc mà còn khoản
+   * opex chưa thanh toán, hoặc có thuế TNDN đã tính, thì đẳng thức
+   * `Tài sản = Nợ + Vốn CSH` LỆCH đúng bằng tổng hai khoản đó. Đây là lỗ
+   * hổng cấu trúc kế thừa từ thiết kế 5 bucket của F5, không phải do F6b gây
+   * ra — F6b chỉ là code đầu tiên quan tâm tới đẳng thức này.
+   *
+   * Test này tồn tại để không ai vô tình "sửa" mà không nhận ra, và để khi
+   * nào sửa thật thì đã có sẵn một test đỏ rõ ràng cần chuyển sang xanh.
+   */
+  it("PINS the known balance-equation gap: unpaid opex + CIT are missing from B01 liabilities", async () => {
+    const session = await createTestSession({ role: "founder", displayName: "TT58 Balance Gap Ws" });
+    const authorization = `Bearer ${session.accessToken}`;
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    const entity = await createLegalEntityProfile({
+      workspaceId: BigInt(session.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+    const period = await openAccountingPeriodService(
+      {
+        workspaceId: session.workspaceId,
+        legalEntityId: entity.id,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+      authorization
+    );
+
+    // Vốn góp 100tr -> cash +100tr, capital +100tr.
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, item: "Góp vốn",
+      category: "capital", amountMinor: "100000000", effectiveDate: "2026-01-05", source: "test:balance-gap",
+    });
+    // Doanh thu 30tr (dồn tích) -> receivable +30tr, revenue +30tr.
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, item: "Doanh thu dịch vụ",
+      category: "revenue", amountMinor: "30000000", effectiveDate: "2026-02-01", source: "test:balance-gap",
+    });
+    // Chi phí 10tr CHƯA THANH TOÁN -> payable +10tr, opex +10tr. Không có
+    // entry category "payable" nào đối trừ, nên cuối kỳ vẫn còn nợ 10tr.
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, item: "Chi phí thuê ngoài chưa trả",
+      category: "opex", amountMinor: "10000000", effectiveDate: "2026-03-01", source: "test:balance-gap",
+    });
+
+    await setAccountingPolicyService(ctx, { legalEntityId: entity.id, corporateIncomeTaxRateBps: 2000 });
+    await confirmMappingService(ctx, TT58_2026_MAPPING.regimeCode, TT58_2026_MAPPING.mappingVersion);
+
+    const b01 = await generateReportService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, reportCode: "B01",
+    });
+
+    // Báo cáo tự nhận là VERIFIED — status KHÔNG hề biết gì về việc đẳng
+    // thức cân đối đang lệch. Đó chính là điều làm lỗ hổng này âm thầm.
+    expect(b01.status).toBe("VERIFIED");
+    expect(b01.issues).toEqual([]);
+
+    const line = Object.fromEntries(b01.lines.map((l) => [l.lineCode, l.amountMinor]));
+    // preTax = revenue(30tr) - cogs(0) - opex(10tr) = 20tr
+    // thuế TNDN = 20tr * 20% = 4tr; lợi nhuận sau thuế = 16tr
+    expect(line["LOI_NHUAN_GIU_LAI"]).toBe("16000000");
+
+    const assets = BigInt(line["TS"]) + BigInt(line["PHAI_THU"]) + BigInt(line["TON_KHO"]);
+    const liabilities = BigInt(line["NO_VAY"]);
+    const equity = BigInt(line["VON_GOP"]) + BigInt(line["LOI_NHUAN_GIU_LAI"]);
+
+    expect(assets).toBe(130000000n); // cash 100tr + receivable 30tr
+    expect(liabilities).toBe(0n); // B01 chỉ có NO_VAY; payable 10tr vô hình
+    expect(equity).toBe(116000000n); // vốn góp 100tr + lãi sau thuế 16tr
+
+    // LỆCH 14tr = payable chưa trả (10tr) + thuế TNDN phải nộp (4tr) —
+    // đúng hai bucket mà B01 hiện chưa có dòng nào biểu diễn.
+    expect(assets - (liabilities + equity)).toBe(14000000n);
+    expect(assets).not.toBe(liabilities + equity);
+  });
+
   it("does not write a redundant snapshot when nothing changed, but does when the data changes", async () => {
     // Tab TT58 ở Flutter gọi generate mỗi lần mở màn hình — insert vô điều
     // kiện làm bảng audit phình ra chỉ vì người dùng xem báo cáo.

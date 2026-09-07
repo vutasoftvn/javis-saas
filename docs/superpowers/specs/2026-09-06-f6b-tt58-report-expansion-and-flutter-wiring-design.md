@@ -533,3 +533,63 @@ runway < 3, `"CRITICAL"` nếu runway < 1 hoặc cash âm) — logic hiển th�
   fake-http-client đã có trong `frontend/test/modules/finance/`.
 - `make company-boundary-check`, `encore-handler-boundary-check`,
   `ts-suppression-check`, `frontend-analyze`, `frontend-test`.
+
+## Known limitations — bảng cân đối kế toán & trạng thái báo cáo
+
+Hai điểm dưới đây là hai TÍNH CHẤT ĐỘC LẬP của engine báo cáo. Đừng gộp
+chúng làm một: (1) nói về đẳng thức kế toán trên B01, (2) nói về việc báo
+cáo có được coi là đã hoàn chỉnh hay chưa.
+
+### 1. B01 thiếu dòng cho `payable` / `advance` / thuế phải nộp
+
+B01 hiện chỉ có 3 dòng tài sản (`TS`, `PHAI_THU`, `TON_KHO`), 1 dòng nợ
+(`NO_VAY`) và 2 dòng vốn chủ sở hữu (`VON_GOP`, `LOI_NHUAN_GIU_LAI`). Không
+có dòng nào biểu diễn bucket `payable` (chi phí dồn tích chưa thanh toán),
+bucket `advance`, hay khoản thuế TNDN phải nộp.
+
+Hệ quả: đẳng thức `Tài sản = Nợ + Vốn CSH` LỆCH bất cứ khi nào kỳ kế toán
+kết thúc mà còn một trong các khoản đó. Ví dụ đã ghim bằng test
+(`tt58-reports.test.ts`, test có tiền tố `PINS`): vốn góp 100tr, doanh thu
+dồn tích 30tr, chi phí 10tr chưa trả, thuế suất TNDN 20% →
+tài sản 130tr, nợ 0, vốn CSH 116tr → lệch đúng 14tr = payable 10tr + thuế
+TNDN 4tr.
+
+Điều đáng lưu ý nhất: báo cáo trong ví dụ đó vẫn mang `status=VERIFIED` với
+`issues` rỗng — trạng thái báo cáo hoàn toàn không biết gì về việc đẳng thức
+đang lệch, nên lỗ hổng này âm thầm.
+
+Đây là **lỗ hổng cấu trúc kế thừa từ thiết kế 5 bucket của F5**, không phải
+do F6b tạo ra. F6b chỉ là phần code đầu tiên trong repo quan tâm tới đẳng
+thức này (assertion cân đối thêm ở Task 6), nên cũng là nơi đầu tiên lộ ra.
+Riêng phần "không có bucket thuế phải nộp" đã được ghi nhận từ trước; điểm
+mới khi rà soát cuối là `payable`/`advance` cũng làm lệch y hệt mà **không
+cần cấu hình thuế gì cả**.
+
+Chưa sửa ở F6b (sửa thật đòi thêm dòng mapping + bucket mới, đổi
+`mappingVersion`, buộc founder xác nhận lại). Hành vi hiện tại đã được ghim
+bằng test để không ai vô tình đổi mà không nhận ra, và để khi sửa thật thì
+đã có sẵn một test cần chuyển trạng thái một cách có chủ đích.
+
+### 2. Trạng thái VERIFIED không còn phụ thuộc "bucket đã có giao dịch"
+
+Đây là chuyện KHÁC hẳn mục (1) ở trên — nó nói về tính hoàn chỉnh/xác nhận
+của báo cáo, không nói gì về đẳng thức cân đối.
+
+`computeReportStatus` từng đối chiếu "bucket bắt buộc" (suy ra từ chính các
+dòng mapping do code seed, nên luôn là một danh sách cố định) với "bucket đã
+thực sự có giao dịch", rồi bắn issue `missing_mapping_for_bucket:*`. Cách đó
+đánh đồng hai chuyện khác hẳn nhau: "cấu hình mapping còn thiếu" (vấn đề
+thật, đáng báo) và "doanh nghiệp này hợp lệ khi không có giao dịch nào ở
+bucket đó" (trạng thái bình thường).
+
+Hệ quả cũ: mọi doanh nghiệp thuần dịch vụ — phần lớn doanh nghiệp siêu nhỏ
+Việt Nam — không bao giờ có giao dịch `inventory`/`cogs`, nên B01/B02 vĩnh
+viễn `INCOMPLETE` với `missing_mapping_for_bucket:inventory` / `:cogs` dù dữ
+liệu đầy đủ và chính xác đến đâu.
+
+Đã sửa (đợt sửa sau review cuối): `VERIFIED` giờ chỉ phụ thuộc việc founder
+đã xác nhận mapping hay chưa, cộng các issue của dòng derived (ví dụ
+`corporate_income_tax_rate_not_configured`). Loại issue
+`missing_mapping_for_bucket:*` không còn tồn tại. Có test chứng minh doanh
+nghiệp thuần dịch vụ đã xác nhận mapping và cấu hình thuế suất đạt
+`VERIFIED` với `issues` rỗng.
