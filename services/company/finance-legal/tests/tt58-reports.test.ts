@@ -410,6 +410,83 @@ describe("F5 — TT58 report generation (fixture-based)", () => {
     expect(afterChange.length).toBe(2);
   });
 
+  it("writes a new snapshot when only the tax rate changed, with no book-entry change", async () => {
+    // Regression từ chính cơ chế dedup: thuế suất đọc từ bảng
+    // `accounting_policies`, KHÁC nguồn với book entries. Nếu watermark không
+    // gồm taxRateBps thì founder sửa thuế suất sẽ cho watermark + status +
+    // issues y hệt -> dedup trả về snapshot CŨ với số thuế cũ. Và
+    // `syncComputedCorporateIncomeTaxService` đọc dòng THUE_TNDN từ chính kết
+    // quả này rồi ghi vào `tax_obligation_instances`, nên số thuế sai lọt
+    // thẳng vào dữ liệu nghĩa vụ thuế của founder.
+    const session = await createTestSession({ role: "founder", displayName: "TT58 Tax Rate Change Ws" });
+    const authorization = `Bearer ${session.accessToken}`;
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    const entity = await createLegalEntityProfile({
+      workspaceId: BigInt(session.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+    const period = await openAccountingPeriodService(
+      {
+        workspaceId: session.workspaceId,
+        legalEntityId: entity.id,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+      authorization
+    );
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, item: "Doanh thu dịch vụ",
+      category: "revenue", amountMinor: "30000000", effectiveDate: "2026-02-01", source: "test:tax-rate-change",
+    });
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, item: "Chi phí hoạt động",
+      category: "opex", amountMinor: "10000000", effectiveDate: "2026-02-02", source: "test:tax-rate-change",
+    });
+    await confirmMappingService(ctx, TT58_2026_MAPPING.regimeCode, TT58_2026_MAPPING.mappingVersion);
+
+    // preTax = 30tr - 0 - 10tr = 20tr. Thuế 20% -> 4tr.
+    await setAccountingPolicyService(ctx, { legalEntityId: entity.id, corporateIncomeTaxRateBps: 2000 });
+    const atTwentyPercent = await generateReportService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, reportCode: "B02",
+    });
+    const linesAt20 = Object.fromEntries(atTwentyPercent.lines.map((l) => [l.lineCode, l.amountMinor]));
+    expect(linesAt20["THUE_TNDN"]).toBe("4000000");
+    expect(linesAt20["LOI_NHUAN_SAU_THUE"]).toBe("16000000");
+
+    // Founder sửa lại thuế suất còn 15% — KHÔNG đụng book entry nào.
+    await setAccountingPolicyService(ctx, { legalEntityId: entity.id, corporateIncomeTaxRateBps: 1500 });
+    const atFifteenPercent = await generateReportService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, reportCode: "B02",
+    });
+
+    // Phải là snapshot MỚI, không phải dòng cũ trả về từ dedup.
+    expect(atFifteenPercent.id).not.toBe(atTwentyPercent.id);
+    expect(atFifteenPercent.inputWatermark).not.toBe(atTwentyPercent.inputWatermark);
+
+    // Và phải mang số thuế MỚI: 20tr * 15% = 3tr; lãi sau thuế = 17tr.
+    const linesAt15 = Object.fromEntries(atFifteenPercent.lines.map((l) => [l.lineCode, l.amountMinor]));
+    expect(linesAt15["THUE_TNDN"]).toBe("3000000");
+    expect(linesAt15["LOI_NHUAN_SAU_THUE"]).toBe("17000000");
+
+    // B01 cũng phải thấy thuế suất mới qua dòng lợi nhuận giữ lại.
+    const b01 = await generateReportService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, reportCode: "B01",
+    });
+    const b01Lines = Object.fromEntries(b01.lines.map((l) => [l.lineCode, l.amountMinor]));
+    expect(b01Lines["LOI_NHUAN_GIU_LAI"]).toBe("17000000");
+
+    // Dedup vẫn còn tác dụng khi thuế suất KHÔNG đổi: gọi lại lần nữa không
+    // được sinh thêm dòng.
+    const again = await generateReportService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, reportCode: "B02",
+    });
+    expect(again.id).toBe(atFifteenPercent.id);
+    const b02Snapshots = await listReportSnapshotsService(ctx, {
+      legalEntityId: entity.id, periodId: period.id, reportCode: "B02",
+    });
+    expect(b02Snapshots.length).toBe(2); // đúng 1 dòng cho mỗi thuế suất
+  });
+
   it("writes a new snapshot when only the status changed, even though the watermark is identical", async () => {
     // `inputWatermark` không mã hóa trạng thái xác nhận mapping, nên nếu chỉ
     // so watermark thì việc founder xác nhận SAU đó sẽ bị che mất: người dùng

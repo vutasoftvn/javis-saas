@@ -391,8 +391,17 @@ export async function generateReportService(
   for (const issue of derivedIssues) issues.push(issue);
   const finalStatus = issues.length === 0 ? status : "INCOMPLETE";
 
+  // `taxRateBps` PHẢI nằm trong watermark: các dòng derived (THUE_TNDN,
+  // LOI_NHUAN_GOP, LOI_NHUAN_SAU_THUE, LOI_NHUAN_GIU_LAI) phụ thuộc thuế
+  // suất, mà thuế suất đọc từ bảng `accounting_policies` — hoàn toàn khác
+  // nguồn với book entries. Thiếu nó, founder sửa thuế suất (không đụng book
+  // entry nào) sẽ cho ra watermark + status + issues y hệt, nên dedup trả về
+  // snapshot CŨ với số thuế cũ. Không chỉ sai hiển thị:
+  // `syncComputedCorporateIncomeTaxService` đọc dòng THUE_TNDN từ chính kết
+  // quả này rồi ghi vào `tax_obligation_instances`.
   const inputWatermark = computeCanonicalSha256({
     mappingVersion: mapping.mappingVersion,
+    taxRateBps,
     entries: entries
       .map((e) => ({ id: e.id, category: e.category, amountMinor: e.amountMinor, version: e.version }))
       .sort((a, b) => a.id.localeCompare(b.id)),
