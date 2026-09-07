@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from agent.artifacts import ArtifactRepository
@@ -42,6 +43,7 @@ from apps.cosa.config.planes import (
     resolve_execution_plane_url,
     resolve_platform_control_plane_url,
 )
+from apps.cosa.knowledge_ingestion.dependencies import KnowledgeIngestionDependencies
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine
 from apps.cosa.workflows.specs import COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC
@@ -87,6 +89,7 @@ class CosaAgentPlane:
         vault_repository: VaultRepository | None = None,
         workspace_settings_client: WorkspaceSettingsClient | None = None,
         knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
+        knowledge_ingestion_deps: KnowledgeIngestionDependencies | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -117,6 +120,11 @@ class CosaAgentPlane:
         self.memory_service = memory_service
         self.knowledge_ingestion_service = knowledge_ingestion_service
         self.knowledge_snapshot_repo = knowledge_snapshot_repo
+        # Task 4 — local storage/scanner/sandbox cho knowledge ingestion pipeline
+        # thật, non-null chỉ khi KNOWLEDGE_INGESTION_ENABLED=true. Đúng 1 instance
+        # dùng chung cho cả API process lẫn worker dispatch (không mỗi task 1
+        # WorkspaceDocumentStore riêng).
+        self.knowledge_ingestion_deps = knowledge_ingestion_deps
         # Task 5 — expose ở plane level (không chỉ giấu trong kernel private
         # attribute) để apps/cosa/worker/handlers.py có thể gọi
         # `resolve_for_run()` TRƯỚC `plane.kernel.run()`.
@@ -200,6 +208,7 @@ def build_cosa_agent_plane(
     vault_repository: VaultRepository | None = None,
     workspace_settings_client: WorkspaceSettingsClient | None = None,
     knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
+    knowledge_ingestion_deps: KnowledgeIngestionDependencies | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -302,6 +311,21 @@ def build_cosa_agent_plane(
         governance_store=storage.governance_store,
     )
 
+    # 7. Knowledge ingestion dependencies (Task 4) — chỉ dựng khi feature flag
+    # bật; production fail-fast nếu thiếu scanner/sandbox thật đã inject
+    # (build_knowledge_ingestion_dependencies tự raise).
+    resolved_knowledge_ingestion_deps = knowledge_ingestion_deps
+    if resolved_knowledge_ingestion_deps is None:
+        from apps.cosa.knowledge_ingestion.contracts import knowledge_ingestion_enabled
+        from apps.cosa.knowledge_ingestion.dependencies import (
+            build_knowledge_ingestion_dependencies,
+        )
+
+        if knowledge_ingestion_enabled():
+            resolved_knowledge_ingestion_deps = build_knowledge_ingestion_dependencies(
+                database_url=database_url or os.environ.get("AGENT_DATABASE_URL")
+            )
+
     return CosaAgentPlane(
         repository=storage.run_repository,
         conversation_repository=storage.conversation_repository,
@@ -327,6 +351,7 @@ def build_cosa_agent_plane(
         memory_service=storage.memory_service,
         knowledge_ingestion_service=storage.knowledge_ingestion_service,
         knowledge_snapshot_repo=storage.knowledge_snapshot_repo,
+        knowledge_ingestion_deps=resolved_knowledge_ingestion_deps,
         compliance_resolver=compliance_resolver,
         workspace_settings_client=workspace_settings_client,
     )

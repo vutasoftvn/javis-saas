@@ -59,8 +59,15 @@ def _plane_is_ready(plane: object | None) -> bool:
         return False
     if any(getattr(plane, dep, None) is None for dep in _PLANE_CORE_DEPENDENCIES):
         return False
+    if os.environ.get("AGENT_DATABASE_URL") and getattr(plane, "event_intake_deps", None) is None:
+        return False
+    # Task 4 — feature flag bật nhưng chưa dựng được knowledge_ingestion_deps
+    # (thiếu scanner/sandbox thật đã inject) ⇒ instance này KHÔNG được nhận
+    # traffic ingestion mới cho tới khi composition root cấu hình đủ.
+    from apps.cosa.knowledge_ingestion.contracts import knowledge_ingestion_enabled
+
     return not (
-        os.environ.get("AGENT_DATABASE_URL") and getattr(plane, "event_intake_deps", None) is None
+        knowledge_ingestion_enabled() and getattr(plane, "knowledge_ingestion_deps", None) is None
     )
 
 

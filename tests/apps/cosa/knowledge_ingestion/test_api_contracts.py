@@ -29,6 +29,21 @@ TENANT_A = dict(principal_id="user:alice", workspace_id="ws_a")
 TENANT_B = dict(principal_id="user:bob", workspace_id="ws_b")
 
 
+@pytest.fixture(autouse=True)
+def _restore_knowledge_ingestion_enabled_env():
+    """Test này (và các test riêng lẻ trong file) set `os.environ[...]` trực
+    tiếp (không qua `monkeypatch`) — không có cơ chế nào tự revert, nên flag
+    rò rỉ sang MỌI test khác chạy sau trong cùng session pytest (kể cả khác
+    file/module). Khôi phục lại giá trị gốc (hoặc xoá nếu trước đó chưa có)
+    sau mỗi test trong file này."""
+    original = os.environ.get("KNOWLEDGE_INGESTION_ENABLED")
+    yield
+    if original is None:
+        os.environ.pop("KNOWLEDGE_INGESTION_ENABLED", None)
+    else:
+        os.environ["KNOWLEDGE_INGESTION_ENABLED"] = original
+
+
 @pytest.fixture
 def test_app():
     """Create test app with in-memory object store."""

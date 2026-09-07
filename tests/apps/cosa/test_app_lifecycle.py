@@ -153,6 +153,25 @@ def test_readiness_reports_missing_dependencies():
         assert client.get("/healthz").status_code == 503
 
 
+def test_readiness_reports_not_ready_when_ingestion_enabled_but_deps_missing(monkeypatch):
+    """Task 4 — feature flag bật nhưng `knowledge_ingestion_deps` chưa dựng
+    (thiếu scanner/sandbox thật đã inject ở composition root) ⇒ 503, không
+    được nhận traffic ingestion mới.
+
+    Dựng plane với flag TẮT (tránh `build_cosa_agent_plane()` tự cố dựng
+    `InProcessConversionSandbox()` — cần gói `markitdown`, chỉ có trong
+    requirements.ingestion.txt riêng, không cài trong venv dev chính), rồi
+    bật flag SAU khi plane đã tồn tại — mô phỏng đúng tình huống thật: 1
+    instance chạy sẵn mà `knowledge_ingestion_deps` chưa từng được inject."""
+    plane = _in_memory_plane()
+    assert plane.knowledge_ingestion_deps is None
+    app = create_cosa_app(plane=plane)
+    monkeypatch.setenv("KNOWLEDGE_INGESTION_ENABLED", "true")
+
+    with TestClient(app) as client:
+        assert client.get("/ready").status_code == 503
+
+
 def test_no_lazy_plane_creation_on_first_request():
     """Exit criteria: không còn code path tạo CosaAgentPlane on first
     request. `get_cosa_plane()` (dependency) phải raise rõ ràng thay vì âm

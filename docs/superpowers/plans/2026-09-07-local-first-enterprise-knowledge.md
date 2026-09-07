@@ -283,7 +283,7 @@ git commit -m "feat(knowledge): store workspace uploads on local persistent volu
 - Produces `KnowledgeIngestionDependencies(store, scanner, sandbox, repository, service)`.
 - `CosaAgentPlane.knowledge_ingestion_deps` is non-null for a local runtime with ingestion enabled.
 
-- [ ] **Step 1: Add failing production wiring tests.**
+- [x] **Step 1: Add failing production wiring tests.**
 
 ```python
 def test_production_rejects_missing_local_ingestion_dependencies(monkeypatch):
@@ -298,13 +298,13 @@ async def test_worker_passes_all_dependencies_to_handler(plane, scheduled_task, 
     assert handler.call_args.kwargs["sandbox"] is plane.knowledge_ingestion_deps.sandbox
 ```
 
-- [ ] **Step 2: Run the tests.**
+- [x] **Step 2: Run the tests.**
 
 Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/test_knowledge_production_wiring.py tests/apps/cosa/worker/test_knowledge_ingestion_dispatch.py -q`
 
 Expected: FAIL because app state and worker currently omit the local store, scanner and sandbox.
 
-- [ ] **Step 3: Build a single dependency factory.**
+- [x] **Step 3: Build a single dependency factory.**
 
 ```python
 @dataclass(frozen=True)
@@ -320,11 +320,11 @@ def build_knowledge_ingestion_dependencies(database_url: str) -> KnowledgeIngest
 
 In production require a real scanner adapter and a remote/isolated converter adapter, then call both `assert_production_scanner_ready` and `assert_production_conversion_ready`. Do not accept `FakeDocumentMalwareScanner` or `InProcessConversionSandbox` in production.
 
-- [ ] **Step 4: Inject exactly one dependency instance per process lifecycle.**
+- [x] **Step 4: Inject exactly one dependency instance per process lifecycle.**
 
 Set `app.state.knowledge_ingestion_deps` and expose the same instance from `CosaAgentPlane`; close resources at shutdown. Worker dispatch must pass all five dependencies explicitly. `/ready` reports not-ready when the feature flag is enabled but any required dependency is absent.
 
-- [ ] **Step 5: Run wiring and worker regression tests.**
+- [x] **Step 5: Run wiring and worker regression tests.**
 
 Run:
 
@@ -335,7 +335,7 @@ PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/test_knowledge_productio
 
 Expected: PASS; production cannot quietly use an in-process converter or fake scanner.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add apps/cosa/composition apps/cosa/api/app.py apps/cosa/worker/main.py \
