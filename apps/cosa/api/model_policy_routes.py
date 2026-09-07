@@ -178,9 +178,10 @@ async def create_model_provider(
     credential_ref: str | None = None
     if body.api_key is not None:
         store = _get_credential_store(plane)
-        # `.get_secret_value()` gọi ĐÚNG 1 LẦN, ngay trước khi đưa vào
-        # `store.put()` — không giữ lại biến trung gian nào khác chứa
-        # plaintext, không log giá trị này ở bất kỳ đâu.
+        # Truyền THẲNG `SecretStr` xuống `LocalCredentialStore.put()` — route
+        # này KHÔNG tự gọi `.get_secret_value()` (chỉ nơi DUY NHẤT gọi hàm đó
+        # là bên trong `put()`, xem apps/cosa/models/credential_store.py —
+        # Task 2). Không có biến trung gian nào ở đây từng cầm plaintext.
         credential_ref_obj = await store.put(identity.workspace_id, body.api_key)
         credential_ref = credential_ref_obj.id
 
