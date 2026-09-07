@@ -7,7 +7,11 @@ import { createFiscalProfileService } from "../services/accounting-regime.servic
 import { openAccountingPeriodService, closeAccountingPeriodService } from "../services/accounting-period.service";
 import { createBookEntryService } from "../services/accounting-books.service";
 import { setAccountingPolicyService } from "../services/accounting-policy.service";
-import { generateReportService, confirmMappingService } from "../services/accounting-reports.service";
+import {
+  generateReportService,
+  confirmMappingService,
+  listReportSnapshotsService,
+} from "../services/accounting-reports.service";
 import { TT58_2026_MAPPING } from "../services/accounting-mapping";
 
 describe("F5 — TT58 report generation (fixture-based)", () => {
@@ -260,6 +264,110 @@ describe("F5 — TT58 report generation (fixture-based)", () => {
         source: "fixture:tt58-2026/idempotent",
       })
     ).rejects.toThrow(/PERIOD_CLOSED/);
+  });
+
+  it("does not write a redundant snapshot when nothing changed, but does when the data changes", async () => {
+    // Tab TT58 ở Flutter gọi generate mỗi lần mở màn hình — insert vô điều
+    // kiện làm bảng audit phình ra chỉ vì người dùng xem báo cáo.
+    const session = await createTestSession({ role: "founder", displayName: "TT58 Dedup Ws" });
+    const authorization = `Bearer ${session.accessToken}`;
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    const entity = await createLegalEntityProfile({
+      workspaceId: BigInt(session.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+    const period = await openAccountingPeriodService(
+      {
+        workspaceId: session.workspaceId,
+        legalEntityId: entity.id,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+      authorization
+    );
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      item: "Góp vốn",
+      category: "capital",
+      amountMinor: "50000000",
+      effectiveDate: "2026-01-10",
+      source: "test:dedup",
+    });
+    await confirmMappingService(ctx, TT58_2026_MAPPING.regimeCode, TT58_2026_MAPPING.mappingVersion);
+
+    const first = await generateReportService(ctx, { legalEntityId: entity.id, periodId: period.id, reportCode: "B01" });
+    const second = await generateReportService(ctx, { legalEntityId: entity.id, periodId: period.id, reportCode: "B01" });
+
+    // Lần 2 trả về ĐÚNG dòng cũ, không tạo dòng mới.
+    expect(second.id).toBe(first.id);
+    const afterTwoReads = await listReportSnapshotsService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      reportCode: "B01",
+    });
+    expect(afterTwoReads.length).toBe(1);
+
+    // Dữ liệu đổi thật (watermark đổi) -> phải ghi snapshot mới.
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      item: "Doanh thu dịch vụ",
+      category: "revenue",
+      amountMinor: "7000000",
+      effectiveDate: "2026-03-01",
+      source: "test:dedup",
+    });
+    const third = await generateReportService(ctx, { legalEntityId: entity.id, periodId: period.id, reportCode: "B01" });
+    expect(third.id).not.toBe(first.id);
+    expect(third.inputWatermark).not.toBe(first.inputWatermark);
+
+    const afterChange = await listReportSnapshotsService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      reportCode: "B01",
+    });
+    expect(afterChange.length).toBe(2);
+  });
+
+  it("writes a new snapshot when only the status changed, even though the watermark is identical", async () => {
+    // `inputWatermark` không mã hóa trạng thái xác nhận mapping, nên nếu chỉ
+    // so watermark thì việc founder xác nhận SAU đó sẽ bị che mất: người dùng
+    // vẫn nhận lại snapshot INCOMPLETE cũ.
+    const session = await createTestSession({ role: "founder", displayName: "TT58 Dedup Status Ws" });
+    const authorization = `Bearer ${session.accessToken}`;
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    const entity = await createLegalEntityProfile({
+      workspaceId: BigInt(session.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+    const period = await openAccountingPeriodService(
+      {
+        workspaceId: session.workspaceId,
+        legalEntityId: entity.id,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+      authorization
+    );
+
+    const before = await generateReportService(ctx, { legalEntityId: entity.id, periodId: period.id, reportCode: "B01" });
+    expect(before.issues).toContain("mapping_not_confirmed_by_founder");
+
+    // Không đụng vào book entry nào -> watermark giữ nguyên, chỉ status đổi.
+    await confirmMappingService(ctx, TT58_2026_MAPPING.regimeCode, TT58_2026_MAPPING.mappingVersion);
+    const after = await generateReportService(ctx, { legalEntityId: entity.id, periodId: period.id, reportCode: "B01" });
+
+    expect(after.inputWatermark).toBe(before.inputWatermark);
+    expect(after.id).not.toBe(before.id);
+    expect(after.issues).not.toContain("mapping_not_confirmed_by_founder");
+
+    const snapshots = await listReportSnapshotsService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      reportCode: "B01",
+    });
+    expect(snapshots.length).toBe(2);
   });
 
   it("rejects generate when the period belongs to a different legal entity", async () => {

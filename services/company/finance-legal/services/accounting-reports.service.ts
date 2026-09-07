@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { requireFounderCommand } from "../../shared/auth/workspace-access";
@@ -367,6 +367,50 @@ export async function generateReportService(
       .map((e) => ({ id: e.id, category: e.category, amountMinor: e.amountMinor, version: e.version }))
       .sort((a, b) => a.id.localeCompare(b.id)),
   });
+
+  // Không ghi snapshot mới khi không có gì thay đổi. Tab TT58 ở Flutter gọi
+  // endpoint này mỗi lần mở màn hình (nhiều lần cho cùng một reportCode), nên
+  // insert vô điều kiện làm bảng audit phình ra chỉ vì người dùng xem báo cáo.
+  //
+  // `inputWatermark` KHÔNG bao gồm trạng thái xác nhận mapping, nên chỉ khớp
+  // watermark là chưa đủ: nếu founder xác nhận mapping SAU khi đã có snapshot
+  // INCOMPLETE cùng watermark, trả lại dòng cũ sẽ che mất việc report đã lên
+  // VERIFIED. Vì vậy chỉ bỏ qua insert khi cả status và issues của dòng cũ
+  // cũng khớp đúng những gì vừa tính ở đây.
+  const [existing] = await db
+    .select()
+    .from(accountingReportSnapshots)
+    .where(
+      and(
+        eq(accountingReportSnapshots.workspaceId, BigInt(ctx.workspaceId)),
+        eq(accountingReportSnapshots.legalEntityId, BigInt(input.legalEntityId)),
+        eq(accountingReportSnapshots.periodId, BigInt(input.periodId)),
+        eq(accountingReportSnapshots.reportCode, input.reportCode),
+        eq(accountingReportSnapshots.mappingVersion, mapping.mappingVersion)
+      )
+    )
+    .orderBy(desc(accountingReportSnapshots.generatedAt), desc(accountingReportSnapshots.id))
+    .limit(1);
+
+  if (
+    existing &&
+    existing.inputWatermark === inputWatermark &&
+    existing.status === finalStatus &&
+    JSON.stringify(existing.issues) === JSON.stringify(issues)
+  ) {
+    return {
+      id: String(existing.id),
+      legalEntityId: String(existing.legalEntityId),
+      periodId: String(existing.periodId),
+      reportCode: existing.reportCode,
+      mappingVersion: existing.mappingVersion,
+      inputWatermark: existing.inputWatermark,
+      lines: existing.lines,
+      status: existing.status,
+      issues: existing.issues,
+      generatedAt: existing.generatedAt.toISOString(),
+    };
+  }
 
   const [row] = await db
     .insert(accountingReportSnapshots)
