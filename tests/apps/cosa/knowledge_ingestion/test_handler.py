@@ -1,11 +1,15 @@
 """End-to-end tests cho execute_knowledge_ingestion_task.
 
-Các test này thực thi TOÀN BỘ pipeline (claim → load → preflight → scan → convert →
-normalize → persist → record_candidate) với fakes cho các dependency ngoài
-(object store, scanner, sandbox, control-plane client) và một KnowledgeStore
-in-memory thật — để chứng minh handler persist đúng một KnowledgeDocument
-review_pending và gọi record_candidate với id thật, và KHÔNG persist gì khi
-scanner từ chối.
+Task 5 (plan local-first-enterprise-knowledge) — pipeline giờ dùng
+WorkspaceDocumentStore (local filesystem quarantine) +
+InMemoryLocalIngestionRepository (state machine local) thay vì
+DocumentObjectStore/LocalDocumentIngestionClient (HTTP tới services/cosa).
+
+Các test này thực thi TOÀN BỘ pipeline (claim → load → preflight → scan →
+convert → normalize → persist → record_candidate) với fakes cho scanner/
+sandbox và 1 KnowledgeStore in-memory thật — để chứng minh handler persist
+đúng một KnowledgeDocument review_pending và chuyển state ingestion đúng, và
+KHÔNG persist gì khi scanner từ chối.
 """
 
 from __future__ import annotations
@@ -13,17 +17,22 @@ from __future__ import annotations
 import hashlib
 import io
 import zipfile
-from unittest.mock import AsyncMock
 
 import pytest
+from agent.knowledge.service import KnowledgeIngestionService
+from agent.knowledge.store import InMemoryKnowledgeStore
 
 from apps.cosa.knowledge_ingestion.handler import execute_knowledge_ingestion_task
-from apps.cosa.knowledge_ingestion.object_store import InMemoryDocumentObjectStore
-from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner
+from apps.cosa.knowledge_ingestion.local_repository import (
+    InMemoryLocalIngestionRepository,
+    LocalIngestionState,
+)
 from apps.cosa.knowledge_ingestion.markitdown_converter import ConversionResult
-from agent.knowledge.store import InMemoryKnowledgeStore
-from agent.knowledge.service import KnowledgeIngestionService
-
+from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner
+from apps.cosa.knowledge_ingestion.workspace_store import (
+    InMemoryUploadTicketRepository,
+    WorkspaceDocumentStore,
+)
 
 TEXT_MIME = "text/plain"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -64,22 +73,6 @@ def _ok_conversion(markdown: str = "# Heading\n\nBody paragraph one.\n") -> Conv
     )
 
 
-def _seed_object(store: InMemoryDocumentObjectStore, *, workspace_id: str, object_key: str, content: bytes) -> None:
-    store._buckets.setdefault(workspace_id, {})[object_key] = content
-
-
-def _claim_result(*, workspace_id: str, object_key: str, content: bytes, media_type: str) -> dict:
-    return {
-        "id": object_key.split("/")[2],
-        "state": "VALIDATING",
-        "workspaceId": workspace_id,
-        "originalObjectKey": object_key,
-        "detectedMediaType": media_type,
-        "sourceSha256": hashlib.sha256(content).hexdigest(),
-        "sizeBytes": len(content),
-    }
-
-
 def _make_docx_bytes() -> bytes:
     """DOCX tối thiểu (ZIP hợp lệ, magic PK\\x03\\x04) — đủ để qua preflight archive check."""
     buf = io.BytesIO()
@@ -89,216 +82,214 @@ def _make_docx_bytes() -> bytes:
     return buf.getvalue()
 
 
+async def _seed_queued_upload(
+    store: WorkspaceDocumentStore,
+    repo: InMemoryLocalIngestionRepository,
+    *,
+    workspace_id: str,
+    upload_id: str,
+    content: bytes,
+    media_type: str,
+) -> None:
+    """Mô phỏng đúng chuỗi Task 3/7 thật: issue ticket → write stream →
+    finalize (server-derived sha256/size) → tạo attempt QUEUED."""
+    ticket = await store.issue_ticket(workspace_id, upload_id, max_bytes=len(content) + 1024)
+    await store.write_upload_stream(workspace_id, upload_id, ticket.secret, [content])
+    quarantined = await store.finalize_upload(workspace_id, upload_id)
+    await repo.create_queued(
+        workspace_id,
+        upload_id,
+        quarantine_relative_path=quarantined.quarantine_relative_path,
+        declared_media_type=media_type,
+        detected_media_type=media_type,
+        source_sha256=quarantined.source_sha256,
+        size_bytes=quarantined.size_bytes,
+        created_by="user-1",
+    )
+
+
+def _payload(workspace_id: str, upload_id: str) -> dict:
+    return {"task_type": "knowledge_ingestion", "workspace_id": workspace_id, "upload_id": upload_id}
+
+
 @pytest.mark.asyncio
-async def test_full_pipeline_persists_review_pending_candidate_and_records_it():
-    """Happy path text/plain: handler persist KnowledgeDocument review_pending thật
-    và gọi record_candidate với knowledge_source_id trùng id đã persist."""
-    workspace_id = "ws_alpha"
-    ingestion_id = "ing_text_001"
-    object_key = f"quarantine/{workspace_id}/{ingestion_id}/abc123"
+async def test_full_pipeline_persists_review_pending_candidate_and_records_it(tmp_path):
+    """Happy path text/plain: handler persist KnowledgeDocument review_pending
+    thật và chuyển attempt sang REVIEW_PENDING với knowledge_source_id thật."""
+    workspace_id = "ws-alpha"
+    upload_id = "up-text-001"
     content = b"# Title\n\nThis is the body of the document.\n"
 
-    object_store = InMemoryDocumentObjectStore()
-    _seed_object(object_store, workspace_id=workspace_id, object_key=object_key, content=content)
-
-    store = InMemoryKnowledgeStore()
-    knowledge_service = KnowledgeIngestionService(store)
-
-    control_plane = AsyncMock()
-    control_plane.claim_for_conversion = AsyncMock(
-        return_value=_claim_result(
-            workspace_id=workspace_id, object_key=object_key, content=content, media_type=TEXT_MIME
-        )
+    store = WorkspaceDocumentStore(tmp_path, InMemoryUploadTicketRepository())
+    repo = InMemoryLocalIngestionRepository()
+    await _seed_queued_upload(
+        store, repo, workspace_id=workspace_id, upload_id=upload_id, content=content, media_type=TEXT_MIME
     )
-    control_plane.record_candidate = AsyncMock(return_value={"state": "REVIEW_PENDING"})
-    control_plane.mark_rejected_or_failed = AsyncMock()
 
+    knowledge_store = InMemoryKnowledgeStore()
+    knowledge_service = KnowledgeIngestionService(knowledge_store)
     sandbox = _StubSandbox(_ok_conversion())
 
     await execute_knowledge_ingestion_task(
-        {"task_type": "knowledge_ingestion", "ingestion_id": ingestion_id},
+        _payload(workspace_id, upload_id),
         claim_token="ct_1",
-        object_store=object_store,
+        store=store,
         scanner=FakeDocumentMalwareScanner(verdict="clean"),
         sandbox=sandbox,
         knowledge_service=knowledge_service,
-        control_plane_client=control_plane,
+        local_repository=repo,
     )
 
-    control_plane.claim_for_conversion.assert_awaited_once_with(ingestion_id, "ct_1")
-    control_plane.record_candidate.assert_awaited_once()
-    recorded_source_id = control_plane.record_candidate.await_args.args[2]
+    assert await repo.get_state(workspace_id, upload_id) == LocalIngestionState.REVIEW_PENDING
+    attempt = repo._attempts[(workspace_id, upload_id)]
+    recorded_source_id = attempt.knowledge_source_id
     assert recorded_source_id
 
-    persisted = await store.get_document(recorded_source_id, workspace_id)
+    persisted = await knowledge_store.get_document(recorded_source_id, workspace_id)
     assert persisted is not None
     assert persisted.workspace_id == workspace_id
     assert persisted.ingest_status == "review_pending"
     assert persisted.authority_class == "USER_CONTENT"
     assert persisted.chunks
-    control_plane.mark_rejected_or_failed.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_full_pipeline_office_docx_runs_archive_check_without_await_error():
+async def test_full_pipeline_office_docx_runs_archive_check_without_await_error(tmp_path):
     """DOCX: nhánh preflight_office_archive (hàm sync) không được await —
     test này sẽ fail với TypeError nếu handler await một hàm không async."""
-    workspace_id = "ws_office"
-    ingestion_id = "ing_docx_001"
-    object_key = f"quarantine/{workspace_id}/{ingestion_id}/def456"
+    workspace_id = "ws-office"
+    upload_id = "up-docx-001"
     content = _make_docx_bytes()
 
-    object_store = InMemoryDocumentObjectStore()
-    _seed_object(object_store, workspace_id=workspace_id, object_key=object_key, content=content)
-
-    store = InMemoryKnowledgeStore()
-    knowledge_service = KnowledgeIngestionService(store)
-
-    control_plane = AsyncMock()
-    control_plane.claim_for_conversion = AsyncMock(
-        return_value=_claim_result(
-            workspace_id=workspace_id, object_key=object_key, content=content, media_type=DOCX_MIME
-        )
+    store = WorkspaceDocumentStore(tmp_path, InMemoryUploadTicketRepository())
+    repo = InMemoryLocalIngestionRepository()
+    await _seed_queued_upload(
+        store, repo, workspace_id=workspace_id, upload_id=upload_id, content=content, media_type=DOCX_MIME
     )
-    control_plane.record_candidate = AsyncMock(return_value={"state": "REVIEW_PENDING"})
-    control_plane.mark_rejected_or_failed = AsyncMock()
 
+    knowledge_service = KnowledgeIngestionService(InMemoryKnowledgeStore())
     sandbox = _StubSandbox(_ok_conversion("# Doc\n\nConverted docx body.\n"))
 
     await execute_knowledge_ingestion_task(
-        {"task_type": "knowledge_ingestion", "ingestion_id": ingestion_id},
+        _payload(workspace_id, upload_id),
         claim_token="ct_docx",
-        object_store=object_store,
+        store=store,
         scanner=FakeDocumentMalwareScanner(verdict="clean"),
         sandbox=sandbox,
         knowledge_service=knowledge_service,
-        control_plane_client=control_plane,
+        local_repository=repo,
     )
 
-    control_plane.record_candidate.assert_awaited_once()
+    assert await repo.get_state(workspace_id, upload_id) == LocalIngestionState.REVIEW_PENDING
     assert sandbox.calls == [("markitdown-safe-v1", len(content))]
-    control_plane.mark_rejected_or_failed.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_infected_scan_rejects_terminally_without_persisting():
-    """Scanner 'infected' → mark_rejected_or_failed(REJECTED, malware_detected),
-    KHÔNG persist document, KHÔNG gọi record_candidate."""
-    workspace_id = "ws_mal"
-    ingestion_id = "ing_mal_001"
-    object_key = f"quarantine/{workspace_id}/{ingestion_id}/mal789"
+async def test_infected_scan_rejects_terminally_without_persisting(tmp_path):
+    """Scanner 'infected' → REJECTED + failure_code, KHÔNG persist document."""
+    workspace_id = "ws-mal"
+    upload_id = "up-mal-001"
     content = b"totally benign looking text\n"
 
-    object_store = InMemoryDocumentObjectStore()
-    _seed_object(object_store, workspace_id=workspace_id, object_key=object_key, content=content)
-
-    store = InMemoryKnowledgeStore()
-    knowledge_service = KnowledgeIngestionService(store)
-
-    control_plane = AsyncMock()
-    control_plane.claim_for_conversion = AsyncMock(
-        return_value=_claim_result(
-            workspace_id=workspace_id, object_key=object_key, content=content, media_type=TEXT_MIME
-        )
+    store = WorkspaceDocumentStore(tmp_path, InMemoryUploadTicketRepository())
+    repo = InMemoryLocalIngestionRepository()
+    await _seed_queued_upload(
+        store, repo, workspace_id=workspace_id, upload_id=upload_id, content=content, media_type=TEXT_MIME
     )
-    control_plane.record_candidate = AsyncMock()
-    control_plane.mark_rejected_or_failed = AsyncMock(return_value={"state": "REJECTED"})
 
+    knowledge_store = InMemoryKnowledgeStore()
+    knowledge_service = KnowledgeIngestionService(knowledge_store)
     sandbox = _StubSandbox(_ok_conversion())
 
     await execute_knowledge_ingestion_task(
-        {"task_type": "knowledge_ingestion", "ingestion_id": ingestion_id},
+        _payload(workspace_id, upload_id),
         claim_token="ct_mal",
-        object_store=object_store,
+        store=store,
         scanner=FakeDocumentMalwareScanner(verdict="infected"),
         sandbox=sandbox,
         knowledge_service=knowledge_service,
-        control_plane_client=control_plane,
+        local_repository=repo,
     )
 
-    control_plane.mark_rejected_or_failed.assert_awaited_once()
-    args = control_plane.mark_rejected_or_failed.await_args.args
-    assert args[2] == "REJECTED"
-    assert args[3] == "malware_detected"
-    control_plane.record_candidate.assert_not_awaited()
+    assert await repo.get_state(workspace_id, upload_id) == LocalIngestionState.REJECTED
+    attempt = repo._attempts[(workspace_id, upload_id)]
+    assert attempt.failure_code == "malware_detected"
     assert sandbox.calls == []
-    assert store._docs == {}
+    assert knowledge_store._docs == {}
 
 
 @pytest.mark.asyncio
-async def test_duplicate_delivery_second_claim_rejected_does_not_double_persist():
-    """Redelivery: lần 2 claim_for_conversion raise ValueError (CAS expectedStates
-    fail) — handler KHÔNG persist lần 2, KHÔNG chuyển REJECTED (không có failure_code),
-    và để exception nổi lên cho scheduler."""
-    workspace_id = "ws_dup"
-    ingestion_id = "ing_dup_001"
-    object_key = f"quarantine/{workspace_id}/{ingestion_id}/dup000"
+async def test_duplicate_delivery_second_claim_is_idempotent_no_op(tmp_path):
+    """Redelivery: lần 2 claim() trả claimed=False (attempt đã REVIEW_PENDING)
+    — handler KHÔNG persist lần 2, KHÔNG raise (idempotent no-op, khác hẳn CAS
+    cũ raise ValueError phải catch)."""
+    workspace_id = "ws-dup"
+    upload_id = "up-dup-001"
     content = b"# Once\n\nOnly persisted a single time.\n"
 
-    object_store = InMemoryDocumentObjectStore()
-    _seed_object(object_store, workspace_id=workspace_id, object_key=object_key, content=content)
-
-    store = InMemoryKnowledgeStore()
-    knowledge_service = KnowledgeIngestionService(store)
-
-    control_plane = AsyncMock()
-    control_plane.claim_for_conversion = AsyncMock(
-        side_effect=[
-            _claim_result(
-                workspace_id=workspace_id, object_key=object_key, content=content, media_type=TEXT_MIME
-            ),
-            ValueError("Control plane error 400: invalid state transition: VALIDATING -> VALIDATING"),
-        ]
+    store = WorkspaceDocumentStore(tmp_path, InMemoryUploadTicketRepository())
+    repo = InMemoryLocalIngestionRepository()
+    await _seed_queued_upload(
+        store, repo, workspace_id=workspace_id, upload_id=upload_id, content=content, media_type=TEXT_MIME
     )
-    control_plane.record_candidate = AsyncMock(return_value={"state": "REVIEW_PENDING"})
-    control_plane.mark_rejected_or_failed = AsyncMock()
 
+    knowledge_store = InMemoryKnowledgeStore()
+    knowledge_service = KnowledgeIngestionService(knowledge_store)
     sandbox = _StubSandbox(_ok_conversion())
-    payload = {"task_type": "knowledge_ingestion", "ingestion_id": ingestion_id}
+    payload = _payload(workspace_id, upload_id)
 
     await execute_knowledge_ingestion_task(
         payload,
         claim_token="ct_dup",
-        object_store=object_store,
+        store=store,
         scanner=FakeDocumentMalwareScanner(verdict="clean"),
         sandbox=sandbox,
         knowledge_service=knowledge_service,
-        control_plane_client=control_plane,
+        local_repository=repo,
     )
-    assert len(store._docs) == 1
+    assert len(knowledge_store._docs) == 1
 
-    with pytest.raises(ValueError):
-        await execute_knowledge_ingestion_task(
-            payload,
-            claim_token="ct_dup",
-            object_store=object_store,
-            scanner=FakeDocumentMalwareScanner(verdict="clean"),
-            sandbox=sandbox,
-            knowledge_service=knowledge_service,
-            control_plane_client=control_plane,
-        )
+    # Redelivery — không raise, không persist lần 2.
+    await execute_knowledge_ingestion_task(
+        payload,
+        claim_token="ct_dup",
+        store=store,
+        scanner=FakeDocumentMalwareScanner(verdict="clean"),
+        sandbox=sandbox,
+        knowledge_service=knowledge_service,
+        local_repository=repo,
+    )
 
-    assert len(store._docs) == 1
-    assert control_plane.record_candidate.await_count == 1
-    control_plane.mark_rejected_or_failed.assert_not_awaited()
+    assert len(knowledge_store._docs) == 1
+    assert await repo.get_state(workspace_id, upload_id) == LocalIngestionState.REVIEW_PENDING
 
 
 @pytest.mark.asyncio
-async def test_missing_ingestion_id_raises_before_any_side_effect():
-    control_plane = AsyncMock()
-    with pytest.raises(ValueError):
+async def test_missing_workspace_id_raises_before_any_side_effect():
+    repo = InMemoryLocalIngestionRepository()
+    with pytest.raises(ValueError, match="workspace_id"):
         await execute_knowledge_ingestion_task(
-            {"task_type": "knowledge_ingestion"},
+            {"task_type": "knowledge_ingestion", "upload_id": "up_x"},
             claim_token="ct",
-            control_plane_client=control_plane,
+            local_repository=repo,
         )
-    control_plane.claim_for_conversion.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_missing_upload_id_raises_before_any_side_effect():
+    repo = InMemoryLocalIngestionRepository()
+    with pytest.raises(ValueError, match="upload_id"):
+        await execute_knowledge_ingestion_task(
+            {"task_type": "knowledge_ingestion", "workspace_id": "ws_x"},
+            claim_token="ct",
+            local_repository=repo,
+        )
 
 
 @pytest.mark.asyncio
 async def test_missing_claim_token_raises():
     with pytest.raises(ValueError):
         await execute_knowledge_ingestion_task(
-            {"task_type": "knowledge_ingestion", "ingestion_id": "ing_x"},
+            {"task_type": "knowledge_ingestion", "workspace_id": "ws_x", "upload_id": "up_x"},
             claim_token=None,
         )

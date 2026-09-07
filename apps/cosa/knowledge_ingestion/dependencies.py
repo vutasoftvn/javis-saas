@@ -22,6 +22,10 @@ from apps.cosa.knowledge_ingestion.conversion_sandbox import (
     InProcessConversionSandbox,
     assert_production_conversion_ready,
 )
+from apps.cosa.knowledge_ingestion.local_repository import (
+    InMemoryLocalIngestionRepository,
+    LocalIngestionRepository,
+)
 from apps.cosa.knowledge_ingestion.scanner import (
     DocumentMalwareScanner,
     FakeDocumentMalwareScanner,
@@ -43,6 +47,7 @@ class KnowledgeIngestionDependencies:
     sandbox: DocumentConversionSandbox
     service: KnowledgeIngestionService
     ticket_repository: UploadTicketRepository
+    local_repository: LocalIngestionRepository | InMemoryLocalIngestionRepository
 
 
 def _current_environment() -> str:
@@ -127,10 +132,22 @@ def build_knowledge_ingestion_dependencies(
 
             knowledge_service = KnowledgeIngestionService(InMemoryKnowledgeStore())
 
+    local_repository: LocalIngestionRepository | InMemoryLocalIngestionRepository
+    if session_factory is not None:
+        local_repository = LocalIngestionRepository(session_factory)
+    elif database_url:
+        from apps.cosa.composition.storage_factory import build_postgres_session_factory
+
+        _, li_sf = build_postgres_session_factory(database_url)
+        local_repository = LocalIngestionRepository(li_sf)
+    else:
+        local_repository = InMemoryLocalIngestionRepository()
+
     return KnowledgeIngestionDependencies(
         store=store,
         scanner=resolved_scanner,
         sandbox=resolved_sandbox,
         service=knowledge_service,
         ticket_repository=ticket_repository,
+        local_repository=local_repository,
     )

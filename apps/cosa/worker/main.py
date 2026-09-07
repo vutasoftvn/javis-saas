@@ -100,23 +100,23 @@ async def _dispatch_knowledge_ingestion_task(plane: CosaAgentPlane, task, payloa
         # Không truyền → handler fallback `KnowledgeIngestionService()` =
         # InMemoryKnowledgeStore (dev) hoặc raise (prod), nên đường ingestion thật
         # không bao giờ ghi `knowledge.source_versions` (ingestion_run_id luôn NULL).
-        # Task 4 — truyền scanner/sandbox THẬT từ plane.knowledge_ingestion_deps
-        # (đúng 1 instance dùng chung cho cả process, dựng 1 lần lúc
-        # build_cosa_agent_plane()). `deps.store` là WorkspaceDocumentStore
-        # (Task 3, API ticket-based upload_id/secret) — CHƯA cùng shape với
-        # `DocumentObjectStore` (API ingestion_id-based) mà handler hiện tại
-        # còn dùng; reconcile 2 abstraction này là phạm vi Task 5
-        # (LocalIngestionRepository) — không truyền object_store ở đây để
-        # tránh AttributeError runtime do lệch API.
-        deps = plane.knowledge_ingestion_deps
+        # Task 4/5 — truyền store/scanner/sandbox/local_repository THẬT từ
+        # plane.knowledge_ingestion_deps (đúng 1 instance dùng chung cho cả
+        # process, dựng 1 lần lúc build_cosa_agent_plane()). Task 5 thay
+        # LocalIngestionRepository cho state machine trước đây sống trong
+        # services/cosa — `deps.store`/`deps.local_repository` giờ cùng
+        # shape với payload workspace_id/upload_id mà handler dùng.
+        deps = getattr(plane, "knowledge_ingestion_deps", None)
 
         async def _execute_handler():
             await execute_knowledge_ingestion_task(
                 payload,
                 claim_token=task.claim_token,
                 knowledge_service=plane.knowledge_ingestion_service,
+                store=deps.store if deps else None,
                 scanner=deps.scanner if deps else None,
                 sandbox=deps.sandbox if deps else None,
+                local_repository=deps.local_repository if deps else None,
             )
 
         await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())

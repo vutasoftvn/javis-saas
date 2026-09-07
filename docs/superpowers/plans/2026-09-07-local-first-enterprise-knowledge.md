@@ -359,7 +359,7 @@ git commit -m "feat(knowledge): wire local ingestion dependencies into runtime"
 - Produces `LocalIngestionRepository.claim()`, `record_candidate()`, `reject()`, `publish()`.
 - Consumes scheduler claim token and maps it to a local ingestion attempt; returns no raw storage ref to API callers.
 
-- [ ] **Step 1: Write failing idempotency/retry tests.**
+- [x] **Step 1: Write failing idempotency/retry tests.**
 
 ```python
 async def test_two_workers_only_one_claims_queued_upload(repo):
@@ -374,17 +374,17 @@ async def test_retry_does_not_duplicate_chunks_or_version(handler_fixture):
     assert await handler_fixture["knowledge_service"].count_versions("ws-a", "doc-1") == 1
 ```
 
-- [ ] **Step 2: Run the tests.**
+- [x] **Step 2: Run the tests.**
 
 Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/knowledge_ingestion/test_local_repository.py tests/apps/cosa/knowledge_ingestion/test_handler.py -q`
 
 Expected: FAIL because state is currently owned by the platform-oriented client.
 
-- [ ] **Step 3: Persist local state transitions and map them to Vault version lifecycle.**
+- [x] **Step 3: Persist local state transitions and map them to Vault version lifecycle.**
 
 `LocalIngestionRepository` must atomically lock by `(workspace_id, upload_id)`, compare the expected state, persist attempt/claim token hash and append a sanitized audit event. `record_candidate` writes `knowledge_source_id` and provenance before moving to `REVIEW_PENDING`. `publish` first copies and verifies quarantine content into Vault, then writes `PUBLISHED` for the version and source in one transaction boundary where practical; failed copy leaves the source non-published.
 
-- [ ] **Step 4: Keep scheduler payload reference-only.**
+- [x] **Step 4: Keep scheduler payload reference-only.**
 
 ```python
 input_payload={"task_type": "knowledge_ingestion", "workspace_id": workspace_id, "upload_id": upload_id}
@@ -392,7 +392,7 @@ input_payload={"task_type": "knowledge_ingestion", "workspace_id": workspace_id,
 
 Do not place content, filename, local object ref, ticket secret or markdown in `scheduled_tasks`.
 
-- [ ] **Step 5: Run state-machine and regression tests.**
+- [x] **Step 5: Run state-machine and regression tests.**
 
 Run:
 
@@ -403,7 +403,7 @@ PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/knowledge_ingestion/test
 
 Expected: PASS; duplicate/reclaimed task cannot produce a second source version.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add apps/cosa/knowledge_ingestion apps/cosa/worker/main.py packages/agent/vault/lifecycle.py \

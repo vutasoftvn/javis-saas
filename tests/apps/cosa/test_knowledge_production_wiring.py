@@ -18,7 +18,7 @@ from apps.cosa.knowledge_ingestion.dependencies import (
 from apps.cosa.knowledge_ingestion.handler import execute_knowledge_ingestion_task
 from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner
 
-_PAYLOAD = {"task_type": "knowledge_ingestion", "ingestion_id": "ing_1"}
+_PAYLOAD = {"task_type": "knowledge_ingestion", "workspace_id": "ws_1", "upload_id": "up_1"}
 
 
 @pytest.fixture(autouse=True)
@@ -34,8 +34,9 @@ async def test_production_rejects_fake_scanner(monkeypatch):
             _PAYLOAD,
             claim_token="tok",
             scanner=FakeDocumentMalwareScanner(verdict="clean"),
-            object_store=MagicMock(),
+            store=MagicMock(),
             knowledge_service=MagicMock(),
+            local_repository=MagicMock(),
         )
 
 
@@ -48,13 +49,20 @@ async def test_production_requires_injected_dependencies(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_non_production_still_allows_defaults(monkeypatch):
+    """Dev/test không inject store/local_repository/sandbox -> handler tự
+    dựng default cho từng cái (InMemoryLocalIngestionRepository rỗng,
+    WorkspaceDocumentStore tạm, InProcessConversionSandbox). Máy dev không cài
+    `markitdown` (chỉ có trong requirements.ingestion.txt riêng) nên
+    InProcessConversionSandbox có thể ImportError, hoặc claim() trả
+    claimed=False (no attempt QUEUED khớp payload) khiến handler no-op —
+    quan trọng là KHÔNG fail vì injection guard ('must be injected' chỉ áp
+    dụng ở production)."""
     monkeypatch.delenv("ENVIRONMENT", raising=False)
     monkeypatch.delenv("APP_ENV", raising=False)
-    # Không quan tâm nó fail ở bước claim (control plane không có) — chỉ cần KHÔNG
-    # fail vì injection guard.
-    with pytest.raises(Exception) as exc:
+    try:
         await execute_knowledge_ingestion_task(_PAYLOAD, claim_token="tok")
-    assert "must be injected" not in str(exc.value)
+    except Exception as exc:
+        assert "must be injected" not in str(exc)
 
 
 # ─── Task 4 — build_knowledge_ingestion_dependencies() factory ───

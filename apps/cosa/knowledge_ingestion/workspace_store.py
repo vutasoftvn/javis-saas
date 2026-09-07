@@ -404,6 +404,28 @@ class WorkspaceDocumentStore:
 
         return LocalObjectRef(relative_ref=str(target.relative_to(self._root)))
 
+    async def read_quarantine_object(self, workspace_id: str, quarantine_relative_path: str) -> bytes:
+        """Task 5 — đọc bytes 1 object đã quarantine (dùng cho conversion
+        pipeline: preflight → scanner → converter). `quarantine_relative_path`
+        phải resolve về đúng workspace này (không tin path thô từ caller)."""
+        _validate_id(workspace_id, _WORKSPACE_ID_RE, "workspace_id")
+        resolved = self._resolve_within_root(*Path(quarantine_relative_path).parts)
+        expected_prefix = self._root / "quarantine" / workspace_id
+        try:
+            resolved.relative_to(expected_prefix)
+        except ValueError as e:
+            raise ValueError(
+                f"quarantine object {quarantine_relative_path!r} does not belong to workspace "
+                f"{workspace_id!r}"
+            ) from e
+        if not resolved.exists():
+            raise ValueError(f"quarantine object not found: {quarantine_relative_path!r}")
+
+        def _read() -> bytes:
+            return resolved.read_bytes()
+
+        return await asyncio.to_thread(_read)
+
     async def purge_version(self, workspace_id: str, version_id: str) -> None:
         _validate_id(workspace_id, _WORKSPACE_ID_RE, "workspace_id")
         _validate_id(version_id, _VERSION_ID_RE, "version_id")

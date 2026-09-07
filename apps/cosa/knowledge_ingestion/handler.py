@@ -4,9 +4,16 @@
 Orchestrates: claim → load → validate → scan → convert → normalize → persist → review_pending.
 
 Pipeline này là deterministic + idempotent:
-- Claim từ QUEUED, expectedStates gate: nếu retry thì expectedStates check fail, không duplicate persist.
+- Claim từ QUEUED (CAS nguyên tử qua LocalIngestionRepository — Task 5): retry
+  sau khi đã claimed/tiến triển không claim lại được, không duplicate persist.
 - Terminal failures (malware, unsupported) → REJECTED (không retry).
 - Transient failures (network, store) → raise cho scheduler (FAILED, scheduler retry).
+
+Task 5 (plan local-first-enterprise-knowledge) — state machine ingestion giờ
+LOCAL (agent.local_ingestion_attempts qua LocalIngestionRepository), thay thế
+control-plane HTTP client trước đây gọi services/cosa. Payload scheduler mang
+`workspace_id`/`upload_id` (tham chiếu, không phải nội dung) thay vì
+`ingestion_id` — khớp Task 3's WorkspaceDocumentStore (ticket-based upload_id).
 """
 
 from __future__ import annotations
@@ -24,15 +31,15 @@ from apps.cosa.knowledge_ingestion.contracts import (
     QuarantinedObject,
     knowledge_ingestion_enabled,
 )
-from apps.cosa.knowledge_ingestion.control_plane_client import (
-    LocalDocumentIngestionClient,
-)
 from apps.cosa.knowledge_ingestion.conversion_sandbox import (
     DocumentConversionSandbox,
     InProcessConversionSandbox,
 )
+from apps.cosa.knowledge_ingestion.local_repository import (
+    InMemoryLocalIngestionRepository,
+    LocalIngestionRepository,
+)
 from apps.cosa.knowledge_ingestion.normalization import normalize_conversion
-from apps.cosa.knowledge_ingestion.object_store import DocumentObjectStore
 from apps.cosa.knowledge_ingestion.preflight import (
     preflight_office_archive,
     validate_quarantined_object,
@@ -40,6 +47,7 @@ from apps.cosa.knowledge_ingestion.preflight import (
 from apps.cosa.knowledge_ingestion.scanner import (
     DocumentMalwareScanner,
 )
+from apps.cosa.knowledge_ingestion.workspace_store import WorkspaceDocumentStore
 
 __all__ = ["execute_knowledge_ingestion_task"]
 
@@ -84,24 +92,25 @@ def _emit_metric(
 async def execute_knowledge_ingestion_task(
     payload: dict[str, str],
     claim_token: str | None = None,
-    object_store: DocumentObjectStore | None = None,
+    store: WorkspaceDocumentStore | None = None,
     scanner: DocumentMalwareScanner | None = None,
     sandbox: DocumentConversionSandbox | None = None,
     knowledge_service: KnowledgeIngestionService | None = None,
-    control_plane_client: LocalDocumentIngestionClient | None = None,
+    local_repository: LocalIngestionRepository | InMemoryLocalIngestionRepository | None = None,
 ) -> None:
     """Execute knowledge ingestion for a single scheduled task.
 
     Orchestrates full pipeline: claim → load → validate → scan → convert → normalize → persist.
 
     Args:
-        payload: Scheduler task payload {task_type: "knowledge_ingestion", ingestion_id: "ing_xxx"}
-        claim_token: Scheduler task claim token for control plane fencing.
-        object_store: DocumentObjectStore instance (default: S3 or in-memory per config)
+        payload: Scheduler task payload {task_type: "knowledge_ingestion",
+            workspace_id: "ws_xxx", upload_id: "up_xxx"}
+        claim_token: Scheduler task claim token for local fencing (LocalIngestionRepository).
+        store: WorkspaceDocumentStore instance (local filesystem quarantine — Task 3/4)
         scanner: DocumentMalwareScanner instance (default: production scanner)
         sandbox: DocumentConversionSandbox instance (default: isolated Docker sandbox)
         knowledge_service: KnowledgeIngestionService (default: Postgres provider)
-        control_plane_client: Control plane client (default: via env tokens)
+        local_repository: LocalIngestionRepository (default: via AGENT_DATABASE_URL)
 
     Raises:
         ValueError: If payload invalid or required dependencies missing.
@@ -110,13 +119,17 @@ async def execute_knowledge_ingestion_task(
 
     # Validate payload
     task_type = payload.get("task_type")
-    ingestion_id = payload.get("ingestion_id")
+    workspace_id_payload = payload.get("workspace_id")
+    upload_id = payload.get("upload_id")
 
     if task_type != "knowledge_ingestion":
         raise ValueError(f"Invalid task_type: {task_type}")
 
-    if not ingestion_id:
-        raise ValueError("Missing ingestion_id in payload")
+    if not workspace_id_payload:
+        raise ValueError("Missing workspace_id in payload")
+
+    if not upload_id:
+        raise ValueError("Missing upload_id in payload")
 
     if not claim_token:
         raise ValueError("Missing claim_token for task fencing")
@@ -128,18 +141,21 @@ async def execute_knowledge_ingestion_task(
         )
 
     started_at = time.monotonic()
-    logger.info("Starting knowledge ingestion for ingestion_id=%s", ingestion_id)
+    workspace_id = workspace_id_payload
+    logger.info("Starting knowledge ingestion for workspace_id=%s upload_id=%s", workspace_id, upload_id)
 
-    # P1 Task 6: production KHÔNG được âm thầm dùng fake scanner / default store.
-    # Composition root phải inject scanner + object_store + knowledge_service thật.
+    # P1 Task 6 / Task 5: production KHÔNG được âm thầm dùng fake scanner /
+    # default store. Composition root phải inject scanner + store +
+    # knowledge_service thật.
     _env = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
     if _env == "production":
         _missing = [
             name
             for name, val in (
                 ("scanner", scanner),
-                ("object_store", object_store),
+                ("store", store),
                 ("knowledge_service", knowledge_service),
+                ("local_repository", local_repository),
             )
             if val is None
         ]
@@ -151,15 +167,23 @@ async def execute_knowledge_ingestion_task(
 
         assert_production_scanner_ready(scanner, _env)  # raise nếu FakeDocumentMalwareScanner
 
-    # Inject defaults cho dev/test (không phải production). Task 3 — S3 không
-    # còn là đường storage hợp lệ (ADR-LOCAL-FIRST-001); production PHẢI
-    # inject WorkspaceDocumentStore thật qua composition (Task 4). Dev/test
-    # không có object_store thật dùng `InMemoryDocumentObjectStore` (test
-    # double tường minh, is_test_double=True) thay vì giả vờ có S3 client.
-    if object_store is None:
-        from apps.cosa.knowledge_ingestion.object_store import InMemoryDocumentObjectStore
+    # Inject defaults cho dev/test (không phải production). Task 3/4/5 — local
+    # filesystem là storage authority duy nhất (ADR-LOCAL-FIRST-001);
+    # production PHẢI inject WorkspaceDocumentStore + LocalIngestionRepository
+    # thật qua composition (Task 4's build_knowledge_ingestion_dependencies).
+    if store is None:
+        import tempfile
+        from pathlib import Path
 
-        object_store = InMemoryDocumentObjectStore()
+        from apps.cosa.knowledge_ingestion.workspace_store import InMemoryUploadTicketRepository
+
+        store = WorkspaceDocumentStore(
+            Path(tempfile.mkdtemp(prefix="cosa-knowledge-store-")),
+            InMemoryUploadTicketRepository(),
+        )
+
+    if local_repository is None:
+        local_repository = InMemoryLocalIngestionRepository()
 
     if scanner is None:
         from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner
@@ -172,46 +196,43 @@ async def execute_knowledge_ingestion_task(
     if knowledge_service is None:
         knowledge_service = KnowledgeIngestionService()
 
-    if control_plane_client is None:
-        control_plane_client = LocalDocumentIngestionClient()
-
     failure_code: FailureCode | None = None
     # Khởi tạo sớm để metric luôn phát được kể cả khi claim fail trước khi có metadata.
-    workspace_id = ""
     detected_media_type = ""
     size_bytes = 0
 
     try:
-        # Step 1: Claim ingestion for conversion (QUEUED → VALIDATING)
-        logger.debug("Step 1: Claiming ingestion_id=%s for conversion", ingestion_id)
-        claim_result = await control_plane_client.claim_for_conversion(ingestion_id, claim_token)
+        # Step 1: Claim ingestion for conversion (QUEUED → VALIDATING, CAS
+        # nguyên tử qua LocalIngestionRepository).
+        logger.debug("Step 1: Claiming upload_id=%s for conversion", upload_id)
+        claim_result = await local_repository.claim(workspace_id, upload_id, claim_token)
+        if not claim_result.claimed:
+            # Không claim được (đã claimed bởi worker khác, hoặc retry sau khi
+            # attempt đã tiến triển) — idempotent no-op, KHÔNG phải lỗi.
+            logger.info(
+                "Step 1: upload_id=%s not claimable (reason=%s) — idempotent no-op",
+                upload_id,
+                claim_result.reason,
+            )
+            return
         logger.debug("Step 1: Claimed, transitioned to VALIDATING")
 
-        # Extract workspace_id and object metadata from claim result
-        raw_workspace_id = claim_result.get("workspaceId")
-        raw_object_key = claim_result.get("originalObjectKey")
-        raw_media_type = claim_result.get("detectedMediaType")
-        raw_sha256 = claim_result.get("sourceSha256")
-        raw_size = claim_result.get("sizeBytes")
-
         if not (
-            isinstance(raw_workspace_id, str)
-            and isinstance(raw_object_key, str)
-            and isinstance(raw_media_type, str)
-            and isinstance(raw_sha256, str)
-            and isinstance(raw_size, int)
+            claim_result.quarantine_relative_path
+            and claim_result.detected_media_type
+            and claim_result.source_sha256
+            and claim_result.size_bytes is not None
         ):
             raise ValueError("Claim result missing required metadata")
 
-        workspace_id = raw_workspace_id
-        original_object_key = raw_object_key
-        detected_media_type = raw_media_type
-        source_sha256 = raw_sha256
-        size_bytes = raw_size
+        original_object_key = claim_result.quarantine_relative_path
+        detected_media_type = claim_result.detected_media_type
+        source_sha256 = claim_result.source_sha256
+        size_bytes = claim_result.size_bytes
 
-        # Step 2: Load object from storage
-        logger.debug("Step 2: Loading object from storage, object_key=%s", original_object_key)
-        content = await object_store.read_object(original_object_key, workspace_id)
+        # Step 2: Load object from local quarantine storage
+        logger.debug("Step 2: Loading object from local quarantine storage")
+        content = await store.read_quarantine_object(workspace_id, original_object_key)
         logger.debug("Step 2: Loaded %d bytes from storage", len(content))
 
         # Build QuarantinedObject for subsequent steps
@@ -279,7 +300,7 @@ async def execute_knowledge_ingestion_task(
 
         # Step 6: Normalize conversion result
         logger.debug("Step 6: Normalizing conversion result")
-        candidate = normalize_conversion(conv_result, validated_document, ingestion_id)
+        candidate = normalize_conversion(conv_result, validated_document, upload_id)
         logger.debug(
             "Step 6: Normalization succeeded, document title=%s", candidate.knowledge_document.title
         )
@@ -289,23 +310,21 @@ async def execute_knowledge_ingestion_task(
         persisted = await knowledge_service.ingest_normalized_document(candidate.knowledge_document)
         logger.debug("Step 7: Persisted, knowledge_source_id=%s", persisted.id)
 
-        # Step 8: Record candidate in control plane
-        logger.debug("Step 8: Recording candidate in control plane")
+        # Step 8: Record candidate locally (VALIDATING/CONVERTING → REVIEW_PENDING)
+        logger.debug("Step 8: Recording candidate in local ingestion repository")
         manifest_dict = (
             candidate.manifest.to_dict()
             if hasattr(candidate.manifest, "to_dict")
             else candidate.manifest
         )
-        await control_plane_client.record_candidate(
-            ingestion_id, claim_token, persisted.id, manifest_dict
-        )
+        await local_repository.record_candidate(workspace_id, upload_id, persisted.id, manifest_dict)
         logger.info(
-            "Step 8: Knowledge ingestion complete, ingestion_id=%s, knowledge_source_id=%s",
-            ingestion_id,
+            "Step 8: Knowledge ingestion complete, upload_id=%s, knowledge_source_id=%s",
+            upload_id,
             persisted.id,
         )
         _emit_metric(
-            ingestion_id=ingestion_id,
+            ingestion_id=upload_id,
             workspace_id=workspace_id,
             state="REVIEW_PENDING",
             detected_media_type=detected_media_type,
@@ -319,18 +338,16 @@ async def execute_knowledge_ingestion_task(
         if failure_code:
             try:
                 logger.warning(
-                    "Marking ingestion_id=%s REJECTED with failure_code=%s",
-                    ingestion_id,
+                    "Marking upload_id=%s REJECTED with failure_code=%s",
+                    upload_id,
                     failure_code,
                 )
-                await control_plane_client.mark_rejected_or_failed(
-                    ingestion_id, claim_token, "REJECTED", failure_code
-                )
+                await local_repository.reject(workspace_id, upload_id, failure_code, terminal=True)
             except Exception as mark_e:
                 logger.exception("Failed to mark REJECTED: %s", mark_e)
                 raise mark_e  # Re-raise transient error for scheduler retry
             _emit_metric(
-                ingestion_id=ingestion_id,
+                ingestion_id=upload_id,
                 workspace_id=workspace_id,
                 state="REJECTED",
                 detected_media_type=detected_media_type,
@@ -346,5 +363,5 @@ async def execute_knowledge_ingestion_task(
 
     except Exception:
         # Unexpected error: transient, no REJECTED marking
-        logger.exception("Knowledge ingestion handler failed for ingestion_id=%s", ingestion_id)
+        logger.exception("Knowledge ingestion handler failed for upload_id=%s", upload_id)
         raise
