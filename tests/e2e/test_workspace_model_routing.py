@@ -546,7 +546,11 @@ async def test_cli_gemini_timeout_kills_real_process_group_through_model_interfa
         executable=cli_fixtures["gemini"],
         model_id="gemini-1.5",
         profile_id="profile-gemini",
-        timeout_seconds=0.6,
+        # 2.0s (không phải giá trị rất nhỏ như 0.6s) — chừa đủ headroom cho
+        # shell fixture fork "sleep 100 &" + ghi pidfile TRƯỚC khi bị SIGKILL,
+        # tránh flaky khi máy đang bận (nhiều subprocess khác trong cùng
+        # session test vừa chạy trước đó tranh CPU/scheduler).
+        timeout_seconds=2.0,
     )
 
     with pytest.raises(ModelProviderTimeout):
