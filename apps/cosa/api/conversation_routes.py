@@ -272,6 +272,11 @@ async def create_message(
             "user_prompt": req.content,
             "agent_profile": agent_profile,
             "principal": identity.principal_id,
+            # Task 10 (plan local-first-enterprise-knowledge) — cần role_id
+            # tới capability workspace.context.read (qua run context.metadata,
+            # xem apps.cosa.worker.handlers::_execute_run_task_inner) để
+            # retrieve_authorized_citations() lọc đúng quyền, không suy diễn.
+            "role_id": identity.role_id,
             "workspace_id": identity.workspace_id,
             "delegation_token": control_plane_delegation_token,
             "direct_message_data_access": direct_message_data_access.model_dump(mode="json"),

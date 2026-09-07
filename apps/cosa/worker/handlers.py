@@ -303,6 +303,16 @@ async def _execute_run_task_inner(
     if direct_message_data_access is not None:
         extra_md["direct_message_data_access"] = direct_message_data_access
 
+    # Task 10 (plan local-first-enterprise-knowledge) — role_id (nếu caller
+    # đã forward, xem apps.cosa.api.conversation_routes) đi vào
+    # request.metadata -> context["role_id"] -> InvocationContext.metadata,
+    # để capability workspace.context.read resolve đúng role_ids cho
+    # retrieve_authorized_citations(). Thiếu -> role_id vắng trong ctx,
+    # capability fail-closed về role rỗng (không suy diễn operator).
+    role_id = payload.get("role_id")
+    if role_id:
+        extra_md["role_id"] = role_id
+
     try:
         prep = await prepare_request(
             plane,
@@ -564,9 +574,7 @@ async def execute_resume_task(
     # (decide_approval::apps/cosa/api/workforce_routes.py).
     tool_call_id = payload.get("tool_call_id")
     if not tool_call_id:
-        logger.error(
-            "resume task missing tool_call_id for run_id=%s, failing closed", run_id
-        )
+        logger.error("resume task missing tool_call_id for run_id=%s, failing closed", run_id)
         await stream_mgr.emit(
             stream_repo,
             run_id=run_id,
@@ -620,7 +628,9 @@ async def execute_resume_task(
         if not verify_result.can_resume:
             logger.warning(
                 "resume blocked by verify_and_prepare_resume run_id=%s tool_call_id=%s reason=%s",
-                run_id, tool_call_id, verify_result.reason,
+                run_id,
+                tool_call_id,
+                verify_result.reason,
             )
             await stream_mgr.emit(
                 stream_repo,

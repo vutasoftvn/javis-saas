@@ -125,6 +125,10 @@ from apps.cosa.capabilities.web_search import (
     WEB_SEARCH_SPEC,
     create_web_search_handler,
 )
+from apps.cosa.capabilities.workspace_context_read import (
+    WORKSPACE_CONTEXT_READ_SPEC,
+    create_workspace_context_read_handler,
+)
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 
 
@@ -215,6 +219,13 @@ def register_cosa_capabilities(
         cap_registry.register(
             ENTERPRISE_KNOWLEDGE_READ_SPEC,
             create_enterprise_knowledge_read_handler(knowledge_ingestion_service),
+        )
+        # Task 10 — workspace.context.read là cầu nối duy nhất kernel/model
+        # dùng để gọi persisted GraphQL operations (Task 9), cần cùng
+        # KnowledgeIngestionService.
+        cap_registry.register(
+            WORKSPACE_CONTEXT_READ_SPEC,
+            create_workspace_context_read_handler(knowledge_ingestion_service),
         )
 
     cap_registry.register(

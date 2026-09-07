@@ -1,34 +1,51 @@
 """Task 9 (plan local-first-enterprise-knowledge) — resolver cho từng persisted
 operation. Mỗi resolver tự khai `allowed_variables` (whitelist tên biến —
 biến lạ bị `execute_persisted_operation()` reject 422 trước khi vào đây) và
-LUÔN nhận `identity` (workspace_id/principal_id/role_id đã xác thực ở HTTP
-boundary) — không bao giờ tin 1 `workspace_id`/`principal_id` do client tự
-khai trong `variables`."""
+LUÔN nhận `identity` (workspace_id/principal_id/role_id đã xác thực) — không
+bao giờ tin 1 `workspace_id`/`principal_id` do client tự khai trong
+`variables`.
+
+`identity` chỉ cần duck-type `IdentityLike` (không phải cụ thể
+`AuthenticatedIdentity` của HTTP boundary) — Task 10 gọi các operation này từ
+capability `workspace.context.read` (kernel/gateway context, không có JWT/
+bearer_token nào để dựng `AuthenticatedIdentity` đầy đủ, chỉ có
+workspace_id/principal/role_id đã resolve từ run payload)."""
 
 from __future__ import annotations
 
-from typing import Any, Protocol
-
-from apps.cosa.auth.dependency import AuthenticatedIdentity
+from typing import Any, Protocol, runtime_checkable
 
 __all__ = [
     "PERSISTED_OPERATIONS",
     "EnterpriseKnowledgeSearchOperation",
+    "IdentityLike",
     "WorkspaceContextOperation",
 ]
 
 _MAX_LIMIT = 20
 
 
+@runtime_checkable
+class IdentityLike(Protocol):
+    @property
+    def principal_id(self) -> str: ...
+
+    @property
+    def workspace_id(self) -> str: ...
+
+    @property
+    def role_id(self) -> str: ...
+
+
 class PersistedOperation(Protocol):
     allowed_variables: frozenset[str]
 
     async def execute(
-        self, variables: dict[str, Any], identity: AuthenticatedIdentity, plane: Any
+        self, variables: dict[str, Any], identity: IdentityLike, plane: Any
     ) -> dict[str, Any]: ...
 
 
-def _role_ids(identity: AuthenticatedIdentity) -> set[str]:
+def _role_ids(identity: IdentityLike) -> set[str]:
     return {identity.role_id} if identity.role_id else set()
 
 
@@ -50,7 +67,7 @@ class EnterpriseKnowledgeSearchOperation:
     allowed_variables = frozenset({"query", "limit"})
 
     async def execute(
-        self, variables: dict[str, Any], identity: AuthenticatedIdentity, plane: Any
+        self, variables: dict[str, Any], identity: IdentityLike, plane: Any
     ) -> dict[str, Any]:
         service = getattr(plane, "knowledge_ingestion_service", None)
         if service is None:
@@ -82,7 +99,7 @@ class WorkspaceContextOperation:
     allowed_variables = frozenset({"question"})
 
     async def execute(
-        self, variables: dict[str, Any], identity: AuthenticatedIdentity, plane: Any
+        self, variables: dict[str, Any], identity: IdentityLike, plane: Any
     ) -> dict[str, Any]:
         knowledge_op = EnterpriseKnowledgeSearchOperation()
         knowledge_result = await knowledge_op.execute(

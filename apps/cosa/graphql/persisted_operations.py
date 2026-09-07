@@ -10,8 +10,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from apps.cosa.auth.dependency import AuthenticatedIdentity
-from apps.cosa.graphql.resolvers import PERSISTED_OPERATIONS
+from apps.cosa.graphql.resolvers import PERSISTED_OPERATIONS, IdentityLike
 
 __all__ = ["execute_persisted_operation"]
 
@@ -21,7 +20,7 @@ _MAX_STRING_VARIABLE_LENGTH = 500
 async def execute_persisted_operation(
     operation_id: str,
     variables: dict[str, Any],
-    identity: AuthenticatedIdentity,
+    identity: IdentityLike,
     plane: Any,
 ) -> dict[str, Any]:
     operation = PERSISTED_OPERATIONS.get(operation_id)

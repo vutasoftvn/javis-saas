@@ -55,7 +55,12 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     # capability_refs để agent trong workspace_task_sweep phân rã tiếp 1 task
     # thành sub-task nháp. task.advance KHÔNG nằm đây — worker sweep gọi trực
     # tiếp qua HTTP delegation, không qua kernel.
-    version="1.2.0",
+    # 1.3.0 (Task 10, plan local-first-enterprise-knowledge): thêm
+    # workspace.context.read — đây là spec thật sự chạy cho founder chat mặc
+    # định (conversation_routes.py: active_agent_profile hoặc "operations"),
+    # không tạo agent "founder_assistant" riêng vì role sản phẩm không khác
+    # biệt thật (CLAUDE.md rule 3 — không nhân bản kiến trúc khi chưa cần).
+    version="1.3.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions="Chuyên viên quản lý vận hành công việc, theo dõi tiến độ task và OKRs của doanh nghiệp.",
     capability_refs=[
@@ -68,6 +73,7 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "analytics.metric_contract.get",
         "analytics.pmf_scoreboard.get",
         "knowledge.profile.read",
+        "workspace.context.read",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[

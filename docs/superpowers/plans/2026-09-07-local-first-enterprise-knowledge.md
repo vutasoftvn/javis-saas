@@ -656,7 +656,7 @@ git commit -m "feat(agent): add local persisted GraphQL workspace read context"
 - Consumes exact capability ref `workspace.context.read` through AgentSpec/gateway; that capability executes persisted local GraphQL operations and may use `knowledge.enterprise.read` internally.
 - Produces a role-scoped read context and citations in run artifacts/events without direct repository access from kernel.
 
-- [ ] **Step 1: Write a failing founder/member run test.**
+- [x] **Step 1: Write a failing founder/member run test.** Thực tế `tests/apps/cosa/test_founder_knowledge_context.py` — chat run thật qua worker durable (`drain_worker_queue`), assert bằng `plane.repository.list_tool_calls(run_id)` (không có `run_fixture.capability_invocations`/`prompt_context` API trong repo — không tồn tại field đó, dùng đúng model thật `RunToolCallRecord`).
 
 ```python
 async def test_founder_assistant_can_request_workspace_knowledge_via_gateway(run_fixture):
@@ -668,32 +668,19 @@ async def test_member_run_context_excludes_denied_citation(run_fixture):
     assert "quarterly salary table" not in result.prompt_context
 ```
 
-- [ ] **Step 2: Run the run tests.**
+- [x] **Step 2: Run the run tests.** Xác nhận FAIL trước khi thêm capability_ref (spec Operations tồn tại nhưng gateway trả lỗi "capability not found"), PASS sau Step 3.
 
-Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/test_founder_knowledge_context.py tests/apps/cosa/worker/test_handlers.py -q`
+- [x] **Step 3: Add the capability through the existing registry/gateway path.** `apps/cosa/capabilities/workspace_context_read.py` (capability `workspace.context.read`) forward thẳng tới `execute_persisted_operation()` đã có (Task 9) — không instantiate GraphQL client/repository/store nào trong file này. Thêm `"workspace.context.read"` vào `capability_refs` của `COSA_OPERATIONS_AGENT_SPEC` (bump 1.2.0 → 1.3.0) — KHÔNG tạo agent `founder_assistant` riêng: phát hiện `apps/cosa/worker/handlers.py::_AGENT_PROFILE_SPECS` đã alias `"founder_assistant"` → Operations spec từ trước (comment tại chỗ xác nhận đây là default Flutter gửi cho mọi conversation mới) — đúng khớp "add this exact capability ref to the already-resolved spec" theo CLAUDE.md rule 3.
 
-Expected: FAIL because `founder_assistant` aliases the Operations spec without the enterprise knowledge capability.
-
-- [ ] **Step 3: Add the capability through the existing registry/gateway path.**
+  Đóng gap thật (không phải fix phụ — đây LÀ nội dung "must carry authenticated principal, workspace and role IDs" của Step 3): `role_id` trước đây KHÔNG hề có trong run context/kernel ctx (chỉ `workspace_id`+`principal`, xác nhận qua audit Task 8). Thêm `"role_id": identity.role_id` vào payload dispatch (`apps/cosa/api/conversation_routes.py`) + `extra_md["role_id"]` (`apps/cosa/worker/handlers.py::_execute_run_task_inner`). `packages/agent_integrations/openai_agents_sdk/kernel.py` KHÔNG cần sửa — `context: dict = dict(request.metadata)` đã forward nguyên `metadata` (kể cả field lạ như `role_id`) vào `InvocationContext.metadata` từ trước, đủ để `ctx.get("role_id")` trong capability handler thấy được, xác minh bằng test chạy qua toàn bộ worker/kernel/gateway thật (không mock).
 
 Create `workspace.context.read` as a gateway capability whose input is `{operation_id, variables}` and whose handler calls `execute_persisted_operation`. Do not instantiate a GraphQL client, repository or store inside kernel code. The gateway context must carry authenticated principal, workspace and role IDs from the durable run payload. Create a distinct founder spec only if the product role genuinely differs; otherwise add this exact capability ref to the already-resolved spec according to policy.
 
-- [ ] **Step 4: Persist an audit-safe context record.**
+- [x] **Step 4: Persist an audit-safe context record.** Xác nhận (đọc code, không phải giả định) `CapabilityGateway._execute_internal()` (packages/agent/capabilities/gateway.py) ĐÃ tự làm đúng điều này từ trước — `RunEventRecord` cho `tool.completed` chỉ lưu `output_hash`/`output_present`, KHÔNG lưu nội dung; full `output_payload` (kể cả citation) chỉ nằm trong `RunToolCallRecord` (kênh audit/incident-review riêng, không phải event log phát cho client/model). Không cần code mới ở Task 10 cho việc này — capability handler không tự thêm log nào ngoài phạm vi đó.
 
-Record run ID, principal, policy version and citation IDs; do not persist full retrieved text in event payload/log. The client response shows citations only when caller still passes authorization at read time.
+- [x] **Step 5: Run run, kernel and capability regressions.** `tests/apps/cosa/test_founder_knowledge_context.py` + `tests/apps/cosa/worker/test_handlers.py` + `tests/agent/kernel/test_openai_agents_kernel.py` (35 passed); phát hiện + sửa 3 test hardcode version cũ do bump 1.2.0→1.3.0 (`tests/apps/cosa/agents/test_seed.py`, `tests/apps/cosa/agents/test_specs.py`) — không phải regression, chỉ cần cập nhật giá trị mong đợi; `make typecheck-py` sạch (351 file, phải đổi `IdentityLike` Protocol sang `@property` để dataclass frozen thoả structural typing); `tests/apps/cosa/` đầy đủ 943 passed/27 skipped.
 
-- [ ] **Step 5: Run run, kernel and capability regressions.**
-
-Run:
-
-```bash
-PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/test_founder_knowledge_context.py \
-  tests/apps/cosa/worker/test_handlers.py tests/agent/kernel/test_openai_agents_kernel.py -q
-```
-
-Expected: PASS; the model has no direct storage/DB tool and context remains role-filtered.
-
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add apps/cosa/agents/specs.py apps/cosa/worker/handlers.py packages/agent_integrations/openai_agents_sdk/kernel.py \
