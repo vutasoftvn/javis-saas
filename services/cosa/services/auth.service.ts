@@ -17,6 +17,14 @@ const {
   plans,
 } = schema;
 
+export type SupportedLocale = "vi-VN" | "en-US";
+export const SUPPORTED_LOCALES: readonly SupportedLocale[] = ["vi-VN", "en-US"] as const;
+
+export function parseSupportedLocale(value: string): SupportedLocale {
+  if (value === "vi-VN" || value === "en-US") return value;
+  throw APIError.invalidArgument("unsupported preferred_locale");
+}
+
 export interface SessionParams {
   username?: string;
   email?: string;
@@ -29,6 +37,7 @@ export interface UserPayload {
   phone: string | null;
   full_name: string | null;
   role_id: string | null;
+  preferred_locale?: SupportedLocale;
 }
 
 export interface WorkspaceSummaryPayload {
@@ -69,9 +78,11 @@ export interface PlatformUserProfile {
   bio?: string | null;
   is_platform_admin?: boolean;
   platform_role_id?: string | null;
+  preferred_locale: SupportedLocale;
 }
 
 export interface UpdateMeParams {
+  preferred_locale?: SupportedLocale;
   phone?: string;
   full_name?: string;
   avatar_url?: string;
@@ -116,6 +127,7 @@ export async function loginPlatformUser(params: SessionParams): Promise<TokenRes
     .select({
       fullName: profiles.fullName,
       roleId: profiles.roleId,
+      preferredLocale: profiles.preferredLocale,
     })
     .from(profiles)
     .where(eq(profiles.id, user.id))
@@ -142,6 +154,7 @@ export async function loginPlatformUser(params: SessionParams): Promise<TokenRes
       phone: user.phone,
       full_name: profile?.fullName || null,
       role_id: profile?.roleId || "member",
+      preferred_locale: (profile?.preferredLocale as SupportedLocale) || "vi-VN",
     },
     workspaces: memberships.map((m) => ({
       workspace_id: m.workspaceId.toString(),
@@ -225,6 +238,7 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
       phone: params.phone || null,
       full_name: params.full_name || null,
       role_id: initialRole,
+      preferred_locale: "vi-VN",
     },
     workspaces: provWorkspaces,
     platform_workspace_id: platformWorkspaceId,
@@ -244,6 +258,7 @@ export async function getPlatformUserProfile(userIdStr: string): Promise<Platfor
       roleId: profiles.roleId,
       headline: profiles.headline,
       bio: profiles.bio,
+      preferredLocale: profiles.preferredLocale,
     })
     .from(users)
     .leftJoin(profiles, eq(profiles.id, users.id))
@@ -267,6 +282,7 @@ export async function getPlatformUserProfile(userIdStr: string): Promise<Platfor
     bio: userProfile.bio,
     is_platform_admin: isPlatformAdmin,
     platform_role_id: userProfile.roleId,
+    preferred_locale: (userProfile.preferredLocale as SupportedLocale) || "vi-VN",
   };
 }
 
@@ -275,6 +291,10 @@ export async function updatePlatformUserProfile(
   params: UpdateMeParams
 ): Promise<PlatformUserProfile> {
   const userId = BigInt(userIdStr);
+
+  if (params.preferred_locale !== undefined) {
+    parseSupportedLocale(params.preferred_locale);
+  }
 
   if (params.phone !== undefined) {
     if (params.phone) {
@@ -298,7 +318,8 @@ export async function updatePlatformUserProfile(
     params.full_name !== undefined ||
     params.avatar_url !== undefined ||
     params.headline !== undefined ||
-    params.bio !== undefined
+    params.bio !== undefined ||
+    params.preferred_locale !== undefined
   ) {
     await db
       .insert(profiles)
@@ -308,6 +329,7 @@ export async function updatePlatformUserProfile(
         avatarUrl: params.avatar_url || null,
         headline: params.headline || null,
         bio: params.bio || null,
+        preferredLocale: params.preferred_locale || "vi-VN",
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -317,6 +339,7 @@ export async function updatePlatformUserProfile(
           ...(params.avatar_url !== undefined ? { avatarUrl: params.avatar_url } : {}),
           ...(params.headline !== undefined ? { headline: params.headline } : {}),
           ...(params.bio !== undefined ? { bio: params.bio } : {}),
+          ...(params.preferred_locale !== undefined ? { preferredLocale: params.preferred_locale } : {}),
           updatedAt: new Date(),
         },
       });

@@ -32,6 +32,7 @@ export const profiles = cosaSchema.table("profiles", {
   avatarUrl: text("avatar_url"),
   headline: text("headline"),
   bio: text("bio"),
+  preferredLocale: varchar("preferred_locale", { length: 10 }).default("vi-VN").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

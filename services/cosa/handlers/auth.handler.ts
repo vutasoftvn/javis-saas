@@ -1,19 +1,21 @@
 import { api, Header, Gateway, APIError } from "encore.dev/api";
 import { authHandler } from "encore.dev/auth";
 import { verifyPlatformToken } from "../services/token.service";
+import { resolveCallerAuthorizedForWorkspace } from "../services/workspace-connector.service";
 import {
   SessionParams,
   TokenResponse,
   RegisterParams,
   PlatformUserProfile,
   UpdateMeParams,
+  SupportedLocale,
   loginPlatformUser,
   registerPlatformUser,
   getPlatformUserProfile,
   updatePlatformUserProfile,
 } from "../services/auth.service";
 
-export { SessionParams, TokenResponse, RegisterParams, PlatformUserProfile, UpdateMeParams };
+export { SessionParams, TokenResponse, RegisterParams, PlatformUserProfile, UpdateMeParams, SupportedLocale };
 
 export interface AuthParams {
   authorization?: Header<"Authorization">;
@@ -95,3 +97,28 @@ export const updatePlatformUserMe = api(
     return updateMe(await resolveAuthData(), params);
   }
 );
+
+export interface GetLocaleSnapshotParams {
+  workspaceId: string;
+  authorization?: Header<"Authorization">;
+}
+
+export interface LocaleSnapshot {
+  workspace_id: string;
+  preferred_locale: SupportedLocale;
+}
+
+export const getPlatformUserLocaleSnapshot = api(
+  { method: "GET", path: "/platform/auth/me/locale-snapshot", expose: true, auth: false },
+  async (params: GetLocaleSnapshotParams): Promise<LocaleSnapshot> => {
+    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
+    const profile = await getPlatformUserProfile(caller.sub);
+    return {
+      workspace_id: params.workspaceId,
+      preferred_locale: profile.preferred_locale,
+    };
+  }
+);
+
+export const getLocaleSnapshotForWorkspace = getPlatformUserLocaleSnapshot;
+
