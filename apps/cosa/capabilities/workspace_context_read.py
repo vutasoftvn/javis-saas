@@ -60,18 +60,26 @@ class _KernelIdentity:
 
 @dataclass(frozen=True)
 class _PlaneAdapter:
-    """Chỉ mang đúng 1 attribute mà `EnterpriseKnowledgeSearchOperation` cần
-    (`knowledge_ingestion_service`) — không truyền cả `CosaAgentPlane` vào
-    capability handler (registration-time closure, không phải request-time
-    dependency)."""
+    """Chỉ mang đúng các attribute mà resolver (`apps.cosa.graphql.resolvers`)
+    thật sự cần (`knowledge_ingestion_service`, `company_client`) — không
+    truyền cả `CosaAgentPlane` vào capability handler (registration-time
+    closure, không phải request-time dependency). `company_client` optional —
+    `None` thì `WorkspaceContextOperation._business_task_summary` fail-closed
+    về `business.tasks = []`, không raise (Task 9 gap-close: business field
+    trước đây luôn rỗng, giờ đọc `operations.task.list` thật khi có client)."""
 
     knowledge_ingestion_service: Any
+    company_client: Any = None
 
 
 def create_workspace_context_read_handler(
     knowledge_ingestion_service: Any,
+    *,
+    company_client: Any = None,
 ) -> Callable[[dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]]:
-    plane = _PlaneAdapter(knowledge_ingestion_service=knowledge_ingestion_service)
+    plane = _PlaneAdapter(
+        knowledge_ingestion_service=knowledge_ingestion_service, company_client=company_client
+    )
 
     async def handle_workspace_context_read(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
         if isinstance(ctx, dict):

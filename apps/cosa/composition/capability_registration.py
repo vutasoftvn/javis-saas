@@ -222,10 +222,14 @@ def register_cosa_capabilities(
         )
         # Task 10 — workspace.context.read là cầu nối duy nhất kernel/model
         # dùng để gọi persisted GraphQL operations (Task 9), cần cùng
-        # KnowledgeIngestionService.
+        # KnowledgeIngestionService. `client` (CompanyServiceClient) truyền
+        # thêm để `workspaceContext.business.tasks` đọc được
+        # operations.task.list thật (gap đóng sau khi rà soát toàn phiên).
         cap_registry.register(
             WORKSPACE_CONTEXT_READ_SPEC,
-            create_workspace_context_read_handler(knowledge_ingestion_service),
+            create_workspace_context_read_handler(
+                knowledge_ingestion_service, company_client=client
+            ),
         )
 
     cap_registry.register(

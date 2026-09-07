@@ -86,15 +86,43 @@ class EnterpriseKnowledgeSearchOperation:
         return {"citations": [_citation_out(c) for c in citations]}
 
 
+async def _business_task_summary(identity: IdentityLike, plane: Any) -> list[dict[str, Any]]:
+    """`operations.task.list` — capability read-only đã có sẵn, workspace-scoped
+    (không cần `project_id` như phần lớn capability strategy/analytics khác,
+    xem đánh giá lúc đóng gap này trong plan Task 9 Step 3 annotation). Gọi
+    THẲNG handler (không qua `CapabilityGateway` riêng — cùng cách
+    `EnterpriseKnowledgeSearchOperation` đã làm cho citations: 1 lần gọi
+    `workspace.context.read` = 1 entry audit, các nguồn đọc bên trong là chi
+    tiết triển khai, không phải capability call riêng biệt cần audit thêm)."""
+    client = getattr(plane, "company_client", None)
+    if client is None:
+        return []
+    from apps.cosa.capabilities.operations_read import create_operations_task_list_handler
+
+    handler = create_operations_task_list_handler(client)
+    try:
+        result = await handler({}, {"workspace_id": identity.workspace_id})
+    except Exception:
+        # Business adapter là phần MỞ RỘNG của workspaceContext — lỗi ở đây
+        # (company service down, workspace chưa có operations module...)
+        # không được làm hỏng toàn bộ câu trả lời (citations vẫn còn giá trị).
+        return []
+    tasks = result.get("tasks") if isinstance(result, dict) else None
+    return tasks[:5] if isinstance(tasks, list) else []
+
+
 class WorkspaceContextOperation:
-    """Task 9 — ghép citation tri thức đã authorized cho câu hỏi founder đang
-    hỏi. `question` KHÔNG tự động mở rộng sang business adapter cụ thể nào —
-    plan liệt kê "read-only, capability-backed business adapters" nhưng không
-    khai rõ 1 contract cụ thể nào (không có capability read tổng hợp toàn
-    workspace nào tồn tại sẵn để gọi mà không tự bịa schema); cố tình KHÔNG
-    tự chế 1 business summary chưa được đặc tả — `business` để rỗng tường
-    minh, không giả lập. Founder assistant (Task 10) vẫn dùng được citations
-    đã có; mở rộng business context là việc tương lai, không phải hồi quy."""
+    """Task 9 — ghép citation tri thức đã authorized + tóm tắt business
+    read-only cho câu hỏi founder đang hỏi.
+
+    `business` hiện CHỈ gồm `tasks` (từ `operations.task.list`, workspace-
+    scoped). Các capability strategy/analytics khác (`strategy.next_best_
+    action.get`, `strategy.project.get`, `analytics.pmf_scoreboard.get`...)
+    ĐỀU yêu cầu `project_id` cụ thể — `workspaceContext` chỉ nhận `question`+
+    workspace, không có project nào được chọn sẵn, và tự đoán "project đầu
+    tiên/chính" sẽ suy diễn sai khi workspace có nhiều project. Cố tình KHÔNG
+    wire các capability đó cho tới khi có quyết định rõ cách chọn project
+    (hoặc `variables` được mở rộng nhận `project_id` tường minh từ caller)."""
 
     allowed_variables = frozenset({"question"})
 
@@ -105,9 +133,10 @@ class WorkspaceContextOperation:
         knowledge_result = await knowledge_op.execute(
             {"query": variables.get("question")}, identity, plane
         )
+        tasks = await _business_task_summary(identity, plane)
         return {
             "workspace_id": identity.workspace_id,
-            "business": {},
+            "business": {"tasks": tasks},
             "citations": knowledge_result["citations"],
         }
 

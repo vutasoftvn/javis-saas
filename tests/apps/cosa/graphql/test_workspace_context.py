@@ -5,6 +5,7 @@ resolver/dispatch (`execute_persisted_operation`), tách khỏi HTTP transport
 from __future__ import annotations
 
 import uuid
+from unittest.mock import AsyncMock
 
 import pytest
 from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
@@ -15,12 +16,14 @@ from agent.vault.repository import InMemoryVaultRepository
 from fastapi import HTTPException
 
 from apps.cosa.auth.dependency import AuthenticatedIdentity
+from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.graphql.persisted_operations import execute_persisted_operation
 
 
 class _FakePlane:
-    def __init__(self, knowledge_ingestion_service) -> None:
+    def __init__(self, knowledge_ingestion_service, company_client=None) -> None:
         self.knowledge_ingestion_service = knowledge_ingestion_service
+        self.company_client = company_client
 
 
 def _identity(*, workspace_id: str, principal_id: str, role_id: str) -> AuthenticatedIdentity:
@@ -91,13 +94,72 @@ async def test_founder_workspace_context_includes_permitted_business_and_knowled
         classification=VaultClassification.INTERNAL,
         content="rủi ro quý này tập trung ở dòng tiền",
     )
-    plane = _FakePlane(KnowledgeIngestionService(store=store, vault_repository=vault_repo))
+    mock_client = AsyncMock(spec=CompanyServiceClient)
+    mock_client.get.return_value = {
+        "tasks": [{"id": 1, "title": "Q3 review"}],
+        "total": 1,
+    }
+    plane = _FakePlane(
+        KnowledgeIngestionService(store=store, vault_repository=vault_repo),
+        company_client=mock_client,
+    )
     identity = _identity(workspace_id=workspace_id, principal_id="founder-1", role_id="founder")
 
     result = await execute_persisted_operation(
         "workspaceContext", {"question": "rủi ro quý này"}, identity, plane
     )
     assert result["citations"]
+    assert result["business"]["tasks"] == [{"id": 1, "title": "Q3 review"}]
+    mock_client.get.assert_awaited_once()
+    called_params = mock_client.get.await_args.kwargs.get("params", {})
+    assert called_params.get("workspaceId") == workspace_id
+
+
+@pytest.mark.asyncio
+async def test_workspace_context_business_is_empty_without_company_client():
+    """Không có `company_client` (vd. test cũ/dev fixture nhẹ) -> business
+    field fail-closed rỗng, KHÔNG raise — citations vẫn hoạt động bình thường."""
+    vault_repo = InMemoryVaultRepository()
+    store = InMemoryKnowledgeStore()
+    workspace_id = f"ws-{uuid.uuid4().hex[:8]}"
+    plane = _FakePlane(KnowledgeIngestionService(store=store, vault_repository=vault_repo))
+    identity = _identity(workspace_id=workspace_id, principal_id="founder-1", role_id="founder")
+
+    result = await execute_persisted_operation(
+        "workspaceContext", {"question": "gì đó"}, identity, plane
+    )
+    assert result["business"]["tasks"] == []
+
+
+@pytest.mark.asyncio
+async def test_workspace_context_business_fails_closed_when_company_service_errors():
+    """Company service lỗi (down, timeout...) không được làm hỏng toàn bộ
+    workspaceContext — citations vẫn trả về bình thường, business rỗng."""
+    vault_repo = InMemoryVaultRepository()
+    store = InMemoryKnowledgeStore()
+    workspace_id = f"ws-{uuid.uuid4().hex[:8]}"
+    await _seed(
+        vault_repo,
+        store,
+        workspace_id,
+        created_by="founder-1",
+        visibility=VaultVisibility.WORKSPACE,
+        classification=VaultClassification.INTERNAL,
+        content="rủi ro quý này tập trung ở dòng tiền",
+    )
+    mock_client = AsyncMock(spec=CompanyServiceClient)
+    mock_client.get.side_effect = RuntimeError("company service unavailable")
+    plane = _FakePlane(
+        KnowledgeIngestionService(store=store, vault_repository=vault_repo),
+        company_client=mock_client,
+    )
+    identity = _identity(workspace_id=workspace_id, principal_id="founder-1", role_id="founder")
+
+    result = await execute_persisted_operation(
+        "workspaceContext", {"question": "rủi ro quý này"}, identity, plane
+    )
+    assert result["citations"]
+    assert result["business"]["tasks"] == []
 
 
 @pytest.mark.asyncio

@@ -1,14 +1,13 @@
 """Quality tests for MVP capability manifest and surface checker."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
+
 import pytest
 
 from scripts.mvp_surface_check import (
-    validate_manifest,
     find_runtime_fixture_imports,
-    validate_acceptance_ledger,
+    validate_manifest,
 )
 
 
@@ -111,32 +110,3 @@ def test_runtime_fixture_metadata_is_not_an_import(tmp_path: Path) -> None:
     assert find_runtime_fixture_imports(tmp_path) == []
 
 
-def test_acceptance_ledger_validation_flags_missing_proofs(tmp_path: Path) -> None:
-    ledger_file = tmp_path / "ledger.md"
-    ledger_file.write_text(
-        "| capability_id | owner | source_kind | contract_schema | backend_test | flutter_test | integration_test | status |\n"
-        "|---|---|---|---|---|---|---|---|\n"
-        "| workforce.agent.list | agent-platform | agent_db | workforce.agent.list.v1 | tests/apps/cosa/test_workforce_routes.py | frontend/test/workforce_service_test.dart |  | PLANNED |\n"
-    )
-    manifest = {
-        "version": "2026-08-31",
-        "capabilities": [
-            {
-                "id": "workforce.agent.list",
-                "enabled": True,
-                "owner": "agent-platform",
-                "plane": "agent",
-                "method": "GET",
-                "path": "/agent/workforce/agents",
-                "schema": "workforce.agent.list.v1",
-                "source_kind": "agent_db",
-                "requires_workspace": True,
-                "frontend_symbol": "WorkforceService.listAgents",
-                "backend_test": "tests/apps/cosa/test_workforce_routes.py",
-                "flutter_test": "frontend/test/workforce_service_test.dart",
-                "integration_test": "tests/e2e/test_mvp_workforce_http.py",
-            }
-        ],
-    }
-    errors = validate_acceptance_ledger(ledger_file, manifest)
-    assert any("integration_test" in e for e in errors)

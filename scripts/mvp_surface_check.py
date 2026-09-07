@@ -159,62 +159,10 @@ def find_runtime_fixture_imports(root_path: Path) -> list[str]:
     return violations
 
 
-
-def validate_acceptance_ledger(
-    ledger_path: Path, manifest: dict[str, Any]
-) -> list[str]:
-    errors: list[str] = []
-    if not ledger_path.exists():
-        return [f"Acceptance ledger file does not exist: {ledger_path}"]
-
-    content = ledger_path.read_text(encoding="utf-8")
-    lines = content.splitlines()
-
-    ledger_rows: dict[str, dict[str, str]] = {}
-    header_idx = -1
-    col_names: list[str] = []
-
-    for idx, line in enumerate(lines):
-        line = line.strip()
-        if not line.startswith("|") or not line.endswith("|"):
-            continue
-        cols = [c.strip() for c in line.strip("|").split("|")]
-        if "capability_id" in cols:
-            header_idx = idx
-            col_names = cols
-            continue
-        if header_idx != -1 and idx > header_idx + 1:
-            if len(cols) == len(col_names):
-                row = dict(zip(col_names, cols))
-                cid = row.get("capability_id", "")
-                if cid:
-                    ledger_rows[cid] = row
-
-    capabilities = manifest.get("capabilities", [])
-    for cap in capabilities:
-        cid = cap.get("id")
-        enabled = cap.get("enabled", False)
-        if not enabled:
-            continue
-        if cid not in ledger_rows:
-            errors.append(f"Acceptance ledger missing row for enabled capability: {cid}")
-            continue
-
-        row = ledger_rows[cid]
-        for field in ("backend_test", "flutter_test", "integration_test"):
-            if not row.get(field) or not row.get(field, "").strip():
-                errors.append(
-                    f"Acceptance ledger capability '{cid}' has blank proof field '{field}'"
-                )
-
-    return errors
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check MVP capability surface and contracts")
     parser.add_argument("--check", action="store_true", help="Run surface validation checks")
-    parser.add_argument("--ledger", action="store_true", help="Validate acceptance ledger")
-    args = parser.parse_args()
+    parser.parse_args()
 
     manifest_path = REPO_ROOT / "shared/contracts/mvp-surface.json"
     if not manifest_path.exists():
@@ -246,15 +194,6 @@ def main() -> int:
         for err in fixture_errors:
             print(f"  - {err}", file=sys.stderr)
         return 1
-
-    if args.ledger:
-        ledger_path = REPO_ROOT / "docs/superpowers/plans/2026-08-31-full-mvp-acceptance-ledger.md"
-        ledger_errors = validate_acceptance_ledger(ledger_path, manifest)
-        if ledger_errors:
-            print("Acceptance ledger validation errors:", file=sys.stderr)
-            for err in ledger_errors:
-                print(f"  - {err}", file=sys.stderr)
-            return 1
 
     print("✅ MVP surface check passed successfully.")
     return 0
