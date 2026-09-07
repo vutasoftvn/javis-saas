@@ -90,4 +90,51 @@ void main() {
 
     expect(result, isNull);
   });
+
+  test('getAccountingPolicy vẫn báo bắt buộc theo luật khi chưa cấu hình chính sách', () async {
+    // Trạng thái khởi đầu rất phổ biến: chưa founder nào gọi
+    // setAccountingPolicy nên backend trả policy null. Trước đây hàm trả
+    // null và card B03 đọc thành "không bắt buộc theo luật" — ngược sự thật.
+    ApiClient.client = _RecordingClient({'policy': null});
+
+    final result = await FinanceTT58Service().getAccountingPolicy('1');
+
+    expect(result, isNotNull);
+    expect(result?['is_statutory_required'], true);
+    // Giá trị mặc định phải khớp default của bảng accounting_policies
+    // (migration 45), không phải chuỗi rỗng hay null.
+    final policies = result?['accounting_policies'] as Map<String, dynamic>;
+    expect(policies['inventory_valuation'], 'weighted_average');
+    expect(policies['depreciation_method'], 'straight_line');
+    expect(
+      policies['revenue_recognition'],
+      'Ghi nhận khi hoàn thành chuyển giao dịch vụ/hàng hóa',
+    );
+  });
+
+  test('getAccountingPolicy dùng giá trị đã cấu hình khi có chính sách', () async {
+    ApiClient.client = _RecordingClient({
+      'policy': {
+        'inventoryValuationMethod': 'fifo',
+        'depreciationMethod': 'declining_balance',
+        'revenueRecognitionMethod': 'Ghi nhận theo tiến độ',
+      },
+    });
+
+    final result = await FinanceTT58Service().getAccountingPolicy('1');
+
+    final policies = result?['accounting_policies'] as Map<String, dynamic>;
+    expect(result?['is_statutory_required'], true);
+    expect(policies['inventory_valuation'], 'fifo');
+    expect(policies['depreciation_method'], 'declining_balance');
+    expect(policies['revenue_recognition'], 'Ghi nhận theo tiến độ');
+  });
+
+  test('getAccountingPolicy chỉ trả null khi lời gọi HTTP thất bại', () async {
+    ApiClient.client = _FailingClient();
+
+    final result = await FinanceTT58Service().getAccountingPolicy('1');
+
+    expect(result, isNull);
+  });
 }

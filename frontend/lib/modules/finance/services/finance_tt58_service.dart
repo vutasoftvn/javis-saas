@@ -102,23 +102,40 @@ class FinanceTT58Service {
     };
   }
 
+  /// B03 — thuyết minh chế độ kế toán.
+  ///
+  /// `is_statutory_required` luôn `true`: với doanh nghiệp siêu nhỏ theo TT58
+  /// đây là một sự kiện pháp lý cố định, không suy ra từ việc đã có dòng
+  /// `accounting_policies` trong DB hay chưa. Trước đây khi founder chưa
+  /// cấu hình chính sách (trạng thái khởi đầu rất phổ biến, vì
+  /// `setAccountingPolicyService` đòi thao tác tường minh), hàm này trả `null`
+  /// và card đọc thành "không bắt buộc theo luật" — ngược hẳn sự thật.
+  ///
+  /// Chỉ trả `null` khi bản thân lời gọi HTTP thất bại. Khi chưa có chính
+  /// sách, trả về đúng bộ giá trị mặc định mà bảng `accounting_policies` tự
+  /// đặt (xem migration 45).
   Future<Map<String, dynamic>?> getAccountingPolicy(
     String legalEntityId,
   ) async {
     final data = await _getJson(
       '/finance/accounting-policies?legalEntityId=$legalEntityId',
     );
-    if (data == null || data['policy'] == null) return null;
-    final policy = Map<String, dynamic>.from(data['policy'] as Map);
+    if (data == null) return null;
+    final policy = data['policy'] != null
+        ? Map<String, dynamic>.from(data['policy'] as Map)
+        : null;
     return {
       'is_statutory_required': true,
       'compliance_note':
           'Chế độ kế toán đang áp dụng theo Thông tư 58/2026/TT-BTC.',
       'accounting_policies': {
         'currency': 'VND (Đồng Việt Nam)',
-        'inventory_valuation': policy['inventoryValuationMethod'],
-        'depreciation_method': policy['depreciationMethod'],
-        'revenue_recognition': policy['revenueRecognitionMethod'],
+        'inventory_valuation':
+            policy?['inventoryValuationMethod'] ?? 'weighted_average',
+        'depreciation_method':
+            policy?['depreciationMethod'] ?? 'straight_line',
+        'revenue_recognition': policy?['revenueRecognitionMethod'] ??
+            'Ghi nhận khi hoàn thành chuyển giao dịch vụ/hàng hóa',
       },
     };
   }

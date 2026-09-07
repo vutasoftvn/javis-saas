@@ -190,19 +190,23 @@ class FinanceController extends GetxController {
     return first['id']?.toString();
   }
 
+  /// Chỉ chấp nhận kỳ kế toán khớp ĐỒNG THỜI cả `legalEntityId` lẫn
+  /// `status == 'OPEN'`.
+  ///
+  /// Không có fallback "lấy đại kỳ đầu tiên": kỳ đó có thể thuộc một pháp
+  /// nhân hoàn toàn khác (hoặc có `legalEntityId` null), sinh ra báo cáo toàn
+  /// số 0 trông y hệt báo cáo thật, và kéo theo một dòng nghĩa vụ thuế vô
+  /// nghĩa cho cặp entity/period không tồn tại. Không tìm được thì trả `null`
+  /// và `loadTT58Data` bỏ qua (đã xử lý sẵn).
   Future<String?> _resolvePeriodId(String? legalEntityId) async {
+    if (legalEntityId == null) return null;
     final periods = await service.getPeriods();
-    if (periods.isEmpty) return null;
-    if (legalEntityId != null) {
-      final matching = periods.where((p) {
-        final m = Map<String, dynamic>.from(p as Map);
-        return m['legalEntityId']?.toString() == legalEntityId && m['status'] == 'OPEN';
-      });
-      if (matching.isNotEmpty) {
-        return Map<String, dynamic>.from(matching.first as Map)['id']?.toString();
-      }
-    }
-    return Map<String, dynamic>.from(periods.first as Map)['id']?.toString();
+    final matching = periods.where((p) {
+      final m = Map<String, dynamic>.from(p as Map);
+      return m['legalEntityId']?.toString() == legalEntityId && m['status'] == 'OPEN';
+    });
+    if (matching.isEmpty) return null;
+    return Map<String, dynamic>.from(matching.first as Map)['id']?.toString();
   }
 
   /// UI lập chứng từ (TT58DocumentEntryDialog) dùng mã tiếng Việt
