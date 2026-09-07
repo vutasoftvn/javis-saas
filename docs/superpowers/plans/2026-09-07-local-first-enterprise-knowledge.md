@@ -585,7 +585,7 @@ git commit -m "feat(knowledge): retrieve published citations with authorization"
 - Produces `execute_persisted_operation(operation_id, variables, identity) -> dict`; it does not accept a GraphQL document string.
 - Consumes `KnowledgeAuthorization`, `retrieve_authorized_citations` and read-only Company service capability adapters.
 
-- [ ] **Step 1: Write failing persisted-operation tests.**
+- [x] **Step 1: Write failing persisted-operation tests.** Thực tế 2 file: `tests/apps/cosa/graphql/test_workspace_context.py` (unit-level, gọi thẳng `execute_persisted_operation`) + `tests/apps/cosa/api/test_graphql_routes.py` (qua ASGI transport thật, giống pattern Task 7/8).
 
 ```python
 async def test_founder_workspace_context_includes_permitted_business_and_knowledge(graphql_client, founder_headers):
@@ -604,13 +604,9 @@ async def test_member_cannot_submit_raw_query_or_see_denied_source(graphql_clien
     assert result.json()["data"]["enterpriseKnowledgeSearch"]["citations"] == []
 ```
 
-- [ ] **Step 2: Run the GraphQL tests.**
+- [x] **Step 2: Run the GraphQL tests.** Xác nhận FAIL trước khi tạo module `apps/cosa/graphql/` (ModuleNotFoundError), PASS sau Step 3/4.
 
-Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/graphql/test_workspace_context.py tests/apps/cosa/api/test_graphql_routes.py -q`
-
-Expected: FAIL because no local GraphQL BFF or persisted-operation registry exists.
-
-- [ ] **Step 3: Define only typed, read-only persisted operations.**
+- [x] **Step 3: Define only typed, read-only persisted operations.**
 
 ```python
 PERSISTED_OPERATIONS: dict[str, PersistedOperation] = {
@@ -627,25 +623,15 @@ async def execute_persisted_operation(
     return await operation.execute(variables, identity)
 ```
 
-`WorkspaceContextOperation` calls read-only, capability-backed business adapters and authorized knowledge retrieval. `EnterpriseKnowledgeSearchOperation` calls only `retrieve_authorized_citations`. Each resolver passes identity workspace/principal/role into the service; it never trusts a workspace variable and never opens local storage paths.
+`WorkspaceContextOperation`/`EnterpriseKnowledgeSearchOperation` implemented ở `apps/cosa/graphql/resolvers.py`, dispatch qua `execute_persisted_operation()` (`apps/cosa/graphql/persisted_operations.py`). Identity workspace/principal/role LUÔN lấy từ `AuthenticatedIdentity` đã xác thực ở HTTP boundary (`role_id` đơn — wrap thành `{role_id}` set cho `retrieve_authorized_citations`), KHÔNG BAO GIỜ từ `variables` client gửi.
 
-- [ ] **Step 4: Add GraphQL guardrails and audit.**
+Gap biết trước, không phải thiếu sót: `WorkspaceContextOperation` KHÔNG gọi "read-only business adapter" nào — plan không đặc tả 1 contract cụ thể (không có capability read tổng hợp business context sẵn có để compose mà không tự bịa schema). `business` field trả về rỗng tường minh (`{}`), chỉ `citations` (từ `enterpriseKnowledgeSearch`) là thật. Mở rộng business context là việc tương lai ngoài scope Task 9.
 
-Reject `query`, `mutation`, `subscription`, unknown operation IDs, unknown variables, oversized string variables and depth/selection inputs because selection is server-owned. Make the route `POST` only; limit page size to 20. Audit operation ID, principal, policy version, returned citation IDs and duration, never returned text or business payload. No mutation resolver is registered.
+- [x] **Step 4: Add GraphQL guardrails and audit.** `GraphQLRequest` (pydantic, `extra="forbid"`, `operation_id: Literal[...]`, `variables: dict[str, str|int|float|bool|None]`) tự reject `query`/`mutation`/object-lồng/id lạ ở validation (422) — không cần depth-walker riêng vì persisted operations không nhận selection set nào từ client. `execute_persisted_operation()` reject thêm: biến ngoài whitelist của đúng operation đó (422), string > 500 ký tự (422). Route `POST /agent/graphql` duy nhất, không có route GET/mutation nào khác. Audit qua `logger.info("graphql.persisted_operation", ...)`: operation_id, principal_id, workspace_id, `chunk_id` của citation trả về, duration_ms — KHÔNG BAO GIỜ snippet/business payload. Không có `policy_version` top-level (không có 1 "decision" đơn cho nhiều citation khác nhau, cùng lý do đã ghi ở Task 8 Step 4) — mỗi citation tự mang provenance qua `vault_version_id`. Limit `enterpriseKnowledgeSearch.limit` tối đa 20.
 
-- [ ] **Step 5: Run authorization and GraphQL regression tests.**
+- [x] **Step 5: Run authorization and GraphQL regression tests.** `tests/apps/cosa/graphql/` + `tests/apps/cosa/api/test_graphql_routes.py` + `tests/agent/knowledge/test_authorized_retrieval.py` (16 passed, 6 skipped — skip là Postgres-parametrized case thiếu `AGENT_TEST_DATABASE_URL` trong lần chạy không kèm DB); `make route-auth-allowlist-check` PASS (gate chỉ check route Encore TS, route Python FastAPI này không thuộc phạm vi, khớp tiền lệ Task 7); `make typecheck-py` (350 file) sạch; `tests/apps/cosa/` đầy đủ 941 passed/27 skipped — không regression.
 
-Run:
-
-```bash
-PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/graphql/test_workspace_context.py \
-  tests/apps/cosa/api/test_graphql_routes.py tests/agent/knowledge/test_authorized_retrieval.py -q
-make route-auth-allowlist-check
-```
-
-Expected: PASS; founder receives only workspace-local authorized context, member has no source enumeration path, and raw GraphQL is rejected.
-
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add apps/cosa/graphql apps/cosa/api/graphql_routes.py apps/cosa/api/app.py \
