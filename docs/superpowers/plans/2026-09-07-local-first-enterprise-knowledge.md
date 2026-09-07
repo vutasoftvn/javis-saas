@@ -807,7 +807,7 @@ git commit -m "feat(frontend): release governed local Vault workspace"
 - Produces `make local-knowledge-e2e` running disposable Postgres plus a mounted local storage directory and local execution plane.
 - Produces a runbook with backup/restore, scanner outage, converter outage, disk-full, revoke/purge and node-restart procedures.
 
-- [ ] **Step 1: Write the process-restart E2E test.**
+- [x] **Step 1: Write the process-restart E2E test.** Thực tế `local_stack` không phải 1 class wrapper (`local_stack.create_upload_as(...)`) mà là fixture trả `(StackHandles, storage_root, extra_env)` + helper function module-level (`_create_and_upload_document`, `_complete_upload`, `_get_document`) — dùng thẳng `httpx` + `tests.e2e.seed.identity.seed_workspace()` (đã có sẵn, xác thực THẬT qua company `/identity/_e2e/session` + cosa `/platform/auth/register`) thay vì tự dựng identity layer mới. 3 kịch bản đúng plan: restart-survival, member-b không rò rỉ, raw content không reference platform control plane (verify tĩnh đọc code — dựng "mock platform endpoint" sẽ vi phạm `scripts/check_mvp_e2e_purity.py` cấm transport giả ở tier E2E).
 
 ```python
 def test_local_upload_survives_api_and_worker_restart(local_stack):
@@ -821,38 +821,24 @@ def test_local_upload_survives_api_and_worker_restart(local_stack):
 
 Add a second scenario proving `member-b` receives neither title, snippet, score nor citation of a founder-only document; add a third proving raw file, chunk and embedding never arrive at a mock platform endpoint.
 
-- [ ] **Step 2: Run E2E and confirm failure before stack changes.**
+- [x] **Step 2: Run E2E and confirm failure before stack changes.** Xác nhận FAIL trước khi tạo file (ModuleNotFoundError), rồi FAIL đúng lý do khi mới tạo `restart_api_and_worker()`/`extra_py_env` (chưa tồn tại trong `subprocess_stack.py`). Chạy thật lần đầu (SAU khi thêm hạ tầng Step 3-code) lộ 1 tiền đề môi trường thiếu thật: `markitdown` (khai trong `apps/cosa/requirements.ingestion.txt`, PINNED riêng cho image `cosa-ingestion-worker` cô lập — cố tình KHÔNG có trong venv dev/api/worker chính) chưa cài trong `.venv` này, nên `InProcessConversionSandbox()` (fallback dev khi không inject sandbox thật) raise `ImportError` ngay lúc ASGI startup với `KNOWLEDGE_INGESTION_ENABLED=1`. Cài `markitdown[pdf,docx,pptx,xlsx]==0.1.7` vào `.venv` dev cục bộ (KHÔNG đụng `requirements.ingestion.txt`/image cô lập — chỉ để chạy E2E thật trên máy này) — sau đó PASS thật (không phải giả định).
 
-Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/e2e/test_local_knowledge_workspace.py -q`
+- [x] **Step 3: Add a local storage volume and safe worker deployment configuration.** Volume `cosa_workspace_storage` mount CHỈ vào `cosa-api`/`cosa-worker` (rw) + `cosa-ingestion-worker` (ro — chỉ đọc quarantine để convert, không có lý do ghi/xoá). KHÔNG mount vào `services-cosa`/`services-company` (Platform Control Plane) — xác nhận bằng `grep cosa_workspace_storage docker-compose.yml` chỉ ra đúng 3 chỗ. Non-root user đã có sẵn từ trước (cả 3 Dockerfile). `KNOWLEDGE_INGESTION_ENABLED` mặc định `false` (fail-closed, thêm mới vào cosa-api/cosa-worker — trước đây chỉ có trên cosa-ingestion-worker, nghĩa là bật flag cho worker chính vẫn cần thao tác thủ công khác trước đây, giờ đã nhất quán). Disk quota/alert threshold + converter network deny: comment rõ ràng compose dev KHÔNG tự enforce (đã có disclaimer cũ trên `cosa-ingestion-worker`), production cần OS/container-level thật — không claim đã làm khi chưa làm.
 
-Expected: FAIL because compose/runtime has no persistent local knowledge volume and full wiring.
+- [x] **Step 4: Document operational recovery.** `docs/operations/local-knowledge-runbook.md` — đủ 6 mục plan yêu cầu (backup cặp nhất quán DB+volume, restore rehearsal, scanner outage, restart-safe, disk-full, role revocation, retention/legal-hold) + phát biểu rõ copy volume sang Platform/VPS KHÔNG PHẢI thủ tục phục hồi (ADR-LOCAL-FIRST-001). Gap biết trước ghi thẳng trong runbook: chưa có route HTTP riêng cho `set_legal_hold()` (chỉ gọi được qua script nội bộ) và chưa có audit trail riêng ngoài `updated_at`.
 
-- [ ] **Step 3: Add a local storage volume and safe worker deployment configuration.**
+- [x] **Step 5: Run the complete release evidence suite.** Toàn bộ chạy THẬT (không giả định), với 1 lưu ý bắt buộc: `AGENT_TEST_DATABASE_URL`/`AGENT_MIGRATOR_DATABASE_URL` mặc định (direnv nạp từ `.env`) trỏ DB dev **thật** `agent` — theo đúng ràng buộc đã thống nhất từ đầu phiên ("migration db và test luôn", không bao giờ đụng DB dev thật), mọi lệnh Postgres-dependent phải override tường minh sang `agent_test`:
+  - `make local-knowledge-e2e` — PASS thật (3/3, `PGPASSWORD=dev-postgres-password` + Encore CLI thật, ~21s).
+  - `make agent-test` — PASS với `agent_test` override đúng (954 passed/12 skipped); bare (không override) lộ đúng leak DB dev thật đã biết từ đầu phiên + 1 lỗi mismatch role/DSN khi tự ép `AGENT_TEST_DATABASE_URL` sai định dạng cho 1 test dùng `psycopg2` trực tiếp — xác nhận cả 2 KHÔNG phải regression bằng cách chạy lại đúng định dạng DSN từng test file mong đợi.
+  - `make apps-cosa-test` — PASS (951 passed/27 skipped, không cần Postgres — InMemory).
+  - `make services-test` — `services-test-company` PASS (1439 passed); `services-test-cosa` lộ pending migration `cosa/31_business_policy_references.up.sql` chưa áp — KHÔNG liên quan Task 13/plan này (migration số khác, ngoài phạm vi knowledge/vault), không tự ý áp migration lạ không rõ nguồn gốc — ghi nhận đúng plan Step 5 ("record... missing prerequisite").
+  - `make frontend-test` (1487 passed) + `make frontend-analyze` (sạch) — PASS (đã chạy ở Task 12, không regression).
+  - `make tenancy-check` — PASS (890+ passed, 2 lỗi DSN-format tiền tồn tại đã xác nhận nhiều lần trong phiên).
+  - `make migration-compat-check` — PASS (178 migration, 0 violation).
 
-Mount `COSA_WORKSPACE_STORAGE_ROOT` only into `cosa-api`, `cosa-worker` and the isolated conversion/scanner boundary of the same workspace runtime. Do not mount it into Platform Control Plane containers. Configure read-only where a component only needs reads, non-root users, disk quota/alert threshold and converter network deny. Keep the existing Compose development warning; production evidence must show actual OS/container enforcement rather than only environment attestations.
+  Bug thật tìm thấy + sửa trong lúc chạy Step 5 (không phải scope creep — cài `markitdown` thật lần đầu làm lộ ra): `apps/cosa/knowledge_ingestion/markitdown_converter.py::_build_stream_info()` trả `object` — mypy coi không tương thích với `stream_info: StreamInfo | None` của `convert_stream()` khi package THẬT được cài (trước đó luôn bị bỏ qua vì thiếu stub). Đổi sang `Any` (đúng ý định thiết kế: optional dependency, duck-typed).
 
-- [ ] **Step 4: Document operational recovery.**
-
-The runbook specifies: backup local Postgres + Vault volume as a consistency pair; restore rehearsal; reject scanner-unavailable documents; restart-safe ticket/job behavior; disk-full fail-closed behavior; role revocation verification; and retention/legal-hold purge approval. It must explicitly state that copying the volume to Platform/VPS is not a recovery procedure.
-
-- [ ] **Step 5: Run the complete release evidence suite.**
-
-Run:
-
-```bash
-make local-knowledge-e2e
-make agent-test
-make apps-cosa-test
-make services-test
-make frontend-test
-make frontend-analyze
-make tenancy-check
-make migration-compat-check
-```
-
-Expected: every command exits 0. If an environment prerequisite prevents a command, record the exact command, output, missing prerequisite and do not enable the feature flag.
-
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add tests/e2e/test_local_knowledge_workspace.py docs/operations/local-knowledge-runbook.md docker-compose.yml Makefile

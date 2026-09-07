@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import io
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from apps.cosa.knowledge_ingestion.contracts import FailureCode
 from apps.cosa.knowledge_ingestion.preflight import ValidatedDocument
@@ -165,10 +165,20 @@ class SafeMarkItDownConverter:
             failure_code=failure_code,
         )
 
-    def _build_stream_info(self, document: ValidatedDocument) -> object:
+    def _build_stream_info(self, document: ValidatedDocument) -> Any:
         """Build MarkItDown StreamInfo from server-known metadata only.
 
         Never from client filename or extension.
+
+        Trả `Any` (không phải `StreamInfo` cụ thể của thư viện `markitdown`)
+        có chủ đích — package này là optional dependency (chỉ có trong
+        `requirements.ingestion.txt`, không phải venv dev/API/worker mặc
+        định), nên type thật của nó không được import tĩnh ở module này.
+        `object` (kiểu cũ) mypy coi là không tương thích với tham số
+        `stream_info: StreamInfo | None` của `convert_stream()` khi package
+        THẬT được cài (mypy resolve type thật thay vì báo thiếu stub) — lỗi
+        chỉ lộ ra khi cài `markitdown` thật vào venv lúc chạy Task 13 E2E lần
+        đầu, chưa ai bắt được trước đó vì package chưa từng có trong venv dev.
         """
         try:
             # markitdown.MarkItDownStreamInfo or similar class

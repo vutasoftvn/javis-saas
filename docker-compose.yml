@@ -196,6 +196,21 @@ services:
       - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
       - CORS_ORIGINS=${CORS_ORIGINS:-${COSA_ALLOWED_ORIGINS:-http://localhost:3000}}
       - COSA_ALLOWED_ORIGINS=${COSA_ALLOWED_ORIGINS:-${CORS_ORIGINS:-http://localhost:3000}}
+      # Task 13 (plan local-first-enterprise-knowledge) — Vault/knowledge
+      # ingestion fail-closed OFF by default (khớp
+      # apps/cosa/knowledge_ingestion/contracts.py::knowledge_ingestion_enabled()).
+      # Volume này CHỈ mount vào cosa-api/cosa-worker/cosa-ingestion-worker
+      # (Workspace Runtime Node) — TUYỆT ĐỐI KHÔNG mount vào services-cosa/
+      # services-company (Platform Control Plane, ADR-LOCAL-FIRST-001).
+      - KNOWLEDGE_INGESTION_ENABLED=${KNOWLEDGE_INGESTION_ENABLED:-false}
+      - COSA_WORKSPACE_STORAGE_ROOT=/var/lib/cosa/workspace-storage
+    volumes:
+      # rw — cosa-api tự issue ticket + ghi quarantine/vault file
+      # (WorkspaceDocumentStore). Chưa có disk quota/alert threshold tự động
+      # ở compose dev (xem docs/operations/local-knowledge-runbook.md
+      # §"Disk-full") — production PHẢI có OS/container-level enforcement
+      # thật, không chỉ ghi chú ở đây.
+      - cosa_workspace_storage:/var/lib/cosa/workspace-storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -234,6 +249,14 @@ services:
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
       - COSA_WORKER_HEALTH_PORT=${COSA_WORKER_HEALTH_PORT:-8090}
+      - KNOWLEDGE_INGESTION_ENABLED=${KNOWLEDGE_INGESTION_ENABLED:-false}
+      - COSA_WORKSPACE_STORAGE_ROOT=/var/lib/cosa/workspace-storage
+    volumes:
+      # Cùng volume vật lý với cosa-api (đọc/ghi quarantine trong lúc claim +
+      # convert, promote sang vault/ khi publish, xoá vật lý khi purge — Task
+      # 3/5/11). rw vì worker CHÍNH là nơi purge_version()/promote_to_vault()
+      # thật sự chạy.
+      - cosa_workspace_storage:/var/lib/cosa/workspace-storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -284,6 +307,12 @@ services:
       #   KNOWLEDGE_INGESTION_CONVERTER_SPEC    (must equal the pinned spec)
       - KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED=${KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED:-false}
       - KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED=${KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED:-false}
+      - COSA_WORKSPACE_STORAGE_ROOT=/var/lib/cosa/workspace-storage
+    volumes:
+      # ro — converter chỉ ĐỌC content đã quarantine để convert; không có lý
+      # do nghiệp vụ nào để container cô lập này ghi/xoá bất cứ gì trong
+      # storage root (promote/purge là việc của cosa-api/cosa-worker).
+      - cosa_workspace_storage:/var/lib/cosa/workspace-storage:ro
     profiles:
       - cosa
       - knowledge-ingestion
@@ -383,3 +412,8 @@ volumes:
   postgres_data:
   minio_data:
   connector_state:
+  # Task 13 (plan local-first-enterprise-knowledge) — Vault quarantine + vault
+  # object storage cho Workspace Runtime Node. KHÔNG mount vào services-cosa/
+  # services-company (Platform Control Plane) — xem docs/operations/
+  # local-knowledge-runbook.md.
+  cosa_workspace_storage:

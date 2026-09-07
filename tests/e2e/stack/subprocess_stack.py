@@ -115,7 +115,134 @@ def _clean_env(**overrides: str) -> dict[str, str]:
     return env
 
 
-def boot_subprocess_stack(cluster: DisposableCluster) -> StackHandles:
+def _spawn_api_and_worker(
+    cluster: DisposableCluster,
+    *,
+    company_url: str,
+    cosa_url: str,
+    api_url: str,
+    p_api: int,
+    worker_health_url: str,
+    p_worker: int,
+    worker_token: str,
+    extra_py_env: dict[str, str] | None = None,
+) -> tuple[ManagedProc, ManagedProc]:
+    """Tách riêng phần spawn 2 process Python (api + worker) để dùng chung
+    giữa `boot_subprocess_stack()` (boot lần đầu) và `restart_api_and_worker()`
+    (Task 13, plan local-first-enterprise-knowledge — chứng minh durability
+    thật qua restart process, không phải instance thứ hai trong cùng process,
+    xem CLAUDE.md rule 6). `extra_py_env` merge THÊM vào `common_py` — dùng
+    cho `KNOWLEDGE_INGESTION_ENABLED`/`COSA_WORKSPACE_STORAGE_ROOT` khi test
+    cần bật knowledge ingestion, mặc định `None` giữ hành vi cũ nguyên vẹn."""
+    common_py = dict(
+        AGENT_DATABASE_URL=_asyncpg_url(cluster.agent_app_url),
+        COSA_DATABASE_URL=cluster.cosa_app_url,
+        COMPANY_SERVICE_URL=company_url,
+        COSA_CONTROL_PLANE_URL=cosa_url,
+        COSA_PLATFORM_CONTROL_PLANE_URL=cosa_url,
+        COSA_EXECUTION_PLANE_URL=cosa_url,
+        COSA_MODEL_PROVIDER="fake",
+        COSA_WORKER_SERVICE_TOKEN=worker_token,
+        PYTHONPATH=os.pathsep.join(
+            (
+                _REPO_ROOT,
+                os.path.join(_REPO_ROOT, "packages"),
+                os.path.join(_REPO_ROOT, "apps"),
+            )
+        ),
+        **(extra_py_env or {}),
+    )
+
+    api = spawn(
+        "apps_cosa_api",
+        [
+            _PYTHON,
+            "-m",
+            "uvicorn",
+            "apps.cosa.api.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(p_api),
+        ],
+        cwd=_REPO_ROOT,
+        env=_clean_env(**common_py, DEEPSEEK_API_KEY="fake-deepseek-key-for-e2e"),
+    )
+    wait_until_ready("apps_cosa_api", f"{api_url}/healthz", api, timeout_s=_PY_READY_TIMEOUT_S)
+
+    worker_env = _clean_env(
+        **common_py,
+        COSA_WORKER_ID=f"e2e-{cluster.run_id}",
+        COSA_WORKER_HEALTH_PORT=str(p_worker),
+        COSA_WORKER_HEALTH_HOST="127.0.0.1",
+    )
+    worker_env.pop("DEEPSEEK_API_KEY", None)
+    worker = spawn(
+        "apps_cosa_worker",
+        [_PYTHON, "-m", "apps.cosa.worker.main"],
+        cwd=_REPO_ROOT,
+        env=worker_env,
+    )
+    wait_until_ready("apps_cosa_worker", worker_health_url, worker, timeout_s=_PY_READY_TIMEOUT_S)
+
+    return api, worker
+
+
+def restart_api_and_worker(
+    handles: StackHandles,
+    cluster: DisposableCluster,
+    *,
+    extra_py_env: dict[str, str] | None = None,
+) -> StackHandles:
+    """Task 13 — kill THẬT rồi respawn `apps_cosa_api`/`apps_cosa_worker` trên
+    CÙNG port (company/cosa Encore giữ nguyên, không restart — chỉ 2 process
+    Python là mục tiêu chứng minh durability của Workspace Runtime Node).
+    Postgres/local storage không đổi qua lần restart này — nếu 1 upload/
+    document sống sót thì đó là bằng chứng thật (không phải state giữ trong
+    RAM của process cũ)."""
+    from urllib.parse import urlsplit
+
+    p_api = urlsplit(handles.apps_cosa_url).port
+    p_worker = urlsplit(handles.worker_health_url).port
+    if p_api is None or p_worker is None:
+        raise RuntimeError(
+            f"không parse được port từ {handles.apps_cosa_url!r}/{handles.worker_health_url!r}"
+        )
+
+    keep: list[ManagedProc] = []
+    restart_targets: list[ManagedProc] = []
+    for proc in handles.procs:
+        if proc.name in ("apps_cosa_api", "apps_cosa_worker"):
+            restart_targets.append(proc)
+        else:
+            keep.append(proc)
+    terminate_all(restart_targets)
+
+    worker_token = _mint_worker_token(cluster.run_id)
+    api, worker = _spawn_api_and_worker(
+        cluster,
+        company_url=handles.company_url,
+        cosa_url=handles.cosa_url,
+        api_url=handles.apps_cosa_url,
+        p_api=p_api,
+        worker_health_url=handles.worker_health_url,
+        p_worker=p_worker,
+        worker_token=worker_token,
+        extra_py_env=extra_py_env,
+    )
+
+    return StackHandles(
+        handles.company_url,
+        handles.cosa_url,
+        handles.apps_cosa_url,
+        handles.worker_health_url,
+        [*keep, api, worker],
+    )
+
+
+def boot_subprocess_stack(
+    cluster: DisposableCluster, *, extra_py_env: dict[str, str] | None = None
+) -> StackHandles:
     encore = _require_encore()
     p_company, p_cosa, p_api, p_worker = (pick_free_port() for _ in range(4))
     company_url = f"http://127.0.0.1:{p_company}"
@@ -159,68 +286,22 @@ def boot_subprocess_stack(cluster: DisposableCluster) -> StackHandles:
         procs.append(cosa)
         wait_until_ready("cosa", f"{cosa_url}/healthz", cosa, timeout_s=_ENCORE_READY_TIMEOUT_S)
 
-        # Env chung cho 2 process Python — agent DB phải ở scheme asyncpg.
-        common_py = dict(
-            AGENT_DATABASE_URL=_asyncpg_url(cluster.agent_app_url),
-            COSA_DATABASE_URL=cluster.cosa_app_url,
-            COMPANY_SERVICE_URL=company_url,
-            COSA_CONTROL_PLANE_URL=cosa_url,
-            COSA_PLATFORM_CONTROL_PLANE_URL=cosa_url,
-            COSA_EXECUTION_PLANE_URL=cosa_url,
-            COSA_MODEL_PROVIDER="fake",
-            COSA_WORKER_SERVICE_TOKEN=worker_token,
-            # Khớp `pythonpath = [".", "packages", "apps"]` trong pyproject.toml —
-            # `agent`, `agent_testkit` nằm dưới `packages/`, `apps.cosa` dưới root.
-            PYTHONPATH=os.pathsep.join(
-                (
-                    _REPO_ROOT,
-                    os.path.join(_REPO_ROOT, "packages"),
-                    os.path.join(_REPO_ROOT, "apps"),
-                )
-            ),
-        )
-
-        # 3) apps/cosa API — uvicorn import `apps.cosa.api.main:app`.
-        # Lifespan fail ASGI startup nếu thiếu DEEPSEEK_API_KEY, nên set cả key
-        # giả LẪN COSA_MODEL_PROVIDER=fake (key giả không bao giờ được gọi thật).
-        api = spawn(
-            "apps_cosa_api",
-            [
-                _PYTHON,
-                "-m",
-                "uvicorn",
-                "apps.cosa.api.main:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                str(p_api),
-            ],
-            cwd=_REPO_ROOT,
-            env=_clean_env(**common_py, DEEPSEEK_API_KEY="fake-deepseek-key-for-e2e"),
+        # 3+4) apps/cosa API (uvicorn) + worker — factored ra
+        # `_spawn_api_and_worker()` để `restart_api_and_worker()` (Task 13)
+        # dùng chung logic, không lặp lại.
+        api, worker = _spawn_api_and_worker(
+            cluster,
+            company_url=company_url,
+            cosa_url=cosa_url,
+            api_url=api_url,
+            p_api=p_api,
+            worker_health_url=worker_health_url,
+            p_worker=p_worker,
+            worker_token=worker_token,
+            extra_py_env=extra_py_env,
         )
         procs.append(api)
-        wait_until_ready("apps_cosa_api", f"{api_url}/healthz", api, timeout_s=_PY_READY_TIMEOUT_S)
-
-        # 4) worker — `python -m apps.cosa.worker.main`. Worker CHỈ dùng
-        # FakeSDKModel khi DEEPSEEK_API_KEY UNSET (không đọc COSA_MODEL_PROVIDER),
-        # nên phải pop key khỏi env con dù parent shell có set.
-        worker_env = _clean_env(
-            **common_py,
-            COSA_WORKER_ID=f"e2e-{cluster.run_id}",
-            COSA_WORKER_HEALTH_PORT=str(p_worker),
-            COSA_WORKER_HEALTH_HOST="127.0.0.1",
-        )
-        worker_env.pop("DEEPSEEK_API_KEY", None)
-        worker = spawn(
-            "apps_cosa_worker",
-            [_PYTHON, "-m", "apps.cosa.worker.main"],
-            cwd=_REPO_ROOT,
-            env=worker_env,
-        )
         procs.append(worker)
-        wait_until_ready(
-            "apps_cosa_worker", worker_health_url, worker, timeout_s=_PY_READY_TIMEOUT_S
-        )
 
         return StackHandles(company_url, cosa_url, api_url, worker_health_url, procs)
     except Exception:
