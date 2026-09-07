@@ -259,23 +259,36 @@ export async function generateReportService(
     );
   }
 
-  if (input.expectedPeriodVersion !== undefined) {
-    const [period] = await db
-      .select({ id: accountingPeriods.id, version: accountingPeriods.version })
-      .from(accountingPeriods)
-      .where(
-        and(
-          eq(accountingPeriods.id, BigInt(input.periodId)),
-          eq(accountingPeriods.workspaceId, BigInt(ctx.workspaceId))
-        )
+  // Kiểm tra kỳ LUÔN chạy, không chỉ khi caller gửi expectedPeriodVersion.
+  // Trước đây một cặp (periodId, legalEntityId) lệch nhau lặng lẽ trả về 0
+  // book entry -> báo cáo toàn số 0 trông y hệt báo cáo thật. Không phải rò
+  // rỉ cross-tenant (workspaceId vẫn được lọc đúng ở downstream) nhưng là dữ
+  // liệu vô nghĩa gây hiểu nhầm — chặn thẳng ở đây.
+  const [period] = await db
+    .select({
+      id: accountingPeriods.id,
+      legalEntityId: accountingPeriods.legalEntityId,
+      version: accountingPeriods.version,
+    })
+    .from(accountingPeriods)
+    .where(
+      and(
+        eq(accountingPeriods.id, BigInt(input.periodId)),
+        eq(accountingPeriods.workspaceId, BigInt(ctx.workspaceId))
       )
-      .limit(1);
-    if (!period) throw APIError.notFound(`accounting period ${input.periodId} not found`);
-    if (period.version !== input.expectedPeriodVersion) {
-      throw APIError.aborted(
-        `VERSION_CONFLICT: expected period version ${input.expectedPeriodVersion} but current is ${period.version}`
-      );
-    }
+    )
+    .limit(1);
+  if (!period) throw APIError.notFound(`accounting period ${input.periodId} not found`);
+  if (period.legalEntityId !== null && String(period.legalEntityId) !== input.legalEntityId) {
+    throw APIError.invalidArgument(
+      `period ${input.periodId} belongs to a different legal entity than ${input.legalEntityId}`
+    );
+  }
+
+  if (input.expectedPeriodVersion !== undefined && period.version !== input.expectedPeriodVersion) {
+    throw APIError.aborted(
+      `VERSION_CONFLICT: expected period version ${input.expectedPeriodVersion} but current is ${period.version}`
+    );
   }
 
   await ensureMappingSeeded(mapping);

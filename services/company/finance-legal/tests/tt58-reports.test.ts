@@ -262,6 +262,65 @@ describe("F5 — TT58 report generation (fixture-based)", () => {
     ).rejects.toThrow(/PERIOD_CLOSED/);
   });
 
+  it("rejects generate when the period belongs to a different legal entity", async () => {
+    // Trước đây cặp (periodId, legalEntityId) lệch nhau chỉ lặng lẽ trả về 0
+    // book entry -> báo cáo toàn số 0 trông như báo cáo thật.
+    const session = await createTestSession({ role: "founder", displayName: "TT58 Entity Mismatch Ws" });
+    const authorization = `Bearer ${session.accessToken}`;
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    const entityA = await createLegalEntityProfile({
+      workspaceId: BigInt(session.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+    const entityB = await createLegalEntityProfile({
+      workspaceId: BigInt(session.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+    const periodA = await openAccountingPeriodService(
+      {
+        workspaceId: session.workspaceId,
+        legalEntityId: entityA.id,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+      authorization
+    );
+
+    await expect(
+      generateReportService(ctx, {
+        legalEntityId: entityB.id,
+        periodId: periodA.id,
+        reportCode: "B01",
+      })
+    ).rejects.toThrow(/belongs to a different legal entity/);
+
+    // Đúng cặp entity/period thì vẫn chạy bình thường.
+    const ok = await generateReportService(ctx, {
+      legalEntityId: entityA.id,
+      periodId: periodA.id,
+      reportCode: "B01",
+    });
+    expect(ok.periodId).toBe(periodA.id);
+  });
+
+  it("rejects generate for a period id that does not exist in this workspace", async () => {
+    const session = await createTestSession({ role: "founder", displayName: "TT58 Unknown Period Ws" });
+    const authorization = `Bearer ${session.accessToken}`;
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    const entity = await createLegalEntityProfile({
+      workspaceId: BigInt(session.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+
+    await expect(
+      generateReportService(ctx, {
+        legalEntityId: entity.id,
+        periodId: "999999999999999",
+        reportCode: "B01",
+      })
+    ).rejects.toThrow(/not found/);
+  });
+
   it("rejects generate with a stale expectedPeriodVersion (VERSION_CONFLICT)", async () => {
     const session = await createTestSession({ role: "founder", displayName: "TT58 CAS Ws" });
     const authorization = `Bearer ${session.accessToken}`;
