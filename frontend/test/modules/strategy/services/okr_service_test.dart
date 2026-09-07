@@ -65,7 +65,9 @@ void main() {
     });
 
     test('getOkrCycles returns failure on 500 error', () async {
-      ApiClient.client = MockClient((request) async => http.Response('server error', 500));
+      ApiClient.client = MockClient(
+        (request) async => http.Response('server error', 500),
+      );
 
       final result = await OkrService().getOkrCycles();
 
@@ -76,7 +78,11 @@ void main() {
 
     test('getOkrCycles returns failure on malformed JSON', () async {
       ApiClient.client = MockClient(
-        (request) async => http.Response('not json', 200, headers: {'content-type': 'application/json'}),
+        (request) async => http.Response(
+          'not json',
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
       );
 
       final result = await OkrService().getOkrCycles();
@@ -86,7 +92,9 @@ void main() {
     });
 
     test('getOkrCycles returns failure on network error', () async {
-      ApiClient.client = MockClient((_) async => throw const SocketException('offline'));
+      ApiClient.client = MockClient(
+        (_) async => throw const SocketException('offline'),
+      );
 
       final result = await OkrService().getOkrCycles();
 
@@ -191,7 +199,9 @@ void main() {
     });
 
     test('getObjectives returns failure on 500', () async {
-      ApiClient.client = MockClient((request) async => http.Response('server error', 500));
+      ApiClient.client = MockClient(
+        (request) async => http.Response('server error', 500),
+      );
 
       final result = await OkrService().getObjectives();
 
@@ -232,23 +242,26 @@ void main() {
       expect(obj['towsOptionId'], 'tows-opt-1');
     });
 
-    test('publishObjective calls POST /operations/objectives/:id/publish', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(request.url.path, '/operations/objectives/obj-1/publish');
-        return http.Response(
-          jsonEncode({
-            'id': 'obj-1',
-            'status': 'PUBLISHED',
-            'publishedByMemberId': 'member-1',
-          }),
-          200,
-        );
-      });
+    test(
+      'publishObjective calls POST /operations/objectives/:id/publish',
+      () async {
+        ApiClient.client = MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/operations/objectives/obj-1/publish');
+          return http.Response(
+            jsonEncode({
+              'id': 'obj-1',
+              'status': 'PUBLISHED',
+              'publishedByMemberId': 'member-1',
+            }),
+            200,
+          );
+        });
 
-      final published = await OkrService().publishObjective('obj-1');
-      expect(published['status'], 'PUBLISHED');
-    });
+        final published = await OkrService().publishObjective('obj-1');
+        expect(published['status'], 'PUBLISHED');
+      },
+    );
 
     test('createObjective omits empty optional fields from body', () async {
       ApiClient.client = MockClient((request) async {
@@ -270,7 +283,10 @@ void main() {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'PUT');
         expect(request.url.path, '/operations/objectives/obj-1');
-        return http.Response(jsonEncode({'id': 'obj-1', 'title': 'Updated'}), 200);
+        return http.Response(
+          jsonEncode({'id': 'obj-1', 'title': 'Updated'}),
+          200,
+        );
       });
 
       final obj = await OkrService().updateObjective('obj-1', title: 'Updated');
@@ -310,37 +326,40 @@ void main() {
       expect(result.isUnavailable, isFalse);
     });
 
-    test('createKeyResult posts with defaults for numeric fields to objective route', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(request.url.path, '/operations/objectives/obj-1/key-results');
-        final body = jsonDecode(request.body);
-        expect(body['objectiveId'], 'obj-1');
-        expect(body['baselineValue'], 0);
-        expect(body['targetValue'], 100);
-        expect(body['scoringType'], 'LINEAR_INCREASE');
-        expect(body['unit'], '%');
-        return http.Response(jsonEncode({'id': 'kr-1'}), 200);
-      });
+    test(
+      'createKeyResult posts with defaults for numeric fields to objective route',
+      () async {
+        ApiClient.client = MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/operations/objectives/obj-1/key-results');
+          final body = jsonDecode(request.body);
+          expect(body['objectiveId'], 'obj-1');
+          expect(body['baselineValue'], 0);
+          expect(body['targetValue'], 100);
+          expect(body['scoringType'], 'LINEAR_INCREASE');
+          expect(body['unit'], '%');
+          return http.Response(jsonEncode({'id': 'kr-1'}), 200);
+        });
 
-      await OkrService().createKeyResult(objectiveId: 'obj-1');
-    });
+        await OkrService().createKeyResult(objectiveId: 'obj-1');
+      },
+    );
 
     test('createKeyResult allows custom values for numeric fields', () async {
       ApiClient.client = MockClient((request) async {
         final body = jsonDecode(request.body);
-        expect(body['baselineValue'], 500);
+        expect(body['baselineValue'], 12.5);
         expect(body['currentValue'], 600.0);
-        expect(body['targetValue'], 1000);
+        expect(body['targetValue'], 99.9);
         expect(body['unit'], 'users');
         return http.Response(jsonEncode({'id': 'kr-2'}), 200);
       });
 
       await OkrService().createKeyResult(
         objectiveId: 'obj-1',
-        baselineValue: 500.0,
+        baselineValue: 12.5,
         currentValue: 600.0,
-        targetValue: 1000.0,
+        targetValue: 99.9,
         unit: 'users',
       );
     });
@@ -351,10 +370,16 @@ void main() {
         expect(request.url.path, '/operations/key-results/kr-1');
         final body = jsonDecode(request.body);
         expect(body['currentValue'], 750.0);
-        return http.Response(jsonEncode({'id': 'kr-1', 'currentValue': 750.0}), 200);
+        return http.Response(
+          jsonEncode({'id': 'kr-1', 'currentValue': 750.0}),
+          200,
+        );
       });
 
-      final kr = await OkrService().updateKeyResult('kr-1', currentValue: 750.0);
+      final kr = await OkrService().updateKeyResult(
+        'kr-1',
+        currentValue: 750.0,
+      );
 
       expect(kr['currentValue'], 750.0);
     });
@@ -371,16 +396,19 @@ void main() {
   });
 
   group('AI OKR Generation', () {
-    test('generateAiOkrs fails closed while no governed backend capability exists', () async {
-      ApiClient.client = MockClient((request) async {
-        fail('AI generation must not call an undeclared backend endpoint');
-      });
+    test(
+      'generateAiOkrs fails closed while no governed backend capability exists',
+      () async {
+        ApiClient.client = MockClient((request) async {
+          fail('AI generation must not call an undeclared backend endpoint');
+        });
 
-      expect(
-        () => OkrService().generateAiOkrs(),
-        throwsA(isA<UnsupportedError>()),
-      );
-    });
+        expect(
+          () => OkrService().generateAiOkrs(),
+          throwsA(isA<UnsupportedError>()),
+        );
+      },
+    );
   });
 
   group('Error Handling', () {
@@ -403,19 +431,25 @@ void main() {
       );
     });
 
-    test('decode falls back to status code message on malformed error response', () async {
-      ApiClient.client = MockClient((request) async {
-        return http.Response('plain text error', 500);
-      });
+    test(
+      'decode falls back to status code message on malformed error response',
+      () async {
+        ApiClient.client = MockClient((request) async {
+          return http.Response('plain text error', 500);
+        });
 
-      expect(
-        () => OkrService().createObjective(title: 'Test'),
-        throwsA(
-          isA<StrategyApiException>()
-              .having((e) => e.message, 'message', contains('500')),
-        ),
-      );
-    });
+        expect(
+          () => OkrService().createObjective(title: 'Test'),
+          throwsA(
+            isA<StrategyApiException>().having(
+              (e) => e.message,
+              'message',
+              contains('500'),
+            ),
+          ),
+        );
+      },
+    );
 
     test('decodeList returns failure on missing workspace_id', () async {
       SharedPreferences.setMockInitialValues({});

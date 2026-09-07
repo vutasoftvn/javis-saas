@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/shell/app_shell_controller.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  late http.Client originalClient;
+
   setUp(() {
     Get.reset();
     Get.testMode = true;
+    originalClient = ApiClient.client;
+    ApiClient.client = MockClient((_) async => http.Response('{}', 200));
     AppShellController.ensureShellDependencies();
+  });
+
+  tearDown(() {
+    ApiClient.client = originalClient;
+    Get.reset();
   });
 
   testWidgets('tapping the menu icon opens a module list with OKRs entry', (

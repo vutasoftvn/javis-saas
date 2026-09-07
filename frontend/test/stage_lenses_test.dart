@@ -7,7 +7,10 @@ import 'package:frontend/modules/hologram_hub/widgets/lenses/bsc_scorecard_widge
 void main() {
   group('COSA Strategy Lenses Models Test', () {
     test('PestelDimension enum & parsing', () {
-      expect(PestelDimension.fromString('technological'), PestelDimension.technological);
+      expect(
+        PestelDimension.fromString('technological'),
+        PestelDimension.technological,
+      );
       expect(PestelDimension.fromString('economic'), PestelDimension.economic);
       expect(PestelDimension.technological.labelVi, contains('Công nghệ'));
     });
@@ -45,7 +48,7 @@ void main() {
             'time_horizon': 'short_term',
             'stage_captured': 'S1_PROBLEM_VALIDATION',
             'created_at': '2026-08-18T10:00:00Z',
-          }
+          },
         ],
         'swot_items': [
           {
@@ -58,7 +61,7 @@ void main() {
             'evidence_status': 'verified',
             'evidence_refs': [501],
             'created_at': '2026-08-18T10:00:00Z',
-          }
+          },
         ],
         'tows_options': [
           {
@@ -77,10 +80,10 @@ void main() {
                 'week_number': 1,
                 'title': 'Beta test',
                 'lead_indicator': '50 user feedback',
-              }
+              },
             ],
             'created_at': '2026-08-18T10:00:00Z',
-          }
+          },
         ],
         'bsc_goals': [],
       };
@@ -97,52 +100,65 @@ void main() {
   });
 
   group('COSA Strategy Lenses Widgets Test', () {
-    testWidgets('BscScorecardWidget shows locked state when isUnlocked is false', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: BscScorecardWidget(
-              isUnlocked: false,
-              currentStage: 'Xác thực nỗi đau',
-              bscGoals: const [],
-              onCreateGoal: (_, _, _, _, _) {},
+    testWidgets(
+      'BscScorecardWidget shows locked state when isUnlocked is false',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: BscScorecardWidget(
+                isUnlocked: false,
+                currentStage: 'Xác thực nỗi đau',
+                bscGoals: const [],
+                onCreateGoal: (_, _, _, _, _) {},
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('Balanced Scorecard (BSC) Đang Khóa'), findsOneWidget);
-      expect(find.textContaining('chỉ mở khóa từ S5'), findsOneWidget);
-    });
+        expect(find.byKey(const Key('bsc_locked_container')), findsOneWidget);
+        expect(
+          find.text('Thẻ điểm Cân bằng BSC (Balanced Scorecard)'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('Các chỉ số sẽ tự động đồng bộ'),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('SwotEvidenceGridWidget renders 4 quadrants and evidence info', (WidgetTester tester) async {
-      final swot = SwotItemModel(
-        id: 20,
-        workspaceId: 1001,
-        projectId: 2001,
-        category: SwotType.strength,
-        statement: 'Tốc độ thực thi AI nhanh',
-        importance: 0.85,
-        evidenceStatus: 'verified',
-        evidenceRefs: [501, 502],
-        createdAt: DateTime.now(),
-      );
+    testWidgets(
+      'SwotEvidenceGridWidget renders 4 quadrants and evidence info',
+      (WidgetTester tester) async {
+        final swot = SwotItemModel(
+          id: 20,
+          workspaceId: 1001,
+          projectId: 2001,
+          category: SwotType.strength,
+          statement: 'Tốc độ thực thi AI nhanh',
+          importance: 0.85,
+          evidenceStatus: 'verified',
+          evidenceRefs: [501, 502],
+          createdAt: DateTime.now(),
+        );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SwotEvidenceGridWidget(
-              swotItems: [swot],
-              evidences: const [],
-              onCreateSwotItem: (_, _, _, _) {},
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SwotEvidenceGridWidget(
+                swotItems: [swot],
+                evidences: const [],
+                onCreateSwotItem: (_, _, _, _) {},
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('Điểm Mạnh (S)'), findsOneWidget);
-      expect(find.text('Tốc độ thực thi AI nhanh'), findsOneWidget);
-      expect(find.text('2 Bằng Chứng'), findsOneWidget);
-    });
+        expect(find.text('Điểm Mạnh (S)'), findsOneWidget);
+        expect(find.text('Tốc độ thực thi AI nhanh'), findsOneWidget);
+        expect(find.text('2 Bằng Chứng'), findsOneWidget);
+      },
+    );
   });
 }

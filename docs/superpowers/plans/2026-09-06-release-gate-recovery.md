@@ -288,7 +288,8 @@ git commit -m "fix(strategy): align frontend routes with MVP contract"
 
 **Files:**
 - Modify: frontend/lib/modules/strategy/services/okr_service.dart:183-209
-- Modify: frontend/test/strategy_service_test.dart:164-174
+- Modify: frontend/lib/modules/strategy/controllers/mixins/okr_state_mixin.dart
+- Modify: frontend/test/modules/strategy/services/okr_service_test.dart:329-348
 - Modify: frontend/test/stage_lenses_test.dart:100-116
 - Modify: frontend/test/modules/hologram_hub/hologram_hub_view_module_switcher_test.dart:16-42
 
@@ -296,7 +297,7 @@ git commit -m "fix(strategy): align frontend routes with MVP contract"
 - Consumes: baselineValue and targetValue as Dart double.
 - Produces: decimal request body, stable BSC assertion, deterministic module-switcher test.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ~~~
 expect(body['baselineValue'], 12.5);
@@ -306,20 +307,20 @@ expect(body['unit'], '%');
 
 Call createKeyResult with baselineValue: 12.5 and targetValue: 99.9.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: cd frontend && flutter test test/strategy_service_test.dart
 
 Expected: fail because .toInt() sends 12 and 99.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ~~~
 'targetValue': targetValue ?? 100.0,
 'baselineValue': baselineValue ?? 0.0,
 ~~~
 
-- [ ] **Step 4: Update widget assertions and test transport**
+- [x] **Step 4: Update widget assertions and test transport**
 
 ~~~
 expect(find.byKey(const Key('bsc_locked_container')), findsOneWidget);
@@ -328,13 +329,13 @@ expect(find.text('Thẻ điểm Cân bằng BSC (Balanced Scorecard)'), findsOne
 
 In the module-switcher test, set a fake ApiClient.client in setUp and restore it in tearDown. The test must not call the network or wait for an infinite loading animation.
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
-Run: cd frontend && flutter test test/strategy_service_test.dart test/stage_lenses_test.dart test/modules/hologram_hub/hologram_hub_view_module_switcher_test.dart && flutter analyze
+Run: cd frontend && flutter test test/modules/strategy/services/okr_service_test.dart test/stage_lenses_test.dart test/modules/hologram_hub/hologram_hub_view_module_switcher_test.dart && flutter analyze --no-pub
 
 Expected: three files pass independently and analyzer has no issue.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ~~~
 git add frontend/lib/modules/strategy/services/okr_service.dart frontend/test/strategy_service_test.dart frontend/test/stage_lenses_test.dart frontend/test/modules/hologram_hub/hologram_hub_view_module_switcher_test.dart

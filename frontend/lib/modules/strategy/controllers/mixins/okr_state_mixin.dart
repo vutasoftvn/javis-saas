@@ -22,8 +22,9 @@ mixin OkrStateMixin on GetxController {
     await runGuarded(() async {
       final cyclesResult = await strategyService.getOkrCycles();
       okrCycles.value = cyclesResult.items;
-      if (cyclesResult.errorMessage != null)
+      if (cyclesResult.errorMessage != null) {
         errorMessage.value = cyclesResult.errorMessage;
+      }
       if (cyclesResult.items.isNotEmpty && selectedCycleId.value == null) {
         selectedCycleId.value = cyclesResult.items.first['id']?.toString();
       }
@@ -32,13 +33,15 @@ mixin OkrStateMixin on GetxController {
         cycleId: selectedCycleId.value,
       );
       objectives.value = objsResult.items;
-      if (objsResult.errorMessage != null)
+      if (objsResult.errorMessage != null) {
         errorMessage.value = objsResult.errorMessage;
+      }
 
       final krsResult = await strategyService.getKeyResults();
       keyResults.value = krsResult.items;
-      if (krsResult.errorMessage != null)
+      if (krsResult.errorMessage != null) {
         errorMessage.value = krsResult.errorMessage;
+      }
     });
   }
 

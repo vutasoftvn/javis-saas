@@ -241,8 +241,8 @@ class OkrService extends StrategyServiceBase {
       body: {
         'objectiveId': objectiveId,
         'title': title ?? '',
-        'targetValue': (targetValue ?? 100.0).toInt(),
-        'baselineValue': (baselineValue ?? 0.0).toInt(),
+        'targetValue': targetValue ?? 100.0,
+        'baselineValue': baselineValue ?? 0.0,
         'scoringType': scoringType ?? 'LINEAR_INCREASE',
         'unit': unit ?? '%',
         'currentValue': ?currentValue,
