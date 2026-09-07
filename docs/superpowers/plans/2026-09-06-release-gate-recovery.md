@@ -487,12 +487,14 @@ Run: cd services/cosa && env -u COSA_MIGRATOR_DATABASE_URL node scripts/migrate.
 
 Expected: contract test passes; missing URL fails clearly without database write.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ~~~
 git add services/cosa/scripts/migrate.mjs Makefile tests/db_baseline_candidate/test_dev_bootstrap_contract.py
 git commit -m "fix(cosa): preflight pending migrations before service tests"
 ~~~
+
+Đã commit tại `55344db2` (commit cũng đã cập nhật checkbox Step 1-5 nhưng bỏ sót Step 6 này — bổ sung lại đúng thực tế).
 
 ### Task 8: Xác minh release gates theo dependency order
 
