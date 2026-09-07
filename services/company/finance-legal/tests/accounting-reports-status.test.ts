@@ -47,32 +47,14 @@ describe("accounting-reports.service — computeReportStatus", () => {
     expect(requireDerivedLineKind("net_profit_after_tax")).toBe("net_profit_after_tax");
   });
 
-  it("is INCOMPLETE when a required bucket has no covering line", () => {
-    const result = computeReportStatus({
-      requiredBuckets: ["cash", "receivable", "loan", "capital", "revenue"],
-      coveredBuckets: ["cash", "receivable"],
-      mappingConfirmed: true,
-    });
-    expect(result.status).toBe("INCOMPLETE");
-    expect(result.issues).toContain("missing_mapping_for_bucket:loan");
-  });
-
-  it("is INCOMPLETE when mapping is not founder-confirmed even if all buckets covered", () => {
-    const result = computeReportStatus({
-      requiredBuckets: ["cash"],
-      coveredBuckets: ["cash"],
-      mappingConfirmed: false,
-    });
+  it("is INCOMPLETE when mapping is not founder-confirmed", () => {
+    const result = computeReportStatus({ mappingConfirmed: false });
     expect(result.status).toBe("INCOMPLETE");
     expect(result.issues).toContain("mapping_not_confirmed_by_founder");
   });
 
-  it("is VERIFIED when all buckets covered and mapping confirmed", () => {
-    const result = computeReportStatus({
-      requiredBuckets: ["cash"],
-      coveredBuckets: ["cash"],
-      mappingConfirmed: true,
-    });
+  it("is VERIFIED once the founder has confirmed the mapping", () => {
+    const result = computeReportStatus({ mappingConfirmed: true });
     expect(result.status).toBe("VERIFIED");
     expect(result.issues).toEqual([]);
   });

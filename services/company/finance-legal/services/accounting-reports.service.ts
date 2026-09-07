@@ -95,8 +95,6 @@ export async function ensureMappingSeeded(mapping: RegimeMapping = TT58_2026_MAP
 }
 
 export interface ReportStatusInput {
-  requiredBuckets: LedgerBucket[];
-  coveredBuckets: LedgerBucket[];
   mappingConfirmed: boolean;
 }
 
@@ -145,15 +143,22 @@ export function requireDerivedLineKind(value: string | null): DerivedLineKind {
   }
 }
 
+/**
+ * VERIFIED chỉ phụ thuộc việc founder đã xác nhận mapping hay chưa.
+ *
+ * Trước đây hàm này còn đối chiếu "bucket bắt buộc" (suy ra từ chính các dòng
+ * mapping do code seed) với "bucket đã có giao dịch", rồi bắn
+ * `missing_mapping_for_bucket:*`. Cách đó đánh đồng hai chuyện khác hẳn nhau:
+ * "cấu hình mapping còn thiếu" (vấn đề thật) và "doanh nghiệp này hợp lệ khi
+ * không có giao dịch nào ở bucket đó" (trạng thái bình thường). Hệ quả: mọi
+ * doanh nghiệp thuần dịch vụ — phần lớn doanh nghiệp siêu nhỏ VN — không bao
+ * giờ có giao dịch `inventory`/`cogs`, nên B01/B02 vĩnh viễn INCOMPLETE dù dữ
+ * liệu hoàn toàn đầy đủ và chính xác. Issue của dòng derived (ví dụ
+ * `corporate_income_tax_rate_not_configured`) là chuyện riêng, vẫn được
+ * `generateReportService` gộp vào sau khi gọi hàm này.
+ */
 export function computeReportStatus(input: ReportStatusInput): ReportStatusResult {
   const issues: string[] = [];
-  const covered = new Set(input.coveredBuckets);
-
-  for (const bucket of input.requiredBuckets) {
-    if (!covered.has(bucket)) {
-      issues.push(`missing_mapping_for_bucket:${bucket}`);
-    }
-  }
 
   if (!input.mappingConfirmed) {
     issues.push("mapping_not_confirmed_by_founder");
@@ -339,16 +344,7 @@ export async function generateReportService(
     };
   });
 
-  const requiredBuckets = mappingLines
-    .filter((row) => !row.derivedKind)
-    .map((row) => requireReportMappingBucket(row.bucket));
-  const coveredBuckets = requiredBuckets.filter((bucket) => bucketTotals.has(bucket));
-
-  const { status, issues } = computeReportStatus({
-    requiredBuckets,
-    coveredBuckets,
-    mappingConfirmed: Boolean(confirmation),
-  });
+  const { status, issues } = computeReportStatus({ mappingConfirmed: Boolean(confirmation) });
   for (const issue of derivedIssues) issues.push(issue);
   const finalStatus = issues.length === 0 ? status : "INCOMPLETE";
 

@@ -6,6 +6,7 @@ import { resolveTenantContext } from "../../identity/services/tenant-context.ser
 import { createFiscalProfileService } from "../services/accounting-regime.service";
 import { openAccountingPeriodService, closeAccountingPeriodService } from "../services/accounting-period.service";
 import { createBookEntryService } from "../services/accounting-books.service";
+import { setAccountingPolicyService } from "../services/accounting-policy.service";
 import { generateReportService, confirmMappingService } from "../services/accounting-reports.service";
 import { TT58_2026_MAPPING } from "../services/accounting-mapping";
 
@@ -68,15 +69,16 @@ describe("F5 — TT58 report generation (fixture-based)", () => {
       periodId: period.id,
       reportCode: "B01",
     });
-    // Fixture này không có entry nào chạm bucket "inventory" (không có
-    // cogs/inventory_purchase) và không cấu hình accounting-policy thuế
-    // TNDN cho legal entity — nên report vẫn INCOMPLETE dù mapping đã được
-    // founder xác nhận: thiếu coverage cho TON_KHO (bucket "inventory", B01)
-    // và chưa cấu hình thuế suất cho dòng derived LOI_NHUAN_GIU_LAI. Đây là
-    // hệ quả đúng của mapping mở rộng ở Task 3 (thêm TON_KHO), không phải
-    // regression — không ép report này lên VERIFIED.
+    // Fixture này không cấu hình accounting-policy thuế TNDN cho legal
+    // entity — nên report vẫn INCOMPLETE dù mapping đã được founder xác
+    // nhận: dòng derived LOI_NHUAN_GIU_LAI thiếu thuế suất.
+    //
+    // Việc fixture không có entry nào chạm bucket "inventory" KHÔNG còn là
+    // issue: coverage theo bucket đã bị gỡ khỏi việc gán status (xem
+    // computeReportStatus) vì nó đánh đồng "mapping thiếu cấu hình" với
+    // "doanh nghiệp hợp lệ khi không có giao dịch ở bucket đó".
     expect(report.status).toBe("INCOMPLETE");
-    expect(report.issues).toEqual(["missing_mapping_for_bucket:inventory", "corporate_income_tax_rate_not_configured"]);
+    expect(report.issues).toEqual(["corporate_income_tax_rate_not_configured"]);
 
     const byLineCode = Object.fromEntries(report.lines.map((l) => [l.lineCode, l.amountMinor]));
     expect(byLineCode["TS"]).toBe(fixture.expected.cashMinor);
@@ -95,12 +97,11 @@ describe("F5 — TT58 report generation (fixture-based)", () => {
       periodId: period.id,
       reportCode: "B02",
     });
-    // B02 cũng INCOMPLETE cùng lý do: GIA_VON cần bucket "cogs" nhưng
-    // fixture không có entry category "cogs" nào -> thiếu coverage; cộng
-    // thêm issue thuế suất chưa cấu hình (derived lines dùng chung
-    // bucketTotals/taxRateBps với B01).
+    // B02 INCOMPLETE cùng một lý do duy nhất với B01: thuế suất chưa cấu
+    // hình (derived lines dùng chung bucketTotals/taxRateBps với B01).
+    // Việc fixture không có entry category "cogs" không còn sinh issue.
     expect(b02.status).toBe("INCOMPLETE");
-    expect(b02.issues).toEqual(["missing_mapping_for_bucket:cogs", "corporate_income_tax_rate_not_configured"]);
+    expect(b02.issues).toEqual(["corporate_income_tax_rate_not_configured"]);
 
     const b02ByLineCode = Object.fromEntries(b02.lines.map((l) => [l.lineCode, l.amountMinor]));
     // Doanh thu thuần = tổng bucket "revenue" (chỉ 1 entry doanh thu dịch vụ).
@@ -131,6 +132,79 @@ describe("F5 — TT58 report generation (fixture-based)", () => {
 
     expect(assetsMinor).toBe(BigInt(fixture.expected.assetsMinor));
     expect(assetsMinor).toBe(liabilitiesMinor + equityMinor);
+  });
+
+  it("reaches VERIFIED for a pure-service business that never touches inventory/cogs", async () => {
+    // Đây là kịch bản lõi mà việc gỡ bucket-coverage khỏi status tồn tại để
+    // sửa: doanh nghiệp thuần dịch vụ (phần lớn doanh nghiệp siêu nhỏ VN)
+    // không bao giờ có giao dịch inventory/cogs. Trước đây B01/B02 vĩnh viễn
+    // INCOMPLETE với `missing_mapping_for_bucket:inventory`/`:cogs` dù dữ
+    // liệu đầy đủ và founder đã xác nhận mapping.
+    const session = await createTestSession({ role: "founder", displayName: "TT58 Service-Only Ws" });
+    const authorization = `Bearer ${session.accessToken}`;
+    const ctx = await resolveTenantContext({ authorization, workspaceId: session.workspaceId });
+    const entity = await createLegalEntityProfile({
+      workspaceId: BigInt(session.workspaceId),
+      entityType: "MICRO_ENTERPRISE",
+    });
+    const period = await openAccountingPeriodService(
+      {
+        workspaceId: session.workspaceId,
+        legalEntityId: entity.id,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+      authorization
+    );
+
+    // Chỉ doanh thu dịch vụ + chi phí hoạt động — không hề có cogs hay
+    // inventory_purchase.
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      item: "Doanh thu dịch vụ tư vấn",
+      category: "revenue",
+      amountMinor: "30000000",
+      effectiveDate: "2026-02-01",
+      source: "test:service-only",
+    });
+    await createBookEntryService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      item: "Chi phí vận hành",
+      category: "opex",
+      amountMinor: "10000000",
+      effectiveDate: "2026-02-02",
+      source: "test:service-only",
+    });
+
+    // Cấu hình thuế suất -> loại bỏ issue của dòng derived; xác nhận mapping
+    // -> loại bỏ issue xác nhận. Không còn issue nào khác được phép tồn tại.
+    await setAccountingPolicyService(ctx, { legalEntityId: entity.id, corporateIncomeTaxRateBps: 2000 });
+    await confirmMappingService(ctx, TT58_2026_MAPPING.regimeCode, TT58_2026_MAPPING.mappingVersion);
+
+    const b01 = await generateReportService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      reportCode: "B01",
+    });
+    expect(b01.issues).toEqual([]);
+    expect(b01.status).toBe("VERIFIED");
+
+    const b02 = await generateReportService(ctx, {
+      legalEntityId: entity.id,
+      periodId: period.id,
+      reportCode: "B02",
+    });
+    expect(b02.issues).toEqual([]);
+    expect(b02.status).toBe("VERIFIED");
+
+    // Dòng tồn kho/giá vốn vẫn hiện diện với giá trị 0 — báo cáo đầy đủ dòng
+    // theo mapping, chỉ là không có số liệu, đúng bản chất doanh nghiệp dịch vụ.
+    const b01ByLineCode = Object.fromEntries(b01.lines.map((l) => [l.lineCode, l.amountMinor]));
+    expect(b01ByLineCode["TON_KHO"]).toBe("0");
+    const b02ByLineCode = Object.fromEntries(b02.lines.map((l) => [l.lineCode, l.amountMinor]));
+    expect(b02ByLineCode["GIA_VON"]).toBe("0");
   });
 
   it("keeps the same input_watermark when regenerating with unchanged inputs, even after the period is closed", async () => {
