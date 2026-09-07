@@ -27,12 +27,27 @@ cho phạm vi đó (2 tính năng độc lập, đừng trộn lẫn thủ tục
   xuống fallback. Đừng nhầm đây là "auto-failover request đang chạy" — nó là
   "route tiếp theo dùng provider khác", xem
   `tests/e2e/test_workspace_model_routing.py::test_quota_exhausted_primary_falls_over_to_approved_fallback_only`.
-- **Compliance luôn resolve TRƯỚC khi model route được chạm tới.**
-  `apps/cosa/worker/run_core.py::prepare_request()` gọi
-  `compliance_resolver.resolve_for_run()` và raise `RunCoreError("compliance_denied")`
-  ngay khi bị từ chối — `run_kernel()` (nơi resolve route + build model client,
-  kể cả spawn subprocess CLI) chỉ được gọi SAU khi compliance đã approve.
-  Không có code path nào gọi model route resolution trước compliance.
+- **Compliance gate là ở CẤP RUN, không phải cấp từng provider.**
+  `ComplianceResolver.resolve_for_run()` quyết định approve/deny dựa trên
+  workspace/spec/capabilities của run — nó KHÔNG nhìn thấy provider/route đã
+  resolve ra sao (route còn chưa được resolve tại thời điểm compliance chạy).
+  Đảm bảo thật sự có là: **route resolution + model invocation (kể cả spawn
+  subprocess CLI) luôn nằm SAU compliance approval trên đường chạy run chính**
+  — `apps/cosa/worker/run_core.py::prepare_request()` gọi
+  `compliance_resolver.resolve_for_run()` và raise
+  `RunCoreError("compliance_denied")` ngay khi bị từ chối; `run_kernel()` (nơi
+  resolve route + build model client) chỉ được gọi SAU khi compliance đã
+  approve. Không có code path nào gọi model route resolution trước compliance
+  **trên đường chạy run chính** — nhưng đây KHÔNG có nghĩa "mỗi provider được
+  compliance kiểm tra riêng"; đó là 1 khẳng định khác, sai, và runbook trước
+  đây từng phát biểu quá mức theo hướng đó.
+  **Ngoại lệ đã biết, có chủ đích:** `POST /agent/settings/model-providers/
+  :profileId/test` (endpoint test-connection, founder-only) gọi outbound THẬT
+  ra provider/CLI (litellm request budget `max_tokens=1` hoặc 1 subprocess CLI
+  ping) mà KHÔNG qua compliance gate nào — chấp nhận được vì: (a) chỉ founder/
+  operator gọi được (`require_workspace_operator`), (b) budget/prompt cố định
+  cực nhỏ (`_TEST_CONNECTION_PROMPT = "ping"`), (c) đây là hành động cấu hình
+  hạ tầng, không phải 1 run nghiệp vụ có dữ liệu workspace thật đi kèm.
 - **ChatGPT/API billing là 2 khái niệm credential khác nhau, không dùng đè
   lẫn nhau.** `ProviderType.OPENAI_API` (dùng `credential_ref` trỏ API key
   lưu ở `LocalCredentialStore`) và `ProviderType.CODEX_CLI` (đăng nhập qua
@@ -64,6 +79,9 @@ cho phạm vi đó (2 tính năng độc lập, đừng trộn lẫn thủ tục
 | Runtime retry-on-provider-error (tự failover trong 1 lần gọi) | ( ) CHƯA có — xem "Nguyên tắc bất biến" ở trên |
 | Spend ledger / concurrency semaphore thật cho budget/max_concurrency | ( ) CHƯA có — `ModelProviderFactory._validate_profile_limits()` chỉ chặn khi field đã bị set <= 0 tĩnh, không đếm chi tiêu/đồng thời thật (xem comment task-2 review finding #2 trong `apps/cosa/models/providers.py`) |
 | `resume()` dùng đúng model đã routed khi resume sau approval | ( ) CHƯA có — xem mục riêng bên dưới |
+| Copilot/autopilot runs (`customer_support_autopilot`) dùng workspace model routing | ( ) CHƯA có — xem mục riêng bên dưới |
+| Founder chỉnh `fallback_profile_ids` qua Flutter (workspace default) | ✓ có (editor tối giản — xem mục riêng bên dưới) |
+| Founder set AGENT_PROFILE override (primary hoặc fallback) qua Flutter | ( ) CHƯA có UI — chỉ có qua REST trực tiếp (`PUT /agent/settings/model-policies/:agentProfile` với agent_profile thật, vd `"operations"`) |
 
 ## Key rotation / revoke
 
@@ -139,12 +157,21 @@ fallback được duyệt, run fail-closed với `ModelRouteNotFound` (không t�
 thầm chuyển agent đó về system-default).
 
 **CLI health check cục bộ:** `POST /agent/settings/model-providers/:profileId/test`
-gọi `CliBridge` thật với 1 prompt tối giản — health check hợp lệ duy nhất cho
-CLI (không có cách nào khác xác nhận "CLI đã login/khả dụng" từ phía COSA).
-CLI không nằm trong allowlist tuyệt đối của `CliBridge` (path không khớp
-`COSA_CLI_<ROLE>_PATH` đã cấu hình, hoặc là 1 path hợp lệ nhưng không nằm
-trong allowlist runtime) sẽ bị từ chối TRƯỚC khi spawn bất kỳ tiến trình nào
-— `CliBridgeDenied`, không phải timeout.
+gọi `CliBridge.invoke()` THẬT (spawn subprocess CLI, prompt tối giản `"ping"`,
+timeout ngắn 10s riêng cho tầng test-connection — khác timeout mặc định 120s
+của `CliBridgeModel` dùng lúc chạy agent thật) — health check hợp lệ duy nhất
+cho CLI (không có cách nào khác xác nhận "CLI đã login/khả dụng" từ phía
+COSA). `ok=true` CHỈ khi subprocess thật sự chạy xong không lỗi; executable
+không tồn tại/không login/lỗi bất kỳ -> `ok=false` với `detail` chỉ chứa
+`type(exception).__name__` (không leak stderr thô ra client — stderr đầy đủ
+chỉ log server-side). CLI không nằm trong allowlist tuyệt đối của `CliBridge`
+(path không khớp `COSA_CLI_<ROLE>_PATH` đã cấu hình, hoặc là 1 path hợp lệ
+nhưng không nằm trong allowlist runtime) sẽ bị từ chối TRƯỚC khi spawn bất kỳ
+tiến trình nào — `CliBridgeDenied`, không phải timeout.
+(Trước fix final-review finding #2, endpoint này CHỈ dựng `CliBridgeModel`
+rồi trả `ok=true` ngay — không hề spawn subprocess — nên 1 profile trỏ
+executable không tồn tại vẫn báo "usable". Đã sửa; đoạn trên mô tả hành vi
+THẬT hiện tại.)
 
 ## Local recovery
 
@@ -185,6 +212,44 @@ tin tưởng "toàn bộ vòng đời 1 run luôn dùng đúng 1 provider đã c
 đặc biệt quan trọng nếu provider đã route là 1 provider compliance-approved
 riêng cho dữ liệu nhạy cảm (resume dùng nhầm provider khác có thể vi phạm
 đúng constraint mà compliance gate ở trên vừa chứng minh chặn được).
+
+**Copilot/autopilot runs KHÔNG đi qua workspace model routing — luôn chạy
+model system-default.** `apps/cosa/worker/copilot_run.py`
+(`run_customer_support_copilot`) và `apps/cosa/worker/autopilot_run.py`
+(`run_customer_support_autopilot`/`resume_customer_support_autopilot`) tự
+dựng `RunRequest` và gọi thẳng `plane.kernel.run(...)` — KHÔNG đi qua
+`apps/cosa/worker/run_core.py::run_kernel()` (nơi DUY NHẤT gọi
+`bind_route_to_run()`/dựng kernel per-run theo `ResolvedModelRoute`). Hệ quả:
+`customer_support_autopilot` — agent nhạy cảm nhất về outbound trong số các
+agent thật hiện có — KHÔNG BAO GIỜ tôn trọng bất kỳ AGENT_PROFILE override
+hay WORKSPACE default nào founder đã cấu hình qua
+`PUT /agent/settings/model-policies/*`; nó luôn dùng model system-default của
+process (được set 1 lần lúc `build_execution_kernel()` khởi động worker).
+Đây là 1 gap thật, có ý nghĩa compliance/routing — được phát hiện ở
+final-review (whole-branch review sau khi cả 5 task của plan
+`2026-09-07-local-first-model-routing.md` đã merge) và **CỐ Ý không sửa
+trong fix wave đó** (rủi ro làm bất ổn 2 run path đang chạy thật khác, ngoài
+phạm vi 1 fix wave) — không phải do quên. Muốn copilot/autopilot tôn trọng
+routing cần 1 task riêng đưa 2 path này qua `run_core.run_kernel()` (hoặc
+tương đương), có review riêng.
+
+## Fallback profile IDs — giới hạn UI hiện tại
+
+Flutter (`model_provider_settings_view.dart`) hiện có 1 ô nhập
+`fallback_profile_ids` (danh sách phân tách bởi dấu phẩy, key widget
+`model-policy-fallback-ids-field`) — nhưng CHỈ áp dụng cho action "Đặt làm
+workspace default" (`PUT /agent/settings/model-policies/_workspace_default`).
+**Chưa có UI nào cho AGENT_PROFILE override** (set primary/fallback riêng cho
+1 agent_profile cụ thể như `"operations"`/`"finance"`/`"marketing"`) — muốn
+làm việc đó, founder phải gọi thẳng
+`PUT /agent/settings/model-policies/:agentProfile` qua REST client (curl/
+Postman/script), KHÔNG có nút bấm tương ứng trong Settings UI. Backend
+(`resolver.set_agent_override()`/`set_workspace_default()`) đã thread đúng
+`fallback_profile_ids` cho CẢ 2 path (fix final-review finding #5) — giới hạn
+DUY NHẤT còn lại là UI, không phải backend. Đây là quyết định phạm vi có chủ
+đích của fix wave (một Flutter editor cho AGENT_PROFILE override cần thêm 1
+bộ chọn agent_profile + luồng UI mới, đủ lớn để tách thành 1 task UI riêng
+thay vì rủi ro trong 1 fix wave sửa lỗi).
 
 ## LiteLLM DEBUG logging — không bật DEBUG log cho litellm ở production
 

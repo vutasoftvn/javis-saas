@@ -12,20 +12,34 @@ hành vi cũ (dùng thẳng `plane.kernel`, không resolve route) không đổi.
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent_testkit.fake_sdk_model import FakeSDKModel
+from fastapi.testclient import TestClient
 
+from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
+from apps.cosa.api.app import create_cosa_app
+from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.compliance.contracts import ComplianceDenied
+from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.models.contracts import ProviderType, ResolvedModelRoute
 from apps.cosa.models.providers import ModelProviderMisconfigured
+from apps.cosa.models.repository import InMemoryModelRoutingRepository
 from apps.cosa.worker.run_core import (
     RunCoreError,
     bind_route_to_run,
     prepare_request,
     run_kernel,
 )
+from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 
 
 def _spec():
@@ -247,3 +261,122 @@ async def test_compliance_deny_prevents_adapter_invocation():
     # requests".
     assert spy_factory.calls == []
     resolver.resolve_route.assert_not_awaited()
+
+
+def test_agent_override_set_via_rest_route_is_used_by_bind_route_to_run():
+    """Final-review findings #1 + #6 regression (cross REST <-> run boundary).
+
+    Trước fix: `PUT /agent/settings/model-policies/{agent_profile}` lưu policy
+    dưới raw `agent_profile` path param (vd `"operations"`), nhưng
+    `bind_route_to_run()` (dùng bởi MỌI run thật qua `run_kernel()`) resolve
+    bằng `agent_spec_id = getattr(spec, "id", ...)` (vd
+    `"cosa.agents.operations"`) — 2 key KHÁC NHAU, nên override ghi qua REST
+    không bao giờ được áp dụng lúc chạy dù API báo `resolved_profile_id` đúng
+    (route GET tự đọc lại đúng thứ mình vừa ghi, không hề chạm runtime).
+
+    `tests/apps/cosa/api/test_model_policy_routes.py` (dừng ở HTTP response)
+    và `tests/e2e/test_workspace_model_routing.py` (bắt đầu từ repository với
+    key long-form có sẵn) đều KHÔNG bắt được bug này — mỗi test tự nhất quán
+    với chính nó nhưng chưa bao giờ cross-check qua đúng seam REST -> run.
+    Test này đi qua router HTTP THẬT để set override, rồi gọi thẳng
+    `bind_route_to_run()` với 1 `AgentSpec` THẬT (`COSA_OPERATIONS_AGENT_SPEC`)
+    — khẳng định `profile_id` runtime resolve ra khớp với REST đã cấu hình.
+    """
+    mock_company_client = AsyncMock(spec=CompanyServiceClient)
+    mock_company_client.get.return_value = {}
+    mock_company_client.post.return_value = {}
+
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+        model_routing_repository=InMemoryModelRoutingRepository(),
+    )
+    application = create_cosa_app(plane=plane)
+    override_authenticated_identity(
+        application,
+        principal_id="user:founder",
+        platform_user_id="founder",
+        workspace_id="ws-1",
+        role_id="founder",
+    )
+    client = TestClient(application)
+
+    create_res = client.post(
+        "/agent/settings/model-providers",
+        json={
+            "provider_type": "openai_api",
+            "profile_id": "ops-override-profile",
+            "model_id": "gpt-4o-mini",
+            "api_key": "sk-test",
+        },
+    )
+    assert create_res.status_code == 201
+
+    set_res = client.put(
+        "/agent/settings/model-policies/operations",
+        json={"primary_profile_id": "ops-override-profile", "fallback_profile_ids": []},
+    )
+    assert set_res.status_code == 200
+    data = set_res.json()["data"]
+    assert data["resolved_profile_id"] == "ops-override-profile"
+    # `scope_key` REST trả về PHẢI là agent_spec_id THẬT (spec.id, dạng dài) —
+    # không phải short "operations" — đúng contract migration
+    # 030_workspace_model_routing.sql đã tài liệu hoá (AGENT_PROFILE =>
+    # scope_key = agent_spec_id).
+    assert data["scope_key"] == COSA_OPERATIONS_AGENT_SPEC.id
+
+    request = SimpleNamespace(workspace_id="ws-1")
+    route = asyncio.run(
+        bind_route_to_run(plane.model_route_resolver, request, COSA_OPERATIONS_AGENT_SPEC)
+    )
+
+    assert route.profile_id == "ops-override-profile"
+    assert route.is_system_default is False
+
+
+def test_set_model_policy_rejects_unknown_agent_profile():
+    """`agent_profile` không nằm trong `_AGENT_PROFILE_SPECS` PHẢI fail rõ
+    ràng (404) — không được âm thầm ghi policy dưới 1 key vô nghĩa mà
+    `bind_route_to_run()` không bao giờ tra tới (đúng yêu cầu final-review
+    finding #1: "unknown/unmapped agent_profile value produces a clear
+    404/400, not a silent no-op")."""
+    mock_company_client = AsyncMock(spec=CompanyServiceClient)
+    mock_company_client.get.return_value = {}
+    mock_company_client.post.return_value = {}
+
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+        model_routing_repository=InMemoryModelRoutingRepository(),
+    )
+    application = create_cosa_app(plane=plane)
+    override_authenticated_identity(
+        application,
+        principal_id="user:founder",
+        platform_user_id="founder",
+        workspace_id="ws-1",
+        role_id="founder",
+    )
+    client = TestClient(application)
+
+    create_res = client.post(
+        "/agent/settings/model-providers",
+        json={"provider_type": "deepseek_api", "profile_id": "p1", "api_key": "sk-test"},
+    )
+    assert create_res.status_code == 201
+
+    response = client.put(
+        "/agent/settings/model-policies/totally-unknown-profile",
+        json={"primary_profile_id": "p1", "fallback_profile_ids": []},
+    )
+    assert response.status_code == 404

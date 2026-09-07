@@ -46,14 +46,17 @@ class ModelRouteResolver:
         return await self._repo.create_profile(workspace_id, profile_id, provider_type, **kwargs)
 
     async def set_workspace_default(
-        self, workspace_id: str, profile_id: str
+        self,
+        workspace_id: str,
+        profile_id: str,
+        fallback_profile_ids: tuple[str, ...] | list[str] = (),
     ) -> WorkspaceModelPolicy:
         return await self._repo.set_policy(
             workspace_id,
             PolicyScope.WORKSPACE,
             workspace_id,
             profile_id,
-            (),
+            tuple(fallback_profile_ids),
         )
 
     async def set_agent_override(

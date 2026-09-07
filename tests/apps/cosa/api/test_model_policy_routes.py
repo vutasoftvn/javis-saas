@@ -278,7 +278,15 @@ def test_test_connection_local_openai_compatible_attempts_live_call(setup_env):
     assert data["ok"] is False
 
 
-def test_test_connection_cli_provider_skips_live_call(setup_env):
+def test_test_connection_cli_provider_attempts_real_subprocess_call(setup_env, monkeypatch):
+    """Final-review finding #2 regression: CLI provider test-connection PHẢI
+    thực sự spawn `CliBridge` (không được suy luận `ok=True` chỉ vì dựng được
+    `CliBridgeModel`). Trỏ `COSA_CLI_CLAUDE_PATH` sang 1 path CHẮC CHẮN không
+    tồn tại (không phụ thuộc máy chạy test có cài `claude` CLI thật hay
+    không) -> subprocess thất bại -> `ok=False`, nhưng `live_call_attempted`
+    PHẢI là `True` (đã thực sự cố spawn), khác hẳn hành vi cũ
+    (`live_call_attempted=False` không hề chạm subprocess)."""
+    monkeypatch.setenv("COSA_CLI_CLAUDE_PATH", "/nonexistent/definitely-not-a-real-cli/claude")
     client: TestClient = setup_env["client"]
     create_res = client.post(
         "/agent/settings/model-providers",
@@ -289,7 +297,8 @@ def test_test_connection_cli_provider_skips_live_call(setup_env):
     response = client.post(f"/agent/settings/model-providers/{profile_id}/test")
     assert response.status_code == 200
     data = response.json()["data"]
-    assert data["live_call_attempted"] is False
+    assert data["live_call_attempted"] is True
+    assert data["ok"] is False
 
 
 # ── Policy set/get, precedence ──

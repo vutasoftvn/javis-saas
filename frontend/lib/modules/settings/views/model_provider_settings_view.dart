@@ -55,6 +55,22 @@ class _ModelProviderSettingsViewState extends State<ModelProviderSettingsView> {
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _baseUrlController = TextEditingController();
 
+  // Final-review finding #5 — editor tối giản cho `fallback_profile_ids`
+  // (danh sách phân tách bởi dấu phẩy, đúng thứ tự thử fallback). Trước fix
+  // này, KHÔNG có nơi nào trong Flutter cho founder nhập fallback (chỉ hiển
+  // thị read-only ở `_buildPrecedenceSummary`) — route backend cũng hardcode
+  // `()` nên toàn bộ resolver fallback-allowlist logic (đã test kỹ ở Task 1)
+  // không có đường nào tới được từ sản phẩm thật.
+  final TextEditingController _fallbackProfileIdsController = TextEditingController();
+
+  List<String> _parseFallbackProfileIds() {
+    return _fallbackProfileIdsController.text
+        .split(',')
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList();
+  }
+
   static const _providerTypes = <String>[
     'local_openai_compatible',
     'anthropic_api',
@@ -89,6 +105,7 @@ class _ModelProviderSettingsViewState extends State<ModelProviderSettingsView> {
     _modelIdController.dispose();
     _apiKeyController.dispose();
     _baseUrlController.dispose();
+    _fallbackProfileIdsController.dispose();
     super.dispose();
   }
 
@@ -184,6 +201,7 @@ class _ModelProviderSettingsViewState extends State<ModelProviderSettingsView> {
     final result = await _service.setPolicy(
       _workspaceDefaultKey,
       primaryProfileId: primaryProfileId,
+      fallbackProfileIds: _parseFallbackProfileIds(),
     );
     if (!mounted) return;
     result.when(
@@ -325,6 +343,23 @@ class _ModelProviderSettingsViewState extends State<ModelProviderSettingsView> {
                 style: const TextStyle(fontSize: 12, color: AppTheme.textMutedDark),
               ),
             ),
+          if (_checkIsOperator()) ...[
+            const SizedBox(height: 10),
+            TextField(
+              key: const ValueKey('model-policy-fallback-ids-field'),
+              controller: _fallbackProfileIdsController,
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Fallback profile IDs (workspace default, phân tách bởi dấu phẩy)',
+                labelStyle: TextStyle(fontSize: 11),
+                helperText:
+                    'Áp dụng khi bấm "Đặt làm workspace default" bên dưới — thứ tự nhập '
+                    'là thứ tự thử fallback.',
+                helperMaxLines: 2,
+                helperStyle: TextStyle(fontSize: 10),
+              ),
+            ),
+          ],
         ],
       ),
     );

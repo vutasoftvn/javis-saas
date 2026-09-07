@@ -10,19 +10,14 @@ from typing import Any
 import httpx
 from agent.artifacts import WorkspaceArtifact
 from agent.contracts.run import RunStatus
-from agent.contracts.spec import AgentSpec
 from agent.conversations.models import ConversationRecord, MessageRecord
 
+from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
 from apps.cosa.agents.goal_intent import (
     GoalIntentSuggestion,
     classify_weekly_goal_llm,
     detect_weekly_goal_suggestion,
     looks_like_weekly_goal,
-)
-from apps.cosa.agents.specs import (
-    COSA_FINANCE_AGENT_SPEC,
-    COSA_MARKETING_AGENT_SPEC,
-    COSA_OPERATIONS_AGENT_SPEC,
 )
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
@@ -47,17 +42,12 @@ from apps.cosa.worker.wga_run import advance_wga_task_after_resume
 logger = logging.getLogger(__name__)
 
 # Ánh xạ agent_profile -> AgentSpec cho nhánh dispatch thường (không bao gồm
-# customer_support/customer_support_autopilot — 2 profile đó rẽ nhánh riêng
-# ở execute_run_task trước khi tới đây). "founder_assistant" là default thật
-# đang được Flutter gửi cho MỌI conversation mới (chat_controller.dart
-# createNewConversation() không truyền agentProfile) — alias sang Operations
-# để giữ đúng hành vi hiện tại, không phải bug cần sửa.
-_AGENT_PROFILE_SPECS: dict[str, AgentSpec] = {
-    "operations": COSA_OPERATIONS_AGENT_SPEC,
-    "founder_assistant": COSA_OPERATIONS_AGENT_SPEC,
-    "finance": COSA_FINANCE_AGENT_SPEC,
-    "marketing": COSA_MARKETING_AGENT_SPEC,
-}
+# customer_support/customer_support_autopilot — 2 profile đó rẽ nhánh riêng ở
+# execute_run_task trước khi tới đây). Bảng THẬT nằm ở
+# `apps/cosa/agents/agent_profile_specs.py` (tách riêng để
+# `apps/cosa/api/model_policy_routes.py` dùng CHUNG đúng 1 bảng mà không phải
+# kéo theo toàn bộ import chain nặng của module này — xem docstring ở đó).
+_AGENT_PROFILE_SPECS = AGENT_PROFILE_SPECS
 
 
 __all__ = [

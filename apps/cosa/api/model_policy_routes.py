@@ -31,6 +31,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
 from apps.cosa.api.model_policy_schemas import (
     CreateModelProviderRequest,
     ModelPolicyView,
@@ -67,6 +68,10 @@ SOURCE_AGENT_DB_POLICY = MvpSourceRef(kind="agent_db", ref="models.workspace_mod
 # "low fixed budget" trong brief — xem task-4-report.md.
 _TEST_CONNECTION_MAX_TOKENS = 1
 _TEST_CONNECTION_PROMPT = "ping"
+# Timeout ngắn dành riêng cho tầng live-call CLI (subprocess) — không dùng
+# `CliBridgeModel` default (120s, tối ưu cho 1 câu trả lời agent thật) vì test-
+# connection chỉ cần biết CLI khởi động/trả lời được, không cần đợi lâu.
+_TEST_CONNECTION_CLI_TIMEOUT_SECONDS = 10.0
 
 # Provider có thể gọi thật qua litellm.acompletion với endpoint OpenAI-style.
 _LITELLM_TESTABLE_PROVIDERS = frozenset(
@@ -299,17 +304,19 @@ async def test_model_provider(
         )
 
     if profile.provider_type not in _LITELLM_TESTABLE_PROVIDERS:
-        # CLI provider: dừng ở tầng 1 (structural). Login session cục bộ của
-        # chính CLI không phải thứ COSA có thể "test" qua 1 HTTP call rẻ —
-        # xem ghi chú scope trong task-4-report.md.
+        # CLI provider: tầng 2 gọi thật `CliBridge.invoke()` với 1 prompt tối
+        # giản + timeout ngắn (final-review finding #2 — trước fix này hàm
+        # LUÔN trả `ok=True` chỉ vì dựng được `CliBridgeModel`, không hề spawn
+        # subprocess; 1 profile trỏ executable không tồn tại vẫn báo "usable").
+        ok, detail = await _run_cli_live_test_call(client)
         return mvp_item(
             TestModelProviderResponse(
                 profile_id=profile_id,
                 provider_type=profile.provider_type,
                 model_id=profile.model_id,
-                ok=True,
-                live_call_attempted=False,
-                detail="client dựng thành công (CLI provider — không có tầng live-call rẻ)",
+                ok=ok,
+                live_call_attempted=True,
+                detail=detail,
             ),
             [SOURCE_AGENT_DB],
         )
@@ -360,6 +367,103 @@ async def _run_live_test_call(client: Any, profile: Any) -> tuple[bool, str]:
         return False, f"live call thất bại: {type(exc).__name__}"
 
 
+# Sentinel cho scope_key WORKSPACE-level — path param `agent_profile` là ID
+# 1 agent_spec_id CỤ THỂ (vd. "operations") theo interface của brief; muốn set
+# default TOÀN WORKSPACE, caller truyền sentinel này thay vì 1 agent_spec_id
+# thật. Không dùng chuỗi rỗng/None (path param FastAPI không cho phép rỗng) —
+# xem quyết định trong task-4-report.md.
+WORKSPACE_DEFAULT_SENTINEL = "_workspace_default"
+
+
+def _resolve_agent_spec_id(agent_profile: str) -> str:
+    """Map path param `agent_profile` (short, human-friendly — vd
+    `"operations"`) sang `agent_spec_id` THẬT (`spec.id`, vd
+    `"cosa.agents.operations"`) mà runtime dùng để resolve route
+    (`apps/cosa/worker/run_core.py::bind_route_to_run` gọi
+    `getattr(spec, "id", ...)`, KHÔNG PHẢI raw `agent_profile`).
+
+    Dùng CHUNG `AGENT_PROFILE_SPECS` (apps/cosa/agents/agent_profile_specs.py
+    — cùng bảng `apps/cosa/worker/handlers.py` dùng để dispatch run thật,
+    tách ra module nhẹ riêng để route này không phải kéo theo toàn bộ import
+    chain của `handlers.py`) — bảng ánh xạ DUY NHẤT quyết định agent_profile
+    nào ứng với AgentSpec nào (CLAUDE.md: "Chọn spec nào cho 1 agent_profile
+    là bảng ánh xạ tường minh... thêm agent_profile mới PHẢI thêm vào bảng
+    này"). Trước fix này, route lưu/đọc policy thẳng dưới `agent_profile`
+    ngắn — lệch khỏi `agent_spec_id` dài mà `bind_route_to_run` thực sự tra
+    cứu lúc chạy, khiến override AGENT_PROFILE không bao giờ được áp dụng
+    (final-review finding #1). Raise 404 nếu `agent_profile` không nằm trong
+    bảng — KHÔNG âm thầm coi `agent_profile` là chính `agent_spec_id` (tránh
+    lặp lại đúng bug đó dưới dạng khác)."""
+    spec = AGENT_PROFILE_SPECS.get(agent_profile)
+    if spec is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"agent_profile '{agent_profile}' không được hỗ trợ — không có "
+                "AgentSpec ánh xạ trong _AGENT_PROFILE_SPECS."
+            ),
+        )
+    spec_id = getattr(spec, "id", None) or getattr(spec, "spec_id", None)
+    if not spec_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AgentSpec cho '{agent_profile}' thiếu id/spec_id.",
+        )
+    return str(spec_id)
+
+
+def _resolve_policy_lookup_key(agent_profile: str) -> str:
+    """`agent_profile` path param -> key dùng để resolve/tra policy.
+    `WORKSPACE_DEFAULT_SENTINEL` đi thẳng (không phải 1 AgentSpec thật —
+    `resolve_route`/`get_policy` với key này luôn miss ở scope AGENT_PROFILE
+    rồi rơi xuống scope WORKSPACE, đúng ý nghĩa "workspace default"); mọi giá
+    trị khác PHẢI có mặt trong `_AGENT_PROFILE_SPECS`."""
+    if agent_profile == WORKSPACE_DEFAULT_SENTINEL:
+        return agent_profile
+    return _resolve_agent_spec_id(agent_profile)
+
+
+async def _run_cli_live_test_call(client: Any) -> tuple[bool, str]:
+    """Gọi 1 request `CliBridge` THẬT (subprocess) qua chính `CliBridgeModel`
+    đã dựng ở tầng 1 — prompt tối giản (`_TEST_CONNECTION_PROMPT`), timeout
+    ngắn (`_TEST_CONNECTION_CLI_TIMEOUT_SECONDS`).
+
+    Đọc `_bridge`/`_executable`/`_model_id`/`_profile_id` thẳng từ `client`
+    (attribute riêng của `CliBridgeModel`, không phải interface công khai) —
+    cùng cách tiếp cận với `_run_live_test_call` đọc `client.api_key`/
+    `client.base_url` của `LitellmModel`: route này CỐ TÌNH tái dùng client
+    đã dựng ở tầng 1 thay vì decrypt/build lại lần 2.
+
+    KHÔNG BAO GIỜ trả `stderr` thô của CLI ra caller — chỉ `type(exc).__name__`
+    (xem `CliBridgeExecutionError` — message của nó có thể chứa tới 2000 ký tự
+    stderr, coi là an toàn cho SERVER LOG, KHÔNG an toàn để echo cho client).
+    Lỗi đầy đủ luôn được log server-side qua `logger.exception`."""
+    from apps.cosa.models.cli_bridge import ModelInvocation
+
+    bridge = getattr(client, "_bridge", None)
+    executable = getattr(client, "_executable", None)
+    if bridge is None or executable is None:
+        return False, "CLI bridge client không hợp lệ — thiếu bridge/executable nội bộ"
+
+    model_id = getattr(client, "_model_id", None)
+    profile_id = getattr(client, "_profile_id", "default")
+
+    try:
+        await bridge.invoke(
+            ModelInvocation(
+                executable=executable,
+                prompt=_TEST_CONNECTION_PROMPT,
+                model_id=model_id,
+                timeout_seconds=_TEST_CONNECTION_CLI_TIMEOUT_SECONDS,
+                profile_id=profile_id,
+            )
+        )
+        return True, "live call thành công (CLI)"
+    except Exception as exc:  # CliBridgeDenied/ModelProviderTimeout/CliBridgeExecutionError/...
+        logger.exception("model_provider_test_connection_cli_live_call_failed")
+        return False, f"live call thất bại: {type(exc).__name__}"
+
+
 async def _lookup_policy_provenance(
     repo: Any, workspace_id: str, agent_profile: str
 ) -> tuple[PolicyScope, str, str, list[str]] | None:
@@ -399,12 +503,14 @@ async def get_model_policy(
         )
     repo = _get_model_routing_repository(plane)
 
+    lookup_key = _resolve_policy_lookup_key(agent_profile)
+
     try:
-        resolved = await resolver.resolve_route(identity.workspace_id, agent_profile)
+        resolved = await resolver.resolve_route(identity.workspace_id, lookup_key)
     except ModelRouteNotFound as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
-    provenance = await _lookup_policy_provenance(repo, identity.workspace_id, agent_profile)
+    provenance = await _lookup_policy_provenance(repo, identity.workspace_id, lookup_key)
     fallback_ids: list[str]
     if provenance is None:
         scope, scope_key, primary_id, fallback_ids = (
@@ -427,14 +533,6 @@ async def get_model_policy(
         is_system_default=resolved.is_system_default,
     )
     return mvp_item(view, [SOURCE_AGENT_DB_POLICY])
-
-
-# Sentinel cho scope_key WORKSPACE-level — path param `agent_profile` là ID
-# 1 agent_spec_id CỤ THỂ (vd. "operations") theo interface của brief; muốn set
-# default TOÀN WORKSPACE, caller truyền sentinel này thay vì 1 agent_spec_id
-# thật. Không dùng chuỗi rỗng/None (path param FastAPI không cho phép rỗng) —
-# xem quyết định trong task-4-report.md.
-WORKSPACE_DEFAULT_SENTINEL = "_workspace_default"
 
 
 @router.put("/model-policies/{agent_profile}")
@@ -460,15 +558,26 @@ async def set_model_policy(
             detail="model route resolver is not initialized",
         )
 
+    if agent_profile == WORKSPACE_DEFAULT_SENTINEL:
+        lookup_key = agent_profile
+    else:
+        # Map agent_profile ngắn (vd "operations") sang agent_spec_id thật
+        # (vd "cosa.agents.operations") TRƯỚC khi set_policy — xem
+        # `_resolve_agent_spec_id` docstring cho lý do (final-review finding
+        # #1: lệch key giữa REST write path và `bind_route_to_run` read path).
+        lookup_key = _resolve_agent_spec_id(agent_profile)
+
     try:
         if agent_profile == WORKSPACE_DEFAULT_SENTINEL:
             policy = await resolver.set_workspace_default(
-                identity.workspace_id, body.primary_profile_id
+                identity.workspace_id,
+                body.primary_profile_id,
+                tuple(body.fallback_profile_ids),
             )
         else:
             policy = await resolver.set_agent_override(
                 identity.workspace_id,
-                agent_profile,
+                lookup_key,
                 body.primary_profile_id,
                 tuple(body.fallback_profile_ids),
             )
@@ -477,7 +586,7 @@ async def set_model_policy(
     except CredentialNotFound as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    resolved = await resolver.resolve_route(identity.workspace_id, agent_profile)
+    resolved = await resolver.resolve_route(identity.workspace_id, lookup_key)
     view = ModelPolicyView(
         scope=policy.scope,
         scope_key=policy.scope_key,

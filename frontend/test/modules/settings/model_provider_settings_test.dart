@@ -52,6 +52,7 @@ class FakeModelProviderService implements ModelProviderService {
   bool testConnectionCalled = false;
   bool testConnectionResultOk = true;
   Map<String, dynamic>? lastCreateProviderCall;
+  Map<String, dynamic>? lastSetPolicyCall;
 
   @override
   Future<ApiResult<List<ModelProviderModel>>> listProviders() async {
@@ -114,6 +115,11 @@ class FakeModelProviderService implements ModelProviderService {
     required String primaryProfileId,
     List<String> fallbackProfileIds = const [],
   }) async {
+    lastSetPolicyCall = {
+      'agentProfile': agentProfile,
+      'primaryProfileId': primaryProfileId,
+      'fallbackProfileIds': fallbackProfileIds,
+    };
     policy = ModelPolicyModel(
       scope: 'WORKSPACE',
       scopeKey: 'ws-1',
@@ -228,5 +234,41 @@ void main() {
 
     expect(find.byKey(const ValueKey('model-policy-precedence')), findsOneWidget);
     expect(find.textContaining('System default'), findsOneWidget);
+  });
+
+  testWidgets('founder-entered fallback profile IDs are threaded through to setPolicy on workspace default', (tester) async {
+    // Final-review finding #5 regression: trước fix, không có ô nhập nào cho
+    // `fallback_profile_ids` — founder không có cách nào trong sản phẩm thật
+    // để populate fallback list dù backend/resolver hỗ trợ đầy đủ.
+    Get.put(SessionController()).seedForTest(_snapshot('founder'));
+    final service = FakeModelProviderService();
+
+    await pumpView(tester, service);
+
+    expect(find.byKey(const ValueKey('model-policy-fallback-ids-field')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('model-policy-fallback-ids-field')),
+      'fallback-a, fallback-b ,fallback-c',
+    );
+
+    await tester.tap(find.text('Đặt làm workspace default'));
+    await tester.pumpAndSettle();
+
+    expect(service.lastSetPolicyCall?['agentProfile'], '_workspace_default');
+    expect(service.lastSetPolicyCall?['primaryProfileId'], 'deepseek-1');
+    expect(
+      service.lastSetPolicyCall?['fallbackProfileIds'],
+      ['fallback-a', 'fallback-b', 'fallback-c'],
+    );
+  });
+
+  testWidgets('member does not see fallback profile IDs editor', (tester) async {
+    Get.put(SessionController()).seedForTest(_snapshot('member'));
+    final service = FakeModelProviderService();
+
+    await pumpView(tester, service);
+
+    expect(find.byKey(const ValueKey('model-policy-fallback-ids-field')), findsNothing);
   });
 }
