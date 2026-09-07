@@ -8,6 +8,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
+import '../services/module_visibility_controller.dart';
 import '../shell/app_shell.dart';
 import '../widgets/capability_gated_view.dart';
 import 'app_routes.dart';
@@ -101,6 +102,26 @@ class LegacyModuleRedirectMiddleware extends GetMiddleware {
 
   @override
   RouteSettings? redirect(String? route) => RouteSettings(name: canonicalPath);
+}
+
+class ModuleVisibilityGuardMiddleware extends GetMiddleware {
+  ModuleVisibilityGuardMiddleware(this.module);
+
+  final WorkspaceModule module;
+
+  @override
+  int? get priority => 1;
+
+  @override
+  RouteSettings? redirect(String? route) {
+    if (Get.isRegistered<ModuleVisibilityController>()) {
+      final controller = Get.find<ModuleVisibilityController>();
+      if (!controller.isVisible(module)) {
+        return const RouteSettings(name: AppRoutes.hub);
+      }
+    }
+    return null;
+  }
 }
 
 /// Ánh xạ giữa index cũ trong `DashboardNavConfig` và module canonical mới.
@@ -212,7 +233,11 @@ final List<GetPage> moduleRoutes = [
       ),
     ),
     binding: SalesBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+    middlewares: [
+      AuthMiddleware(),
+      ProjectSetupGuardMiddleware(),
+      ModuleVisibilityGuardMiddleware(WorkspaceModule.sales),
+    ],
   ),
   GetPage(
     name: WorkspaceModule.marketing.path,
@@ -231,13 +256,21 @@ final List<GetPage> moduleRoutes = [
     name: WorkspaceModule.finance.path,
     page: () => const AppShell(activeModule: WorkspaceModule.finance, child: FinanceView()),
     binding: FinanceBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+    middlewares: [
+      AuthMiddleware(),
+      ProjectSetupGuardMiddleware(),
+      ModuleVisibilityGuardMiddleware(WorkspaceModule.finance),
+    ],
   ),
   GetPage(
     name: WorkspaceModule.legal.path,
     page: () => const AppShell(activeModule: WorkspaceModule.legal, child: LegalView()),
     binding: LegalBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+    middlewares: [
+      AuthMiddleware(),
+      ProjectSetupGuardMiddleware(),
+      ModuleVisibilityGuardMiddleware(WorkspaceModule.legal),
+    ],
   ),
   GetPage(
     name: WorkspaceModule.workflows.path,

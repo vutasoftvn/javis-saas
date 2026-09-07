@@ -95,6 +95,7 @@ class DashboardNavConfig {
           icon: Icons.check_box_outline_blank,
           selectedIcon: Icons.check_box,
           label: 'Nhiệm vụ',
+          labelKey: L10nKey.moduleTasks,
           index: 1,
         ),
         DashboardNavItem(

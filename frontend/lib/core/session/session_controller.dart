@@ -18,6 +18,7 @@ import '../localization/supported_locale.dart';
 import '../network/api_client.dart';
 import '../network/realtime_service.dart';
 import '../routing/app_routes.dart';
+import '../services/module_visibility_controller.dart';
 import 'session_context_service.dart';
 import 'session_snapshot.dart';
 
@@ -270,6 +271,9 @@ class SessionController extends GetxController {
     if (Get.isRegistered<FounderCommandCenterController>()) {
       Get.find<FounderCommandCenterController>().resetForWorkspace();
     }
+    if (Get.isRegistered<ModuleVisibilityController>()) {
+      Get.find<ModuleVisibilityController>().reloadForWorkspace(snapshot.workspaceId);
+    }
   }
 
   /// Thứ tự KHÔNG được đảo (theo brief Task 4 §3): stop realtime → clear
@@ -286,6 +290,9 @@ class SessionController extends GetxController {
     _degradedMutationAcknowledged = false;
     if (Get.isRegistered<RemoteAccessController>()) {
       Get.find<RemoteAccessController>().reset();
+    }
+    if (Get.isRegistered<ModuleVisibilityController>()) {
+      Get.find<ModuleVisibilityController>().clear();
     }
     // Fix-review (2026-09-02, final review C-1) — `reload: false` vì chưa có
     // workspace mới nào để tải; chỉ cần đảm bảo dữ liệu tenant vừa đăng xuất

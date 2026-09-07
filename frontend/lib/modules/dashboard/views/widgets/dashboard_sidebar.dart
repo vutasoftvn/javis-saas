@@ -4,6 +4,7 @@ import '../../../../core/localization/locale_controller.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/routing/module_routes.dart';
 import '../../../../core/services/feature_flags_controller.dart';
+import '../../../../core/services/module_visibility_controller.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../models/dashboard_nav_config.dart';
@@ -57,6 +58,9 @@ class DashboardDesktopSidebar extends StatelessWidget {
 
   List<DashboardNavGroup> _getVisibleNavGroups() {
     final featureFlags = Get.find<FeatureFlagsController>();
+    final visibilityController = Get.isRegistered<ModuleVisibilityController>()
+        ? Get.find<ModuleVisibilityController>()
+        : null;
     final groups = [
       ...DashboardNavConfig.coreNavGroups,
       if (controller.developerMode.value) DashboardNavConfig.experimentalGroup,
@@ -67,7 +71,22 @@ class DashboardDesktopSidebar extends StatelessWidget {
               groupIcon: g.groupIcon,
               items: g.items.where((i) {
                 final flagVisible = i.flagKey == null || featureFlags.isEnabled(i.flagKey!);
-                return flagVisible;
+                if (!flagVisible) return false;
+                if (visibilityController != null) {
+                  final module = (i.moduleKey != null)
+                      ? (i.moduleKey == 'finance'
+                          ? WorkspaceModule.finance
+                          : i.moduleKey == 'legal'
+                              ? WorkspaceModule.legal
+                              : (i.moduleKey == 'crm' || i.moduleKey == 'sales')
+                                  ? WorkspaceModule.sales
+                                  : null)
+                      : moduleForLegacyIndex(i.index);
+                  if (module != null && !visibilityController.isVisible(module)) {
+                    return false;
+                  }
+                }
+                return true;
               }).toList(),
             ))
         .where((g) => g.items.isNotEmpty)
@@ -201,6 +220,9 @@ class DashboardDesktopSidebar extends StatelessWidget {
               child: Obx(() {
                 if (Get.isRegistered<LocaleController>()) {
                   Get.find<LocaleController>().current.value;
+                }
+                if (Get.isRegistered<ModuleVisibilityController>()) {
+                  Get.find<ModuleVisibilityController>().entries.length;
                 }
                 final activeIndex = _resolveActiveIndex(controller);
                 final expandedGroup = controller.expandedGroupIndex.value;
@@ -368,6 +390,9 @@ class DashboardMobileDrawer extends StatelessWidget {
 
   List<DashboardNavGroup> _getVisibleNavGroups() {
     final featureFlags = Get.find<FeatureFlagsController>();
+    final visibilityController = Get.isRegistered<ModuleVisibilityController>()
+        ? Get.find<ModuleVisibilityController>()
+        : null;
     final groups = [
       ...DashboardNavConfig.coreNavGroups,
       if (controller.developerMode.value) DashboardNavConfig.experimentalGroup,
@@ -378,7 +403,22 @@ class DashboardMobileDrawer extends StatelessWidget {
               groupIcon: g.groupIcon,
               items: g.items.where((i) {
                 final flagVisible = i.flagKey == null || featureFlags.isEnabled(i.flagKey!);
-                return flagVisible;
+                if (!flagVisible) return false;
+                if (visibilityController != null) {
+                  final module = (i.moduleKey != null)
+                      ? (i.moduleKey == 'finance'
+                          ? WorkspaceModule.finance
+                          : i.moduleKey == 'legal'
+                              ? WorkspaceModule.legal
+                              : (i.moduleKey == 'crm' || i.moduleKey == 'sales')
+                                  ? WorkspaceModule.sales
+                                  : null)
+                      : moduleForLegacyIndex(i.index);
+                  if (module != null && !visibilityController.isVisible(module)) {
+                    return false;
+                  }
+                }
+                return true;
               }).toList(),
             ))
         .where((g) => g.items.isNotEmpty)
@@ -490,6 +530,12 @@ class DashboardMobileDrawer extends StatelessWidget {
             }),
             Expanded(
               child: Obx(() {
+                if (Get.isRegistered<LocaleController>()) {
+                  Get.find<LocaleController>().current.value;
+                }
+                if (Get.isRegistered<ModuleVisibilityController>()) {
+                  Get.find<ModuleVisibilityController>().entries.length;
+                }
                 final activeIndex = _resolveActiveIndex(controller);
                 final expandedGroup = controller.expandedGroupIndex.value;
                 final navGroups = _getVisibleNavGroups();

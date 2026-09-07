@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/core/services/feature_flags_controller.dart';
+import 'package:frontend/core/services/module_visibility_controller.dart';
 import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:frontend/modules/dashboard/views/widgets/dashboard_sidebar.dart';
 import 'package:frontend/modules/dashboard/views/widgets/dashboard_stage_demo_bar.dart';
+
+import '../../core/services/module_visibility_controller_test.dart';
 
 void main() {
   setUp(() {
@@ -99,5 +103,40 @@ void main() {
     // Verify demo stage bar is not rendered in drawer
     expect(find.byType(DashboardStageDemoBar), findsNothing);
     expect(find.textContaining('Demo Stage'), findsNothing);
+  });
+
+  testWidgets('hides Finance and Legal navigation but leaves core modules visible', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final visController = ModuleVisibilityController(
+      api: FakeVisibilityApi(
+        financeEnabled: false,
+        legalEnabled: false,
+        crmEnabled: true,
+      ),
+    );
+    await visController.reloadForWorkspace('w1');
+    Get.put<ModuleVisibilityController>(visController, permanent: true);
+
+    final controller = DashboardController();
+    controller.expandedGroupIndex.value = 2;
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en', 'US'),
+        home: Scaffold(
+          body: DashboardDesktopSidebar(controller: controller),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Finance'), findsNothing);
+    expect(find.text('Legal'), findsNothing);
+    expect(find.text('Tasks'), findsOneWidget);
   });
 }

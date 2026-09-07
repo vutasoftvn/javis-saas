@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../controllers/settings_controller.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 import 'widgets/ai_gateway_settings_card.dart';
+import 'widgets/module_visibility_settings_card.dart';
 import 'widgets/workspace_orientation_settings_card.dart';
 import 'widgets/permissions_panel.dart';
 
@@ -35,6 +36,8 @@ class SettingsView extends GetView<SettingsController> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: const [
                   WorkspaceOrientationSettingsCard(),
+                  SizedBox(height: 12),
+                  ModuleVisibilitySettingsCard(),
                   SizedBox(height: 12),
                   AiGatewaySettingsCard(),
                   SizedBox(height: 12),
