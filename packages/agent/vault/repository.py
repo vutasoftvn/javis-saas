@@ -109,6 +109,15 @@ class VaultRepository(Protocol):
         role_ids: set[str],
     ) -> list[VaultDocumentRecord]: ...
 
+    async def has_explicit_grant(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        principal_id: str,
+        role_ids: set[str],
+        permission: VaultPermission,
+    ) -> bool: ...
+
 
 class PostgresVaultRepository:
     def __init__(self, session_factory: Any) -> None:
@@ -560,6 +569,42 @@ class PostgresVaultRepository:
             )
             return [self._row_to_document(r) for r in res.mappings().all()]
 
+    async def has_explicit_grant(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        principal_id: str,
+        role_ids: set[str],
+        permission: VaultPermission,
+    ) -> bool:
+        async with self._session_factory() as session:
+            await session.execute(
+                text("SELECT set_config('cosa.workspace_id', :workspace_id, true)"),
+                {"workspace_id": workspace_id},
+            )
+            res = await session.execute(
+                text(
+                    """
+                    SELECT 1 FROM vault.document_access_grants
+                    WHERE workspace_id = :workspace_id AND document_id = :document_id
+                      AND permission = :permission
+                      AND (
+                        (subject_type = 'user' AND subject_id = :principal_id)
+                        OR (subject_type = 'role' AND subject_id = ANY(:role_ids))
+                      )
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "workspace_id": workspace_id,
+                    "document_id": document_id,
+                    "permission": permission.value,
+                    "principal_id": principal_id,
+                    "role_ids": list(role_ids),
+                },
+            )
+            return res.mappings().first() is not None
+
     @staticmethod
     def _row_to_document(row: Any) -> VaultDocumentRecord:
         return VaultDocumentRecord(
@@ -849,3 +894,20 @@ class InMemoryVaultRepository:
             for d in docs
         ]
         return VaultKnowledgeGraph(nodes=nodes, edges=[])
+
+    async def has_explicit_grant(
+        self,
+        workspace_id: str,
+        document_id: UUID,
+        principal_id: str,
+        role_ids: set[str],
+        permission: VaultPermission,
+    ) -> bool:
+        for grant in self._grants.get((workspace_id, document_id), []):
+            if grant.permission != permission:
+                continue
+            if grant.subject_type == VaultGrantSubjectType.USER and grant.subject_id == principal_id:
+                return True
+            if grant.subject_type == VaultGrantSubjectType.ROLE and grant.subject_id in role_ids:
+                return True
+        return False

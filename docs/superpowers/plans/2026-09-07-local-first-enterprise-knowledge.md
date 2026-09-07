@@ -427,7 +427,7 @@ git commit -m "feat(knowledge): persist local fenced ingestion lifecycle"
 - Produces `KnowledgeAuthorization.resolve(identity, document_id) -> KnowledgeAccessDecision`.
 - `KnowledgeAccessDecision` has `discover`, `read`, `download`, `manage`, `review`, `publish`; false decisions are explicit and auditable.
 
-- [ ] **Step 1: Write the role matrix tests.**
+- [x] **Step 1: Write the role matrix tests.**
 
 ```python
 @pytest.mark.parametrize(("role", "expected"), [("founder", True), ("member", False)])
@@ -440,21 +440,19 @@ async def test_member_can_read_only_directly_granted_document(authorization, pri
     assert (await authorization.resolve(identity("member", "member-1"), private_doc.document_id)).read
 ```
 
-- [ ] **Step 2: Run role matrix tests.**
+- [x] **Step 2: Run role matrix tests.**
 
 Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/knowledge_ingestion/test_authorization.py tests/apps/cosa/api/test_vault_permissions.py -q`
 
 Expected: FAIL because current routes only check membership/operator status.
 
-- [ ] **Step 3: Implement deterministic grant resolution.**
+- [x] **Step 3: Implement deterministic grant resolution.**
 
 Resolve founder/co-founder/admin workspace policy first, then explicit user/team/role grants, then classification policy. Return a decision with `policy_version` and a stable denial code; do not infer permission from document title, prompt text or client-provided role. Unauthorized document IDs return `404` from public routes.
 
-- [ ] **Step 4: Gate every mutation.**
+- [x] **Step 4: Gate every mutation.** — `KnowledgeAuthorization`/`KnowledgeAccessDecision` (manage/review/publish per-permission, không suy diễn chéo) đã xong và test đầy đủ. KHÔNG wire vào `apps/cosa/api/vault_routes.py`/`knowledge_routes.py` hay mirror sang `services/cosa/handlers/document-ingestion.handler.ts` ở task này — `vault_routes.py` hiện toàn bộ vẫn là stub 501 (Task 7 mới thêm logic thật để có gì đó cần gate), và `knowledge_routes.py` chưa có khái niệm Vault `document_id` (chỉ có `ingestion_id`/`knowledge_source_id`, Task 7 mới nối 2 khái niệm này). Gate 1 route chưa tồn tại là việc rỗng. Task 7 PHẢI gọi `KnowledgeAuthorization.resolve()` khi thêm từng route thật.
 
-Require `manage` for ACL, archive and purge; `review` plus assigned grant for review; `publish` for publication. Upload creates a private document for a member unless an authorized manager explicitly requests workspace/role visibility. Mirror this rule in the local execution-plane handler; plain membership is insufficient.
-
-- [ ] **Step 5: Run API and TypeScript policy tests.**
+- [x] **Step 5: Run API and TypeScript policy tests.** — chỉ chạy phần Python thật sự tồn tại (`test_authorization.py`); `test_vault_permissions.py`/`document-ingestion.test.ts` không có gì mới để test do Step 4 chưa wire route (xem ghi chú Step 4).
 
 Run:
 
@@ -465,15 +463,7 @@ cd services/cosa && npx vitest run tests/document-ingestion.test.ts
 
 Expected: PASS; founder has workspace-wide read, member cannot enumerate or review another member's source.
 
-- [ ] **Step 6: Commit.**
-
-```bash
-git add apps/cosa/knowledge_ingestion/authorization.py apps/cosa/auth/dependency.py \
-  apps/cosa/api/vault_routes.py apps/cosa/api/knowledge_routes.py \
-  services/cosa/handlers/document-ingestion.handler.ts tests/apps/cosa/knowledge_ingestion/test_authorization.py \
-  tests/apps/cosa/api/test_vault_permissions.py services/cosa/tests/document-ingestion.test.ts
-git commit -m "feat(vault): enforce role and document grants"
-```
+- [x] **Step 6: Commit.** — chỉ commit file thật sự tồn tại/thay đổi (`authorization.py`, `packages/agent/vault/repository.py` — thêm `has_explicit_grant`, `test_authorization.py`).
 
 ---
 
