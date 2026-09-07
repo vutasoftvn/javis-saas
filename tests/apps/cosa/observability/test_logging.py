@@ -8,6 +8,7 @@ from apps.cosa.observability.logging import (
     JSONLogFormatter,
     clear_log_context,
     log_context,
+    redact_provider_payload,
     redact_sensitive_text,
     set_log_context,
     setup_logging,
@@ -36,6 +37,48 @@ def test_redact_sensitive_text_postgres_dsn():
     redacted = redact_sensitive_text(raw)
     assert "SuperSecretPassword123" not in redacted
     assert "postgresql+asyncpg://db_user:[REDACTED]@prod-db.example.com:5432/javis_db" in redacted
+
+
+def test_redact_sensitive_text_authorization_kv():
+    # Không dùng tiền tố "sk-" ở đây (đã có regex riêng redact "sk-" trước) —
+    # test này nhắm đúng nhánh kv "authorization=<value>" không đi qua "Bearer"
+    # hay "sk-" pattern.
+    raw = "authorization=abcDEF123456token while calling provider"
+    redacted = redact_sensitive_text(raw)
+    assert "abcDEF123456token" not in redacted
+    assert "[REDACTED]" in redacted
+
+
+def test_redact_provider_payload_redacts_authorization_header():
+    payload = {
+        "headers": {
+            "Authorization": "Bearer sk-real-secret-value",
+            "Content-Type": "application/json",
+        },
+        "status": 200,
+    }
+    redacted = redact_provider_payload(payload)
+    assert redacted["headers"]["Authorization"] == "[REDACTED]"
+    assert redacted["headers"]["Content-Type"] == "application/json"
+    assert redacted["status"] == 200
+
+
+def test_redact_provider_payload_redacts_prompt_and_messages():
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": "my secret business plan"}],
+        "prompt": "raw prompt text with sensitive info",
+    }
+    redacted = redact_provider_payload(payload)
+    assert redacted["model"] == "deepseek-chat"
+    assert redacted["messages"] == "[REDACTED]"
+    assert redacted["prompt"] == "[REDACTED]"
+
+
+def test_redact_provider_payload_redacts_api_key_nested():
+    payload = {"auth": {"api_key": "sk-nested-secret"}}
+    redacted = redact_provider_payload(payload)
+    assert redacted["auth"]["api_key"] == "[REDACTED]"
 
 
 def test_json_log_formatter_with_context():

@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-__all__ = ["build_deepseek_model"]
+if TYPE_CHECKING:
+    from apps.cosa.models.contracts import ResolvedModelRoute
+    from apps.cosa.models.credential_store import LocalCredentialStore
+    from apps.cosa.models.providers import ModelClient, ModelProviderFactory
+
+__all__ = [
+    "build_credential_store",
+    "build_deepseek_model",
+    "build_model_provider_factory",
+    "create_workspace_model_client",
+]
 
 
 def build_deepseek_model() -> Any:
@@ -44,3 +54,48 @@ def build_deepseek_model() -> Any:
         base_url=base_url,
         api_key=api_key,
     )
+
+
+# ── Task 2 (plan 2026-09-07-local-first-model-routing) — workspace-scoped
+# model client, KHÔNG đọc DEEPSEEK_*/provider env cho lựa chọn theo workspace.
+#
+# `build_deepseek_model()` ở trên VẪN là mechanism hợp lệ cho bootstrap
+# "system default" (khi 1 workspace hoàn toàn CHƯA cấu hình policy/profile
+# nào — xem `apps.cosa.models.resolver.ModelRouteResolver`/
+# `SystemDefaultModelProfile`, do composition layer tiêm env vào MỘT LẦN ở
+# đây, không rải rác). Với call đã resolve theo workspace
+# (`ResolvedModelRoute` — có `credential_ref` trỏ tới credential thật lưu ở
+# `apps.cosa.models.credential_store`), phải đi qua `create_workspace_model_client()`
+# bên dưới — không được tự đọc env provider cho case này.
+
+
+def build_credential_store(session_factory: Any) -> LocalCredentialStore:
+    """`session_factory`: SQLAlchemy async session factory thật (cùng convention
+    `apps.cosa.models.repository.PostgresModelRoutingRepository`) — bắt buộc
+    truyền tường minh, không tự fallback InMemory ở composition root (fallback
+    InMemory chỉ hợp lệ trong test, caller test tự dựng
+    `LocalCredentialStore(InMemoryCredentialRepository())` trực tiếp)."""
+    from apps.cosa.models.credential_store import LocalCredentialStore, PostgresCredentialRepository
+
+    return LocalCredentialStore(PostgresCredentialRepository(session_factory))
+
+
+def build_model_provider_factory(
+    session_factory: Any, *, profile_repository: Any | None = None
+) -> ModelProviderFactory:
+    from apps.cosa.models.providers import ModelProviderFactory
+
+    store = build_credential_store(session_factory)
+    return ModelProviderFactory(store, profile_repository=profile_repository)
+
+
+async def create_workspace_model_client(
+    route: ResolvedModelRoute, *, session_factory: Any, profile_repository: Any | None = None
+) -> ModelClient:
+    """Composition-root entrypoint cho model client theo workspace đã resolve
+    (Task 1 resolver -> Task 2 credential store + adapter factory). Đây là
+    đối trọng workspace-scoped của `build_deepseek_model()` — route đã mang
+    theo provider_type/model_id/credential_ref xác định, factory KHÔNG tự
+    đọc bất kỳ biến môi trường provider nào để chọn route."""
+    factory = build_model_provider_factory(session_factory, profile_repository=profile_repository)
+    return await factory.create(route)

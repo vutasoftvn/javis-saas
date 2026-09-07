@@ -12,10 +12,12 @@ from typing import Any
 from apps.cosa.observability.otel import get_current_span_id, get_current_trace_id
 
 __all__ = [
+    "PROVIDER_PAYLOAD_SENSITIVE_KEYS",
     "JSONLogFormatter",
     "RedactingFilter",
     "clear_log_context",
     "log_context",
+    "redact_provider_payload",
     "redact_sensitive_text",
     "set_log_context",
     "setup_logging",
@@ -68,7 +70,7 @@ def redact_sensitive_text(text: str) -> str:
         return full.replace(secret, "[REDACTED]")
 
     text = re.sub(
-        r"(?i)(?:api[_-]?key|client_secret|password)[\s:=]+['\"]?([a-zA-Z0-9_\-\.]{8,})['\"]?",
+        r"(?i)(?:api[_-]?key|client_secret|password|authorization)[\s:=]+['\"]?([a-zA-Z0-9_\-\.]{8,})['\"]?",
         _replace_kv,
         text,
     )
@@ -80,6 +82,58 @@ def redact_sensitive_text(text: str) -> str:
     )
 
     return text
+
+
+# Task 2 (plan 2026-09-07-local-first-model-routing) — payload có cấu trúc
+# (headers/request-response body của provider gọi qua adapter, xem
+# apps/cosa/models/providers.py) không redact đáng tin cậy bằng regex free-
+# text lồng nhau trong JSON — dùng denylist THEO TÊN KEY (ngược chiều với
+# ALLOWED_LOG_METADATA_KEYS ở dưới, vốn là allowlist cho field metadata cố
+# định; ở đây payload provider có shape tuỳ ý nên không thể allowlist hết).
+# Che cả "authorization" header, "api_key"/token-style field, và
+# prompt/message/content — tuyệt đối không log nguyên văn prompt người dùng
+# hay nội dung request/response thật của provider.
+PROVIDER_PAYLOAD_SENSITIVE_KEYS = frozenset(
+    {
+        "authorization",
+        "api_key",
+        "apikey",
+        "x-api-key",
+        "api-key",
+        "secret",
+        "password",
+        "token",
+        "prompt",
+        "messages",
+        "input",
+        "content",
+        "system",
+        "system_prompt",
+    }
+)
+
+
+def redact_provider_payload(payload: Any) -> Any:
+    """Redact đệ quy 1 cấu trúc dict/list (headers, request/response body gửi
+    tới model provider) trước khi log — thay giá trị của bất kỳ key nào
+    (không phân biệt hoa/thường) khớp `PROVIDER_PAYLOAD_SENSITIVE_KEYS` bằng
+    `"[REDACTED]"`, giữ nguyên phần còn lại (status, model id, …) để vẫn debug
+    được. Chuỗi còn lại (không thuộc key nhạy cảm) vẫn chạy qua
+    `redact_sensitive_text()` phòng trường hợp secret lọt vào 1 field tưởng
+    chừng vô hại."""
+    if isinstance(payload, dict):
+        redacted: dict[str, Any] = {}
+        for key, value in payload.items():
+            if isinstance(key, str) and key.lower() in PROVIDER_PAYLOAD_SENSITIVE_KEYS:
+                redacted[key] = "[REDACTED]"
+            else:
+                redacted[key] = redact_provider_payload(value)
+        return redacted
+    if isinstance(payload, list):
+        return [redact_provider_payload(item) for item in payload]
+    if isinstance(payload, str):
+        return redact_sensitive_text(payload)
+    return payload
 
 
 def set_log_context(run_id: str | None = None, workspace_id: str | None = None) -> None:
