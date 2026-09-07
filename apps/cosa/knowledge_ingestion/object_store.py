@@ -9,7 +9,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from apps.cosa.knowledge_ingestion.contracts import (
-    MIME_TYPE_LIMITS,
     QuarantinedObject,
     UploadTicket,
 )
@@ -17,7 +16,6 @@ from apps.cosa.knowledge_ingestion.contracts import (
 __all__ = [
     "DocumentObjectStore",
     "InMemoryDocumentObjectStore",
-    "S3DocumentObjectStore",
 ]
 
 
@@ -107,7 +105,16 @@ class DocumentObjectStore(ABC):
 
 
 class InMemoryDocumentObjectStore(DocumentObjectStore):
-    """In-memory object store for unit tests — no network, no real S3."""
+    """In-memory object store for unit tests — no network, no real S3.
+
+    Task 3 (plan local-first-enterprise-knowledge) — S3-compatible storage
+    KHÔNG còn là đường production hợp lệ (ADR-LOCAL-FIRST-001: raw file cư
+    trú local trên Workspace Runtime Node, xem `workspace_store.py`).
+    `is_test_double` cho composition/preflight tự-kiểm tra không âm thầm wire
+    class này vào production.
+    """
+
+    is_test_double = True
 
     def __init__(self):
         self._tickets: dict[str, UploadTicket] = {}  # ingestion_id → ticket
@@ -227,218 +234,3 @@ class InMemoryDocumentObjectStore(DocumentObjectStore):
             return "application/octet-stream"
 
 
-class S3DocumentObjectStore(DocumentObjectStore):
-    """S3-compatible (MinIO) object store using boto3."""
-
-    def __init__(
-        self,
-        s3_client=None,
-        bucket_name: str = "knowledge-ingestions",
-        region: str = "us-east-1",
-        endpoint_url: str | None = None,
-    ):
-        """Initialize S3-compatible store.
-
-        Args:
-            s3_client: boto3 S3 client (or mock for testing).
-            bucket_name: S3 bucket name.
-            region: AWS region.
-            endpoint_url: MinIO endpoint URL (e.g., http://127.0.0.1:9000).
-        """
-        self.s3_client = s3_client
-        self.bucket_name = bucket_name
-        self.region = region
-        self.endpoint_url = endpoint_url
-        # Track tickets in memory (similar to in-memory store, but for S3)
-        self._tickets: dict[str, UploadTicket] = {}
-        self._ticket_configs: dict[str, dict[str, Any]] = {}
-
-    async def issue_upload_ticket(
-        self,
-        ingestion_id: str,
-        workspace_id: str,
-        media_type: str,
-        max_bytes: int,
-    ) -> UploadTicket:
-        """Generate presigned POST form for S3 upload."""
-        # Generate server-owned key
-        random_suffix = uuid.uuid4().hex[:16]
-        object_key = f"quarantine/{workspace_id}/{ingestion_id}/{random_suffix}"
-
-        # Generate presigned POST (valid for 1 hour)
-        presigned_data = await self._generate_presigned_post(
-            object_key=object_key,
-            max_bytes=max_bytes,
-            expires_in=3600,
-        )
-
-        # Expires in 1 hour
-        expires_at = datetime.now(UTC) + timedelta(hours=1)
-
-        ticket = UploadTicket(
-            object_key=object_key,
-            signed_url=presigned_data.get("url", ""),  # S3 form endpoint
-            expires_at=expires_at,
-        )
-
-        # Store ticket for later finalization
-        self._tickets[ingestion_id] = ticket
-        self._ticket_configs[ingestion_id] = {
-            "workspace_id": workspace_id,
-            "max_bytes": max_bytes,
-            "presigned_fields": presigned_data.get("fields", {}),
-        }
-
-        return ticket
-
-    async def finalize_upload(
-        self,
-        ingestion_id: str,
-        workspace_id: str,
-    ) -> QuarantinedObject:
-        """Finalize S3 upload — HEAD, stream read, hash, MIME sniff."""
-        # Check ticket
-        if ingestion_id not in self._tickets:
-            raise ValueError(f"Ingestion {ingestion_id} not found")
-
-        ticket = self._tickets[ingestion_id]
-        config = self._ticket_configs[ingestion_id]
-
-        # Verify workspace
-        if config["workspace_id"] != workspace_id:
-            raise ValueError(f"Ingestion {ingestion_id} not found")
-
-        # Check expiration
-        if datetime.now(UTC) > ticket.expires_at:
-            raise ValueError(f"Upload ticket expired for ingestion {ingestion_id}")
-
-        # HEAD to get metadata
-        head_response = await self._head_object(ticket.object_key)
-        if head_response is None:
-            raise ValueError(f"Upload not completed for ingestion {ingestion_id}")
-
-        size_bytes = head_response.get("ContentLength", 0)
-        head_response.get("ContentType", "application/octet-stream")
-
-        # Validate size
-        if size_bytes > config["max_bytes"]:
-            raise ValueError(f"Upload size {size_bytes} exceeds max {config['max_bytes']} bytes")
-
-        # Stream read and compute hash
-        sha256_hash = hashlib.sha256()
-        await self._stream_read_and_hash(ticket.object_key, sha256_hash)
-
-        # Sniff MIME from downloaded bytes
-        detected_type = await self._sniff_mime_from_s3(ticket.object_key)
-
-        return QuarantinedObject(
-            object_key=ticket.object_key,
-            size_bytes=size_bytes,
-            source_sha256=sha256_hash.hexdigest(),
-            detected_media_type=detected_type,
-        )
-
-    async def _generate_presigned_post(
-        self, object_key: str, max_bytes: int, expires_in: int
-    ) -> dict:
-        """Generate presigned POST fields (calls S3 client)."""
-        if self.s3_client is None:
-            raise RuntimeError("S3 client not initialized")
-
-        # For boto3: generate_presigned_post returns {url, fields}
-        return await self.s3_client.generate_presigned_post(
-            Bucket=self.bucket_name,
-            Key=object_key,
-            Fields={},
-            Conditions=[
-                ["content-length-range", 0, max_bytes],
-            ],
-            ExpiresIn=expires_in,
-        )
-
-    async def _head_object(self, object_key: str) -> dict | None:
-        """HEAD object to get metadata."""
-        if self.s3_client is None:
-            return None
-
-        try:
-            return await self.s3_client.head_object(
-                Bucket=self.bucket_name,
-                Key=object_key,
-            )
-        except Exception:
-            return None
-
-    async def _stream_read_and_hash(self, object_key: str, sha256_hash) -> None:
-        """Stream read object and compute hash."""
-        if self.s3_client is None:
-            return
-
-        response = await self.s3_client.get_object(
-            Bucket=self.bucket_name,
-            Key=object_key,
-        )
-
-        # Stream body in chunks
-        async for chunk in response.get("Body", []):
-            sha256_hash.update(chunk)
-
-    async def read_object(
-        self,
-        object_key: str,
-        workspace_id: str,
-    ) -> bytes:
-        """Read quarantined object bytes from S3.
-
-        Verify workspace scope via object_key format: quarantine/<workspace>/<ingestion>/...
-        """
-        if self.s3_client is None:
-            raise ValueError("S3 client not initialized")
-
-        # Verify workspace scope from object_key
-        parts = object_key.split("/")
-        if len(parts) < 2 or parts[0] != "quarantine" or parts[1] != workspace_id:
-            raise ValueError(f"Object workspace mismatch: {object_key}")
-
-        try:
-            response = await self.s3_client.get_object(
-                Bucket=self.bucket_name,
-                Key=object_key,
-            )
-
-            # Stream read with bounded max size (use largest MIME_TYPE_LIMITS value)
-            max_bytes = max(MIME_TYPE_LIMITS.values()) if MIME_TYPE_LIMITS else 25 * 1024 * 1024
-            data = b""
-            async for chunk in response.get("Body", []):
-                data += chunk
-                if len(data) > max_bytes:
-                    raise ValueError(f"Object exceeds maximum size {max_bytes}")
-
-            return data
-        except Exception as e:
-            if "not found" in str(e).lower() or isinstance(e, KeyError):
-                raise ValueError(f"Object not found: {object_key}") from e
-            raise ValueError(f"Failed to read object: {e}") from e
-
-    async def _sniff_mime_from_s3(self, object_key: str) -> str:
-        """Download first 8KB and sniff MIME type."""
-        if self.s3_client is None:
-            return "application/octet-stream"
-
-        try:
-            response = await self.s3_client.get_object(
-                Bucket=self.bucket_name,
-                Key=object_key,
-                Range="bytes=0-8191",  # First 8 KB
-            )
-            data = b""
-            async for chunk in response.get("Body", []):
-                data += chunk
-                if len(data) >= 8192:
-                    break
-
-            # Use in-memory store's sniff logic
-            in_mem_store = InMemoryDocumentObjectStore()
-            return in_mem_store._sniff_mime_type(data)
-        except Exception:
-            return "application/octet-stream"

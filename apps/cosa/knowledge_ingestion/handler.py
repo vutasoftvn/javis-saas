@@ -151,11 +151,15 @@ async def execute_knowledge_ingestion_task(
 
         assert_production_scanner_ready(scanner, _env)  # raise nếu FakeDocumentMalwareScanner
 
-    # Inject defaults cho dev/test (không phải production)
+    # Inject defaults cho dev/test (không phải production). Task 3 — S3 không
+    # còn là đường storage hợp lệ (ADR-LOCAL-FIRST-001); production PHẢI
+    # inject WorkspaceDocumentStore thật qua composition (Task 4). Dev/test
+    # không có object_store thật dùng `InMemoryDocumentObjectStore` (test
+    # double tường minh, is_test_double=True) thay vì giả vờ có S3 client.
     if object_store is None:
-        from apps.cosa.knowledge_ingestion.object_store import S3DocumentObjectStore
+        from apps.cosa.knowledge_ingestion.object_store import InMemoryDocumentObjectStore
 
-        object_store = S3DocumentObjectStore()  # Production S3 store
+        object_store = InMemoryDocumentObjectStore()
 
     if scanner is None:
         from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner

@@ -207,7 +207,7 @@ git commit -m "feat(vault): add local document access policy and provenance"
 - Produces `WorkspaceDocumentStore.issue_ticket()`, `write_upload_stream()`, `finalize_upload()`, `promote_to_vault()`, `purge_version()`.
 - `WorkspaceDocumentStore` receives `root: Path`, `upload_ticket_repository`, never an S3/boto client.
 
-- [ ] **Step 1: Write failing filesystem tests using `tmp_path`.**
+- [x] **Step 1: Write failing filesystem tests using `tmp_path`.**
 
 ```python
 async def test_ticket_survives_store_recreation(tmp_path, ticket_repo):
@@ -223,13 +223,13 @@ async def test_workspace_b_cannot_use_workspace_a_ticket(tmp_path, ticket_repo):
         await store.write_upload_stream("ws-b", "up-1", ticket.secret, [b"x"])
 ```
 
-- [ ] **Step 2: Run the test.**
+- [x] **Step 2: Run the test.**
 
 Run: `PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/knowledge_ingestion/test_workspace_store.py -q`
 
 Expected: FAIL because the only existing stores are in-memory and S3-compatible.
 
-- [ ] **Step 3: Implement storage with safe local filesystem semantics.**
+- [x] **Step 3: Implement storage with safe local filesystem semantics.**
 
 Use a configured absolute `COSA_WORKSPACE_STORAGE_ROOT`; reject a relative root, symlink path, `..`, invalid workspace ID or path outside root. Persist only a SHA-256 hash of the random ticket secret, expiry, max bytes and generated relative quarantine path in `agent.local_upload_tickets`. Stream to `*.partial`, enforce byte limit while streaming, `fsync`, then atomically `os.replace` into `quarantine/<workspace>/<upload>/<random>`. Set mode `0o600`; never return local path/object key to client.
 
@@ -243,11 +243,11 @@ async def promote_to_vault(self, workspace_id: str, version_id: str, quarantine_
 
 Recompute SHA-256 after copy and reject a mismatch before marking a version publishable.
 
-- [ ] **Step 4: Delete S3 as an available production path.**
+- [x] **Step 4: Delete S3 as an available production path.**
 
 Remove `S3DocumentObjectStore` from composition/configuration and tests that present it as production-capable. Preserve no `boto3` fallback. `InMemoryDocumentObjectStore` remains test-only and must expose `is_test_double = True`.
 
-- [ ] **Step 5: Run focused safety tests.**
+- [x] **Step 5: Run focused safety tests.**
 
 Run:
 
@@ -258,7 +258,7 @@ PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/knowledge_ingestion/test
 
 Expected: PASS; ticket works across store restart, symlink/traversal is rejected and no test invokes S3.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add apps/cosa/knowledge_ingestion packages/agent/migrations/026_local_upload_tickets.sql \

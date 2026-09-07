@@ -2,23 +2,17 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
-from io import BytesIO
-from typing import Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC
 
 import pytest
 
 from apps.cosa.knowledge_ingestion.contracts import (
-    UploadTicket,
     QuarantinedObject,
-    MIME_TYPE_LIMITS,
+    UploadTicket,
 )
 from apps.cosa.knowledge_ingestion.object_store import (
-    DocumentObjectStore,
     InMemoryDocumentObjectStore,
-    S3DocumentObjectStore,
 )
 
 
@@ -112,7 +106,7 @@ class TestInMemoryDocumentObjectStore:
         store._buckets[workspace_id][ticket.object_key] = large_data
 
         # Finalize should reject
-        with pytest.raises(ValueError, match="size.*exceeds.*max"):
+        with pytest.raises(ValueError, match=r"size.*exceeds.*max"):
             await store.finalize_upload(
                 ingestion_id=ingestion_id,
                 workspace_id=workspace_id,
@@ -147,7 +141,7 @@ class TestInMemoryDocumentObjectStore:
         store._buckets[workspace_a][ticket.object_key] = b"test data"
 
         # Try to finalize from workspace B
-        with pytest.raises(ValueError, match="not found|workspace"):
+        with pytest.raises(ValueError, match=r"not found|workspace"):
             await store.finalize_upload(
                 ingestion_id=ingestion_id,
                 workspace_id=workspace_b,
@@ -169,8 +163,8 @@ class TestInMemoryDocumentObjectStore:
         )
 
         # Force expiration by manipulating internal state
-        from datetime import datetime, timezone, timedelta
-        store._tickets[ingestion_id].expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        from datetime import datetime, timedelta
+        store._tickets[ingestion_id].expires_at = datetime.now(UTC) - timedelta(hours=1)
         store._buckets[workspace_id][ticket.object_key] = b"test"
 
         # Attempt to finalize should fail due to expiration
@@ -180,90 +174,3 @@ class TestInMemoryDocumentObjectStore:
                 workspace_id=workspace_id,
             )
 
-
-class TestS3DocumentObjectStore:
-    """S3/MinIO implementation — tests mock S3 calls."""
-
-    @pytest.mark.asyncio
-    async def test_issue_upload_ticket_s3_presigned_post(self):
-        """S3 ticket generates presigned POST form (S3-compat)."""
-        mock_s3_client = AsyncMock()
-        mock_s3_client.generate_presigned_post = AsyncMock(
-            return_value={
-                "url": "http://minio:9000/knowledge-ingestions/",
-                "fields": {"key": "quarantine/ws_test/ing_s3/obj_abc123", "policy": "..."},
-            }
-        )
-
-        store = S3DocumentObjectStore(
-            s3_client=mock_s3_client,
-            bucket_name="knowledge-ingestions",
-            region="us-east-1",
-        )
-
-        ticket = await store.issue_upload_ticket(
-            ingestion_id="ing_s3",
-            workspace_id="ws_test",
-            media_type="application/pdf",
-            max_bytes=25 * 1024 * 1024,
-        )
-
-        assert ticket.object_key.startswith("quarantine/ws_test/ing_s3/")
-        assert ticket.signed_url is not None
-        # Verify S3 client was called
-        mock_s3_client.generate_presigned_post.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_finalize_upload_s3_head_and_read(self):
-        """S3 finalize performs HEAD (metadata), then streamed read for hash."""
-        mock_s3_client = AsyncMock()
-        mock_s3_client.head_object = AsyncMock(
-            return_value={"ContentLength": 1024, "ContentType": "application/pdf"}
-        )
-
-        # Create a proper async iterator for S3 Body
-        test_data = b"PDF content here" * 100
-
-        async def async_iter_chunks():
-            yield test_data
-
-        mock_body = MagicMock()
-        mock_body.__aiter__ = lambda self: async_iter_chunks()
-
-        mock_s3_client.get_object = AsyncMock(
-            return_value={"Body": mock_body}
-        )
-
-        store = S3DocumentObjectStore(
-            s3_client=mock_s3_client,
-            bucket_name="knowledge-ingestions",
-            region="us-east-1",
-        )
-
-        # Pre-populate internal ticket tracking (normally done by issue_upload_ticket)
-        from apps.cosa.knowledge_ingestion.contracts import UploadTicket
-        from datetime import datetime, timezone, timedelta
-        ticket = UploadTicket(
-            object_key="quarantine/ws_test/ing_s3/obj_xyz",
-            signed_url="http://minio/presigned",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
-        )
-        store._tickets["ing_s3"] = ticket
-        store._ticket_configs["ing_s3"] = {
-            "workspace_id": "ws_test",
-            "max_bytes": 25 * 1024 * 1024,
-        }
-
-        result = await store.finalize_upload(
-            ingestion_id="ing_s3",
-            workspace_id="ws_test",
-        )
-
-        # Verify result
-        assert result.object_key == ticket.object_key
-        assert result.size_bytes > 0
-        assert result.source_sha256 is not None
-        assert result.detected_media_type is not None
-
-        # Verify S3 calls (HEAD once, GET multiple times for hash and MIME sniff)
-        mock_s3_client.head_object.assert_called_once()
