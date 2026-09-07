@@ -18,6 +18,7 @@ from apps.cosa.api.event_rule_routes import create_event_rule_router
 from apps.cosa.api.graphql_routes import router as graphql_router
 from apps.cosa.api.kickoff_suggestion_routes import create_kickoff_suggestion_router
 from apps.cosa.api.knowledge_routes import create_knowledge_router
+from apps.cosa.api.model_policy_routes import create_model_policy_router
 from apps.cosa.api.routes import router
 from apps.cosa.api.schedule_routes import create_schedule_router
 from apps.cosa.api.settings_routes import router as settings_router
@@ -210,6 +211,7 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     app.include_router(vault_router)
     app.include_router(graphql_router)
     app.include_router(settings_router)
+    app.include_router(create_model_policy_router())
     app.include_router(create_skill_registry_router())
     app.include_router(create_event_intake_router())
     app.include_router(create_event_rule_router())

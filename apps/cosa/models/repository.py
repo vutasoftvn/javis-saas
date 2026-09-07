@@ -152,6 +152,49 @@ class PostgresModelRoutingRepository:
                 status=ProfileStatus(row["status"]),
             )
 
+    async def list_profiles(self, workspace_id: str) -> list[ModelProviderProfile]:
+        """Task 4 — liệt kê toàn bộ profile của 1 workspace (dùng cho
+        `GET /agent/settings/model-providers`, hiển thị danh sách để founder
+        chọn primary/fallback khi set policy). Sắp xếp theo `profile_id` để
+        response ổn định qua các lần gọi."""
+        from sqlalchemy import text
+
+        async with self._session_factory() as session:
+            await self._set_workspace(session, workspace_id)
+            res = await session.execute(
+                text(
+                    """
+                    SELECT workspace_id, profile_id, provider_type, model_id,
+                           credential_ref, base_url, allowed_models, budget_usd_limit,
+                           max_concurrency, status
+                    FROM models.model_provider_profiles
+                    WHERE workspace_id = :workspace_id
+                    ORDER BY profile_id
+                    """
+                ),
+                {"workspace_id": workspace_id},
+            )
+            rows = res.mappings().all()
+            return [
+                ModelProviderProfile(
+                    workspace_id=row["workspace_id"],
+                    profile_id=row["profile_id"],
+                    provider_type=ProviderType(row["provider_type"]),
+                    model_id=row["model_id"],
+                    credential_ref=row["credential_ref"],
+                    base_url=row["base_url"],
+                    allowed_models=tuple(row["allowed_models"] or []),
+                    budget_usd_limit=(
+                        float(row["budget_usd_limit"])
+                        if row["budget_usd_limit"] is not None
+                        else None
+                    ),
+                    max_concurrency=row["max_concurrency"],
+                    status=ProfileStatus(row["status"]),
+                )
+                for row in rows
+            ]
+
     async def set_policy(
         self,
         workspace_id: str,
@@ -285,6 +328,12 @@ class InMemoryModelRoutingRepository:
 
     async def get_profile(self, workspace_id: str, profile_id: str) -> ModelProviderProfile | None:
         return self._profiles.get((workspace_id, profile_id))
+
+    async def list_profiles(self, workspace_id: str) -> list[ModelProviderProfile]:
+        return sorted(
+            (p for (ws, _pid), p in self._profiles.items() if ws == workspace_id),
+            key=lambda p: p.profile_id,
+        )
 
     async def set_policy(
         self,
