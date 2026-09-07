@@ -512,12 +512,12 @@ Run: cd frontend && flutter test test/strategy_service_test.dart test/stage_lens
 
 Expected: service typecheck, focused TypeScript/Flutter tests, and analyzer pass. The legacy StrategyService assertion must validate camelCase OKR request fields, matching the backend DTO and OkrService contract.
 
-- [ ] **Step 3: Verify repository state**
+- [x] **Step 3: Verify repository state**
 
 Run: git status --short && git diff --check
 
 Expected: no whitespace error and every source change belongs to a committed task.
 
-- [ ] **Step 4: Report verification limit**
+- [x] **Step 4: Report verification limit**
 
-Report that real disposable Postgres/process E2E was not run if the environment cannot start the required stack. Do not interpret a sandbox denial as a product failure.
+`COSA_MIGRATOR_DATABASE_URL` and `DATABASE_URL` are unset in this session, so real disposable Postgres/process E2E was not run. The COSA preflight's missing-URL failure was verified directly; do not interpret the unavailable connection as a product failure.
