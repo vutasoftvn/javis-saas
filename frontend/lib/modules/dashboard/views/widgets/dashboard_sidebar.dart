@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/localization/locale_controller.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/routing/module_routes.dart';
 import '../../../../core/services/feature_flags_controller.dart';
@@ -198,6 +199,9 @@ class DashboardDesktopSidebar extends StatelessWidget {
             // Grouped Accordion Submenu List
             Expanded(
               child: Obx(() {
+                if (Get.isRegistered<LocaleController>()) {
+                  Get.find<LocaleController>().current.value;
+                }
                 final activeIndex = _resolveActiveIndex(controller);
                 final expandedGroup = controller.expandedGroupIndex.value;
                 final navGroups = _getVisibleNavGroups();
@@ -238,7 +242,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      group.title,
+                                      group.titleKey != null ? group.titleKey!.tr : (item.labelKey != null ? item.labelKey!.tr : group.title),
                                       maxLines: 1,
                                       softWrap: false,
                                       overflow: TextOverflow.fade,
@@ -282,7 +286,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
                           color: (isExpanded || hasActiveChild) ? AppTheme.primary : AppTheme.textDark,
                         ),
                         title: Text(
-                          group.title,
+                          group.titleKey != null ? group.titleKey!.tr : group.title,
                           maxLines: 1,
                           softWrap: false,
                           style: TextStyle(
@@ -307,7 +311,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 2),
                             child: DashboardSidebarSubItem(
                               icon: isSelected ? item.selectedIcon : item.icon,
-                              label: item.label,
+                              label: item.labelKey != null ? item.labelKey!.tr : item.label,
                               isSelected: isSelected,
                               isRecommended: isRec,
                               isDimmed: isDimmed,

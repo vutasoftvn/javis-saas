@@ -1,29 +1,36 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../data/models/stage_model.dart';
 
 class DashboardNavItem {
   final IconData icon;
   final IconData selectedIcon;
   final String label;
+  final String? labelKey;
   final int index;
   final String? flagKey;
+  final String? moduleKey;
 
   const DashboardNavItem({
     required this.icon,
     required this.selectedIcon,
     required this.label,
+    this.labelKey,
     required this.index,
     this.flagKey,
+    this.moduleKey,
   });
 }
 
 class DashboardNavGroup {
   final String title;
+  final String? titleKey;
   final IconData groupIcon;
   final List<DashboardNavItem> items;
 
   const DashboardNavGroup({
     required this.title,
+    this.titleKey,
     required this.groupIcon,
     required this.items,
   });
@@ -132,7 +139,9 @@ class DashboardNavConfig {
         DashboardNavItem(
           icon: Icons.gavel_outlined,
           selectedIcon: Icons.gavel,
-          label: 'Pháp lý & Hợp đồng AI',
+          label: 'Pháp lý',
+          labelKey: L10nKey.moduleLegal,
+          moduleKey: 'legal',
           index: 22,
         ),
         DashboardNavItem(
@@ -145,6 +154,8 @@ class DashboardNavConfig {
           icon: Icons.point_of_sale_rounded,
           selectedIcon: Icons.point_of_sale,
           label: 'Bán hàng & CRM',
+          labelKey: L10nKey.moduleCrm,
+          moduleKey: 'crm',
           index: 23,
         ),
         DashboardNavItem(
@@ -162,7 +173,9 @@ class DashboardNavConfig {
         DashboardNavItem(
           icon: Icons.account_balance_wallet_outlined,
           selectedIcon: Icons.account_balance_wallet,
-          label: 'Kế toán & Tài chính',
+          label: 'Tài chính',
+          labelKey: L10nKey.moduleFinance,
+          moduleKey: 'finance',
           index: 21,
         ),
         DashboardNavItem(
