@@ -73,23 +73,53 @@ export async function ensureMappingSeeded(mapping: RegimeMapping = TT58_2026_MAP
         )
       );
 
+    // Upsert theo `uix_report_mapping_line` (migration 42) thay vì insert
+    // trần: hai lời gọi đồng thời cùng thấy dữ liệu cũ đều chạy delete+insert,
+    // và insert của lời gọi thứ hai đâm vào unique constraint -> 500. Không
+    // sai dữ liệu (tự lành ở lần gọi sau) nhưng tránh được thì tránh.
+    //
+    // Vẫn GIỮ `tx.delete` phía trên: upsert một mình chỉ ghi đè đúng những
+    // line_code có trong `mapping.lines`, nên nếu một version về sau bớt dòng
+    // đi thì dòng cũ sẽ bị bỏ mồ côi — và `isFresh` (so khớp số dòng) sẽ
+    // không bao giờ thỏa mãn nữa, khiến mọi lời gọi đều phải seed lại.
     for (const line of mapping.lines) {
-      await tx.insert(accountingReportMappings).values({
-        id: generateSnowflake(),
-        regimeCode: mapping.regimeCode,
-        mappingVersion: mapping.mappingVersion,
-        reportCode: line.reportCode,
-        lineCode: line.lineCode,
-        officialCode: line.officialCode,
-        name: line.name,
-        sourceRef: line.sourceRef,
-        ruleType: line.ruleType,
-        bucket: line.bucket,
-        derivedKind: line.derivedKind ?? null,
-        sign: line.sign,
-        rounding: line.rounding,
-        definitionHash,
-      });
+      await tx
+        .insert(accountingReportMappings)
+        .values({
+          id: generateSnowflake(),
+          regimeCode: mapping.regimeCode,
+          mappingVersion: mapping.mappingVersion,
+          reportCode: line.reportCode,
+          lineCode: line.lineCode,
+          officialCode: line.officialCode,
+          name: line.name,
+          sourceRef: line.sourceRef,
+          ruleType: line.ruleType,
+          bucket: line.bucket,
+          derivedKind: line.derivedKind ?? null,
+          sign: line.sign,
+          rounding: line.rounding,
+          definitionHash,
+        })
+        .onConflictDoUpdate({
+          target: [
+            accountingReportMappings.regimeCode,
+            accountingReportMappings.mappingVersion,
+            accountingReportMappings.reportCode,
+            accountingReportMappings.lineCode,
+          ],
+          set: {
+            officialCode: line.officialCode,
+            name: line.name,
+            sourceRef: line.sourceRef,
+            ruleType: line.ruleType,
+            bucket: line.bucket,
+            derivedKind: line.derivedKind ?? null,
+            sign: line.sign,
+            rounding: line.rounding,
+            definitionHash,
+          },
+        });
     }
   });
 }
