@@ -44,10 +44,13 @@ class AuthController extends GetxController {
   final regConfirmPasswordController = TextEditingController();
 
   /// false = tạo công ty mới (regCompanyNameController), true = tham gia
-  /// công ty có sẵn bằng mã (regJoinCompanyIdController).
+  /// workspace có sẵn bằng invitation token (regInvitationTokenController).
+  /// ADR-WORKSPACE-INVITATION-001 — join bằng company_id trần đã bị chốt là
+  /// lỗ hổng authority, luồng "tham gia" duy nhất còn lại là chấp nhận một
+  /// invitation token opaque do founder/admin/co-founder workspace phát hành.
   final isJoiningCompany = false.obs;
   final regCompanyNameController = TextEditingController();
-  final regJoinCompanyIdController = TextEditingController();
+  final regInvitationTokenController = TextEditingController();
 
   static final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
@@ -83,7 +86,7 @@ class AuthController extends GetxController {
     regPasswordController.dispose();
     regConfirmPasswordController.dispose();
     regCompanyNameController.dispose();
-    regJoinCompanyIdController.dispose();
+    regInvitationTokenController.dispose();
     super.onClose();
   }
 
@@ -93,7 +96,7 @@ class AuthController extends GetxController {
     regPasswordController.clear();
     regConfirmPasswordController.clear();
     regCompanyNameController.clear();
-    regJoinCompanyIdController.clear();
+    regInvitationTokenController.clear();
     isJoiningCompany.value = false;
     registerStep.value = 1;
     registeredPlatformToken.value = '';
@@ -243,14 +246,14 @@ class AuthController extends GetxController {
     }
 
     final companyName = isJoiningCompany.value ? null : regCompanyNameController.text.trim();
-    final joinCompanyId = isJoiningCompany.value ? regJoinCompanyIdController.text.trim() : null;
+    final invitationToken = isJoiningCompany.value ? regInvitationTokenController.text.trim() : null;
 
     if (!isJoiningCompany.value && (companyName == null || companyName.isEmpty)) {
       registerErrorMessage.value = 'Vui lòng nhập tên công ty muốn tạo';
       return;
     }
-    if (isJoiningCompany.value && (joinCompanyId == null || joinCompanyId.isEmpty)) {
-      registerErrorMessage.value = 'Vui lòng nhập mã công ty muốn tham gia';
+    if (isJoiningCompany.value && (invitationToken == null || invitationToken.isEmpty)) {
+      registerErrorMessage.value = 'Vui lòng nhập mã lời mời được gửi cho bạn';
       return;
     }
 
@@ -260,9 +263,9 @@ class AuthController extends GetxController {
     try {
       final AuthResult companyResult;
       if (isJoiningCompany.value) {
-        companyResult = await _authService.joinCompany(
+        companyResult = await _authService.acceptWorkspaceInvitation(
           platformToken: token,
-          companyId: joinCompanyId!,
+          invitationToken: invitationToken!,
         );
       } else {
         companyResult = await _authService.createCompany(

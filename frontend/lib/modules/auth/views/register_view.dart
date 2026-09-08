@@ -410,13 +410,12 @@ class RegisterView extends GetView<AuthController> {
 
         if (controller.isJoiningCompany.value) ...[
           TextField(
-            key: const ValueKey('join_company_id'),
-            controller: controller.regJoinCompanyIdController,
-            keyboardType: TextInputType.number,
+            key: const ValueKey('invitation_token'),
+            controller: controller.regInvitationTokenController,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              labelText: 'Mã công ty (do người mời cung cấp)',
-              hintText: 'Ví dụ: 84250971596656640',
+              labelText: 'Mã lời mời workspace',
+              hintText: 'Dán mã lời mời được gửi cho bạn qua email',
               hintStyle: const TextStyle(color: AppTheme.textDimDark, fontSize: 12),
               labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               prefixIcon: const Icon(Icons.key_outlined, color: AppTheme.primary, size: 20),
@@ -438,7 +437,7 @@ class RegisterView extends GetView<AuthController> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Nhập mã công ty đã tồn tại để tham gia vào doanh nghiệp.',
+            'Dán mã lời mời do founder/admin của workspace gửi cho bạn qua email.',
             style: TextStyle(fontSize: 11, color: AppTheme.textDimDark),
           ),
         ] else ...[

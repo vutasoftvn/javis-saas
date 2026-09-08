@@ -172,7 +172,6 @@ class AuthService {
     required String displayName,
     String? workspaceName,
     String? companyName,
-    String? joinCompanyId,
   }) async {
     try {
       final wsName = workspaceName ?? companyName;
@@ -185,8 +184,6 @@ class AuthService {
           'full_name': displayName,
           'workspace_name': ?wsName,
           'company_name': ?companyName,
-          if (joinCompanyId != null)
-            'join_company_id': int.tryParse(joinCompanyId) ?? joinCompanyId,
         },
       );
 
@@ -306,32 +303,35 @@ class AuthService {
     }
   }
 
-  /// Tham gia company co san tren control_plane bang ma company.
-  Future<AuthResult> joinCompany({
+  /// Chấp nhận lời mời tham gia workspace (ADR-WORKSPACE-INVITATION-001).
+  /// Join bằng `company_id` trần đã bị chốt là lỗ hổng authority (route
+  /// `/platform/auth/companies/join` đã bị gỡ) — luồng "tham gia" duy nhất
+  /// còn lại là chấp nhận một invitation token do founder/admin/co-founder
+  /// của workspace phát hành. Token là chuỗi opaque (base64url) — KHÔNG BAO
+  /// GIỜ parse bằng `int.tryParse`, vì token này không phải Snowflake ID.
+  Future<AuthResult> acceptWorkspaceInvitation({
     required String platformToken,
-    required String companyId,
+    required String invitationToken,
   }) async {
     try {
-      final parsedId = int.tryParse(companyId);
-      if (parsedId == null) {
-        return const AuthResult(
-          success: false,
-          errorMessage: 'Mã không gian làm việc không hợp lệ (phải là số)',
-        );
-      }
-      final url = ApiClient.resolveUri('/platform/auth/companies/join');
+      final url = ApiClient.resolveUri(
+        '/platform/auth/companies/invitations/accept',
+      );
       final response = await ApiClient.client.post(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $platformToken',
         },
-        body: jsonEncode({'company_id': parsedId}),
+        body: jsonEncode({'token': invitationToken}),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final resCompanyId = data['company_id']?.toString();
+        // Snowflake ID có thể vượt quá phạm vi số nguyên an toàn của
+        // JS/Dart (2^53) — backend luôn trả `company_id` dạng JSON string,
+        // đọc trực tiếp làm String, KHÔNG parse qua int.
+        final resCompanyId = data['company_id'] as String?;
         final wsObj = data['workspace'] as Map<String, dynamic>?;
         return AuthResult(
           success: true,
@@ -342,16 +342,22 @@ class AuthService {
       } else if (response.statusCode == 404) {
         return const AuthResult(
           success: false,
-          errorMessage: 'Không gian làm việc muốn tham gia không tồn tại',
+          errorMessage: 'Lời mời không tồn tại hoặc token không hợp lệ',
+        );
+      } else if (response.statusCode == 403) {
+        return const AuthResult(
+          success: false,
+          errorMessage:
+              'Lời mời đã hết hạn, đã bị thu hồi, hoặc không dành cho tài khoản này',
         );
       }
       return AuthResult(
         success: false,
         errorMessage:
-            'Tham gia không gian làm việc không thành công (mã lỗi ${response.statusCode})',
+            'Chấp nhận lời mời không thành công (mã lỗi ${response.statusCode})',
       );
     } catch (e) {
-      debugPrint('joinCompany error: $e');
+      debugPrint('acceptWorkspaceInvitation error: $e');
       final isNetwork = e.toString().contains('SocketException') ||
           e.toString().contains('ClientException') ||
           e.toString().contains('TimeoutException');
@@ -359,7 +365,7 @@ class AuthService {
         success: false,
         errorMessage: isNetwork
             ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
-            : 'Tham gia công ty thất bại: $e',
+            : 'Chấp nhận lời mời thất bại: $e',
       );
     }
   }

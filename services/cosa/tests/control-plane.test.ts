@@ -1,7 +1,18 @@
 import { describe, it, expect } from "vitest";
 import { registerPlatform, loginPlatform, getMe, updateMe } from "../handlers/auth.handler";
-import { createCompanyFor, joinCompanyFor, listMyCompaniesFor, validateMembership } from "../handlers/company.handler";
+import {
+  createCompanyFor,
+  joinCompanyFor,
+  listMyCompaniesFor,
+  validateMembership,
+  createWorkspaceInvitationFor,
+  acceptWorkspaceInvitationFor,
+} from "../handlers/company.handler";
 import { verifyPlatformToken } from "../services/token.service";
+import { eq } from "drizzle-orm";
+import { db, schema } from "../models/db";
+
+const { workspaces, workspaceMemberships } = schema;
 
 describe("Control Plane Service", () => {
   const testEmail = `founder_${Date.now()}@example.com`;
@@ -188,5 +199,89 @@ describe("Control Plane Service", () => {
     expect(validation.roleId).toBe("founder");
     expect(validation.companyName).toBe("Acme AI Corp");
     expect(validation.email).toBe(testEmail);
+  });
+
+  // Task 6 (ADR-WORKSPACE-INVITATION-001 hardening) — Snowflake IDs vượt quá
+  // Number.MAX_SAFE_INTEGER (2^53-1). Nếu bất kỳ điểm nào trên đường đi
+  // response (Encore.ts JSON serialize, Drizzle bigint column, hay code tay)
+  // vô tình coi ID là `number` thay vì `bigint`/`string`, giá trị full
+  // 19-chữ-số này sẽ bị làm tròn — test dùng đúng ID biên `2^63-1` trong brief
+  // để chốt việc đó không xảy ra trên toàn bộ luồng invitation accept.
+  it("preserves full 19-digit Snowflake precision through the invitation accept response (no Number() coercion)", async () => {
+    const MAX_PRECISION_ID = 9223372036854775807n;
+
+    const founderRes = await registerPlatform({
+      email: `precision_founder_${Date.now()}@example.com`,
+      password: "password1234",
+      full_name: "Precision Founder",
+    });
+    const founderUserId = verifyPlatformToken(founderRes.access_token).sub;
+
+    const inviteeEmail = `precision_invitee_${Date.now()}@example.com`;
+
+    // Dọn trước nếu ID biên này còn sót lại từ lần chạy test trước (ID cố
+    // định, không phải Snowflake sinh mới mỗi lần — CASCADE trên FK dọn luôn
+    // memberships/invitations liên quan) để test idempotent qua nhiều lần chạy.
+    await db.delete(workspaces).where(eq(workspaces.id, MAX_PRECISION_ID));
+
+    // Tạo workspace trực tiếp với ID = giá trị biên 2^63-1 — provisioning
+    // bình thường luôn sinh Snowflake mới nên không kiểm soát được đúng giá
+    // trị biên; chèn thẳng để bài test xác định chính xác ID cần theo dõi.
+    await db.insert(workspaces).values({
+      id: MAX_PRECISION_ID,
+      workspaceName: "Precision Co",
+      ownerId: BigInt(founderUserId),
+      status: "active",
+    });
+    await db.insert(workspaceMemberships).values({
+      id: BigInt(`9223372036854775806`),
+      workspaceId: MAX_PRECISION_ID,
+      userId: BigInt(founderUserId),
+      roleId: "founder",
+    });
+
+    const invitation = await createWorkspaceInvitationFor(
+      { userID: founderUserId },
+      {
+        workspace_id: MAX_PRECISION_ID.toString(),
+        email: inviteeEmail,
+        role_id: "member",
+      }
+    );
+    // invitation_id bản thân nó cũng là Snowflake — phải là string, và
+    // JSON.stringify không được biến nó thành literal số.
+    expect(typeof invitation.invitation_id).toBe("string");
+    expect(JSON.stringify(invitation)).not.toMatch(/"invitation_id":\d/);
+
+    const inviteeRes = await registerPlatform({
+      email: inviteeEmail,
+      password: "password1234",
+      full_name: "Precision Invitee",
+    });
+    const inviteeUserId = verifyPlatformToken(inviteeRes.access_token).sub;
+
+    const accepted = await acceptWorkspaceInvitationFor(
+      { userID: inviteeUserId },
+      { token: invitation.token }
+    );
+
+    // Assertion chính: company_id trả về khớp CHÍNH XÁC chuỗi 19-chữ-số gốc —
+    // nếu có Number() coercion ở đâu đó, giá trị này sẽ lệch (làm tròn thành
+    // "9223372036854775808" hoặc mất độ chính xác dạng khác).
+    expect(accepted.company_id).toBe("9223372036854775807");
+    expect(accepted.workspace?.workspace_id).toBe("9223372036854775807");
+
+    // Xác nhận JSON thực tế phía wire không bao giờ chứa ID này dưới dạng
+    // literal số trần (không có dấu ngoặc kép bao quanh) — đây chính là dấu
+    // hiệu của lỗi mất chính xác khi serialize qua `number`.
+    const wire = JSON.stringify(accepted);
+    expect(wire).toContain('"company_id":"9223372036854775807"');
+    expect(wire).not.toMatch(/"company_id":9223372036854775807/);
+
+    // listMyCompaniesFor cũng phải trả cùng ID dạng string chính xác.
+    const companies = await listMyCompaniesFor({ userID: inviteeUserId });
+    const match = companies.companies.find((c) => c.company_id === "9223372036854775807");
+    expect(match).toBeDefined();
+    expect(JSON.stringify(companies)).not.toMatch(/"company_id":9223372036854775807/);
   });
 });

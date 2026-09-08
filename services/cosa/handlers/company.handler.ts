@@ -87,20 +87,13 @@ export const createCompany = api(
   }
 );
 
-// ADR-WORKSPACE-INVITATION-001: join bằng company_id trần đã bị chốt là lỗ
-// hổng authority. Endpoint vẫn đăng ký (frontend Flutter hiện tại —
-// frontend/lib/modules/auth/services/auth_service.dart — còn gọi route này,
-// và route chưa nằm trong shared/contracts/mvp-surface.json nên
-// frontend-api-contract-check không chặn được việc xoá) nhưng
-// `joinExistingCompany` giờ luôn từ chối `permission_denied`. Việc gỡ hẳn
-// route này khỏi frontend/contract thuộc Task 6 của chuỗi hardening.
-export const joinCompany = api(
-  { method: "POST", path: "/platform/auth/companies/join", expose: true, auth: true },
-  async (params: BaseJoinCompanyParams): Promise<CompanyActionResponse> => {
-    return joinCompanyFor(await resolveAuthData(), params);
-  }
-);
-
+// ADR-WORKSPACE-INVITATION-001 (Task 6): route `/platform/auth/companies/join`
+// đã bị gỡ hẳn — frontend không còn gọi (auth_service.dart giờ chỉ chấp nhận
+// invitation token qua acceptWorkspaceInvitation). `joinCompanyFor`
+// (`joinExistingCompany` bên dưới) vẫn giữ lại làm regression test: chứng
+// minh gọi thẳng function với `company_id` trần luôn bị từ chối
+// `permission_denied` (xem tests/control-plane.test.ts và
+// tests/workspace-invitation.test.ts) — không expose lại qua HTTP.
 export const createWorkspaceInvitationEndpoint = api(
   { method: "POST", path: "/platform/auth/companies/invitations", expose: true, auth: true },
   async (params: CreateWorkspaceInvitationParams): Promise<CreateWorkspaceInvitationResponse> => {

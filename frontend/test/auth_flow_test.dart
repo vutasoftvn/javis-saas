@@ -171,6 +171,30 @@ void main() {
       expect(result.companyId, '42');
     });
 
+    // Task 6 — `join_company_id` là dead code phía server (registerPlatformUser
+    // chưa từng đọc field này) nên registerPlatform() đã bỏ hẳn tham số này;
+    // xác nhận request body không bao giờ chứa key này nữa.
+    test('registerPlatform never sends join_company_id (removed dead param)', () async {
+      ApiClient.client = MockClient((request) async {
+        final decoded = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(decoded.containsKey('join_company_id'), isFalse);
+        return http.Response(
+          '{"access_token":"plat-tok-999","token_type":"bearer"}',
+          200,
+        );
+      });
+
+      final service = AuthService();
+      final result = await service.registerPlatform(
+        email: 'founder@cosa.dev',
+        password: 'secretpw',
+        displayName: 'Founder',
+        companyName: 'Acme Inc',
+      );
+
+      expect(result.success, isTrue);
+    });
+
     test('registerPlatform surfaces 409 as email-taken error', () async {
       ApiClient.client = MockClient((request) async => http.Response('{}', 409));
 
@@ -203,21 +227,56 @@ void main() {
       expect(result.companyId, '888');
     });
 
-    test('joinCompany joins existing company and returns companyId', () async {
+    test('acceptWorkspaceInvitation posts opaque token to the invitations/accept route and returns companyId', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, contains('/platform/auth/companies/join'));
+        expect(request.url.path, contains('/platform/auth/companies/invitations/accept'));
         expect(request.headers['Authorization'], 'Bearer plat-tok-123');
+        final decoded = jsonDecode(request.body) as Map<String, dynamic>;
+        // Token là chuỗi opaque base64url — request body chỉ có `token`,
+        // KHÔNG BAO GIỜ `company_id` (đó là route join-by-id đã bị gỡ).
+        expect(decoded.keys.toSet(), {'token'});
+        expect(decoded['token'], 'inv-tok_ABC123-xyz');
         return http.Response(
-          '{"company_id":"999","name":"Joined Co","role_id":"user"}',
+          '{"company_id":"999","name":"Joined Co","role_id":"member"}',
           200,
         );
       });
 
       final service = AuthService();
-      final result = await service.joinCompany(platformToken: 'plat-tok-123', companyId: '999');
+      final result = await service.acceptWorkspaceInvitation(
+        platformToken: 'plat-tok-123',
+        invitationToken: 'inv-tok_ABC123-xyz',
+      );
 
       expect(result.success, isTrue);
       expect(result.companyId, '999');
+    });
+
+    // Task 6 — chốt Snowflake ID (`company_id` trả về từ accept) không bao giờ
+    // đi qua `int`/`double` ở bất kỳ điểm nào trong AuthService. ID biên
+    // 9223372036854775807 (2^63-1) vượt Number.MAX_SAFE_INTEGER của Dart/JS
+    // (2^53-1) — nếu code có `int.tryParse`/ép kiểu số ở đâu đó, giá trị exact
+    // này sẽ bị làm tròn hoặc mất, không round-trip nguyên vẹn.
+    test('acceptWorkspaceInvitation round-trips a full 19-digit Snowflake company_id as an exact String, never a num', () async {
+      const snowflakeId = '9223372036854775807';
+      ApiClient.client = MockClient((request) async {
+        return http.Response(
+          '{"company_id":"$snowflakeId","name":"Precision Co","role_id":"member","workspace":{"workspace_id":"$snowflakeId","workspace_name":"Precision Co","role_id":"member","status":"active"}}',
+          200,
+        );
+      });
+
+      final service = AuthService();
+      final result = await service.acceptWorkspaceInvitation(
+        platformToken: 'plat-tok-123',
+        invitationToken: 'inv-tok-precision',
+      );
+
+      expect(result.success, isTrue);
+      expect(result.companyId, isA<String>());
+      expect(result.companyId, snowflakeId);
+      expect(result.rawWorkspaces, isNotNull);
+      expect(result.rawWorkspaces!.first['workspace_id'], snowflakeId);
     });
 
     test('syncFromPlatform stores the returned token as the local auth_token', () async {
@@ -510,14 +569,47 @@ void main() {
       expect(controller.registerErrorMessage.value, contains('công ty'));
     });
 
-    test('submitCompanyStep validates missing join code when joining an existing company', () async {
+    test('submitCompanyStep validates missing invitation token when joining an existing workspace', () async {
       controller.registerStep.value = 2;
       controller.registeredPlatformToken.value = 'mock-platform-token';
       controller.isJoiningCompany.value = true;
-      controller.regJoinCompanyIdController.text = '';
+      controller.regInvitationTokenController.text = '';
 
       await controller.submitCompanyStep();
-      expect(controller.registerErrorMessage.value, contains('công ty'));
+      expect(controller.registerErrorMessage.value, contains('lời mời'));
+    });
+
+    // Task 6 — ô nhập của tab "Tham gia" giờ nhận invitation token (chuỗi
+    // base64url), KHÔNG còn là company_id dạng số. Xác nhận input không phải
+    // số (không có `int.tryParse`/keyboardType number nào chặn/cắt nó) vẫn
+    // được coi là hợp lệ ở bước validate (đi tiếp tới gọi service, không bị
+    // chặn ở validate như "phải là số").
+    test('submitCompanyStep accepts a non-numeric base64url-looking invitation token without truncation', () async {
+      controller.registerStep.value = 2;
+      controller.registeredPlatformToken.value = 'mock-platform-token';
+      controller.isJoiningCompany.value = true;
+      controller.regInvitationTokenController.text = 'aZ9-_QW3xyzTOKEN==nonNumeric';
+
+      ApiClient.client = MockClient((request) async {
+        if (request.url.path.contains('/platform/auth/companies/invitations/accept')) {
+          final decoded = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(decoded['token'], 'aZ9-_QW3xyzTOKEN==nonNumeric');
+          return http.Response(
+            '{"company_id":"1","name":"Joined Co","role_id":"member"}',
+            200,
+          );
+        }
+        return http.Response('{}', 403);
+      });
+
+      await controller.submitCompanyStep();
+
+      // Không bị validate chặn bởi lỗi "phải là số" — thất bại (nếu có) chỉ
+      // có thể đến từ bước sync-from-platform tiếp theo (403 ở mock trên),
+      // không phải từ lỗi format token.
+      expect(controller.registerErrorMessage.value, isNot(contains('phải là số')));
+
+      ApiClient.client = http.Client();
     });
 
     test('submitAccountStep validates mismatched password confirmation', () async {
@@ -536,7 +628,7 @@ void main() {
       controller.regPasswordController.text = 'password123';
       controller.regConfirmPasswordController.text = 'password123';
       controller.regCompanyNameController.text = 'Acme';
-      controller.regJoinCompanyIdController.text = '42';
+      controller.regInvitationTokenController.text = 'inv-tok-42';
       controller.isJoiningCompany.value = true;
       controller.registerErrorMessage.value = 'Some error';
 
@@ -547,7 +639,7 @@ void main() {
       expect(controller.regPasswordController.text, isEmpty);
       expect(controller.regConfirmPasswordController.text, isEmpty);
       expect(controller.regCompanyNameController.text, isEmpty);
-      expect(controller.regJoinCompanyIdController.text, isEmpty);
+      expect(controller.regInvitationTokenController.text, isEmpty);
       expect(controller.isJoiningCompany.value, isFalse);
       expect(controller.registerErrorMessage.value, isEmpty);
     });
