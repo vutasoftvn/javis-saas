@@ -22,6 +22,23 @@ const {
  * không phải mặc định tự chọn khi code.
  */
 
+// Nhận diện unique-violation Postgres (SQLSTATE 23505) xuyên qua chuỗi
+// `.cause` (driver `pg` có thể bọc lỗi) — chỉ khi khớp mã này mới được coi là
+// "đã tồn tại", tránh gán nhầm nghĩa cho lỗi DB khác (deadlock, transient...).
+// Cùng pattern với snowflake-registry.service.ts / runtime-node-registry.service.ts.
+function isUniqueViolation(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let d = 0; d < 5 && cur; d++) {
+    if (typeof cur === "object" && cur !== null) {
+      const o = cur as { code?: string; message?: string; cause?: unknown };
+      if (o.code === "23505") return true;
+      if (typeof o.message === "string" && o.message.includes("duplicate key value")) return true;
+      cur = o.cause;
+    } else break;
+  }
+  return false;
+}
+
 export type InvitationRole = "member" | "admin";
 
 const ISSUER_ALLOWED_ROLES = new Set(["founder", "co-founder", "admin"]);
@@ -140,7 +157,13 @@ export async function createWorkspaceInvitation(
       expiresAt,
     });
   } catch (err) {
-    throw APIError.alreadyExists("đã tồn tại lời mời đang chờ cho email này trong workspace");
+    // Chỉ coi là "đã tồn tại lời mời" khi đúng unique-violation Postgres
+    // (23505) trên (workspace_id, email_normalized) — lỗi DB khác (deadlock,
+    // transient, constraint không liên quan) không được gán nhầm nghĩa này.
+    if (isUniqueViolation(err)) {
+      throw APIError.alreadyExists("đã tồn tại lời mời đang chờ cho email này trong workspace");
+    }
+    throw APIError.internal("không thể tạo lời mời do lỗi hệ thống, vui lòng thử lại");
   }
 
   await writeInvitationAuditEvent(db, workspaceId, actorId, "invitation.created", invitationId.toString(), {

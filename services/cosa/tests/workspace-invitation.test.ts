@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { registerPlatform } from "../handlers/auth.handler";
 import { createCompanyFor, joinCompanyFor } from "../handlers/company.handler";
@@ -57,6 +57,48 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
 
     expect(accepted.company_id).toBe(founder.companyId);
     expect(accepted.role_id).toBe("member");
+  });
+
+  it("rejects issuing a second pending invitation for the same (workspace, email) as already-exists", async () => {
+    const founder = await createFounderWithCompany("dup_invite_founder");
+    const invitee = await registerUser("dup_invite_invitee");
+
+    await createWorkspaceInvitationFor(
+      { userID: founder.userID },
+      { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
+    );
+
+    // Vi phạm unique-index thật trên (workspace_id, email_normalized, status
+    // pending) — đây là con đường 23505 phải được map thành already_exists.
+    await expect(
+      createWorkspaceInvitationFor(
+        { userID: founder.userID },
+        { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
+      )
+    ).rejects.toMatchObject({ code: "already_exists" });
+  });
+
+  it("propagates a non-conflict DB error from the insert as internal, not already-exists", async () => {
+    const founder = await createFounderWithCompany("db_error_founder");
+    const invitee = await registerUser("db_error_invitee");
+
+    // Lỗi DB không phải unique-violation (khác SQLSTATE, vd deadlock/transient)
+    // không được gán nhầm nghĩa "đã tồn tại lời mời" — phải propagate là lỗi
+    // hệ thống thật (internal), theo đúng finding review đã chỉ ra.
+    const insertSpy = vi.spyOn(db, "insert").mockImplementationOnce(() => {
+      throw Object.assign(new Error("deadlock detected"), { code: "40P01" });
+    });
+
+    try {
+      await expect(
+        createWorkspaceInvitationFor(
+          { userID: founder.userID },
+          { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
+        )
+      ).rejects.toMatchObject({ code: "internal" });
+    } finally {
+      insertSpy.mockRestore();
+    }
   });
 
   it("rejects a non-member trying to issue an invitation for a workspace they don't belong to", async () => {
