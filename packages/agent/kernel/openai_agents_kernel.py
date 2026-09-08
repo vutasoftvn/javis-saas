@@ -4,7 +4,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator, Callable
-from typing import Any
+from typing import Any, ClassVar
 
 from agent.capabilities.canonicalization import compute_payload_hash
 from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
@@ -454,7 +454,7 @@ class ManualToolLoopKernel:
     # thể bị finalize (COMPLETED/FAILED/WAITING_APPROVAL/CANCELLED) hợp lệ.
     # KHÔNG bao gồm COMPLETED/FAILED/CANCELLED — đã terminal thì không transition
     # tiếp được nữa (đây chính là bất biến CAS đóng race cancel-vs-complete).
-    _ACTIVE_RUN_STATUSES: set[RunStatus] = {
+    _ACTIVE_RUN_STATUSES: ClassVar[set[RunStatus]] = {
         RunStatus.PENDING,
         RunStatus.RUNNING,
         RunStatus.WAITING_APPROVAL,
