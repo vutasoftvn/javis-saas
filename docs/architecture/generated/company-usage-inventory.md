@@ -5,16 +5,16 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | Lớp | Occurrences | Files |
 |---|---|---|
-| LEGACY_TENANCY (M2 xóa) | 140 | 36 |
+| LEGACY_TENANCY (M2 xóa) | 145 | 37 |
 | VALID_KEEP (giữ nguyên) | 101 | 32 |
-| REVIEW (chưa phân loại) | 1047 | 285 |
+| REVIEW (chưa phân loại) | 1055 | 287 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
 | File | Hits |
 |---|---|
+| services/cosa/handlers/company.handler.ts | 28 |
 | services/cosa/services/company.service.ts | 26 |
-| services/cosa/handlers/company.handler.ts | 24 |
 | services/cosa/services/agent-policy.service.ts | 10 |
 | services/company/identity/services/workspace.service.ts | 9 |
 | services/cosa/migrations/1_baseline_identity_and_agent_policy.up.sql | 8 |
@@ -49,6 +49,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/db/schema/identity.ts | 1 |
 | services/cosa/migrations/retired_pre_baseline_v1/5_rename_company_roles.up.sql | 1 |
 | services/cosa/services/workspace-connector.service.ts | 1 |
+| services/cosa/storage/schema.ts | 1 |
 
 ## Cần review thủ công (M2)
 
@@ -93,6 +94,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent_integrations/openai_agents_sdk/kernel.py | 7 |
 | services/cosa/migrations/13_workspace_only_product_scope.down.sql | 7 |
 | services/cosa/migrations/retired_pre_baseline_v1/1_create_control_plane.up.sql | 7 |
+| services/cosa/services/workspace-invitation.service.ts | 7 |
 | apps/cosa/capabilities/finance_write.py | 6 |
 | apps/cosa/compliance/company_client.py | 6 |
 | apps/cosa/composition/kernel_factory.py | 6 |
@@ -335,6 +337,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/handlers/index.ts | 1 |
 | services/cosa/migrations/12_connector_authorization_tenant_scope.down.sql | 1 |
 | services/cosa/migrations/20_backfill_platform_workspaces.down.sql | 1 |
+| services/cosa/migrations/34_workspace_invitations.up.sql | 1 |
 | services/cosa/migrations/retired_pre_baseline_v1/3_add_auditor_role.up.sql | 1 |
 | services/cosa/migrations/retired_pre_baseline_v1/4_add_agent_policy.up.sql | 1 |
 | services/cosa/services/index.ts | 1 |

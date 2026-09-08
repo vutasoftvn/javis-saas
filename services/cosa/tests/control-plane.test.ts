@@ -137,20 +137,23 @@ describe("Control Plane Service", () => {
     expect(secondComp.name).toBe("Second Venture Inc");
   });
 
-  it("joins an existing company for a new user", async () => {
+  // ADR-WORKSPACE-INVITATION-001 (Task 2): self-join bằng company_id trần
+  // không còn là hành vi hợp lệ — trước đây test này document nó như thành
+  // công, nay phải document đúng hành vi mới (từ chối). Luồng "join thật"
+  // giờ nằm ở workspace-invitation.test.ts (issue → accept qua token).
+  it("no longer allows joining an existing company via bare company_id", async () => {
     const newUserRes = await registerPlatform({
       email: `member_${Date.now()}@example.com`,
       password: "password1234",
       full_name: "Jane Member",
     });
 
-    const joined = await joinCompanyFor(
-      { userID: verifyPlatformToken(newUserRes.access_token).sub },
-      { company_id: companyId }
-    );
-
-    expect(joined.company_id).toBe(companyId);
-    expect(joined.role_id).toBe("member");
+    await expect(
+      joinCompanyFor(
+        { userID: verifyPlatformToken(newUserRes.access_token).sub },
+        { company_id: companyId }
+      )
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   // Red test — chốt authority contract theo ADR-WORKSPACE-INVITATION-001.

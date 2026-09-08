@@ -2,7 +2,6 @@ import { APIError } from "encore.dev/api";
 import { eq, and, asc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { verifyPlatformToken } from "./token.service";
-import { generateSnowflakeStr } from "./snowflake.service";
 import { provisionVentureWorkspace } from "./venture-workspace.service";
 
 const {
@@ -118,62 +117,20 @@ export async function createNewCompany(
   };
 }
 
+/**
+ * ADR-WORKSPACE-INVITATION-001 — endpoint join-by-`company_id` trần đã bị
+ * chốt là lỗ hổng authority (bất kỳ ai biết/đoán một `company_id` hợp lệ đều
+ * tự cấp được membership). Giữ nguyên tên hàm + signature để không phải sửa
+ * lại `company.handler.ts` và các caller khác, nhưng hành vi luôn từ chối —
+ * membership giờ chỉ được cấp qua `workspace-invitation.service.ts::
+ * acceptWorkspaceInvitation`. Tham số nhận vào không còn được dùng để tránh
+ * "unused" lint nhưng vẫn khai báo để giữ chữ ký công khai ổn định.
+ */
 export async function joinExistingCompany(
-  userIdStr: string,
-  params: JoinCompanyServiceParams
+  _userIdStr: string,
+  _params: JoinCompanyServiceParams
 ): Promise<CompanyActionResponse> {
-  const userId = BigInt(userIdStr);
-  const workspaceId = BigInt(params.company_id.toString());
-
-  const [ws] = await db
-    .select({ id: workspaces.id, name: workspaces.workspaceName })
-    .from(workspaces)
-    .where(and(eq(workspaces.id, workspaceId), eq(workspaces.status, "active")))
-    .limit(1);
-
-  if (!ws) {
-    throw APIError.notFound("công ty không tồn tại hoặc đã bị vô hiệu hóa");
-  }
-
-  const [existing] = await db
-    .select({ id: workspaceMemberships.id })
-    .from(workspaceMemberships)
-    .where(and(eq(workspaceMemberships.workspaceId, workspaceId), eq(workspaceMemberships.userId, userId)))
-    .limit(1);
-
-  if (existing) {
-    return {
-      company_id: workspaceId.toString(),
-      name: ws.name,
-      role_id: "member",
-      workspace: {
-        workspace_id: workspaceId.toString(),
-        workspace_name: ws.name,
-        role_id: "member",
-        status: "active",
-      },
-    };
-  }
-
-  const newMembershipId = BigInt(generateSnowflakeStr());
-  await db.insert(workspaceMemberships).values({
-    id: newMembershipId,
-    workspaceId: workspaceId,
-    userId: userId,
-    roleId: "member",
-  });
-
-  return {
-    company_id: workspaceId.toString(),
-    name: ws.name,
-    role_id: "member",
-    workspace: {
-      workspace_id: workspaceId.toString(),
-      workspace_name: ws.name,
-      role_id: "member",
-      status: "active",
-    },
-  };
+  throw APIError.permissionDenied("Workspace membership requires an invitation");
 }
 
 export async function validateUserMembership(
