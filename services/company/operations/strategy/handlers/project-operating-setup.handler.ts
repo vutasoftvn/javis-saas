@@ -124,6 +124,7 @@ export interface RequestKickoffSuggestionParams {
   id: string;
   workspaceId: Header<"X-Workspace-Id">;
   authorization?: Header<"Authorization">;
+  locale?: string;
 }
 
 // ── POST /operations/projects/:id/kickoff-suggestion ──
@@ -131,7 +132,7 @@ export const requestKickoffSuggestionEndpoint = api(
   { method: "POST", path: "/operations/projects/:id/kickoff-suggestion", expose: true },
   async (params: RequestKickoffSuggestionParams): Promise<KickoffSuggestionDispatchResult> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
-    return requestKickoffSuggestion(ctx, params.id);
+    return requestKickoffSuggestion(ctx, params.id, { locale: params.locale });
   }
 );
 

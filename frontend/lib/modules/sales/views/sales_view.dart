@@ -7,6 +7,7 @@ import 'widgets/revenue_funnel_summary_card.dart';
 import 'widgets/deal_kanban_board.dart';
 import 'widgets/lead_scoring_list.dart';
 import 'widgets/ai_outreach_composer_dialog.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
@@ -24,8 +25,8 @@ class SalesView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CosaFloatingAppBar(
-          title: 'Cỗ Máy Doanh Thu & CRM',
-          subtitle: 'Vòng lặp khép kín: Khám phá lead, AI scoring, quản lý Pipeline và gửi thư tiếp cận.',
+          title: L10nKey.salesTitle.tr,
+          subtitle: L10nKey.salesSubtitle.tr,
           icon: Icons.point_of_sale_rounded,
           actions: [
             Container(
@@ -34,7 +35,7 @@ class SalesView extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                tooltip: 'Tải lại toàn bộ',
+                tooltip: L10nKey.salesReloadTooltip.tr,
                 icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
                 onPressed: c.loadAll,
               ),
@@ -77,11 +78,12 @@ class SalesView extends StatelessWidget {
             ),
             child: Obx(() {
               final activeTab = c.currentTab.value;
+              final isEn = Get.locale?.languageCode == 'en';
               final tabs = [
                 {'index': 0, 'label': 'Pipeline Kanban', 'icon': Icons.view_kanban_outlined},
-                {'index': 1, 'label': 'Smart Leads & AI Scoring', 'icon': Icons.auto_awesome_rounded},
-                {'index': 2, 'label': 'Khách hàng & Tài khoản', 'icon': Icons.business_rounded},
-                {'index': 3, 'label': 'Doanh số hôm nay', 'icon': Icons.today_rounded},
+                {'index': 1, 'label': isEn ? 'Smart Leads & AI Scoring' : 'Smart Leads & AI Scoring', 'icon': Icons.auto_awesome_rounded},
+                {'index': 2, 'label': isEn ? 'Customers & Accounts' : 'Khách hàng & Tài khoản', 'icon': Icons.business_rounded},
+                {'index': 3, 'label': isEn ? 'Today Sales' : 'Doanh số hôm nay', 'icon': Icons.today_rounded},
               ];
 
               return Row(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/localization/app_translations.dart';
 import '../../../core/routing/module_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -57,8 +58,8 @@ class MarketingCockpitView extends GetView<MarketingController> {
 
   Widget _buildFloatingAppBar(BuildContext context) {
     return CosaFloatingAppBar(
-      title: 'Trung tâm điều hành Marketing',
-      subtitle: 'Vòng lặp khép kín: Chiến lược → Thực thi → Đo lường → Học hỏi',
+      title: L10nKey.marketingTitle.tr,
+      subtitle: L10nKey.marketingSubtitle.tr,
       icon: Icons.campaign_rounded,
       actions: [
         // Project Selector Dropdown (luôn là 1 dự án cụ thể)

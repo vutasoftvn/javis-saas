@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/floating_app_bar.dart';
@@ -115,19 +116,20 @@ class _ProjectFundingTabState extends State<ProjectFundingTab> {
         child: Container(
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(color: AppTheme.surfaceDark, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.borderDark)),
-          child: const Text('Chưa có Dự án nào để phân tích chính sách và nguồn lực.', style: TextStyle(color: Colors.white70)),
+          child: Text(L10nKey.fundingNoProjects.tr, style: const TextStyle(color: Colors.white70)),
         ),
       );
     }
 
-    return Padding(
+    return Container(
+      color: Colors.transparent,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CosaFloatingAppBar(
-            title: 'Nguồn lực & Chính sách (Policy/Funding Intelligence)',
-            subtitle: 'Phân tích cơ hội quỹ hỗ trợ, voucher, credit hạ tầng và điều kiện hồ sơ gắn với từng Dự án.',
+            title: L10nKey.fundingTitle.tr,
+            subtitle: L10nKey.fundingSubtitle.tr,
             icon: Icons.account_balance_outlined,
             actions: [
               Container(
@@ -139,7 +141,7 @@ class _ProjectFundingTabState extends State<ProjectFundingTab> {
                     dropdownColor: AppTheme.surfaceDark,
                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                     icon: const Icon(Icons.arrow_drop_down, color: AppTheme.primary),
-                    items: strategyController.projects.map((p) => DropdownMenuItem<String>(value: p['id']?.toString() ?? '', child: Text(p['title'] ?? 'Dự án'))).toList(),
+                    items: strategyController.projects.map((p) => DropdownMenuItem<String>(value: p['id']?.toString() ?? '', child: Text(p['title'] ?? L10nKey.fundingProjectFallback.tr))).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setState(() => _currentProjectId = val);
@@ -153,7 +155,7 @@ class _ProjectFundingTabState extends State<ProjectFundingTab> {
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _runMatching,
                 icon: const Icon(Icons.auto_awesome, size: 16),
-                label: const Text('Khớp nối cơ hội (AI Match)'),
+                label: Text(L10nKey.fundingRunMatch.tr),
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: const Color(0xFF04070E), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100))),
               ),
             ],
@@ -166,9 +168,9 @@ class _ProjectFundingTabState extends State<ProjectFundingTab> {
             decoration: BoxDecoration(color: AppTheme.surfaceDark, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.borderDark)),
             child: Row(
               children: [
-                _buildSubNavButton(0, 'Khớp nối với Dự án', Icons.track_changes_rounded),
-                _buildSubNavButton(1, 'Quyền lợi hiện hành (Catalog 23)', Icons.verified_outlined),
-                _buildSubNavButton(2, 'Dự thảo 2026–2035 (Watchlist)', Icons.visibility_outlined),
+                _buildSubNavButton(0, L10nKey.fundingSubNavMatches.tr, Icons.track_changes_rounded),
+                _buildSubNavButton(1, L10nKey.fundingSubNavBenefits.tr, Icons.verified_outlined),
+                _buildSubNavButton(2, L10nKey.fundingSubNavWatchlist.tr, Icons.visibility_outlined),
               ],
             ),
           ),
@@ -178,7 +180,14 @@ class _ProjectFundingTabState extends State<ProjectFundingTab> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
                 : _errorMessage != null
-                    ? Center(child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.error)))
+                    ? Center(
+                        child: Text(
+                          (Get.locale?.languageCode == 'en' && _errorMessage!.contains('Yêu cầu thất bại'))
+                              ? _errorMessage!.replaceAll('Yêu cầu thất bại', 'Request failed')
+                              : _errorMessage!,
+                          style: const TextStyle(color: AppTheme.error),
+                        ),
+                      )
                     : _activeSubTabIndex == 0
                         ? FundingMatchesTabContent(overviewData: _overviewData, onCreate12wyTask: _create12wyTask)
                         : _activeSubTabIndex == 1

@@ -118,6 +118,7 @@ describe("requestKickoffSuggestionEndpoint", () => {
     expect(dispatchedPayload.projectId).toBe(project.id);
     expect(dispatchedPayload.targetCustomer).toBe("Founder B2B SaaS");
     expect(dispatchedPayload.runId).toBe(result.runId);
+    expect(dispatchedPayload.locale).toBe("vi-VN");
 
     const view = await getProjectOperatingSetupEndpoint({
       authorization: ws.bearerToken,
@@ -125,6 +126,38 @@ describe("requestKickoffSuggestionEndpoint", () => {
       id: project.id,
     });
     expect(view.aiSuggestionStatus).toBe("dispatched");
+  });
+
+  it("chuyển tiếp locale en-US sang cosa client khi endpoint nhận locale", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const project = await createProject({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      title: "Discovery",
+    });
+    await putProjectOperatingSetupEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      targetCustomer: "US startup founder",
+      problemStatement: "Finding product market fit",
+      evidenceLevel: "NONE",
+    });
+
+    let dispatchedPayload: any = null;
+    setCustomKickoffSuggestionRunner(async (payload) => {
+      dispatchedPayload = payload;
+    });
+
+    const result = await requestKickoffSuggestionEndpoint({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      id: project.id,
+      locale: "en-US",
+    });
+    expect(result.status).toBe("dispatched");
+    expect(dispatchedPayload.locale).toBe("en-US");
+    expect(dispatchedPayload.targetCustomer).toBe("US startup founder");
   });
 
   it("set aiSuggestionStatus=failed khi cosa client throw, không throw endpoint ra ngoài", async () => {

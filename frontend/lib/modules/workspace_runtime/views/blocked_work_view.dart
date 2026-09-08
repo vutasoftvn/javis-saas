@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/network/api_result.dart';
 import '../controllers/workspace_runtime_controller.dart';
 import '../../../core/theme/app_theme.dart';
@@ -19,14 +20,14 @@ class BlockedWorkView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CosaFloatingAppBar(
-          title: 'Công việc tắc nghẽn (Blocked Work)',
-          subtitle: 'Giám sát và gỡ bỏ các điểm nghẽn phụ thuộc giữa AI Agents & Founder',
+          title: L10nKey.blockedWorkTitle.tr,
+          subtitle: L10nKey.blockedWorkSubtitle.tr,
           icon: Icons.block_rounded,
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh, color: AppTheme.primary),
               onPressed: () => controller.loadBlockers(),
-              tooltip: 'Tải lại',
+              tooltip: L10nKey.commonRefresh.tr,
             ),
           ],
         ),
@@ -71,6 +72,7 @@ class BlockedWorkView extends StatelessWidget {
             final blockers = controller.blockers;
 
             if (blockers.isEmpty) {
+              final isEn = Get.locale?.languageCode == 'en';
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -78,13 +80,17 @@ class BlockedWorkView extends StatelessWidget {
                     const Icon(Icons.task_alt, size: 64, color: AppTheme.success),
                     const SizedBox(height: 16),
                     Text(
-                      'Không có công việc nào bị nghẽn (No Blockers)',
+                      isEn
+                          ? 'No blocked work (No Blockers)'
+                          : 'Không có công việc nào bị nghẽn (No Blockers)',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Tất cả các luồng phụ thuộc đang chạy bình thường.',
-                      style: TextStyle(color: Colors.white38),
+                    Text(
+                      isEn
+                          ? 'All dependency workflows are operating normally.'
+                          : 'Tất cả các luồng phụ thuộc đang chạy bình thường.',
+                      style: const TextStyle(color: Colors.white38),
                     ),
                   ],
                 ),

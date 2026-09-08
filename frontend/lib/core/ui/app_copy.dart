@@ -10,19 +10,36 @@
 /// `debugPrint`/logger, không hiển thị trên UI (xem cách `AppToast.error`
 /// trong `founder_command_center_controller.dart` đã tách log kỹ thuật khỏi
 /// message hiển thị).
+library;
+
+import 'package:get/get.dart';
+
 class AppCopy {
   AppCopy._();
 
   // ── Skill Registry — compact filter sheet (Task 10) ─────────────────────
-  static const String skillRegistryFilterTooltip = 'Bộ lọc';
-  static const String skillRegistryFilterSheetTitle = 'Lọc kỹ năng';
-  static const String skillRegistryFilterStatusSection = 'Trạng thái vòng đời';
-  static const String skillRegistryFilterDomainSection = 'Lĩnh vực';
-  static const String skillRegistryFilterCloseButton = 'Đóng';
+  static String get skillRegistryFilterTooltip =>
+      Get.locale?.languageCode == 'en' ? 'Filters' : 'Bộ lọc';
+  static String get skillRegistryFilterSheetTitle =>
+      Get.locale?.languageCode == 'en' ? 'Filter Skills' : 'Lọc kỹ năng';
+  static String get skillRegistryFilterStatusSection =>
+      Get.locale?.languageCode == 'en' ? 'Lifecycle Status' : 'Trạng thái vòng đời';
+  static String get skillRegistryFilterDomainSection =>
+      Get.locale?.languageCode == 'en' ? 'Domain' : 'Lĩnh vực';
+  static String get skillRegistryFilterCloseButton =>
+      Get.locale?.languageCode == 'en' ? 'Close' : 'Đóng';
 
   // ── Hub — dockable chat panel (Task 10, commit 2) ────────────────────────
-  static const String hubChatPanelTitle = 'Trao đổi cùng COSA Co-Founder';
-  static const String hubChatEmptyState =
-      'Hãy hỏi COSA về tiến độ kinh doanh, phản biện giả định hoặc giao Mission!';
-  static const String hubChatInputHint = 'Nhập tin nhắn trao đổi với Co-Founder...';
+  static String get hubChatPanelTitle =>
+      Get.locale?.languageCode == 'en'
+          ? 'Collaborate with COSA Co-Founder'
+          : 'Trao đổi cùng COSA Co-Founder';
+  static String get hubChatEmptyState =>
+      Get.locale?.languageCode == 'en'
+          ? 'Ask COSA about business progress, debate assumptions, or assign Missions!'
+          : 'Hãy hỏi COSA về tiến độ kinh doanh, phản biện giả định hoặc giao Mission!';
+  static String get hubChatInputHint =>
+      Get.locale?.languageCode == 'en'
+          ? 'Enter message for Co-Founder...'
+          : 'Nhập tin nhắn trao đổi với Co-Founder...';
 }

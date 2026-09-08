@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/network/api_result.dart';
 import '../controllers/workspace_runtime_controller.dart';
 import '../../../core/theme/app_theme.dart';
@@ -19,14 +20,14 @@ class NeedsYouView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CosaFloatingAppBar(
-          title: 'Cần bạn xử lý (Needs You)',
-          subtitle: 'Hàng đợi ngoại lệ & các quyết định cần Founder / người điều hành phê duyệt',
+          title: L10nKey.needsYouTitle.tr,
+          subtitle: L10nKey.needsYouSubtitle.tr,
           icon: Icons.notification_important_rounded,
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh, color: AppTheme.primary),
               onPressed: controller.loadNeedsYou,
-              tooltip: 'Tải lại',
+              tooltip: L10nKey.commonRefresh.tr,
             ),
           ],
         ),
@@ -69,6 +70,7 @@ class NeedsYouView extends StatelessWidget {
             }
 
             final items = controller.needsYouItems;
+            final isEn = Get.locale?.languageCode == 'en';
 
             if (items.isEmpty) {
               return Center(
@@ -78,13 +80,17 @@ class NeedsYouView extends StatelessWidget {
                     const Icon(Icons.check_circle_outline, size: 64, color: AppTheme.success),
                     const SizedBox(height: 16),
                     Text(
-                      'Tuyệt vời! Không có việc gì cần xử lý ngay bây giờ.',
+                      isEn
+                          ? 'Great! No tasks need your immediate attention.'
+                          : 'Tuyệt vời! Không có việc gì cần xử lý ngay bây giờ.',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Mọi ngoại lệ quy trình sẽ hiển thị ở đây khi cần sự can thiệp của Founder.',
-                      style: TextStyle(color: Colors.white38, fontSize: 13),
+                    Text(
+                      isEn
+                          ? 'Process exceptions will appear here when Founder intervention is required.'
+                          : 'Mọi ngoại lệ quy trình sẽ hiển thị ở đây khi cần sự can thiệp của Founder.',
+                      style: const TextStyle(color: Colors.white38, fontSize: 13),
                     ),
                   ],
                 ),

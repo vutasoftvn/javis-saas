@@ -502,7 +502,16 @@ async def run_worker_loop(
         if health_state is not None:
             health_state.last_poll_ts = asyncio.get_event_loop().time()
 
-        tasks = await plane.scheduler.poll_due_tasks(worker_id=WORKER_ID, limit=poll_limit)
+        try:
+            tasks = await plane.scheduler.poll_due_tasks(worker_id=WORKER_ID, limit=poll_limit)
+        except Exception as exc:
+            logger.warning("Failed to poll due tasks from control plane (will retry): %s", exc)
+            if max_iterations is not None and iterations + 1 >= max_iterations:
+                raise
+            await asyncio.sleep(POLL_INTERVAL_SEC)
+            iterations += 1
+            continue
+
         set_scheduler_queue_depth(len(tasks) if tasks else 0)
 
         # Filter to target task if specified

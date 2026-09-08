@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../controllers/legal_controller.dart';
 import 'widgets/contract_risk_analyzer_dialog.dart';
 import 'widgets/compliance_center_panel.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
@@ -16,6 +17,7 @@ class LegalView extends StatelessWidget {
       Get.put(LegalController());
     }
     final c = Get.find<LegalController>();
+    final isEn = Get.locale?.languageCode == 'en';
 
     void openContractReviewDialog() {
       showDialog(
@@ -56,7 +58,7 @@ class LegalView extends StatelessWidget {
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00E5FF)),
-              child: const Text('Thêm mới', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              child: Text(isEn ? 'Add' : 'Thêm mới', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -72,14 +74,14 @@ class LegalView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CosaFloatingAppBar(
-            title: 'Pháp lý & Thẩm định Hợp đồng AI',
-            subtitle: 'AI Legal Reviewer, rà soát điều khoản rủi ro & quản lý tuân thủ pháp luật DN',
+            title: L10nKey.legalTitle.tr,
+            subtitle: L10nKey.legalSubtitle.tr,
             icon: Icons.gavel_rounded,
             actions: [
               ElevatedButton.icon(
                 onPressed: openContractReviewDialog,
                 icon: const Icon(Icons.auto_awesome_rounded, size: 16, color: Colors.black),
-                label: const Text('Rà soát hợp đồng AI', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                label: Text(L10nKey.legalReviewButton.tr, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00E5FF),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -103,7 +105,7 @@ class LegalView extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.verified_user_rounded, size: 16, color: Colors.white),
-                label: const Text('Tuân thủ AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                label: Text(isEn ? 'AI Compliance' : 'Tuân thủ AI', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3B82F6),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -118,7 +120,7 @@ class LegalView extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
-                  tooltip: 'Tải lại dữ liệu',
+                  tooltip: L10nKey.commonRefresh.tr,
                   icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
                   onPressed: c.load,
                 ),
@@ -136,7 +138,7 @@ class LegalView extends StatelessWidget {
                     Expanded(
                       child: _buildMetricCard(
                         context,
-                        title: 'Trợ lý Pháp lý',
+                        title: isEn ? 'Legal Assistant' : 'Trợ lý Pháp lý',
                         value: 'Legal AI Active',
                         icon: Icons.shield_rounded,
                         color: const Color(0xFF00E5FF),
@@ -146,7 +148,7 @@ class LegalView extends StatelessWidget {
                     Expanded(
                       child: _buildMetricCard(
                         context,
-                        title: 'Hạng mục kiểm tra',
+                        title: isEn ? 'Checklist Items' : 'Hạng mục kiểm tra',
                         value: '$openChecklist',
                         icon: Icons.fact_check_outlined,
                         color: openChecklist > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
@@ -156,7 +158,7 @@ class LegalView extends StatelessWidget {
                     Expanded(
                       child: _buildMetricCard(
                         context,
-                        title: 'Nghĩa vụ pháp lý',
+                        title: isEn ? 'Legal Obligations' : 'Nghĩa vụ pháp lý',
                         value: '$openObligations',
                         icon: Icons.assignment_late_outlined,
                         color: openObligations > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),

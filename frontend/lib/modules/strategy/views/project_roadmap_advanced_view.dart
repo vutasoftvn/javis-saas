@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -56,8 +57,8 @@ class _ProjectRoadmapAdvancedViewState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CosaFloatingAppBar(
-            title: 'Lộ trình nâng cao',
-            subtitle: 'Tùy chọn sau khi bạn đã hoàn tất vòng thiết lập cơ bản.',
+            title: L10nKey.projectRoadmapAdvancedTitle.tr,
+            subtitle: L10nKey.projectRoadmapAdvancedSubtitle.tr,
             icon: Icons.rocket_launch_outlined,
             actions: [
               TextButton.icon(
@@ -67,9 +68,9 @@ class _ProjectRoadmapAdvancedViewState
                   size: 16,
                   color: AppTheme.textMutedDark,
                 ),
-                label: const Text(
-                  'Quay lại thiết lập',
-                  style: TextStyle(color: AppTheme.textMutedDark),
+                label: Text(
+                  L10nKey.projectRoadmapAdvancedBack.tr,
+                  style: const TextStyle(color: AppTheme.textMutedDark),
                 ),
               ),
             ],

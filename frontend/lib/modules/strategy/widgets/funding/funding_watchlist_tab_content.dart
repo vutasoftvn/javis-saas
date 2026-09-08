@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class FundingWatchlistTabContent extends StatelessWidget {
@@ -20,14 +21,13 @@ class FundingWatchlistTabContent extends StatelessWidget {
               border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.3)),
             ),
             child: Row(
-              children: const [
-                Icon(Icons.visibility_outlined, color: Colors.cyanAccent, size: 22),
-                SizedBox(width: 12),
+              children: [
+                const Icon(Icons.visibility_outlined, color: Colors.cyanAccent, size: 22),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Danh mục 5 Chương trình Quốc gia Dự thảo giai đoạn 2026–2035 đang lấy ý kiến. '
-                    'COSA chỉ theo dõi tiến độ ban hành, không tính vào kế hoạch tài trợ hiện hành của Project.',
-                    style: TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+                    L10nKey.fundingWatchlistDisclaimer.tr,
+                    style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
                   ),
                 ),
               ],
@@ -42,8 +42,11 @@ class FundingWatchlistTabContent extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppTheme.borderDark),
               ),
-              child: const Center(
-                child: Text('Không có chương trình dự thảo nào đang theo dõi.', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+              child: Center(
+                child: Text(
+                  L10nKey.fundingWatchlistEmpty.tr,
+                  style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                ),
               ),
             )
           else
@@ -54,8 +57,8 @@ class FundingWatchlistTabContent extends StatelessWidget {
   }
 
   Widget _buildWatchlistCard(Map<String, dynamic> program) {
-    final name = program['name'] ?? 'Chương trình dự thảo';
-    final authority = program['authority'] ?? 'Cơ quan quản lý';
+    final name = program['name'] ?? L10nKey.fundingWatchlistDraftFallback.tr;
+    final authority = program['authority'] ?? L10nKey.fundingAuthorityFallback.tr;
     final summary = program['summary'] ?? '';
 
     return Container(
@@ -82,7 +85,10 @@ class FundingWatchlistTabContent extends StatelessWidget {
                   borderRadius: BorderRadius.circular(100),
                   border: Border.all(color: Colors.grey.withValues(alpha: 0.4)),
                 ),
-                child: const Text('DỰ THẢO THEO DÕI', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                child: Text(
+                  L10nKey.fundingWatchlistBadge.tr,
+                  style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),

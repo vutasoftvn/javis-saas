@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../data/models/stage_gate_model.dart';
 
 class PrematureAlertBanner extends StatelessWidget {
@@ -94,7 +96,7 @@ class PrematureAlertBanner extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '+${activeAlerts.length - 1} cảnh báo khác',
+                L10nKey.hubPrematureMoreAlerts.trParams({'count': '${activeAlerts.length - 1}'}),
                 style: const TextStyle(color: Colors.white70, fontSize: 10),
               ),
             ),

@@ -102,12 +102,13 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
       final okr = controller.okrCompletionRatio.value;
       final wy = controller.twelveWyExecutionScore.value;
 
+      final isEn = Get.locale?.languageCode == 'en';
       if (isLoading) {
         return const Center(child: CircularProgressIndicator());
       }
       if (error != null) {
         return Text(
-          'Không tải được OKR/12WY: $error',
+          isEn ? 'Failed to load OKR/12WY: $error' : 'Không tải được OKR/12WY: $error',
           style: const TextStyle(color: AppTheme.error, fontSize: 13),
         );
       }
@@ -127,7 +128,7 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('OKR chu kỳ hiện tại', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+                    Text(isEn ? 'Current Cycle OKRs' : 'OKR chu kỳ hiện tại', style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
                     const SizedBox(height: 6),
                     Text(
                       okr != null ? '${(okr * 100).round()}%' : '—',
@@ -152,7 +153,7 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Điểm thực thi tuần (12WY)', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+                    Text(isEn ? 'Weekly Execution Score (12WY)' : 'Điểm thực thi tuần (12WY)', style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
                     const SizedBox(height: 6),
                     Text(
                       wy != null ? '${(wy * 100).round()}%' : '—',
@@ -196,6 +197,7 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
             .addPostFrameCallback((_) => controller.selectProject(selectedId));
       }
 
+      final isEn = Get.locale?.languageCode == 'en';
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -208,9 +210,9 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
           children: [
             Row(
               children: [
-                const Text(
-                  'Thông tin quản trị project',
-                  style: TextStyle(
+                Text(
+                  isEn ? 'Project Governance Info' : 'Thông tin quản trị project',
+                  style: const TextStyle(
                     color: AppTheme.textDark,
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -242,15 +244,15 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
               const Center(child: CircularProgressIndicator())
             else if (controller.projectInfoError.value != null)
               Text(
-                'Không tải được thông tin project: ${controller.projectInfoError.value}',
+                isEn ? 'Failed to load project info: ${controller.projectInfoError.value}' : 'Không tải được thông tin project: ${controller.projectInfoError.value}',
                 style: const TextStyle(color: AppTheme.error, fontSize: 13),
               )
             else if (controller.projectSetup.value != null) ...[
               _infoRow(
-                'Giai đoạn',
-                controller.projectSetup.value!.selectedStage?.name ?? 'Chưa chọn',
+                isEn ? 'Stage' : 'Giai đoạn',
+                controller.projectSetup.value!.selectedStage?.name ?? (isEn ? 'Not selected' : 'Chưa chọn'),
               ),
-              _infoRow('Trạng thái setup', controller.projectSetup.value!.status.name),
+              _infoRow(isEn ? 'Setup Status' : 'Trạng thái setup', controller.projectSetup.value!.status.name),
             ],
           ],
         ),
@@ -280,6 +282,7 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
       );
 
   Widget _buildTodayTasks() {
+    final isEn = Get.locale?.languageCode == 'en';
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -290,17 +293,17 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Việc hôm nay',
-            style: TextStyle(color: AppTheme.textDark, fontSize: 15, fontWeight: FontWeight.bold),
+          Text(
+            isEn ? "Today's Tasks" : 'Việc hôm nay',
+            style: const TextStyle(color: AppTheme.textDark, fontSize: 15, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           Obx(() {
             final tasks = controller.todayTasks;
             if (tasks.isEmpty) {
-              return const Text(
-                'Không có việc nào đến hạn hôm nay.',
-                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+              return Text(
+                isEn ? 'No tasks due today.' : 'Không có việc nào đến hạn hôm nay.',
+                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               );
             }
             return Column(
@@ -320,7 +323,7 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
                         ),
                         TextButton(
                           onPressed: () => DefaultTabController.of(context).animateTo(1),
-                          child: const Text('Xem ở Kanban'),
+                          child: Text(isEn ? 'View in Kanban' : 'Xem ở Kanban'),
                         ),
                       ],
                     ),

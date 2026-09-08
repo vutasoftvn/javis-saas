@@ -95,6 +95,8 @@ class MyApp extends StatelessWidget {
       title: L10nKey.appTitle.tr,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme, // We only use dark theme for now
+      defaultTransition: Transition.noTransition,
+      transitionDuration: Duration.zero,
       initialRoute: initialRoute,
       initialBinding: SessionBinding(),
       getPages: AppPages.routes,

@@ -45,7 +45,7 @@ class DashboardStageDemoBar extends StatelessWidget {
                   ),
                 ),
                 PopupMenuButton<ProjectStage>(
-                  tooltip: 'Chuyển đổi Stage để Test',
+                  tooltip: Get.locale?.languageCode == 'en' ? 'Switch Stage for Testing' : 'Chuyển đổi Stage để Test',
                   padding: EdgeInsets.zero,
                   color: const Color(0xFF0F172A),
                   shape: RoundedRectangleBorder(
@@ -63,7 +63,7 @@ class DashboardStageDemoBar extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              s.displayNameVi,
+                              s.localizedDisplayName,
                               style: TextStyle(
                                 color: isCurrent ? s.primaryColor : Colors.white,
                                 fontSize: 12,

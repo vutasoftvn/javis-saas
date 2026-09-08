@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../controllers/agents_controller.dart';
 import 'work_product_viewer_dialog.dart';
 import 'decision_records_dialog.dart';
@@ -29,10 +30,10 @@ class AgentsHeaderBar extends StatelessWidget {
             child: const Icon(Icons.smart_toy_rounded, color: Colors.blueAccent, size: 24),
           ),
           const SizedBox(width: 14),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'AI Workforce Control Plane',
                 style: TextStyle(
                   color: Colors.white,
@@ -42,8 +43,8 @@ class AgentsHeaderBar extends StatelessWidget {
                 ),
               ),
               Text(
-                'Quản lý danh bạ nhân sự số, sơ đồ tổ chức và phiên thực thi',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5),
+                L10nKey.agentsSubtitle.tr,
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5),
               ),
             ],
           ),
@@ -60,9 +61,9 @@ class AgentsHeaderBar extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  _buildNavTab(index: 0, title: 'Danh bạ Agent', icon: Icons.grid_view_rounded),
-                  _buildNavTab(index: 1, title: 'Sơ đồ Org Chart', icon: Icons.account_tree_outlined),
-                  _buildNavTab(index: 2, title: 'Lịch sử Runs', icon: Icons.history_rounded),
+                  _buildNavTab(index: 0, title: L10nKey.agentsTabDirectory.tr, icon: Icons.grid_view_rounded),
+                  _buildNavTab(index: 1, title: L10nKey.agentsTabOrgChart.tr, icon: Icons.account_tree_outlined),
+                  _buildNavTab(index: 2, title: L10nKey.agentsTabRuns.tr, icon: Icons.history_rounded),
                 ],
               ),
             );
@@ -72,7 +73,7 @@ class AgentsHeaderBar extends StatelessWidget {
 
           // Work Products Vault Button
           IconButton(
-            tooltip: 'Sản phẩm bàn giao (Work Products)',
+            tooltip: L10nKey.agentsWorkProductsTooltip.tr,
             onPressed: () {
               showDialog(
                 context: context,
@@ -93,7 +94,7 @@ class AgentsHeaderBar extends StatelessWidget {
 
           // Decision Records (ADR) Button
           IconButton(
-            tooltip: 'Sổ quyết định kiến trúc (ADR)',
+            tooltip: L10nKey.agentsAdrTooltip.tr,
             onPressed: () {
               showDialog(
                 context: context,

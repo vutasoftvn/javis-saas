@@ -6,14 +6,25 @@
 #   source scripts/load-dev-env.sh
 #   or ./scripts/load-dev-env.sh
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -n "${BASH_SOURCE[0]}" ]; then
+    SCRIPT_PATH="${BASH_SOURCE[0]}"
+elif [ -n "${ZSH_VERSION}" ]; then
+    SCRIPT_PATH="${(%):-%x}"
+else
+    SCRIPT_PATH="$0"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 find_env_file() {
     if [ -f "$REPO_ROOT/.env" ]; then
         echo "$REPO_ROOT/.env"
+    elif [ -f "./.env" ]; then
+        echo "$(pwd)/.env"
     elif [ -f "$REPO_ROOT/services/.env" ]; then
         echo "$REPO_ROOT/services/.env"
+    elif [ -f "./services/.env" ]; then
+        echo "$(pwd)/services/.env"
     else
         echo ""
     fi
@@ -30,7 +41,7 @@ if [ -n "$ENV_FILE" ]; then
         key="$(echo "$key" | xargs)"
         value="$(echo "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
         # Only export if not already set by outer shell
-        if [ -z "${!key+x}" ]; then
+        if [ -z "$(eval "echo \${$key+x}")" ]; then
             export "$key=$value"
         fi
     done < <(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$ENV_FILE")

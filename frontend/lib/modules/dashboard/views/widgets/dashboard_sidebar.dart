@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/localization/locale_controller.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/routing/module_routes.dart';
@@ -182,13 +183,13 @@ class DashboardDesktopSidebar extends StatelessWidget {
                       border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
                     ),
                     child: Row(
-                      children: const [
-                        Icon(Icons.arrow_back, size: 16, color: AppTheme.primary),
-                        SizedBox(width: 8),
+                      children: [
+                        const Icon(Icons.arrow_back, size: 16, color: AppTheme.primary),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'COSA Hologram Hub',
-                            style: TextStyle(
+                            L10nKey.sidebarBackToHub.tr,
+                            style: const TextStyle(
                               color: AppTheme.primary,
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -353,7 +354,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
             const Divider(height: 1, color: AppTheme.borderDark),
             Obx(() => SwitchListTile(
               dense: true,
-              title: const Text('Chế độ nhà phát triển', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+              title: Text(L10nKey.sidebarDeveloperMode.tr, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
               value: controller.developerMode.value,
               onChanged: controller.setDeveloperMode,
             )),
@@ -365,12 +366,12 @@ class DashboardDesktopSidebar extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
-                    children: const [
-                      Icon(Icons.logout_rounded, color: AppTheme.error, size: 20),
-                      SizedBox(width: 12),
+                    children: [
+                      const Icon(Icons.logout_rounded, color: AppTheme.error, size: 20),
+                      const SizedBox(width: 12),
                       Text(
-                        'Đăng xuất',
-                        style: TextStyle(color: AppTheme.error, fontSize: 15, fontWeight: FontWeight.bold),
+                        L10nKey.sidebarLogout.tr,
+                        style: const TextStyle(color: AppTheme.error, fontSize: 15, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -498,13 +499,13 @@ class DashboardMobileDrawer extends StatelessWidget {
                       border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
                     ),
                     child: Row(
-                      children: const [
-                        Icon(Icons.arrow_back, size: 18, color: AppTheme.primary),
-                        SizedBox(width: 10),
+                      children: [
+                        const Icon(Icons.arrow_back, size: 18, color: AppTheme.primary),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Về COSA Hologram Hub',
-                            style: TextStyle(
+                            L10nKey.sidebarBackToHub.tr,
+                            style: const TextStyle(
                               color: AppTheme.primary,
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -670,7 +671,7 @@ class DashboardMobileDrawer extends StatelessWidget {
             const Divider(height: 1, color: Color(0xFF1E293B)),
             ListTile(
               leading: const Icon(Icons.logout, color: AppTheme.error),
-              title: const Text('Đăng xuất', style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold, fontSize: 15)),
+              title: Text(L10nKey.sidebarLogout.tr, style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold, fontSize: 15)),
               onTap: () {
                 Navigator.pop(context);
                 controller.logout();

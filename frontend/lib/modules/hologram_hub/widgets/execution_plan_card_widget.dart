@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../data/models/execution_plan_model.dart';
 
 /// WGA — "Kế hoạch đề xuất": agent phân rã mục tiêu tuần thành các việc, mỗi
@@ -50,10 +51,10 @@ class ExecutionPlanCardWidget extends StatelessWidget {
             children: [
               const Icon(Icons.auto_awesome, color: Color(0xFF818CF8), size: 20),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Kế hoạch đề xuất',
-                  style: TextStyle(
+                  L10nKey.hubProposedPlanTitle.tr,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -61,7 +62,7 @@ class ExecutionPlanCardWidget extends StatelessWidget {
                 ),
               ),
               Text(
-                '${items.length} việc',
+                L10nKey.hubProposedPlanItemsCount.trParams({'count': '${items.length}'}),
                 style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
               ),
             ],
@@ -80,7 +81,7 @@ class ExecutionPlanCardWidget extends StatelessWidget {
                 onPressed:
                     plan.canAccept ? () => onAccept(plan.id) : null,
                 icon: const Icon(Icons.check, size: 16),
-                label: const Text('Chấp nhận cả lô'),
+                label: Text(L10nKey.hubProposedPlanAcceptAll.tr),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
@@ -89,14 +90,14 @@ class ExecutionPlanCardWidget extends StatelessWidget {
               const SizedBox(width: 8),
               TextButton(
                 onPressed: () => onReject(plan.id),
-                child: const Text('Bỏ', style: TextStyle(color: Color(0xFF94A3B8))),
+                child: Text(L10nKey.hubProposedPlanDismiss.tr, style: const TextStyle(color: Color(0xFF94A3B8))),
               ),
               if (!plan.canAccept && items.isNotEmpty)
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Một số việc còn thiếu bằng chứng (evidence).',
+                    L10nKey.hubProposedPlanMissingEvidence.tr,
                     textAlign: TextAlign.right,
-                    style: TextStyle(color: Color(0xFFF87171), fontSize: 11),
+                    style: const TextStyle(color: Color(0xFFF87171), fontSize: 11),
                   ),
                 ),
             ],
@@ -164,7 +165,7 @@ class ExecutionPlanCardWidget extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 14, color: Color(0xFF64748B)),
-            tooltip: 'Bỏ việc này',
+            tooltip: L10nKey.hubProposedPlanDropItemTooltip.tr,
             onPressed: () => onDropItem(it.id),
           ),
         ],

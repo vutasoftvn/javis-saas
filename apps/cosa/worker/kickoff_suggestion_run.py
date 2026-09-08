@@ -23,7 +23,7 @@ from apps.cosa.agents.kickoff_suggestion import (
     build_suggestion_prompt,
     parse_suggestion_output,
 )
-from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
+from apps.cosa.agents.specs import COSA_KICKOFF_SUGGESTION_AGENT_SPEC
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.service_identity import require_internal_url, require_service_token
 from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
@@ -95,13 +95,14 @@ async def execute_kickoff_suggestion_task(
         evidence_level=payload.get("evidence_level", ""),
         selected_stage=payload.get("selected_stage", ""),
         stage_duration_weeks=int(payload.get("stage_duration_weeks") or 2),
+        locale=payload.get("locale", "vi-VN"),
     )
 
     try:
         prep = await prepare_run(
             plane,
             run_id=run_id,
-            local_spec=COSA_OPERATIONS_AGENT_SPEC,
+            local_spec=COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
             prompt=prompt,
             principal=f"system:kickoff_suggestion:{workspace_id}",
             workspace_id=workspace_id,

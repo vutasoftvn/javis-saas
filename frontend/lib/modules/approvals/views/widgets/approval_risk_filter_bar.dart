@@ -9,6 +9,7 @@ class ApprovalRiskFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isEn = Get.locale?.languageCode == 'en';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       decoration: const BoxDecoration(
@@ -17,9 +18,9 @@ class ApprovalRiskFilterBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text('Mức rủi ro:', style: TextStyle(color: Colors.grey, fontSize: 12.5, fontWeight: FontWeight.w600)),
+          Text(isEn ? 'Risk Level:' : 'Mức rủi ro:', style: const TextStyle(color: Colors.grey, fontSize: 12.5, fontWeight: FontWeight.w600)),
           const SizedBox(width: 12),
-          _buildRiskFilterChip('Tất cả', 'ALL'),
+          _buildRiskFilterChip(isEn ? 'All' : 'Tất cả', 'ALL'),
           const SizedBox(width: 8),
           _buildRiskFilterChip('🔴 CRITICAL (Founder Only)', 'CRITICAL', color: const Color(0xFFEF4444)),
           const SizedBox(width: 8),

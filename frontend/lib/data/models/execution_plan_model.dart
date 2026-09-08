@@ -1,6 +1,9 @@
 /// WGA — Execution Plan (kế hoạch triển khai agent đề xuất từ mục tiêu tuần).
 library;
 
+import 'package:get/get.dart';
+import '../../core/localization/app_translations.dart';
+
 enum AutonomyClass { auto, needsApproval, founderOnly }
 
 AutonomyClass autonomyClassFromString(String? raw) {
@@ -29,11 +32,11 @@ String autonomyClassToString(AutonomyClass c) {
 String autonomyClassLabel(AutonomyClass c) {
   switch (c) {
     case AutonomyClass.auto:
-      return 'AI tự làm';
+      return L10nKey.autonomyClassAuto.tr;
     case AutonomyClass.needsApproval:
-      return 'Cần bạn duyệt';
+      return L10nKey.autonomyClassNeedsApproval.tr;
     case AutonomyClass.founderOnly:
-      return 'Bạn tự làm';
+      return L10nKey.autonomyClassFounderOnly.tr;
   }
 }
 

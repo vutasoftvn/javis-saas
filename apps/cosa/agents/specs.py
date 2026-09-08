@@ -15,6 +15,8 @@ __all__ = [
     "COSA_DEPLOYED_AGENT_SPECS",
     "COSA_FINANCE_AGENT_SPEC",
     "COSA_FINANCE_PROMPT",
+    "COSA_KICKOFF_SUGGESTION_AGENT_SPEC",
+    "COSA_KICKOFF_SUGGESTION_PROMPT",
     "COSA_MARKETING_AGENT_SPEC",
     "COSA_MARKETING_PROMPT",
     "COSA_OPERATIONS_AGENT_SPEC",
@@ -287,6 +289,29 @@ COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA Customer Support Autopilot (narrow FAQ)"},
 )
 
+COSA_KICKOFF_SUGGESTION_PROMPT = PromptSpec(
+    id="cosa.agents.kickoff_suggestion.prompt",
+    version="1.0.0",
+    text="AI Co-founder gợi ý kết quả và các hành động tuần đầu tiên của vòng khởi nghiệp từ thông tin Founder cung cấp.",
+).with_hash()
+
+COSA_KICKOFF_SUGGESTION_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.kickoff_suggestion",
+    version="1.1.0",
+    autonomy_level=AutonomyLevel.L0_OBSERVE,
+    instructions=(
+        "You are an AI Co-founder assisting in analyzing and suggesting a 1-sentence outcome "
+        "and 1-3 key actions for the first week of a startup cycle based on provided context. "
+        "Follow the language requirement in the user prompt and return strictly JSON format."
+    ),
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_KICKOFF_SUGGESTION_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Kickoff Suggestion Specialist Agent"},
+)
+
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
 # runtime specs (skillpacks + prompts/model_policy/agent) và verify mọi
 # pinned_skills resolve được trước khi phục vụ traffic (Wave M2b).
@@ -296,4 +321,5 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_MARKETING_AGENT_SPEC,
     COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
     COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
+    COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
 )

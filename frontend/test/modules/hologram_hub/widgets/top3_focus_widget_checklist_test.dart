@@ -1,25 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/data/models/company_pulse_model.dart';
 import 'package:frontend/data/models/project_operating_setup_model.dart';
 import 'package:frontend/data/models/task_kanban_model.dart';
 import 'package:frontend/modules/hologram_hub/widgets/top3_focus_widget.dart';
+
+Widget _host(Widget child) {
+  return GetMaterialApp(
+    translations: AppTranslations(),
+    locale: const Locale('vi', 'VN'),
+    home: Scaffold(body: child),
+  );
+}
 
 void main() {
   testWidgets('renders first-week-action checklist with checkbox and time badge', (tester) async {
     FirstWeekActionDraft? toggled;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Top3FocusWidget(
-            actions: const <NextBestActionModel>[],
-            onActionTap: (_) {},
-            firstWeekActions: const [
-              FirstWeekActionDraft(id: 'a1', title: 'Interview lead #1'),
-            ],
-            onToggleActionStatus: (action) => toggled = action,
-          ),
+      _host(
+        Top3FocusWidget(
+          actions: const <NextBestActionModel>[],
+          onActionTap: (_) {},
+          firstWeekActions: const [
+            FirstWeekActionDraft(id: 'a1', title: 'Interview lead #1'),
+          ],
+          onToggleActionStatus: (action) => toggled = action,
         ),
       ),
     );
@@ -36,15 +44,13 @@ void main() {
 
   testWidgets('shows a checked box when the action is done', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Top3FocusWidget(
-            actions: const <NextBestActionModel>[],
-            onActionTap: (_) {},
-            firstWeekActions: const [
-              FirstWeekActionDraft(id: 'a1', title: 'Done action', status: TaskKanbanStatus.done),
-            ],
-          ),
+      _host(
+        Top3FocusWidget(
+          actions: const <NextBestActionModel>[],
+          onActionTap: (_) {},
+          firstWeekActions: const [
+            FirstWeekActionDraft(id: 'a1', title: 'Done action', status: TaskKanbanStatus.done),
+          ],
         ),
       ),
     );
@@ -55,12 +61,10 @@ void main() {
 
   testWidgets('renders nothing extra when firstWeekActions is empty', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Top3FocusWidget(
-            actions: const <NextBestActionModel>[],
-            onActionTap: (_) {},
-          ),
+      _host(
+        Top3FocusWidget(
+          actions: const <NextBestActionModel>[],
+          onActionTap: (_) {},
         ),
       ),
     );
@@ -74,16 +78,14 @@ void main() {
     final notToday = DateTime(2027, 9, 8, 14, 0);
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Top3FocusWidget(
-            actions: const <NextBestActionModel>[],
-            onActionTap: (_) {},
-            firstWeekActions: [
-              FirstWeekActionDraft(id: 'a1', title: 'Scheduled action', plannedStartAt: notToday),
-            ],
-            onScheduleAction: (_, _) {},
-          ),
+      _host(
+        Top3FocusWidget(
+          actions: const <NextBestActionModel>[],
+          onActionTap: (_) {},
+          firstWeekActions: [
+            FirstWeekActionDraft(id: 'a1', title: 'Scheduled action', plannedStartAt: notToday),
+          ],
+          onScheduleAction: (_, _) {},
         ),
       ),
     );
@@ -98,19 +100,17 @@ void main() {
     DateTime? clearedValue = DateTime(2099, 1, 1); // sentinel, phải bị ghi đè thành null
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Top3FocusWidget(
-            actions: const <NextBestActionModel>[],
-            onActionTap: (_) {},
-            firstWeekActions: [
-              FirstWeekActionDraft(id: 'a1', title: 'Scheduled action', plannedStartAt: DateTime(2026, 9, 8, 14, 0)),
-            ],
-            onScheduleAction: (action, plannedStartAt) {
-              clearedAction = action;
-              clearedValue = plannedStartAt;
-            },
-          ),
+      _host(
+        Top3FocusWidget(
+          actions: const <NextBestActionModel>[],
+          onActionTap: (_) {},
+          firstWeekActions: [
+            FirstWeekActionDraft(id: 'a1', title: 'Scheduled action', plannedStartAt: DateTime(2026, 9, 8, 14, 0)),
+          ],
+          onScheduleAction: (action, plannedStartAt) {
+            clearedAction = action;
+            clearedValue = plannedStartAt;
+          },
         ),
       ),
     );
@@ -128,16 +128,14 @@ void main() {
 
   testWidgets('does not show the clear icon when there is no schedule yet', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Top3FocusWidget(
-            actions: const <NextBestActionModel>[],
-            onActionTap: (_) {},
-            firstWeekActions: const [
-              FirstWeekActionDraft(id: 'a1', title: 'Unscheduled action'),
-            ],
-            onScheduleAction: (_, _) {},
-          ),
+      _host(
+        Top3FocusWidget(
+          actions: const <NextBestActionModel>[],
+          onActionTap: (_) {},
+          firstWeekActions: const [
+            FirstWeekActionDraft(id: 'a1', title: 'Unscheduled action'),
+          ],
+          onScheduleAction: (_, _) {},
         ),
       ),
     );
@@ -149,16 +147,14 @@ void main() {
     final stale = DateTime.now().subtract(const Duration(days: 10));
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Top3FocusWidget(
-            actions: const <NextBestActionModel>[],
-            onActionTap: (_) {},
-            firstWeekActions: [
-              FirstWeekActionDraft(id: 'a1', title: 'Stale scheduled action', plannedStartAt: stale),
-            ],
-            onScheduleAction: (_, _) {},
-          ),
+      _host(
+        Top3FocusWidget(
+          actions: const <NextBestActionModel>[],
+          onActionTap: (_) {},
+          firstWeekActions: [
+            FirstWeekActionDraft(id: 'a1', title: 'Stale scheduled action', plannedStartAt: stale),
+          ],
+          onScheduleAction: (_, _) {},
         ),
       ),
     );

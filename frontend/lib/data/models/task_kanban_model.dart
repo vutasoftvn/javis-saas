@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 
 enum TaskKanbanStatus {
   todo,
@@ -49,17 +51,17 @@ enum TaskKanbanStatus {
   String get title {
     switch (this) {
       case TaskKanbanStatus.todo:
-        return 'Cần làm';
+        return L10nKey.tasksStatusTodo.tr;
       case TaskKanbanStatus.inProgress:
-        return 'Đang làm';
+        return L10nKey.tasksStatusInProgress.tr;
       case TaskKanbanStatus.waitingApproval:
-        return 'Chờ duyệt';
+        return L10nKey.tasksStatusWaitingApproval.tr;
       case TaskKanbanStatus.blocked:
-        return 'Tạm dừng / Nghẽn';
+        return L10nKey.tasksStatusBlocked.tr;
       case TaskKanbanStatus.done:
-        return 'Hoàn thành';
+        return L10nKey.tasksStatusDone.tr;
       case TaskKanbanStatus.cancelled:
-        return 'Đã hủy';
+        return L10nKey.tasksStatusCancelled.tr;
     }
   }
 

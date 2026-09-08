@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/organization_controller.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -13,14 +14,15 @@ class OrganizationView extends GetView<OrganizationController> {
     if (!Get.isRegistered<OrganizationController>()) {
       Get.put(OrganizationController());
     }
+    final isEn = Get.locale?.languageCode == 'en';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header
         CosaFloatingAppBar(
-              title: 'Tổ chức & Nhân sự Hỗn hợp (Hybrid Workforce)',
-              subtitle: 'Trung tâm Điều hành CEO (Command Center) & Quản trị Lực lượng Nhân sự AI kết hợp Con người.',
+              title: L10nKey.orgTitle.tr,
+              subtitle: L10nKey.orgSubtitle.tr,
               icon: Icons.corporate_fare_rounded,
               actions: [
                 ElevatedButton.icon(
@@ -33,7 +35,7 @@ class OrganizationView extends GetView<OrganizationController> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   ),
                   icon: const Icon(Icons.person_add_rounded, size: 18),
-                  label: const Text('Tuyển dụng AI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  label: Text(L10nKey.orgHireAiButton.tr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
                 const SizedBox(width: 10),
                 Container(
@@ -42,7 +44,7 @@ class OrganizationView extends GetView<OrganizationController> {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    tooltip: 'Tải lại',
+                    tooltip: L10nKey.commonRefresh.tr,
                     icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
                     onPressed: controller.loadOrganizationData,
                   ),
@@ -72,15 +74,15 @@ class OrganizationView extends GetView<OrganizationController> {
                 ),
                 labelColor: const Color(0xFF04070E),
                 unselectedLabelColor: AppTheme.textMutedDark,
-                tabs: const [
+                tabs: [
                   Tab(
                     height: 32,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.dashboard_customize_outlined, size: 15),
-                        SizedBox(width: 8),
-                        Text('CEO Command Center', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        const Icon(Icons.dashboard_customize_outlined, size: 15),
+                        const SizedBox(width: 8),
+                        Text('CEO Command Center', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                       ],
                     ),
                   ),
@@ -89,9 +91,9 @@ class OrganizationView extends GetView<OrganizationController> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.account_tree_outlined, size: 15),
-                        SizedBox(width: 8),
-                        Text('Sơ đồ Tổ chức & Nhân sự', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        const Icon(Icons.account_tree_outlined, size: 15),
+                        const SizedBox(width: 8),
+                        Text(isEn ? 'Org Chart & Workforce' : 'Sơ đồ Tổ chức & Nhân sự', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                       ],
                     ),
                   ),

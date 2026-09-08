@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
@@ -573,7 +574,7 @@ class FounderCommandCenterController extends GetxController {
       debugPrint('[FounderCommandCenter] toggleFirstWeekActionStatus error: $e');
       // Không hiện raw exception ($e) cho founder — có thể lộ nội dung HTTP
       // response body của backend. Chi tiết đầy đủ chỉ nằm ở debugPrint trên.
-      AppToast.error('Không thể cập nhật, vui lòng thử lại.');
+      AppToast.error(L10nKey.hubUpdateFailedToast.tr);
       // Optimistic guess có thể sai (request thất bại) — refresh lại để
       // reconcile về đúng server truth thay vì để giá trị sai âm thầm đứng yên.
       await _refreshActiveProjectSetup();
@@ -596,7 +597,7 @@ class FounderCommandCenterController extends GetxController {
       await _refreshActiveProjectSetup();
     } catch (e) {
       debugPrint('[FounderCommandCenter] updateFirstWeekActionSchedule error: $e');
-      AppToast.error('Không thể cập nhật, vui lòng thử lại.');
+      AppToast.error(L10nKey.hubUpdateFailedToast.tr);
       await _refreshActiveProjectSetup();
     }
   }

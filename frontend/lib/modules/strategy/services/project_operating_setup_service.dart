@@ -68,9 +68,15 @@ class ProjectOperatingSetupService extends StrategyServiceBase {
     );
   }
 
-  Future<void> requestKickoffSuggestion(String projectId) async {
+  Future<void> requestKickoffSuggestion(
+    String projectId, {
+    String? locale,
+  }) async {
     final response = await ApiClient.post(
       '/operations/projects/$projectId/kickoff-suggestion',
+      body: {
+        if (locale != null && locale.isNotEmpty) 'locale': locale,
+      },
     );
     decode(response); // throws StrategyApiException nếu không phải 2xx
   }

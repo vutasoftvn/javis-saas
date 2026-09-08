@@ -57,6 +57,7 @@ class ApprovalsView extends GetView<ApprovalsController> {
                   const Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
               dataBuilder: (context, _, _) {
                 final items = controller.filteredApprovals;
+                final isEn = Get.locale?.languageCode == 'en';
                 if (items.isEmpty) {
                   return Center(
                     child: Column(
@@ -64,13 +65,13 @@ class ApprovalsView extends GetView<ApprovalsController> {
                       children: [
                         Icon(Icons.task_alt_rounded, size: 56, color: Colors.green.shade400),
                         const SizedBox(height: 14),
-                        const Text(
-                          'Tuyệt vời! Không có yêu cầu nào đang chờ phê duyệt.',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                        Text(
+                          isEn ? 'Great! No pending approval requests.' : 'Tuyệt vời! Không có yêu cầu nào đang chờ phê duyệt.',
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Mọi hoạt động của AI Workforce đang vận hành an toàn trong hạn mức.',
+                          isEn ? 'All AI Workforce activities are operating safely within thresholds.' : 'Mọi hoạt động của AI Workforce đang vận hành an toàn trong hạn mức.',
                           style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                         ),
                       ],
@@ -96,10 +97,11 @@ class ApprovalsView extends GetView<ApprovalsController> {
   }
 
   Widget _buildHistoryTab(BuildContext context) {
+    final isEn = Get.locale?.languageCode == 'en';
     return Obx(() {
       if (controller.historyApprovals.isEmpty) {
         return Center(
-          child: Text('Chưa có lịch sử phê duyệt.', style: TextStyle(color: Colors.grey.shade500)),
+          child: Text(isEn ? 'No approval history yet.' : 'Chưa có lịch sử phê duyệt.', style: TextStyle(color: Colors.grey.shade500)),
         );
       }
       return ListView.separated(

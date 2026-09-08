@@ -64,3 +64,23 @@ async def test_dispatch_authorized_schedules_task(test_app, monkeypatch):
         assert payload["run_id"] == "run-abc-123"
         assert payload["project_id"] == "proj_456"
         assert payload["target_customer"] == "Founder B2B SaaS"
+        assert payload["locale"] == "vi-VN"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_authorized_with_explicit_locale(test_app, monkeypatch):
+    monkeypatch.setenv("COSA_SERVICE_TOKEN", "secret-test-token")
+    transport = httpx.ASGITransport(app=test_app)
+    body_with_locale = {**_VALID_BODY, "locale": "en-US"}
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/agent/kickoff/first-week-suggestion",
+            headers={"X-Cosa-Service-Token": "secret-test-token"},
+            json=body_with_locale,
+        )
+        assert resp.status_code == 202
+
+        scheduler = test_app.state.plane.scheduler
+        payload = scheduler.schedule.call_args.kwargs["input_payload"]
+        assert payload["locale"] == "en-US"
+

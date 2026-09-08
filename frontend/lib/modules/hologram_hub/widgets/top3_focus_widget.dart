@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 
@@ -42,10 +44,10 @@ class Top3FocusWidget extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'TOP 3 TRỌNG TÂM HÔM NAY (12-Week Year Focus)',
-                  style: TextStyle(
+                  L10nKey.hubTop3Title.tr,
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -79,7 +81,7 @@ class Top3FocusWidget extends StatelessWidget {
             })
           else
             Text(
-              'Chưa có hành động ưu tiên nào được sinh ra cho dự án. Hãy bắt đầu bằng việc thiết lập các giả định quan trọng của giai đoạn P1 (Problem Validation) hoặc kích hoạt chu trình 12 tuần.',
+              L10nKey.hubTop3Empty.tr,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 13,
@@ -90,9 +92,9 @@ class Top3FocusWidget extends StatelessWidget {
             const SizedBox(height: 20),
             const Divider(color: Color(0xFF334155), height: 1),
             const SizedBox(height: 16),
-            const Text(
-              'Hành động tuần đầu',
-              style: TextStyle(
+            Text(
+              L10nKey.hubFirstWeekActionsTitle.tr,
+              style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -149,7 +151,7 @@ class Top3FocusWidget extends StatelessWidget {
                   Text(
                     action.plannedStartAt != null
                         ? _formatScheduleBadge(context, action.plannedStartAt!)
-                        : 'Chưa đặt giờ',
+                        : L10nKey.hubActionNoTimeSet.tr,
                     style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
                   ),
                   // Fix 4 (final review) — trước đây chỉ có thể ĐẶT giờ, không
@@ -216,11 +218,11 @@ class Top3FocusWidget extends StatelessWidget {
     switch (item.category) {
       case 'DECISION':
         tagColor = const Color(0xFFF59E0B);
-        tagLabel = 'Quyết định';
+        tagLabel = L10nKey.hubActionCategoryDecision.tr;
         break;
       case 'EXPERIMENT':
         tagColor = const Color(0xFFEC4899);
-        tagLabel = 'Thực nghiệm';
+        tagLabel = L10nKey.hubActionCategoryExperiment.tr;
         break;
       case 'MISSION':
         tagColor = const Color(0xFF8B5CF6);
@@ -228,7 +230,7 @@ class Top3FocusWidget extends StatelessWidget {
         break;
       default:
         tagColor = const Color(0xFF10B981);
-        tagLabel = 'Hành động';
+        tagLabel = L10nKey.hubActionCategoryAction.tr;
     }
 
     return Card(

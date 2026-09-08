@@ -17,7 +17,7 @@ class FakeKickoffService extends ProjectOperatingSetupService {
   bool overwriteOnLastCall = false;
 
   @override
-  Future<void> requestKickoffSuggestion(String projectId) async {
+  Future<void> requestKickoffSuggestion(String projectId, {String? locale}) async {
     requestKickoffSuggestionCallCount++;
   }
 

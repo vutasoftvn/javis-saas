@@ -212,23 +212,26 @@ Future<bool> confirmDegradedMutation(
   BuildContext context, {
   required String actionLabel,
 }) async {
+  final isEn = Get.locale?.languageCode == 'en';
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Xác nhận thao tác khi runtime chưa ổn định'),
+      title: Text(isEn ? 'Confirm action while runtime is unstable' : 'Xác nhận thao tác khi runtime chưa ổn định'),
       content: Text(
-        'Kết nối tới runtime node của workspace đang chập chờn hoặc chưa được '
-        'xác minh đầy đủ (chỉ là suy đoán, không phải cấu hình đã xác nhận). '
-        'Bạn có chắc chắn muốn tiếp tục "$actionLabel"?',
+        isEn
+            ? 'Workspace runtime connection is unstable or unverified. Are you sure you want to proceed with "$actionLabel"?'
+            : 'Kết nối tới runtime node của workspace đang chập chờn hoặc chưa được '
+                'xác minh đầy đủ (chỉ là suy đoán, không phải cấu hình đã xác nhận). '
+                'Bạn có chắc chắn muốn tiếp tục "$actionLabel"?',
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('Hủy'),
+          child: Text(isEn ? 'Cancel' : 'Hủy'),
         ),
         FilledButton(
           onPressed: () => Navigator.of(ctx).pop(true),
-          child: const Text('Vẫn tiếp tục'),
+          child: Text(isEn ? 'Proceed anyway' : 'Vẫn tiếp tục'),
         ),
       ],
     ),

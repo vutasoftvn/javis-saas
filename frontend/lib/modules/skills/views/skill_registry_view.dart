@@ -83,30 +83,37 @@ class SkillRegistryView extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isCompact ? 'Skill Registry' : 'Skill Registry & Vòng đời Kỹ năng AI (P5)',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (!isCompact) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Quản trị Kỹ năng: Candidate ➔ Evaluation ➔ Admin Approval ➔ Active (§61/§62)',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 13,
+            child: Builder(
+              builder: (context) {
+                final isEn = Get.locale?.languageCode == 'en';
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isCompact ? 'Skill Registry' : (isEn ? 'Skill Registry & AI Skill Lifecycle (P5)' : 'Skill Registry & Vòng đời Kỹ năng AI (P5)'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
-              ],
+                    if (!isCompact) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        isEn
+                            ? 'Skill Governance: Candidate ➔ Evaluation ➔ Admin Approval ➔ Active'
+                            : 'Quản trị Kỹ năng: Candidate ➔ Evaluation ➔ Admin Approval ➔ Active (§61/§62)',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ),
           if (isCompact)
@@ -337,14 +344,14 @@ class SkillRegistryView extends StatelessWidget {
                   children: [
                     const Icon(Icons.filter_alt_outlined, color: AppTheme.primaryLight),
                     const SizedBox(width: 10),
-                    const Text(
+                    Text(
                       AppCopy.skillRegistryFilterSheetTitle,
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                     const Spacer(),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text(AppCopy.skillRegistryFilterCloseButton),
+                      child: Text(AppCopy.skillRegistryFilterCloseButton),
                     ),
                   ],
                 ),

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/localization/app_translations.dart';
 import '../controllers/vault_controller.dart';
 import '../models/vault_document.dart';
 
@@ -100,7 +101,7 @@ class VaultView extends GetView<VaultController> {
                   bytes: utf8.encode(content),
                 );
               },
-              child: const Text('Tạo & Upload'),
+              child: Text(L10nKey.vaultCreateUpload.tr),
             ),
           ],
         );
@@ -128,7 +129,7 @@ class _Header extends StatelessWidget {
           FilledButton.icon(
             onPressed: onCreate,
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Tài liệu mới'),
+            label: Text(L10nKey.vaultNewDoc.tr),
           ),
         ],
       ),
@@ -141,10 +142,10 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
-        'Chưa có tài liệu nào trong Vault.',
-        style: TextStyle(color: Color(0xFF94A3B8)),
+        L10nKey.vaultEmpty.tr,
+        style: const TextStyle(color: Color(0xFF94A3B8)),
       ),
     );
   }
@@ -164,7 +165,7 @@ class _ErrorState extends StatelessWidget {
         children: [
           Text(message, style: const TextStyle(color: Color(0xFFF87171))),
           const SizedBox(height: 12),
-          TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+          TextButton(onPressed: onRetry, child: Text(L10nKey.commonRetry.tr)),
         ],
       ),
     );
@@ -174,29 +175,29 @@ class _ErrorState extends StatelessWidget {
 String _stateLabel(VaultDocumentState state) {
   switch (state) {
     case VaultDocumentState.draft:
-      return 'Nháp';
+      return L10nKey.vaultStateDraft.tr;
     case VaultDocumentState.queued:
-      return 'Đang xếp hàng';
+      return L10nKey.vaultStateQueued.tr;
     case VaultDocumentState.validating:
-      return 'Đang kiểm tra';
+      return L10nKey.vaultStateValidating.tr;
     case VaultDocumentState.converting:
-      return 'Đang chuyển đổi';
+      return L10nKey.vaultStateConverting.tr;
     case VaultDocumentState.reviewPending:
-      return 'Chờ duyệt';
+      return L10nKey.vaultStateReviewPending.tr;
     case VaultDocumentState.published:
-      return 'Đã xuất bản';
+      return L10nKey.vaultStatePublished.tr;
     case VaultDocumentState.rejected:
-      return 'Đã từ chối';
+      return L10nKey.vaultStateRejected.tr;
     case VaultDocumentState.failed:
-      return 'Lỗi';
+      return L10nKey.vaultStateFailed.tr;
     case VaultDocumentState.archived:
-      return 'Đã lưu trữ';
+      return L10nKey.vaultStateArchived.tr;
     case VaultDocumentState.purgePending:
-      return 'Đang chờ xoá';
+      return L10nKey.vaultStatePurgePending.tr;
     case VaultDocumentState.purged:
-      return 'Đã xoá vĩnh viễn';
+      return L10nKey.vaultStatePurged.tr;
     case VaultDocumentState.unknown:
-      return 'Không xác định';
+      return L10nKey.vaultStateUnknown.tr;
   }
 }
 

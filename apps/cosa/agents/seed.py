@@ -21,6 +21,8 @@ from apps.cosa.agents.specs import (
     COSA_DEPLOYED_AGENT_SPECS,
     COSA_FINANCE_AGENT_SPEC,
     COSA_FINANCE_PROMPT,
+    COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
+    COSA_KICKOFF_SUGGESTION_PROMPT,
     COSA_MARKETING_AGENT_SPEC,
     COSA_MARKETING_PROMPT,
     COSA_OPERATIONS_AGENT_SPEC,
@@ -47,6 +49,7 @@ async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
         COSA_MARKETING_PROMPT,
         COSA_CUSTOMER_SUPPORT_PROMPT,
         COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT,
+        COSA_KICKOFF_SUGGESTION_PROMPT,
     ):
         await publish_prompt_spec(prompt_spec, repository=spec_registry, publisher="cosa-seed")
 
@@ -60,6 +63,7 @@ async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
         COSA_MARKETING_AGENT_SPEC,
         COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
         COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
+        COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
     ):
         await publish_agent_spec(agent_spec, repository=spec_registry, publisher="cosa-seed")
 

@@ -17,6 +17,7 @@ class KickoffSuggestionRequest(BaseModel):
     evidence_level: str
     selected_stage: str
     stage_duration_weeks: int
+    locale: str = "vi-VN"
 
 
 def create_kickoff_suggestion_router() -> APIRouter:
@@ -56,6 +57,7 @@ def create_kickoff_suggestion_router() -> APIRouter:
                 "evidence_level": body.evidence_level,
                 "selected_stage": body.selected_stage,
                 "stage_duration_weeks": body.stage_duration_weeks,
+                "locale": body.locale,
             },
         )
 

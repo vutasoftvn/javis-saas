@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/routing/module_routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
@@ -33,20 +34,23 @@ String? projectDateBadge(Map<String, dynamic> project, {DateTime? now}) {
     final startDt = DateTime.parse(startDateStr);
     final startFmt =
         '${startDt.day.toString().padLeft(2, '0')}/${startDt.month.toString().padLeft(2, '0')}';
+    final isEn = Get.locale?.languageCode == 'en';
     if (endDateStr != null && endDateStr.isNotEmpty) {
       final endDt = DateTime.parse(endDateStr);
       final endFmt =
           '${endDt.day.toString().padLeft(2, '0')}/${endDt.month.toString().padLeft(2, '0')}/${endDt.year}';
       final weeks = ((endDt.difference(startDt).inDays + 1) / 7).ceil();
-      dateBadge = '$startFmt – $endFmt ($weeks tuần)';
+      dateBadge = isEn ? '$startFmt – $endFmt ($weeks weeks)' : '$startFmt – $endFmt ($weeks tuần)';
     } else {
-      dateBadge = 'Từ $startFmt/${startDt.year}';
+      dateBadge = isEn ? 'From $startFmt/${startDt.year}' : 'Từ $startFmt/${startDt.year}';
     }
     // Tới đây `dateBadge` luôn được gán ở nhánh if/else phía trên nên non-null;
     // base fallback trong brief là dead code trong cấu trúc tách hàm này.
     final elapsedDays = effectiveNow.difference(startDt).inDays;
     if (elapsedDays >= 0) {
-      dateBadge = '$dateBadge · đã triển khai $elapsedDays ngày';
+      dateBadge = isEn
+          ? '$dateBadge · active for $elapsedDays days'
+          : '$dateBadge · đã triển khai $elapsedDays ngày';
     }
   } catch (_) {}
   return dateBadge;
@@ -149,9 +153,8 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CosaFloatingAppBar(
-            title: 'Dự án & Lộ trình MVP',
-            subtitle:
-                'Chọn hoặc tạo một dự án để lập lộ trình phát triển MVP và OKRs/12 tuần.',
+            title: L10nKey.roadmapProjectsTitle.tr,
+            subtitle: L10nKey.roadmapProjectsSubtitle.tr,
             icon: Icons.rocket_launch_outlined,
             actions: [
               TextButton.icon(
@@ -162,16 +165,16 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   size: 16,
                   color: AppTheme.textMutedDark,
                 ),
-                label: const Text(
-                  'Quản trị Template',
-                  style: TextStyle(color: AppTheme.textMutedDark),
+                label: Text(
+                  L10nKey.roadmapManageTemplates.tr,
+                  style: const TextStyle(color: AppTheme.textMutedDark),
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () => _showCreateProjectDialog(context),
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Dự án mới'),
+                label: Text(L10nKey.roadmapNewProject.tr),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   foregroundColor: AppTheme.backgroundDarker,
@@ -212,18 +215,18 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Chưa có Dự án nào',
-                          style: TextStyle(
+                        Text(
+                          L10nKey.roadmapNoProjects.tr,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Tạo dự án mới với ngày bắt đầu (Thứ Hai) và kết thúc để AI tự động thiết kế lộ trình MVP, phân bổ OKRs và chu kỳ thực thi 12 tuần.',
-                          style: TextStyle(
+                        Text(
+                          L10nKey.roadmapNoProjectsDesc.tr,
+                          style: const TextStyle(
                             color: AppTheme.textMutedDark,
                             fontSize: 13,
                             height: 1.4,
@@ -234,7 +237,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                         ElevatedButton.icon(
                           onPressed: () => _showCreateProjectDialog(context),
                           icon: const Icon(Icons.add_rounded, size: 16),
-                          label: const Text('Tạo Dự án mới'),
+                          label: Text(L10nKey.roadmapCreateNewProject.tr),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primary,
                             foregroundColor: AppTheme.backgroundDarker,
@@ -408,7 +411,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   const Spacer(),
                   // Open Marketing OS & Flow button
                   Tooltip(
-                    message: 'Mở Marketing & Lead Gen',
+                    message: L10nKey.roadmapOpenMarketingTooltip.tr,
                     child: SizedBox(
                       width: 32,
                       height: 32,
@@ -441,7 +444,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   const SizedBox(width: 6),
                   // View icon button
                   Tooltip(
-                    message: 'Xem Lộ trình MVP',
+                    message: L10nKey.roadmapViewRoadmapTooltip.tr,
                     child: SizedBox(
                       width: 32,
                       height: 32,
@@ -475,7 +478,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                         orchestrationController.activeProjectId.value ==
                             projectId;
                     return Tooltip(
-                      message: 'AI tạo Lộ trình MVP tự động',
+                      message: L10nKey.roadmapAiGenerateTooltip.tr,
                       child: SizedBox(
                         width: 32,
                         height: 32,
@@ -535,8 +538,8 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
 
     AppModalDialog.show(
       context: context,
-      title: 'Tạo Dự án Mới',
-      subtitle: 'Khởi tạo dự án và tiến hành thiết lập vòng khám phá đầu tiên',
+      title: L10nKey.roadmapCreateDialogTitle.tr,
+      subtitle: L10nKey.roadmapCreateDialogSubtitle.tr,
       icon: Icons.rocket_launch_outlined,
       maxWidth: 540,
       content: StatefulBuilder(
@@ -544,9 +547,9 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Tên dự án *',
-                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+              Text(
+                L10nKey.roadmapProjectNameLabel.tr,
+                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -554,7 +557,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                 autofocus: true,
                 style: const TextStyle(color: AppTheme.textDark),
                 decoration: InputDecoration(
-                  hintText: 'Ví dụ: Nền tảng B2B SaaS cho Doanh nghiệp',
+                  hintText: L10nKey.roadmapProjectNameHint.tr,
                   hintStyle: const TextStyle(color: AppTheme.textMutedDark),
                   filled: true,
                   fillColor: AppTheme.surfaceDarkLighter,
@@ -565,9 +568,9 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Mô tả dự án',
-                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+              Text(
+                L10nKey.roadmapProjectDescLabel.tr,
+                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -575,7 +578,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                 maxLines: 3,
                 style: const TextStyle(color: AppTheme.textDark),
                 decoration: InputDecoration(
-                  hintText: 'Vấn đề đang giải quyết, khách hàng mục tiêu...',
+                  hintText: L10nKey.roadmapProjectDescHint.tr,
                   hintStyle: const TextStyle(color: AppTheme.textMutedDark),
                   filled: true,
                   fillColor: AppTheme.surfaceDarkLighter,
@@ -590,7 +593,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
         },
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ')),
+        TextButton(onPressed: () => Get.back(), child: Text(L10nKey.commonCancel.tr)),
         ElevatedButton(
           onPressed: () async {
             final title = titleController.text.trim();
@@ -609,7 +612,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
             backgroundColor: AppTheme.primary,
             foregroundColor: AppTheme.backgroundDarker,
           ),
-          child: const Text('Tạo dự án'),
+          child: Text(L10nKey.roadmapCreateButton.tr),
         ),
       ],
     );

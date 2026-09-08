@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/network/api_client.dart';
 import '../models/strategy_list_result.dart';
 import 'strategy_service_base.dart';
@@ -47,26 +49,18 @@ class OkrService extends StrategyServiceBase {
             return StrategyListResult.success(items);
           }
         }
-        return const StrategyListResult.failure(
-          'Phản hồi không đúng định dạng mong đợi',
-        );
+        return StrategyListResult.failure(L10nKey.errBadFormat.tr);
       } catch (_) {
-        return const StrategyListResult.failure(
-          'Không thể đọc dữ liệu phản hồi từ máy chủ',
-        );
+        return StrategyListResult.failure(L10nKey.errParseFailed.tr);
       }
     }
-    return StrategyListResult.failure(
-      'Yêu cầu thất bại (${response.statusCode})',
-    );
+    return StrategyListResult.failure('${L10nKey.errRequestFailed.tr} (${response.statusCode})');
   }
 
   Future<StrategyListResult<Map<String, dynamic>>> getOkrCycles() async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
-      return const StrategyListResult.failure(
-        'Chưa xác định workspace hiện tại',
-      );
+      return StrategyListResult.failure(L10nKey.errNoWorkspace.tr);
     }
     try {
       final response = await ApiClient.get('/operations/okr-cycles');

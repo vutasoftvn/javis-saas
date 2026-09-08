@@ -14,13 +14,14 @@ enum ToastType {
 class AppToast {
   static void success(
     String message, {
-    String? title = 'Thành công',
+    String? title,
     Duration? duration = const Duration(seconds: 4),
     VoidCallback? onTap,
   }) {
+    final isEn = Get.locale?.languageCode == 'en';
     show(
       message: message,
-      title: title,
+      title: title ?? (isEn ? 'Success' : 'Thành công'),
       type: ToastType.success,
       duration: duration,
       onTap: onTap,
@@ -29,13 +30,14 @@ class AppToast {
 
   static void error(
     String message, {
-    String? title = 'Đã có lỗi xảy ra',
+    String? title,
     Duration? duration = const Duration(seconds: 5),
     VoidCallback? onTap,
   }) {
+    final isEn = Get.locale?.languageCode == 'en';
     show(
       message: message,
-      title: title,
+      title: title ?? (isEn ? 'Error' : 'Đã có lỗi xảy ra'),
       type: ToastType.error,
       duration: duration,
       onTap: onTap,
@@ -44,13 +46,14 @@ class AppToast {
 
   static void warning(
     String message, {
-    String? title = 'Cảnh báo',
+    String? title,
     Duration? duration = const Duration(seconds: 4),
     VoidCallback? onTap,
   }) {
+    final isEn = Get.locale?.languageCode == 'en';
     show(
       message: message,
-      title: title,
+      title: title ?? (isEn ? 'Warning' : 'Cảnh báo'),
       type: ToastType.warning,
       duration: duration,
       onTap: onTap,
@@ -59,13 +62,14 @@ class AppToast {
 
   static void info(
     String message, {
-    String? title = 'Thông báo',
+    String? title,
     Duration? duration = const Duration(seconds: 4),
     VoidCallback? onTap,
   }) {
+    final isEn = Get.locale?.languageCode == 'en';
     show(
       message: message,
-      title: title,
+      title: title ?? (isEn ? 'Notice' : 'Thông báo'),
       type: ToastType.info,
       duration: duration,
       onTap: onTap,
@@ -86,6 +90,10 @@ class AppToast {
     }
 
     try {
+      final isEn = Get.locale?.languageCode == 'en';
+      final resolvedTitle = isEn ? _translateTitle(title, type) : title;
+      final resolvedMessage = isEn ? _translateMessage(message) : message;
+
       final Color accentColor = _getAccentColor(type);
       final IconData icon = _getIcon(type);
 
@@ -113,10 +121,11 @@ class AppToast {
         duration: duration ?? const Duration(seconds: 4),
         isDismissible: true,
         messageText: _ToastWidget(
-          title: title,
-          message: message,
+          title: resolvedTitle,
+          message: resolvedMessage,
           accentColor: accentColor,
           icon: icon,
+          isEn: isEn,
           onTap: onTap,
           onClose: () {
             if (Get.isSnackbarOpen) {
@@ -129,6 +138,140 @@ class AppToast {
       debugPrint('[AppToast] Error displaying toast: $e');
     }
   }
+
+  static String? _translateTitle(String? title, ToastType type) {
+    if (title == null || title.isEmpty) {
+      switch (type) {
+        case ToastType.success:
+          return 'Success';
+        case ToastType.error:
+          return 'Error';
+        case ToastType.warning:
+          return 'Warning';
+        case ToastType.info:
+          return 'Notice';
+      }
+    }
+    const titleMap = {
+      'Thành công': 'Success',
+      'Đã có lỗi xảy ra': 'Error',
+      'Lỗi': 'Error',
+      'Cảnh báo': 'Warning',
+      'Thông báo': 'Notice',
+      'Đã xoá': 'Deleted',
+      'Đã xóa': 'Deleted',
+      'Thất bại': 'Failed',
+      'Thao tác thất bại': 'Action Failed',
+      'Thiếu thông tin': 'Missing Information',
+      'Không thể thực hiện': 'Action Failed',
+      'Đã lưu': 'Saved',
+      'Đã cập nhật': 'Updated',
+      'Hoàn thành nghĩa vụ': 'Obligation Completed',
+    };
+    return titleMap[title] ?? title;
+  }
+
+  static String _translateMessage(String message) {
+    if (_knownTranslations.containsKey(message)) {
+      return _knownTranslations[message]!;
+    }
+
+    if (message.startsWith('Exception: ')) {
+      return 'Exception: ${_translateMessage(message.substring('Exception: '.length))}';
+    }
+
+    final reqFailedRegex = RegExp(r'Yêu cầu thất bại \((\d+)\)');
+    final match = reqFailedRegex.firstMatch(message);
+    if (match != null) {
+      return message.replaceAll(reqFailedRegex, 'Request failed (${match.group(1)})');
+    }
+
+    if (message.startsWith('Không tạo được document: ')) {
+      return 'Could not create document: ${message.substring('Không tạo được document: '.length)}';
+    }
+    if (message.startsWith('Không hoàn tất upload: ')) {
+      return 'Failed to complete upload: ${message.substring('Không hoàn tất upload: '.length)}';
+    }
+    if (message.startsWith('Không thể tạo chứng từ: ')) {
+      return 'Cannot create voucher: ${message.substring('Không thể tạo chứng từ: '.length)}';
+    }
+    if (message.startsWith('Không thể hủy chứng từ: ')) {
+      return 'Cannot cancel voucher: ${message.substring('Không thể hủy chứng từ: '.length)}';
+    }
+    if (message.startsWith('Lỗi khi chuyển trạng thái nghĩa vụ: ')) {
+      return 'Error updating obligation status: ${message.substring('Lỗi khi chuyển trạng thái nghĩa vụ: '.length)}';
+    }
+    if (message.startsWith('Lỗi hoàn thành nghĩa vụ: ')) {
+      return 'Error completing obligation: ${message.substring('Lỗi hoàn thành nghĩa vụ: '.length)}';
+    }
+    final weekMatch = RegExp(r'^Đã tạo kế hoạch tuần (\d+)$').firstMatch(message);
+    if (weekMatch != null) {
+      return 'Created plan for Week ${weekMatch.group(1)}';
+    }
+    final portfolioMatch = RegExp(r'^Đã khởi tạo Portfolio "(.*)"$').firstMatch(message);
+    if (portfolioMatch != null) {
+      return 'Initialized Portfolio "${portfolioMatch.group(1)}"';
+    }
+    final cycleMatch = RegExp(r'^Đã khởi tạo chu kỳ danh mục "(.*)"$').firstMatch(message);
+    if (cycleMatch != null) {
+      return 'Initialized portfolio cycle "${cycleMatch.group(1)}"';
+    }
+
+    return message;
+  }
+
+  static const Map<String, String> _knownTranslations = {
+    'Vui lòng nhập tên giai đoạn': 'Please enter a stage name',
+    'Đã hoàn tất khớp nối chính sách cho dự án.': 'Policy matching completed for project.',
+    'Chưa thể lưu Tactic: tính năng này chưa khả dụng.': 'Unable to save Tactic: feature not yet available.',
+    'Chưa thể cập nhật Tactic: tính năng này chưa khả dụng.': 'Unable to update Tactic: feature not yet available.',
+    'Chưa thể tạo Weekly Review: tính năng này chưa khả dụng.': 'Unable to create Weekly Review: feature not yet available.',
+    'Đã chuyển Stage dự án thành công!': 'Project stage transitioned successfully!',
+    'Đã lưu review tuần': 'Weekly review saved',
+    'Đã thêm Dự án Chiến lược': 'Strategic Project added',
+    'Đã xoá Dự án Chiến lược': 'Strategic Project deleted',
+    'Chưa có chu kỳ 12 tuần nào để biên dịch': 'No 12-week cycle to compile',
+    'Chưa có chu kỳ 12 tuần nào để chuyển dịch': 'No 12-week cycle to transition',
+    'Đã thêm dự án vào Portfolio': 'Project added to Portfolio',
+    'Đã thêm định hướng TOWS': 'TOWS direction added',
+    'Đã thêm điểm cộng hưởng': 'Synergy point added',
+    'Đã xóa quan hệ cộng hưởng': 'Synergy relationship removed',
+    'Đã ghi nhận phụ thuộc': 'Dependency recorded',
+    'Đã xóa quan hệ phụ thuộc': 'Dependency removed',
+    'Đã thêm Tùy Chọn Chiến Lược': 'Strategic Option added',
+    'Đã cập nhật trạng thái tùy chọn': 'Option status updated',
+    'Đã cập nhật cấu hình WIP Limit': 'WIP Limit configuration updated',
+    'Kích hoạt Chu kỳ Portfolio 12WY thành công': '12WY Portfolio Cycle activated successfully',
+    'Đã xếp hạng lại danh sách Next Best Actions': 'Next Best Actions re-ranked',
+    'Đã cập nhật trạng thái': 'Status updated',
+    'Đã cập nhật cấu hình Model Profile': 'Model Profile configuration updated',
+    'Upload nội dung thất bại': 'Content upload failed',
+    'Đã lưu hợp đồng cam kết chu kỳ 12 tuần': '12-week cycle commitment contract saved',
+    'Đã thêm cam kết công việc': 'Work commitment added',
+    'Đã lưu Weekly Mission': 'Weekly Mission saved',
+    'Không thể ghi sổ chứng từ': 'Cannot post accounting voucher',
+    'Nghĩa vụ đã chuyển sang trạng thái Đang thực hiện': 'Obligation moved to In Progress',
+    'Không thể chuyển trạng thái nghĩa vụ': 'Unable to update obligation status',
+    'Nghĩa vụ đã được đánh dấu hoàn thành': 'Obligation marked as completed',
+    'Máy chủ từ chối ghi nhận hoàn thành': 'Server rejected completion status',
+    'Đã tạo chu kỳ OKR mới': 'New OKR cycle created',
+    'Đã thêm mục tiêu OKR': 'OKR objective added',
+    'Đã xóa mục tiêu OKR': 'OKR objective deleted',
+    'Đã thêm Kết quả Then chốt (Key Result)': 'Key Result added',
+    'Đã cập nhật tiến độ Key Result': 'Key Result progress updated',
+    'Đã xóa Key Result': 'Key Result deleted',
+    'Đã phê duyệt hành động của agent': 'Agent action approved',
+    'Vui lòng nhập tên chiến dịch': 'Please enter campaign name',
+    'Đã kích hoạt chế độ nhà phát triển': 'Developer mode enabled',
+    'Đã tắt chế độ nhà phát triển': 'Developer mode disabled',
+    'Chưa xác định workspace hiện tại': 'Current workspace not identified',
+    'Không tìm thấy dữ liệu (404)': 'Data not found (404)',
+    'Phản hồi không đúng định dạng mong đợi': 'Response is not in expected format',
+    'Không thể đọc dữ liệu phản hồi từ máy chủ': 'Cannot parse response data from server',
+    'Đã sao chép vào bộ nhớ tạm': 'Copied to clipboard',
+    'Thao tác thành công': 'Operation successful',
+    'Đã lưu thay đổi': 'Changes saved',
+  };
 
   static Color _getAccentColor(ToastType type) {
     switch (type) {
@@ -162,6 +305,7 @@ class _ToastWidget extends StatelessWidget {
   final String message;
   final Color accentColor;
   final IconData icon;
+  final bool isEn;
   final VoidCallback? onTap;
   final VoidCallback onClose;
 
@@ -170,6 +314,7 @@ class _ToastWidget extends StatelessWidget {
     required this.message,
     required this.accentColor,
     required this.icon,
+    this.isEn = false,
     this.onTap,
     required this.onClose,
   });
@@ -277,7 +422,7 @@ class _ToastWidget extends StatelessWidget {
                         color: AppTheme.textDimDark,
                       ),
                       splashRadius: 16,
-                      tooltip: 'Đóng',
+                      tooltip: isEn ? 'Close' : 'Đóng',
                       onPressed: onClose,
                     ),
                   ),

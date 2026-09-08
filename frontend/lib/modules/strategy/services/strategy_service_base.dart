@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../models/strategy_list_result.dart';
@@ -20,7 +21,7 @@ abstract class StrategyServiceBase {
   Future<String> requireWorkspaceId() async {
     final workspaceId = await getWorkspaceId();
     if (workspaceId == null) {
-      throw StrategyApiException(0, 'Chưa xác định workspace hiện tại');
+      throw StrategyApiException(0, L10nKey.errNoWorkspace.tr);
     }
     return workspaceId;
   }
@@ -30,7 +31,7 @@ abstract class StrategyServiceBase {
       if (response.body.isEmpty) return null;
       return jsonDecode(response.body);
     }
-    String detail = 'Yêu cầu thất bại (${response.statusCode})';
+    String detail = '${L10nKey.errRequestFailed.tr} (${response.statusCode})';
     try {
       final body = jsonDecode(response.body);
       if (body is Map && body['detail'] != null) {
@@ -50,7 +51,7 @@ abstract class StrategyServiceBase {
   }) {
     if (response.statusCode == 404) {
       if (optionalOn404) return const StrategyListResult.unavailable();
-      return StrategyListResult.failure('Không tìm thấy dữ liệu (404)');
+      return StrategyListResult.failure(L10nKey.errNotFound.tr);
     }
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return const StrategyListResult.success([]);
@@ -62,12 +63,12 @@ abstract class StrategyServiceBase {
               .toList();
           return StrategyListResult.success(items);
         }
-        return const StrategyListResult.failure('Phản hồi không đúng định dạng mong đợi');
+        return StrategyListResult.failure(L10nKey.errBadFormat.tr);
       } catch (_) {
-        return const StrategyListResult.failure('Không thể đọc dữ liệu phản hồi từ máy chủ');
+        return StrategyListResult.failure(L10nKey.errParseFailed.tr);
       }
     }
-    String detail = 'Yêu cầu thất bại (${response.statusCode})';
+    String detail = '${L10nKey.errRequestFailed.tr} (${response.statusCode})';
     try {
       final body = jsonDecode(response.body);
       if (body is Map && body['detail'] != null) {

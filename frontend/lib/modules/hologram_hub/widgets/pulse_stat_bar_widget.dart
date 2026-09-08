@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../data/models/company_pulse_model.dart';
 
 class PulseStatBarWidget extends StatelessWidget {
@@ -23,25 +25,25 @@ class PulseStatBarWidget extends StatelessWidget {
               icon: Icons.check_circle_outline,
               color: const Color(0xFF10B981),
               value: '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
-              label: 'Mục tiêu đúng hạn',
+              label: L10nKey.hubPulseGoalsOnTrack.tr,
             ),
             _buildPulseStat(
               icon: Icons.rocket_launch_outlined,
               color: const Color(0xFF3B82F6),
               value: '${pulse?.activeMissions ?? 0}',
-              label: 'Missions đang chạy',
+              label: L10nKey.hubPulseActiveMissions.tr,
             ),
             _buildPulseStat(
               icon: Icons.gavel_outlined,
               color: const Color(0xFFF59E0B),
               value: '${pulse?.needsDecisionCount ?? 0}',
-              label: 'Quyết định cần chốt',
+              label: L10nKey.hubPulseNeedsDecision.tr,
             ),
             _buildPulseStat(
               icon: Icons.warning_amber_outlined,
               color: const Color(0xFFEF4444),
               value: '${pulse?.majorRisksCount ?? 0}',
-              label: 'Rủi ro cần lưu ý',
+              label: L10nKey.hubPulseMajorRisks.tr,
             ),
           ];
 

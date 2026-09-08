@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/network/api_result.dart';
 import '../controllers/workspace_runtime_controller.dart';
 import '../models/mvp_runtime_models.dart';
@@ -20,9 +21,9 @@ class WorkInspectorView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const CosaFloatingAppBar(
-          title: 'Giám sát công việc (Work Inspector)',
-          subtitle: 'Kiểm tra vết truy xuất 360° công việc, log thực thi & kết quả AI',
+        CosaFloatingAppBar(
+          title: L10nKey.workInspectorTitle.tr,
+          subtitle: L10nKey.workInspectorSubtitle.tr,
           icon: Icons.visibility_rounded,
         ),
         const SizedBox(height: 12),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class FundingMatchesTabContent extends StatelessWidget {
@@ -38,10 +40,13 @@ class FundingMatchesTabContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    children: const [
-                      Icon(Icons.notification_important_rounded, color: AppTheme.error, size: 18),
-                      SizedBox(width: 8),
-                      Text('CẢNH BÁO TIÊU ĐIỂM & RỦI RO', style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold, fontSize: 13)),
+                    children: [
+                      const Icon(Icons.notification_important_rounded, color: AppTheme.error, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        L10nKey.fundingAlertsTitle.tr,
+                        style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -57,9 +62,11 @@ class FundingMatchesTabContent extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: _buildMetricCard(
-                  title: 'Mức sẵn sàng hồ sơ',
+                  title: L10nKey.fundingMetricReadiness.tr,
                   value: '${readinessAvg.toStringAsFixed(0)}/100',
-                  subtitle: readinessAvg >= 70 ? 'Sẵn sàng nộp hồ sơ' : 'Cần bổ sung thêm minh chứng',
+                  subtitle: readinessAvg >= 70
+                      ? L10nKey.fundingMetricReadinessReady.tr
+                      : L10nKey.fundingMetricReadinessNeeds.tr,
                   icon: Icons.fact_check_outlined,
                   color: readinessAvg >= 70 ? AppTheme.success : AppTheme.accent,
                 ),
@@ -68,9 +75,9 @@ class FundingMatchesTabContent extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: _buildMetricCard(
-                  title: 'Mức sẵn sàng công nghệ',
+                  title: L10nKey.fundingMetricTech.tr,
                   value: 'TRL $trlCurrent',
-                  subtitle: _getTrlName(trlCurrent.toInt()),
+                  subtitle: _getTrlName(trlCurrent),
                   icon: Icons.memory_rounded,
                   color: AppTheme.primary,
                 ),
@@ -79,9 +86,9 @@ class FundingMatchesTabContent extends StatelessWidget {
               Expanded(
                 flex: 3,
                 child: _buildMetricCard(
-                  title: 'Phân loại & Giai đoạn',
+                  title: L10nKey.fundingMetricCategory.tr,
                   value: _getCompanyTypeName(companyType.toString()),
-                  subtitle: 'Giai đoạn: ${_getStageName(projectStage.toString())}',
+                  subtitle: '${L10nKey.fundingMetricStageLabel.tr}: ${_getStageName(projectStage.toString())}',
                   icon: Icons.business_outlined,
                   color: AppTheme.primaryLight,
                 ),
@@ -94,19 +101,19 @@ class FundingMatchesTabContent extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'CƠ HỘI NGUỒN LỰC PHÙ HỢP (TOP OPPORTUNITIES)',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              Text(
+                L10nKey.fundingSectionMatches.tr,
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
               ),
               Text(
-                '${topMatches.length} chương trình',
+                '${topMatches.length} ${L10nKey.fundingProgramsUnit.tr}',
                 style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (topMatches.isEmpty)
-            _buildEmptySection('Chưa có chương trình nào khớp. Nhấn "Khớp nối cơ hội" để AI phân tích.')
+            _buildEmptySection(L10nKey.fundingSectionMatchesEmpty.tr)
           else
             ...topMatches.map((m) => _buildOpportunityCard(m as Map<String, dynamic>)),
 
@@ -116,19 +123,19 @@ class FundingMatchesTabContent extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'ĐIỀU KIỆN CÒN THIẾU & HÀNH ĐỘNG (GAP ANALYSIS → 12WY)',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              Text(
+                L10nKey.fundingSectionMissing.tr,
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
               ),
               Text(
-                '${missingReqs.length} hạng mục',
+                '${missingReqs.length} ${L10nKey.fundingItemsUnit.tr}',
                 style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (missingReqs.isEmpty)
-            _buildEmptySection('Hồ sơ dự án đã đáp ứng đầy đủ các điều kiện cơ bản.')
+            _buildEmptySection(L10nKey.fundingSectionMissingEmpty.tr)
           else
             ...missingReqs.map((r) => _buildMissingReqCard(r as Map<String, dynamic>)),
 
@@ -182,15 +189,19 @@ class FundingMatchesTabContent extends StatelessWidget {
   }
 
   Widget _buildOpportunityCard(Map<String, dynamic> match) {
-    final progName = match['program_name'] ?? 'Chương trình hỗ trợ';
-    final progAuthority = match['program_authority'] ?? 'Cơ quan quản lý';
+    final progName = match['program_name'] ?? L10nKey.fundingProgramsFallback.tr;
+    final progAuthority = match['program_authority'] ?? L10nKey.fundingAuthorityFallback.tr;
     final matchScore = ((match['match_score'] ?? 0.0) as num).toDouble();
     final readinessScore = ((match['readiness_score'] ?? 0.0) as num).toDouble();
     final eligibility = match['eligibility_status'] ?? 'POTENTIALLY_ELIGIBLE';
     final summary = match['ai_summary'] ?? '';
 
     Color statusColor = eligibility == 'ELIGIBLE' ? AppTheme.success : (eligibility == 'INELIGIBLE' ? AppTheme.error : AppTheme.accent);
-    String statusText = eligibility == 'ELIGIBLE' ? 'ĐỦ ĐIỀU KIỆN' : (eligibility == 'INELIGIBLE' ? 'CHƯA ĐẠT ĐIỀU KIỆN CỨNG' : 'CÓ KHẢ NĂNG PHÙ HỢP');
+    String statusText = eligibility == 'ELIGIBLE'
+        ? L10nKey.fundingStatusEligible.tr
+        : (eligibility == 'INELIGIBLE'
+            ? L10nKey.fundingStatusIneligible.tr
+            : L10nKey.fundingStatusPotential.tr);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -230,9 +241,9 @@ class FundingMatchesTabContent extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildPill('Điểm phù hợp: ${matchScore.toStringAsFixed(0)}%', AppTheme.primary),
+              _buildPill('${L10nKey.fundingPillMatchScore.tr}: ${matchScore.toStringAsFixed(0)}%', AppTheme.primary),
               const SizedBox(width: 8),
-              _buildPill('Sẵn sàng hồ sơ: ${readinessScore.toStringAsFixed(0)}%', AppTheme.primaryLight),
+              _buildPill('${L10nKey.fundingPillReadiness.tr}: ${readinessScore.toStringAsFixed(0)}%', AppTheme.primaryLight),
             ],
           ),
           if (summary.isNotEmpty) ...[
@@ -245,7 +256,7 @@ class FundingMatchesTabContent extends StatelessWidget {
   }
 
   Widget _buildMissingReqCard(Map<String, dynamic> req) {
-    final title = req['title'] ?? 'Minh chứng';
+    final title = req['title'] ?? L10nKey.fundingEvidenceFallback.tr;
     final desc = req['description'] ?? '';
     final reqId = req['id'] as int? ?? 0;
     final isResolved = req['is_resolved'] == true;
@@ -281,7 +292,7 @@ class FundingMatchesTabContent extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: isResolved ? null : () => onCreate12wyTask(reqId, title),
             icon: const Icon(Icons.add_task_rounded, size: 14),
-            label: const Text('Thêm vào 12WY', style: TextStyle(fontSize: 12)),
+            label: Text(L10nKey.fundingAddTo12wy.tr, style: const TextStyle(fontSize: 12)),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.primary,
               side: const BorderSide(color: AppTheme.primary),
@@ -301,15 +312,21 @@ class FundingMatchesTabContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.pie_chart_outline_rounded, color: AppTheme.primary, size: 20),
-              SizedBox(width: 8),
-              Text('CƠ CẤU NGUỒN LỰC ĐỀ XUẤT (FUNDING STACK)', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+              const Icon(Icons.pie_chart_outline_rounded, color: AppTheme.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                L10nKey.fundingStackTitle.tr,
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          const Text('Kết hợp đa nguồn lực giúp tối ưu chi phí và mở rộng quy mô mà không làm loãng vốn cổ phần.', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+          Text(
+            L10nKey.fundingStackDesc.tr,
+            style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+          ),
         ],
       ),
     );
@@ -331,7 +348,11 @@ class FundingMatchesTabContent extends StatelessWidget {
     );
   }
 
-  String _getCompanyTypeName(String type) => type == 'STARTUP' ? 'Startup khởi nghiệp sáng tạo' : 'Doanh nghiệp khởi nghiệp';
-  String _getStageName(String stage) => stage == 'MVP' ? 'Sản phẩm khả dụng tối thiểu (MVP)' : stage;
-  String _getTrlName(int trl) => 'TRL $trl — Mức thử nghiệm thực tế';
+  String _getCompanyTypeName(String type) => type == 'STARTUP'
+      ? L10nKey.fundingCompanyStartup.tr
+      : L10nKey.fundingCompanyEnterprise.tr;
+  String _getStageName(String stage) => stage == 'MVP'
+      ? L10nKey.fundingMvpLabel.tr
+      : stage;
+  String _getTrlName(int trl) => 'TRL $trl — ${Get.locale?.languageCode == 'en' ? 'Field Testing Level' : 'Mức thử nghiệm thực tế'}';
 }

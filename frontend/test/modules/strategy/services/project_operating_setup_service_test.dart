@@ -162,6 +162,24 @@ void main() {
     await ProjectOperatingSetupService().requestKickoffSuggestion('p-1');
   });
 
+  test('requestKickoffSuggestion includes locale in request body when provided', () async {
+    ApiClient.client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(
+        request.url.path,
+        '/operations/projects/p-1/kickoff-suggestion',
+      );
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['locale'], 'en-US');
+      return http.Response(
+        jsonEncode({'runId': 'run-1', 'status': 'dispatched'}),
+        202,
+      );
+    });
+
+    await ProjectOperatingSetupService().requestKickoffSuggestion('p-1', locale: 'en-US');
+  });
+
   test('requestKickoffSuggestion throws StrategyApiException on non-2xx', () async {
     ApiClient.client = MockClient((request) async {
       return http.Response(

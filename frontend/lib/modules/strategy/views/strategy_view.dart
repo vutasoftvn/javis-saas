@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../controllers/strategy_controller.dart';
 import 'tabs/strategy_lenses_tab.dart';
 import 'tabs/evidence_backbone_tab.dart';
@@ -34,14 +35,14 @@ class StrategyView extends GetView<StrategyController> {
           children: [
             // 1. Top Floating AppBar Card
             CosaFloatingAppBar(
-              title: 'Không Gian Chiến Lược Toàn Diện (COSA Strategy Engine)',
-              subtitle: '6 Trụ cột cốt lõi: Validation Studio, 4 Lăng kính, Trục giả định & bằng chứng, Bộ nhớ quyết định, Stage-Gate và Vòng lặp 12WY.',
+              title: L10nKey.strategyViewTitle.tr,
+              subtitle: L10nKey.strategyViewSubtitle.tr,
               icon: Icons.lightbulb_outline,
               actions: [
                 IconButton(
                   key: const ValueKey('open_strategy_settings_button'),
                   icon: const Icon(Icons.settings_suggest_outlined, color: AppTheme.primary, size: 22),
-                  tooltip: 'Cài đặt khung quản trị chiến lược',
+                  tooltip: L10nKey.strategySettingsTooltip.tr,
                   onPressed: () => WorkspaceStrategySettingsSheet.show(context),
                 ),
               ],
@@ -85,15 +86,15 @@ class StrategyView extends GetView<StrategyController> {
                       dividerColor: Colors.transparent,
                       padding: EdgeInsets.zero,
                       labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      tabs: const [
+                      tabs: [
                         Tab(
                           height: 34,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.rocket_launch_outlined, size: 15),
-                              SizedBox(width: 6),
-                              Text('1. Validation Studio'),
+                              const Icon(Icons.rocket_launch_outlined, size: 15),
+                              const SizedBox(width: 6),
+                              Text(L10nKey.strategyTabValidation.tr),
                             ],
                           ),
                         ),
@@ -102,9 +103,9 @@ class StrategyView extends GetView<StrategyController> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.lens_blur_outlined, size: 15),
-                              SizedBox(width: 6),
-                              Text('2. Lăng Kính (PESTEL/SWOT/BSC)'),
+                              const Icon(Icons.lens_blur_outlined, size: 15),
+                              const SizedBox(width: 6),
+                              Text(L10nKey.strategyTabLenses.tr),
                             ],
                           ),
                         ),
@@ -113,9 +114,9 @@ class StrategyView extends GetView<StrategyController> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.hub_outlined, size: 15),
-                              SizedBox(width: 6),
-                              Text('3. Trục Giả Định & Bằng Chứng'),
+                              const Icon(Icons.hub_outlined, size: 15),
+                              const SizedBox(width: 6),
+                              Text(L10nKey.strategyTabAssumptions.tr),
                             ],
                           ),
                         ),
@@ -124,9 +125,9 @@ class StrategyView extends GetView<StrategyController> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.history_edu_outlined, size: 15),
-                              SizedBox(width: 6),
-                              Text('4. Bộ Nhớ Quyết Định'),
+                              const Icon(Icons.history_edu_outlined, size: 15),
+                              const SizedBox(width: 6),
+                              Text(L10nKey.strategyTabDecisions.tr),
                             ],
                           ),
                         ),
@@ -135,9 +136,9 @@ class StrategyView extends GetView<StrategyController> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.verified_user_outlined, size: 15),
-                              SizedBox(width: 6),
-                              Text('5. Thẩm Định Stage-Gate'),
+                              const Icon(Icons.verified_user_outlined, size: 15),
+                              const SizedBox(width: 6),
+                              Text(L10nKey.strategyTabStageGate.tr),
                             ],
                           ),
                         ),
@@ -146,9 +147,9 @@ class StrategyView extends GetView<StrategyController> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.loop_outlined, size: 15),
-                              SizedBox(width: 6),
-                              Text('6. Vòng Lặp 12WY Loop'),
+                              const Icon(Icons.loop_outlined, size: 15),
+                              const SizedBox(width: 6),
+                              Text(L10nKey.strategyTab12WyLoop.tr),
                             ],
                           ),
                         ),
@@ -157,9 +158,9 @@ class StrategyView extends GetView<StrategyController> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.rate_review_outlined, size: 15),
-                              SizedBox(width: 6),
-                              Text('Review tuần'),
+                              const Icon(Icons.rate_review_outlined, size: 15),
+                              const SizedBox(width: 6),
+                              Text(L10nKey.strategyTabWeeklyReview.tr),
                             ],
                           ),
                         ),

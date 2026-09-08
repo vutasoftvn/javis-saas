@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../data/models/founder_decision_model.dart';
 
 class DecisionModalSheet extends StatefulWidget {
@@ -78,9 +80,9 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'Quyết định Chiến lược Founder',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  L10nKey.hubDecisionModalHeader.tr,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -116,13 +118,13 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Khuyến nghị từ COSA Co-Founder:',
-                            style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 12, fontWeight: FontWeight.bold),
+                          Text(
+                            L10nKey.hubDecisionModalAiRecHeader.tr,
+                            style: const TextStyle(color: Color(0xFFA5B4FC), fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            aiRec['reasoning'] ?? 'Dựa trên phân tích chéo Marketing ROI và Finance Runway.',
+                            aiRec['reasoning'] ?? L10nKey.hubDecisionModalAiRecDefaultReason.tr,
                             style: const TextStyle(color: Colors.white, fontSize: 12.5),
                           ),
                         ],
@@ -133,9 +135,9 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
               ),
 
             const SizedBox(height: 18),
-            const Text(
-              'Chọn phương án thực thi:',
-              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            Text(
+              L10nKey.hubDecisionModalSelectOption.tr,
+              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
 
@@ -198,7 +200,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                               if (opt.financialImpact != null) ...[
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Tác động tài chính: ${opt.financialImpact}',
+                                  L10nKey.hubDecisionModalFinancialImpact.trParams({'impact': opt.financialImpact!}),
                                   style: const TextStyle(color: Color(0xFF34D399), fontSize: 11, fontWeight: FontWeight.w500),
                                 ),
                               ],
@@ -217,7 +219,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
               controller: notesController,
               style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Ghi chú thêm cho Workforce (tùy chọn)...',
+                hintText: L10nKey.hubDecisionModalNotesHint.tr,
                 hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
                 filled: true,
                 fillColor: const Color(0xFF1E293B),
@@ -237,7 +239,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
-                    child: const Text('Đóng'),
+                    child: Text(L10nKey.hubDecisionModalClose.tr),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -254,7 +256,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
-                    child: const Text('Chốt Quyết định', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: Text(L10nKey.hubDecisionModalConfirm.tr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],

@@ -459,7 +459,7 @@ class CapabilityGateway:
         else:
             gov_state = existing_gov_state.accumulate(current_decision)
         await self._governance_store.save_governance_state(
-            gov_state, observation=current_decision, source="capability_gateway"
+            gov_state, observation=current_decision, source="ambient"
         )
 
         effective_outcome = gov_state.accumulated.outcome

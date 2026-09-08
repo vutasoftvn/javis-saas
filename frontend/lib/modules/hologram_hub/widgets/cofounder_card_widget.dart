@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../data/models/company_pulse_model.dart';
 
 class CoFounderCardWidget extends StatelessWidget {
@@ -10,6 +12,21 @@ class CoFounderCardWidget extends StatelessWidget {
     required this.pulse,
     required this.onAskCosa,
   });
+
+  String _resolveSuggestedFocus() {
+    final focus = pulse?.suggestedFocus;
+    if (focus == null ||
+        focus.isEmpty ||
+        focus == 'Tập trung kiểm chứng bài toán khách hàng và hoàn thiện chiến thuật tuần.' ||
+        focus == 'Tập trung kiểm chứng bài toán khách hàng.' ||
+        focus == 'Đang theo dõi nhịp tim doanh nghiệp và điều phối 5 Core Domains...') {
+      return L10nKey.hubCofounderFocusWithProject.tr;
+    }
+    if (focus == 'Chưa có dự án nào trong workspace. Hãy khởi tạo dự án đầu tiên để bắt đầu!') {
+      return L10nKey.hubCofounderFocusNoProject.tr;
+    }
+    return focus;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,8 +135,7 @@ class CoFounderCardWidget extends StatelessWidget {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                pulse?.suggestedFocus ??
-                                    'Đang theo dõi nhịp tim doanh nghiệp và điều phối 5 Core Domains...',
+                                _resolveSuggestedFocus(),
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.white.withValues(alpha: 0.85),
@@ -141,9 +157,9 @@ class CoFounderCardWidget extends StatelessWidget {
                           size: 16,
                           color: Colors.white,
                         ),
-                        label: const Text(
-                          'Trao đổi',
-                          style: TextStyle(
+                        label: Text(
+                          L10nKey.hubCofounderDiscuss.tr,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
@@ -237,8 +253,7 @@ class CoFounderCardWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          pulse?.suggestedFocus ??
-                              'Đang theo dõi nhịp tim doanh nghiệp và điều phối 5 Core Domains...',
+                          _resolveSuggestedFocus(),
                           style: TextStyle(
                             fontSize: 13.5,
                             color: Colors.white.withValues(alpha: 0.85),
@@ -256,9 +271,9 @@ class CoFounderCardWidget extends StatelessWidget {
                       size: 16,
                       color: Colors.white,
                     ),
-                    label: const Text(
-                      'Trao đổi',
-                      style: TextStyle(
+                    label: Text(
+                      L10nKey.hubCofounderDiscuss.tr,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),

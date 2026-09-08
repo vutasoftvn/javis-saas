@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:get/get.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/network/api_client.dart';
 
@@ -29,7 +30,8 @@ class PolicyFundingService {
       if (response.body.isEmpty) return null;
       return jsonDecode(response.body);
     }
-    String detail = 'Yêu cầu thất bại (${response.statusCode})';
+    final isEn = Get.locale?.languageCode == 'en';
+    String detail = isEn ? 'Request failed (${response.statusCode})' : 'Yêu cầu thất bại (${response.statusCode})';
     try {
       final body = jsonDecode(response.body);
       if (body is Map && body['detail'] != null) {

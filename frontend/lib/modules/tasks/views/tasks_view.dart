@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../controllers/tasks_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -20,8 +21,8 @@ class TasksView extends GetView<TasksController> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             CosaFloatingAppBar(
-              title: 'Công việc & Vận hành',
-              subtitle: 'Quản lý tiến độ nhiệm vụ, phê duyệt và điều phối tự động',
+              title: L10nKey.tasksTitle.tr,
+              subtitle: L10nKey.tasksSubtitle.tr,
               actions: [
                 Container(
                   decoration: const BoxDecoration(
@@ -29,7 +30,7 @@ class TasksView extends GetView<TasksController> {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    tooltip: 'Thêm công việc',
+                    tooltip: L10nKey.tasksAddTooltip.tr,
                     icon: const Icon(Icons.add, color: Colors.white, size: 20),
                     onPressed: () => AddTaskDialog.show(context, controller, 'todo'),
                   ),
@@ -37,14 +38,14 @@ class TasksView extends GetView<TasksController> {
               ],
             ),
             const SizedBox(height: 12),
-            const TabBar(
+            TabBar(
               isScrollable: true,
               labelColor: AppTheme.primary,
               unselectedLabelColor: AppTheme.textMutedDark,
               indicatorColor: AppTheme.primary,
               tabs: [
-                Tab(text: 'Tổng quan'),
-                Tab(text: 'Kanban'),
+                Tab(text: L10nKey.tasksTabOverview.tr),
+                Tab(text: L10nKey.tasksTabKanban.tr),
               ],
             ),
             const SizedBox(height: 12),

@@ -1,5 +1,7 @@
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:frontend/core/contracts/enums.generated.dart';
 import 'package:frontend/data/models/project_operating_setup_model.dart';
 import 'package:frontend/modules/strategy/controllers/project_kickoff_controller.dart';
@@ -21,6 +23,7 @@ class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
   int activateCallCount = 0;
   int requestKickoffSuggestionCallCount = 0;
   bool throwOnRequestKickoffSuggestion = false;
+  String? lastRequestedLocale;
   ProjectOperatingSetup? getOverride;
   // Chỉ dùng cho test mô phỏng race dispose-trong-lúc-poll: cho phép giữ
   // `get()` "đang chờ" đủ lâu để test có thể gọi `onDelete()` (dispose thật,
@@ -37,8 +40,9 @@ class FakeProjectOperatingSetupService extends ProjectOperatingSetupService {
   }
 
   @override
-  Future<void> requestKickoffSuggestion(String projectId) async {
+  Future<void> requestKickoffSuggestion(String projectId, {String? locale}) async {
     requestKickoffSuggestionCallCount++;
+    lastRequestedLocale = locale;
     if (throwOnRequestKickoffSuggestion) {
       throw StrategyApiException(500, 'cosa down');
     }
@@ -431,6 +435,17 @@ void main() {
       },
       timeout: const Timeout(Duration(seconds: 10)),
     );
+
+    test('truyền đúng locale en-US khi locale hiện tại là tiếng Anh', () async {
+      Get.locale = const Locale('en', 'US');
+      final service = FakeProjectOperatingSetupService();
+      final controller = ProjectKickoffController(service: service);
+      await controller.load('p1');
+
+      await controller.requestKickoffSuggestion(overwrite: true);
+
+      expect(service.lastRequestedLocale, 'en-US');
+    });
 
     test(
       'dừng poll và tắt loading khi status=failed',

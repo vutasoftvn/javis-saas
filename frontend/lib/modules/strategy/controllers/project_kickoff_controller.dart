@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/contracts/enums.generated.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 import '../services/project_operating_setup_service.dart';
 
@@ -209,7 +211,17 @@ class ProjectKickoffController extends GetxController {
     aiSuggestionLoading.value = true;
     _suggestionPollElapsedMs = 0;
     try {
-      await _service.requestKickoffSuggestion(projectId.value);
+      String? currentLocaleTag;
+      if (Get.isRegistered<LocaleController>()) {
+        currentLocaleTag = Get.find<LocaleController>().current.value.tag;
+      } else if (Get.locale != null) {
+        final languageCode = Get.locale!.languageCode.toLowerCase();
+        currentLocaleTag = languageCode.startsWith('en') ? 'en-US' : 'vi-VN';
+      }
+      await _service.requestKickoffSuggestion(
+        projectId.value,
+        locale: currentLocaleTag,
+      );
     } catch (_) {
       aiSuggestionLoading.value = false;
       return;

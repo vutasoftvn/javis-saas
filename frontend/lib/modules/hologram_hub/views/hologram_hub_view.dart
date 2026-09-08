@@ -27,6 +27,7 @@ import '../../../core/routing/module_routes.dart';
 import '../../dashboard/views/widgets/floating_voice_hologram.dart';
 import '../widgets/draggable_chat_panel.dart';
 import '../../../core/localization/app_translations.dart';
+import '../../../core/localization/locale_controller.dart';
 import '../../../core/shell/chat_panel_controller.dart';
 
 class HologramHubView extends StatelessWidget {
@@ -211,6 +212,9 @@ class HologramHubView extends StatelessWidget {
 
               // --- CENTER: 2 Navigation Tabs (Command Center & AI Workforce) ---
               Obx(() {
+                if (Get.isRegistered<LocaleController>()) {
+                  Get.find<LocaleController>().current.value;
+                }
                 final activeTab = controller.selectedTabIndex.value;
                 return Container(
                   decoration: BoxDecoration(
@@ -230,14 +234,14 @@ class HologramHubView extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildTabButton(
-                        label: isCompact ? 'Command' : 'Command Center',
+                        label: isCompact ? L10nKey.hubTabCommandCenterShort.tr : L10nKey.hubTabCommandCenter.tr,
                         icon: Icons.dashboard_outlined,
                         isSelected: activeTab == 0,
                         onTap: () => controller.selectedTabIndex.value = 0,
                       ),
                       const SizedBox(width: 4),
                       _buildTabButton(
-                        label: isCompact ? 'Workforce' : 'AI Workforce',
+                        label: isCompact ? L10nKey.hubTabWorkforceShort.tr : L10nKey.hubTabWorkforce.tr,
                         icon: Icons.groups_outlined,
                         isSelected: activeTab == 1,
                         onTap: () => controller.selectedTabIndex.value = 1,
@@ -405,15 +409,19 @@ class HologramHubView extends StatelessWidget {
     FounderCommandCenterController controller,
     bool isWide,
   ) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Lưới an toàn: guard/backstop (Task 1-5) đảm bảo Hub không còn render
-          // ở trạng thái 0 project; nhưng nếu có race khiến nó render tạm thời,
-          // ẩn toàn bộ widget phụ thuộc project để không hiện số liệu giả.
-          if (controller.hasProjects.value) ...[
+    return Obx(() {
+      if (Get.isRegistered<LocaleController>()) {
+        Get.find<LocaleController>().current.value;
+      }
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Lưới an toàn: guard/backstop (Task 1-5) đảm bảo Hub không còn render
+            // ở trạng thái 0 project; nhưng nếu có race khiến nó render tạm thời,
+            // ẩn toàn bộ widget phụ thuộc project để không hiện số liệu giả.
+            if (controller.hasProjects.value) ...[
             // A0. Thống kê nhanh — đặt trên cùng theo feedback founder (2026-09-04)
             // xem docs/superpowers/specs/2026-09-04-command-center-dashboard-redesign-design.md
             PulseStatBarWidget(pulse: controller.pulse.value),
@@ -546,6 +554,7 @@ class HologramHubView extends StatelessWidget {
         ],
       ),
     );
+    });
   }
 
   Widget _buildSetupIncompleteCard(BuildContext context, String projectId) {
@@ -642,22 +651,41 @@ class HologramHubView extends StatelessWidget {
     );
   }
 
+  String _getWeekdayLabel(int? weekday) {
+    switch (weekday) {
+      case 1:
+        return L10nKey.weekdayMonday.tr;
+      case 2:
+        return L10nKey.weekdayTuesday.tr;
+      case 3:
+        return L10nKey.weekdayWednesday.tr;
+      case 4:
+        return L10nKey.weekdayThursday.tr;
+      case 5:
+        return L10nKey.weekdayFriday.tr;
+      case 6:
+        return L10nKey.weekdaySaturday.tr;
+      case 7:
+        return L10nKey.weekdaySunday.tr;
+      default:
+        return L10nKey.weekdayFriday.tr;
+    }
+  }
+
   Widget _buildActiveOperatingSetupCard(
     BuildContext context,
     ProjectOperatingSetup setup,
   ) {
     final stageLabel =
         setup.selectedStage == ProjectLifecycleStage.p1ProblemValidation
-        ? 'Xác thực vấn đề (P1)'
-        : 'Khám phá (P0)';
+        ? L10nKey.projectKickoffStageP1Title.tr
+        : L10nKey.projectKickoffStageP0Title.tr;
     final duration =
         setup.stageDurationWeeks ??
         (setup.selectedStage == ProjectLifecycleStage.p1ProblemValidation
             ? 4
             : 2);
-    final reviewDay = setup.weeklyReviewWeekday == 5
-        ? 'Thứ Sáu'
-        : 'Thứ ${setup.weeklyReviewWeekday}';
+    final reviewDay = _getWeekdayLabel(setup.weeklyReviewWeekday);
     final reviewTime = setup.weeklyReviewTime ?? '16:00';
 
     return Container(
@@ -688,7 +716,10 @@ class HologramHubView extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'Vòng hiện tại: $stageLabel · $duration tuần',
+                  L10nKey.hubCurrentCycleBadge.trParams({
+                    'stage': stageLabel,
+                    'count': '$duration',
+                  }),
                   style: const TextStyle(
                     color: Color(0xFF10B981),
                     fontWeight: FontWeight.bold,
@@ -706,7 +737,10 @@ class HologramHubView extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Ngày review: $reviewDay · $reviewTime',
+                    L10nKey.hubReviewScheduleBadge.trParams({
+                      'day': reviewDay,
+                      'time': reviewTime,
+                    }),
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: 12.5,
@@ -731,7 +765,9 @@ class HologramHubView extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Kết quả tuần 1: ${setup.firstWeekOutcome}',
+                    L10nKey.hubFirstWeekOutcomePrefix.trParams({
+                      'outcome': setup.firstWeekOutcome!,
+                    }),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -971,13 +1007,18 @@ class HologramHubView extends StatelessWidget {
     FounderCommandCenterController controller,
     bool isWide,
   ) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: AiWorkforceTab(
-        packs: controller.workforcePacks.toList(),
-        onTogglePack: (key, val) => controller.togglePack(key, val),
-      ),
-    );
+    return Obx(() {
+      if (Get.isRegistered<LocaleController>()) {
+        Get.find<LocaleController>().current.value;
+      }
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: AiWorkforceTab(
+          packs: controller.workforcePacks.toList(),
+          onTogglePack: (key, val) => controller.togglePack(key, val),
+        ),
+      );
+    });
   }
 
   // Task 4 (hub-no-sidebar) — Hub không còn sidebar riêng, icon menu ở header

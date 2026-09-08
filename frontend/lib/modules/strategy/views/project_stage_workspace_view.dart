@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 import '../controllers/project_orchestration_controller.dart';
@@ -27,14 +28,14 @@ class ProjectStageWorkspaceView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CosaFloatingAppBar(
-            title: 'Stage đang hoạt động',
-            subtitle: 'Routing năng lực AI và cổng Week 13 cho stage này.',
+            title: L10nKey.projectStageWorkspaceTitle.tr,
+            subtitle: L10nKey.projectStageWorkspaceSubtitle.tr,
             icon: Icons.dashboard_customize_outlined,
             actions: [
               TextButton.icon(
                 onPressed: onBack,
                 icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppTheme.textMutedDark),
-                label: const Text('Quay lại Lộ trình MVP', style: TextStyle(color: AppTheme.textMutedDark)),
+                label: Text(L10nKey.projectStageWorkspaceBack.tr, style: const TextStyle(color: AppTheme.textMutedDark)),
               ),
             ],
           ),

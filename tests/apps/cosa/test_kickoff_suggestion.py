@@ -88,3 +88,35 @@ def test_build_prompt_includes_context():
     assert "Không biết validate ý tưởng" in prompt
     assert "Chưa nói chuyện với khách hàng" in prompt
     assert "2 tuần" in prompt
+    assert "tiếng Việt" in prompt
+
+
+def test_build_prompt_english_locale():
+    prompt = build_suggestion_prompt(
+        target_customer="Early stage tech founder",
+        problem_statement="Unclear product market fit",
+        evidence_level="NONE",
+        selected_stage="P0_DISCOVERY",
+        stage_duration_weeks=2,
+        locale="en-US",
+    )
+    assert "Early stage tech founder" in prompt
+    assert "Unclear product market fit" in prompt
+    assert "Haven't spoken with potential customers yet" in prompt
+    assert "Discovery (P0)" in prompt
+    assert "Respond entirely in English" in prompt
+
+
+def test_parses_valid_english_output():
+    raw = json.dumps({
+        "outcome": "Founder completed at least 8 discovery interviews with target users",
+        "actions": [
+            "Interview 8-10 potential target customers",
+            "Synthesize qualitative findings into key themes",
+            "Review assumptions with advisors",
+        ],
+    })
+    result = parse_suggestion_output(raw)
+    assert result.outcome == "Founder completed at least 8 discovery interviews with target users"
+    assert len(result.actions) == 3
+

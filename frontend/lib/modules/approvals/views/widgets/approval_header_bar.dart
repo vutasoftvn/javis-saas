@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../controllers/approvals_controller.dart';
 
 class ApprovalHeaderBar extends StatelessWidget {
@@ -13,23 +14,17 @@ class ApprovalHeaderBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
       decoration: const BoxDecoration(
         color: Color(0xFF0F172A),
-        border: Border(bottom: BorderSide(color: Color(0xFF1E293B))),
+        border: Border(bottom: BorderSide(color: Color(0xFF1E293B), width: 1.5)),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.verified_user_outlined, color: Colors.amber, size: 24),
-          ),
+          // Title & Subtitle
+          const Icon(Icons.verified_user_rounded, color: Colors.blueAccent, size: 28),
           const SizedBox(width: 14),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Human Approval Inbox',
                 style: TextStyle(
                   color: Colors.white,
@@ -39,8 +34,8 @@ class ApprovalHeaderBar extends StatelessWidget {
                 ),
               ),
               Text(
-                'Cổng phê duyệt quyết định & kiểm soát rủi ro cho Founder / Human Leads',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5),
+                L10nKey.approvalsSubtitle.tr,
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5),
               ),
             ],
           ),
@@ -72,9 +67,9 @@ class ApprovalHeaderBar extends StatelessWidget {
               tabs: [
                 Obx(() => Tab(
                       height: 32,
-                      text: 'Chờ duyệt (${controller.pendingApprovals.length})',
+                      text: '${L10nKey.approvalsTabPending.tr} (${controller.pendingApprovals.length})',
                     )),
-                const Tab(height: 32, text: 'Lịch sử đã duyệt'),
+                Tab(height: 32, text: L10nKey.approvalsTabHistory.tr),
               ],
             ),
           ),
@@ -83,7 +78,7 @@ class ApprovalHeaderBar extends StatelessWidget {
 
           // Refresh Button
           IconButton(
-            tooltip: 'Làm mới',
+            tooltip: L10nKey.commonRefresh.tr,
             onPressed: () => controller.loadApprovals(),
             icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
             style: IconButton.styleFrom(

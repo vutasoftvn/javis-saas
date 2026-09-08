@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/data/models/execution_plan_model.dart';
 import 'package:frontend/modules/hologram_hub/widgets/execution_plan_card_widget.dart';
 
@@ -41,7 +43,9 @@ ExecutionPlan _plan({bool missingEvidence = false}) {
 }
 
 Widget _host(ExecutionPlan plan, {List<String>? accepted}) {
-  return MaterialApp(
+  return GetMaterialApp(
+    translations: AppTranslations(),
+    locale: const Locale('vi', 'VN'),
     home: Scaffold(
       body: SingleChildScrollView(
         child: ExecutionPlanCardWidget(

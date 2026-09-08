@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/data/models/project_operating_setup_model.dart';
 import 'package:frontend/data/models/task_kanban_model.dart';
@@ -20,6 +21,8 @@ void main() {
     SharedPreferences.setMockInitialValues({'workspace_id': 'ws_123'});
     Get.testMode = true;
     Get.reset();
+    Get.addTranslations(AppTranslations().keys);
+    Get.locale = const Locale('vi', 'VN');
     originalClient = ApiClient.client;
   });
 

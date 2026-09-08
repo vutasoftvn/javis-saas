@@ -94,6 +94,7 @@ class PostgresGovernanceStateStore:
                     "accumulated": json.dumps(state.accumulated.model_dump(mode="json")),
                 },
             )
+            normalized_source = source if source in ("ambient", "historical") else "ambient"
             await session.execute(
                 text(
                     """
@@ -107,7 +108,7 @@ class PostgresGovernanceStateStore:
                     "run_id": state.run_id,
                     "tool_call_id": state.tool_call_id,
                     "observation": json.dumps(observation.model_dump(mode="json")),
-                    "source": source,
+                    "source": normalized_source,
                 },
             )
             await session.commit()

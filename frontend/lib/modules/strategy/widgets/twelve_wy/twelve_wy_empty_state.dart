@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class TwelveWyEmptyState extends StatelessWidget {
@@ -30,21 +31,21 @@ class TwelveWyEmptyState extends StatelessWidget {
               child: const Icon(Icons.calendar_month_rounded, size: 36, color: AppTheme.secondary),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Chưa có Kế hoạch Tuần nào',
-              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+            Text(
+              L10nKey.twelveWyEmptyTitle.tr,
+              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Bạn có thể kích hoạt từ Lộ trình MVP để tự động phân bổ kế hoạch các tuần, hoặc tạo tuần thực thi đầu tiên (mặc định bắt đầu từ Thứ Hai).',
-              style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13, height: 1.4),
+            Text(
+              L10nKey.twelveWyEmptyDesc.tr,
+              style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13, height: 1.4),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: onCreatePlan,
               icon: const Icon(Icons.add_rounded, size: 16),
-              label: const Text('Tạo Kế hoạch Tuần 1'),
+              label: Text(L10nKey.twelveWyEmptyCreate.tr),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.secondary,
                 foregroundColor: const Color(0xFF04070E),

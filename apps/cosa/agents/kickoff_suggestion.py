@@ -8,6 +8,7 @@ text vào `parse_suggestion_output`. Mẫu theo `goal_decomposition.py` (WGA).
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 
 __all__ = [
@@ -17,16 +18,28 @@ __all__ = [
     "parse_suggestion_output",
 ]
 
-_STAGE_LABEL = {
+_STAGE_LABEL_VI = {
     "P0_DISCOVERY": "Khám phá (P0) — khảo sát pain point ban đầu",
     "P1_PROBLEM_VALIDATION": "Xác thực vấn đề (P1) — đòi hỏi từ 5 cuộc phỏng vấn hoặc prototype",
 }
 
-_EVIDENCE_LABEL = {
+_STAGE_LABEL_EN = {
+    "P0_DISCOVERY": "Discovery (P0) — initial pain point exploration",
+    "P1_PROBLEM_VALIDATION": "Problem Validation (P1) — requires 5+ interviews or prototype",
+}
+
+_EVIDENCE_LABEL_VI = {
     "NONE": "Chưa nói chuyện với khách hàng",
     "ONE_TO_FOUR_INTERVIEWS": "Đã có 1-4 cuộc trao đổi",
     "FIVE_PLUS_INTERVIEWS": "Có từ 5 cuộc trao đổi",
     "PROTOTYPE_OR_REVENUE": "Đã có prototype hoặc khách trả tiền",
+}
+
+_EVIDENCE_LABEL_EN = {
+    "NONE": "Haven't spoken with potential customers yet",
+    "ONE_TO_FOUR_INTERVIEWS": "Had 1-4 conversations",
+    "FIVE_PLUS_INTERVIEWS": "Had 5+ conversations",
+    "PROTOTYPE_OR_REVENUE": "Have a prototype or paying customers",
 }
 
 
@@ -47,9 +60,33 @@ def build_suggestion_prompt(
     evidence_level: str,
     selected_stage: str,
     stage_duration_weeks: int,
+    locale: str = "vi-VN",
 ) -> str:
-    stage_label = _STAGE_LABEL.get(selected_stage, selected_stage)
-    evidence_label = _EVIDENCE_LABEL.get(evidence_level, evidence_level)
+    is_en = (locale or "").strip().lower().startswith("en")
+
+    if is_en:
+        stage_label = _STAGE_LABEL_EN.get(selected_stage, selected_stage)
+        evidence_label = _EVIDENCE_LABEL_EN.get(evidence_level, evidence_level)
+        return (
+            "You are an AI co-founder helping a founder finalize their FIRST WEEK plan for an early-stage cycle.\n\n"
+            f"TARGET CUSTOMER: {target_customer.strip()}\n"
+            f"PROBLEM STATEMENT: {problem_statement.strip()}\n"
+            f"CURRENT EVIDENCE LEVEL: {evidence_label}\n"
+            f"SELECTED CYCLE: {stage_label}, lasting {stage_duration_weeks} weeks\n\n"
+            "Recommendations needed:\n"
+            "1. outcome: exactly 1 sentence describing the concrete, measurable RESULT the founder should achieve "
+            "after the FIRST WEEK of this cycle (not the entire cycle).\n"
+            "2. actions: 1 to 3 CONCRETE actions the founder should execute during week 1 to achieve that outcome. "
+            "Each action must start with an action verb and be specific enough to execute immediately "
+            "(e.g., 'Interview 5 target customers about...', not vague like 'Market research').\n\n"
+            "LANGUAGE REQUIREMENT: Respond entirely in English. All text in 'outcome' and 'actions' MUST be in English.\n\n"
+            "Return ONLY 1 JSON object strictly following the format "
+            '{"outcome": "...", "actions": ["...", "..."]}, without explanations, '
+            "without markdown fences."
+        )
+
+    stage_label = _STAGE_LABEL_VI.get(selected_stage, selected_stage)
+    evidence_label = _EVIDENCE_LABEL_VI.get(evidence_level, evidence_level)
 
     return (
         "Bạn đang giúp 1 founder chốt kế hoạch TUẦN ĐẦU của vòng khởi nghiệp.\n\n"
@@ -64,6 +101,7 @@ def build_suggestion_prompt(
         "outcome đó. Mỗi việc bắt đầu bằng động từ hành động, đủ cụ thể để làm "
         "ngay (vd 'Phỏng vấn 5 khách hàng mục tiêu về...', không nói chung "
         "chung 'Nghiên cứu thị trường').\n\n"
+        "YÊU CẦU NGÔN NGỮ: Toàn bộ nội dung 'outcome' và 'actions' PHẢI viết bằng tiếng Việt.\n\n"
         "Trả về DUY NHẤT 1 JSON object dạng "
         '{"outcome": "...", "actions": ["...", "..."]}, không kèm giải thích, '
         "không dùng markdown fence."
@@ -85,10 +123,18 @@ def parse_suggestion_output(raw: str) -> KickoffSuggestion:
     if not raw or not raw.strip():
         raise SuggestionSchemaError("empty suggestion output")
 
+    cleaned = _strip_fences(raw)
     try:
-        data = json.loads(_strip_fences(raw))
+        data = json.loads(cleaned)
     except json.JSONDecodeError as exc:
-        raise SuggestionSchemaError(f"invalid JSON: {exc}") from exc
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                raise SuggestionSchemaError(f"invalid JSON: {exc}") from exc
+        else:
+            raise SuggestionSchemaError(f"invalid JSON: {exc}") from exc
 
     if not isinstance(data, dict):
         raise SuggestionSchemaError("top-level output must be a JSON object")

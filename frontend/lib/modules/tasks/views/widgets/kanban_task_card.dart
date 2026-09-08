@@ -202,17 +202,18 @@ class KanbanTaskCard extends StatelessWidget {
   }
 
   String _getPriorityLabel(String? priority) {
+    final isEn = Get.locale?.languageCode == 'en';
     switch (priority?.toLowerCase()) {
       case 'urgent':
-        return 'Khẩn cấp';
+        return isEn ? 'Urgent' : 'Khẩn cấp';
       case 'high':
-        return 'Cao';
+        return isEn ? 'High' : 'Cao';
       case 'medium':
-        return 'Trung bình';
+        return isEn ? 'Medium' : 'Trung bình';
       case 'low':
-        return 'Thấp';
+        return isEn ? 'Low' : 'Thấp';
       default:
-        return 'Bình thường';
+        return isEn ? 'Normal' : 'Bình thường';
     }
   }
 }

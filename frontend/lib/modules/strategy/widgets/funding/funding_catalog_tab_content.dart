@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class FundingCatalogTabContent extends StatelessWidget {
@@ -27,14 +29,13 @@ class FundingCatalogTabContent extends StatelessWidget {
               border: Border.all(color: AppTheme.accent.withValues(alpha: 0.4)),
             ),
             child: Row(
-              children: const [
-                Icon(Icons.warning_amber_rounded, color: AppTheme.accent, size: 22),
-                SizedBox(width: 12),
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: AppTheme.accent, size: 22),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Dữ liệu khởi tạo từ tài liệu Founders’ Meetup #1 — Chưa xác minh chính thức. '
-                    'Founder cần kiểm chứng văn bản/cổng chính thức trước khi sử dụng. Hệ số điểm matching mặc định 0.6 sẽ được tăng lên 1.0 sau khi xác minh.',
-                    style: TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+                    L10nKey.fundingCatalogDisclaimer.tr,
+                    style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
                   ),
                 ),
               ],
@@ -44,12 +45,12 @@ class FundingCatalogTabContent extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'DANH MỤC 23 QUYỀN LỢI HIỆN HÀNH (6 NHÓM)',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              Text(
+                L10nKey.fundingCatalogTitle.tr,
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5),
               ),
               Text(
-                '${currentBenefits.length} quyền lợi',
+                '${currentBenefits.length} ${L10nKey.fundingCatalogCount.tr}',
                 style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               ),
             ],
@@ -61,7 +62,10 @@ class FundingCatalogTabContent extends StatelessWidget {
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('Không tìm thấy quyền lợi nào phù hợp.', style: const TextStyle(color: Colors.white54)),
+                child: Text(
+                  L10nKey.fundingCatalogEmpty.tr,
+                  style: const TextStyle(color: Colors.white54),
+                ),
               ),
             )
           else
@@ -72,8 +76,8 @@ class FundingCatalogTabContent extends StatelessWidget {
   }
 
   Widget _buildCatalogBenefitCard(Map<String, dynamic> program) {
-    final name = program['name'] ?? 'Quyền lợi';
-    final authority = program['authority'] ?? 'Cơ quan quản lý';
+    final name = program['name'] ?? L10nKey.fundingBenefitFallback.tr;
+    final authority = program['authority'] ?? L10nKey.fundingAuthorityFallback.tr;
     final pType = program['program_type'] ?? 'GRANT';
     final summary = program['summary'] ?? '';
     final sourceClaim = program['source_claim'] ?? '';
@@ -85,13 +89,13 @@ class FundingCatalogTabContent extends StatelessWidget {
     String badgeText;
     if (vStatus == 'VERIFIED_ACTIVE') {
       badgeColor = AppTheme.success;
-      badgeText = 'ĐÃ XÁC MINH HIỆU LỰC';
+      badgeText = L10nKey.fundingCatalogVerifiedActive.tr;
     } else if (vStatus == 'VERIFIED_ENACTED') {
       badgeColor = AppTheme.primary;
-      badgeText = 'ĐÃ XÁC MINH CĂN CỨ';
+      badgeText = L10nKey.fundingCatalogVerifiedEnacted.tr;
     } else {
       badgeColor = AppTheme.accent;
-      badgeText = 'CHƯA XÁC MINH CHÍNH THỨC';
+      badgeText = L10nKey.fundingCatalogPending.tr;
     }
 
     return Container(
@@ -135,10 +139,13 @@ class FundingCatalogTabContent extends StatelessWidget {
               _buildPill(pType, AppTheme.primary),
               const SizedBox(width: 8),
               if (fundingMax > 0) ...[
-                _buildPill('Hỗ trợ tối đa: ${_formatVnd(fundingMax)}', AppTheme.primaryLight),
+                _buildPill(
+                  '${L10nKey.fundingCatalogMaxFunding.tr}: ${_formatVnd(fundingMax)}',
+                  AppTheme.primaryLight,
+                ),
                 const SizedBox(width: 8),
               ],
-              if (claims.isNotEmpty) _buildPill('${claims.length} mệnh đề claim', Colors.white70),
+              if (claims.isNotEmpty) _buildPill('${claims.length} ${L10nKey.fundingCatalogClaimsLabel.tr}', Colors.white70),
             ],
           ),
           if (summary.isNotEmpty) ...[
@@ -147,7 +154,10 @@ class FundingCatalogTabContent extends StatelessWidget {
           ],
           if (sourceClaim.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text('Nguồn: $sourceClaim', style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontStyle: FontStyle.italic)),
+            Text(
+              '${L10nKey.fundingCatalogSourceLabel.tr}: $sourceClaim',
+              style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontStyle: FontStyle.italic),
+            ),
           ],
           const SizedBox(height: 12),
           Row(
@@ -156,7 +166,10 @@ class FundingCatalogTabContent extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: () => onVerifyProgram(program),
                 icon: const Icon(Icons.fact_check_outlined, size: 14),
-                label: const Text('Kiểm chứng (Founder Verify)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(
+                  L10nKey.fundingCatalogFounderVerify.tr,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   foregroundColor: const Color(0xFF04070E),
@@ -184,10 +197,15 @@ class FundingCatalogTabContent extends StatelessWidget {
   }
 
   String _formatVnd(double amount) {
+    final isEnLocale = Get.locale?.languageCode == 'en';
     if (amount >= 1000000000) {
-      return '${(amount / 1000000000).toStringAsFixed(1)} Tỷ VND';
+      return isEnLocale
+          ? '${(amount / 1000000000).toStringAsFixed(1)}B VND'
+          : '${(amount / 1000000000).toStringAsFixed(1)} Tỷ VND';
     } else if (amount >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(0)} Triệu VND';
+      return isEnLocale
+          ? '${(amount / 1000000).toStringAsFixed(0)}M VND'
+          : '${(amount / 1000000).toStringAsFixed(0)} Triệu VND';
     }
     return '${amount.toStringAsFixed(0)} VND';
   }

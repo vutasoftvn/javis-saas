@@ -75,4 +75,37 @@ const Map<String, String> viCommon = {
   L10nKey.commonCancel: 'Hủy',
   L10nKey.commonLoading: 'Đang tải...',
   L10nKey.commonError: 'Lỗi',
+  L10nKey.commonRefresh: 'Làm mới',
+  L10nKey.commonRetry: 'Thử lại',
+
+  // Sidebar Chrome
+  L10nKey.sidebarDeveloperMode: 'Chế độ nhà phát triển',
+  L10nKey.sidebarLogout: 'Đăng xuất',
+  L10nKey.sidebarBackToHub: 'Về COSA Hologram Hub',
+
+  // Vault document states
+  L10nKey.vaultStateDraft: 'Nháp',
+  L10nKey.vaultStateQueued: 'Đang xếp hàng',
+  L10nKey.vaultStateValidating: 'Đang kiểm tra',
+  L10nKey.vaultStateConverting: 'Đang chuyển đổi',
+  L10nKey.vaultStateReviewPending: 'Chờ duyệt',
+  L10nKey.vaultStatePublished: 'Đã xuất bản',
+  L10nKey.vaultStateRejected: 'Đã từ chối',
+  L10nKey.vaultStateFailed: 'Lỗi',
+  L10nKey.vaultStateArchived: 'Đã lưu trữ',
+  L10nKey.vaultStatePurgePending: 'Đang chờ xoá',
+  L10nKey.vaultStatePurged: 'Đã xoá vĩnh viễn',
+  L10nKey.vaultStateUnknown: 'Không xác định',
+
+  // 12WY empty state
+  L10nKey.twelveWyEmptyTitle: 'Chưa có Kế hoạch Tuần nào',
+  L10nKey.twelveWyEmptyDesc: 'Bạn có thể kích hoạt từ Lộ trình MVP để tự động phân bổ kế hoạch các tuần, hoặc tạo tuần thực thi đầu tiên (mặc định bắt đầu từ Thứ Hai).',
+  L10nKey.twelveWyEmptyCreate: 'Tạo Kế hoạch Tuần 1',
+
+  // Service error messages
+  L10nKey.errNoWorkspace: 'Chưa xác định workspace hiện tại',
+  L10nKey.errRequestFailed: 'Yêu cầu thất bại',
+  L10nKey.errNotFound: 'Không tìm thấy dữ liệu (404)',
+  L10nKey.errBadFormat: 'Phản hồi không đúng định dạng mong đợi',
+  L10nKey.errParseFailed: 'Không thể đọc dữ liệu phản hồi từ máy chủ',
 };

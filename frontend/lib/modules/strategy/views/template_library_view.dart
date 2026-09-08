@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_modal_dialog.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -25,14 +26,14 @@ class TemplateLibraryView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CosaFloatingAppBar(
-            title: 'Thư viện Template & Năng lực',
-            subtitle: 'Xem chi tiết, chỉnh sửa năng lực và routing mặc định cho các dự án trong workspace.',
+            title: L10nKey.templateLibTitle.tr,
+            subtitle: L10nKey.templateLibSubtitle.tr,
             icon: Icons.tune_rounded,
             actions: [
               ElevatedButton.icon(
                 onPressed: controller.provisionWorkspaceTemplates,
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Provision mặc định'),
+                label: Text(L10nKey.templateLibProvisionDefault.tr),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   foregroundColor: AppTheme.backgroundDarker,
@@ -49,10 +50,10 @@ class TemplateLibraryView extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (controller.workspaceTemplates.isEmpty) {
-                return const Center(
+                return Center(
                   child: Text(
-                    'Chưa có template nào. Bấm "Provision mặc định" để khởi tạo 6 template.',
-                    style: TextStyle(color: AppTheme.textMutedDark),
+                    L10nKey.templateLibEmpty.tr,
+                    style: const TextStyle(color: AppTheme.textMutedDark),
                   ),
                 );
               }

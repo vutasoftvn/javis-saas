@@ -55,9 +55,7 @@ class CoFounderApiService {
         pendingApprovalsCount: 0,
         majorRisksCount: 0,
         companyStage: stage,
-        suggestedFocus: (pId == null || pId.isEmpty)
-            ? 'Chưa có dự án nào trong workspace. Hãy khởi tạo dự án đầu tiên để bắt đầu!'
-            : 'Tập trung kiểm chứng bài toán khách hàng và hoàn thiện chiến thuật tuần.',
+        suggestedFocus: null,
         updatedAt: DateTime.now(),
       );
     } catch (e) {
@@ -71,7 +69,7 @@ class CoFounderApiService {
       pendingApprovalsCount: 0,
       majorRisksCount: 0,
       companyStage: stage,
-      suggestedFocus: 'Chưa có dự án nào trong workspace. Hãy khởi tạo dự án đầu tiên để bắt đầu!',
+      suggestedFocus: null,
       updatedAt: DateTime.now(),
     );
   }

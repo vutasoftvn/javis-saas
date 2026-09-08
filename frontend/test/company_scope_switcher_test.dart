@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:frontend/core/controllers/company_scope_controller.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/shared/widgets/company_scope_switcher.dart';
 
 void main() {
@@ -12,8 +13,10 @@ void main() {
 
   testWidgets('CompanyScopeSwitcher displays Global by default', (WidgetTester tester) async {
     await tester.pumpWidget(
-      const GetMaterialApp(
-        home: Scaffold(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('vi', 'VN'),
+        home: const Scaffold(
           body: CompanyScopeSwitcher(),
         ),
       ),
@@ -27,15 +30,29 @@ void main() {
     controller.setScope(operatingUnitId: 201, offeringId: 301);
 
     await tester.pumpWidget(
-      const GetMaterialApp(
-        home: Scaffold(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('vi', 'VN'),
+        home: const Scaffold(
           body: CompanyScopeSwitcher(),
         ),
       ),
     );
 
-    // After updating scope, the UI should reflect the narrowed scope.
-    // For this test, let's assume it displays the offering ID or some narrowed text.
     expect(find.text('Phạm vi hẹp'), findsOneWidget);
+  });
+
+  testWidgets('CompanyScopeSwitcher displays English when en-US is selected', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('en', 'US'),
+        home: const Scaffold(
+          body: CompanyScopeSwitcher(),
+        ),
+      ),
+    );
+
+    expect(find.text('Company-wide'), findsOneWidget);
   });
 }

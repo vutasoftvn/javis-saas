@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 enum ProjectStage {
   p0Discovery,
@@ -66,6 +67,25 @@ enum ProjectStage {
     }
   }
 
+  String get displayNameEn {
+    switch (this) {
+      case ProjectStage.p0Discovery:
+        return 'Discovery & Opportunity Evaluation';
+      case ProjectStage.p1ProblemValidation:
+        return 'Problem Validation';
+      case ProjectStage.p2SolutionValidation:
+        return 'Solution Validation';
+      case ProjectStage.p3BuildValidate:
+        return 'Build & Validate';
+      case ProjectStage.p4GoToMarket:
+        return 'Go-to-Market';
+      case ProjectStage.p5OperateGrowth:
+        return 'Operate & Grow';
+      case ProjectStage.p6ScaleGovern:
+        return 'Scale & Govern';
+    }
+  }
+
   String get shortNameVi {
     switch (this) {
       case ProjectStage.p0Discovery:
@@ -83,6 +103,35 @@ enum ProjectStage {
       case ProjectStage.p6ScaleGovern:
         return 'Mở rộng & Quản trị';
     }
+  }
+
+  String get shortNameEn {
+    switch (this) {
+      case ProjectStage.p0Discovery:
+        return 'Discovery';
+      case ProjectStage.p1ProblemValidation:
+        return 'Problem Validation';
+      case ProjectStage.p2SolutionValidation:
+        return 'Solution Validation';
+      case ProjectStage.p3BuildValidate:
+        return 'Build & Validate';
+      case ProjectStage.p4GoToMarket:
+        return 'Go-To-Market';
+      case ProjectStage.p5OperateGrowth:
+        return 'Operate & Grow';
+      case ProjectStage.p6ScaleGovern:
+        return 'Scale & Govern';
+    }
+  }
+
+  String get localizedDisplayName {
+    final lang = Get.locale?.languageCode ?? 'vi';
+    return lang == 'en' ? displayNameEn : displayNameVi;
+  }
+
+  String get localizedShortName {
+    final lang = Get.locale?.languageCode ?? 'vi';
+    return lang == 'en' ? shortNameEn : shortNameVi;
   }
 
   Color get primaryColor {

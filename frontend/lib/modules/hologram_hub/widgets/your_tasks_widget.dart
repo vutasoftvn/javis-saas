@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../data/models/execution_plan_model.dart';
 
 /// WGA #6a — "Việc của bạn": task founder tự làm (FOUNDER_ONLY) + task AI bị
@@ -28,10 +29,10 @@ class YourTasksWidget extends StatelessWidget {
               const Icon(Icons.person_pin_circle_outlined,
                   color: Color(0xFF60A5FA), size: 20),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Việc của bạn',
-                  style: TextStyle(
+                  L10nKey.hubYourTasksTitle.tr,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -63,7 +64,7 @@ class YourTasksWidget extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    t.isBlocked ? 'Bị chặn' : 'Cần bạn làm',
+                    t.isBlocked ? L10nKey.hubTaskBlocked.tr : L10nKey.hubTaskNeedsYou.tr,
                     style: TextStyle(
                       color: t.isBlocked
                           ? const Color(0xFFF87171)

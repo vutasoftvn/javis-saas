@@ -66,7 +66,7 @@ class _MockComplianceResolverWithDefaultClaim:
             result["data_access_claim"] = DataAccessClaim(
                 workspace_id=str(request.workspace_id or snap.get("workspace_id") or ""),
                 deployment_id=str(snap.get("deployment_id") or f"dep_{request.workspace_id}"),
-                capability_id="model.input",
+                capability_id=spec.model_input_capability_ref or "model.input",
                 source_ref="mock://compliance/default-claim",
                 source_hash="sha256:" + "0" * 64,
                 categories=frozenset(["BUSINESS_CONFIDENTIAL"]),
@@ -145,7 +145,10 @@ def build_execution_kernel(
                     base_url = os.getenv("COMPANY_SERVICE_URL", "http://127.0.0.1:4000")
                 compliance_resolver = ComplianceResolver(AiComplianceClient(base_url=str(base_url)))
 
-        model_input_guard = CosaDataModelGate(client=company_client)
+        is_mock_compliance = isinstance(
+            compliance_resolver, _MockComplianceResolverWithDefaultClaim
+        )
+        model_input_guard = CosaDataModelGate(client=None if is_mock_compliance else company_client)
 
         kernel = RealOpenAIAgentsSDKKernel(
             repository=repository,

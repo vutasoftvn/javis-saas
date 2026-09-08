@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/strategy_controller.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
 import '../../../../core/widgets/app_toast.dart';
@@ -12,8 +13,8 @@ class TwelveWyModals {
 
     AppModalDialog.show(
       context: context,
-      title: 'Tạo Kế Hoạch Tuần Thực Thi',
-      subtitle: 'Xác định số tuần và trọng tâm chiến lược cốt lõi của tuần',
+      title: L10nKey.twelveWyCreatePlanTitle.tr,
+      subtitle: L10nKey.twelveWyCreatePlanSubtitle.tr,
       icon: Icons.calendar_today_rounded,
       maxWidth: 540,
       content: Column(
@@ -22,17 +23,23 @@ class TwelveWyModals {
           TextField(
             controller: weekNoController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Số thứ tự tuần (Week Number)', hintText: '1, 2, 3...'),
+            decoration: InputDecoration(
+              labelText: L10nKey.twelveWyCreatePlanWeekNo.tr,
+              hintText: '1, 2, 3...',
+            ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: focusController,
-            decoration: const InputDecoration(labelText: 'Trọng tâm tuần (Weekly Focus)', hintText: 'Ví dụ: Tối ưu hoá luồng Onboarding'),
+            decoration: InputDecoration(
+              labelText: L10nKey.twelveWyCreatePlanFocus.tr,
+              hintText: L10nKey.twelveWyCreatePlanFocusHint.tr,
+            ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(onPressed: () => Get.back(), child: Text(L10nKey.twelveWyCreatePlanCancel.tr, style: const TextStyle(color: Colors.white60))),
         const SizedBox(width: 12),
         ElevatedButton(
           onPressed: () {
@@ -43,7 +50,7 @@ class TwelveWyModals {
             Get.back();
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondary, foregroundColor: const Color(0xFF04070E)),
-          child: const Text('Tạo Kế hoạch Tuần'),
+          child: Text(L10nKey.twelveWyCreatePlanSubmit.tr),
         ),
       ],
     );
@@ -53,11 +60,12 @@ class TwelveWyModals {
     final planId = plan['id']?.toString() ?? '';
     final missionController = TextEditingController(text: plan['mission']?.toString() ?? '');
     double outcomeScore = (plan['outcome_score'] as num?)?.toDouble() ?? 0.8;
+    final weekNo = plan['week_no'] ?? plan['week_number'] ?? 1;
 
     AppModalDialog.show(
       context: context,
-      title: 'Thiết Lập Weekly Mission (Tuần ${plan['week_no'] ?? plan['week_number'] ?? 1})',
-      subtitle: 'Quy định nhiệm vụ cốt lõi duy nhất và đánh giá điểm số kết quả (Outcome Score)',
+      title: '${L10nKey.twelveWyEditMissionTitle.tr} (${Get.locale?.languageCode == 'en' ? 'Week' : 'Tuần'} $weekNo)',
+      subtitle: L10nKey.twelveWyEditMissionSubtitle.tr,
       icon: Icons.flag_circle_rounded,
       maxWidth: 580,
       content: StatefulBuilder(
@@ -66,16 +74,19 @@ class TwelveWyModals {
           children: [
             TextField(
               controller: missionController,
-              decoration: const InputDecoration(
-                labelText: 'Nhiệm vụ trọng điểm tuần (Weekly Mission)',
-                hintText: 'Ví dụ: Đạt 10 cuộc phỏng vấn khách hàng tiềm năng và xác thực Pricing',
+              decoration: InputDecoration(
+                labelText: L10nKey.twelveWyEditMissionLabel.tr,
+                hintText: L10nKey.twelveWyEditMissionHint.tr,
               ),
             ),
             const SizedBox(height: 18),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Điểm số Outcome (Hoàn thành mục tiêu):', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                Text(
+                  L10nKey.twelveWyEditMissionOutcome.tr,
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
                 Text('${(outcomeScore * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryLight)),
               ],
             ),
@@ -91,7 +102,7 @@ class TwelveWyModals {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(onPressed: () => Get.back(), child: Text(L10nKey.twelveWyEditMissionCancel.tr, style: const TextStyle(color: Colors.white60))),
         const SizedBox(width: 12),
         ElevatedButton(
           onPressed: () async {
@@ -103,7 +114,7 @@ class TwelveWyModals {
             );
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: const Color(0xFF04070E)),
-          child: const Text('Lưu Mission'),
+          child: Text(L10nKey.twelveWyEditMissionSave.tr),
         ),
       ],
     );
@@ -116,7 +127,7 @@ class TwelveWyModals {
     }
 
     if (currentCycleId == null) {
-      AppToast.warning('Chưa có chu kỳ 12 tuần nào để biên dịch');
+      AppToast.warning(L10nKey.twelveWyCompileNoCycle.tr);
       return;
     }
 
@@ -124,8 +135,8 @@ class TwelveWyModals {
 
     AppModalDialog.show(
       context: context,
-      title: 'Biên Dịch Chu Kỳ Sang Runtime V10 (Planning Compiler)',
-      subtitle: 'Tự động chuyển đổi các cam kết tuần (Weekly Commitments) thành Tác vụ (Tasks) và Milestones thành Mục tiêu (Outcomes)',
+      title: L10nKey.twelveWyCompileTitle.tr,
+      subtitle: L10nKey.twelveWyCompileSubtitle.tr,
       icon: Icons.bolt_rounded,
       maxWidth: 600,
       content: Obx(() {
@@ -144,14 +155,14 @@ class TwelveWyModals {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 20),
-                  SizedBox(width: 10),
+                  const Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 20),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Planning Compiler đảm bảo chỉ biên dịch khi chu kỳ ở trạng thái ACTIVE (được phê duyệt). Quá trình biên dịch có tính Idempotent (không tạo trùng lặp).',
-                      style: TextStyle(fontSize: 12, color: Colors.white70),
+                      L10nKey.twelveWyCompileNote.tr,
+                      style: const TextStyle(fontSize: 12, color: Colors.white70),
                     ),
                   ),
                 ],
@@ -161,16 +172,16 @@ class TwelveWyModals {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatBox('Tổng cam kết', '$totalCommitments', Colors.cyanAccent),
-                _buildStatBox('Đã tạo Task V10', '$compiledTasks', Colors.greenAccent),
-                _buildStatBox('Cột mốc Milestone', '$totalMilestones', Colors.purpleAccent),
+                _buildStatBox(L10nKey.twelveWyCompileStatCommit.tr, '$totalCommitments', Colors.cyanAccent),
+                _buildStatBox(L10nKey.twelveWyCompileStatTasks.tr, '$compiledTasks', Colors.greenAccent),
+                _buildStatBox(L10nKey.twelveWyCompileStatMilestone.tr, '$totalMilestones', Colors.purpleAccent),
               ],
             ),
           ],
         );
       }),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(onPressed: () => Get.back(), child: Text(L10nKey.twelveWyCompileCancel.tr, style: const TextStyle(color: Colors.white60))),
         const SizedBox(width: 12),
         ElevatedButton.icon(
           onPressed: () async {
@@ -178,7 +189,7 @@ class TwelveWyModals {
             await controller.compileCycle(currentCycleId!);
           },
           icon: const Icon(Icons.bolt_rounded, size: 16),
-          label: const Text('Bắt Đầu Biên Dịch (Compile)'),
+          label: Text(L10nKey.twelveWyCompileStart.tr),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.amber,
             foregroundColor: const Color(0xFF04070E),
@@ -211,6 +222,7 @@ class TwelveWyModals {
     final planId = plan['id']?.toString() ?? '';
     final cycleId = plan['cycle_id']?.toString() ?? (controller.twelveWeekCycles.isNotEmpty ? controller.twelveWeekCycles.first['id']?.toString() : null);
     if (cycleId == null) return;
+    final weekNo = plan['week_no'] ?? plan['week_number'] ?? 1;
 
     double execScore = (plan['execution_score'] as num?)?.toDouble() ?? 0.85;
     double outcomeScore = (plan['outcome_score'] as num?)?.toDouble() ?? 0.80;
@@ -220,8 +232,8 @@ class TwelveWyModals {
 
     AppModalDialog.show(
       context: context,
-      title: 'Đánh Giá Tuần (Weekly Review — Tuần ${plan['week_no'] ?? plan['week_number'] ?? 1})',
-      subtitle: 'Lưu vết bằng chứng đã học, xác thực giả định và đề xuất hướng đi tuần kế tiếp (Spec §17)',
+      title: '${L10nKey.twelveWyReviewTitle.tr} — ${Get.locale?.languageCode == 'en' ? 'Week' : 'Tuần'} $weekNo',
+      subtitle: L10nKey.twelveWyReviewSubtitle.tr,
       icon: Icons.rate_review_rounded,
       maxWidth: 680,
       content: StatefulBuilder(
@@ -235,7 +247,7 @@ class TwelveWyModals {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Điểm Thực thi: ${(execScore * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
+                        Text('${L10nKey.twelveWyReviewExecScore.tr} ${(execScore * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
                         Slider(
                           value: execScore,
                           min: 0.0,
@@ -252,7 +264,7 @@ class TwelveWyModals {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Điểm Kết quả: ${(outcomeScore * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
+                        Text('${L10nKey.twelveWyReviewOutcomeScore.tr} ${(outcomeScore * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
                         Slider(
                           value: outcomeScore,
                           min: 0.0,
@@ -270,7 +282,7 @@ class TwelveWyModals {
               DropdownButtonFormField<String>(
                 initialValue: recommendation,
                 dropdownColor: AppTheme.surfaceDark,
-                decoration: const InputDecoration(labelText: 'Khuyến nghị Hành động'),
+                decoration: InputDecoration(labelText: L10nKey.twelveWyReviewRecommend.tr),
                 items: const [
                   DropdownMenuItem(value: 'CONTINUE', child: Text('CONTINUE — Tiếp tục kế hoạch theo lộ trình')),
                   DropdownMenuItem(value: 'DOUBLE_DOWN', child: Text('DOUBLE_DOWN — Tăng tốc gấp đôi')),
@@ -283,20 +295,26 @@ class TwelveWyModals {
               TextField(
                 controller: evidenceController,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Bằng chứng thực tế đã học', hintText: 'Ví dụ: Phỏng vấn 8/10 người dùng...'),
+                decoration: InputDecoration(
+                  labelText: L10nKey.twelveWyReviewEvidence.tr,
+                  hintText: L10nKey.twelveWyReviewEvidenceHint.tr,
+                ),
               ),
               const SizedBox(height: 14),
               TextField(
                 controller: summaryController,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Tóm tắt nhận định & bài học', hintText: 'Ví dụ: Năng lực Founder đạt 38h...'),
+                decoration: InputDecoration(
+                  labelText: L10nKey.twelveWyReviewSummary.tr,
+                  hintText: L10nKey.twelveWyReviewSummaryHint.tr,
+                ),
               ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(onPressed: () => Get.back(), child: Text(L10nKey.twelveWyReviewCancel.tr, style: const TextStyle(color: Colors.white60))),
         const SizedBox(width: 12),
         ElevatedButton(
           onPressed: () async {
@@ -312,7 +330,7 @@ class TwelveWyModals {
             );
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondary, foregroundColor: const Color(0xFF04070E)),
-          child: const Text('Lưu Đánh Giá Tuần'),
+          child: Text(L10nKey.twelveWyReviewSave.tr),
         ),
       ],
     );
@@ -325,7 +343,7 @@ class TwelveWyModals {
     }
 
     if (currentCycleId == null) {
-      AppToast.warning('Chưa có chu kỳ 12 tuần nào để chuyển dịch');
+      AppToast.warning(L10nKey.twelveWyTransitionNoCycle.tr);
       return;
     }
 
@@ -334,14 +352,14 @@ class TwelveWyModals {
     double overallExec = 0.90;
     double overallOutcome = 0.88;
     double okrRate = 0.85;
-    final titleController = TextEditingController(text: 'Lễ Vinh Danh & Chuyển Dịch Chiến Lược Chu Kỳ');
+    final titleController = TextEditingController(text: L10nKey.twelveWyTransitionCelebTitleDefault.tr);
     final learningsController = TextEditingController();
-    final rewardsController = TextEditingController(text: 'Team retreat & Trao thưởng thành viên xuất sắc');
+    final rewardsController = TextEditingController(text: L10nKey.twelveWyTransitionRewardsDefault.tr);
 
     AppModalDialog.show(
       context: context,
-      title: 'Tổng Kết Chu Kỳ & Kỷ Niệm (Cycle Transition & Celebration)',
-      subtitle: 'Nghỉ ngơi, tôn vinh thành quả chu kỳ thực thi, tổng kết bài học và hoạch định chu kỳ kế tiếp',
+      title: L10nKey.twelveWyTransitionTitle.tr,
+      subtitle: L10nKey.twelveWyTransitionSubtitle.tr,
       icon: Icons.celebration_rounded,
       maxWidth: 720,
       content: StatefulBuilder(
@@ -367,7 +385,9 @@ class TwelveWyModals {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Tiến độ chuẩn bị: Đã hoàn tất $completedReviews/$totalWeeks bản đánh giá tuần của chu kỳ.',
+                          L10nKey.twelveWyTransitionReadiness.tr
+                              .replaceAll('@count', '$completedReviews')
+                              .replaceAll('@total', '$totalWeeks'),
                           style: const TextStyle(fontSize: 12, color: Colors.white70),
                         ),
                       ),
@@ -377,7 +397,7 @@ class TwelveWyModals {
                 const SizedBox(height: 16),
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Tiêu đề Lễ Kỷ Niệm'),
+                  decoration: InputDecoration(labelText: L10nKey.twelveWyTransitionCelebTitle.tr),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -386,7 +406,7 @@ class TwelveWyModals {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Điểm Thực thi Chu kỳ: ${(overallExec * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
+                          Text('${L10nKey.twelveWyTransitionExecScore.tr} ${(overallExec * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
                           Slider(value: overallExec, min: 0.0, max: 1.0, divisions: 20, activeColor: AppTheme.secondary, onChanged: (v) => setState(() => overallExec = v)),
                         ],
                       ),
@@ -396,7 +416,7 @@ class TwelveWyModals {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Điểm Kết quả OKRs: ${(okrRate * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
+                          Text('${L10nKey.twelveWyTransitionOkrScore.tr} ${(okrRate * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
                           Slider(value: okrRate, min: 0.0, max: 1.0, divisions: 20, activeColor: AppTheme.primary, onChanged: (v) => setState(() => okrRate = v)),
                         ],
                       ),
@@ -407,12 +427,15 @@ class TwelveWyModals {
                 TextField(
                   controller: learningsController,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Bài học chiến lược cốt lõi', hintText: 'Nhận định lớn nhất...'),
+                  decoration: InputDecoration(
+                    labelText: L10nKey.twelveWyTransitionLearnings.tr,
+                    hintText: L10nKey.twelveWyTransitionLearningsHint.tr,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: rewardsController,
-                  decoration: const InputDecoration(labelText: 'Phần thưởng & Nghi thức kỷ niệm'),
+                  decoration: InputDecoration(labelText: L10nKey.twelveWyTransitionRewards.tr),
                 ),
               ],
             ),
@@ -420,7 +443,7 @@ class TwelveWyModals {
         },
       ),
       actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
+        TextButton(onPressed: () => Get.back(), child: Text(L10nKey.twelveWyTransitionCancel.tr, style: const TextStyle(color: Colors.white60))),
         const SizedBox(width: 12),
         ElevatedButton.icon(
           onPressed: () async {
@@ -436,7 +459,7 @@ class TwelveWyModals {
             );
           },
           icon: const Icon(Icons.celebration_rounded, size: 16),
-          label: const Text('Hoàn Tất Chuyển Dịch Chu Kỳ'),
+          label: Text(L10nKey.twelveWyTransitionFinalize.tr),
           style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, foregroundColor: const Color(0xFF04070E), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
         ),
       ],

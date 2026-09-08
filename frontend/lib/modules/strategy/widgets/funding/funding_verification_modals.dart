@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../modules/finance/services/policy_funding_service.dart';
@@ -12,7 +13,7 @@ class FundingVerificationModals {
     Future<void> Function() onUpdated,
   ) {
     final progId = program['id']?.toString() ?? program['id_str'] ?? '';
-    final progName = program['name'] ?? 'Chương trình';
+    final progName = program['name'] ?? L10nKey.fundingProgramFallback.tr;
     final authority = program['authority'] ?? '';
     final sourceClaim = program['source_claim'] ?? '';
     final claims = program['claims'] as List<dynamic>? ?? [];
@@ -47,7 +48,7 @@ class FundingVerificationModals {
                           const Icon(Icons.verified_user_rounded, color: AppTheme.primary, size: 22),
                           const SizedBox(width: 10),
                           Text(
-                            'Kiểm chứng Quyền lợi: $progName',
+                            '${L10nKey.fundingVerifyTitle.tr}: $progName',
                             style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -76,7 +77,7 @@ class FundingVerificationModals {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Nguồn tham khảo: $sourceClaim',
+                              '${L10nKey.fundingVerifyRefSource.tr}: $sourceClaim',
                               style: const TextStyle(color: Colors.white70, fontSize: 12),
                             ),
                           ),
@@ -89,9 +90,9 @@ class FundingVerificationModals {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (claims.isNotEmpty) ...[
-                            const Text(
-                              'DANH SÁCH MỆNH ĐỀ TỪ TÀI LIỆU NGUỒN (CLAIMS):',
-                              style: TextStyle(color: AppTheme.primaryLight, fontSize: 12, fontWeight: FontWeight.bold),
+                            Text(
+                              L10nKey.fundingVerifyClaimsSection.tr,
+                              style: const TextStyle(color: AppTheme.primaryLight, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 8),
                             ...claims.map((c) {
@@ -127,16 +128,16 @@ class FundingVerificationModals {
                             }),
                             const SizedBox(height: 16),
                           ],
-                          const Text(
-                            'THÔNG TIN XÁC MINH CHÍNH THỨC:',
-                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          Text(
+                            L10nKey.fundingVerifyOfficialInfo.tr,
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           TextField(
                             controller: urlCtrl,
                             style: const TextStyle(color: Colors.white, fontSize: 13),
                             decoration: InputDecoration(
-                              labelText: 'Cổng thông tin / Link văn bản chính thức',
+                              labelText: L10nKey.fundingVerifyPortalLink.tr,
                               labelStyle: const TextStyle(color: AppTheme.textMutedDark),
                               hintText: 'https://...',
                               hintStyle: const TextStyle(color: Colors.white24),
@@ -151,7 +152,7 @@ class FundingVerificationModals {
                             controller: authCtrl,
                             style: const TextStyle(color: Colors.white, fontSize: 13),
                             decoration: InputDecoration(
-                              labelText: 'Cơ quan có thẩm quyền ban hành',
+                              labelText: L10nKey.fundingVerifyIssuingAuthority.tr,
                               labelStyle: const TextStyle(color: AppTheme.textMutedDark),
                               filled: true,
                               fillColor: const Color(0xFF060A14),
@@ -165,9 +166,9 @@ class FundingVerificationModals {
                             maxLines: 2,
                             style: const TextStyle(color: Colors.white, fontSize: 13),
                             decoration: InputDecoration(
-                              labelText: 'Ghi chú kiểm chứng của Founder',
+                              labelText: L10nKey.fundingVerifyNotes.tr,
                               labelStyle: const TextStyle(color: AppTheme.textMutedDark),
-                              hintText: 'Ví dụ: Đã đối chiếu với Cổng DVC BKHCN...',
+                              hintText: L10nKey.fundingVerifyNotesHint.tr,
                               hintStyle: const TextStyle(color: Colors.white24),
                               filled: true,
                               fillColor: const Color(0xFF060A14),
@@ -176,28 +177,28 @@ class FundingVerificationModals {
                             ),
                           ),
                           const SizedBox(height: 14),
-                          const Text(
-                            'KẾT QUẢ XÁC MINH:',
-                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          Text(
+                            L10nKey.fundingVerifyResult.tr,
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: [
                               ChoiceChip(
-                                label: const Text('Hiệu lực (Active)', style: TextStyle(fontSize: 12)),
+                                label: Text(L10nKey.fundingVerifyStatusActive.tr, style: const TextStyle(fontSize: 12)),
                                 selected: selectedStatus == 'VERIFIED_ACTIVE',
                                 selectedColor: const Color(0xFF10B981),
                                 onSelected: (s) => setModalState(() => selectedStatus = 'VERIFIED_ACTIVE'),
                               ),
                               ChoiceChip(
-                                label: const Text('Căn cứ (Enacted)', style: TextStyle(fontSize: 12)),
+                                label: Text(L10nKey.fundingVerifyStatusEnacted.tr, style: const TextStyle(fontSize: 12)),
                                 selected: selectedStatus == 'VERIFIED_ENACTED',
                                 selectedColor: const Color(0xFF00E5FF),
                                 onSelected: (s) => setModalState(() => selectedStatus = 'VERIFIED_ENACTED'),
                               ),
                               ChoiceChip(
-                                label: const Text('Không đúng / Đóng', style: TextStyle(fontSize: 12)),
+                                label: Text(L10nKey.fundingVerifyStatusInvalid.tr, style: const TextStyle(fontSize: 12)),
                                 selected: selectedStatus == 'REJECTED_SOURCE_DATA',
                                 selectedColor: const Color(0xFFEF4444),
                                 onSelected: (s) => setModalState(() => selectedStatus = 'REJECTED_SOURCE_DATA'),
@@ -212,7 +213,7 @@ class FundingVerificationModals {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      OutlinedButton(onPressed: () => Get.back(), child: const Text('Hủy')),
+                      OutlinedButton(onPressed: () => Get.back(), child: Text(L10nKey.fundingVerifyCancel.tr)),
                       const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: () async {
@@ -227,18 +228,20 @@ class FundingVerificationModals {
                             );
                             await onUpdated();
                             AppToast.success(
-                              'Chương trình "$progName" đã được cập nhật trạng thái $selectedStatus.',
-                              title: 'Đã cập nhật',
+                              Get.locale?.languageCode == 'en'
+                                  ? 'Program "$progName" status updated to $selectedStatus.'
+                                  : 'Chương trình "$progName" đã được cập nhật trạng thái $selectedStatus.',
+                              title: L10nKey.fundingVerifySuccessTitle.tr,
                             );
                           } catch (e) {
                             AppToast.error(
                               e.toString(),
-                              title: 'Lỗi xác minh',
+                              title: L10nKey.fundingVerifyErrorTitle.tr,
                             );
                           }
                         },
                         icon: const Icon(Icons.check_circle_outline, size: 16),
-                        label: const Text('Lưu & Cập nhật Matching'),
+                        label: Text(L10nKey.fundingVerifySave.tr),
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: const Color(0xFF04070E)),
                       ),
                     ],

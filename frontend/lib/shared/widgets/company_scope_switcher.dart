@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:frontend/core/controllers/company_scope_controller.dart';
+import 'package:frontend/core/localization/app_translations.dart';
+import 'package:frontend/core/localization/locale_controller.dart';
 
 class CompanyScopeSwitcher extends StatelessWidget {
   const CompanyScopeSwitcher({super.key});
@@ -13,8 +15,11 @@ class CompanyScopeSwitcher extends StatelessWidget {
         : Get.put(CompanyScopeController());
 
     return Obx(() {
+      if (Get.isRegistered<LocaleController>()) {
+        Get.find<LocaleController>().current.value;
+      }
       final isGlobal = controller.isGlobalScope;
-      final label = isGlobal ? 'Toàn công ty' : 'Phạm vi hẹp';
+      final label = isGlobal ? L10nKey.companyScopeGlobal.tr : L10nKey.companyScopeNarrow.tr;
 
       return InkWell(
         onTap: () {

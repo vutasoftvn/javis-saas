@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../controllers/strategy_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -26,13 +27,13 @@ class TwelveWeekYearView extends GetView<StrategyController> {
         children: [
           // 1. Top Floating AppBar Card
           CosaFloatingAppBar(
-            title: 'Kế hoạch Chu kỳ Thực thi',
-            subtitle: 'Stage-Gate Governance, Weekly Mission, phân bổ năng lực Founder & AI Delegation theo mô hình Chu kỳ Thực thi.',
+            title: L10nKey.twelveWyTitle.tr,
+            subtitle: L10nKey.twelveWySubtitle.tr,
             actions: [
               OutlinedButton.icon(
                 onPressed: () => TwelveWyModals.showWeek13TransitionDialog(context, controller),
                 icon: const Icon(Icons.celebration_rounded, size: 16, color: Colors.pinkAccent),
-                label: const Text('Tổng kết & Kỷ Niệm', style: TextStyle(color: Colors.pinkAccent, fontSize: 13)),
+                label: Text(L10nKey.twelveWyTransitionCelebration.tr, style: const TextStyle(color: Colors.pinkAccent, fontSize: 13)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: Colors.pink.withValues(alpha: 0.4)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -43,7 +44,7 @@ class TwelveWeekYearView extends GetView<StrategyController> {
               OutlinedButton.icon(
                 onPressed: () => TwelveWyModals.showCompileCycleDialog(context, controller),
                 icon: const Icon(Icons.bolt_rounded, size: 16, color: Colors.amberAccent),
-                label: const Text('Compile V10', style: TextStyle(color: Colors.amberAccent, fontSize: 13)),
+                label: Text(L10nKey.twelveWyCompileV10.tr, style: const TextStyle(color: Colors.amberAccent, fontSize: 13)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: Colors.amber.withValues(alpha: 0.4)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -54,7 +55,7 @@ class TwelveWeekYearView extends GetView<StrategyController> {
               OutlinedButton.icon(
                 onPressed: () => TwelveWyGovernanceDialog.showCycleGovernanceDialog(context, controller),
                 icon: const Icon(Icons.shield_outlined, size: 16, color: AppTheme.primaryLight),
-                label: const Text('Stages & Gate Governance', style: TextStyle(color: AppTheme.primaryLight, fontSize: 13)),
+                label: Text(L10nKey.twelveWyGovernance.tr, style: const TextStyle(color: AppTheme.primaryLight, fontSize: 13)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -65,7 +66,7 @@ class TwelveWeekYearView extends GetView<StrategyController> {
               ElevatedButton.icon(
                 onPressed: () => TwelveWyModals.showCreateWeeklyPlanDialog(context, controller),
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Thêm Tuần mới'),
+                label: Text(L10nKey.twelveWyAddWeek.tr),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.secondary,
                   foregroundColor: const Color(0xFF04070E),

@@ -58,7 +58,7 @@ class CompanyPulseModel {
   // tự đổi theo StageGateService.apply_stage_advancement - null khi backend cũ
   // chưa trả field này hoặc workspace chưa xác định được.
   final String? companyStage;
-  final String suggestedFocus;
+  final String? suggestedFocus;
   final DateTime updatedAt;
 
   CompanyPulseModel({
@@ -69,7 +69,7 @@ class CompanyPulseModel {
     this.pendingApprovalsCount = 0,
     this.majorRisksCount = 0,
     this.companyStage,
-    this.suggestedFocus = 'Tập trung kiểm chứng bài toán khách hàng và hoàn thiện chiến thuật tuần.',
+    this.suggestedFocus,
     required this.updatedAt,
   });
 
@@ -82,7 +82,7 @@ class CompanyPulseModel {
       pendingApprovalsCount: json['pending_approvals_count'] ?? 0,
       majorRisksCount: json['major_risks_count'] ?? 0,
       companyStage: json['company_stage'],
-      suggestedFocus: json['suggested_focus'] ?? 'Tập trung kiểm chứng bài toán khách hàng.',
+      suggestedFocus: json['suggested_focus'],
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : DateTime.now(),
     );
   }

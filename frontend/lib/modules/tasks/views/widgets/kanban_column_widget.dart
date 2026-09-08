@@ -56,9 +56,10 @@ class KanbanColumnWidget extends StatelessWidget {
             final permission = controller.mutationPermission();
             if (permission.isHardBlocked) return;
             if (permission == MutationPermission.confirmDegraded) {
+              final isEn = Get.locale?.languageCode == 'en';
               final ok = await confirmDegradedMutation(
                 context,
-                actionLabel: 'chuyển công việc sang "$title"',
+                actionLabel: isEn ? 'move task to "$title"' : 'chuyển công việc sang "$title"',
               );
               if (!ok) return;
               await controller.moveTask(details.data.id, status, confirmed: true);
@@ -151,14 +152,19 @@ class KanbanColumnWidget extends StatelessWidget {
                   // Quick Add Button
                   Padding(
                     padding: const EdgeInsets.all(12),
-                    child: TextButton.icon(
-                      onPressed: () => AddTaskDialog.show(context, controller, status),
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Thêm công việc', style: TextStyle(fontSize: 13)),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.textMutedDark,
-                        alignment: Alignment.centerLeft,
-                      ),
+                    child: Builder(
+                      builder: (ctx) {
+                        final isEn = Get.locale?.languageCode == 'en';
+                        return TextButton.icon(
+                          onPressed: () => AddTaskDialog.show(context, controller, status),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: Text(isEn ? 'Add task' : 'Thêm công việc', style: const TextStyle(fontSize: 13)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.textMutedDark,
+                            alignment: Alignment.centerLeft,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],

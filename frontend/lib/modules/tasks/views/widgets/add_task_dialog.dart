@@ -5,18 +5,19 @@ import '../../controllers/tasks_controller.dart';
 
 class AddTaskDialog {
   static void show(BuildContext context, TasksController controller, String initialStatus) {
+    final isEn = Get.locale?.languageCode == 'en';
     final textController = TextEditingController();
     Get.dialog(
       AlertDialog(
         backgroundColor: AppTheme.surfaceDark,
-        title: const Text('Công việc mới', style: TextStyle(color: Colors.white)),
+        title: Text(isEn ? 'New Task' : 'Công việc mới', style: const TextStyle(color: Colors.white)),
         content: TextField(
           controller: textController,
           autofocus: true,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Cần làm những gì?',
-            hintStyle: TextStyle(color: AppTheme.textMutedDark),
+          decoration: InputDecoration(
+            hintText: isEn ? 'What needs to be done?' : 'Cần làm những gì?',
+            hintStyle: const TextStyle(color: AppTheme.textMutedDark),
           ),
           onSubmitted: (val) {
             controller.addTask(val, initialStatus);
@@ -26,7 +27,7 @@ class AddTaskDialog {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Hủy', style: TextStyle(color: AppTheme.textMutedDark)),
+            child: Text(isEn ? 'Cancel' : 'Hủy', style: const TextStyle(color: AppTheme.textMutedDark)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -34,7 +35,7 @@ class AddTaskDialog {
               Get.back();
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-            child: const Text('Thêm', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(isEn ? 'Add' : 'Thêm', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

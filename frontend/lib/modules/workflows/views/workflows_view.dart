@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/workflows_controller.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/runtime/mutation_gate.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -13,18 +14,19 @@ class WorkflowsView extends GetView<WorkflowsController> {
     if (!Get.isRegistered<WorkflowsController>()) {
       Get.put(WorkflowsController());
     }
+    final isEn = Get.locale?.languageCode == 'en';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         CosaFloatingAppBar(
-          title: 'Tự động hóa & Workflows',
-          subtitle: 'Quản lý sơ đồ quy trình tự động, thực thi đa tác tử AI và giám sát luồng chạy.',
+          title: L10nKey.workflowsTitle.tr,
+          subtitle: L10nKey.workflowsSubtitle.tr,
           icon: Icons.account_tree_rounded,
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh, color: AppTheme.primary),
-              tooltip: 'Tải lại',
+              tooltip: L10nKey.commonRefresh.tr,
               onPressed: controller.loadData,
             ),
           ],
@@ -58,7 +60,7 @@ class WorkflowsView extends GetView<WorkflowsController> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Định nghĩa quy trình', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        Text(isEn ? 'Workflow Definitions' : 'Định nghĩa quy trình', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                         const SizedBox(width: 8),
                         Text('(${controller.definitions.length})', style: const TextStyle(fontSize: 12)),
                       ],
@@ -69,7 +71,7 @@ class WorkflowsView extends GetView<WorkflowsController> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Lịch sử chạy (Runs)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        Text(isEn ? 'Run History' : 'Lịch sử chạy (Runs)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                         const SizedBox(width: 8),
                         Text('(${controller.runs.length})', style: const TextStyle(fontSize: 12)),
                       ],

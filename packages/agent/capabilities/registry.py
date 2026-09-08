@@ -51,18 +51,29 @@ class CapabilityRegistry:
         for k, val in payload.items():
             if k in properties:
                 prop_type = properties[k].get("type")
-                if prop_type in {"number", "integer"}:
-                    if not isinstance(val, (int, float)) or isinstance(val, bool):
-                        errors.append(
-                            f"Field '{k}' expected type {prop_type}, got {type(val).__name__}"
-                        )
-                elif prop_type == "string":
-                    if not isinstance(val, str):
-                        errors.append(f"Field '{k}' expected string, got {type(val).__name__}")
-                elif prop_type == "array":
-                    if not isinstance(val, list):
-                        errors.append(f"Field '{k}' expected array, got {type(val).__name__}")
-                elif prop_type == "object" and not isinstance(val, dict):
-                    errors.append(f"Field '{k}' expected object, got {type(val).__name__}")
+                types = (
+                    set(prop_type)
+                    if isinstance(prop_type, list)
+                    else {prop_type}
+                    if prop_type
+                    else set()
+                )
+                valid = False
+                if "string" in types and isinstance(val, str):
+                    valid = True
+                if (
+                    ("number" in types or "integer" in types)
+                    and isinstance(val, (int, float))
+                    and not isinstance(val, bool)
+                ):
+                    valid = True
+                if "array" in types and isinstance(val, list):
+                    valid = True
+                if "object" in types and isinstance(val, dict):
+                    valid = True
+                if types and not valid:
+                    errors.append(
+                        f"Field '{k}' expected type {prop_type}, got {type(val).__name__}"
+                    )
 
         return errors

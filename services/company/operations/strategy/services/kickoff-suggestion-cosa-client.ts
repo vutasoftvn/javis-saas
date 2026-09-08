@@ -9,6 +9,7 @@ export interface DispatchKickoffSuggestionPayload {
   evidenceLevel: string;
   selectedStage: string;
   stageDurationWeeks: number;
+  locale?: string;
 }
 
 export type DispatchKickoffSuggestionRunner = (
@@ -47,6 +48,7 @@ export async function dispatchKickoffSuggestionRun(
       evidence_level: payload.evidenceLevel,
       selected_stage: payload.selectedStage,
       stage_duration_weeks: payload.stageDurationWeeks,
+      locale: payload.locale ?? "vi-VN",
     }),
   });
 

@@ -67,7 +67,7 @@ class StageBadge extends StatelessWidget {
           ),
           if (showFullName) ...[
             Text(
-              ' • ${stage.shortNameVi}',
+              ' • ${stage.localizedShortName}',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.9),
                 fontSize: isCompact ? 11 : 12,
@@ -91,7 +91,7 @@ class StageBadge extends StatelessWidget {
     }
 
     return Tooltip(
-      message: '${stage.displayNameVi}\nBấm để xem chính sách quản trị',
+      message: stage.localizedDisplayName,
       child: badgeContent,
     );
   }

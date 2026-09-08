@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../controllers/strategy_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -22,13 +23,13 @@ class OkrsView extends GetView<StrategyController> {
         children: [
           // 1. Top Floating AppBar Card
           CosaFloatingAppBar(
-            title: 'Mục tiêu & Kết quả Then chốt (OKRs)',
-            subtitle: 'Theo dõi và đo lường tiến độ mục tiêu doanh nghiệp theo thời gian thực.',
+            title: L10nKey.okrsTitle.tr,
+            subtitle: L10nKey.okrsSubtitle.tr,
             actions: [
               OutlinedButton.icon(
                 onPressed: () => OkrDialogs.showCreateCycleDialog(context, controller),
                 icon: const Icon(Icons.cached_rounded, size: 16),
-                label: const Text('Chu kỳ OKR'),
+                label: Text(L10nKey.okrsCycleButton.tr),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white70,
                   side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
@@ -49,7 +50,7 @@ class OkrsView extends GetView<StrategyController> {
                       )
                     : const Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primary),
                 label: Text(
-                  controller.isGeneratingAi.value ? 'Đang sinh AI...' : 'Tạo tự động AI',
+                  controller.isGeneratingAi.value ? L10nKey.okrsAiGenerating.tr : L10nKey.okrsAiGenerate.tr,
                   style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -62,7 +63,7 @@ class OkrsView extends GetView<StrategyController> {
               ElevatedButton.icon(
                 onPressed: () => OkrDialogs.showCreateObjectiveDialog(context, controller),
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Thêm Objective'),
+                label: Text(L10nKey.okrsAddObjective.tr),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   foregroundColor: const Color(0xFF04070E),

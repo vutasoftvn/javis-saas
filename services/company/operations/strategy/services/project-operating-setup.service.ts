@@ -707,7 +707,8 @@ export interface KickoffSuggestionDispatchResult {
 
 export async function requestKickoffSuggestion(
   ctx: TenantContext,
-  projectId: string
+  projectId: string,
+  options?: { locale?: string }
 ): Promise<KickoffSuggestionDispatchResult> {
   const wsId = BigInt(ctx.workspaceId);
   const pId = BigInt(projectId);
@@ -763,6 +764,7 @@ export async function requestKickoffSuggestion(
       evidenceLevel: existing.evidenceLevel,
       selectedStage,
       stageDurationWeeks: existing.stageDurationWeeks ?? 2,
+      locale: options?.locale ?? "vi-VN",
     });
     return { runId, status: "dispatched" };
   } catch {

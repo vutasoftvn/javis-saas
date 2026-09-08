@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../data/models/founder_decision_model.dart';
 import 'decision_modal_sheet.dart';
 
@@ -34,7 +36,7 @@ class WaitingForYouWidget extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Hàng đợi trống: Không có quyết định hay phê duyệt nào đang chờ bạn.',
+                L10nKey.hubWaitingEmpty.tr,
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
               ),
             ),
@@ -50,10 +52,10 @@ class WaitingForYouWidget extends StatelessWidget {
           children: [
             const Icon(Icons.inbox_outlined, color: Color(0xFF6366F1), size: 20),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
-                'WAITING FOR YOU (Hàng đợi cần Founder xử lý)',
-                style: TextStyle(
+                L10nKey.hubWaitingTitle.tr,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -70,7 +72,9 @@ class WaitingForYouWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${decisions.length + approvals.length} mục',
+                L10nKey.hubWaitingItemsCount.trParams({
+                  'count': '${decisions.length + approvals.length}',
+                }),
                 style: const TextStyle(fontSize: 11, color: Color(0xFFF87171), fontWeight: FontWeight.bold),
               ),
             ),
@@ -143,7 +147,10 @@ class WaitingForYouWidget extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   minimumSize: Size.zero,
                 ),
-                child: const Text('Ra quyết định', style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
+                child: Text(
+                  L10nKey.hubDecisionMakeDecision.tr,
+                  style: const TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -213,7 +220,7 @@ class WaitingForYouWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  a['title'] ?? 'Yêu cầu phê duyệt tác vụ',
+                  a['title'] ?? L10nKey.hubApprovalDefaultTitle.tr,
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
                 ),
               ],
@@ -229,7 +236,7 @@ class WaitingForYouWidget extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               minimumSize: Size.zero,
             ),
-            child: const Text('Từ chối', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Text(L10nKey.hubApprovalReject.tr, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 6),
           ElevatedButton(
@@ -240,7 +247,7 @@ class WaitingForYouWidget extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               minimumSize: Size.zero,
             ),
-            child: const Text('Phê duyệt', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Text(L10nKey.hubApprovalApprove.tr, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -253,14 +260,14 @@ class WaitingForYouWidget extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Từ chối tác vụ', style: TextStyle(color: Colors.white)),
+        title: Text(L10nKey.hubApprovalRejectDialogTitle.tr, style: const TextStyle(color: Colors.white)),
         content: TextField(
           controller: reasonController,
           autofocus: true,
           maxLines: 3,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Lý do từ chối (bắt buộc)',
+            hintText: L10nKey.hubApprovalRejectReasonHint.tr,
             hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
             enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
             focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFF87171))),
@@ -269,7 +276,7 @@ class WaitingForYouWidget extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Hủy', style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+            child: Text(L10nKey.commonCancel.tr, style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
           ),
           ElevatedButton(
             onPressed: () {
@@ -279,7 +286,7 @@ class WaitingForYouWidget extends StatelessWidget {
               onRejectTask(approvalId, reason);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Từ chối', style: TextStyle(color: Colors.white)),
+            child: Text(L10nKey.hubApprovalReject.tr, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

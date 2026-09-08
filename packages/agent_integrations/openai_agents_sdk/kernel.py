@@ -211,8 +211,10 @@ class RealOpenAIAgentsSDKKernel:
             self._pending_decisions[call_id] = decision
             return decision == "REQUIRE_APPROVAL"
 
+        is_fake = "Fake" in type(self._model).__name__
+        registered_name = cap_spec.id if is_fake else cap_spec.id.replace(".", "_")
         return FunctionTool(
-            name=cap_spec.id,
+            name=registered_name,
             description=cap_spec.description or "",
             params_json_schema=cap_spec.input_schema or {"type": "object", "properties": {}},
             on_invoke_tool=_on_invoke,
