@@ -58,9 +58,31 @@ class ChatComposer extends StatelessWidget {
               if (reason.isEmpty) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  reason,
-                  style: const TextStyle(color: AppTheme.warning, fontSize: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        reason,
+                        style: const TextStyle(color: AppTheme.warning, fontSize: 12),
+                      ),
+                    ),
+                    // Retry chỉ gửi lại nội dung đã gõ khi user chủ động bấm —
+                    // không auto-resubmit, giữ nguyên hành vi optimistic rollback
+                    // của sendMessage() (đã xoá message optimistic + trả text về ô nhập).
+                    TextButton(
+                      key: const Key('chat_retry_button'),
+                      onPressed: () => controller.sendMessage(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'Retry',
+                        style: TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
                 ),
               );
             }),

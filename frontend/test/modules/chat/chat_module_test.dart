@@ -359,6 +359,112 @@ void main() {
       expect(controller.messages, isEmpty);
       expect(controller.sendBlockedReason.value, contains('subject'));
     });
+
+    testWidgets('failed send shows retry action; tapping it resends the same content once', (tester) async {
+      var sendAttempts = 0;
+      String? lastSentContent;
+
+      final mockClient = MockClient((request) async {
+        if (request.url.path == '/agent/conversations') {
+          return http.Response(
+            jsonEncode({
+              'items': [
+                {
+                  'id': 'conv-1',
+                  'workspace_id': 'ws-1',
+                  'created_by_principal': 'user:1',
+                  'title': 'Test Conversation',
+                  'active_agent_profile': 'founder_assistant',
+                  'created_at': '2026-08-22T12:00:00Z',
+                  'updated_at': '2026-08-22T12:00:00Z',
+                  'messages': [],
+                }
+              ],
+              'total': 1,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/agent/conversations/conv-1' || request.url.path.contains('/agent/conversations/conv-1')) {
+          if (request.method == 'POST' && request.url.path.endsWith('/messages')) {
+            sendAttempts += 1;
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            lastSentContent = body['content'] as String?;
+            // Fail every attempt (mirrors AgentChatApiException(503) từ backend
+            // — profile locale Control Plane tạm không sẵn sàng) để kiểm tra
+            // retry KHÔNG auto-resubmit thành công ngầm mà chỉ gọi lại đúng 1 lần
+            // mỗi lần user bấm.
+            return http.Response(
+              jsonEncode({'detail': 'Profile locale unavailable'}),
+              503,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'id': 'conv-1',
+              'company_id': 'comp-1',
+              'workspace_id': 'ws-1',
+              'created_by_principal': 'user:1',
+              'title': 'Test Conversation',
+              'active_agent_profile': 'founder_assistant',
+              'created_at': '2026-08-22T12:00:00Z',
+              'updated_at': '2026-08-22T12:00:00Z',
+              'messages': [],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
+      final controller = ChatController(service: service);
+      Get.put<ChatController>(controller);
+
+      await tester.binding.setSurfaceSize(const Size(800, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: ChatView(),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Chọn 1 category để vượt qua data-access gate, rồi gõ nội dung và gửi.
+      await tester.tap(find.text('Non-personal'));
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const Key('chat_message_field')), 'Please retry this message');
+      await controller.sendMessage();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Optimistic message đã bị rollback, spinner tắt, và retry copy hiển thị.
+      expect(sendAttempts, 1);
+      expect(controller.messages, isEmpty);
+      expect(controller.isStreaming.value, isFalse);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(controller.sendBlockedReason.value, isNotEmpty);
+      expect(find.text(controller.sendBlockedReason.value), findsOneWidget);
+      expect(find.byKey(const Key('chat_retry_button')), findsOneWidget);
+      // Text đã gõ được giữ lại trong ô nhập, không bị mất khi gửi thất bại.
+      expect(controller.textController.text, 'Please retry this message');
+
+      // Bấm Retry: phải gọi lại sendMessage() đúng 1 lần nữa với cùng nội dung
+      // — không auto-resubmit lặp lại nhiều lần.
+      await tester.tap(find.byKey(const Key('chat_retry_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(sendAttempts, 2);
+      expect(lastSentContent, 'Please retry this message');
+    });
   });
 
   group('ChatController attachment guard', () {
