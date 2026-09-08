@@ -767,8 +767,20 @@ jobs:
           COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
       - run: mkdir -p test-results
       - name: Run cross-process crash recovery and lease mutual exclusion durability tests
+        # LEASE_INTEGRATION_TEST=1 — mỗi test tự tạo disposable Postgres cluster
+        # + tiến trình services/cosa cô lập (tests/apps/cosa/worker/conftest.py,
+        # Task 7 platform-authority-durability-hardening); thiếu var này các
+        # test sẽ SKIP thay vì FAIL khi Postgres/encore không sẵn sàng — CI bắt
+        # buộc phải fail cứng, không được skip lặng lẽ. CI Postgres service ở
+        # trên chạy PGUSER=postgres/PGPASSWORD=postgres, khớp mặc định admin
+        # creds của disposable_postgres.py nên không cần override PGPASSWORD.
         run: PYTHONPATH=. pytest tests/apps/cosa/worker -m "durability" -q --junitxml=test-results/durability.xml
         env:
+          LEASE_INTEGRATION_TEST: "1"
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: postgres
           AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable

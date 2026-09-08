@@ -235,33 +235,43 @@ vẫn cần sửa mã và deploy, không phải tính năng quản trị runtime
 
 ### Điều kiện bắt buộc trước khi mở workspace ra bên ngoài
 
-Các nguyên tắc dưới đây là backlog hardening có mức ưu tiên phát hành. Không
-coi một luồng là production-ready chỉ vì UI ẩn nút, unit test mock chạy xanh,
-hoặc typecheck ở một package riêng lẻ thành công.
+Các mục 1-5 dưới đây đã được đóng bởi
+`docs/superpowers/plans/2026-09-08-platform-authority-durability-hardening.md`
+(Task 1-8, 2026-09-08) — xem
+`docs/architecture/CODEBASE_HARDENING_2026-09-08.md` cho evidence đầy đủ
+(commit, test negative, migration, trạng thái IMPLEMENTED/WIRED/VERIFIED theo
+từng finding; 2 gate liên quan có finding riêng — pre-existing, không do plan
+này — vẫn còn mở, xem mục "Known limitations" trong tài liệu đó). Không coi
+một luồng là production-ready chỉ vì UI ẩn nút, unit test mock chạy xanh,
+hoặc typecheck ở một package riêng lẻ thành công — mỗi mục dưới đây chỉ được
+đánh dấu xong sau khi có test âm tính (negative test) qua process/DB thật.
 
-1. **Gia nhập workspace** phải dùng invitation có hạn (token ngẫu nhiên 32
-   byte, hash SHA-256 lưu DB, email phải khớp principal lúc accept, expiry mặc
-   định 168 giờ, single-use), do founder/co-founder/admin của đúng workspace
+1. **Gia nhập workspace** dùng invitation có hạn (token ngẫu nhiên 32 byte,
+   hash SHA-256 lưu DB, email phải khớp principal lúc accept, expiry mặc định
+   168 giờ, single-use), do founder/co-founder/admin của đúng workspace
    issue/revoke — xem `docs/architecture/adr/ADR-WORKSPACE-INVITATION-001.md`
-   cho contract đầy đủ. Endpoint `POST /platform/auth/companies/join` hiện tại
-   nhận `company_id` trần và tự cấp membership mà không cần invitation — đây
-   là lỗ hổng đã biết (có test đỏ trong `services/cosa/tests/
-   control-plane.test.ts`), **không phải hành vi mục tiêu**: một `workspace_id`
-   biết được không phải là bằng chứng để cấp membership. Khi endpoint này bị
-   đóng để chuyển hẳn sang invitation-only, **sẽ không có compatibility
-   fallback cho client cũ** — mọi request join bằng `company_id` trần sẽ nhận
-   `permission_denied` vĩnh viễn, không có chế độ tương thích ngược.
-2. **Đọc/ghi theo workspace** phải kiểm tra bearer identity và membership ở
-   từng public handler. Đặc biệt, ghi nhận giao dịch tài chính cần command
-   permission riêng, không chỉ cần membership đọc.
-3. **Approval** phải kiểm tra vai trò/requirement của reviewer ở server trước
-   khi quyết định; scope đúng workspace không thay thế kiểm tra vai trò.
-4. **Huỷ run** phải là state bền vững có compare-and-set/terminal guard trong
-   database để API và worker ở process khác nhau không thể đưa run đã huỷ về
-   trạng thái hoàn tất.
-5. **Trải nghiệm chat khi lỗi** phải hoàn tác optimistic state, dừng spinner
-   và cho phép thử lại có ngữ cảnh khi API từ chối request hoặc dependency
-   locale không sẵn sàng.
+   cho contract đầy đủ. Endpoint `POST /platform/auth/companies/join` (nhận
+   `company_id` trần và tự cấp membership không cần invitation) đã bị gỡ khỏi
+   contract và frontend; không có compatibility fallback cho client cũ — mọi
+   request join bằng `company_id` trần nhận `permission_denied` vĩnh viễn.
+2. **Đọc/ghi theo workspace** kiểm tra bearer identity và membership ở từng
+   public handler (`GET /identity/workspaces/:id` đã đóng lỗ hổng đọc công
+   khai). Ghi nhận giao dịch tài chính yêu cầu command permission riêng
+   (`finance.transaction.record`), không chỉ cần membership đọc.
+3. **Approval** kiểm tra vai trò/requirement của reviewer ở server (qua
+   `identity.role_id` đã được Company Identity xác minh) trước khi cho quyết
+   định; scope đúng workspace không thay thế kiểm tra vai trò.
+4. **Huỷ run** là state bền vững có compare-and-set (`transition_run_status`/
+   `cancel_run`) trong `agent.runs` để API và worker ở process khác nhau
+   không thể đưa run đã huỷ về trạng thái hoàn tất — đã chứng minh bằng race
+   test 2 process thật trên Postgres thật. **Giới hạn đã biết:** hai đường
+   ghi trạng thái nền — `packages/agent/runs/expiry.py::sweep_dormant_runs`
+   và `recovery.py::recover_stale_run` — vẫn dùng `update_run_status` không
+   điều kiện, nên một cancel trùng thời điểm với sweep/recovery vẫn có thể bị
+   ghi đè; chưa được đưa vào phạm vi hardening đợt này.
+5. **Trải nghiệm chat khi lỗi** hoàn tác optimistic state, dừng spinner, và
+   cho phép thử lại (nút Retry, gửi lại đúng nội dung cũ, không tự động gửi
+   lại) khi API từ chối request hoặc dependency locale không sẵn sàng.
 
 ## Chạy môi trường phát triển
 
