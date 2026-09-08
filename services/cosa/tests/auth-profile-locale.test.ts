@@ -32,6 +32,18 @@ describe("Auth Profile Locale", () => {
     expect(me.preferred_locale).toBe("vi-VN");
   });
 
+  it("allows setting preferred_locale to en-US during registerPlatformUser", async () => {
+    const session = await registerPlatformUser({
+      email: `locale-en-${Date.now()}-${Math.random()}@test.invalid`,
+      password: "SecurePassword123",
+      workspace_name: "Locale EN workspace",
+      preferred_locale: "en-US",
+    });
+    expect(session.user!.preferred_locale).toBe("en-US");
+    const me = await getPlatformUserProfile(session.user!.id);
+    expect(me.preferred_locale).toBe("en-US");
+  });
+
   it("changes only the authenticated caller locale", async () => {
     const alice = await createProfileForTest();
     const bob = await createProfileForTest();

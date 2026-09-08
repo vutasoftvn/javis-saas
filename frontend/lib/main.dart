@@ -7,10 +7,10 @@ import 'core/routing/app_routes.dart';
 import 'core/services/secure_storage_service.dart';
 import 'core/session/session_binding.dart';
 import 'core/session/session_controller.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/localization/app_translations.dart';
 import 'core/localization/locale_controller.dart';
 import 'core/localization/supported_locale.dart';
-import 'l10n/app_localizations.dart';
 import './modules/auth/services/auth_service.dart';
 import './modules/remote_access/controllers/remote_access_controller.dart';
 
@@ -101,8 +101,15 @@ class MyApp extends StatelessWidget {
       translations: AppTranslations(),
       locale: localeController.current.value.flutterLocale,
       fallbackLocale: const Locale('vi', 'VN'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('vi', 'VN'),
+        Locale('en', 'US'),
+      ],
     ));
   }
 }

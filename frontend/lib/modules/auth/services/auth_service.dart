@@ -172,19 +172,23 @@ class AuthService {
     required String displayName,
     String? workspaceName,
     String? companyName,
+    String? preferredLocale,
   }) async {
     try {
       final wsName = workspaceName ?? companyName;
+      final body = <String, dynamic>{
+        'email': email,
+        'password': password,
+        'full_name': displayName,
+      };
+      if (wsName != null) body['workspace_name'] = wsName;
+      if (companyName != null) body['company_name'] = companyName;
+      if (preferredLocale != null) body['preferred_locale'] = preferredLocale;
+
       final response = await ApiClient.post(
         '/platform/auth/register',
         requiresAuth: false,
-        body: {
-          'email': email,
-          'password': password,
-          'full_name': displayName,
-          'workspace_name': ?wsName,
-          'company_name': ?companyName,
-        },
+        body: body,
       );
 
       if (response.statusCode == 200) {
@@ -511,7 +515,7 @@ class AuthService {
       if (displayName != null) body['display_name'] = displayName;
       if (preferredLocale != null) body['preferred_locale'] = preferredLocale;
 
-      final response = await ApiClient.patch('/identity/me', body: body);
+      final response = await ApiClient.patch('/platform/auth/me', body: body);
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }

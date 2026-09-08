@@ -1,0 +1,41 @@
+import '../../app_translations.dart';
+
+const Map<String, String> viAuth = {
+  // Auth UI
+  L10nKey.authIdentifierLabel: 'Số điện thoại hoặc Email',
+  L10nKey.authIdentifierHint: 'Nhập SĐT hoặc Email',
+  L10nKey.authPasswordLabel: 'Mật khẩu',
+  L10nKey.authRememberMe: 'Ghi nhớ tài khoản này',
+  L10nKey.authLoginButton: 'Đăng Nhập',
+  L10nKey.authNoAccount: 'Chưa có tài khoản?',
+  L10nKey.authCreateAccount: 'Tạo tài khoản mới',
+  L10nKey.authLanguageSwitchTooltip: 'Chuyển đổi ngôn ngữ',
+
+  // Register UI
+  L10nKey.regStep1Title: 'Tạo Tài Khoản Mới',
+  L10nKey.regStep2Title: 'Thiết Lập Công Ty',
+  L10nKey.regStep1Subtitle: 'Khởi tạo tài khoản danh tính COSA Platform',
+  L10nKey.regStep2Subtitle: 'Tạo hoặc tham gia công ty để đồng bộ dữ liệu Brain về COSA Local',
+  L10nKey.regStepAccount: 'Tài khoản',
+  L10nKey.regStepCompany: 'Công ty',
+  L10nKey.regFullNameLabel: 'Họ và tên',
+  L10nKey.regEmailLabel: 'Email',
+  L10nKey.regEmailHint: 'Ví dụ: ban@congty.com',
+  L10nKey.regPasswordLabel: 'Mật khẩu (8–128 ký tự)',
+  L10nKey.regConfirmPasswordLabel: 'Xác nhận mật khẩu',
+  L10nKey.regCreatingAccount: 'Đang khởi tạo tài khoản...',
+  L10nKey.regContinue: 'Tiếp tục',
+  L10nKey.regTabCreateCompany: 'Tạo mới',
+  L10nKey.regTabJoinCompany: 'Tham gia',
+  L10nKey.regInvitationTokenLabel: 'Mã lời mời workspace',
+  L10nKey.regInvitationTokenHint: 'Dán mã lời mời được gửi cho bạn qua email',
+  L10nKey.regInvitationTokenHelper: 'Dán mã lời mời do founder/admin của workspace gửi cho bạn qua email.',
+  L10nKey.regCompanyNameLabel: 'Tên công ty / Tổ chức',
+  L10nKey.regCompanyNameHint: 'Ví dụ: VutaSoft, Acme Corp',
+  L10nKey.regCompanyNameHelper: 'Bạn sẽ là Founder sở hữu công ty này.',
+  L10nKey.regInitializingBrain: 'Đang khởi tạo Brain...',
+  L10nKey.regInitialize: 'Khởi tạo',
+  L10nKey.regBackToStep1: 'Quay lại bước 1',
+  L10nKey.regAlreadyHaveAccount: 'Đã có tài khoản?',
+  L10nKey.regLoginNow: 'Đăng nhập ngay',
+};

@@ -398,7 +398,6 @@ dev-stack-no-infra: ## Launch Company, COSA, API and worker — assumes Postgres
 	API_PID=$$!; \
 	PYTHONPATH=$(RUNTIME_PYTHONPATH) $(PYTHON) -m apps.cosa.worker.main &\
 	WORKER_PID=$$!; \
-
 	echo "Services launched (PIDs: Company=$$COMPANY_PID COSA=$$COSA_PID API=$$API_PID Worker=$$WORKER_PID)"; \
 	echo "Waiting for health endpoints (60s timeout)..."; \
 	attempt=0; \

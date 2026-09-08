@@ -91,7 +91,7 @@ class CosaFloatingAppBar extends StatelessWidget {
 
           // Narrow screens (mobile): actions rarely fit beside the title,
           // so wrap them onto their own row instead of overflowing it.
-          if (constraints.maxWidth < 640) {
+          if (constraints.maxWidth < 800) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

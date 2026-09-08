@@ -65,6 +65,8 @@ export interface RegisterParams {
   workspace_name?: string;
   company_name?: string; // backwards compatibility alias mapped to workspace_name
   client_workspace_creation_id?: string;
+  preferred_locale?: SupportedLocale;
+  preferredLocale?: SupportedLocale;
 }
 
 export interface PlatformUserProfile {
@@ -86,6 +88,8 @@ export interface UpdateMeParams {
   preferredLocale?: SupportedLocale;
   phone?: string;
   full_name?: string;
+  display_name?: string;
+  displayName?: string;
   avatar_url?: string;
   headline?: string;
   bio?: string;
@@ -186,6 +190,9 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
     throw APIError.alreadyExists("email đã được đăng ký");
   }
 
+  const rawLocale = params.preferred_locale ?? params.preferredLocale;
+  const initialLocale = rawLocale ? parseSupportedLocale(rawLocale) : "vi-VN";
+
   const passwordHash = await hashPassword(params.password);
   const newUserId = BigInt(generateSnowflakeStr());
 
@@ -207,6 +214,7 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
       id: newUser.id,
       roleId: initialRole,
       fullName: params.full_name || null,
+      preferredLocale: initialLocale,
     });
   });
 
@@ -239,7 +247,7 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
       phone: params.phone || null,
       full_name: params.full_name || null,
       role_id: initialRole,
-      preferred_locale: "vi-VN",
+      preferred_locale: initialLocale,
     },
     workspaces: provWorkspaces,
     platform_workspace_id: platformWorkspaceId,
@@ -316,8 +324,9 @@ export async function updatePlatformUserProfile(
       .where(eq(users.id, userId));
   }
 
+  const fullName = params.full_name ?? params.display_name ?? params.displayName;
   if (
-    params.full_name !== undefined ||
+    fullName !== undefined ||
     params.avatar_url !== undefined ||
     params.headline !== undefined ||
     params.bio !== undefined ||
@@ -327,7 +336,7 @@ export async function updatePlatformUserProfile(
       .insert(profiles)
       .values({
         id: userId,
-        fullName: params.full_name || null,
+        fullName: fullName || null,
         avatarUrl: params.avatar_url || null,
         headline: params.headline || null,
         bio: params.bio || null,
@@ -337,7 +346,7 @@ export async function updatePlatformUserProfile(
       .onConflictDoUpdate({
         target: profiles.id,
         set: {
-          ...(params.full_name !== undefined ? { fullName: params.full_name } : {}),
+          ...(fullName !== undefined ? { fullName } : {}),
           ...(params.avatar_url !== undefined ? { avatarUrl: params.avatar_url } : {}),
           ...(params.headline !== undefined ? { headline: params.headline } : {}),
           ...(params.bio !== undefined ? { bio: params.bio } : {}),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../modules/auth/services/auth_service.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/session/session_controller.dart';
@@ -215,11 +217,16 @@ class AuthController extends GetxController {
     isRegisterLoading.value = true;
     registerErrorMessage.value = '';
 
+    final currentLocale = Get.isRegistered<LocaleController>()
+        ? Get.find<LocaleController>().current.value.tag
+        : null;
+
     try {
       final result = await _authService.registerPlatform(
         email: email,
         password: password,
         displayName: displayName,
+        preferredLocale: currentLocale,
       );
 
       if (!result.success || result.token == null) {
@@ -286,6 +293,14 @@ class AuthController extends GetxController {
       );
 
       if (syncResult.success) {
+        final workspaces = syncResult.workspaces ?? [];
+        if (workspaces.isNotEmpty) {
+          final actRes = await _session.activateWorkspace(workspaces.first.workspaceId);
+          if (actRes.isSuccess) {
+            Get.offAllNamed(AppRoutes.hub);
+            return;
+          }
+        }
         await _authService.getMe();
         Get.offAllNamed(AppRoutes.hub);
       } else {

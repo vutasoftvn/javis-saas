@@ -1,0 +1,41 @@
+import '../../app_translations.dart';
+
+const Map<String, String> enAuth = {
+  // Auth UI
+  L10nKey.authIdentifierLabel: 'Phone number or Email',
+  L10nKey.authIdentifierHint: 'Enter phone or email',
+  L10nKey.authPasswordLabel: 'Password',
+  L10nKey.authRememberMe: 'Remember this account',
+  L10nKey.authLoginButton: 'Log In',
+  L10nKey.authNoAccount: 'Don\'t have an account?',
+  L10nKey.authCreateAccount: 'Create new account',
+  L10nKey.authLanguageSwitchTooltip: 'Switch language',
+
+  // Register UI
+  L10nKey.regStep1Title: 'Create New Account',
+  L10nKey.regStep2Title: 'Set Up Company',
+  L10nKey.regStep1Subtitle: 'Initialize your identity account for COSA Platform',
+  L10nKey.regStep2Subtitle: 'Create or join a company to sync Brain data to COSA Local',
+  L10nKey.regStepAccount: 'Account',
+  L10nKey.regStepCompany: 'Company',
+  L10nKey.regFullNameLabel: 'Full Name',
+  L10nKey.regEmailLabel: 'Email',
+  L10nKey.regEmailHint: 'E.g., you@company.com',
+  L10nKey.regPasswordLabel: 'Password (8–128 characters)',
+  L10nKey.regConfirmPasswordLabel: 'Confirm Password',
+  L10nKey.regCreatingAccount: 'Creating account...',
+  L10nKey.regContinue: 'Continue',
+  L10nKey.regTabCreateCompany: 'Create New',
+  L10nKey.regTabJoinCompany: 'Join',
+  L10nKey.regInvitationTokenLabel: 'Workspace Invitation Code',
+  L10nKey.regInvitationTokenHint: 'Paste the invitation code sent to your email',
+  L10nKey.regInvitationTokenHelper: 'Paste the invitation code provided by the workspace founder/admin via email.',
+  L10nKey.regCompanyNameLabel: 'Company / Organization Name',
+  L10nKey.regCompanyNameHint: 'E.g., VutaSoft, Acme Corp',
+  L10nKey.regCompanyNameHelper: 'You will be the Founder and owner of this company.',
+  L10nKey.regInitializingBrain: 'Initializing Brain...',
+  L10nKey.regInitialize: 'Initialize',
+  L10nKey.regBackToStep1: 'Back to step 1',
+  L10nKey.regAlreadyHaveAccount: 'Already have an account?',
+  L10nKey.regLoginNow: 'Log in now',
+};

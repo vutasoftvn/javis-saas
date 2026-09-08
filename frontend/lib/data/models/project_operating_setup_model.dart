@@ -1,4 +1,6 @@
+import 'package:get/get.dart';
 import '../../core/contracts/enums.generated.dart';
+import '../../core/localization/app_translations.dart';
 import 'task_kanban_model.dart';
 
 enum KickoffEvidenceLevel {
@@ -13,6 +15,21 @@ enum KickoffEvidenceLevel {
   const KickoffEvidenceLevel(this.wire, this.label);
   final String wire;
   final String label;
+
+  String get l10nKey {
+    switch (this) {
+      case KickoffEvidenceLevel.none:
+        return L10nKey.projectKickoffEvidenceNone;
+      case KickoffEvidenceLevel.oneToFourInterviews:
+        return L10nKey.projectKickoffEvidenceOneToFour;
+      case KickoffEvidenceLevel.fivePlusInterviews:
+        return L10nKey.projectKickoffEvidenceFivePlus;
+      case KickoffEvidenceLevel.prototypeOrRevenue:
+        return L10nKey.projectKickoffEvidencePrototypeOrRevenue;
+    }
+  }
+
+  String get localizedLabel => l10nKey.tr;
 
   static KickoffEvidenceLevel? tryFromWire(String? v) {
     if (v == null) return null;

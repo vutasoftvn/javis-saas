@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../../core/localization/app_translations.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/routing/module_routes.dart';
 import '../../../core/session/session_controller.dart';
@@ -90,7 +91,7 @@ class ProjectSetupController extends GetxController {
   Future<void> submitForm({required String title, String? description}) async {
     final trimmed = title.trim();
     if (trimmed.isEmpty) {
-      formError.value = 'Vui lòng nhập tên dự án';
+      formError.value = L10nKey.projectSetupNameRequired.tr;
       return;
     }
     formError.value = null;
@@ -100,14 +101,14 @@ class ProjectSetupController extends GetxController {
           .createBasicProject(title: trimmed, description: description?.trim());
       final id = project['id']?.toString();
       if (id == null || id.isEmpty) {
-        formError.value = 'Tạo dự án thất bại. Vui lòng thử lại.';
+        formError.value = L10nKey.projectSetupFailed.tr;
         return;
       }
       createdProjectId.value = id;
       await _fcc.loadDashboardData();
       phase.value = ProjectSetupPhase.kickoff;
     } catch (e) {
-      formError.value = 'Đã có lỗi xảy ra: $e';
+      formError.value = '${L10nKey.projectSetupFailed.tr}: $e';
     } finally {
       isSubmitting.value = false;
     }

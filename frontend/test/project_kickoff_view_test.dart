@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:frontend/core/contracts/enums.generated.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/data/models/project_operating_setup_model.dart';
 import 'package:frontend/modules/strategy/controllers/project_kickoff_controller.dart';
 import 'package:frontend/modules/strategy/services/project_operating_setup_service.dart';
@@ -78,6 +79,7 @@ Widget kickoffHarness({
   void Function(String id)? onActivated,
   VoidCallback? onBack,
   VoidCallback? onOpenAdvancedRoadmap,
+  Locale locale = const Locale('vi', 'VN'),
 }) {
   Get.reset();
   Get.put(
@@ -86,6 +88,8 @@ Widget kickoffHarness({
   );
 
   return GetMaterialApp(
+    translations: AppTranslations(),
+    locale: locale,
     home: Scaffold(
       body: ProjectKickoffView(
         projectId: setup.projectId,
@@ -165,6 +169,8 @@ void main() {
 
       await tester.pumpWidget(
         GetMaterialApp(
+          translations: AppTranslations(),
+          locale: const Locale('vi', 'VN'),
           home: Scaffold(
             body: ValueListenableBuilder<bool>(
               valueListenable: showFirst,
@@ -440,6 +446,8 @@ void main() {
     );
     await tester.pumpWidget(
       GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('vi', 'VN'),
         home: Scaffold(
           body: ProjectKickoffView(
             projectId: draftP0Setup.projectId,
@@ -490,6 +498,8 @@ void main() {
     );
     await tester.pumpWidget(
       GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('vi', 'VN'),
         home: Scaffold(
           body: ProjectKickoffView(
             projectId: completeP0Draft.projectId,
@@ -508,5 +518,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(service.requestKickoffSuggestionCallCount, 1);
+  });
+
+  testWidgets('switching to English displays English translations correctly', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final freshSetup = const ProjectOperatingSetup(
+      projectId: 'p-lang',
+      workspaceId: 'w-1',
+      status: OperatingSetupStatus.notStarted,
+    );
+
+    // Initial load in English
+    await tester.pumpWidget(kickoffHarness(setup: freshSetup, locale: const Locale('en', 'US')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Step 1: Understand Project'), findsOneWidget);
+    expect(find.text('Who is experiencing this problem?'), findsOneWidget);
+    expect(find.text('What impact does this problem cause?'), findsOneWidget);
+    expect(find.text('What evidence do you have so far?'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget);
   });
 }

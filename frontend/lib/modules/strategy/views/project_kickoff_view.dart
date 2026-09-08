@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/contracts/enums.generated.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/layout_breakpoints.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -85,136 +86,139 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          CosaFloatingAppBar(
-            title: 'Thiết lập dự án',
-            subtitle:
-                'Xác định khách hàng, vấn đề, vòng khởi đầu và cam kết hành động tuần đầu.',
-            icon: Icons.flag_circle_outlined,
-            actions: [
-              IconButton(
-                key: const ValueKey('project_kickoff_strategy_settings_button'),
-                icon: const Icon(
-                  Icons.settings_suggest_outlined,
-                  size: 20,
-                  color: AppTheme.primary,
+            CosaFloatingAppBar(
+              title: L10nKey.projectKickoffTitle.tr,
+              subtitle: L10nKey.projectKickoffSubtitle.tr,
+              icon: Icons.flag_circle_outlined,
+              actions: [
+                IconButton(
+                  key: const ValueKey('project_kickoff_strategy_settings_button'),
+                  icon: const Icon(
+                    Icons.settings_suggest_outlined,
+                    size: 20,
+                    color: AppTheme.primary,
+                  ),
+                  tooltip: L10nKey.projectKickoffSettingsTooltip.tr,
+                  onPressed: () => WorkspaceStrategySettingsSheet.show(context),
                 ),
-                tooltip: 'Cài đặt khung quản trị chiến lược',
-                onPressed: () => WorkspaceStrategySettingsSheet.show(context),
-              ),
-              const SizedBox(width: 4),
-              TextButton.icon(
-                onPressed: widget.onOpenAdvancedRoadmap,
-                icon: const Icon(
-                  Icons.alt_route_rounded,
-                  size: 16,
-                  color: AppTheme.primary,
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  onPressed: widget.onOpenAdvancedRoadmap,
+                  icon: const Icon(
+                    Icons.alt_route_rounded,
+                    size: 16,
+                    color: AppTheme.primary,
+                  ),
+                  label: Text(
+                    L10nKey.projectKickoffAdvancedRoadmap.tr,
+                    style: const TextStyle(color: AppTheme.primary),
+                  ),
                 ),
-                label: const Text(
-                  'Lộ trình nâng cao',
-                  style: TextStyle(color: AppTheme.primary),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: widget.onBack,
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: 16,
+                    color: AppTheme.textMutedDark,
+                  ),
+                  label: Text(
+                    L10nKey.projectKickoffBack.tr,
+                    style: const TextStyle(color: AppTheme.textMutedDark),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              TextButton.icon(
-                onPressed: widget.onBack,
-                icon: const Icon(
-                  Icons.arrow_back_rounded,
-                  size: 16,
-                  color: AppTheme.textMutedDark,
-                ),
-                label: const Text(
-                  'Quay lại',
-                  style: TextStyle(color: AppTheme.textMutedDark),
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          const SizedBox(height: 16),
-          Expanded(
-            // `LayoutBuilder` PHẢI ở ngoài `Obx`: builder của nó chạy ở pha
-            // layout, ngoài phạm vi theo dõi đồng bộ của `Obx`. Nếu bọc nội
-            // dung bước bên trong `LayoutBuilder`, `Obx` không "nhìn thấy" các
-            // observable đọc trong đó (evidenceLevel, currentStep...) nên bấm
-            // radio / "Tiếp tục" cập nhật state mà không rebuild.
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Bề rộng nội dung theo 3 bậc layout (layout_breakpoints là
-                // nguồn sự thật duy nhất): desktop 4/12, tablet 6/12, mobile
-                // full trừ 16px padding mỗi bên. Nội dung luôn căn giữa.
-                final double contentWidth = switch (layoutForWidth(
-                  constraints.maxWidth,
-                )) {
-                  AppLayout.expanded => constraints.maxWidth * 4 / 12,
-                  AppLayout.medium => constraints.maxWidth * 6 / 12,
-                  AppLayout.compact => constraints.maxWidth - 32,
-                };
-                return Obx(() {
-                  if (controller.isLoading.value) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+            const SizedBox(height: 16),
+            Expanded(
+              // `LayoutBuilder` PHẢI ở ngoài `Obx`: builder của nó chạy ở pha
+              // layout, ngoài phạm vi theo dõi đồng bộ của `Obx`. Nếu bọc nội
+              // dung bước bên trong `LayoutBuilder`, `Obx` không "nhìn thấy" các
+              // observable đọc trong đó (evidenceLevel, currentStep...) nên bấm
+              // radio / "Tiếp tục" cập nhật state mà không rebuild.
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Bề rộng nội dung theo 3 bậc layout (layout_breakpoints là
+                  // nguồn sự thật duy nhất): desktop 4/12, tablet 6/12, mobile
+                  // full trừ 16px padding mỗi bên. Nội dung luôn căn giữa.
+                  final double contentWidth = switch (layoutForWidth(
+                    constraints.maxWidth,
+                  )) {
+                    AppLayout.expanded => constraints.maxWidth * 4 / 12,
+                    AppLayout.medium => constraints.maxWidth * 6 / 12,
+                    AppLayout.compact => constraints.maxWidth - 32,
+                  };
+                  return Obx(() {
+                    if (controller.isLoading.value) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  final error = controller.errorMessage.value;
+                    final error = controller.errorMessage.value;
 
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Center(
-                      child: SizedBox(
-                        width: contentWidth,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (error != null)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.error.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: AppTheme.error.withValues(
-                                      alpha: 0.4,
-                                    ),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.error_outline_rounded,
-                                      color: AppTheme.error,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        error,
-                                        style: const TextStyle(
-                                          color: AppTheme.error,
-                                        ),
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Center(
+                        child: SizedBox(
+                          width: contentWidth,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (error != null)
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.error.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: AppTheme.error.withValues(
+                                        alpha: 0.4,
                                       ),
                                     ),
-                                  ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.error_outline_rounded,
+                                        color: AppTheme.error,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          error,
+                                          style: const TextStyle(
+                                            color: AppTheme.error,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            _buildStepProgress(),
-                            const SizedBox(height: 16),
-                            _buildAnimatedStepContent(),
-                          ],
+                              _buildStepProgress(),
+                              const SizedBox(height: 16),
+                              _buildAnimatedStepContent(),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                });
-              },
+                    );
+                  });
+                },
+              ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
   }
 
   Widget _buildStepProgress() {
-    const steps = ['Hiểu dự án', 'Chọn vòng đầu', 'Chốt tuần đầu'];
+    final steps = [
+      L10nKey.projectKickoffStepTab1.tr,
+      L10nKey.projectKickoffStepTab2.tr,
+      L10nKey.projectKickoffStepTab3.tr,
+    ];
     final current = controller.currentStep.value;
     // Thanh "track" của tab: nền tối nhất để pill active (nền primary) nổi bật.
     return Container(
@@ -385,9 +389,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Bước 1: Hiểu dự án',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffStep1Title.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontSize: 17,
               fontWeight: FontWeight.bold,
@@ -396,9 +400,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           const SizedBox(height: 16),
 
           // Question 1
-          const Text(
-            'Ai đang gặp vấn đề này?',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffTargetCustomerLabel.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -409,8 +413,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             controller: controller.targetCustomerCtrl,
             style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
             decoration: InputDecoration(
-              hintText:
-                  'Ví dụ: Trưởng nhóm tài chính tại các công ty B2B quy mô 20-100 người...',
+              hintText: L10nKey.projectKickoffTargetCustomerHint.tr,
               hintStyle: const TextStyle(
                 color: AppTheme.textMutedDark,
                 fontSize: 13,
@@ -430,9 +433,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           const SizedBox(height: 18),
 
           // Question 2
-          const Text(
-            'Vấn đề gây ảnh hưởng gì?',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffProblemStatementLabel.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -444,8 +447,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             maxLines: 3,
             style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
             decoration: InputDecoration(
-              hintText:
-                  'Ví dụ: Mất hàng chục giờ đối soát hóa đơn cuối tháng, dễ sai sót số liệu...',
+              hintText: L10nKey.projectKickoffProblemStatementHint.tr,
               hintStyle: const TextStyle(
                 color: AppTheme.textMutedDark,
                 fontSize: 13,
@@ -462,9 +464,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           const SizedBox(height: 18),
 
           // Question 3
-          const Text(
-            'Bạn đã có gì để chứng minh?',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffEvidenceLabel.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -497,7 +499,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                         value: level,
                         activeColor: AppTheme.primary,
                         title: Text(
-                          level.label,
+                          level.localizedLabel,
                           style: const TextStyle(
                             color: AppTheme.textDark,
                             fontSize: 14,
@@ -536,7 +538,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                   ),
                 ),
                 label: Text(
-                  controller.isSaving.value ? 'Đang lưu...' : 'Tiếp tục',
+                  controller.isSaving.value
+                      ? L10nKey.projectKickoffSaving.tr
+                      : L10nKey.projectKickoffContinue.tr,
                 ),
               ),
             ],
@@ -554,8 +558,11 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
         recommended == ProjectLifecycleStage.p1ProblemValidation;
 
     final proposalText = isP1Recommended
-        ? 'COSA đề xuất: Xác thực vấn đề (P1) trong 4 tuần'
-        : 'COSA đề xuất: Khám phá (P0) trong 2 tuần';
+        ? L10nKey.projectKickoffProposalP1.tr
+        : L10nKey.projectKickoffProposalP0.tr;
+    final proposalGoal = isP1Recommended
+        ? L10nKey.projectKickoffGoalP1.tr
+        : L10nKey.projectKickoffGoalP0.tr;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -567,9 +574,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Bước 2: Chọn vòng đầu',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffStep2Title.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontSize: 17,
               fontWeight: FontWeight.bold,
@@ -609,9 +616,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        isP1Recommended
-                            ? 'Mục tiêu: Đào sâu mức độ đau và giải pháp hiện tại của phân khúc khách hàng.'
-                            : 'Mục tiêu: nói chuyện với 5 khách hàng mục tiêu để hiểu vấn đề có đủ đau và đủ thường xuyên hay không.',
+                        proposalGoal,
                         style: const TextStyle(
                           color: AppTheme.textDark,
                           fontSize: 13,
@@ -627,9 +632,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           const SizedBox(height: 20),
 
           // Stage Options
-          const Text(
-            'Chọn giai đoạn vòng đầu:',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffSelectStageLabel.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -642,8 +647,8 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
               Expanded(
                 child: _stageSelectionCard(
                   stage: ProjectLifecycleStage.p0Discovery,
-                  title: 'Khám phá (P0)',
-                  subtitle: '1–2 tuần · Khảo sát pain point ban đầu',
+                  title: L10nKey.projectKickoffStageP0Title.tr,
+                  subtitle: L10nKey.projectKickoffStageP0Subtitle.tr,
                   isSelected:
                       controller.selectedStage.value ==
                       ProjectLifecycleStage.p0Discovery,
@@ -656,9 +661,8 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
               Expanded(
                 child: _stageSelectionCard(
                   stage: ProjectLifecycleStage.p1ProblemValidation,
-                  title: 'Xác thực vấn đề (P1)',
-                  subtitle:
-                      '2–4 tuần · Đòi hỏi từ 5 cuộc phỏng vấn hoặc prototype',
+                  title: L10nKey.projectKickoffStageP1Title.tr,
+                  subtitle: L10nKey.projectKickoffStageP1Subtitle.tr,
                   isSelected:
                       controller.selectedStage.value ==
                       ProjectLifecycleStage.p1ProblemValidation,
@@ -679,17 +683,17 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'P1 yêu cầu từ 5 cuộc phỏng vấn hoặc có prototype/doanh thu.',
-                style: TextStyle(color: AppTheme.warning, fontSize: 13),
+                L10nKey.projectKickoffP1Warning.tr,
+                style: const TextStyle(color: AppTheme.warning, fontSize: 13),
               ),
             ),
 
           const SizedBox(height: 20),
 
           // Duration Chips
-          const Text(
-            'Thời lượng vòng này (Tuần):',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffCycleDurationLabel.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -700,9 +704,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           Wrap(spacing: 8, children: _buildDurationChips()),
 
           const SizedBox(height: 20),
-          const Text(
-            'Vòng bắt đầu từ:',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffCycleStartDateLabel.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontWeight: FontWeight.w600,
               fontSize: 14,
@@ -724,7 +728,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                   controller.saveCurrentStep();
                   controller.currentStep.value = 0;
                 },
-                child: const Text('Quay lại'),
+                child: Text(L10nKey.projectKickoffBack.tr),
               ),
               ElevatedButton.icon(
                 onPressed: controller.isSaving.value
@@ -746,7 +750,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                   ),
                 ),
                 label: Text(
-                  controller.isSaving.value ? 'Đang lưu...' : 'Tiếp tục',
+                  controller.isSaving.value
+                      ? L10nKey.projectKickoffSaving.tr
+                      : L10nKey.projectKickoffContinue.tr,
                 ),
               ),
             ],
@@ -764,7 +770,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
     return options.map((weeks) {
       final isSelected = controller.stageDurationWeeks.value == weeks;
       return ChoiceChip(
-        label: Text('$weeks tuần'),
+        label: Text(
+          L10nKey.projectKickoffWeeksCount.trParams({'weeks': '$weeks'}),
+        ),
         selected: isSelected,
         selectedColor: AppTheme.primary,
         backgroundColor: AppTheme.backgroundDarker,
@@ -833,10 +841,12 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
     final stageLabel =
         controller.selectedStage.value ==
             ProjectLifecycleStage.p1ProblemValidation
-        ? 'Xác thực vấn đề (P1)'
-        : 'Khám phá (P0)';
-    return 'Vòng $stageLabel · $weeks tuần — giờ chỉ chốt chi tiết tuần 1. '
-        'Các tuần sau sẽ lên kế hoạch trong buổi review hằng tuần.';
+        ? L10nKey.projectKickoffStageP1Title.tr
+        : L10nKey.projectKickoffStageP0Title.tr;
+    return L10nKey.projectKickoffStep3Context.trParams({
+      'stage': stageLabel,
+      'weeks': '$weeks',
+    });
   }
 
   // ── Step 3: Chốt việc tuần đầu ──
@@ -853,10 +863,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Bước 3: Chốt việc tuần đầu',
-                  style: TextStyle(
+                  L10nKey.projectKickoffStep3Title.tr,
+                  style: const TextStyle(
                     color: AppTheme.textDark,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -874,7 +884,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                 IconButton(
                   icon: const Icon(Icons.auto_awesome, size: 20),
                   color: AppTheme.primary,
-                  tooltip: 'Tạo lại gợi ý bằng AI',
+                  tooltip: L10nKey.projectKickoffRegenerateAiTooltip.tr,
                   onPressed: () =>
                       controller.requestKickoffSuggestion(overwrite: true),
                   padding: EdgeInsets.zero,
@@ -895,26 +905,25 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           const SizedBox(height: 16),
 
           // Outcome
-          const Text(
-            'Kết quả của tuần 1',
-            style: TextStyle(
+          Text(
+            L10nKey.projectKickoffFirstWeekOutcomeLabel.tr,
+            style: const TextStyle(
               color: AppTheme.textDark,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Tuần 2 trở đi chốt ở buổi review, không nhập ở đây.',
-            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
+          Text(
+            L10nKey.projectKickoffFirstWeekOutcomeHint.tr,
+            style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
           ),
           const SizedBox(height: 6),
           TextField(
             controller: controller.firstWeekOutcomeCtrl,
             style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
             decoration: InputDecoration(
-              hintText:
-                  'Ví dụ: Hoàn thành 5 cuộc trao đổi với đúng nhóm khách hàng...',
+              hintText: L10nKey.projectKickoffFirstWeekOutcomeInputHint.tr,
               hintStyle: const TextStyle(
                 color: AppTheme.textMutedDark,
                 fontSize: 13,
@@ -936,10 +945,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           // Actions List (1 to 3 items)
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  '1–3 việc cần làm trong tuần đầu:',
-                  style: TextStyle(
+                  L10nKey.projectKickoffFirstWeekActionsLabel.tr,
+                  style: const TextStyle(
                     color: AppTheme.textDark,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -948,7 +957,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
               ),
               const SizedBox(width: 8),
               Text(
-                '${controller.firstWeekActions.length}/3 việc',
+                L10nKey.projectKickoffActionsCount.trParams({
+                  'count': '${controller.firstWeekActions.length}',
+                }),
                 style: const TextStyle(
                   color: AppTheme.textMutedDark,
                   fontSize: 12,
@@ -1006,7 +1017,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                     onPressed: controller.isSaving.value
                         ? null
                         : () => controller.removeAction(i),
-                    tooltip: 'Xóa việc này',
+                    tooltip: L10nKey.projectKickoffDeleteActionTooltip.tr,
                   ),
                 ],
               ),
@@ -1025,7 +1036,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                       fontSize: 13,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Nhập hành động tuần đầu...',
+                      hintText: L10nKey.projectKickoffNewActionHint.tr,
                       hintStyle: const TextStyle(
                         color: AppTheme.textMutedDark,
                         fontSize: 12,
@@ -1058,7 +1069,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                     foregroundColor: AppTheme.textDark,
                     side: const BorderSide(color: AppTheme.borderDark),
                   ),
-                  label: const Text('Thêm việc'),
+                  label: Text(L10nKey.projectKickoffAddActionButton.tr),
                 ),
               ],
             ),
@@ -1082,7 +1093,7 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                   controller.saveCurrentStep();
                   controller.currentStep.value = 1;
                 },
-                child: const Text('Quay lại'),
+                child: Text(L10nKey.projectKickoffBack.tr),
               ),
               ElevatedButton.icon(
                 onPressed:
@@ -1105,8 +1116,8 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
                 ),
                 label: Text(
                   controller.isActivating.value
-                      ? 'Đang kích hoạt...'
-                      : 'Xác nhận vòng đầu',
+                      ? L10nKey.projectKickoffActivating.tr
+                      : L10nKey.projectKickoffConfirmCycle.tr,
                 ),
               ),
             ],
@@ -1116,14 +1127,14 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
     );
   }
 
-  static const _weekdayLabels = {
-    1: 'Thứ Hai',
-    2: 'Thứ Ba',
-    3: 'Thứ Tư',
-    4: 'Thứ Năm',
-    5: 'Thứ Sáu',
-    6: 'Thứ Bảy',
-    7: 'Chủ Nhật',
+  Map<int, String> get _weekdayLabels => {
+    1: L10nKey.weekdayMonday.tr,
+    2: L10nKey.weekdayTuesday.tr,
+    3: L10nKey.weekdayWednesday.tr,
+    4: L10nKey.weekdayThursday.tr,
+    5: L10nKey.weekdayFriday.tr,
+    6: L10nKey.weekdaySaturday.tr,
+    7: L10nKey.weekdaySunday.tr,
   };
 
   static const _timeOptions = [
@@ -1166,16 +1177,16 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(
+                children: [
+                  const Icon(
                     Icons.calendar_today_rounded,
                     size: 16,
                     color: AppTheme.primary,
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Text(
-                    'Ngày review tuần:',
-                    style: TextStyle(
+                    L10nKey.projectKickoffWeeklyReviewDayLabel.tr,
+                    style: const TextStyle(
                       color: AppTheme.textDark,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -1263,7 +1274,10 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
         .join(' & ');
     final hh = controller.weeklyReviewTime.value;
     return Text(
-      'Buổi review: $dd lúc $hh (giờ workspace) · lặp hằng tuần trong vòng.',
+      L10nKey.projectKickoffReviewScheduleText.trParams({
+        'date': dd,
+        'time': hh,
+      }),
       style: const TextStyle(
         color: AppTheme.textMutedDark,
         fontSize: 12,
@@ -1307,9 +1321,9 @@ class _ProjectKickoffViewState extends State<ProjectKickoffView> {
           label: Text(label),
         ),
         if (isDefault)
-          const Text(
-            'mặc định: Thứ Hai kế tiếp',
-            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
+          Text(
+            L10nKey.projectKickoffDefaultNextMonday.tr,
+            style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
           ),
       ],
     );

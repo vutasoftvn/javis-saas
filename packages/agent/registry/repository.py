@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from agent.registry.models import PublishedSpecRecord
 
@@ -171,34 +172,39 @@ class PostgresSpecRegistryRepository:
                 )
             return existing
 
-        async with self._session_factory() as session:
-            await session.execute(
-                text(
-                    """
-                    INSERT INTO agent_registry.published_specs (
-                        spec_kind, spec_id, version, definition_hash, content, status,
-                        publisher, created_at, published_at, retired_at
-                    ) VALUES (
-                        :spec_kind, :spec_id, :version, :definition_hash, :content, :status,
-                        :publisher, :created_at, :published_at, :retired_at
-                    )
-                    ON CONFLICT (spec_kind, spec_id, version) DO NOTHING
-                    """
-                ),
-                {
-                    "spec_kind": record.spec_kind,
-                    "spec_id": record.spec_id,
-                    "version": record.version,
-                    "definition_hash": record.definition_hash,
-                    "content": json.dumps(record.content),
-                    "status": record.status,
-                    "publisher": record.publisher,
-                    "created_at": record.created_at,
-                    "published_at": record.published_at,
-                    "retired_at": record.retired_at,
-                },
-            )
-            await session.commit()
+        try:
+            async with self._session_factory() as session:
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO agent_registry.published_specs (
+                            spec_kind, spec_id, version, definition_hash, content, status,
+                            publisher, created_at, published_at, retired_at
+                        ) VALUES (
+                            :spec_kind, :spec_id, :version, :definition_hash, :content, :status,
+                            :publisher, :created_at, :published_at, :retired_at
+                        )
+                        ON CONFLICT (spec_kind, spec_id, version) DO NOTHING
+                        """
+                    ),
+                    {
+                        "spec_kind": record.spec_kind,
+                        "spec_id": record.spec_id,
+                        "version": record.version,
+                        "definition_hash": record.definition_hash,
+                        "content": json.dumps(record.content),
+                        "status": record.status,
+                        "publisher": record.publisher,
+                        "created_at": record.created_at,
+                        "published_at": record.published_at,
+                        "retired_at": record.retired_at,
+                    },
+                )
+                await session.commit()
+        except IntegrityError:
+            # Handle race condition where two processes publish specs concurrently
+            # and trigger uq_agent_registry_published_specs_hash
+            pass
 
         # Đọc lại — nếu 2 process cùng publish đồng thời (ON CONFLICT DO NOTHING),
         # bản ghi thắng cuộc đua mới là sự thật, không phải `record` ta vừa gửi.
