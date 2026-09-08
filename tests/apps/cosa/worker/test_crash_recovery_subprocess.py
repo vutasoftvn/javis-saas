@@ -25,7 +25,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -60,131 +59,6 @@ def _sign_worker_token(worker_id: str) -> str:
         secret,
         algorithm="HS256",
     )
-
-
-@pytest.fixture
-def control_plane_dsn() -> str:
-    """Fixture trỏ tới Control Plane Postgres thật."""
-    dsn = (
-        os.environ.get("COSA_TEST_DATABASE_URL")
-        or os.environ.get("COSA_DATABASE_URL")
-        or os.environ.get("AGENT_TEST_DATABASE_URL")
-        or os.environ.get("DATABASE_URL")
-    )
-    if not dsn:
-        pytest.skip("COSA_TEST_DATABASE_URL/DATABASE_URL không set")
-
-    dsn = dsn.replace("postgres://", "postgresql://")
-    parts = dsn.split("@")
-    if len(parts) == 2 and ":5432" in parts[1]:
-        prefix = parts[0]
-        suffix = parts[1]
-        if suffix.startswith("postgres:"):
-            dsn = prefix + "@127.0.0.1:" + suffix[len("postgres:") :]
-
-    return dsn
-
-
-@pytest.fixture
-def async_control_plane_dsn(control_plane_dsn: str) -> str:
-    """Convert Control Plane DSN to async format for SQLAlchemy."""
-    async_dsn = control_plane_dsn
-    if "postgresql+asyncpg://" not in async_dsn:
-        async_dsn = async_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return async_dsn
-
-
-@pytest.fixture
-def agent_dsn() -> str:
-    """Fixture trỏ tới Agent Core Postgres thật."""
-    dsn = os.environ.get("AGENT_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
-    if not dsn:
-        pytest.skip("AGENT_TEST_DATABASE_URL/DATABASE_URL không set")
-
-    dsn = dsn.replace("postgres://", "postgresql://")
-    parts = dsn.split("@")
-    if len(parts) == 2 and ":5432" in parts[1]:
-        prefix = parts[0]
-        suffix = parts[1]
-        if suffix.startswith("postgres:"):
-            dsn = prefix + "@127.0.0.1:" + suffix[len("postgres:") :]
-
-    if "postgresql+asyncpg://" not in dsn:
-        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
-
-    return dsn
-
-
-@pytest.fixture
-def control_plane_service(control_plane_dsn: str):
-    """Start `encore run` for services/cosa control-plane service.
-
-    Yields control when service is healthy (responds to HTTP).
-    Tears down `encore run` process when done.
-    """
-    repo_root = Path(__file__).parent.parent.parent.parent.parent
-    services_dir = repo_root / "services" / "cosa"
-
-    encore_env = {**os.environ}
-    db_url = control_plane_dsn
-    if "?sslmode=" not in db_url:
-        db_url = f"{db_url}?sslmode=disable"
-    encore_env["COSA_DATABASE_URL"] = db_url
-
-    if not shutil.which("encore"):
-        pytest.skip("encore CLI not found in PATH")
-
-    try:
-        proc = subprocess.Popen(
-            ["encore", "run", "--port=4000"],
-            cwd=services_dir,
-            env=encore_env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-    except FileNotFoundError:
-        pytest.skip("encore CLI not installed")
-
-    max_retries = 60
-    retry_count = 0
-    control_plane_port = 4000
-    healthy = False
-    while retry_count < max_retries:
-        try:
-            resp = httpx.get(f"http://127.0.0.1:{control_plane_port}/", timeout=1.0)
-            if resp.status_code < 500:
-                healthy = True
-                break
-        except Exception:
-            pass
-
-        if proc.poll() is not None:
-            _, stderr = proc.communicate()
-            pytest.skip(f"encore run died: {stderr.decode()[:200]}")
-
-        time.sleep(0.5)
-        retry_count += 1
-
-    if not healthy:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
-        pytest.skip(
-            f"Control-plane service didn't become healthy within {max_retries * 0.5} seconds"
-        )
-
-    try:
-        yield f"http://127.0.0.1:{control_plane_port}"
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
 
 
 @pytest.mark.durability

@@ -67,7 +67,7 @@ def _require_encore() -> str:
     return encore
 
 
-def _asyncpg_url(url: str) -> str:
+def asyncpg_test_url(url: str) -> str:
     """apps/cosa mở agent DB bằng driver `postgresql+asyncpg`; `DisposableCluster`
     phát app URL ở scheme `postgresql://` trần kèm `?sslmode=disable`.
 
@@ -135,7 +135,7 @@ def _spawn_api_and_worker(
     cho `KNOWLEDGE_INGESTION_ENABLED`/`COSA_WORKSPACE_STORAGE_ROOT` khi test
     cần bật knowledge ingestion, mặc định `None` giữ hành vi cũ nguyên vẹn."""
     common_py = dict(
-        AGENT_DATABASE_URL=_asyncpg_url(cluster.agent_app_url),
+        AGENT_DATABASE_URL=asyncpg_test_url(cluster.agent_app_url),
         COSA_DATABASE_URL=cluster.cosa_app_url,
         COMPANY_SERVICE_URL=company_url,
         COSA_CONTROL_PLANE_URL=cosa_url,
@@ -307,6 +307,34 @@ def boot_subprocess_stack(
     except Exception:
         terminate_all(procs)
         raise
+
+
+def boot_cosa_only(cluster: DisposableCluster) -> tuple[str, ManagedProc]:
+    """Boot MỘT MÌNH `services/cosa` (Encore) trỏ vào DB disposable của
+    `cluster`, trên cổng vừa reserve bằng `pick_free_port()` (không bao giờ
+    cổng cố định — tránh đụng một `services/cosa` khác đang chạy sẵn ở máy
+    dev). Dùng cho test chỉ cần lease/scheduled-tasks endpoint của Control
+    Plane (vd. `tests/apps/cosa/worker/test_lease_mutual_exclusion_real.py`),
+    không cần boot đủ 4 vùng kiến trúc như `boot_subprocess_stack()`.
+
+    Caller chịu trách nhiệm `terminate_all([proc])` ở teardown — hàm này chỉ
+    spawn, không tự dọn khi thành công (khi `wait_until_ready` raise thì có
+    dọn trước khi propagate, tránh rò rỉ tiến trình con)."""
+    encore = _require_encore()
+    port = pick_free_port()
+    cosa_url = f"http://127.0.0.1:{port}"
+    proc = spawn(
+        "cosa",
+        [encore, "run", f"--port={port}"],
+        cwd=os.path.join(_REPO_ROOT, "services", "cosa"),
+        env=_clean_env(COSA_DATABASE_URL=cluster.cosa_app_url),
+    )
+    try:
+        wait_until_ready("cosa", f"{cosa_url}/healthz", proc, timeout_s=_ENCORE_READY_TIMEOUT_S)
+    except Exception:
+        terminate_all([proc])
+        raise
+    return cosa_url, proc
 
 
 def teardown_subprocess_stack(handles: StackHandles) -> None:
