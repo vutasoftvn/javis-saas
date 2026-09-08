@@ -606,3 +606,65 @@ async def test_copilot_reads_go_through_a_real_capability_gateway_with_audit_tra
     ]
     assert len(tool_calls) == 1
     assert tool_calls[0].status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_copilot_run_locale_provenance_from_profile(mock_plane, mock_stream_mgr):
+    plane = mock_plane
+    mock_locale_client = AsyncMock()
+    from apps.cosa.policies.profile_locale_client import ProfileLocaleSnapshot
+
+    mock_locale_client.get_snapshot.return_value = ProfileLocaleSnapshot(
+        workspace_id="ws_copilot_loc",
+        preferred_locale="en-US",
+    )
+    plane.profile_locale_client = mock_locale_client
+
+    payload = {
+        "run_id": "run_copilot_loc_1",
+        "workspace_id": "ws_copilot_loc",
+        "principal": "user:123",
+        "delegation_token": "delegation-token-en",
+        "thread_ref": {"thread_id": "t_loc_1"},
+        "intent": "summarize",
+        "correlation_id": "corr-loc-1",
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock):
+        await run_customer_support_copilot(plane, mock_stream_mgr, payload)
+
+    run_req = plane.kernel.run.call_args[0][0]
+    assert run_req.locale == "en-US"
+    assert run_req.metadata["locale"] == "en-US"
+    assert run_req.metadata["locale_source"] == "profile"
+    assert "Analyze thread t_loc_1" in run_req.input["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_copilot_run_fails_closed_when_user_principal_profile_locale_fails(
+    mock_plane, mock_stream_mgr
+):
+    plane = mock_plane
+    mock_locale_client = AsyncMock()
+    from apps.cosa.policies.profile_locale_client import ProfileLocaleUnavailable
+
+    mock_locale_client.get_snapshot.side_effect = ProfileLocaleUnavailable("control plane 503")
+    plane.profile_locale_client = mock_locale_client
+
+    payload = {
+        "run_id": "run_copilot_loc_fail",
+        "workspace_id": "ws_copilot_loc",
+        "principal": "user:123",
+        "delegation_token": "delegation-token-err",
+        "thread_ref": {"thread_id": "t_loc_2"},
+        "intent": "summarize",
+        "correlation_id": "corr-loc-2",
+    }
+
+    with patch("apps.cosa.worker.copilot_run.callback_company_result", new_callable=AsyncMock):
+        result = await run_customer_support_copilot(plane, mock_stream_mgr, payload)
+
+    assert result["status"] == "failed"
+    assert "profile_locale_unavailable" in result["reason"]
+    # Verify kernel run was NOT invoked (fail-closed, no silent vi-VN execution)
+    plane.kernel.run.assert_not_called()

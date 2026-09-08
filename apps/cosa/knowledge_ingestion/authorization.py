@@ -80,9 +80,13 @@ class KnowledgeAuthorization:
     async def resolve(
         self, identity: _IdentityLike, document_id: UUID, *, workspace_id: str | None = None
     ) -> KnowledgeAccessDecision:
-        ws_id = workspace_id if workspace_id is not None else getattr(identity, "workspace_id", None)
+        ws_id = (
+            workspace_id if workspace_id is not None else getattr(identity, "workspace_id", None)
+        )
         if ws_id is None:
-            raise ValueError("identity phải mang workspace_id, hoặc truyền workspace_id= tường minh")
+            raise ValueError(
+                "identity phải mang workspace_id, hoặc truyền workspace_id= tường minh"
+            )
 
         document = await self._vault_repository.get_document(ws_id, document_id)
         if document is None:

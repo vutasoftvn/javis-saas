@@ -71,7 +71,7 @@ void main() {
   testWidgets('time badge shows a date prefix when plannedStartAt is not today', (tester) async {
     // Cố định vào một ngày xa cả quá khứ lẫn tương lai để "hôm nay" trong
     // test không thể trùng ngẫu nhiên với plannedStartAt cố định bên dưới.
-    final notToday = DateTime(2026, 9, 8, 14, 0);
+    final notToday = DateTime(2027, 9, 8, 14, 0);
 
     await tester.pumpWidget(
       MaterialApp(

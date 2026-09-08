@@ -27,6 +27,7 @@ from tests.apps.cosa.policy_test_helpers import (
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
+
 @pytest_asyncio.fixture
 async def e2e_setup():
 

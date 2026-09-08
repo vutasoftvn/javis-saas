@@ -52,7 +52,7 @@ _PLANE_CORE_DEPENDENCIES = (
 )
 
 
-def _plane_is_ready(plane: object | None) -> bool:
+def _plane_is_ready(plane: object | None, *, require_event_intake: bool = False) -> bool:
     """`plane` absent (chưa qua lifespan/inject) hoặc thiếu dependency cốt
     lõi ⇒ chưa sẵn sàng. `event_intake_deps` chỉ bắt buộc khi deployment
     này thật sự bật event intake (`AGENT_DATABASE_URL` đã cấu hình) — không
@@ -61,7 +61,7 @@ def _plane_is_ready(plane: object | None) -> bool:
         return False
     if any(getattr(plane, dep, None) is None for dep in _PLANE_CORE_DEPENDENCIES):
         return False
-    if os.environ.get("AGENT_DATABASE_URL") and getattr(plane, "event_intake_deps", None) is None:
+    if require_event_intake and getattr(plane, "event_intake_deps", None) is None:
         return False
     # Task 4 — feature flag bật nhưng chưa dựng được knowledge_ingestion_deps
     # (thiếu scanner/sandbox thật đã inject) ⇒ instance này KHÔNG được nhận
@@ -231,7 +231,7 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     @app.get("/ready")
     async def readiness():
         current_plane = getattr(app.state, "plane", None)
-        if not _plane_is_ready(current_plane):
+        if not _plane_is_ready(current_plane, require_event_intake=not injected):
             # Fail-closed: plane vắng mặt hoặc thiếu dependency cốt lõi KHÔNG
             # được coi là "tạm ổn" — 503 để load balancer ngừng route traffic
             # mới vào instance này (§10.5 freshness invariant áp dụng tương tự

@@ -312,8 +312,10 @@ async def sync_built_in_skills(
 ) -> SyncBuiltInResponse:
     """Đồng bộ và publish có kiểm tra tất cả built-in skillpacks vào SpecRegistry.
 
-    Chạy validate_skillpack_tree trước; nếu 0 violation, publish từng skillpack
-    vào SpecRegistryRepository (idempotent theo hash). KHÔNG đụng cap_registry.
+    Uỷ quyền toàn bộ validate + publish cho `seed_builtin_skillpacks()` (dùng
+    chung với API/worker startup) — fail-closed: một lỗi giữa chừng raise
+    `BuiltinSkillpackSeedError`/`SpecVersionHashConflictError`, response KHÔNG
+    bao giờ báo cáo partial success. KHÔNG đụng cap_registry.
     """
     # Final-review Finding 3 — dùng chung `require_workspace_operator` với mọi
     # mutation route khác trong file này (thay vì check role inline cũ: `if

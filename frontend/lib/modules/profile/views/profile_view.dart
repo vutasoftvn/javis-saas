@@ -22,7 +22,7 @@ class ProfileView extends GetView<ProfileController> {
       appBar: AppBar(
         backgroundColor: _bg,
         elevation: 0,
-        title: const Text('Hồ sơ của tôi', style: TextStyle(color: Colors.white)),
+        title: Text(L10nKey.profileTitle.tr, style: const TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Obx(() {
@@ -52,7 +52,7 @@ class ProfileView extends GetView<ProfileController> {
                 const SizedBox(height: 12),
                 Center(
                   child: Text(
-                    controller.displayName.value.isNotEmpty ? controller.displayName.value : 'Chưa đặt tên',
+                    controller.displayName.value.isNotEmpty ? controller.displayName.value : L10nKey.profileUnnamed.tr,
                     style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -84,7 +84,7 @@ class ProfileView extends GetView<ProfileController> {
                     : const SizedBox.shrink()),
 
                 _SectionCard(
-                  title: 'Email',
+                  title: L10nKey.profileEmail.tr,
                   child: Row(
                     children: [
                       const Icon(Icons.email_outlined, color: _muted, size: 18),
@@ -102,7 +102,7 @@ class ProfileView extends GetView<ProfileController> {
                 const SizedBox(height: 16),
 
                 _SectionCard(
-                  title: 'Họ và tên',
+                  title: L10nKey.profileFullName.tr,
                   child: Row(
                     children: [
                       Expanded(
@@ -124,7 +124,7 @@ class ProfileView extends GetView<ProfileController> {
                           : IconButton(
                               icon: const Icon(Icons.check_circle_outline, color: _accent, size: 20),
                               onPressed: controller.saveDisplayName,
-                              tooltip: 'Lưu tên',
+                              tooltip: L10nKey.profileSaveName.tr,
                             )),
                     ],
                   ),
@@ -132,22 +132,22 @@ class ProfileView extends GetView<ProfileController> {
                 const SizedBox(height: 16),
 
                 _SectionCard(
-                  title: 'Số điện thoại',
+                  title: L10nKey.profilePhone.tr,
                   child: Obx(() {
                     final hasPhone = controller.phone.value != null && controller.phone.value!.isNotEmpty;
                     if (!hasPhone && !controller.isEditingPhone.value) {
                       return Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Chưa cập nhật số điện thoại',
-                              style: TextStyle(color: _muted, fontSize: 13, fontStyle: FontStyle.italic),
+                              L10nKey.profileNoPhone.tr,
+                              style: const TextStyle(color: _muted, fontSize: 13, fontStyle: FontStyle.italic),
                             ),
                           ),
                           TextButton.icon(
                             onPressed: () => controller.isEditingPhone.value = true,
                             icon: const Icon(Icons.add, size: 16, color: _accent),
-                            label: const Text('Thêm', style: TextStyle(color: _accent, fontSize: 13)),
+                            label: Text(L10nKey.commonAdd.tr, style: const TextStyle(color: _accent, fontSize: 13)),
                           ),
                         ],
                       );
@@ -167,7 +167,7 @@ class ProfileView extends GetView<ProfileController> {
                           IconButton(
                             icon: const Icon(Icons.edit_outlined, color: _muted, size: 18),
                             onPressed: () => controller.isEditingPhone.value = true,
-                            tooltip: 'Sửa',
+                            tooltip: L10nKey.commonEdit.tr,
                           ),
                         ],
                       );
@@ -198,7 +198,7 @@ class ProfileView extends GetView<ProfileController> {
                             : IconButton(
                                 icon: const Icon(Icons.check_circle_outline, color: _accent, size: 20),
                                 onPressed: controller.savePhone,
-                                tooltip: 'Lưu số điện thoại',
+                                tooltip: L10nKey.profileSavePhone.tr,
                               )),
                       ],
                     );
@@ -243,7 +243,7 @@ class ProfileView extends GetView<ProfileController> {
                 OutlinedButton.icon(
                   onPressed: controller.logout,
                   icon: const Icon(Icons.logout, size: 18, color: AppTheme.accentLight),
-                  label: const Text('Đăng xuất', style: TextStyle(color: AppTheme.accentLight)),
+                  label: Text(L10nKey.profileLogout.tr, style: const TextStyle(color: AppTheme.accentLight)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppTheme.accentLight),
                     padding: const EdgeInsets.symmetric(vertical: 14),

@@ -2,38 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal
 import logging
 import uuid
 
 from agent.conversations.models import ConversationRecord, MessageAttachmentRecord, MessageRecord
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import ValidationError
-
-from apps.cosa.policies.profile_locale_client import ProfileLocaleUnavailable
-
-SUPPORTED_LOCALES = frozenset({"vi-VN", "en-US"})
-
-
-@dataclass(frozen=True)
-class ResolvedLocale:
-    value: str
-    source: Literal["profile", "turn_override", "system_fallback"]
-
-
-def resolve_response_locale(
-    *, profile_locale: str | None, response_locale_override: str | None, has_principal: bool
-) -> ResolvedLocale:
-    if response_locale_override is not None:
-        if response_locale_override not in SUPPORTED_LOCALES:
-            raise ValueError(f"unsupported response_locale_override: {response_locale_override}")
-        return ResolvedLocale(value=response_locale_override, source="turn_override")
-    if has_principal and profile_locale is not None:
-        if profile_locale not in SUPPORTED_LOCALES:
-            raise ValueError(f"unsupported profile_locale: {profile_locale}")
-        return ResolvedLocale(value=profile_locale, source="profile")
-    return ResolvedLocale(value="vi-VN", source="system_fallback")
 
 from apps.cosa.api.event_stream import (
     UX_EVENT_TYPES,
@@ -59,6 +33,11 @@ from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_i
 from apps.cosa.auth.jwt import MissingPlatformIdentityError
 from apps.cosa.compliance.data_egress_context import DirectMessageDataAccess
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.policies.locale_policy import (
+    ProfileLocaleUnavailable,
+    ResolvedLocale,
+    resolve_response_locale,
+)
 
 __all__ = ["create_conversation_router"]
 

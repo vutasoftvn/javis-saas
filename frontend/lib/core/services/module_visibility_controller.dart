@@ -73,6 +73,7 @@ class ModuleVisibilityController extends GetxController {
   final ModuleVisibilityApi _api;
   final RxMap<OptionalModule, ModuleVisibility> entries = <OptionalModule, ModuleVisibility>{}.obs;
   final RxBool isLoading = false.obs;
+  final RxBool hasLoadedSnapshot = false.obs;
   String? _currentWorkspaceId;
 
   String? get currentWorkspaceId => _currentWorkspaceId;
@@ -87,8 +88,11 @@ class ModuleVisibilityController extends GetxController {
         map[item.module] = item;
       }
       entries.assignAll(map);
+      hasLoadedSnapshot.value = true;
     } catch (e) {
       debugPrint('[ModuleVisibilityController] reloadForWorkspace error: $e');
+      hasLoadedSnapshot.value = false;
+      entries.clear();
     } finally {
       isLoading.value = false;
     }
@@ -97,13 +101,15 @@ class ModuleVisibilityController extends GetxController {
   void clear() {
     _currentWorkspaceId = null;
     entries.clear();
+    hasLoadedSnapshot.value = false;
   }
 
   bool isVisible(WorkspaceModule module) {
     final opt = optionalModuleForWorkspaceModule(module);
     if (opt == null) return true;
+    if (!hasLoadedSnapshot.value) return false;
     final entry = entries[opt];
-    if (entry == null) return true;
+    if (entry == null) return false;
     return entry.effectiveVisible;
   }
 

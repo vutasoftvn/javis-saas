@@ -7,11 +7,14 @@
 // state cho `DashboardDesktopSidebar`/`DashboardMobileDrawer` hiện có — KHÔNG
 // viết lại 2 widget đó (ngoài phạm vi Task 9), chỉ đảm bảo chúng luôn có
 // đúng 1 instance dùng chung dù vào module nào.
+import 'dart:ui';
+
 import 'package:get/get.dart';
 
 import '../../modules/dashboard/controllers/dashboard_controller.dart';
 import '../../modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import '../../modules/hologram_hub/controllers/hologram_hub_controller.dart';
+import '../localization/app_translations.dart';
 import '../services/feature_flags_controller.dart';
 import 'chat_panel_controller.dart';
 
@@ -30,6 +33,11 @@ class AppShellController extends GetxController {
   /// riêng không còn tự đăng ký nó — thiếu bước này sẽ khiến floating voice
   /// lỗi "improper use of GetX" trên mọi route KHÔNG PHẢI `/hub`.
   static void ensureShellDependencies() {
+    if (Get.translations.isEmpty) {
+      Get.addTranslations(AppTranslations().keys);
+    }
+    Get.locale ??= const Locale('vi', 'VN');
+    Get.fallbackLocale ??= const Locale('vi', 'VN');
     if (!Get.isRegistered<FeatureFlagsController>()) {
       Get.put<FeatureFlagsController>(FeatureFlagsController(), permanent: true);
     }

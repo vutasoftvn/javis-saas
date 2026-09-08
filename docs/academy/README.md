@@ -9,6 +9,10 @@ This directory contains the approved-content draft for COSA Academy. It is a lea
 - Every lesson contains one founder problem, one COSA practice, one learner output, and exactly three English learning objectives.
 - Video prompts, visual direction, and Seedance prompts are intentionally not included until this content is approved.
 
+## Execution Playbook
+
+- [12-Week Year for Startup Playbook](course.md): Giáo trình và cẩm nang vận hành thực chiến 12 tuần đưa ý tưởng đến MVP và khách hàng trả phí.
+
 ## Modules
 
 | Order | Module | Lessons |

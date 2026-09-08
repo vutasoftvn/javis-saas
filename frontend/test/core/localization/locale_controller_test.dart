@@ -85,5 +85,28 @@ void main() {
       expect(SupportedLocale.viVN.transcriptionLanguage, 'vi');
       expect(SupportedLocale.enUS.transcriptionLanguage, 'en');
     });
+
+    test('setLocale directly updates locale and persists to cache', () async {
+      final cache = FakeLocaleCache('vi-VN');
+      final controller = LocaleController(cache: cache);
+      await controller.setLocale(SupportedLocale.enUS);
+
+      expect(controller.current.value, SupportedLocale.enUS);
+      expect(await cache.read(), SupportedLocale.enUS);
+    });
+
+    test('toggleLocale switches between viVN and enUS', () async {
+      final cache = FakeLocaleCache('vi-VN');
+      final controller = LocaleController(cache: cache);
+      controller.current.value = SupportedLocale.viVN;
+
+      await controller.toggleLocale();
+      expect(controller.current.value, SupportedLocale.enUS);
+      expect(await cache.read(), SupportedLocale.enUS);
+
+      await controller.toggleLocale();
+      expect(controller.current.value, SupportedLocale.viVN);
+      expect(await cache.read(), SupportedLocale.viVN);
+    });
   });
 }

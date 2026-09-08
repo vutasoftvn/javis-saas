@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../controllers/chat_controller.dart';
 import '../../models/data_access_declaration.dart';
 
@@ -32,9 +33,9 @@ class ChatComposer extends StatelessWidget {
                     style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
                     minLines: 1,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: 'Type your message or ask anything...',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: InputDecoration(
+                      hintText: L10nKey.chatComposerHint.tr,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     onSubmitted: (_) => controller.sendMessage(),
                   ),

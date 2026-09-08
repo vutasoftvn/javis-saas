@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../data/models/strategy_lens_model.dart';
 
 /// Read-only Balanced Scorecard (BSC) widget displaying published objectives
@@ -20,18 +22,23 @@ class BscScorecardWidget extends StatelessWidget {
     this.onCreateGoal,
   });
 
+  static String _tr(String key, String fallback) {
+    final translated = key.tr;
+    return translated != key ? translated : fallback;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!isUnlocked) {
       return Center(
         child: Container(
           key: const Key('bsc_locked_container'),
+          margin: const EdgeInsets.all(32),
           padding: const EdgeInsets.all(32),
-          margin: const EdgeInsets.symmetric(horizontal: 24),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.3)),
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF334155)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -39,24 +46,27 @@ class BscScorecardWidget extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFA855F7).withValues(alpha: 0.15),
+                  color: const Color(0xFFA855F7).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.dashboard_customize_outlined,
+                  Icons.lock_outline,
                   color: Color(0xFFA855F7),
                   size: 42,
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Thẻ điểm Cân bằng BSC (Balanced Scorecard)',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                _tr(L10nKey.bscTitle, 'Thẻ điểm Cân bằng BSC (Balanced Scorecard)'),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               Text(
-                'Thẻ điểm BSC phản ánh các Mục tiêu & Kết quả then chốt (OKRs) đã được phê duyệt và công bố.\n'
-                'Các chỉ số sẽ tự động đồng bộ theo từng trụ cột khi OKR chu kỳ được xuất bản.',
+                _tr(
+                  L10nKey.bscHeaderDesc,
+                  'Thẻ điểm BSC phản ánh các Mục tiêu & Kết quả then chốt (OKRs) đã được phê duyệt và công bố.\n'
+                  'Các chỉ số sẽ tự động đồng bộ theo từng trụ cột khi OKR chu kỳ được xuất bản.',
+                ),
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 13, height: 1.5),
                 textAlign: TextAlign.center,
               ),
@@ -76,14 +86,17 @@ class BscScorecardWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.3)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.dashboard_customize_outlined, color: Color(0xFFA855F7), size: 20),
-              SizedBox(width: 10),
+              const Icon(Icons.dashboard_customize_outlined, color: Color(0xFFA855F7), size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Thẻ điểm Balanced Scorecard (Chỉ xem): Tổng hợp các mục tiêu & chỉ số đo lường đã công bố trên 4 trụ cột chiến lược.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                  _tr(
+                    L10nKey.bscReadOnlyDesc,
+                    'Thẻ điểm Balanced Scorecard (Chỉ xem): Tổng hợp các mục tiêu & chỉ số đo lường đã công bố trên 4 trụ cột chiến lược.',
+                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
                 ),
               ),
             ],
@@ -119,7 +132,7 @@ class BscScorecardWidget extends StatelessWidget {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            persp.labelVi,
+                            persp.localizedLabel,
                             style: TextStyle(color: persp.color, fontSize: 12, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -144,7 +157,7 @@ class BscScorecardWidget extends StatelessWidget {
                       child: goals.isEmpty
                           ? Center(
                               child: Text(
-                                'Chưa có chỉ số xuất bản',
+                                _tr(L10nKey.bscEmpty, 'Chưa có chỉ số xuất bản'),
                                 style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
                               ),
                             )

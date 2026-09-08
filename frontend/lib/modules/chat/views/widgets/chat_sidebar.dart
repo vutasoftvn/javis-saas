@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../controllers/chat_controller.dart';
 import '../../models/chat_models.dart';
 
@@ -14,6 +15,11 @@ class ChatSidebar extends StatelessWidget {
     this.inDrawer = false,
   });
 
+  static String _tr(String key, String fallback) {
+    final translated = key.tr;
+    return translated != key ? translated : fallback;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -22,9 +28,8 @@ class ChatSidebar extends StatelessWidget {
         border: Border(right: BorderSide(color: AppTheme.borderDark)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header & New Chat button
+          // Header
           Container(
             padding: const EdgeInsets.all(16),
             decoration: const BoxDecoration(
@@ -36,12 +41,15 @@ class ChatSidebar extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'AgentOS Chat',
-                      style: TextStyle(
-                        color: AppTheme.textDark,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        _tr(L10nKey.chatAgentOsTitle, 'AgentOS Chat'),
+                        style: const TextStyle(
+                          color: AppTheme.textDark,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (inDrawer)
@@ -60,7 +68,7 @@ class ChatSidebar extends StatelessWidget {
                       if (inDrawer) Get.back();
                     },
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Chat'),
+                    label: Text(_tr(L10nKey.chatNewConversation, 'New Chat')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primary,
                       foregroundColor: const Color(0xFF04070E),
@@ -71,7 +79,6 @@ class ChatSidebar extends StatelessWidget {
               ],
             ),
           ),
-
           // Conversation List
           Expanded(
             child: Obx(() {
@@ -81,10 +88,10 @@ class ChatSidebar extends StatelessWidget {
                 );
               }
               if (controller.conversations.isEmpty) {
-                return const Center(
+                return Center(
                   child: Text(
-                    'No conversations yet',
-                    style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                    _tr(L10nKey.chatNoConversations, 'No conversations yet'),
+                    style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                   ),
                 );
               }

@@ -20,6 +20,7 @@ from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
     fake_active_tenant_policy_client,
@@ -48,6 +49,7 @@ def test_app():
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
+        profile_locale_client=FakeProfileLocaleClient(),
         model=FakeSDKModel(
             responses=[
                 tool_call_response(
@@ -161,6 +163,7 @@ def test_app_for_payload_shape():
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
+        profile_locale_client=FakeProfileLocaleClient(),
         model=FakeSDKModel(responses=[text_response("OK")]),
     )
     asyncio.run(

@@ -16,6 +16,8 @@ import pytest
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.knowledge.service import KnowledgeIngestionService
+from agent.knowledge.store import InMemoryKnowledgeStore
 from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.leases import RunLeaseManager
 from agent.runs.repository import InMemoryRunRepository
@@ -29,6 +31,7 @@ from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
     fake_active_tenant_policy_client,
@@ -54,6 +57,10 @@ def test_app():
         lease_client=RunLeaseManager(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
         vault_repository=vault_repository,
+        knowledge_ingestion_service=KnowledgeIngestionService(
+            InMemoryKnowledgeStore(), vault_repository=vault_repository
+        ),
+        profile_locale_client=FakeProfileLocaleClient(),
         model=FakeSDKModel(
             responses=[
                 tool_call_response(

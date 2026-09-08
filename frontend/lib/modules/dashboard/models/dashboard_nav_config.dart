@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/localization/app_translations.dart';
 import '../../../../data/models/stage_model.dart';
 
+import 'package:get/get.dart';
+
 class DashboardNavItem {
   final IconData icon;
   final IconData selectedIcon;
@@ -20,6 +22,16 @@ class DashboardNavItem {
     this.flagKey,
     this.moduleKey,
   });
+
+  String get localizedLabel {
+    if (labelKey != null) {
+      final translated = labelKey!.tr;
+      if (translated != labelKey) {
+        return translated;
+      }
+    }
+    return label;
+  }
 }
 
 class DashboardNavGroup {
@@ -34,30 +46,44 @@ class DashboardNavGroup {
     required this.groupIcon,
     required this.items,
   });
+
+  String get localizedTitle {
+    if (titleKey != null) {
+      final translated = titleKey!.tr;
+      if (translated != titleKey) {
+        return translated;
+      }
+    }
+    return title;
+  }
 }
 
 class DashboardNavConfig {
   static const List<DashboardNavGroup> coreNavGroups = [
     DashboardNavGroup(
       title: 'Hội thoại & Trung tâm',
+      titleKey: L10nKey.navGroupConversation,
       groupIcon: Icons.psychology_outlined,
       items: [
         DashboardNavItem(
           icon: Icons.psychology_outlined,
           selectedIcon: Icons.psychology,
           label: 'COSA Command Center',
+          labelKey: L10nKey.navCommandCenter,
           index: 0,
         ),
       ],
     ),
     DashboardNavGroup(
       title: 'Chu kỳ & Chiến lược',
+      titleKey: L10nKey.navGroupCycle,
       groupIcon: Icons.flag_outlined,
       items: [
         DashboardNavItem(
           icon: Icons.lightbulb_outline,
           selectedIcon: Icons.lightbulb,
           label: 'Chiến lược',
+          labelKey: L10nKey.navStrategy,
           index: 3,
           flagKey: 'strategy_module',
         ),
@@ -65,30 +91,35 @@ class DashboardNavConfig {
           icon: Icons.rocket_launch_outlined,
           selectedIcon: Icons.rocket_launch,
           label: 'Dự án',
+          labelKey: L10nKey.navProjects,
           index: 29,
         ),
         DashboardNavItem(
           icon: Icons.track_changes_outlined,
           selectedIcon: Icons.track_changes,
           label: 'OKRs',
+          labelKey: L10nKey.navOkrs,
           index: 27,
         ),
         DashboardNavItem(
           icon: Icons.calendar_month_outlined,
           selectedIcon: Icons.calendar_month,
           label: 'Kế hoạch 12WY',
+          labelKey: L10nKey.navTwelveWy,
           index: 28,
         ),
         DashboardNavItem(
           icon: Icons.account_balance_outlined,
           selectedIcon: Icons.account_balance,
           label: 'Nguồn lực & Tài trợ',
+          labelKey: L10nKey.navFunding,
           index: 32,
         ),
       ],
     ),
     DashboardNavGroup(
       title: 'Công việc & Vận hành',
+      titleKey: L10nKey.navGroupOperations,
       groupIcon: Icons.work_outline,
       items: [
         DashboardNavItem(
@@ -102,12 +133,14 @@ class DashboardNavConfig {
           icon: Icons.fact_check_outlined,
           selectedIcon: Icons.fact_check,
           label: 'Phê duyệt',
+          labelKey: L10nKey.navApprovals,
           index: 6,
         ),
         DashboardNavItem(
           icon: Icons.notification_important_outlined,
           selectedIcon: Icons.notification_important,
           label: 'Cần bạn xử lý',
+          labelKey: L10nKey.navNeedsYou,
           index: 24,
           flagKey: 'needs_you_queue_v13_1',
         ),
@@ -115,6 +148,7 @@ class DashboardNavConfig {
           icon: Icons.block_outlined,
           selectedIcon: Icons.block,
           label: 'Công việc tắc nghẽn',
+          labelKey: L10nKey.navBlockedWork,
           index: 25,
           flagKey: 'structured_blocker_v13_1',
         ),
@@ -122,6 +156,7 @@ class DashboardNavConfig {
           icon: Icons.visibility_outlined,
           selectedIcon: Icons.visibility,
           label: 'Giám sát công việc',
+          labelKey: L10nKey.navWorkInspector,
           index: 26,
           flagKey: 'work_inspector_v13_1',
         ),
@@ -129,12 +164,14 @@ class DashboardNavConfig {
     ),
     DashboardNavGroup(
       title: 'Đội ngũ AI & Nghiệp vụ',
+      titleKey: L10nKey.navGroupAi,
       groupIcon: Icons.groups_outlined,
       items: [
         DashboardNavItem(
           icon: Icons.groups_outlined,
           selectedIcon: Icons.groups,
           label: 'Đội ngũ AI Agents',
+          labelKey: L10nKey.navAiAgents,
           index: 7,
         ),
         DashboardNavItem(
@@ -149,6 +186,7 @@ class DashboardNavConfig {
           icon: Icons.campaign_outlined,
           selectedIcon: Icons.campaign,
           label: 'Marketing & Lead Gen',
+          labelKey: L10nKey.navMarketing,
           index: 17,
         ),
         DashboardNavItem(
@@ -163,12 +201,14 @@ class DashboardNavConfig {
           icon: Icons.psychology_outlined,
           selectedIcon: Icons.psychology,
           label: 'Kỹ năng AI (Skill Registry)',
+          labelKey: L10nKey.navSkillRegistry,
           index: 33,
         ),
       ],
     ),
     DashboardNavGroup(
       title: 'Tài chính & Tri thức',
+      titleKey: L10nKey.navGroupFinanceVault,
       groupIcon: Icons.account_balance_outlined,
       items: [
         DashboardNavItem(
@@ -183,18 +223,21 @@ class DashboardNavConfig {
           icon: Icons.folder_open,
           selectedIcon: Icons.folder,
           label: 'Kho tri thức',
+          labelKey: L10nKey.navVault,
           index: 2,
         ),
       ],
     ),
     DashboardNavGroup(
       title: 'Tổ chức & Cài đặt',
+      titleKey: L10nKey.navGroupOrganization,
       groupIcon: Icons.settings_outlined,
       items: [
         DashboardNavItem(
           icon: Icons.corporate_fare_outlined,
           selectedIcon: Icons.corporate_fare,
           label: 'Sơ đồ tổ chức',
+          labelKey: L10nKey.navOrgChart,
           index: 19,
           flagKey: 'advanced_org_chart_v13',
         ),
@@ -202,18 +245,21 @@ class DashboardNavConfig {
           icon: Icons.account_tree_outlined,
           selectedIcon: Icons.account_tree,
           label: 'Quy trình',
+          labelKey: L10nKey.navWorkflows,
           index: 5,
         ),
         DashboardNavItem(
           icon: Icons.tune_rounded,
           selectedIcon: Icons.tune,
           label: 'Quản trị Template',
+          labelKey: L10nKey.navTemplates,
           index: 30,
         ),
         DashboardNavItem(
           icon: Icons.settings_outlined,
           selectedIcon: Icons.settings,
           label: 'Cài đặt',
+          labelKey: L10nKey.navSettings,
           index: 13,
         ),
       ],
@@ -222,18 +268,21 @@ class DashboardNavConfig {
 
   static const DashboardNavGroup experimentalGroup = DashboardNavGroup(
     title: 'Tính năng thử nghiệm',
+    titleKey: L10nKey.navGroupExperimental,
     groupIcon: Icons.science_outlined,
     items: [
       DashboardNavItem(
         icon: Icons.account_tree_outlined,
         selectedIcon: Icons.account_tree,
         label: 'Quy trình nâng cao',
+        labelKey: L10nKey.navAdvancedWorkflows,
         index: 5,
       ),
       DashboardNavItem(
         icon: Icons.corporate_fare_outlined,
         selectedIcon: Icons.corporate_fare,
         label: 'Sơ đồ tổ chức chi tiết',
+        labelKey: L10nKey.navAdvancedOrgChart,
         index: 19,
         flagKey: 'advanced_org_chart_v13',
       ),
@@ -247,7 +296,7 @@ class DashboardNavConfig {
 
   static String getPageTitle(int index) {
     for (final item in allNavItems) {
-      if (item.index == index) return item.label;
+      if (item.index == index) return item.localizedLabel;
     }
     return 'COSA OS';
   }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../data/models/stage_model.dart';
 import '../../../../data/models/strategy_lens_model.dart';
 import '../../../../data/models/evidence_model.dart';
@@ -136,13 +138,13 @@ class _StrategyLensesHubModalState extends State<StrategyLensesHubModal>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Khung 4 Lăng Kính Chiến Lược (Strategy Lenses Hub)',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    Text(
+                      L10nKey.strategyHubTitle.tr,
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Phân tích định hướng chuẩn COSA: PESTEL -> SWOT -> TOWS -> Balanced Scorecard',
+                      L10nKey.strategyHubSubtitle.tr,
                       style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
                     ),
                   ],
@@ -178,7 +180,7 @@ class _StrategyLensesHubModalState extends State<StrategyLensesHubModal>
                 ),
                 Tab(
                   icon: const Icon(Icons.grid_view_outlined, size: 18),
-                  text: 'SWOT Có Bằng Chứng (${swotItems.length})',
+                  text: L10nKey.strategyTabSwot.trParams({'count': '${swotItems.length}'}),
                 ),
                 Tab(
                   icon: const Icon(Icons.alt_route_outlined, size: 18),
@@ -186,7 +188,9 @@ class _StrategyLensesHubModalState extends State<StrategyLensesHubModal>
                 ),
                 Tab(
                   icon: Icon(isBscUnlocked ? Icons.dashboard_outlined : Icons.lock_outline, size: 18),
-                  text: isBscUnlocked ? 'Balanced Scorecard (${bscGoals.length})' : 'Balanced Scorecard (Khóa)',
+                  text: isBscUnlocked
+                      ? L10nKey.strategyTabBsc.trParams({'count': '${bscGoals.length}'})
+                      : L10nKey.strategyTabBscLocked.tr,
                 ),
               ],
             ),

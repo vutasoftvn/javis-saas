@@ -205,28 +205,38 @@ class ChatController extends GetxController {
     toolActivities.clear();
     lastSequence.value = 0;
 
-    // 3. Send message to backend
-    final response = await _service.sendMessage(
-      conv.id,
-      content: content,
-      dataAccess: dataAccessForRequest,
-      attachments: attachments?.map((a) => a.toJson()).toList(),
-    );
+    try {
+      // 3. Send message to backend
+      final response = await _service.sendMessage(
+        conv.id,
+        content: content,
+        dataAccess: dataAccessForRequest,
+        attachments: attachments?.map((a) => a.toJson()).toList(),
+      );
 
-    if (response != null && response['run_id'] != null) {
-      final runId = response['run_id'].toString();
-      currentRunId.value = runId;
-      // Reset classification sau khi gửi thành công — tránh rò rỉ
-      // classification cũ (vd. SENSITIVE_PERSONAL) sang tin nhắn tiếp theo.
-      dataAccess.value = const DataAccessDeclaration();
-      _subscribeToSSE(runId, assistantMessage);
-    } else {
-      assistantMessage.content = 'Failed to initiate agent run. Please try again.';
-      assistantMessage.status = 'failed';
-      messages.refresh();
-      isStreaming.value = false;
-      runStatus.value = 'failed';
+      if (response != null && response['run_id'] != null) {
+        final runId = response['run_id'].toString();
+        currentRunId.value = runId;
+        // Reset classification sau khi gửi thành công — tránh rò rỉ
+        // classification cũ (vd. SENSITIVE_PERSONAL) sang tin nhắn tiếp theo.
+        dataAccess.value = const DataAccessDeclaration();
+        _subscribeToSSE(runId, assistantMessage);
+        return;
+      }
+    } catch (_) {
+      // API từ chối request (ví dụ profile locale Control Plane tạm không
+      // sẵn sàng) trước khi tạo run. Không để optimistic state mồ côi ở UI.
     }
+
+    messages.remove(userMessage);
+    messages.remove(assistantMessage);
+    messages.refresh();
+    textController.text = content;
+    currentRunId.value = '';
+    isStreaming.value = false;
+    runStatus.value = 'failed';
+    reasoningStatus.value = '';
+    sendBlockedReason.value = 'Unable to start the agent. Please try again.';
   }
 
   void _subscribeToSSE(String runId, ChatMessage assistantMsg, {int? sinceSeq}) {

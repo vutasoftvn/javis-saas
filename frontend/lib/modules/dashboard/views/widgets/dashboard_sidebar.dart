@@ -68,6 +68,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
     return groups
         .map((g) => DashboardNavGroup(
               title: g.title,
+              titleKey: g.titleKey,
               groupIcon: g.groupIcon,
               items: g.items.where((i) {
                 final flagVisible = i.flagKey == null || featureFlags.isEnabled(i.flagKey!);
@@ -264,7 +265,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      group.titleKey != null ? group.titleKey!.tr : (item.labelKey != null ? item.labelKey!.tr : group.title),
+                                      group.localizedTitle,
                                       maxLines: 1,
                                       softWrap: false,
                                       overflow: TextOverflow.fade,
@@ -308,7 +309,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
                           color: (isExpanded || hasActiveChild) ? AppTheme.primary : AppTheme.textDark,
                         ),
                         title: Text(
-                          group.titleKey != null ? group.titleKey!.tr : group.title,
+                          group.localizedTitle,
                           maxLines: 1,
                           softWrap: false,
                           style: TextStyle(
@@ -333,7 +334,7 @@ class DashboardDesktopSidebar extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 2),
                             child: DashboardSidebarSubItem(
                               icon: isSelected ? item.selectedIcon : item.icon,
-                              label: item.labelKey != null ? item.labelKey!.tr : item.label,
+                              label: item.localizedLabel,
                               isSelected: isSelected,
                               isRecommended: isRec,
                               isDimmed: isDimmed,
@@ -400,6 +401,7 @@ class DashboardMobileDrawer extends StatelessWidget {
     return groups
         .map((g) => DashboardNavGroup(
               title: g.title,
+              titleKey: g.titleKey,
               groupIcon: g.groupIcon,
               items: g.items.where((i) {
                 final flagVisible = i.flagKey == null || featureFlags.isEnabled(i.flagKey!);
@@ -579,7 +581,7 @@ class DashboardMobileDrawer extends StatelessWidget {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      group.title,
+                                      group.localizedTitle,
                                       maxLines: 1,
                                       softWrap: false,
                                       overflow: TextOverflow.fade,
@@ -623,7 +625,7 @@ class DashboardMobileDrawer extends StatelessWidget {
                           color: (isExpanded || hasActiveChild) ? AppTheme.primaryLight : AppTheme.textDark,
                         ),
                         title: Text(
-                          group.title,
+                          group.localizedTitle,
                           maxLines: 1,
                           softWrap: false,
                           style: TextStyle(
@@ -648,7 +650,7 @@ class DashboardMobileDrawer extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 2),
                             child: DashboardSidebarSubItem(
                               icon: isSelected ? item.selectedIcon : item.icon,
-                              label: item.label,
+                              label: item.localizedLabel,
                               isSelected: isSelected,
                               isRecommended: isRec,
                               isDimmed: isDimmed,

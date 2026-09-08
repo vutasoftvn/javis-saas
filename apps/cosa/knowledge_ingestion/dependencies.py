@@ -81,7 +81,11 @@ def build_knowledge_ingestion_dependencies(
     if env == "production":
         missing = [
             name
-            for name, val in (("scanner", scanner), ("sandbox", sandbox), ("storage_root", resolved_root))
+            for name, val in (
+                ("scanner", scanner),
+                ("sandbox", sandbox),
+                ("storage_root", resolved_root),
+            )
             if val is None
         ]
         if missing:

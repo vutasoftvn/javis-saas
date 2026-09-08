@@ -22,11 +22,13 @@ class MockEventStreamManager:
         self.emitted = []
 
     async def emit(self, repo, run_id, conversation_id, event_type, payload, correlation_id=""):
-        self.emitted.append({
-            "run_id": run_id,
-            "event_type": event_type,
-            "payload": payload,
-        })
+        self.emitted.append(
+            {
+                "run_id": run_id,
+                "event_type": event_type,
+                "payload": payload,
+            }
+        )
 
 
 class MockPlane:
@@ -226,3 +228,64 @@ async def test_autopilot_resume_rechecks_rule_and_active_mode_before_send():
     assert res2["status"] == "completed"
     assert res2["message_id"] == "msg_auto_303"
     plane.company_client.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_autopilot_run_locale_provenance_and_validation():
+    plane = MockPlane()
+    rule = EventTriggerRule(
+        rule_id="rule_loc_1",
+        workspace_id="ws_1",
+        event_type="engagement.message.received.v1",
+        agent_spec=PinnedSpecIdentity(
+            spec_id="cosa.agents.customer_support_autopilot",
+            spec_version="1.1.0",
+            spec_kind="agent",
+            definition_hash="hash_loc",
+        ),
+        mode="write",
+        max_runs_per_aggregate_per_day=10,
+        required_capabilities=(),
+        enabled=True,
+    )
+    plane.set_rule(rule)
+    plane.kernel.run.return_value = RunResult(
+        run_id="run_ap_loc_1",
+        status=RunStatus.COMPLETED,
+        output="Done",
+    )
+
+    # 1. Valid locale en-US in payload
+    payload_valid = {
+        "run_id": "run_ap_loc_1",
+        "workspace_id": "ws_1",
+        "trigger_rule_id": "rule_loc_1",
+        "locale": "en-US",
+    }
+    res = await run_customer_support_autopilot(plane, None, payload_valid)
+    assert res["status"] == "completed"
+    call_req = plane.kernel.run.call_args[0][0]
+    assert call_req.locale == "en-US"
+    assert call_req.metadata["locale_source"] == "turn_override"
+
+    # 2. Invalid locale fr-FR in payload -> rejected
+    payload_invalid = {
+        "run_id": "run_ap_loc_2",
+        "workspace_id": "ws_1",
+        "trigger_rule_id": "rule_loc_1",
+        "locale": "fr-FR",
+    }
+    res_inv = await run_customer_support_autopilot(plane, None, payload_invalid)
+    assert res_inv["status"] == "failed"
+    assert res_inv["reason"] == "unsupported_locale_fr-FR"
+
+    # 3. User principal present without turn override and without profile client -> fail closed
+    payload_principal_missing_client = {
+        "run_id": "run_ap_loc_3",
+        "workspace_id": "ws_1",
+        "trigger_rule_id": "rule_loc_1",
+        "principal": "user:founder_1",
+    }
+    res_fail = await run_customer_support_autopilot(plane, None, payload_principal_missing_client)
+    assert res_fail["status"] == "failed"
+    assert "profile_locale_unavailable" in res_fail["reason"]

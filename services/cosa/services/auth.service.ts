@@ -83,6 +83,7 @@ export interface PlatformUserProfile {
 
 export interface UpdateMeParams {
   preferred_locale?: SupportedLocale;
+  preferredLocale?: SupportedLocale;
   phone?: string;
   full_name?: string;
   avatar_url?: string;
@@ -292,8 +293,9 @@ export async function updatePlatformUserProfile(
 ): Promise<PlatformUserProfile> {
   const userId = BigInt(userIdStr);
 
-  if (params.preferred_locale !== undefined) {
-    parseSupportedLocale(params.preferred_locale);
+  const preferredLocale = params.preferred_locale ?? params.preferredLocale;
+  if (preferredLocale !== undefined) {
+    parseSupportedLocale(preferredLocale);
   }
 
   if (params.phone !== undefined) {
@@ -319,7 +321,7 @@ export async function updatePlatformUserProfile(
     params.avatar_url !== undefined ||
     params.headline !== undefined ||
     params.bio !== undefined ||
-    params.preferred_locale !== undefined
+    preferredLocale !== undefined
   ) {
     await db
       .insert(profiles)
@@ -329,7 +331,7 @@ export async function updatePlatformUserProfile(
         avatarUrl: params.avatar_url || null,
         headline: params.headline || null,
         bio: params.bio || null,
-        preferredLocale: params.preferred_locale || "vi-VN",
+        preferredLocale: preferredLocale || "vi-VN",
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -339,7 +341,7 @@ export async function updatePlatformUserProfile(
           ...(params.avatar_url !== undefined ? { avatarUrl: params.avatar_url } : {}),
           ...(params.headline !== undefined ? { headline: params.headline } : {}),
           ...(params.bio !== undefined ? { bio: params.bio } : {}),
-          ...(params.preferred_locale !== undefined ? { preferredLocale: params.preferred_locale } : {}),
+          ...(preferredLocale !== undefined ? { preferredLocale } : {}),
           updatedAt: new Date(),
         },
       });

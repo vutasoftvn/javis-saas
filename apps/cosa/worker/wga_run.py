@@ -352,7 +352,9 @@ async def execute_workspace_task_sweep_task(
             # dụng cùng nguyên tắc).
             logger.error(
                 "unsupported ownerAgentProfile %r for task=%s ws=%s, failing closed",
-                owner_profile, task_id, workspace_id,
+                owner_profile,
+                task_id,
+                workspace_id,
             )
             await _advance_task(
                 plane,

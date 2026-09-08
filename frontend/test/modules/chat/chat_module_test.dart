@@ -468,6 +468,40 @@ void main() {
   });
 
   group('ChatController attachment guard', () {
+    test('sendMessage rolls back optimistic state when the API rejects the request', () async {
+      final mockClient = MockClient((request) async {
+        if (request.url.path == '/agent/conversations/conv-1/messages') {
+          return http.Response(
+            jsonEncode({'detail': 'Profile locale unavailable'}),
+            503,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(jsonEncode({'items': [], 'total': 0}), 200);
+      });
+
+      ApiClient.client = mockClient;
+      final controller = ChatController(service: AgentChatService());
+      controller.activeConversation.value = ChatConversation(
+        id: 'conv-1',
+        workspaceId: 'ws-1',
+        createdByPrincipal: 'user:1',
+        title: 'Retryable chat',
+        createdAt: DateTime.utc(2026),
+        updatedAt: DateTime.utc(2026),
+      );
+      controller.textController.text = 'Please retry this message';
+      controller.toggleDataAccessCategory(DataAccessCategory.nonPersonal);
+
+      await controller.sendMessage();
+
+      expect(controller.messages, isEmpty);
+      expect(controller.isStreaming.value, isFalse);
+      expect(controller.runStatus.value, 'failed');
+      expect(controller.textController.text, 'Please retry this message');
+      expect(controller.sendBlockedReason.value, isNotEmpty);
+    });
+
     test('sendMessage blocks attachments even with non-empty text content', () async {
       var serviceCalled = false;
       final mockClient = MockClient((request) async {

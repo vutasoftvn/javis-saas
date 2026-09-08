@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../data/models/strategy_lens_model.dart';
 import '../../../../data/models/evidence_model.dart';
 
@@ -37,7 +39,7 @@ class SwotEvidenceGridWidget extends StatelessWidget {
                 Icon(Icons.grid_view_rounded, color: selectedCategory.color, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'Thêm Yếu Tố SWOT',
+                  L10nKey.swotAddTitle.tr,
                   style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -52,14 +54,14 @@ class SwotEvidenceGridWidget extends StatelessWidget {
                     DropdownButtonFormField<SwotType>(
                       initialValue: selectedCategory,
                       dropdownColor: const Color(0xFF1E293B),
-                      decoration: const InputDecoration(
-                        labelText: 'Phân loại SWOT',
-                        labelStyle: TextStyle(color: Colors.white70),
+                      decoration: InputDecoration(
+                        labelText: L10nKey.swotTypeLabel.tr,
+                        labelStyle: const TextStyle(color: Colors.white70),
                       ),
                       items: SwotType.values.map((c) {
                         return DropdownMenuItem(
                           value: c,
-                          child: Text(c.labelVi, style: TextStyle(color: c.color, fontWeight: FontWeight.bold)),
+                          child: Text(c.localizedLabel, style: TextStyle(color: c.color, fontWeight: FontWeight.bold)),
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -72,11 +74,11 @@ class SwotEvidenceGridWidget extends StatelessWidget {
                       maxLines: 2,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: InputDecoration(
-                        labelText: 'Nội dung nhận định (*)',
+                        labelText: L10nKey.swotContentLabel.tr,
                         labelStyle: const TextStyle(color: Colors.white70),
                         hintText: selectedCategory == SwotType.strength
-                            ? 'Ví dụ: Tỷ lệ giữ chân khách hàng 92% nhờ tính năng Agentic AI...'
-                            : 'Nội dung mô tả...',
+                            ? L10nKey.swotContentHint.tr
+                            : '...',
                         hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
                       ),
                     ),
@@ -153,7 +155,7 @@ class SwotEvidenceGridWidget extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Hủy', style: TextStyle(color: Colors.white60)),
+                child: Text(L10nKey.commonCancel.tr, style: const TextStyle(color: Colors.white60)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -175,7 +177,7 @@ class SwotEvidenceGridWidget extends StatelessWidget {
                     Navigator.of(ctx).pop();
                   }
                 },
-                child: const Text('Lưu SWOT', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(L10nKey.swotSave.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -196,14 +198,14 @@ class SwotEvidenceGridWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.verified_outlined, color: Color(0xFF10B981), size: 20),
-              SizedBox(width: 10),
+              const Icon(Icons.verified_outlined, color: Color(0xFF10B981), size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Ma trận SWOT có Bằng Chứng: Điểm Mạnh/Yếu BẮT BUỘC gắn với dữ liệu thực tế (Evidence Refs) để loại bỏ thiên vị chủ quan.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                  L10nKey.swotHeader.tr,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
                 ),
               ),
             ],
@@ -241,12 +243,12 @@ class SwotEvidenceGridWidget extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          type.labelVi,
+                          type.localizedLabel,
                           style: TextStyle(color: type.color, fontSize: 13, fontWeight: FontWeight.bold),
                         ),
                         const Spacer(),
                         IconButton(
-                          tooltip: 'Thêm ${type.labelVi}',
+                          tooltip: L10nKey.swotAddTooltip.trParams({'type': type.localizedLabel}),
                           icon: Icon(Icons.add_circle_outline, color: type.color, size: 18),
                           onPressed: () => _showAddSwotDialog(context, type),
                           padding: EdgeInsets.zero,
@@ -261,7 +263,7 @@ class SwotEvidenceGridWidget extends StatelessWidget {
                       child: items.isEmpty
                           ? Center(
                               child: Text(
-                                'Chưa có nội dung',
+                                L10nKey.swotEmpty.tr,
                                 style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
                               ),
                             )

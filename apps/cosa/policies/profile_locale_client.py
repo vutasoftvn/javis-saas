@@ -6,26 +6,26 @@ from typing import Literal
 import httpx
 
 from apps.cosa.config.planes import resolve_platform_control_plane_url
+from apps.cosa.policies.locale_policy import (
+    SUPPORTED_LOCALES,
+    ProfileLocaleUnavailable,
+)
 
 __all__ = [
+    "SUPPORTED_LOCALES",
+    "ProfileLocaleClient",
     "ProfileLocaleSnapshot",
     "ProfileLocaleUnavailable",
-    "ProfileLocaleClient",
     "SupportedLocale",
 ]
 
 SupportedLocale = Literal["vi-VN", "en-US"]
-SUPPORTED_LOCALES: tuple[str, ...] = ("vi-VN", "en-US")
 
 
 @dataclass(frozen=True)
 class ProfileLocaleSnapshot:
     workspace_id: str
     preferred_locale: str  # "vi-VN" | "en-US"
-
-
-class ProfileLocaleUnavailable(RuntimeError):
-    """Raised when profile locale snapshot cannot be resolved."""
 
 
 class ProfileLocaleClient:
@@ -38,11 +38,12 @@ class ProfileLocaleClient:
         self,
         base_url: str | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
-        timeout: float = 5.0,
     ) -> None:
         self._base_url = (base_url or resolve_platform_control_plane_url()).rstrip("/")
         self._client = httpx.AsyncClient(
-            base_url=self._base_url, transport=transport, timeout=timeout
+            base_url=self._base_url,
+            transport=transport,
+            timeout=10.0,
         )
 
     async def get_snapshot(self, bearer_token: str, workspace_id: str) -> ProfileLocaleSnapshot:
@@ -73,10 +74,22 @@ class ProfileLocaleClient:
                 f"unsupported or missing preferred_locale '{locale}' in response"
             )
 
+        resp_ws = data.get("workspace_id")
+        if not resp_ws or str(resp_ws) != str(workspace_id):
+            raise ProfileLocaleUnavailable(
+                f"workspace_id mismatch or missing: expected {workspace_id}, got {resp_ws}"
+            )
+
         return ProfileLocaleSnapshot(
-            workspace_id=str(data.get("workspace_id") or workspace_id),
+            workspace_id=str(resp_ws),
             preferred_locale=locale,
         )
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def __aenter__(self) -> ProfileLocaleClient:
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.aclose()

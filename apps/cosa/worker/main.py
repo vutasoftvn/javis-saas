@@ -559,6 +559,11 @@ async def main() -> None:
         plane = build_cosa_agent_plane(model=FakeSDKModel())
     else:
         plane = build_cosa_agent_plane()
+
+    # Seed built-in skillpacks + Prompt/ModelPolicy/AgentSpec + verify
+    # pinned_skills resolve được TRƯỚC khi worker bắt đầu poll — fail-closed
+    # qua BuiltinSkillpackSeedError nếu bundle skillpacks không hợp lệ, worker
+    # không được vào trạng thái polling với AgentSpec tham chiếu treo.
     await seed_cosa_runtime_specs(
         spec_registry=plane.spec_registry,
         capability_registry=plane.capability_registry,

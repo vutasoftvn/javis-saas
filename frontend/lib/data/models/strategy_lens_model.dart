@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../core/localization/app_translations.dart';
 
 enum PestelDimension {
   political,
@@ -23,6 +25,28 @@ enum PestelDimension {
       case PestelDimension.legal:
         return 'Pháp lý (Legal)';
     }
+  }
+
+  String get labelKey {
+    switch (this) {
+      case PestelDimension.political:
+        return L10nKey.pestelDimPolitical;
+      case PestelDimension.economic:
+        return L10nKey.pestelDimEconomic;
+      case PestelDimension.social:
+        return L10nKey.pestelDimSocial;
+      case PestelDimension.technological:
+        return L10nKey.pestelDimTechnological;
+      case PestelDimension.environmental:
+        return L10nKey.pestelDimEnvironmental;
+      case PestelDimension.legal:
+        return L10nKey.pestelDimLegal;
+    }
+  }
+
+  String get localizedLabel {
+    final translated = labelKey.tr;
+    return translated != labelKey ? translated : labelVi;
   }
 
   IconData get icon {
@@ -90,6 +114,24 @@ enum SwotType {
     }
   }
 
+  String get labelKey {
+    switch (this) {
+      case SwotType.strength:
+        return L10nKey.swotTypeStrength;
+      case SwotType.weakness:
+        return L10nKey.swotTypeWeakness;
+      case SwotType.opportunity:
+        return L10nKey.swotTypeOpportunity;
+      case SwotType.threat:
+        return L10nKey.swotTypeThreat;
+    }
+  }
+
+  String get localizedLabel {
+    final translated = labelKey.tr;
+    return translated != labelKey ? translated : labelVi;
+  }
+
   Color get color {
     switch (this) {
       case SwotType.strength:
@@ -132,6 +174,24 @@ enum TowsType {
     }
   }
 
+  String get labelKey {
+    switch (this) {
+      case TowsType.so:
+        return L10nKey.towsTypeSo;
+      case TowsType.wo:
+        return L10nKey.towsTypeWo;
+      case TowsType.st:
+        return L10nKey.towsTypeSt;
+      case TowsType.wt:
+        return L10nKey.towsTypeWt;
+    }
+  }
+
+  String get localizedLabel {
+    final translated = labelKey.tr;
+    return translated != labelKey ? translated : labelVi;
+  }
+
   Color get color {
     switch (this) {
       case TowsType.so:
@@ -172,6 +232,24 @@ enum BscPerspective {
       case BscPerspective.learningGrowth:
         return 'Năng Lực & Con Người (Learning & Growth)';
     }
+  }
+
+  String get labelKey {
+    switch (this) {
+      case BscPerspective.financial:
+        return L10nKey.bscPerspFinancial;
+      case BscPerspective.customer:
+        return L10nKey.bscPerspCustomer;
+      case BscPerspective.internalOperations:
+        return L10nKey.bscPerspInternal;
+      case BscPerspective.learningGrowth:
+        return L10nKey.bscPerspLearning;
+    }
+  }
+
+  String get localizedLabel {
+    final translated = labelKey.tr;
+    return translated != labelKey ? translated : labelVi;
   }
 
   IconData get icon {

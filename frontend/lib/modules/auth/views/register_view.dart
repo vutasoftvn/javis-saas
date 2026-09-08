@@ -3,6 +3,9 @@ import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/routing/app_routes.dart';
+import '../../../core/localization/app_translations.dart';
+import '../../../core/localization/locale_controller.dart';
+import 'widgets/auth_language_switcher.dart';
 
 class RegisterView extends GetView<AuthController> {
   const RegisterView({super.key});
@@ -20,148 +23,159 @@ class RegisterView extends GetView<AuthController> {
             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 460),
-              child: Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceDark.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppTheme.primary.withValues(alpha: 0.25),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.08),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceDark.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primary.withValues(alpha: 0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Obx(() {
-                  final step = controller.registerStep.value;
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Header Logo & Branding
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: AppTheme.primary.withValues(alpha: 0.4),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primary.withValues(alpha: 0.2),
-                                blurRadius: 16,
+                    child: Obx(() {
+                      if (Get.isRegistered<LocaleController>()) {
+                        Get.find<LocaleController>().current.value;
+                      }
+                      final step = controller.registerStep.value;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Header Logo & Branding
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppTheme.primary.withValues(alpha: 0.4),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primary.withValues(alpha: 0.2),
+                                    blurRadius: 16,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: Icon(
-                            step == 1 ? Icons.psychology : Icons.apartment,
-                            size: 40,
-                            color: AppTheme.primary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        step == 1 ? 'Tạo Tài Khoản Mới' : 'Thiết Lập Công Ty',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        step == 1
-                            ? 'Khởi tạo tài khoản danh tính COSA Platform'
-                            : 'Tạo hoặc tham gia công ty để đồng bộ dữ liệu Brain về COSA Local',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMutedDark,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Step Indicator
-                      _StepProgressIndicator(currentStep: step),
-                      const SizedBox(height: 24),
-
-                      // Error Message Display
-                      if (controller.registerErrorMessage.value.isNotEmpty) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          margin: const EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accent.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppTheme.accent.withValues(alpha: 0.6),
+                              child: Icon(
+                                step == 1 ? Icons.psychology : Icons.apartment,
+                                size: 40,
+                                color: AppTheme.primary,
+                              ),
                             ),
                           ),
-                          child: Row(
+                          const SizedBox(height: 16),
+                          Text(
+                            step == 1 ? L10nKey.regStep1Title.tr : L10nKey.regStep2Title.tr,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            step == 1
+                                ? L10nKey.regStep1Subtitle.tr
+                                : L10nKey.regStep2Subtitle.tr,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textMutedDark,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Step Indicator
+                          _StepProgressIndicator(currentStep: step),
+                          const SizedBox(height: 24),
+
+                          // Error Message Display
+                          if (controller.registerErrorMessage.value.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              margin: const EdgeInsets.only(bottom: 20),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: AppTheme.accent.withValues(alpha: 0.6),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline, size: 20, color: AppTheme.accent),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      controller.registerErrorMessage.value,
+                                      style: const TextStyle(
+                                        color: AppTheme.accentLight,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // Form content based on Step
+                          if (step == 1) ...[
+                            _buildStep1AccountForm(context),
+                          ] else ...[
+                            _buildStep2CompanyForm(context),
+                          ],
+
+                          const SizedBox(height: 20),
+
+                          // Back to Login Link
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              const Icon(Icons.error_outline, size: 20, color: AppTheme.accent),
-                              const SizedBox(width: 10),
-                              Expanded(
+                              Text(
+                                L10nKey.regAlreadyHaveAccount.tr,
+                                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  controller.clearRegisterForm();
+                                  Get.offNamed(AppRoutes.login);
+                                },
                                 child: Text(
-                                  controller.registerErrorMessage.value,
+                                  L10nKey.regLoginNow.tr,
                                   style: const TextStyle(
-                                    color: AppTheme.accentLight,
+                                    color: AppTheme.primary,
+                                    fontWeight: FontWeight.w700,
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-
-                      // Form content based on Step
-                      if (step == 1) ...[
-                        _buildStep1AccountForm(context),
-                      ] else ...[
-                        _buildStep2CompanyForm(context),
-                      ],
-
-                      const SizedBox(height: 20),
-
-                      // Back to Login Link
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'Đã có tài khoản?',
-                            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              controller.clearRegisterForm();
-                              Get.offNamed(AppRoutes.login);
-                            },
-                            child: const Text(
-                              'Đăng nhập ngay',
-                              style: TextStyle(
-                                color: AppTheme.primary,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
                         ],
-                      ),
-                    ],
-                  );
-                }),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 20),
+                  const AuthLanguageSwitcher(),
+                ],
               ),
             ),
           ),
@@ -179,7 +193,7 @@ class RegisterView extends GetView<AuthController> {
           controller: controller.regDisplayNameController,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            labelText: 'Họ và tên',
+            labelText: L10nKey.regFullNameLabel.tr,
             labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
             prefixIcon: const Icon(Icons.person_outline, color: AppTheme.primary, size: 20),
             filled: true,
@@ -206,8 +220,8 @@ class RegisterView extends GetView<AuthController> {
           keyboardType: TextInputType.emailAddress,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
-            labelText: 'Email',
-            hintText: 'Ví dụ: ban@congty.com',
+            labelText: L10nKey.regEmailLabel.tr,
+            hintText: L10nKey.regEmailHint.tr,
             hintStyle: const TextStyle(color: AppTheme.textDimDark, fontSize: 12),
             labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
             prefixIcon: const Icon(Icons.email_outlined, color: AppTheme.primary, size: 20),
@@ -235,7 +249,7 @@ class RegisterView extends GetView<AuthController> {
               obscureText: !controller.isRegPasswordVisible.value,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
-                labelText: 'Mật khẩu (8–128 ký tự)',
+                labelText: L10nKey.regPasswordLabel.tr,
                 labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                 prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primary, size: 20),
                 suffixIcon: IconButton(
@@ -274,7 +288,7 @@ class RegisterView extends GetView<AuthController> {
               obscureText: !controller.isRegConfirmVisible.value,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
-                labelText: 'Xác nhận mật khẩu',
+                labelText: L10nKey.regConfirmPasswordLabel.tr,
                 labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                 prefixIcon: const Icon(Icons.lock_reset, color: AppTheme.primary, size: 20),
                 suffixIcon: IconButton(
@@ -328,10 +342,10 @@ class RegisterView extends GetView<AuthController> {
                 ),
               ),
               child: controller.isRegisterLoading.value
-                  ? const Row(
+                  ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SizedBox(
+                        const SizedBox(
                           height: 18,
                           width: 18,
                           child: CircularProgressIndicator(
@@ -339,10 +353,10 @@ class RegisterView extends GetView<AuthController> {
                             color: AppTheme.backgroundDarker,
                           ),
                         ),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Text(
-                          'Đang khởi tạo tài khoản...',
-                          style: TextStyle(
+                          L10nKey.regCreatingAccount.tr,
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.backgroundDarker,
@@ -350,19 +364,19 @@ class RegisterView extends GetView<AuthController> {
                         ),
                       ],
                     )
-                  : const Row(
+                  : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Tiếp tục',
-                          style: TextStyle(
+                          L10nKey.regContinue.tr,
+                          style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),
                         ),
-                        SizedBox(width: 8),
-                        Icon(Icons.arrow_forward, size: 18),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward, size: 18),
                       ],
                     ),
             )),
@@ -389,7 +403,7 @@ class RegisterView extends GetView<AuthController> {
             children: [
               Expanded(
                 child: _ChoiceTab(
-                  label: 'Tạo mới',
+                  label: L10nKey.regTabCreateCompany.tr,
                   icon: Icons.add_business_outlined,
                   isSelected: !controller.isJoiningCompany.value,
                   onTap: () => controller.isJoiningCompany.value = false,
@@ -397,7 +411,7 @@ class RegisterView extends GetView<AuthController> {
               ),
               Expanded(
                 child: _ChoiceTab(
-                  label: 'Tham gia',
+                  label: L10nKey.regTabJoinCompany.tr,
                   icon: Icons.group_add_outlined,
                   isSelected: controller.isJoiningCompany.value,
                   onTap: () => controller.isJoiningCompany.value = true,
@@ -414,8 +428,8 @@ class RegisterView extends GetView<AuthController> {
             controller: controller.regInvitationTokenController,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              labelText: 'Mã lời mời workspace',
-              hintText: 'Dán mã lời mời được gửi cho bạn qua email',
+              labelText: L10nKey.regInvitationTokenLabel.tr,
+              hintText: L10nKey.regInvitationTokenHint.tr,
               hintStyle: const TextStyle(color: AppTheme.textDimDark, fontSize: 12),
               labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               prefixIcon: const Icon(Icons.key_outlined, color: AppTheme.primary, size: 20),
@@ -436,9 +450,9 @@ class RegisterView extends GetView<AuthController> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Dán mã lời mời do founder/admin của workspace gửi cho bạn qua email.',
-            style: TextStyle(fontSize: 11, color: AppTheme.textDimDark),
+          Text(
+            L10nKey.regInvitationTokenHelper.tr,
+            style: const TextStyle(fontSize: 11, color: AppTheme.textDimDark),
           ),
         ] else ...[
           TextField(
@@ -446,8 +460,8 @@ class RegisterView extends GetView<AuthController> {
             controller: controller.regCompanyNameController,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              labelText: 'Tên công ty / Tổ chức',
-              hintText: 'Ví dụ: VutaSoft, Acme Corp',
+              labelText: L10nKey.regCompanyNameLabel.tr,
+              hintText: L10nKey.regCompanyNameHint.tr,
               hintStyle: const TextStyle(color: AppTheme.textDimDark, fontSize: 12),
               labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
               prefixIcon: const Icon(Icons.apartment_outlined, color: AppTheme.primary, size: 20),
@@ -468,9 +482,9 @@ class RegisterView extends GetView<AuthController> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Bạn sẽ là Founder sở hữu công ty này.',
-            style: TextStyle(fontSize: 11, color: AppTheme.textDimDark),
+          Text(
+            L10nKey.regCompanyNameHelper.tr,
+            style: const TextStyle(fontSize: 11, color: AppTheme.textDimDark),
           ),
         ],
 
@@ -497,10 +511,10 @@ class RegisterView extends GetView<AuthController> {
             ),
           ),
           child: controller.isRegisterLoading.value
-              ? const Row(
+              ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       height: 18,
                       width: 18,
                       child: CircularProgressIndicator(
@@ -508,10 +522,10 @@ class RegisterView extends GetView<AuthController> {
                         color: AppTheme.backgroundDarker,
                       ),
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text(
-                      'Đang khởi tạo Brain...',
-                      style: TextStyle(
+                      L10nKey.regInitializingBrain.tr,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.backgroundDarker,
@@ -519,9 +533,9 @@ class RegisterView extends GetView<AuthController> {
                     ),
                   ],
                 )
-              : const Text(
-                  'Khởi tạo',
-                  style: TextStyle(
+              : Text(
+                  L10nKey.regInitialize.tr,
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
@@ -545,14 +559,14 @@ class RegisterView extends GetView<AuthController> {
               borderRadius: BorderRadius.circular(100),
             ),
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.arrow_back, size: 16),
-              SizedBox(width: 6),
+              const Icon(Icons.arrow_back, size: 16),
+              const SizedBox(width: 6),
               Text(
-                'Quay lại bước 1',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                L10nKey.regBackToStep1.tr,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -574,7 +588,7 @@ class _StepProgressIndicator extends StatelessWidget {
         Expanded(
           child: _StepBadge(
             stepNumber: 1,
-            label: 'Tài khoản',
+            label: L10nKey.regStepAccount.tr,
             isActive: currentStep == 1,
             isCompleted: currentStep > 1,
           ),
@@ -588,7 +602,7 @@ class _StepProgressIndicator extends StatelessWidget {
         Expanded(
           child: _StepBadge(
             stepNumber: 2,
-            label: 'Công ty',
+            label: L10nKey.regStepCompany.tr,
             isActive: currentStep == 2,
             isCompleted: false,
           ),

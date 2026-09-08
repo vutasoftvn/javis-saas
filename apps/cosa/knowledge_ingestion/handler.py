@@ -142,7 +142,9 @@ async def execute_knowledge_ingestion_task(
 
     started_at = time.monotonic()
     workspace_id = workspace_id_payload
-    logger.info("Starting knowledge ingestion for workspace_id=%s upload_id=%s", workspace_id, upload_id)
+    logger.info(
+        "Starting knowledge ingestion for workspace_id=%s upload_id=%s", workspace_id, upload_id
+    )
 
     # P1 Task 6 / Task 5: production KHÔNG được âm thầm dùng fake scanner /
     # default store. Composition root phải inject scanner + store +
@@ -317,7 +319,9 @@ async def execute_knowledge_ingestion_task(
             if hasattr(candidate.manifest, "to_dict")
             else candidate.manifest
         )
-        await local_repository.record_candidate(workspace_id, upload_id, persisted.id, manifest_dict)
+        await local_repository.record_candidate(
+            workspace_id, upload_id, persisted.id, manifest_dict
+        )
         logger.info(
             "Step 8: Knowledge ingestion complete, upload_id=%s, knowledge_source_id=%s",
             upload_id,

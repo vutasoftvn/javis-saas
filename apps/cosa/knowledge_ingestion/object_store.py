@@ -232,5 +232,3 @@ class InMemoryDocumentObjectStore(DocumentObjectStore):
             return "text/plain"
         except UnicodeDecodeError:
             return "application/octet-stream"
-
-

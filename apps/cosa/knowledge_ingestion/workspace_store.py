@@ -259,9 +259,7 @@ class WorkspaceDocumentStore:
         secret_hash = hashlib.sha256(secret.encode("utf-8")).hexdigest()
         random_name = secrets.token_hex(16)
         quarantine_dir = self._quarantine_dir(workspace_id, upload_id)
-        relative_path = str(
-            (quarantine_dir / random_name).relative_to(self._root)
-        )
+        relative_path = str((quarantine_dir / random_name).relative_to(self._root))
         expires_at = datetime.now(UTC) + timedelta(hours=1)
 
         await self._tickets.create(
@@ -284,7 +282,9 @@ class WorkspaceDocumentStore:
             expires_at=expires_at,
         )
 
-    async def _authorize(self, workspace_id: str, upload_id: str, secret: str) -> UploadTicketRecord:
+    async def _authorize(
+        self, workspace_id: str, upload_id: str, secret: str
+    ) -> UploadTicketRecord:
         record = await self._tickets.get(workspace_id, upload_id)
         if record is None:
             raise UploadTicketNotFound(f"no upload ticket for {workspace_id}/{upload_id}")
@@ -338,9 +338,7 @@ class WorkspaceDocumentStore:
 
         await asyncio.to_thread(_write_sync)
 
-    async def finalize_upload(
-        self, workspace_id: str, upload_id: str
-    ) -> QuarantinedLocalObject:
+    async def finalize_upload(self, workspace_id: str, upload_id: str) -> QuarantinedLocalObject:
         record = await self._tickets.get(workspace_id, upload_id)
         if record is None:
             raise UploadTicketNotFound(f"no upload ticket for {workspace_id}/{upload_id}")
@@ -404,7 +402,9 @@ class WorkspaceDocumentStore:
 
         return LocalObjectRef(relative_ref=str(target.relative_to(self._root)))
 
-    async def read_quarantine_object(self, workspace_id: str, quarantine_relative_path: str) -> bytes:
+    async def read_quarantine_object(
+        self, workspace_id: str, quarantine_relative_path: str
+    ) -> bytes:
         """Task 5 — đọc bytes 1 object đã quarantine (dùng cho conversion
         pipeline: preflight → scanner → converter). `quarantine_relative_path`
         phải resolve về đúng workspace này (không tin path thô từ caller)."""

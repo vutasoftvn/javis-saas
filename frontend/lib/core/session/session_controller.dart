@@ -272,7 +272,7 @@ class SessionController extends GetxController {
       Get.find<FounderCommandCenterController>().resetForWorkspace();
     }
     if (Get.isRegistered<ModuleVisibilityController>()) {
-      Get.find<ModuleVisibilityController>().reloadForWorkspace(snapshot.workspaceId);
+      await Get.find<ModuleVisibilityController>().reloadForWorkspace(snapshot.workspaceId);
     }
   }
 

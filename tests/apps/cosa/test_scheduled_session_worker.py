@@ -57,7 +57,6 @@ async def worker_setup():
         skillpacks_root=REPO_ROOT / "skillpacks",
     )
 
-
     return {
         "plane": plane,
         "conv_repo": conv_repo,

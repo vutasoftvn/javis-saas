@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../data/models/strategy_lens_model.dart';
 
 class PestelRadarWidget extends StatelessWidget {
@@ -29,13 +31,15 @@ class PestelRadarWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             side: const BorderSide(color: Color(0xFF38BDF8), width: 1.5),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.radar_outlined, color: Color(0xFF38BDF8), size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Bắt Tín Hiệu Vĩ Mô PESTEL',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              const Icon(Icons.radar_outlined, color: Color(0xFF38BDF8), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  L10nKey.pestelCatchSignal.tr,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -47,9 +51,9 @@ class PestelRadarWidget extends StatelessWidget {
                 DropdownButtonFormField<PestelDimension>(
                   initialValue: selectedDimension,
                   dropdownColor: const Color(0xFF1E293B),
-                  decoration: const InputDecoration(
-                    labelText: 'Chiều vĩ mô',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  decoration: InputDecoration(
+                    labelText: L10nKey.pestelMacroDimLabel.tr,
+                    labelStyle: const TextStyle(color: Colors.white70),
                   ),
                   items: PestelDimension.values.map((d) {
                     return DropdownMenuItem(
@@ -58,7 +62,7 @@ class PestelRadarWidget extends StatelessWidget {
                         children: [
                           Icon(d.icon, color: d.color, size: 16),
                           const SizedBox(width: 8),
-                          Text(d.labelVi, style: TextStyle(color: d.color, fontSize: 13)),
+                          Text(d.localizedLabel, style: TextStyle(color: d.color, fontSize: 13)),
                         ],
                       ),
                     );
@@ -71,11 +75,11 @@ class PestelRadarWidget extends StatelessWidget {
                 TextField(
                   controller: titleCtrl,
                   style: const TextStyle(color: Colors.white, fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Tiêu đề tín hiệu (*)',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    hintText: 'Ví dụ: Lãi suất tăng, AI Small Models phát triển...',
-                    hintStyle: TextStyle(color: Colors.white30, fontSize: 12),
+                  decoration: InputDecoration(
+                    labelText: L10nKey.pestelSignalTitleLabel.tr,
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    hintText: L10nKey.pestelSignalTitleHint.tr,
+                    hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -83,9 +87,9 @@ class PestelRadarWidget extends StatelessWidget {
                   controller: descCtrl,
                   maxLines: 3,
                   style: const TextStyle(color: Colors.white, fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Mô tả & Bối cảnh diễn biến',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  decoration: InputDecoration(
+                    labelText: L10nKey.pestelContextLabel.tr,
+                    labelStyle: const TextStyle(color: Colors.white70),
                   ),
                 ),
               ],
@@ -94,7 +98,7 @@ class PestelRadarWidget extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Hủy', style: TextStyle(color: Colors.white60)),
+              child: Text(L10nKey.commonCancel.tr, style: const TextStyle(color: Colors.white60)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -113,7 +117,7 @@ class PestelRadarWidget extends StatelessWidget {
                   Navigator.of(ctx).pop();
                 }
               },
-              child: const Text('Lưu Tín Hiệu', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(L10nKey.pestelSaveSignal.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -134,14 +138,14 @@ class PestelRadarWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.radar, color: Color(0xFF38BDF8), size: 20),
-              SizedBox(width: 10),
+              const Icon(Icons.radar, color: Color(0xFF38BDF8), size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Lăng kính PESTEL quét 6 chiều vĩ mô để phát hiện cơ hội và rủi ro. Bạn có thể 1-click chuyển đổi tín hiệu thành Giả định cần kiểm chứng (Hypothesis).',
-                  style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                  L10nKey.pestelBannerDesc.tr,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
                 ),
               ),
             ],
@@ -180,13 +184,13 @@ class PestelRadarWidget extends StatelessWidget {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            dim.labelVi,
+                            dim.localizedLabel,
                             style: TextStyle(color: dim.color, fontSize: 12, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Thêm tín hiệu ${dim.name}',
+                          tooltip: L10nKey.pestelAddTooltip.trParams({'dim': dim.name}),
                           icon: Icon(Icons.add_circle_outline, color: dim.color, size: 18),
                           onPressed: () => _showAddSignalDialog(context, dim),
                           padding: EdgeInsets.zero,
@@ -201,7 +205,7 @@ class PestelRadarWidget extends StatelessWidget {
                       child: dimSignals.isEmpty
                           ? Center(
                               child: Text(
-                                'Chưa có tín hiệu',
+                                L10nKey.pestelEmpty.tr,
                                 style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
                               ),
                             )
@@ -258,12 +262,12 @@ class PestelRadarWidget extends StatelessWidget {
                                                 color: const Color(0xFF10B981).withValues(alpha: 0.15),
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
-                                              child: const Row(
+                                              child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 10),
-                                                  SizedBox(width: 3),
-                                                  Text('Đã Tạo Giả Định', style: TextStyle(color: Color(0xFF10B981), fontSize: 9, fontWeight: FontWeight.bold)),
+                                                  const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 10),
+                                                  const SizedBox(width: 3),
+                                                  Text(L10nKey.pestelHypothesisCreated.tr, style: const TextStyle(color: Color(0xFF10B981), fontSize: 9, fontWeight: FontWeight.bold)),
                                                 ],
                                               ),
                                             )
@@ -278,12 +282,12 @@ class PestelRadarWidget extends StatelessWidget {
                                                   borderRadius: BorderRadius.circular(4),
                                                   border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
                                                 ),
-                                                child: const Row(
+                                                child: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    Icon(Icons.bolt, color: Color(0xFF38BDF8), size: 10),
-                                                    SizedBox(width: 2),
-                                                    Text('Sinh Giả Định', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 9, fontWeight: FontWeight.bold)),
+                                                    const Icon(Icons.bolt, color: Color(0xFF38BDF8), size: 10),
+                                                    const SizedBox(width: 2),
+                                                    Text(L10nKey.pestelGenerateHypothesis.tr, style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 9, fontWeight: FontWeight.bold)),
                                                   ],
                                                 ),
                                               ),

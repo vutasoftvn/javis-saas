@@ -11,6 +11,10 @@ from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.events.trigger_policy import EventTriggerRule
+from apps.cosa.policies.locale_policy import (
+    ProfileLocaleUnavailable,
+    resolve_response_locale,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +102,7 @@ async def run_customer_support_autopilot(
     for cap in spec.capability_refs:
         if FORBIDDEN_AUTOPILOT_CAP_RE.search(cap):
             logger.error("Spec %s contains forbidden capability: %s", spec.id, cap)
-            if stream_repo:
+            if stream_repo and stream_mgr:
                 await stream_mgr.emit(
                     stream_repo,
                     run_id=run_id,
@@ -113,7 +117,80 @@ async def run_customer_support_autopilot(
     thread_ref = payload.get("thread_ref", {})
     thread_id = thread_ref.get("thread_id")
     contact_id = thread_ref.get("contact_id")
-    locale = payload.get("locale") or "vi-VN"
+
+    locale_override = payload.get("locale")
+    locale_source = payload.get("locale_source")
+    profile_locale: str | None = None
+
+    delegation_token = payload.get("delegation_token")
+    profile_client = getattr(plane, "profile_locale_client", None)
+    has_principal = bool(payload.get("principal"))
+    if has_principal and locale_override is None:
+        if not delegation_token or not profile_client:
+            logger.error(
+                "User principal autopilot run %s is missing delegation token or profile_client for locale resolution",
+                run_id,
+            )
+            if stream_repo and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=payload.get("conversation_id", ""),
+                    event_type="run.failed",
+                    payload={
+                        "error": "profile_locale_unavailable: missing delegation token or profile client"
+                    },
+                    correlation_id=correlation_id,
+                )
+            return {"status": "failed", "reason": "profile_locale_unavailable"}
+        try:
+            snapshot = await profile_client.get_snapshot(delegation_token, workspace_id)
+            profile_locale = snapshot.preferred_locale
+        except Exception as exc:
+            logger.error("Failed to fetch profile locale snapshot in autopilot_run: %s", exc)
+            if stream_repo and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=payload.get("conversation_id", ""),
+                    event_type="run.failed",
+                    payload={"error": f"profile_locale_unavailable: {exc}"},
+                    correlation_id=correlation_id,
+                )
+            return {"status": "failed", "reason": f"profile_locale_unavailable: {exc}"}
+
+    try:
+        resolved = resolve_response_locale(
+            profile_locale=profile_locale,
+            response_locale_override=locale_override,
+            has_principal=has_principal,
+        )
+    except ValueError as exc:
+        logger.error("invalid locale in autopilot payload: %s", exc)
+        if stream_repo and stream_mgr:
+            await stream_mgr.emit(
+                stream_repo,
+                run_id=run_id,
+                conversation_id=payload.get("conversation_id", ""),
+                event_type="run.failed",
+                payload={"error": f"unsupported locale: {locale_override}"},
+                correlation_id=correlation_id,
+            )
+        return {"status": "failed", "reason": f"unsupported_locale_{locale_override}"}
+    except ProfileLocaleUnavailable as exc:
+        logger.error("profile locale unavailable for principal in autopilot payload: %s", exc)
+        if stream_repo and stream_mgr:
+            await stream_mgr.emit(
+                stream_repo,
+                run_id=run_id,
+                conversation_id=payload.get("conversation_id", ""),
+                event_type="run.failed",
+                payload={"error": f"profile locale unavailable: {exc}"},
+                correlation_id=correlation_id,
+            )
+        return {"status": "failed", "reason": "profile_locale_unavailable"}
+
+    effective_locale_source = locale_source or resolved.source
 
     req = RunRequest(
         run_id=run_id,
@@ -127,11 +204,12 @@ async def run_customer_support_autopilot(
         },
         workspace_id=workspace_id,
         conversation_id=payload.get("conversation_id", f"conv_ap_{run_id}"),
-        locale=locale,
+        locale=resolved.value,
         metadata={
             "trigger_rule_id": trigger_rule_id,
             "thread_id": thread_id,
-            "locale": locale,
+            "locale": resolved.value,
+            "locale_source": effective_locale_source,
         },
     )
 

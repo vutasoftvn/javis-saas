@@ -15,6 +15,11 @@ from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager, redact_ux_event_payload
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.service_identity import require_internal_url, require_service_token
+from apps.cosa.policies.locale_policy import (
+    ProfileLocaleUnavailable,
+    build_copilot_prompt,
+    resolve_response_locale,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +139,7 @@ async def run_customer_support_copilot(
     plane: CosaAgentPlane,
     stream_mgr: CosaEventStreamManager,
     payload: dict[str, Any],
-) -> None:
+) -> dict[str, Any] | None:
     run_id = payload["run_id"]
     workspace_id = payload["workspace_id"]
     correlation_id = payload.get("correlation_id", "")
@@ -168,7 +173,7 @@ async def run_customer_support_copilot(
                     correlation_id=correlation_id,
                 )
             await callback_company_result(run_id, "failed", reason_code=reason)
-            return
+            return None
         spec = fetched_spec
 
     for cap in spec.capability_refs:
@@ -184,7 +189,7 @@ async def run_customer_support_copilot(
                     correlation_id=correlation_id,
                 )
             await callback_company_result(run_id, "failed", reason_code="forbidden_capability")
-            return
+            return None
 
     # IA25: delegation_token PHẢI do services/company mint sẵn cho đúng
     # người dùng thật đã yêu cầu Copilot (mintCopilotDelegationToken —
@@ -212,7 +217,7 @@ async def run_customer_support_copilot(
                 correlation_id=correlation_id,
             )
         await callback_company_result(run_id, "failed", reason_code="missing_delegation_token")
-        return
+        return None
 
     try:
         ctx = {
@@ -246,7 +251,7 @@ async def run_customer_support_copilot(
                 stream_mgr=stream_mgr,
             )
             if thread_context is None:
-                return
+                return None
 
         customer_360 = {}
         if contact_id:
@@ -263,7 +268,7 @@ async def run_customer_support_copilot(
                 stream_mgr=stream_mgr,
             )
             if customer_360 is None:
-                return
+                return None
 
         knowledge_profile = {}
         if knowledge_scope:
@@ -280,7 +285,7 @@ async def run_customer_support_copilot(
                 stream_mgr=stream_mgr,
             )
             if knowledge_profile is None:
-                return
+                return None
 
         # 4. Build Model Input
         context_bundle = {
@@ -291,19 +296,76 @@ async def run_customer_support_copilot(
             "identity_verified": identity_verified,
         }
 
-        locale = payload.get("locale") or "vi-VN"
-        if locale.startswith("en"):
-            user_prompt = (
-                f"Analyze thread {thread_id} with intent '{payload.get('intent', 'summarize')}'. "
-                f"Customer identity_verified={identity_verified}. "
-                "Generate a summary artifact, extract evidence, and draft a recommended response."
+        # Resolve locale with strict validation & provenance
+        locale_override = payload.get("locale")
+        locale_source = payload.get("locale_source")
+        profile_locale: str | None = None
+
+        delegation_token = payload.get("delegation_token")
+        profile_client = getattr(plane, "profile_locale_client", None)
+        has_principal = bool(payload.get("principal") or payload.get("actor_id"))
+
+        if has_principal and locale_override is None:
+            if not delegation_token or not profile_client:
+                logger.error(
+                    "User principal run %s is missing delegation token or profile_client for locale resolution",
+                    run_id,
+                )
+                if stream_repo and stream_mgr:
+                    await stream_mgr.emit(
+                        stream_repo,
+                        run_id=run_id,
+                        conversation_id=payload.get("conversation_id", ""),
+                        event_type="run.failed",
+                        payload={
+                            "error": "profile_locale_unavailable: missing delegation token or client"
+                        },
+                        correlation_id=correlation_id,
+                    )
+                return {"status": "failed", "reason": "profile_locale_unavailable"}
+            try:
+                snapshot = await profile_client.get_snapshot(delegation_token, workspace_id)
+                profile_locale = snapshot.preferred_locale
+            except Exception as exc:
+                logger.error("Failed to fetch profile locale snapshot in copilot_run: %s", exc)
+                if stream_repo and stream_mgr:
+                    await stream_mgr.emit(
+                        stream_repo,
+                        run_id=run_id,
+                        conversation_id=payload.get("conversation_id", ""),
+                        event_type="run.failed",
+                        payload={"error": f"profile_locale_unavailable: {exc}"},
+                        correlation_id=correlation_id,
+                    )
+                return {"status": "failed", "reason": f"profile_locale_unavailable: {exc}"}
+
+        try:
+            resolved = resolve_response_locale(
+                profile_locale=profile_locale,
+                response_locale_override=locale_override,
+                has_principal=has_principal,
             )
-        else:
-            user_prompt = (
-                f"Hãy phân tích thread {thread_id} với intent '{payload.get('intent', 'summarize')}'. "
-                f"Khách hàng identity_verified={identity_verified}. "
-                "Tạo artifact tóm tắt, trích xuất căn cứ, và bản nháp phản hồi đề xuất."
-            )
+        except (ValueError, ProfileLocaleUnavailable) as exc:
+            logger.error("Failed to resolve response locale in copilot_run: %s", exc)
+            if stream_repo and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=payload.get("conversation_id", ""),
+                    event_type="run.failed",
+                    payload={"error": f"locale resolution failed: {exc}"},
+                    correlation_id=correlation_id,
+                )
+            return {"status": "failed", "reason": f"locale_resolution_failed: {exc}"}
+
+        effective_locale_source = locale_source or resolved.source
+
+        user_prompt = build_copilot_prompt(
+            locale=resolved.value,
+            thread_id=str(thread_id or ""),
+            intent=payload.get("intent", "summarize"),
+            identity_verified=identity_verified,
+        )
 
         run_req = RunRequest(
             run_id=run_id,
@@ -314,8 +376,11 @@ async def run_customer_support_copilot(
             input={"prompt": user_prompt, "context": context_bundle},
             workspace_id=workspace_id,
             correlation_id=correlation_id,
-            locale=locale,
-            metadata={"locale": locale},
+            locale=resolved.value,
+            metadata={
+                "locale": resolved.value,
+                "locale_source": effective_locale_source,
+            },
         )
 
         if hasattr(plane.kernel, "run"):
@@ -368,7 +433,7 @@ async def run_customer_support_copilot(
                 stream_mgr=stream_mgr,
             )
             if draft_result is None:
-                return
+                return None
 
             # 5. Persist Artifact & verify readable
             if plane.artifact_repository is not None:
@@ -496,4 +561,6 @@ async def run_customer_support_copilot(
                 correlation_id=correlation_id,
             )
         await callback_company_result(run_id, "failed", reason_code="copilot_unhandled_exception")
-        return
+        return None
+
+    return None

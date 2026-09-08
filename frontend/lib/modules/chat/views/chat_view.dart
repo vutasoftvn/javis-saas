@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../shared/widgets/ai_advisory_disclosure.dart';
 import '../controllers/chat_controller.dart';
 import 'widgets/chat_sidebar.dart';
@@ -51,9 +52,9 @@ class ChatView extends GetView<ChatController> {
     return Column(
       children: [
         ChatHeader(controller: controller, showMenuButton: showMenuButton),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: AiAdvisoryDisclosure(domain: 'Trợ lý Doanh nghiệp'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: AiAdvisoryDisclosure(domain: L10nKey.chatAdvisoryDomain.tr),
         ),
         _buildReconnectBanner(),
         Expanded(child: _buildMessagesList()),
@@ -69,18 +70,18 @@ class ChatView extends GetView<ChatController> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
         color: AppTheme.warning.withValues(alpha: 0.2),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 12,
               height: 12,
               child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.warning),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
-              'Reconnecting to event stream...',
-              style: TextStyle(color: AppTheme.warning, fontSize: 12, fontWeight: FontWeight.w600),
+              L10nKey.chatReconnecting.tr,
+              style: const TextStyle(color: AppTheme.warning, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ],
         ),

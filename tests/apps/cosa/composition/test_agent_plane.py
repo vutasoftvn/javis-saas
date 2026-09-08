@@ -277,7 +277,9 @@ def test_build_cosa_agent_plane_wires_governance_store_into_gateway():
     assert plane.gateway._governance_store is explicit_gov_store
 
 
-def test_build_cosa_agent_plane_never_leaves_knowledge_snapshot_repo_as_none():
+def test_build_cosa_agent_plane_uses_in_memory_knowledge_snapshot_repo_without_database_url(
+    monkeypatch,
+):
     """IA07: register_cosa_capabilities() nhận knowledge_snapshot_repo optional,
     nhưng build_cosa_agent_plane() trước đây không bao giờ truyền nó — mọi plane
     dựng ra đều có knowledge.profile.read chạy nhánh "repository chưa inject",
@@ -291,6 +293,8 @@ def test_build_cosa_agent_plane_never_leaves_knowledge_snapshot_repo_as_none():
     from agent.runs.repository import InMemoryRunRepository
     from agent.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
 
     plane = build_cosa_agent_plane(
         repository=InMemoryRunRepository(),

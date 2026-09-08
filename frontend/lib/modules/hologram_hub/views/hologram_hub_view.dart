@@ -26,6 +26,7 @@ import '../../dashboard/models/dashboard_nav_config.dart';
 import '../../../core/routing/module_routes.dart';
 import '../../dashboard/views/widgets/floating_voice_hologram.dart';
 import '../widgets/draggable_chat_panel.dart';
+import '../../../core/localization/app_translations.dart';
 import '../../../core/shell/chat_panel_controller.dart';
 
 class HologramHubView extends StatelessWidget {
@@ -181,7 +182,7 @@ class HologramHubView extends StatelessWidget {
                             ),
                             if (!isCompact)
                               Text(
-                                'Hệ điều hành doanh nghiệp AI',
+                                L10nKey.hubSubtitle.tr,
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Colors.white.withValues(alpha: 0.5),
@@ -267,7 +268,7 @@ class HologramHubView extends StatelessWidget {
                           color: Colors.white70,
                           size: 20,
                         ),
-                        tooltip: 'Chuyển module',
+                        tooltip: L10nKey.hubSwitchModule.tr,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
                           minWidth: 36,
@@ -285,7 +286,7 @@ class HologramHubView extends StatelessWidget {
                           color: Colors.white70,
                           size: 20,
                         ),
-                        tooltip: 'Quản trị Dashboard',
+                        tooltip: L10nKey.hubManageDashboard.tr,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
                           minWidth: 36,
@@ -302,7 +303,7 @@ class HologramHubView extends StatelessWidget {
                           color: Colors.white70,
                           size: 20,
                         ),
-                        tooltip: 'Làm mới dữ liệu',
+                        tooltip: L10nKey.hubRefreshData.tr,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
                           minWidth: 36,
@@ -319,7 +320,7 @@ class HologramHubView extends StatelessWidget {
                           color: Colors.white70,
                           size: 20,
                         ),
-                        tooltip: 'Hồ sơ của tôi',
+                        tooltip: L10nKey.hubMyProfile.tr,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
                           minWidth: 36,
@@ -575,26 +576,26 @@ class HologramHubView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            label: const Text(
-              'Tiếp tục thiết lập',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            label: Text(
+              L10nKey.hubContinueSetup.tr,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           );
           final message = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                'Hoàn tất thiết lập vòng khởi đầu',
-                style: TextStyle(
+                L10nKey.hubSetupIncompleteTitle.tr,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                'Dự án của bạn chưa hoàn thành 3 bước thiết lập mục tiêu và hành động tuần đầu.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                L10nKey.hubSetupIncompleteDesc.tr,
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
               ),
             ],
           );
@@ -748,8 +749,8 @@ class HologramHubView extends StatelessWidget {
                     icon: const Icon(Icons.auto_awesome, size: 14),
                     label: Text(
                       _cc.isDecomposing.value
-                          ? 'Đang lập...'
-                          : 'Nhờ AI lập kế hoạch',
+                          ? L10nKey.hubPlanningInProgress.tr
+                          : L10nKey.hubAskAiPlan.tr,
                     ),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF818CF8),
@@ -788,13 +789,13 @@ class HologramHubView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 side: const BorderSide(color: Color(0xFF334155), width: 1),
               ),
-              title: const Row(
+              title: Row(
                 children: [
-                  Icon(Icons.rocket_launch, color: Color(0xFF6366F1), size: 22),
-                  SizedBox(width: 10),
+                  const Icon(Icons.rocket_launch, color: Color(0xFF6366F1), size: 22),
+                  const SizedBox(width: 10),
                   Text(
-                    'Khởi tạo dự án mới',
-                    style: TextStyle(
+                    L10nKey.hubCreateNewProject.tr,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -808,16 +809,16 @@ class HologramHubView extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Tên dự án *',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    Text(
+                      L10nKey.hubProjectNameLabel.tr,
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: titleController,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Ví dụ: Nền tảng B2B SaaS cho Doanh nghiệp',
+                        hintText: L10nKey.hubProjectNameHint.tr,
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.35),
                           fontSize: 13,
@@ -835,9 +836,9 @@ class HologramHubView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Mô tả bài toán / JTBD',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    Text(
+                      L10nKey.hubProjectDescLabel.tr,
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                     const SizedBox(height: 6),
                     TextField(
@@ -845,8 +846,7 @@ class HologramHubView extends StatelessWidget {
                       maxLines: 3,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText:
-                            'Mô tả ngắn gọn ý tưởng, vấn đề cần giải quyết...',
+                        hintText: L10nKey.hubProjectDescHint.tr,
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.35),
                           fontSize: 13,
@@ -869,9 +869,9 @@ class HologramHubView extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text(
-                    'Hủy',
-                    style: TextStyle(color: Colors.white60),
+                  child: Text(
+                    L10nKey.commonCancel.tr,
+                    style: const TextStyle(color: Colors.white60),
                   ),
                 ),
                 ElevatedButton(
@@ -880,8 +880,8 @@ class HologramHubView extends StatelessWidget {
                     final desc = descriptionController.text.trim();
                     if (title.isEmpty) {
                       AppToast.warning(
-                        'Vui lòng nhập tên dự án',
-                        title: 'Thiếu thông tin',
+                        L10nKey.hubEnterProjectNameError.tr,
+                        title: L10nKey.hubMissingInfoTitle.tr,
                       );
                       return;
                     }
@@ -904,9 +904,9 @@ class HologramHubView extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text(
-                    'Khởi tạo dự án',
-                    style: TextStyle(
+                  child: Text(
+                    L10nKey.hubCreateProjectAction.tr,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1013,7 +1013,7 @@ class HologramHubView extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 12, bottom: 6),
                     child: Text(
-                      group.title,
+                      group.localizedTitle,
                       style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 12,
@@ -1026,7 +1026,7 @@ class HologramHubView extends StatelessWidget {
                     return ListTile(
                       leading: Icon(item.icon, color: Colors.white70),
                       title: Text(
-                        item.label,
+                        item.localizedLabel,
                         style: const TextStyle(color: Colors.white),
                       ),
                       onTap: () {
@@ -1099,8 +1099,8 @@ class _WgaSurfacesState extends State<_WgaSurfaces> {
                       Expanded(
                         child: Text(
                           c.sweepEnabled.value
-                              ? 'AI tự chạy việc trong quyền hạn'
-                              : 'Đã tạm dừng AI tự chạy việc',
+                              ? L10nKey.hubSweepEnabled.tr
+                              : L10nKey.hubSweepDisabled.tr,
                           style: const TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: 12,

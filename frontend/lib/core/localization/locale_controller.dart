@@ -82,4 +82,15 @@ class LocaleController extends GetxController {
     final parsed = SupportedLocaleWire.parse(code);
     await updatePreference(parsed);
   }
+
+  Future<void> setLocale(SupportedLocale locale) async {
+    await applyServerLocale(locale);
+  }
+
+  Future<void> toggleLocale() async {
+    final next = current.value == SupportedLocale.viVN
+        ? SupportedLocale.enUS
+        : SupportedLocale.viVN;
+    await setLocale(next);
+  }
 }

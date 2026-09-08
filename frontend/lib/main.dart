@@ -92,7 +92,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final localeController = Get.find<LocaleController>();
     return Obx(() => GetMaterialApp(
-      title: 'COSA - Hệ điều hành doanh nghiệp AI',
+      title: L10nKey.appTitle.tr,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme, // We only use dark theme for now
       initialRoute: initialRoute,

@@ -498,9 +498,7 @@ class InMemoryLocalIngestionRepository:
             LocalIngestionState.CONVERTING,
         ):
             return False
-        attempt.state = (
-            LocalIngestionState.REJECTED if terminal else LocalIngestionState.FAILED
-        )
+        attempt.state = LocalIngestionState.REJECTED if terminal else LocalIngestionState.FAILED
         attempt.failure_code = failure_code
         return True
 

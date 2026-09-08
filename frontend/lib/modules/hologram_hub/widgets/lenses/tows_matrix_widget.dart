@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../data/models/strategy_lens_model.dart';
 
 class TowsMatrixWidget extends StatefulWidget {
@@ -45,9 +47,11 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
             children: [
               Icon(Icons.alt_route, color: selectedQuadrant.color, size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'Tạo Chiến Lược TOWS',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  L10nKey.towsCreateTitle.tr,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -59,14 +63,14 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                 DropdownButtonFormField<TowsType>(
                   initialValue: selectedQuadrant,
                   dropdownColor: const Color(0xFF1E293B),
-                  decoration: const InputDecoration(
-                    labelText: 'Cặp ghép chiến lược TOWS',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  decoration: InputDecoration(
+                    labelText: L10nKey.towsPairLabel.tr,
+                    labelStyle: const TextStyle(color: Colors.white70),
                   ),
                   items: TowsType.values.map((t) {
                     return DropdownMenuItem(
                       value: t,
-                      child: Text(t.labelVi, style: TextStyle(color: t.color, fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text(t.localizedLabel, style: TextStyle(color: t.color, fontWeight: FontWeight.bold, fontSize: 12)),
                     );
                   }).toList(),
                   onChanged: (val) {
@@ -77,11 +81,11 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                 TextField(
                   controller: titleCtrl,
                   style: const TextStyle(color: Colors.white, fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Tên chiến lược (*)',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    hintText: 'Ví dụ: Ra mắt gói Starter AI giá thấp...',
-                    hintStyle: TextStyle(color: Colors.white30, fontSize: 12),
+                  decoration: InputDecoration(
+                    labelText: L10nKey.towsStrategyNameLabel.tr,
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    hintText: L10nKey.towsStrategyNameHint.tr,
+                    hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -89,9 +93,9 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                   controller: descCtrl,
                   maxLines: 3,
                   style: const TextStyle(color: Colors.white, fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Mô tả cơ chế ghép cặp & Đánh đổi (Trade-offs)',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  decoration: InputDecoration(
+                    labelText: L10nKey.towsDescLabel.tr,
+                    labelStyle: const TextStyle(color: Colors.white70),
                   ),
                 ),
               ],
@@ -100,7 +104,7 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Hủy', style: TextStyle(color: Colors.white60)),
+              child: Text(L10nKey.commonCancel.tr, style: const TextStyle(color: Colors.white60)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -117,7 +121,7 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                   Navigator.of(ctx).pop();
                 }
               },
-              child: const Text('Lưu Chiến Lược', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(L10nKey.towsSaveStrategy.tr, style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -135,15 +139,17 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           backgroundColor: const Color(0xFF0F172A),
-          title: Text('Đánh giá chiến lược: ${option.title}',
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+          title: Text(
+            L10nKey.towsEvalTitle.trParams({'title': option.title}),
+            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Điểm tác động (1-5):', style: TextStyle(color: Colors.white70)),
+                  Text(L10nKey.towsImpactScore.tr, style: const TextStyle(color: Colors.white70)),
                   Text('${impact.toInt()}', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -159,7 +165,7 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Độ khó / rào cản (1-5):', style: TextStyle(color: Colors.white70)),
+                  Text(L10nKey.towsDifficultyScore.tr, style: const TextStyle(color: Colors.white70)),
                   Text('${difficulty.toInt()}', style: const TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -175,15 +181,15 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
               TextField(
                 controller: notesCtrl,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
-                decoration: const InputDecoration(
-                  labelText: 'Giải thích xếp hạng',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: L10nKey.towsRatingExplanation.tr,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(L10nKey.commonCancel.tr)),
             ElevatedButton(
               onPressed: () {
                 if (widget.onEvaluateOption != null) {
@@ -191,7 +197,7 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                 }
                 Navigator.pop(ctx);
               },
-              child: const Text('Lưu đánh giá'),
+              child: Text(L10nKey.towsSaveEvaluation.tr),
             ),
           ],
         ),
@@ -207,28 +213,30 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
-        title: Text('Chọn chiến lược: ${option.title}',
-            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+        title: Text(
+          L10nKey.towsSelectTitle.trParams({'title': option.title}),
+          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Chiến lược được chọn sẽ trở thành căn cứ xây dựng Kế hoạch Hành động (Initiative).',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+            Text(
+              L10nKey.towsSelectDesc.tr,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: reasonCtrl,
               style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: const InputDecoration(
-                labelText: 'Lý do lựa chọn (*)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: L10nKey.towsSelectReasonLabel.tr,
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(L10nKey.commonCancel.tr)),
           ElevatedButton(
             onPressed: () {
               if (reasonCtrl.text.trim().isNotEmpty && widget.onSelectOption != null) {
@@ -236,7 +244,7 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                 Navigator.pop(ctx);
               }
             },
-            child: const Text('Xác nhận chọn'),
+            child: Text(L10nKey.towsConfirmSelect.tr),
           ),
         ],
       ),
@@ -259,10 +267,10 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
             children: [
               const Icon(Icons.alt_route, color: Colors.blueAccent, size: 20),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Ma trận TOWS: Ghép nối yếu tố bên trong và bên ngoài để ra quyết định chiến lược.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  L10nKey.towsMatrixHeader.tr,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ),
               Container(
@@ -274,7 +282,10 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                   border: Border.all(color: _isLimitReached ? Colors.amber : Colors.blueAccent),
                 ),
                 child: Text(
-                  '$_selectedCount / ${widget.selectionLimit} chiến lược đã chọn',
+                  L10nKey.towsSelectionCount.trParams({
+                    'count': '$_selectedCount',
+                    'limit': '${widget.selectionLimit}',
+                  }),
                   style: TextStyle(
                     color: _isLimitReached ? Colors.amber : Colors.lightBlueAccent,
                     fontWeight: FontWeight.bold,
@@ -314,13 +325,13 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            quadrant.labelVi,
+                            quadrant.localizedLabel,
                             style: TextStyle(color: quadrant.color, fontSize: 12, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Thêm chiến lược ${quadrant.name.toUpperCase()}',
+                          tooltip: L10nKey.towsAddTooltip.trParams({'name': quadrant.name.toUpperCase()}),
                           icon: Icon(Icons.add_circle_outline, color: quadrant.color, size: 18),
                           onPressed: () => _showAddTowsDialog(context, quadrant),
                           padding: EdgeInsets.zero,
@@ -333,7 +344,7 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                       child: options.isEmpty
                           ? Center(
                               child: Text(
-                                'Chưa có chiến lược',
+                                L10nKey.towsEmpty.tr,
                                 style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
                               ),
                             )
@@ -366,9 +377,12 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                                             ),
                                           ),
                                           if (isSelected)
-                                            const Chip(
-                                              label: Text('ĐÃ CHỌN', style: TextStyle(fontSize: 9, color: Colors.white)),
-                                              backgroundColor: Color(0xFF059669),
+                                            Chip(
+                                              label: Text(
+                                                L10nKey.towsSelected.tr,
+                                                style: const TextStyle(fontSize: 9, color: Colors.white),
+                                              ),
+                                              backgroundColor: const Color(0xFF059669),
                                               padding: EdgeInsets.zero,
                                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                             ),
@@ -383,7 +397,7 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               visualDensity: VisualDensity.compact,
                                             ),
-                                            child: const Text('Chấm điểm (1-5)', style: TextStyle(fontSize: 10)),
+                                            child: Text(L10nKey.towsScoreBtn.tr, style: const TextStyle(fontSize: 10)),
                                           ),
                                           const Spacer(),
                                           if (!isSelected)
@@ -394,7 +408,7 @@ class _TowsMatrixWidgetState extends State<TowsMatrixWidget> {
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                                 visualDensity: VisualDensity.compact,
                                               ),
-                                              child: const Text('Chọn', style: TextStyle(fontSize: 10)),
+                                              child: Text(L10nKey.towsSelectBtn.tr, style: const TextStyle(fontSize: 10)),
                                             ),
                                         ],
                                       ),

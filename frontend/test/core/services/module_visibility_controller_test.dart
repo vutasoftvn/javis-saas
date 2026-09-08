@@ -130,5 +130,55 @@ void main() {
       expect(controller.isVisible(WorkspaceModule.legal), isFalse);
       expect(api.legalEnabled, isFalse);
     });
+
+    test('fail-closed: optional modules are hidden before snapshot is loaded', () {
+      final controller = ModuleVisibilityController(api: FakeVisibilityApi());
+      // No reloadForWorkspace called yet
+      expect(controller.hasLoadedSnapshot.value, isFalse);
+      expect(controller.isVisible(WorkspaceModule.finance), isFalse);
+      expect(controller.isVisible(WorkspaceModule.legal), isFalse);
+      expect(controller.isVisible(WorkspaceModule.sales), isFalse);
+      // Core modules remain visible
+      expect(controller.isVisible(WorkspaceModule.tasks), isTrue);
+      expect(controller.isVisible(WorkspaceModule.hub), isTrue);
+    });
+
+    test('fail-closed: optional modules remain hidden if API throws error during reload', () async {
+      final controller = ModuleVisibilityController(api: _ThrowingVisibilityApi());
+      await controller.reloadForWorkspace('w1');
+      expect(controller.hasLoadedSnapshot.value, isFalse);
+      expect(controller.isVisible(WorkspaceModule.finance), isFalse);
+      expect(controller.isVisible(WorkspaceModule.legal), isFalse);
+      expect(controller.isVisible(WorkspaceModule.sales), isFalse);
+      expect(controller.isVisible(WorkspaceModule.tasks), isTrue);
+    });
+
+    test('fail-closed: clear resets snapshot and hides optional modules', () async {
+      final controller = ModuleVisibilityController(api: FakeVisibilityApi());
+      await controller.reloadForWorkspace('w1');
+      expect(controller.isVisible(WorkspaceModule.finance), isTrue);
+
+      controller.clear();
+      expect(controller.hasLoadedSnapshot.value, isFalse);
+      expect(controller.isVisible(WorkspaceModule.finance), isFalse);
+      expect(controller.isVisible(WorkspaceModule.tasks), isTrue);
+    });
   });
+}
+
+class _ThrowingVisibilityApi implements ModuleVisibilityApi {
+  @override
+  Future<List<ModuleVisibility>> fetchVisibility(String workspaceId) async {
+    throw Exception('Simulated network error');
+  }
+
+  @override
+  Future<bool> setWorkspaceEnabled(String workspaceId, OptionalModule module, bool enabled) async {
+    throw Exception('Simulated network error');
+  }
+
+  @override
+  Future<bool> setUserPreference(String workspaceId, OptionalModule module, bool visible) async {
+    throw Exception('Simulated network error');
+  }
 }
