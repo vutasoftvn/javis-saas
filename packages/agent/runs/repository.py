@@ -41,6 +41,16 @@ class RunRepository(Protocol):
         final_output: Any | None = None,
         error_details: dict[str, Any] | None = None,
     ) -> RunRecord | None: ...
+    async def transition_run_status(
+        self,
+        run_id: str,
+        *,
+        from_statuses: set[RunStatus],
+        to_status: RunStatus,
+        final_output: Any | None = None,
+        error_details: dict[str, Any] | None = None,
+    ) -> RunRecord | None: ...
+    async def cancel_run(self, run_id: str, *, reason: str) -> RunRecord | None: ...
 
     # 2. Checkpoints
     async def save_checkpoint(self, checkpoint: RunCheckpointRecord) -> RunCheckpointRecord: ...
@@ -151,6 +161,57 @@ class InMemoryRunRepository:
         if status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED):
             r.completed_at = datetime.now(UTC)
         return r.model_copy(deep=True)
+
+    async def transition_run_status(
+        self,
+        run_id: str,
+        *,
+        from_statuses: set[RunStatus],
+        to_status: RunStatus,
+        final_output: Any | None = None,
+        error_details: dict[str, Any] | None = None,
+    ) -> RunRecord | None:
+        """CAS atomic transition: chỉ succeed nếu status hiện tại nằm trong
+        `from_statuses` — chặn việc một hoàn tất/fail muộn ghi đè lên một
+        CANCELLED đã persist trước đó (race cancel-vs-complete). An toàn
+        concurrent trong 1 process vì check-then-mutate không có `await` ở
+        giữa (không có điểm preempt coroutine)."""
+        r = self._runs.get(run_id)
+        if not r or r.status not in from_statuses:
+            return None
+        r.status = to_status
+        r.updated_at = datetime.now(UTC)
+        if final_output is not None:
+            r.final_output = final_output
+        if error_details is not None:
+            r.error_details = error_details
+        if to_status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED):
+            r.completed_at = datetime.now(UTC)
+        return r.model_copy(deep=True)
+
+    async def cancel_run(self, run_id: str, *, reason: str) -> RunRecord | None:
+        """Cancel idempotent: CANCELLED nằm trong `from_statuses` nên
+        CANCELLED -> CANCELLED cũng là một CAS hợp lệ (ghi đè cùng giá trị,
+        vô hại) — cách đơn giản nhất để cancel hai lần liên tiếp đều trả về
+        record CANCELLED thay vì None/lỗi. COMPLETED/FAILED (terminal khác)
+        KHÔNG nằm trong from_statuses — cancel một run đã xong việc là no-op,
+        trả về record terminal hiện tại của nó (không phải None)."""
+        result = await self.transition_run_status(
+            run_id,
+            from_statuses={
+                RunStatus.PENDING,
+                RunStatus.RUNNING,
+                RunStatus.WAITING_APPROVAL,
+                RunStatus.WAITING_INPUT,
+                RunStatus.CANCELLED,
+            },
+            to_status=RunStatus.CANCELLED,
+            error_details={"reason": reason},
+        )
+        if result is not None:
+            return result
+        # Run đã terminal ở COMPLETED/FAILED — no-op, trả về trạng thái thật.
+        return await self.get_run(run_id)
 
     # Checkpoints
     async def save_checkpoint(self, checkpoint: RunCheckpointRecord) -> RunCheckpointRecord:
@@ -483,6 +544,89 @@ class PostgresRunRepository(BasePostgresRepository):
                 },
             )
             await self._commit(session)
+        return await self.get_run(run_id)
+
+    async def transition_run_status(
+        self,
+        run_id: str,
+        *,
+        from_statuses: set[RunStatus],
+        to_status: RunStatus,
+        final_output: Any | None = None,
+        error_details: dict[str, Any] | None = None,
+    ) -> RunRecord | None:
+        """CAS atomic transition qua một UPDATE duy nhất (không SELECT-rồi-UPDATE
+        — race thật giữa 2 connection/process khác nhau chỉ đóng được bằng
+        WHERE ... AND status = ANY(:from_statuses) trong CÙNG 1 statement).
+        Trả None nếu run không tồn tại HOẶC status hiện tại không nằm trong
+        from_statuses (vd. đã bị CANCELLED bởi 1 process khác) — caller (kernel)
+        phải reload run thật qua get_run() thay vì tin transition đã xảy ra."""
+        now = datetime.now(UTC)
+        completed_at = (
+            now
+            if to_status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)
+            else None
+        )
+        to_status_val = to_status.value if hasattr(to_status, "value") else str(to_status)
+        from_status_vals = [s.value if hasattr(s, "value") else str(s) for s in from_statuses]
+
+        async with self._session_factory() as session:
+            res = await self._execute(
+                session,
+                text(
+                    """
+                    UPDATE agent.runs
+                    SET status = :to_status,
+                        final_output = COALESCE(:final_output, final_output),
+                        error_details = COALESCE(:error_details, error_details),
+                        updated_at = :updated_at,
+                        completed_at = COALESCE(:completed_at, completed_at)
+                    WHERE run_id = :run_id
+                      AND status = ANY(:from_statuses)
+                    RETURNING run_id
+                    """
+                ),
+                {
+                    "run_id": run_id,
+                    "to_status": to_status_val,
+                    "from_statuses": from_status_vals,
+                    "final_output": json.dumps(final_output) if final_output is not None else None,
+                    "error_details": json.dumps(error_details)
+                    if error_details is not None
+                    else None,
+                    "updated_at": now,
+                    "completed_at": completed_at,
+                },
+            )
+            updated = res.mappings().first()
+            await self._commit(session)
+
+        if not updated:
+            return None
+        return await self.get_run(run_id)
+
+    async def cancel_run(self, run_id: str, *, reason: str) -> RunRecord | None:
+        """Cancel idempotent: CANCELLED nằm trong from_statuses nên gọi lại
+        cancel_run trên 1 run đã CANCELLED vẫn CAS thành công (ghi đè cùng
+        giá trị, vô hại) thay vì trả None — tránh phải phân biệt race giữa
+        "chưa từng cancel" và "đã cancel rồi" bằng 1 SELECT riêng (sẽ mở lại
+        đúng race mà transition_run_status cố đóng). COMPLETED/FAILED KHÔNG
+        nằm trong from_statuses — cancel một run đã xong việc là no-op, trả
+        về record terminal thật của nó qua get_run(), không phải None."""
+        result = await self.transition_run_status(
+            run_id,
+            from_statuses={
+                RunStatus.PENDING,
+                RunStatus.RUNNING,
+                RunStatus.WAITING_APPROVAL,
+                RunStatus.WAITING_INPUT,
+                RunStatus.CANCELLED,
+            },
+            to_status=RunStatus.CANCELLED,
+            error_details={"reason": reason},
+        )
+        if result is not None:
+            return result
         return await self.get_run(run_id)
 
     async def list_runs(self, workspace_id: str, limit: int = 50) -> list[RunRecord]:

@@ -44,17 +44,43 @@ async def cancel_run(
     if owned_run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
+    # Authority thật cho việc "run có thực sự bị cancel không" là repository
+    # (CAS atomic transition_run_status), KHÔNG phải plane.kernel.cancel() —
+    # kernel.cancel() chỉ update `_cancelled_runs` in-memory (fast-path,
+    # per-instance, không thấy được các worker/process khác) rồi TỰ NÓ cũng
+    # gọi cancel_run bên trong, nhưng route không được tin giá trị bool nó trả
+    # về là nguồn sự thật. Gọi trực tiếp repository.cancel_run ở đây để route
+    # tự xác định kết quả, độc lập với việc kernel có đang chạy run này trong
+    # cùng process hay không.
+    cancelled_record = await plane.repository.cancel_run(
+        run_id, reason=f"Cancelled via HTTP API by {identity.principal_id}"
+    )
+    # Vẫn gọi kernel.cancel() để kernel có cơ hội dừng công việc in-process
+    # (fast-path _cancelled_runs) nếu run đang chạy ngay trong worker này.
     await plane.kernel.cancel(run_id)
 
-    await stream_mgr.emit(
-        plane.stream_event_repository,
-        run_id=run_id,
-        conversation_id=owned_run.conversation_id or "unknown",
-        event_type="run.cancelled",
-        payload={"run_id": run_id},
-    )
+    if cancelled_record is None:
+        # Run không tồn tại nữa giữa lúc get_scoped_run và cancel_run — coi
+        # như đã biến mất.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
-    return CancelRunResponse(run_id=run_id, status="CANCELLED")
+    result_status = cancelled_record.status.value.upper()
+
+    if cancelled_record.status.value == "cancelled":
+        # Emit khi run về CANCELLED — kể cả khi nó đã CANCELLED từ trước lệnh
+        # gọi này (idempotent: client gọi cancel lại vẫn hợp lệ nhận sự kiện).
+        # KHÔNG emit khi run đang/đã ở một trạng thái terminal KHÁC
+        # (COMPLETED/FAILED) — emit run.cancelled ở đó sẽ là nói dối vì run
+        # chưa từng thực sự bị cancel.
+        await stream_mgr.emit(
+            plane.stream_event_repository,
+            run_id=run_id,
+            conversation_id=owned_run.conversation_id or "unknown",
+            event_type="run.cancelled",
+            payload={"run_id": run_id},
+        )
+
+    return CancelRunResponse(run_id=run_id, status=result_status)
 
 
 # 8. GET /agent/runs/{run_id}/events

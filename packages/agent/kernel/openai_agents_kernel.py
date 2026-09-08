@@ -346,7 +346,13 @@ class ManualToolLoopKernel:
                     serialized_state=state.to_dict(),
                 )
             )
-            await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
+            transitioned = await self._repo.transition_run_status(
+                run_id,
+                from_statuses=self._ACTIVE_RUN_STATUSES,
+                to_status=RunStatus.WAITING_APPROVAL,
+            )
+            if transitioned is None:
+                return await self._reload_terminal_result(run_id)
             waits: list[WaitDescriptor] = []
             for call in remaining_pending:
                 call_id = str(call.get("id") or call.get("tool_call_id") or "")
@@ -392,20 +398,23 @@ class ManualToolLoopKernel:
             return await self._execute_reasoning_loop(run_record, state, spec, correlation_id)
 
     async def cancel(self, run_id: str, reason: str | None = None) -> bool:
+        # `_cancelled_runs` chỉ là fast-path in-memory, per-kernel-instance —
+        # KHÔNG phải authority. Authority thật là `cancel_run` (CAS qua
+        # repository) — HTTP route (apps/cosa/api/routes.py) gọi trực tiếp
+        # repository.cancel_run, không dựa vào giá trị trả về của method này.
         self._cancelled_runs.add(run_id)
         run_record = await self._repo.get_run(run_id)
-        if run_record:
-            await self._repo.update_run_status(
-                run_id,
-                status=RunStatus.CANCELLED,
-                error_details={"reason": reason or "Cancelled by user"},
-            )
-            await self._emit_event(
-                run_id,
-                "run.failed",
-                {"status": "cancelled", "reason": reason},
-                run_record.correlation_id,
-            )
+        if not run_record:
+            return False
+        result = await self._repo.cancel_run(run_id, reason=reason or "Cancelled by user")
+        if result is None or result.status != RunStatus.CANCELLED:
+            return False
+        await self._emit_event(
+            run_id,
+            "run.failed",
+            {"status": "cancelled", "reason": reason},
+            run_record.correlation_id,
+        )
         return True
 
     async def stream(
@@ -441,6 +450,36 @@ class ManualToolLoopKernel:
         except AgentRuntimeError as err:
             return await self._fail_from_runtime_error(run_id, err, correlation_id)
 
+    # Các trạng thái "đang hoạt động" — một run trong các trạng thái này vẫn có
+    # thể bị finalize (COMPLETED/FAILED/WAITING_APPROVAL/CANCELLED) hợp lệ.
+    # KHÔNG bao gồm COMPLETED/FAILED/CANCELLED — đã terminal thì không transition
+    # tiếp được nữa (đây chính là bất biến CAS đóng race cancel-vs-complete).
+    _ACTIVE_RUN_STATUSES: set[RunStatus] = {
+        RunStatus.PENDING,
+        RunStatus.RUNNING,
+        RunStatus.WAITING_APPROVAL,
+        RunStatus.WAITING_INPUT,
+    }
+
+    async def _reload_terminal_result(self, run_id: str) -> RunResult:
+        """Một transition CAS trả None nghĩa là run KHÔNG còn ở active state
+        nữa (vd. đã bị cancel_run() từ 1 process/request khác) — phải reload
+        run thật từ repository và trả về đúng trạng thái đã persist, KHÔNG
+        được emit run.completed/run.failed dựa trên kết quả kernel đang định
+        ghi (đó sẽ là lie — đúng bug B mà Task 5 phải đóng)."""
+        run_record = await self._repo.get_run(run_id)
+        status = run_record.status if run_record else RunStatus.CANCELLED
+        return RunResult(
+            run_id=run_id,
+            status=status,
+            final_output=run_record.final_output if run_record else None,
+            errors=(
+                []
+                if status == RunStatus.CANCELLED
+                else [f"Run {run_id} could not transition — already {status}"]
+            ),
+        )
+
     async def _fail_from_runtime_error(
         self, run_id: str, err: AgentRuntimeError, correlation_id: str
     ) -> RunResult:
@@ -448,9 +487,14 @@ class ManualToolLoopKernel:
         # biến lỗi provider/gateway thành assistant content COMPLETED, và không
         # để exception thoát ra ngoài làm crash task gọi kernel (worker resume).
         error_details = err.to_error_details()
-        await self._repo.update_run_status(
-            run_id, status=RunStatus.FAILED, error_details=error_details
+        transitioned = await self._repo.transition_run_status(
+            run_id,
+            from_statuses=self._ACTIVE_RUN_STATUSES,
+            to_status=RunStatus.FAILED,
+            error_details=error_details,
         )
+        if transitioned is None:
+            return await self._reload_terminal_result(run_id)
         await self._emit_event(run_id, "run.failed", error_details, correlation_id)
         return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[err.message])
 
@@ -496,11 +540,14 @@ class ManualToolLoopKernel:
                         val_fail = ValidationFailure(
                             is_valid=False, errors=errs, raw_output=final_out
                         )
-                        await self._repo.update_run_status(
+                        transitioned = await self._repo.transition_run_status(
                             run_id,
-                            status=RunStatus.FAILED,
+                            from_statuses=self._ACTIVE_RUN_STATUSES,
+                            to_status=RunStatus.FAILED,
                             error_details={"validation_errors": errs},
                         )
+                        if transitioned is None:
+                            return await self._reload_terminal_result(run_id)
                         await self._emit_event(
                             run_id,
                             "run.failed",
@@ -519,9 +566,14 @@ class ManualToolLoopKernel:
                         )
                     final_out = parsed_out
 
-                await self._repo.update_run_status(
-                    run_id, status=RunStatus.COMPLETED, final_output=final_out
+                transitioned = await self._repo.transition_run_status(
+                    run_id,
+                    from_statuses=self._ACTIVE_RUN_STATUSES,
+                    to_status=RunStatus.COMPLETED,
+                    final_output=final_out,
                 )
+                if transitioned is None:
+                    return await self._reload_terminal_result(run_id)
                 # Audit event chỉ lưu hash — final_output thô vẫn đi qua
                 # RunRecord.final_output (update_run_status ở trên) và RunResult
                 # trả về ngay dưới, đây mới là kênh caller thật đọc.
@@ -639,7 +691,13 @@ class ManualToolLoopKernel:
 
             if waits:
                 # Tạm dừng Run ở trạng thái WAITING_APPROVAL
-                await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
+                transitioned = await self._repo.transition_run_status(
+                    run_id,
+                    from_statuses=self._ACTIVE_RUN_STATUSES,
+                    to_status=RunStatus.WAITING_APPROVAL,
+                )
+                if transitioned is None:
+                    return await self._reload_terminal_result(run_id)
                 await self._emit_event(
                     run_id,
                     "run.waiting",
@@ -698,9 +756,14 @@ class ManualToolLoopKernel:
                 state.completed_tool_calls.append({"id": call_id, "result": tool_res})
 
         # Quá số turn tối đa
-        await self._repo.update_run_status(
-            run_id, status=RunStatus.FAILED, error_details={"error": "Max reasoning turns reached"}
+        transitioned = await self._repo.transition_run_status(
+            run_id,
+            from_statuses=self._ACTIVE_RUN_STATUSES,
+            to_status=RunStatus.FAILED,
+            error_details={"error": "Max reasoning turns reached"},
         )
+        if transitioned is None:
+            return await self._reload_terminal_result(run_id)
         return RunResult(
             run_id=run_id, status=RunStatus.FAILED, errors=["Max reasoning turns reached"]
         )

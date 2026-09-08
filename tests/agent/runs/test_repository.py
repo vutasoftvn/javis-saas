@@ -249,3 +249,171 @@ async def test_get_scoped_run_same_workspace_different_companies(in_memory_repo:
         workspace_id="ws_b",
     )
     assert scoped_b_wrong is None
+
+
+# ---------------------------------------------------------------------------
+# Task 5: cancel_run / transition_run_status — durable cancel state machine.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cancel_run_running_to_cancelled(in_memory_repo: RunRepository):
+    """RUNNING -> CANCELLED qua cancel_run phải thành công."""
+    run = RunRecord(
+        run_id="run_cancel_1",
+        workspace_id="ws_main",
+        principal="founder_1",
+        root_executable_id="finance_agent",
+        status=RunStatus.RUNNING,
+    )
+    await in_memory_repo.create_run(run)
+
+    cancelled = await in_memory_repo.cancel_run("run_cancel_1", reason="user requested")
+    assert cancelled is not None
+    assert cancelled.status == RunStatus.CANCELLED
+    assert cancelled.error_details == {"reason": "user requested"}
+    assert cancelled.completed_at is not None
+
+    persisted = await in_memory_repo.get_run("run_cancel_1")
+    assert persisted is not None
+    assert persisted.status == RunStatus.CANCELLED
+
+
+@pytest.mark.asyncio
+async def test_cancel_run_is_idempotent(in_memory_repo: RunRepository):
+    """Gọi cancel_run 2 lần liên tiếp đều trả về CANCELLED, không lỗi/None."""
+    run = RunRecord(
+        run_id="run_cancel_2",
+        workspace_id="ws_main",
+        principal="founder_1",
+        root_executable_id="finance_agent",
+        status=RunStatus.RUNNING,
+    )
+    await in_memory_repo.create_run(run)
+
+    first = await in_memory_repo.cancel_run("run_cancel_2", reason="first cancel")
+    assert first is not None
+    assert first.status == RunStatus.CANCELLED
+
+    second = await in_memory_repo.cancel_run("run_cancel_2", reason="second cancel (idempotent)")
+    assert second is not None
+    assert second.status == RunStatus.CANCELLED
+
+
+@pytest.mark.asyncio
+async def test_cancel_run_on_completed_run_is_noop(in_memory_repo: RunRepository):
+    """cancel_run trên run đã COMPLETED không được đổi thành CANCELLED —
+    trả về record terminal thật (COMPLETED), không phải None."""
+    run = RunRecord(
+        run_id="run_cancel_3",
+        workspace_id="ws_main",
+        principal="founder_1",
+        root_executable_id="finance_agent",
+        status=RunStatus.COMPLETED,
+        final_output={"summary": "done"},
+    )
+    await in_memory_repo.create_run(run)
+
+    result = await in_memory_repo.cancel_run("run_cancel_3", reason="too late")
+    assert result is not None
+    assert result.status == RunStatus.COMPLETED
+    assert result.final_output == {"summary": "done"}
+
+    persisted = await in_memory_repo.get_run("run_cancel_3")
+    assert persisted is not None
+    assert persisted.status == RunStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_transition_run_status_rejects_from_cancelled(in_memory_repo: RunRepository):
+    """CANCELLED -> COMPLETED/FAILED/WAITING_APPROVAL qua transition_run_status
+    KHÔNG được đổi row — phải trả None và row giữ nguyên CANCELLED."""
+    run = RunRecord(
+        run_id="run_cancel_4",
+        workspace_id="ws_main",
+        principal="founder_1",
+        root_executable_id="finance_agent",
+        status=RunStatus.RUNNING,
+    )
+    await in_memory_repo.create_run(run)
+    await in_memory_repo.cancel_run("run_cancel_4", reason="cancel before finalize")
+
+    for target_status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.WAITING_APPROVAL):
+        result = await in_memory_repo.transition_run_status(
+            "run_cancel_4",
+            from_statuses={RunStatus.RUNNING},
+            to_status=target_status,
+            final_output={"summary": "should not apply"} if target_status == RunStatus.COMPLETED else None,
+        )
+        assert result is None, f"transition to {target_status} should be rejected"
+
+    persisted = await in_memory_repo.get_run("run_cancel_4")
+    assert persisted is not None
+    assert persisted.status == RunStatus.CANCELLED
+    assert persisted.final_output is None
+
+
+@pytest.mark.asyncio
+async def test_worker_sees_cancelled_before_finalize_race(in_memory_repo: RunRepository):
+    """Mô phỏng race cancel-vs-complete: cancel trước, sau đó một "worker"
+    (đã bắt đầu xử lý từ trước khi biết run bị cancel) cố hoàn tất run bằng
+    transition_run_status(..., to_status=COMPLETED, from_statuses={RUNNING}).
+    Phải trả None và run phải ở CANCELLED khi worker get_run() lại."""
+    run = RunRecord(
+        run_id="run_cancel_5",
+        workspace_id="ws_main",
+        principal="founder_1",
+        root_executable_id="finance_agent",
+        status=RunStatus.RUNNING,
+    )
+    await in_memory_repo.create_run(run)
+
+    # Cancel "đến trước" (vd. từ 1 request/process khác).
+    cancelled = await in_memory_repo.cancel_run("run_cancel_5", reason="race: cancel wins")
+    assert cancelled is not None
+    assert cancelled.status == RunStatus.CANCELLED
+
+    # Worker đọc lại run trước khi finalize -> phải thấy CANCELLED.
+    seen_by_worker = await in_memory_repo.get_run("run_cancel_5")
+    assert seen_by_worker is not None
+    assert seen_by_worker.status == RunStatus.CANCELLED
+
+    # Worker cố hoàn tất (late-arriving finalize write) -> phải bị từ chối.
+    finalize_result = await in_memory_repo.transition_run_status(
+        "run_cancel_5",
+        from_statuses={RunStatus.RUNNING},
+        to_status=RunStatus.COMPLETED,
+        final_output={"summary": "late completion attempt"},
+    )
+    assert finalize_result is None
+
+    final_state = await in_memory_repo.get_run("run_cancel_5")
+    assert final_state is not None
+    assert final_state.status == RunStatus.CANCELLED
+    assert final_state.final_output is None
+
+
+@pytest.mark.asyncio
+async def test_transition_run_status_succeeds_from_matching_active_state(
+    in_memory_repo: RunRepository,
+):
+    """Sanity check tích cực: transition_run_status thành công bình thường khi
+    status hiện tại nằm trong from_statuses (không phải lúc nào cũng None)."""
+    run = RunRecord(
+        run_id="run_transition_ok",
+        workspace_id="ws_main",
+        principal="founder_1",
+        root_executable_id="finance_agent",
+        status=RunStatus.RUNNING,
+    )
+    await in_memory_repo.create_run(run)
+
+    result = await in_memory_repo.transition_run_status(
+        "run_transition_ok",
+        from_statuses={RunStatus.RUNNING},
+        to_status=RunStatus.COMPLETED,
+        final_output={"summary": "ok"},
+    )
+    assert result is not None
+    assert result.status == RunStatus.COMPLETED
+    assert result.final_output == {"summary": "ok"}

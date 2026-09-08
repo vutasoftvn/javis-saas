@@ -312,12 +312,17 @@ async def test_kernel_cancellation():
     res = await kernel.run(request, spec)
     assert res.status == RunStatus.COMPLETED
 
-    # Test cancel
+    # Task 5 fix: cancel() trên 1 run ĐÃ terminal (COMPLETED) phải là no-op —
+    # trước đây cancel() luôn unconditionally ghi CANCELLED đè lên bất kỳ
+    # status nào (kể cả COMPLETED) và luôn trả True, khiến 1 cancel muộn có
+    # thể "hồi sinh" 1 run đã xong việc thành CANCELLED (nói dối). Bây giờ
+    # cancel_run là CAS atomic — COMPLETED/FAILED không nằm trong from_statuses
+    # nên cancel() trả False và run giữ nguyên COMPLETED.
     cancelled = await kernel.cancel(res.run_id, reason="User cancelled")
-    assert cancelled is True
+    assert cancelled is False
 
     run_rec = await repo.get_run(res.run_id)
-    assert run_rec.status == RunStatus.CANCELLED
+    assert run_rec.status == RunStatus.COMPLETED
 
 
 class _RaisingModelClient:
