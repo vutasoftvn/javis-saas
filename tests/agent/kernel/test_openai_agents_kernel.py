@@ -9,6 +9,7 @@ from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.governance.contracts import CapabilityRisk
 from agent.kernel.openai_agents_kernel import ManualToolLoopKernel
+from agent.runs.models import RunRecord
 from agent.runs.repository import InMemoryRunRepository
 from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 
@@ -323,6 +324,50 @@ async def test_kernel_cancellation():
 
     run_rec = await repo.get_run(res.run_id)
     assert run_rec.status == RunStatus.COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_cancel_reason_not_clobbered_by_kernel_fast_path_cancel():
+    """Regression test cho fix review Task 5: HTTP route (apps/cosa/api/routes.py)
+    gọi repository.cancel_run(reason=<lý do có định danh principal>) rồi NGAY
+    SAU ĐÓ gọi plane.kernel.cancel(run_id) như 1 fast-path để dừng reasoning
+    loop in-process. Vì `cancel_run` cho phép CAS CANCELLED->CANCELLED
+    (idempotent), lệnh gọi kernel.cancel() thứ hai — dù không đổi status —
+    vẫn tự ghi lại error_details của riêng nó. Trước fix, route không truyền
+    `reason` cho kernel.cancel() nên nó dùng fallback generic "Cancelled by
+    user", âm thầm đè mất lý do có định danh đã ghi ở lệnh gọi đầu. Test này
+    mô phỏng đúng trình tự gọi của route và khẳng định error_details cuối
+    cùng vẫn là lý do gốc (route phải truyền CÙNG reason cho cả 2 lệnh gọi)."""
+    repo = InMemoryRunRepository()
+    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
+
+    run = RunRecord(
+        workspace_id="ws_1",
+        principal="test_user",
+        root_executable_id="general_assistant",
+    )
+    await repo.create_run(run)
+    await repo.transition_run_status(
+        run.run_id,
+        from_statuses={RunStatus.PENDING},
+        to_status=RunStatus.RUNNING,
+    )
+
+    identity_reason = "Cancelled via HTTP API by user_123"
+
+    # Trình tự đúng như apps/cosa/api/routes.py::cancel_run: repository trước
+    # (authority), kernel.cancel() sau (fast-path in-process), CÙNG 1 reason.
+    cancelled_record = await repo.cancel_run(run.run_id, reason=identity_reason)
+    assert cancelled_record is not None
+    assert cancelled_record.status == RunStatus.CANCELLED
+
+    kernel_result = await kernel.cancel(run.run_id, reason=identity_reason)
+    # CANCELLED -> CANCELLED vẫn là 1 CAS "thành công" (idempotent).
+    assert kernel_result is True
+
+    final_record = await repo.get_run(run.run_id)
+    assert final_record.status == RunStatus.CANCELLED
+    assert final_record.error_details == {"reason": identity_reason}
 
 
 class _RaisingModelClient:

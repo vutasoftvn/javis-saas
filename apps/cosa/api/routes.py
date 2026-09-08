@@ -52,12 +52,19 @@ async def cancel_run(
     # về là nguồn sự thật. Gọi trực tiếp repository.cancel_run ở đây để route
     # tự xác định kết quả, độc lập với việc kernel có đang chạy run này trong
     # cùng process hay không.
-    cancelled_record = await plane.repository.cancel_run(
-        run_id, reason=f"Cancelled via HTTP API by {identity.principal_id}"
-    )
+    #
+    # reason dùng CHUNG cho cả 2 lệnh gọi bên dưới: cancel_run cho phép CAS
+    # CANCELLED->CANCELLED (idempotent, xem docstring RunRepository.cancel_run)
+    # nên lệnh gọi kernel.cancel() ngay sau đây — dù chỉ là no-op về status —
+    # vẫn TỰ NÓ ghi lại error_details một lần nữa qua COALESCE. Nếu 2 lệnh
+    # gọi dùng reason khác nhau, lệnh thứ hai sẽ âm thầm đè lý do cancel có
+    # định danh (principal_id) bằng thông điệp generic của kernel — bug đã
+    # phát hiện ở review, sửa bằng cách truyền đúng 1 reason cho cả hai.
+    cancel_reason = f"Cancelled via HTTP API by {identity.principal_id}"
+    cancelled_record = await plane.repository.cancel_run(run_id, reason=cancel_reason)
     # Vẫn gọi kernel.cancel() để kernel có cơ hội dừng công việc in-process
     # (fast-path _cancelled_runs) nếu run đang chạy ngay trong worker này.
-    await plane.kernel.cancel(run_id)
+    await plane.kernel.cancel(run_id, reason=cancel_reason)
 
     if cancelled_record is None:
         # Run không tồn tại nữa giữa lúc get_scoped_run và cancel_run — coi
