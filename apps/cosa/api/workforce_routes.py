@@ -9,6 +9,10 @@ from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_s
 from agent.workforce.repository import WorkforceRepository, WorkforceScheduleRecord
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from apps.cosa.api.approval_authority import (
+    IdentityRoleApprovalAuthority,
+    require_approval_authority,
+)
 from apps.cosa.api.mvp_response import MvpSourceRef, MvpSuccess, mvp_item, mvp_list
 from apps.cosa.api.workforce_schemas import (
     _ARTIFACT_STATUS_MAP,
@@ -892,6 +896,20 @@ async def decide_approval(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}"
         )
+
+    # Task 4 — role check TRƯỚC submit_decision (side effect). Tenant đã khớp
+    # (get_scoped_approval ở trên) nhưng đó không đủ: reviewer còn phải khớp
+    # requirement.role của chính approval này (vd. "founder"), không phải bất
+    # kỳ member nào của đúng workspace. Xem apps/cosa/api/approval_authority.py
+    # cho policy default khi requirement.role thiếu/malformed.
+    requirement = (
+        existing_approval.requirement if isinstance(existing_approval.requirement, dict) else {}
+    )
+    await require_approval_authority(
+        IdentityRoleApprovalAuthority(role_id=identity.role_id),
+        identity,
+        requirement,
+    )
 
     # Support both boolean approved and decision string "APPROVED"/"REJECTED"
     approved_flag = getattr(req, "approved", None)

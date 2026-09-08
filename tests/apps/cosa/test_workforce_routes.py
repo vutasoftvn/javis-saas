@@ -217,6 +217,154 @@ async def test_workspace_b_cannot_decide_workspace_a_approval(test_app) -> None:
         assert response.status_code == 404
 
 
+async def _create_approval_requiring_role(test_app, *, role: str, workspace_id: str = "ws_1001"):
+    """Helper dùng chung cho các test Task 4 — tạo 1 run + approval scoped
+    đúng workspace với `requirement={"role": role}`."""
+    from agent.runs.models import RunRecord
+
+    override_authenticated_identity(test_app, workspace_id=workspace_id, role_id="founder")
+    plane = test_app.state.plane
+    run = RunRecord(
+        company_id=workspace_id,
+        workspace_id=workspace_id,
+        principal="user:alice",
+        root_executable_id="test-spec",
+    )
+    await plane.repository.create_run(run)
+    approval, _wait_desc = await plane.approval_service.create_approval_request(
+        run_id=run.run_id,
+        tool_call_id="tc_role_1",
+        checkpoint_ref="ckpt_role_1",
+        requirement={"role": role} if role is not None else None,
+        requester="user:alice",
+        action="finance.wire_payout",
+        subject="Acme Corp",
+    )
+    return approval
+
+
+@pytest.mark.asyncio
+async def test_member_reviewer_without_required_role_gets_403_and_stays_pending(
+    test_app,
+) -> None:
+    """Task 4 — approval yêu cầu requirement.role="founder": reviewer chỉ có
+    role "member" trong đúng workspace vẫn phải bị từ chối (bug cũ: chỉ check
+    tenant, không check role). Approval phải còn PENDING sau đó."""
+    approval = await _create_approval_requiring_role(test_app, role="founder")
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="member")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": True, "reason": "member trying to approve"},
+        )
+        assert response.status_code == 403
+
+    plane = test_app.state.plane
+    reloaded = await plane.approval_service.get_scoped_approval(
+        approval_id=approval.approval_id, workspace_id="ws_1001"
+    )
+    assert reloaded is not None
+    assert reloaded.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_admin_reviewer_without_exact_required_role_gets_403(test_app) -> None:
+    """Task 4 — requirement.role="founder" là quyết định nghiệp vụ tường minh:
+    admin (dù cũng là operator role) KHÔNG tự động vượt qua yêu cầu founder cụ
+    thể — so khớp là chính xác, không có phân cấp ngầm giữa các operator role."""
+    approval = await _create_approval_requiring_role(test_app, role="founder")
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="admin")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": True, "reason": "admin trying to approve"},
+        )
+        assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_founder_reviewer_with_matching_required_role_succeeds(test_app) -> None:
+    """Task 4 — reviewer có đúng role yêu cầu (founder) được phép quyết định."""
+    approval = await _create_approval_requiring_role(test_app, role="founder")
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": True, "reason": "founder approves"},
+        )
+        assert response.status_code == 200
+        assert response.json()["data"]["status"] == "approved"
+
+
+@pytest.mark.asyncio
+async def test_malformed_requirement_role_fails_closed_to_operator_roles(test_app) -> None:
+    """Task 4 — requirement thiếu/rỗng role phải fail-closed về yêu cầu
+    operator role (founder/co-founder/admin), KHÔNG implicit-allow cho member."""
+    approval = await _create_approval_requiring_role(test_app, role=None)
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="member")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        member_response = await client.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": True, "reason": "member trying to approve"},
+        )
+        assert member_response.status_code == 403
+
+    plane = test_app.state.plane
+    reloaded = await plane.approval_service.get_scoped_approval(
+        approval_id=approval.approval_id, workspace_id="ws_1001"
+    )
+    assert reloaded is not None
+    assert reloaded.status == "pending"
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="admin")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        admin_response = await client.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={
+                "approved": True,
+                "reason": "admin (operator) can decide unspecified-role approval",
+            },
+        )
+        assert admin_response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_unknown_requirement_role_fails_closed_to_operator_roles(test_app) -> None:
+    """Task 4 — requirement.role không nằm trong tập role hệ thống phát hành
+    (vd. chuỗi lạ) bị coi là malformed, áp dụng cùng default fail-closed."""
+    approval = await _create_approval_requiring_role(test_app, role="not-a-real-role")
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="member")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": True, "reason": "member trying to approve"},
+        )
+        assert response.status_code == 403
+
+
 @pytest.mark.asyncio
 async def test_empty_schedule_list_is_honest(test_app) -> None:
     override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
