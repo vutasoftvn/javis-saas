@@ -142,7 +142,6 @@ sequenceDiagram
 
     UI->>API: POST conversation message + token + workspace
     API->>Biz: xác minh tenant context
-    API->>CP: đọc profile locale (khi client không chọn locale theo lượt)
     API->>API: lưu message và tạo run_id
     API->>CP: schedule task chứa delegation ngắn hạn
     API-->>UI: 202 Accepted + run_id
@@ -168,18 +167,6 @@ Trình tự kiểm soát trong worker:
    action khác.
 5. Worker gửi heartbeat cho cả task claim và run lease, rồi complete/fail task
    bằng fencing token. Event, output và artifact được lưu để UI đọc qua SSE.
-
-#### Locale của câu trả lời chat
-
-API nhận `response_locale_override` cho từng lượt với hai giá trị hợp lệ
-`vi-VN` và `en-US`. Nếu UI không gửi override — đây là đường đi hiện tại của
-hai giao diện chat chính — Agent API lấy `preferred_locale` từ Control Plane
-bằng delegation token đã được xác minh trước khi lưu message hay lập lịch run.
-Do đó Control Plane/profile locale là dependency của việc gửi chat: không đọc
-được snapshot thì API trả `503 Profile locale unavailable` và không tạo run.
-Triển khai production cần theo dõi dependency này, hiển thị trạng thái có thể
-thử lại ở UI, và có bài kiểm tra cho cả hai locale; không dùng locale của thiết
-bị để thay thế authority profile một cách âm thầm.
 
 ### 4. Agent hiện được triển khai
 
