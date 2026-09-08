@@ -1,7 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { getWorkspace } from "../../identity/handlers/workspace.handler";
+import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { computeKeyResultProgress, computeObjectiveScore, KrScoringType } from "./okr-scoring.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -155,7 +155,7 @@ function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[
 
 export async function createOkrCycleService(params: CreateOkrCycleParams): Promise<OkrCycle> {
   await requireWorkspaceAccess(params.authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await getWorkspaceRecord(params.workspaceId);
   const [row] = await db
     .insert(okrCycles)
     .values({
@@ -177,7 +177,7 @@ export async function createOkrCycleService(params: CreateOkrCycleParams): Promi
 
 export async function createObjectiveService(params: CreateObjectiveParams): Promise<Objective> {
   await requireWorkspaceAccess(params.authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await getWorkspaceRecord(params.workspaceId);
 
   const wsId = BigInt(params.workspaceId);
   const cycleId = BigInt(params.cycleId);

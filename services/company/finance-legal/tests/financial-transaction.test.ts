@@ -11,10 +11,11 @@ import {
 
 const { identityWorkspaceMemberships } = identitySchema;
 
-async function makeAuthedWorkspace(displayName: string) {
+async function makeAuthedWorkspace(displayName: string, role = "founder") {
   const user = await createTestSession({
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName,
+    role,
   });
   return { workspaceId: user.workspaceId, userId: user.userId, authorization: `Bearer ${user.accessToken}` };
 }
@@ -62,6 +63,34 @@ describe("recordFinancialTransaction", () => {
         authorization: outsider.authorization,
       })
     ).rejects.toThrow();
+  });
+
+  it("rejects recording a transaction for an auditor (read-only) without finance.transaction.record authority", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Auditor Txn Ws", "auditor");
+    await expect(
+      recordFinancialTransaction({
+        workspaceId,
+        transactionDate: "2026-01-15",
+        description: "Auditor should not be able to write",
+        amount: "1.00",
+        direction: "IN",
+        authorization,
+      })
+    ).rejects.toThrow(/permission denied/i);
+  });
+
+  it("rejects recording a transaction for a plain member with no explicit finance.transaction.record grant", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Member Txn Ws", "member");
+    await expect(
+      recordFinancialTransaction({
+        workspaceId,
+        transactionDate: "2026-01-15",
+        description: "Member should not be able to write",
+        amount: "1.00",
+        direction: "IN",
+        authorization,
+      })
+    ).rejects.toThrow(/permission denied/i);
   });
 
   it("returns the original transaction instead of double-charging for a repeated idempotencyKey", async () => {
@@ -165,26 +194,31 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
   });
 
   it("rejects approval from a member without founder/co-founder permission", async () => {
-    const user = await createTestSession({
-      email: `finance-approve-denied-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      displayName: "Regular Admin",
+    // Người ghi giao dịch phải là founder (finance.transaction.record cần
+    // quyền command); người thử duyệt là member thường trong CÙNG workspace
+    // — không có quyền founder/co-founder nên bị chặn ở approve.
+    const founder = await createTestSession({
+      email: `finance-approve-founder-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
+      displayName: "Approve Gate Founder",
+      role: "founder",
     });
-    const authorization = `Bearer ${user.accessToken}`;
+    const { addMemberToWorkspace } = await import("../../operations/tests/_helpers");
+    const nonFounder = await addMemberToWorkspace(founder.workspaceId, "admin");
 
     const txn = await recordFinancialTransaction({
-      workspaceId: user.workspaceId,
+      workspaceId: founder.workspaceId,
       transactionDate: "2026-01-18",
       description: "Needs approval",
       amount: "20000000.00",
       direction: "OUT",
-      authorization,
+      authorization: `Bearer ${founder.accessToken}`,
     });
 
     await expect(
       approveFinancialTransaction({
         id: txn.id,
-        workspaceId: user.workspaceId,
-        authorization,
+        workspaceId: founder.workspaceId,
+        authorization: nonFounder.bearerToken,
       })
     ).rejects.toThrow();
   });

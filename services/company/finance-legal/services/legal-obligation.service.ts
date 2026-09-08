@@ -1,7 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { eq, and, inArray, desc, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { getWorkspace } from "../../identity/handlers/workspace.handler";
+import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { requireCommandAuthority } from "../../identity/services/command-authority.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -43,7 +43,7 @@ export async function createObligationService(
   authorization: string | undefined
 ): Promise<LegalObligation> {
   await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: String(params.workspaceId) });
+  await getWorkspaceRecord(String(params.workspaceId));
 
   const [row] = await db
     .insert(legalObligations)

@@ -18,14 +18,37 @@ describe("createWorkspace", () => {
 });
 
 describe("getWorkspace", () => {
-  it("returns a previously created workspace", async () => {
-    const created = await createWorkspace({ name: "Fetch Me Inc" });
-    const fetched = await getWorkspace({ id: created.id });
-    expect(fetched).toEqual(created);
+  it("returns a previously created workspace for a caller who is a member of it", async () => {
+    const session = await createTestSession({ displayName: "Fetch Me Inc" });
+    const fetched = await getWorkspace({
+      id: session.workspaceId,
+      authorization: `Bearer ${session.accessToken}`,
+    });
+    expect(fetched.id).toBe(session.workspaceId);
   });
 
   it("throws not found for a missing id", async () => {
-    await expect(getWorkspace({ id: "999999999" })).rejects.toThrow();
+    const session = await createTestSession({ displayName: "Fetch Missing Inc" });
+    await expect(
+      getWorkspace({ id: "999999999", authorization: `Bearer ${session.accessToken}` })
+    ).rejects.toThrow();
+  });
+
+  it("rejects an unauthenticated caller (no Authorization header)", async () => {
+    const created = await createWorkspaceRecord({ name: "Unauthenticated Read Inc" });
+    await expect(getWorkspace({ id: created.id })).rejects.toThrow();
+  });
+
+  it("rejects a caller who is a member of a different workspace", async () => {
+    const otherWorkspaceOwner = await createTestSession({ displayName: "Workspace Owner Inc" });
+    const outsider = await createTestSession({ displayName: "Outsider Reader Inc" });
+
+    await expect(
+      getWorkspace({
+        id: otherWorkspaceOwner.workspaceId,
+        authorization: `Bearer ${outsider.accessToken}`,
+      })
+    ).rejects.toThrow();
   });
 });
 

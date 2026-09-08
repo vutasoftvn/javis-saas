@@ -1,7 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { getWorkspace } from "../../identity/handlers/workspace.handler";
+import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
@@ -63,7 +63,7 @@ export async function createSalesOpportunityService(
   authorization: string | undefined
 ): Promise<SalesOpportunity> {
   await requireWorkspaceAccess(authorization, String(params.workspaceId));
-  await getWorkspace({ id: String(params.workspaceId) });
+  await getWorkspaceRecord(String(params.workspaceId));
 
   const [row] = await db
     .insert(salesOpportunities)

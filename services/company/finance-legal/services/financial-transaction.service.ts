@@ -1,8 +1,9 @@
 import { APIError } from "encore.dev/api";
 import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { getWorkspace } from "../../identity/handlers/workspace.handler";
+import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { requireCommandAuthority } from "../../identity/services/command-authority.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { assertOpenPostingPeriod } from "./posting-guard.service";
@@ -88,11 +89,38 @@ function toFinancialTransaction(row: typeof financialTransactions.$inferSelect):
   };
 }
 
+/**
+ * Cổng quyền tường minh cho việc ghi nhận giao dịch tài chính — trước đây
+ * `recordFinancialTransactionService` chỉ kiểm tra caller là member của
+ * workspace (`requireWorkspaceAccess`, mọi role kể cả auditor/read-only đều
+ * qua được) mà không có bước xét quyền command nào riêng cho hành động ghi
+ * sổ. Helper này thêm bước xét quyền `finance.transaction.record` qua
+ * catalog + role assignments (founder được default-allow, member/auditor
+ * thường phải có role assignment cấp quyền rõ ràng mới qua).
+ *
+ * `requireCommandAuthority` -> `requireBusinessAction` (business-authorization.service.ts)
+ * đã tự throw APIError.permissionDenied khi quyết định là DENY, và
+ * APIError.failedPrecondition (code APPROVAL_REQUIRED) khi catalog quyết
+ * định REQUIRE_APPROVAL — helper này không bắt lại các lỗi đó, để nguyên
+ * hành vi chuẩn đã dùng ở payment-request.service.ts. REQUIRE_APPROVAL ở
+ * đây là khái niệm khác với ngưỡng duyệt số tiền (`requiresApproval`/
+ * FINANCIAL_TRANSACTION_APPROVAL_THRESHOLD) bên dưới — ngưỡng số tiền vẫn
+ * giữ nguyên logic cũ, không bị thay thế bởi cổng quyền command này.
+ */
+export async function requireFinancialTransactionWrite(
+  authorization: string | undefined,
+  workspaceId: string
+): Promise<TenantContext> {
+  const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+  await requireCommandAuthority(ctx, "finance.transaction.record", { workspaceId });
+  return ctx;
+}
+
 export async function recordFinancialTransactionService(
   params: RecordFinancialTransactionParams
 ): Promise<FinancialTransaction> {
-  await requireWorkspaceAccess(params.authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireFinancialTransactionWrite(params.authorization, params.workspaceId);
+  await getWorkspaceRecord(params.workspaceId);
 
   return await db.transaction(async (tx) => {
     // F07: Kiểm tra kỳ kế toán mở trước khi ghi sổ

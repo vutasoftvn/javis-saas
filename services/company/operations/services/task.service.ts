@@ -1,7 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { getWorkspace } from "../../identity/handlers/workspace.handler";
+import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { getWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
 import { buildTaskCompletedEvent, buildTaskCreatedEvent, EventContext } from "./task-events.service";
@@ -97,7 +97,7 @@ export async function createTaskService(
   authorization: string | undefined
 ): Promise<Task> {
   const authCtx = await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await getWorkspaceRecord(params.workspaceId);
   if (params.assigneeMemberId !== undefined) {
     await getWorkforceMember({
       id: params.assigneeMemberId,

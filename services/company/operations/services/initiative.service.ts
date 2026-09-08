@@ -1,7 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { getWorkspace } from "../../identity/handlers/workspace.handler";
+import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
@@ -199,7 +199,7 @@ export async function createInitiativeInWorkspace(
 async function createInitiativeAuthorized(
   params: CreateInitiativeParams
 ): Promise<Initiative> {
-  await getWorkspace({ id: params.workspaceId });
+  await getWorkspaceRecord(params.workspaceId);
 
   const wsId = BigInt(params.workspaceId);
 

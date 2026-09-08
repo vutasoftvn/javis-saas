@@ -7,6 +7,7 @@ async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName,
+    role: "founder",
   });
   return { workspaceId: user.workspaceId, authorization: `Bearer ${user.accessToken}` };
 }

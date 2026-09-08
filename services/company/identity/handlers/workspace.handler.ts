@@ -8,6 +8,7 @@ import {
   WorkspacePlatformCompanyResponse,
   getWorkspacePlatformCompany,
 } from "../services/workspace.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { Workspace, CreateWorkspaceParams, WorkspacePlatformCompanyResponse };
 
@@ -20,7 +21,17 @@ export const createWorkspace = api(
 
 export const getWorkspace = api(
   { method: "GET", path: "/identity/workspaces/:id", expose: true },
-  async ({ id }: { id: string }): Promise<Workspace> => {
+  async ({
+    id,
+    authorization,
+  }: {
+    id: string;
+    authorization?: Header<"Authorization">;
+  }): Promise<Workspace> => {
+    // Trước đây endpoint này public hoàn toàn (không kiểm tra ai đang gọi) dù
+    // frontend (workspace_orientation_service.dart) đã gửi Bearer token —
+    // giờ xác thực caller thực sự thuộc workspace này trước khi trả dữ liệu.
+    await requireWorkspaceAccess(authorization, id);
     return getWorkspaceRecord(id);
   }
 );

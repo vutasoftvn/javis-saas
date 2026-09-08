@@ -31,6 +31,7 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = [
   { permissionKey: "strategy.review.close", domain: "operations", description: "Chốt đánh giá chu kỳ và review chiến lược" },
   { permissionKey: "strategy.agent.configure", domain: "operations", description: "Cấu hình và phân quyền agent chiến lược" },
   { permissionKey: "finance.read", domain: "finance", description: "Xem dữ liệu sổ sách tài chính" },
+  { permissionKey: "finance.transaction.record", domain: "finance", description: "Ghi nhận giao dịch tài chính (thu/chi) vào sổ sách" },
   { permissionKey: "finance.request.create", domain: "finance", description: "Tạo đề nghị chi / thanh toán" },
   { permissionKey: "finance.request.approve", domain: "finance", description: "Phê duyệt đề nghị chi / thanh toán" },
   { permissionKey: "finance.reconcile", domain: "finance", description: "Đối soát giao dịch ngân hàng" },

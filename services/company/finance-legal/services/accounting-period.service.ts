@@ -1,7 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { getWorkspace } from "../../identity/handlers/workspace.handler";
+import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
@@ -56,7 +56,7 @@ export async function openAccountingPeriodService(
   authorization: string | undefined
 ): Promise<AccountingPeriod> {
   await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: String(params.workspaceId) });
+  await getWorkspaceRecord(String(params.workspaceId));
 
   const [row] = await db
     .insert(accountingPeriods)
