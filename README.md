@@ -22,9 +22,11 @@ luồng nào đang chạy và giới hạn hiện tại nằm ở đâu.
 | Lực lượng lao động | Một mô hình `WorkforceMember` chung cho người và AI; gán vai trò, agent, lịch, approval và dashboard | `services/company/identity/`, `apps/cosa/api/workforce_routes.py` |
 | Agent Platform | Hội thoại, run bất đồng bộ, capability, skillpack, workflow, audit, event stream, knowledge ingestion và connector | `packages/agent/`, `apps/cosa/` |
 
-`workspace` là đơn vị tenant chính. Mọi request nghiệp vụ và agent run đều
-được ràng buộc vào workspace đã xác minh; client không thể tự chọn workspace
-chỉ bằng header.
+`workspace` là đơn vị tenant chính. Các luồng nghiệp vụ và agent phải lấy
+workspace từ danh tính đã xác minh ở server; `X-Workspace-Id` của client chỉ
+là tín hiệu để đối chiếu, không phải authority. UI có thể ẩn một module theo
+cấu hình workspace, nhưng quyền đọc/ghi vẫn luôn phải được service kiểm tra ở
+server.
 
 ## Bản đồ kiến trúc
 
@@ -140,6 +142,7 @@ sequenceDiagram
 
     UI->>API: POST conversation message + token + workspace
     API->>Biz: xác minh tenant context
+    API->>CP: đọc profile locale (khi client không chọn locale theo lượt)
     API->>API: lưu message và tạo run_id
     API->>CP: schedule task chứa delegation ngắn hạn
     API-->>UI: 202 Accepted + run_id
@@ -165,6 +168,18 @@ Trình tự kiểm soát trong worker:
    action khác.
 5. Worker gửi heartbeat cho cả task claim và run lease, rồi complete/fail task
    bằng fencing token. Event, output và artifact được lưu để UI đọc qua SSE.
+
+#### Locale của câu trả lời chat
+
+API nhận `response_locale_override` cho từng lượt với hai giá trị hợp lệ
+`vi-VN` và `en-US`. Nếu UI không gửi override — đây là đường đi hiện tại của
+hai giao diện chat chính — Agent API lấy `preferred_locale` từ Control Plane
+bằng delegation token đã được xác minh trước khi lưu message hay lập lịch run.
+Do đó Control Plane/profile locale là dependency của việc gửi chat: không đọc
+được snapshot thì API trả `503 Profile locale unavailable` và không tạo run.
+Triển khai production cần theo dõi dependency này, hiển thị trạng thái có thể
+thử lại ở UI, và có bài kiểm tra cho cả hai locale; không dùng locale của thiết
+bị để thay thế authority profile một cách âm thầm.
 
 ### 4. Agent hiện được triển khai
 
@@ -218,6 +233,36 @@ vẫn cần sửa mã và deploy, không phải tính năng quản trị runtime
 | Voice | Push-to-talk và LiveKit/Gemini Live là luồng riêng khỏi Agent worker; xem cấu hình runtime trước khi triển khai. |
 | Mô hình AI | OpenAI Agents SDK là execution kernel; model mặc định được ghép qua LiteLLM với DeepSeek theo cấu hình môi trường. |
 
+### Điều kiện bắt buộc trước khi mở workspace ra bên ngoài
+
+Các nguyên tắc dưới đây là backlog hardening có mức ưu tiên phát hành. Không
+coi một luồng là production-ready chỉ vì UI ẩn nút, unit test mock chạy xanh,
+hoặc typecheck ở một package riêng lẻ thành công.
+
+1. **Gia nhập workspace** phải dùng invitation có hạn (token ngẫu nhiên 32
+   byte, hash SHA-256 lưu DB, email phải khớp principal lúc accept, expiry mặc
+   định 168 giờ, single-use), do founder/co-founder/admin của đúng workspace
+   issue/revoke — xem `docs/architecture/adr/ADR-WORKSPACE-INVITATION-001.md`
+   cho contract đầy đủ. Endpoint `POST /platform/auth/companies/join` hiện tại
+   nhận `company_id` trần và tự cấp membership mà không cần invitation — đây
+   là lỗ hổng đã biết (có test đỏ trong `services/cosa/tests/
+   control-plane.test.ts`), **không phải hành vi mục tiêu**: một `workspace_id`
+   biết được không phải là bằng chứng để cấp membership. Khi endpoint này bị
+   đóng để chuyển hẳn sang invitation-only, **sẽ không có compatibility
+   fallback cho client cũ** — mọi request join bằng `company_id` trần sẽ nhận
+   `permission_denied` vĩnh viễn, không có chế độ tương thích ngược.
+2. **Đọc/ghi theo workspace** phải kiểm tra bearer identity và membership ở
+   từng public handler. Đặc biệt, ghi nhận giao dịch tài chính cần command
+   permission riêng, không chỉ cần membership đọc.
+3. **Approval** phải kiểm tra vai trò/requirement của reviewer ở server trước
+   khi quyết định; scope đúng workspace không thay thế kiểm tra vai trò.
+4. **Huỷ run** phải là state bền vững có compare-and-set/terminal guard trong
+   database để API và worker ở process khác nhau không thể đưa run đã huỷ về
+   trạng thái hoàn tất.
+5. **Trải nghiệm chat khi lỗi** phải hoàn tác optimistic state, dừng spinner
+   và cho phép thử lại có ngữ cảnh khi API từ chối request hoặc dependency
+   locale không sẵn sàng.
+
 ## Chạy môi trường phát triển
 
 Yêu cầu chính: Docker, Python 3.11+, Node/Encore CLI và Flutter nếu chạy giao
@@ -265,6 +310,11 @@ trước mỗi lệnh `make` cần biến môi trường. Encore không tự n�
 Không dùng test mock hoặc static check để kết luận authorization, recovery,
 concurrency hay durability đã được chứng minh. Các luồng này cần test qua
 service/process và Postgres thật.
+
+Các test widget chỉ có thân `TODO` không chứng minh hành vi giao diện. Trước
+khi phát hành các vùng Workflow, Hologram/Provider, Profile Composition hoặc
+local projection cache, thay chúng bằng test có assertion cho role visibility,
+secret redaction, SSE/reconnect, optimistic error state và revision token.
 
 ## Cấu trúc repository
 

@@ -153,6 +153,28 @@ describe("Control Plane Service", () => {
     expect(joined.role_id).toBe("member");
   });
 
+  // Red test — chốt authority contract theo ADR-WORKSPACE-INVITATION-001.
+  // Endpoint join-by-company-id hiện tại (`joinExistingCompany`) chỉ cần biết
+  // `company_id` để tự cấp membership — không có invitation, không audit, không
+  // người cấp quyền. Sau khi migrate sang invitation-only (Task 2+), gọi
+  // `joinCompanyFor` với `company_id` trần PHẢI bị từ chối `permission_denied`.
+  // Test này CỐ Ý fail ở implementation hiện tại — đó là bằng chứng của lỗ hổng,
+  // không phải lỗi test.
+  it("rejects a second user joining an existing company by bare company_id (no invitation)", async () => {
+    const intruderRes = await registerPlatform({
+      email: `intruder_${Date.now()}@example.com`,
+      password: "password1234",
+      full_name: "Uninvited Intruder",
+    });
+
+    await expect(
+      joinCompanyFor(
+        { userID: verifyPlatformToken(intruderRes.access_token).sub },
+        { company_id: companyId }
+      )
+    ).rejects.toMatchObject({ code: "permission_denied" });
+  });
+
   it("validates membership via internal RPC", async () => {
     const validation = await validateMembership({
       platformToken,
