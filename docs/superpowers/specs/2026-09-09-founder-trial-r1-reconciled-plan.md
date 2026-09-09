@@ -182,6 +182,44 @@ Phụ thuộc: B + C.
 - `2026-09-09-founder-trial-agent-orchestration.md` → **D**, ghi rõ POST-R1, thêm section "Preconditions (blocking)". Hoãn mô hình packet-storage. Legal Guard/CRM-Growth as skills first.
 - Cả ba: thay "depends on plan X fully" bằng ref node DAG (A0/A1/B/C/E/D).
 
+## Trạng thái triển khai (cập nhật 2026-09-09)
+
+DAG R1 đã triển khai xong A0 → A1 → B → C → E (8 commit, `11ad0d4e`..`2cb7a287`).
+
+| Node | Commit | Nội dung | Test |
+|---|---|---|---|
+| A0 | `2c7e2e66` | `cycleDurationWeeks` round-trip (handler+service INSERT+validate 1..12); `scheduleInitialCycleReviews` ở activate (idempotent), KHÔNG ở `materializeFirstWeekPlan`; Flutter model 2 chiều | cycle-duration-roundtrip (5) + flutter model (4); operations sweep 572 |
+| A1.1 | `d7f29fc2` | `cosa` migration 35 `workspace_surface_overrides`; `surface-policy.ts`; resolver `getWorkspaceCapabilityManifestService` (policy + entitlement + connector + operator override); endpoints GET/PUT `/platform/workspaces/:id/capability-manifest` | workspace-capability-manifest (7) + regression 16 |
+| A1.2/1.3 | `d1f8eb11` | `founder-trial-board.service.ts` read model (KHÔNG bảng mới); `createFounderTrialExperiment` (ép assumptionId+method+successCriteria) | founder-trial-board (4) + founder-trial-experiment (6) |
+| A1.4 | `643e6dc3` | mvp-surface.json 3 capability + regen; handlers board/experiment → MvpSuccess envelope; Flutter `WorkspaceCapabilityManifest` model/service/controller (fail-closed, 5 status) + `SurfaceStateView` + `FounderTrialBoard` model/service/view | manifest-controller (5), surface-state-view (5), board model (2), board view (2) |
+| B | `f1333dc2` | commercial migration 17 (`sales.contact_projects` + `project_id` FK trên leads/campaigns/experiments); `project-record-link.service.ts` typed; contact/lead create nhận projectId; `submitInterviewAsEvidence` + endpoint | project-record-link (6), founder-trial-crm.contract (3), interview-evidence (3); commercial sweep 918 |
+| C | `c0fde7ea` | marketing campaign/experiment create+list project-scoped (validate + SQL filter) | founder-trial-marketing-project (3); commercial sweep 336 |
+| E | `2cb7a287` | `founder-brief.service.ts` 5 trục readiness deterministic + `suggestedDecision` non-authoritative; economics axis typed unavailable/config_required; mvp-surface + Flutter model/service | founder-brief.service (3) + flutter (2); operations sweep 588 |
+
+**Gate xanh trong phạm vi Founder Trial:** `mvp-contracts-check`, `mvp-surface-check`,
+`company-boundary-check`, `encore-handler-boundary-check`, `ts-suppression-check`,
+`tsc` (company + cosa), company test (~1500), cosa test (23),
+`tests/e2e/test_founder_trial_http.py` collect OK.
+
+**Còn nợ (follow-up, có chủ đích):**
+- A1.4 UI wiring: slot `FounderTrialBoardView` vào `StrategyView`/`module_routes.dart`
+  + `AppShell` + `WorkspaceModule` enum. Model/service/widget đã test đủ; chỉ
+  thiếu điểm vào navigation.
+- A1.4 picker `cycleDurationWeeks` tách `stageDurationWeeks` trong wizard kickoff
+  + nối widget chết `CycleReviewTimeline` (backend + model đã sẵn nhận).
+- C.4 Flutter `marketing_controller.dart`: xoá pattern `Future.wait(... catchError => [])`
+  + gỡ dòng allowlist wildcard `/marketing/:await`. **Hoãn** vì `main` đang có
+  breakage frontend không liên quan.
+- Retire `module-visibility` sau khi mọi consumer đọc `capability-manifest`.
+- Chạy `make e2e-test` với fixture thật cho `test_founder_trial_http.py`.
+
+**Breakage sẵn có trên `main` (KHÔNG do Founder Trial, từ phiên khác — localization
+migration `b1b5adf2` + auth `d39a1bee`):** `frontend-api-contract-check` đỏ
+(`/platform/auth/me` unknown literal ở `auth_service.dart:518`);
+`route-inventory-check` đỏ (`PATCH /identity/me` đã xoá, snapshot chưa cập nhật);
+nhiều test `frontend/test/core/**` compile-fail (`.tr` getter). R1 chưa thật sự
+"shippable" tới khi các mục này được phiên phụ trách localization/auth xử lý.
+
 ## Verification (cho chính bước restructure)
 
 Rewrite đạt khi:
