@@ -38,6 +38,11 @@ _EXPECTED_LEDGER = {
     # the R1 squash dropped but still-running code depends on.
     ("agent", "002_restore_event_intake_substrate.sql"),
     ("cosa", "002_restore_control_plane_execution_substrate.up.sql"),
+    # Task 1 (COSA Automation MVP) — automation definition/revision/invocation
+    # storage, control-plane dispatch fencing, agent run manifest.
+    ("agent", "003_cosa_automation_mvp.sql"),
+    ("cosa", "003_cosa_automation_mvp.up.sql"),
+    ("operations", "003_cosa_automation_mvp.up.sql"),
 }
 
 

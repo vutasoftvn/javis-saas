@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cosa.local/contracts/automation-envelope.v1.json",
+  "title": "AutomationDispatchEnvelopeV1",
+  "description": "Bao bì DUY NHẤT cho một dispatch automation qua queue cross-plane. Chỉ ID + version/hash + trigger identity + correlation. TUYỆT ĐỐI không chứa input_payload, prompt, credential, connector grant, business document hay bất kỳ key nào ngoài danh sách bên dưới.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "invocation_id",
+    "workspace_id",
+    "automation_key",
+    "revision",
+    "revision_hash",
+    "trigger_kind",
+    "trigger_identity",
+    "correlation_id",
+    "requested_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Phiên bản schema của chính bao bì này."
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ID AutomationInvocation phía Company (string, Snowflake serialize thành string)."
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ID workspace (string)."
+    },
+    "automation_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9-]*$",
+      "description": "Key blueprint đã publish, vd. operating.weekly-review."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Số revision đơn điệu tăng của AutomationDefinition."
+    },
+    "revision_hash": {
+      "type": "string",
+      "minLength": 16,
+      "description": "Hash nội dung revision (canonical JSON) — worker verify exact-hash, không tự resolve mới hơn."
+    },
+    "trigger_kind": {
+      "type": "string",
+      "enum": ["manual", "schedule", "business_event"],
+      "description": "Nguồn kích hoạt."
+    },
+    "trigger_identity": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Định danh idempotency của trigger: manual=client_request_id, schedule=<schedule_id>:<scheduled_for>, business_event=<trigger_id>:<event_id>."
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Correlation ID xuyên plane để trace."
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 UTC thời điểm Company persist invocation."
+    }
+  }
+}

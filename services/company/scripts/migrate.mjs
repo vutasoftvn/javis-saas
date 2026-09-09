@@ -126,7 +126,18 @@ async function rollbackMigrations(client, MIGRATION_DIRS, steps) {
     [MIGRATION_DIRS.map((m) => m.service)]
   );
 
-  const appliedRows = rows.slice(0, steps);
+  // Founder Trial R1 (Task 10): the 001 baselines ship without a .down.sql by
+  // design. Skip any applied migration that has no down file so `--down N`
+  // rolls back the newest N *rollback-eligible* migrations instead of hard
+  // failing when a down-less baseline happens to be the globally last-applied.
+  const rollbackEligible = rows.filter(({ service, filename }) => {
+    const cfg = MIGRATION_DIRS.find((m) => m.service === service);
+    if (!cfg) return false;
+    const downFile = `${filename.replace(/\.up\.sql$/, "")}.down.sql`;
+    return readdirSync(cfg.dir).includes(downFile);
+  });
+
+  const appliedRows = rollbackEligible.slice(0, steps);
 
   if (appliedRows.length === 0) {
     console.log("[migrate:company] No migrations to roll back.");

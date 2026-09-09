@@ -737,3 +737,85 @@ export const cycleReviews = operatingSchema.table(
   })
 );
 
+
+// --- COSA Automation MVP (Task 1) -------------------------------------------
+// docs/superpowers/plans/2026-09-10-cosa-automation-mvp.md
+// Columns match services/company/operations/migrations/003_cosa_automation_mvp.up.sql
+// exactly. All FKs stay inside the Company DB.
+
+export const automationDefinitions = operatingSchema.table("automation_definitions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  automationKey: text("automation_key").notNull(),
+  currentRevisionId: bigint("current_revision_id", { mode: "bigint" }),
+  lifecycleState: text("lifecycle_state").default("DRAFT").notNull(), // DRAFT | PUBLISHED | SUSPENDED | RETIRED
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+}, (t) => ({
+  uixWsKey: uniqueIndex("uix_automation_definitions_ws_key").on(t.workspaceId, t.automationKey),
+  ixWorkspace: index("idx_automation_definitions_workspace").on(t.workspaceId),
+}));
+
+export const automationRevisions = operatingSchema.table("automation_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  definitionId: bigint("definition_id", { mode: "bigint" }).notNull().references(() => automationDefinitions.id, { onDelete: "cascade" }),
+  revisionNo: integer("revision_no").notNull(),
+  revisionHash: text("revision_hash").notNull(),
+  configurationJson: jsonb("configuration_json").default({}).notNull(),
+  triggerContractJson: jsonb("trigger_contract_json").default({}).notNull(),
+  capabilityIds: jsonb("capability_ids").default([]).notNull(),
+  evidenceContractJson: jsonb("evidence_contract_json").default({}).notNull(),
+  autonomyClass: text("autonomy_class").default("read_only").notNull(), // read_only | draft_only | gated_effect
+  approvalContractJson: jsonb("approval_contract_json").default({}).notNull(),
+  pinnedDependenciesJson: jsonb("pinned_dependencies_json").default({}).notNull(),
+  effectivePolicyRevision: text("effective_policy_revision"),
+  createdBy: text("created_by").notNull(),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixDefinitionNo: uniqueIndex("uix_automation_revisions_definition_no").on(t.definitionId, t.revisionNo),
+  ixWsDefinition: index("idx_automation_revisions_ws_definition").on(t.workspaceId, t.definitionId),
+}));
+
+export const automationInvocations = operatingSchema.table("automation_invocations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  definitionId: bigint("definition_id", { mode: "bigint" }).notNull().references(() => automationDefinitions.id, { onDelete: "cascade" }),
+  revisionId: bigint("revision_id", { mode: "bigint" }).notNull().references(() => automationRevisions.id, { onDelete: "cascade" }),
+  automationKey: text("automation_key").notNull(),
+  revisionNo: integer("revision_no").notNull(),
+  revisionHash: text("revision_hash").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  triggerKind: text("trigger_kind").notNull(), // manual | schedule | business_event
+  triggerIdentity: text("trigger_identity").notNull(),
+  callerPrincipal: text("caller_principal").notNull(),
+  source: text("source").notNull(),
+  businessScopeJson: jsonb("business_scope_json").default({}).notNull(),
+  validatedInputRef: text("validated_input_ref"),
+  fingerprintHash: text("fingerprint_hash").notNull(),
+  state: text("state").default("REQUESTED").notNull(),
+  blockedReason: text("blocked_reason"),
+  agentRunId: text("agent_run_id"),
+  correlationId: text("correlation_id").notNull(),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixIdentity: uniqueIndex("uix_automation_invocations_identity").on(t.workspaceId, t.revisionId, t.idempotencyKey),
+  ixWsState: index("idx_automation_invocations_ws_state").on(t.workspaceId, t.state),
+  ixWsRun: index("idx_automation_invocations_ws_run").on(t.workspaceId, t.agentRunId),
+}));
+
+export const automationInvocationEvents = operatingSchema.table("automation_invocation_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  invocationId: bigint("invocation_id", { mode: "bigint" }).notNull().references(() => automationInvocations.id, { onDelete: "cascade" }),
+  seq: integer("seq").notNull(),
+  eventType: text("event_type").notNull(),
+  payloadJson: jsonb("payload_json").default({}).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixSeq: uniqueIndex("uix_automation_invocation_events_seq").on(t.workspaceId, t.invocationId, t.seq),
+}));

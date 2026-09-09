@@ -335,3 +335,26 @@ export const workspaceExecutionLeases = controlPlaneSchema.table("workspace_exec
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// --- COSA Automation MVP (Task 1) -----------------------------------------------
+// Opaque dispatch fencing for automation runs. Columns match
+// services/cosa/migrations/003_cosa_automation_mvp.up.sql. Opaque references only:
+// no business content, prompt, credential or connector grant is ever stored here.
+export const automationDispatches = controlPlaneSchema.table("automation_dispatches", {
+  invocationId: text("invocation_id").primaryKey(),
+  workspaceId: text("workspace_id").notNull(),
+  automationKey: text("automation_key").notNull(),
+  revision: integer("revision").notNull(),
+  revisionHash: text("revision_hash").notNull(),
+  triggerKind: text("trigger_kind").notNull(),
+  triggerIdentity: text("trigger_identity").notNull(),
+  correlationId: text("correlation_id").notNull(),
+  taskId: text("task_id"),
+  claimToken: text("claim_token"),
+  state: text("state").default("received").notNull(), // received | scheduled | claimed | completed | failed | quarantined
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});

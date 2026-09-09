@@ -11,6 +11,7 @@ from agent.governance.contracts import ExecutionMode
 from agent.ids import uuid7  # LeafId UUIDv7 cho run_id (M2 §3)
 
 __all__ = [
+    "AutomationRunManifestRecord",
     "ComplianceDecisionPayload",
     "IdempotencyClaimRecord",
     "RunApprovalRecord",
@@ -182,3 +183,19 @@ class IdempotencyClaimRecord(BaseModel):
     error_message: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AutomationRunManifestRecord(BaseModel):
+    """Manifest thực thi bất biến của một automation run curated, pin trước khi
+    run vào RUNNING (COSA Automation MVP, spec §4.2). Insert-once theo run_id;
+    resume/reclaim nạp lại theo run_id và so `manifest_hash` — không bao giờ
+    resolve dependency mới hơn. Lưu trong agent.automation_run_manifests.
+
+    manifest_json chứa: definition revision/hash, effective policy, pinned
+    AgentSpec/skill/model policy versions, capability allowlist, approval/evidence
+    policy, trigger identity và source refs — KHÔNG chứa nội dung business thô."""
+
+    run_id: str
+    manifest_hash: str
+    manifest_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
