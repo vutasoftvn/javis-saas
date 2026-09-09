@@ -18,12 +18,38 @@ import {
 } from "../../shared/db/schema/operations";
 import { sql, inArray } from "drizzle-orm";
 import { assertInitiativeInWorkspace } from "./initiative.service";
+import {
+  CreateTaskOutcomeContractInput,
+  TaskOutcomeContractView,
+  insertContractRevision,
+} from "./task-outcome-contract.service";
 
 const { tasks } = schema;
 
+// Queue gate (spec §6.1) — re-export để handler/test dùng một điểm.
+export { assertTaskCanEnterQueue, validateTaskOutcomeContractForQueue, createTaskOutcomeProposal } from "./task-outcome-contract.service";
 
-export type TaskStatus = "todo" | "in_progress" | "waiting_approval" | "blocked" | "done" | "cancelled";
-export const TASK_STATUSES: readonly TaskStatus[] = ["todo", "in_progress", "waiting_approval", "blocked", "done", "cancelled"];
+
+// "draft" — task do AI đề xuất, chưa được manager/founder xác nhận (spec §6.1).
+// Không có DB CHECK constraint trên tasks.status; danh sách này là nguồn chuẩn
+// ở tầng ứng dụng.
+export type TaskStatus =
+  | "draft"
+  | "todo"
+  | "in_progress"
+  | "waiting_approval"
+  | "blocked"
+  | "done"
+  | "cancelled";
+export const TASK_STATUSES: readonly TaskStatus[] = [
+  "draft",
+  "todo",
+  "in_progress",
+  "waiting_approval",
+  "blocked",
+  "done",
+  "cancelled",
+];
 
 export interface Task {
   id: string;
@@ -190,6 +216,68 @@ export async function createTaskService(
   });
 
   return task;
+}
+
+export interface CreateAiTaskProposalParams {
+  workspaceId: string;
+  title: string;
+  proposedByAgentInstanceId: string;
+  contract: Omit<CreateTaskOutcomeContractInput, "workspaceId" | "taskId">;
+  priority?: "low" | "medium" | "high" | "urgent";
+  initiativeId?: string;
+}
+
+export interface AiTaskProposalView {
+  task: Task;
+  contract: TaskOutcomeContractView;
+}
+
+/**
+ * Đường NỘI BỘ cho AI đề xuất một task + Outcome Contract. Tạo task ở status
+ * 'draft' (source 'ai_agent_proposal') và contract revision 1 DRAFT trong CÙNG
+ * transaction. KHÔNG tạo queue entry / work package (spec §6.1). Manager/founder
+ * xác nhận qua Task 2 mới atomically chuyển sang CONFIRMED + QUEUED.
+ */
+export async function createAiTaskProposalService(
+  params: CreateAiTaskProposalParams,
+  ctx: TenantContext
+): Promise<AiTaskProposalView> {
+  if (params.workspaceId !== ctx.workspaceId) {
+    throw APIError.permissionDenied("workspace mismatch");
+  }
+  if (params.initiativeId) {
+    await assertInitiativeInWorkspace(params.initiativeId, ctx.workspaceId, false);
+  }
+
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(tasks)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: BigInt(ctx.workspaceId),
+        title: params.title,
+        status: "draft",
+        priority: params.priority || "medium",
+        source: "ai_agent_proposal",
+        initiativeId: params.initiativeId ? BigInt(params.initiativeId) : null,
+      })
+      .returning();
+    if (!row) throw APIError.internal("failed to create task proposal");
+    const task = toTask(row);
+
+    const contract = await insertContractRevision(
+      tx,
+      {
+        ...params.contract,
+        workspaceId: ctx.workspaceId,
+        taskId: task.id,
+        initiativeId: params.contract.initiativeId ?? params.initiativeId,
+      },
+      { status: "DRAFT", revision: 1, proposedByAgentInstanceId: params.proposedByAgentInstanceId }
+    );
+
+    return { task, contract };
+  });
 }
 
 export async function getTaskService(id: string, ctx: TenantContext): Promise<Task> {

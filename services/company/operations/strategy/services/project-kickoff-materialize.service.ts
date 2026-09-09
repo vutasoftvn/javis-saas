@@ -9,6 +9,7 @@ import {
 } from "../../../shared/db/schema/operations";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { insertContractRevision } from "../../services/task-outcome-contract.service";
 import type { FirstWeekAction, BasicKickoffStage } from "./project-operating-setup.service";
 import {
   calculateCycleEndDateExclusive,
@@ -199,6 +200,26 @@ export async function materializeFirstWeekPlan(
         projectId: pId,
       })
       .onConflictDoNothing();
+
+    // Task 1A: mỗi action tuần 1 nhận một Outcome Contract DRAFT type
+    // VALIDATION riêng, expected outcome DẪN XUẤT từ action (không tái dùng
+    // nguyên văn outcome của tuần/dự án — spec §6.1). Manager xác nhận qua
+    // Task 2 mới chuyển CONFIRMED + QUEUED.
+    await insertContractRevision(
+      tx,
+      {
+        workspaceId: ctx.workspaceId,
+        taskId: taskId.toString(),
+        outcomeType: "VALIDATION",
+        expectedOutcome: `Hoàn thành "${action.title}" với bằng chứng và một quyết định tiếp theo`,
+        acceptanceCriteria: { action: action.title, decisionRecorded: true },
+        expectedEvidenceRefs: [],
+        impactHypothesis: firstWeekOutcome
+          ? `Đóng góp vào kết quả tuần 1: ${firstWeekOutcome}`
+          : `Bước kiểm chứng tuần 1 cho "${action.title}"`,
+      },
+      { status: "DRAFT", revision: 1 }
+    );
   }
 
   // 2. Changed actions (update draft/todo tasks, preserve history for done/in_progress)

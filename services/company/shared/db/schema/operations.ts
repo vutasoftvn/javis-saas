@@ -53,11 +53,57 @@ export const tasks = operatingSchema.table("tasks", {
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
   executionMode: text("execution_mode"),
   function: text("function"),
+  // Con trỏ tới Outcome Contract đang hiệu lực (migration 51). NULL cho task
+  // lịch sử chưa remediate — không backfill contract giả.
+  activeOutcomeContractId: bigint("active_outcome_contract_id", { mode: "bigint" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (t) => ({
   uixIdWorkspace: uniqueIndex("uix_tasks_id_workspace").on(t.id, t.workspaceId),
+}));
+
+// Outcome Contract theo task (spec §6, migration 51). Revision APPEND-only;
+// tối đa một CONFIRMED "đang hiệu lực" cho mỗi task.
+export const taskOutcomeContracts = operatingSchema.table("task_outcome_contracts", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  taskId: bigint("task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  revision: integer("revision").default(1).notNull(),
+  status: varchar("status", { length: 20 }).default("DRAFT").notNull(), // DRAFT | CONFIRMED | SUPERSEDED
+  outcomeType: varchar("outcome_type", { length: 20 }).notNull(), // DIRECT_KR | ENABLING_KR | VALIDATION | BAU
+  expectedOutcome: text("expected_outcome").notNull(),
+  acceptanceCriteria: jsonb("acceptance_criteria").default({}).notNull(),
+  expectedEvidenceRefs: jsonb("expected_evidence_refs").default([]).notNull(),
+  measurementPlan: jsonb("measurement_plan"),
+  impactHypothesis: text("impact_hypothesis").notNull(),
+  serviceObjective: text("service_objective"),
+  primaryKrId: bigint("primary_kr_id", { mode: "bigint" }).references(() => keyResults.id, { onDelete: "set null" }),
+  initiativeId: bigint("initiative_id", { mode: "bigint" }).references(() => initiatives.id, { onDelete: "set null" }),
+  proposedByAgentInstanceId: text("proposed_by_agent_instance_id"),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  supersedesContractId: bigint("supersedes_contract_id", { mode: "bigint" }),
+  changeReason: text("change_reason"),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixTaskRevision: uniqueIndex("uix_task_outcome_contracts_task_revision").on(t.taskId, t.revision),
+  ixWsTask: index("ix_task_outcome_contracts_ws_task").on(t.workspaceId, t.taskId, t.status),
+}));
+
+export const taskOutcomeKrLinks = operatingSchema.table("task_outcome_kr_links", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  contractId: bigint("contract_id", { mode: "bigint" }).notNull().references(() => taskOutcomeContracts.id, { onDelete: "cascade" }),
+  keyResultId: bigint("key_result_id", { mode: "bigint" }).notNull().references(() => keyResults.id, { onDelete: "cascade" }),
+  relationType: varchar("relation_type", { length: 20 }).notNull(), // DIRECT | ENABLING | VALIDATION
+  isPrimary: boolean("is_primary").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixContractKr: uniqueIndex("uix_task_outcome_kr_links_contract_kr").on(t.contractId, t.keyResultId),
 }));
 
 export const taskDependencies = operatingSchema.table("task_dependencies", {
