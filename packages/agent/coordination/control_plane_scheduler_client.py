@@ -81,6 +81,18 @@ class HttpControlPlaneSchedulerClient:
         resp.raise_for_status()
         return self._row_to_record(resp.json())
 
+    async def schedule_automation_dispatch(self, envelope: dict[str, Any]) -> dict[str, Any]:
+        """COSA Automation MVP (Task 4) — record the opaque per-invocation
+        dispatch projection and enqueue one `automation_run` task. Idempotent on
+        `invocation_id` on the control-plane side."""
+        resp = await self._client.post(
+            f"{self._base_url}/control-plane/internal/automation-dispatches",
+            json={"envelope": envelope},
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def poll_due_tasks(
         self, *, worker_id: str, limit: int = 10, visibility_timeout_sec: int | None = None
     ) -> list[ScheduledTaskRecord]:

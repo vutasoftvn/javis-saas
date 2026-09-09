@@ -4,6 +4,7 @@ import * as leaseSvc from "../services/control-plane-lease.service";
 import * as schedulerSvc from "../services/control-plane-scheduler.service";
 import * as childSvc from "../services/child-scheduler.service";
 import * as missionSvc from "../services/control-plane-mission.service";
+import * as autoDispatchSvc from "../services/automation-dispatch.service";
 import * as workerSvc from "../services/control-plane-worker.service";
 import * as watchSvc from "../services/control-plane-watch.service";
 import * as deliverySvc from "../services/control-plane-delivery.service";
@@ -233,5 +234,49 @@ export const recordCostEndpoint = api(
     requireWorkerServiceAuth(params.authorization);
     const { id } = await deliverySvc.recordCost(params);
     return { id: id.toString() };
+  }
+);
+
+// --- COSA Automation MVP (Task 4) — opaque automation dispatch + fencing ---
+
+export const scheduleAutomationDispatchEndpoint = api(
+  { method: "POST", path: "/control-plane/internal/automation-dispatches", expose: true },
+  async (
+    params: AuthHeaderParam & { envelope: autoDispatchSvc.AutomationDispatchEnvelope }
+  ): Promise<autoDispatchSvc.AutomationDispatchRow> => {
+    requireWorkerServiceAuth(params.authorization);
+    return autoDispatchSvc.scheduleAutomationDispatch(params.envelope);
+  }
+);
+
+export const getAutomationDispatchEndpoint = api(
+  { method: "GET", path: "/control-plane/internal/automation-dispatches/:invocationId", expose: true },
+  async (
+    params: AuthHeaderParam & { invocationId: string }
+  ): Promise<{ dispatch: autoDispatchSvc.AutomationDispatchRow | null }> => {
+    requireWorkerServiceAuth(params.authorization);
+    return { dispatch: await autoDispatchSvc.getAutomationDispatch(params.invocationId) };
+  }
+);
+
+export const completeAutomationDispatchEndpoint = api(
+  { method: "POST", path: "/control-plane/internal/automation-dispatches/:invocationId/complete", expose: true },
+  async (
+    params: AuthHeaderParam & {
+      invocationId: string;
+      taskId: string;
+      claimToken: string;
+      success: boolean;
+      error?: string;
+    }
+  ): Promise<{ ok: boolean }> => {
+    requireWorkerServiceAuth(params.authorization);
+    return autoDispatchSvc.completeAutomationDispatch({
+      invocationId: params.invocationId,
+      taskId: params.taskId,
+      claimToken: params.claimToken,
+      success: params.success,
+      error: params.error,
+    });
   }
 );

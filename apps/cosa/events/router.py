@@ -17,6 +17,36 @@ CONSUMER = "agentos.event_intake"
 
 TASK_RESULT_SUBMITTED_EVENT = "operating.task.result_submitted.v1"
 
+# COSA Automation MVP (Task 4) — Company outbox event carrying exactly
+# AutomationDispatchEnvelopeV1. Reference-only; anything else is quarantined.
+AUTOMATION_INVOCATION_REQUESTED_EVENT = "automation.invocation.requested.v1"
+_AUTOMATION_ENVELOPE_FIELDS = (
+    "schema_version", "invocation_id", "workspace_id", "automation_key",
+    "revision", "revision_hash", "trigger_kind", "trigger_identity",
+    "correlation_id", "requested_at",
+)
+_AUTOMATION_FORBIDDEN_KEYS = (
+    "input", "input_payload", "prompt", "credential", "secret",
+    "authorization", "connector_grant", "document",
+)
+
+
+def _validate_automation_payload(payload: dict) -> str | None:
+    """Return an error string if the payload is not a clean dispatch envelope."""
+    if not isinstance(payload, dict):
+        return "automation payload is not an object"
+    for k in _AUTOMATION_FORBIDDEN_KEYS:
+        if k in payload:
+            return f"automation payload carries forbidden key '{k}'"
+    for k in _AUTOMATION_ENVELOPE_FIELDS:
+        if payload.get(k) in (None, ""):
+            return f"automation payload missing '{k}'"
+    if payload.get("schema_version") != 1:
+        return "automation payload schema_version must be 1"
+    if payload.get("trigger_kind") not in ("manual", "schedule", "business_event"):
+        return "automation payload trigger_kind invalid"
+    return None
+
 # Signed Company→Agent work-package dispatch (Task 3/4) — schedule một run
 # workforce dùng chung spec operations. target_spec_id giữ ổn định; employee/
 # assignment/skill exact được resolve theo attribution trong payload ở worker.
@@ -141,6 +171,30 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
                     else f"wp-reassign:{dispatch.workspace_id}:{dispatch.work_package_id}"
                 ),
             )
+            await inbox_store.set_outcome(
+                conn, env.workspaceId, env.eventId, CONSUMER, "accepted", task_id
+            )
+            return IntakeResult(outcome="accepted", scheduledTaskId=task_id)
+
+        # COSA Automation MVP (Task 4) — curated automation dispatch. Validate
+        # the envelope BEFORE scheduling; a malformed/leaky payload is
+        # quarantined, never routed through the generic EventTriggerRule path
+        # and never given a generic profile fallback.
+        if env.eventType == AUTOMATION_INVOCATION_REQUESTED_EVENT:
+            payload = getattr(env, "payload", {}) or {}
+            error = _validate_automation_payload(payload)
+            if error is not None:
+                await inbox_store.set_outcome(
+                    conn, env.workspaceId, env.eventId, CONSUMER, "rejected"
+                )
+                return IntakeResult(outcome="rejected", reason=error)
+            if payload["workspace_id"] != env.workspaceId:
+                await inbox_store.set_outcome(
+                    conn, env.workspaceId, env.eventId, CONSUMER, "rejected"
+                )
+                return IntakeResult(outcome="rejected", reason="workspace mismatch")
+
+            task_id = await deps.execution_plane.schedule_automation_dispatch(env)
             await inbox_store.set_outcome(
                 conn, env.workspaceId, env.eventId, CONSUMER, "accepted", task_id
             )

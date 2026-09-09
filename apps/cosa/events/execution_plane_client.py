@@ -53,5 +53,12 @@ class LocalExecutionPlaneScheduleClient:
         )
         return record.task_id
 
+    async def schedule_automation_dispatch(self, env: Any) -> str:
+        """COSA Automation MVP (Task 4). `env.payload` is exactly
+        AutomationDispatchEnvelopeV1 (reference-only). Returns the task id."""
+        envelope = dict(getattr(env, "payload", {}) or {})
+        result = await self._sched.schedule_automation_dispatch(envelope)
+        return str(result.get("taskId") or "")
+
     async def aclose(self) -> None:
         await self._sched.aclose()
