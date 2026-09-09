@@ -69,6 +69,14 @@ enum MvpEndpoint {
     path: '/platform/workspaces/:workspaceId/audit-events',
     requiresWorkspace: true,
   ),
+  settingsCapabilityManifestRead(
+    id: 'settings.capability_manifest.read',
+    enabled: true,
+    plane: ApiPlane.platform,
+    method: 'GET',
+    path: '/platform/workspaces/:workspaceId/capability-manifest',
+    requiresWorkspace: true,
+  ),
   settingsConnectorInstall(
     id: 'settings.connector.install',
     enabled: true,
@@ -443,6 +451,22 @@ enum MvpEndpoint {
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/execution-cycle-view',
+    requiresWorkspace: true,
+  ),
+  strategyFounderTrialBoardRead(
+    id: 'strategy.founder_trial.board.read',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'GET',
+    path: '/operations/projects/:projectId/founder-trial-board',
+    requiresWorkspace: true,
+  ),
+  strategyFounderTrialExperimentCreate(
+    id: 'strategy.founder_trial.experiment.create',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/projects/:projectId/founder-trial/experiments',
     requiresWorkspace: true,
   ),
   strategyFundingMatches(

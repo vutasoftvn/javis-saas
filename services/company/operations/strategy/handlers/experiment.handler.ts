@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
+import { MvpSuccess, mvpItem } from "../../../shared/contracts/mvp-response";
 import {
   Experiment,
   CreateExperimentInput,
@@ -73,9 +74,9 @@ export interface CreateFounderTrialExperimentParams {
 // Nghiêm hơn generic: bắt buộc assumptionId + method + successCriteria.
 export const createFounderTrialExperimentEndpoint = api(
   { method: "POST", path: "/operations/projects/:projectId/founder-trial/experiments", expose: true },
-  async (params: CreateFounderTrialExperimentParams): Promise<Experiment> => {
+  async (params: CreateFounderTrialExperimentParams): Promise<MvpSuccess<Experiment>> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
-    return createFounderTrialExperiment(ctx, {
+    const exp = await createFounderTrialExperiment(ctx, {
       projectId: params.projectId,
       assumptionId: params.assumptionId,
       hypothesis: params.hypothesis,
@@ -85,6 +86,7 @@ export const createFounderTrialExperimentEndpoint = api(
       ownerMemberId: params.ownerMemberId,
       status: params.status,
     });
+    return mvpItem(exp, [{ kind: "company_db", ref: "operations.experiments" }]);
   }
 );
 

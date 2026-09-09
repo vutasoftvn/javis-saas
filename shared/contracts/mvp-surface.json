@@ -1980,6 +1980,51 @@
       "backend_test": "services/company/identity/tests/permissions-api.test.ts",
       "flutter_test": "frontend/test/modules/settings/permissions_panel_test.dart",
       "integration_test": "tests/e2e/test_mvp_settings_http.py"
+    },
+    {
+      "id": "settings.capability_manifest.read",
+      "enabled": true,
+      "owner": "control-plane",
+      "plane": "platform",
+      "method": "GET",
+      "path": "/platform/workspaces/:workspaceId/capability-manifest",
+      "schema": "settings.capability_manifest.read.v1",
+      "source_kind": "control_plane",
+      "requires_workspace": true,
+      "frontend_symbol": "WorkspaceCapabilityManifestService.fetch",
+      "backend_test": "services/cosa/tests/workspace-capability-manifest.test.ts",
+      "flutter_test": "frontend/test/core/services/workspace_capability_manifest_controller_test.dart",
+      "integration_test": "tests/e2e/test_founder_trial_http.py"
+    },
+    {
+      "id": "strategy.founder_trial.board.read",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "GET",
+      "path": "/operations/projects/:projectId/founder-trial-board",
+      "schema": "strategy.founder_trial.board.read.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "frontend_symbol": "FounderTrialBoardService.fetch",
+      "backend_test": "services/company/operations/tests/founder-trial-board.service.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/founder_trial_board_service_test.dart",
+      "integration_test": "tests/e2e/test_founder_trial_http.py"
+    },
+    {
+      "id": "strategy.founder_trial.experiment.create",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/projects/:projectId/founder-trial/experiments",
+      "schema": "strategy.founder_trial.experiment.create.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "frontend_symbol": "FounderTrialBoardService.createExperiment",
+      "backend_test": "services/company/operations/tests/founder-trial-experiment.service.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/founder_trial_board_service_test.dart",
+      "integration_test": "tests/e2e/test_founder_trial_http.py"
     }
   ]
 }
