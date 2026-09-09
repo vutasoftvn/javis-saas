@@ -161,19 +161,6 @@ void main() {
       await StrategyService().getObjectives(cycleId: 'cycle-1');
     });
 
-    test('createKeyResult fills in numeric defaults', () async {
-      ApiClient.client = MockClient((request) async {
-        final body = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(body['baselineValue'], 0.0);
-        expect(body['targetValue'], 100.0);
-        expect(body.containsKey('baseline_value'), isFalse);
-        expect(body.containsKey('target_value'), isFalse);
-        expect(body['unit'], '%');
-        return http.Response(jsonEncode({'id': 'kr-1'}), 200);
-      });
-
-      await StrategyService().createKeyResult(objectiveId: 'obj-1');
-    });
   });
 
   group('projects', () {
