@@ -247,6 +247,56 @@ export const outcomeAssessments = operatingSchema.table("outcome_assessments", {
   ixResult: index("ix_outcome_assessments_result").on(t.taskResultId, t.status),
 }));
 
+// Review bất biến của manager/founder + priority override event (spec §7-8,
+// migration 54). Không auto-accept.
+export const workPackageReviews = operatingSchema.table("work_package_reviews", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  workPackageId: bigint("work_package_id", { mode: "bigint" }).notNull().references(() => taskWorkPackages.id, { onDelete: "cascade" }),
+  workAttemptId: bigint("work_attempt_id", { mode: "bigint" }).references(() => workPackageAttempts.id, { onDelete: "set null" }),
+  reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }),
+  reviewerKind: varchar("reviewer_kind", { length: 16 }).default("manager").notNull(),
+  artifactVersionRef: text("artifact_version_ref").notNull(),
+  decision: varchar("decision", { length: 16 }).notNull(), // ACCEPT | REWORK | REJECT
+  rubricScores: jsonb("rubric_scores").default({}).notNull(),
+  reasonCode: text("reason_code").notNull(),
+  narrative: text("narrative"),
+  supersedesReviewId: bigint("supersedes_review_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixWp: index("ix_work_package_reviews_wp").on(t.workPackageId, t.createdAt),
+}));
+
+export const taskOutcomeReviews = operatingSchema.table("task_outcome_reviews", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  taskResultId: bigint("task_result_id", { mode: "bigint" }).notNull().references(() => taskResults.id, { onDelete: "cascade" }),
+  assessmentId: bigint("assessment_id", { mode: "bigint" }).references(() => outcomeAssessments.id, { onDelete: "set null" }),
+  expectedResultRevision: integer("expected_result_revision").notNull(),
+  reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }),
+  decision: varchar("decision", { length: 16 }).notNull(),
+  reasonCode: text("reason_code").notNull(),
+  narrative: text("narrative"),
+  supersedesReviewId: bigint("supersedes_review_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixResult: index("ix_task_outcome_reviews_result").on(t.taskResultId, t.createdAt),
+}));
+
+export const workPackagePriorityEvents = operatingSchema.table("work_package_priority_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  workPackageId: bigint("work_package_id", { mode: "bigint" }).notNull().references(() => taskWorkPackages.id, { onDelete: "cascade" }),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  requestedPriority: varchar("requested_priority", { length: 4 }).notNull(),
+  priorEffectivePriority: varchar("prior_effective_priority", { length: 4 }).notNull(),
+  newEffectivePriority: varchar("new_effective_priority", { length: 4 }).notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixWp: index("ix_work_package_priority_events_wp").on(t.workPackageId, t.createdAt),
+}));
+
 export const krContributionAssessments = operatingSchema.table("kr_contribution_assessments", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),

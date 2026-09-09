@@ -8,6 +8,7 @@ export * from "./task.handler";
 export * from "./work-package.handler";
 export * from "./task-result.handler";
 export * from "./task-outcome-analysis.handler";
+export * from "./task-outcome-review.handler";
 export * from "./execution-plan.handler";
 export * from "./twelve-week-year.handler";
 export * from "./workspace-runtime.handler";
