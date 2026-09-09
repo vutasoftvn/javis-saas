@@ -18,7 +18,21 @@ __all__ = [
     "RunEventRecord",
     "RunRecord",
     "RunToolCallRecord",
+    "WorkforceRunAttribution",
 ]
+
+
+class WorkforceRunAttribution(BaseModel):
+    """Attribution bất biến của một run workforce (Task 4, spec §5.2). Đủ 4
+    opaque IDs — resolve exact employee/assignment/work package/attempt. Không
+    tái sử dụng cho run non-workforce (khi đó = None)."""
+
+    model_config = {"frozen": True}
+
+    agent_instance_id: str
+    assignment_id: str
+    work_package_id: str
+    work_attempt_id: str
 
 
 class ComplianceDecisionPayload(BaseModel):
@@ -72,6 +86,8 @@ class RunRecord(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
+    # Task 4 — None cho run non-workforce lịch sử.
+    workforce_attribution: WorkforceRunAttribution | None = None
 
 
 class RunCheckpointRecord(BaseModel):

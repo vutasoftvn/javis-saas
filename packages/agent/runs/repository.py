@@ -16,6 +16,7 @@ from agent.runs.models import (
     RunEventRecord,
     RunRecord,
     RunToolCallRecord,
+    WorkforceRunAttribution,
 )
 
 __all__ = [
@@ -51,6 +52,9 @@ class RunRepository(Protocol):
         error_details: dict[str, Any] | None = None,
     ) -> RunRecord | None: ...
     async def cancel_run(self, run_id: str, *, reason: str) -> RunRecord | None: ...
+    async def attach_workforce_attribution(
+        self, run_id: str, attribution: WorkforceRunAttribution
+    ) -> RunRecord | None: ...
 
     # 2. Checkpoints
     async def save_checkpoint(self, checkpoint: RunCheckpointRecord) -> RunCheckpointRecord: ...
@@ -134,6 +138,16 @@ class InMemoryRunRepository:
         if r and r.workspace_id == workspace_id:
             return r.model_copy(deep=True)
         return None
+
+    async def attach_workforce_attribution(
+        self, run_id: str, attribution: WorkforceRunAttribution
+    ) -> RunRecord | None:
+        r = self._runs.get(run_id)
+        if r is None:
+            return None
+        r.workforce_attribution = attribution
+        r.updated_at = datetime.now(UTC)
+        return r.model_copy(deep=True)
 
     async def list_runs(self, workspace_id: str, limit: int = 50) -> list[RunRecord]:
         return [
@@ -417,12 +431,14 @@ class PostgresRunRepository(BasePostgresRepository):
                         run_id, workspace_id, conversation_id, session_ref,
                         principal, root_executable_id, root_executable_kind, root_executable_version,
                         root_definition_hash, status, execution_mode, correlation_id, idempotency_key,
-                        input_payload, model_policy, final_output, usage, error_details, created_at, updated_at
+                        input_payload, model_policy, final_output, usage, error_details, created_at, updated_at,
+                        wf_agent_instance_id, wf_assignment_id, wf_work_package_id, wf_work_attempt_id
                     ) VALUES (
                         :run_id, :workspace_id, :conversation_id, :session_ref,
                         :principal, :root_executable_id, :root_executable_kind, :root_executable_version,
                         :root_definition_hash, :status, :execution_mode, :correlation_id, :idempotency_key,
-                        :input_payload, :model_policy, :final_output, :usage, :error_details, :created_at, :updated_at
+                        :input_payload, :model_policy, :final_output, :usage, :error_details, :created_at, :updated_at,
+                        :wf_agent_instance_id, :wf_assignment_id, :wf_work_package_id, :wf_work_attempt_id
                     )
                     ON CONFLICT (run_id) DO UPDATE SET
                         status = EXCLUDED.status,
@@ -430,6 +446,18 @@ class PostgresRunRepository(BasePostgresRepository):
                     """
                 ),
                 {
+                    "wf_agent_instance_id": run.workforce_attribution.agent_instance_id
+                    if run.workforce_attribution
+                    else None,
+                    "wf_assignment_id": run.workforce_attribution.assignment_id
+                    if run.workforce_attribution
+                    else None,
+                    "wf_work_package_id": run.workforce_attribution.work_package_id
+                    if run.workforce_attribution
+                    else None,
+                    "wf_work_attempt_id": run.workforce_attribution.work_attempt_id
+                    if run.workforce_attribution
+                    else None,
                     "run_id": run.run_id,
                     "workspace_id": run.workspace_id,
                     "conversation_id": run.conversation_id,
@@ -470,7 +498,8 @@ class PostgresRunRepository(BasePostgresRepository):
                     SELECT run_id, workspace_id, conversation_id, session_ref,
                            principal, root_executable_id, root_executable_kind, root_executable_version,
                            root_definition_hash, status, execution_mode, correlation_id, idempotency_key,
-                           input_payload, model_policy, final_output, usage, error_details, created_at, updated_at, completed_at
+                           input_payload, model_policy, final_output, usage, error_details, created_at, updated_at, completed_at,
+                           wf_agent_instance_id, wf_assignment_id, wf_work_package_id, wf_work_attempt_id
                     FROM agent.runs
                     WHERE run_id = :run_id
                     """
@@ -492,7 +521,8 @@ class PostgresRunRepository(BasePostgresRepository):
                     SELECT run_id, workspace_id, conversation_id, session_ref,
                            principal, root_executable_id, root_executable_kind, root_executable_version,
                            root_definition_hash, status, execution_mode, correlation_id, idempotency_key,
-                           input_payload, model_policy, final_output, usage, error_details, created_at, updated_at, completed_at
+                           input_payload, model_policy, final_output, usage, error_details, created_at, updated_at, completed_at,
+                           wf_agent_instance_id, wf_assignment_id, wf_work_package_id, wf_work_attempt_id
                     FROM agent.runs
                     WHERE run_id = :run_id
                       AND workspace_id = :workspace_id
@@ -627,6 +657,34 @@ class PostgresRunRepository(BasePostgresRepository):
         )
         if result is not None:
             return result
+        return await self.get_run(run_id)
+
+    async def attach_workforce_attribution(
+        self, run_id: str, attribution: WorkforceRunAttribution
+    ) -> RunRecord | None:
+        async with self._session_factory() as session:
+            await self._execute(
+                session,
+                text(
+                    """
+                    UPDATE agent.runs SET
+                        wf_agent_instance_id = :emp,
+                        wf_assignment_id = :asg,
+                        wf_work_package_id = :wp,
+                        wf_work_attempt_id = :wa,
+                        updated_at = now()
+                    WHERE run_id = :run_id
+                    """
+                ),
+                {
+                    "emp": attribution.agent_instance_id,
+                    "asg": attribution.assignment_id,
+                    "wp": attribution.work_package_id,
+                    "wa": attribution.work_attempt_id,
+                    "run_id": run_id,
+                },
+            )
+            await self._commit(session)
         return await self.get_run(run_id)
 
     async def list_runs(self, workspace_id: str, limit: int = 50) -> list[RunRecord]:
@@ -1297,6 +1355,20 @@ class PostgresRunRepository(BasePostgresRepository):
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             completed_at=row["completed_at"],
+            workforce_attribution=cls._row_to_workforce_attribution(row),
+        )
+
+    @staticmethod
+    def _row_to_workforce_attribution(row: Any) -> WorkforceRunAttribution | None:
+        get = row.get if hasattr(row, "get") else lambda k: row[k]
+        emp = get("wf_agent_instance_id")
+        if not emp:
+            return None
+        return WorkforceRunAttribution(
+            agent_instance_id=str(emp),
+            assignment_id=str(get("wf_assignment_id") or ""),
+            work_package_id=str(get("wf_work_package_id") or ""),
+            work_attempt_id=str(get("wf_work_attempt_id") or ""),
         )
 
     @classmethod
