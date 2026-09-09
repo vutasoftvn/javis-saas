@@ -369,9 +369,12 @@ class DashboardDesktopSidebar extends StatelessWidget {
                     children: [
                       const Icon(Icons.logout_rounded, color: AppTheme.error, size: 20),
                       const SizedBox(width: 12),
-                      Text(
-                        L10nKey.sidebarLogout.tr,
-                        style: const TextStyle(color: AppTheme.error, fontSize: 15, fontWeight: FontWeight.bold),
+                      Flexible(
+                        child: Text(
+                          L10nKey.sidebarLogout.tr,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppTheme.error, fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
