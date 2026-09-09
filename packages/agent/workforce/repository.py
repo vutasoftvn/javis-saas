@@ -17,18 +17,55 @@ from agent.workforce.models import (
     RunCostObservationRecord,
     RuntimeSignalOutboxRecord,
     WorkforceAssignmentRecord,
+    WorkforceEmployeeRecord,
     WorkforceScheduleRecord,
 )
 
 __all__ = [
+    "DuplicateEmployeeCodeError",
+    "EmployeeNotAssignableError",
     "InMemoryWorkforceRepository",
     "PostgresWorkforceRepository",
     "WorkforceRepository",
 ]
 
 
+class DuplicateEmployeeCodeError(Exception):
+    """employee_code đã tồn tại trong workspace (kể cả khi employee đã RETIRED
+    — identity/code không tái sử dụng, xem spec §5.1)."""
+
+
+class EmployeeNotAssignableError(Exception):
+    """assignment nối tới employee không tồn tại hoặc không ở trạng thái ACTIVE."""
+
+
 @runtime_checkable
 class WorkforceRepository(Protocol):
+    async def create_employee(
+        self,
+        workspace_id: str,
+        employee_code: str,
+        display_name: str,
+        created_by: str,
+        agent_instance_id: UUID | str | None = None,
+    ) -> WorkforceEmployeeRecord: ...
+
+    async def get_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None: ...
+
+    async def list_employees(
+        self, workspace_id: str, status: str | None = None
+    ) -> list[WorkforceEmployeeRecord]: ...
+
+    async def suspend_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None: ...
+
+    async def retire_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None: ...
+
     async def create_assignment(
         self,
         workspace_id: str,
@@ -39,6 +76,7 @@ class WorkforceRepository(Protocol):
         configured_by: str,
         reports_to_assignment_id: UUID | str | None = None,
         assignment_id: UUID | str | None = None,
+        agent_instance_id: UUID | str | None = None,
     ) -> WorkforceAssignmentRecord: ...
 
     async def get_assignment(
@@ -124,6 +162,131 @@ class PostgresWorkforceRepository:
     def __init__(self, session_factory: Callable[[], AsyncSession]) -> None:
         self._session_factory = session_factory
 
+    async def create_employee(
+        self,
+        workspace_id: str,
+        employee_code: str,
+        display_name: str,
+        created_by: str,
+        agent_instance_id: UUID | str | None = None,
+    ) -> WorkforceEmployeeRecord:
+        eid = UUID(str(agent_instance_id)) if agent_instance_id else uuid4()
+        now = datetime.now(UTC)
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    INSERT INTO agent.workforce_employees (
+                        agent_instance_id, workspace_id, employee_code, display_name,
+                        status, created_by, created_at
+                    ) VALUES (
+                        :agent_instance_id, :workspace_id, :employee_code, :display_name,
+                        'ACTIVE', :created_by, :created_at
+                    )
+                    ON CONFLICT (workspace_id, employee_code) DO NOTHING
+                    RETURNING agent_instance_id, workspace_id, employee_code, display_name,
+                              status, created_by, created_at, suspended_at, retired_at
+                    """
+                ),
+                {
+                    "agent_instance_id": str(eid),
+                    "workspace_id": workspace_id,
+                    "employee_code": employee_code,
+                    "display_name": display_name,
+                    "created_by": created_by,
+                    "created_at": now,
+                },
+            )
+            row = res.mappings().first()
+            if row is None:
+                await session.rollback()
+                raise DuplicateEmployeeCodeError(
+                    f"employee_code {employee_code!r} already exists in workspace {workspace_id!r}"
+                )
+            await session.commit()
+            return self._row_to_employee(row)
+
+    async def get_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None:
+        try:
+            eid = UUID(str(agent_instance_id))
+        except ValueError:
+            return None
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT agent_instance_id, workspace_id, employee_code, display_name,
+                           status, created_by, created_at, suspended_at, retired_at
+                    FROM agent.workforce_employees
+                    WHERE workspace_id = :workspace_id AND agent_instance_id = :agent_instance_id
+                    """
+                ),
+                {"workspace_id": workspace_id, "agent_instance_id": str(eid)},
+            )
+            row = res.mappings().first()
+            return self._row_to_employee(row) if row else None
+
+    async def list_employees(
+        self, workspace_id: str, status: str | None = None
+    ) -> list[WorkforceEmployeeRecord]:
+        query = """
+            SELECT agent_instance_id, workspace_id, employee_code, display_name,
+                   status, created_by, created_at, suspended_at, retired_at
+            FROM agent.workforce_employees
+            WHERE workspace_id = :workspace_id
+        """
+        params: dict[str, Any] = {"workspace_id": workspace_id}
+        if status:
+            query += " AND status = :status"
+            params["status"] = status
+        query += " ORDER BY created_at ASC"
+        async with self._session_factory() as session:
+            res = await session.execute(text(query), params)
+            return [self._row_to_employee(r) for r in res.mappings().all()]
+
+    async def _set_employee_lifecycle(
+        self, workspace_id: str, agent_instance_id: UUID | str, status: str
+    ) -> WorkforceEmployeeRecord | None:
+        try:
+            eid = UUID(str(agent_instance_id))
+        except ValueError:
+            return None
+        now = datetime.now(UTC)
+        ts_col = "suspended_at" if status == "SUSPENDED" else "retired_at"
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    f"""
+                    UPDATE agent.workforce_employees
+                    SET status = :status, {ts_col} = :now
+                    WHERE workspace_id = :workspace_id AND agent_instance_id = :agent_instance_id
+                    RETURNING agent_instance_id, workspace_id, employee_code, display_name,
+                              status, created_by, created_at, suspended_at, retired_at
+                    """
+                ),
+                {
+                    "status": status,
+                    "now": now,
+                    "workspace_id": workspace_id,
+                    "agent_instance_id": str(eid),
+                },
+            )
+            await session.commit()
+            row = res.mappings().first()
+            return self._row_to_employee(row) if row else None
+
+    async def suspend_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None:
+        return await self._set_employee_lifecycle(workspace_id, agent_instance_id, "SUSPENDED")
+
+    async def retire_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None:
+        return await self._set_employee_lifecycle(workspace_id, agent_instance_id, "RETIRED")
+
     async def create_assignment(
         self,
         workspace_id: str,
@@ -134,9 +297,19 @@ class PostgresWorkforceRepository:
         configured_by: str,
         reports_to_assignment_id: UUID | str | None = None,
         assignment_id: UUID | str | None = None,
+        agent_instance_id: UUID | str | None = None,
     ) -> WorkforceAssignmentRecord:
         aid = UUID(str(assignment_id)) if assignment_id else uuid4()
         rid = UUID(str(reports_to_assignment_id)) if reports_to_assignment_id else None
+        eid: UUID | None = None
+        if agent_instance_id is not None:
+            eid = UUID(str(agent_instance_id))
+            employee = await self.get_employee(workspace_id, eid)
+            if employee is None or employee.status != "ACTIVE":
+                raise EmployeeNotAssignableError(
+                    f"employee {agent_instance_id!r} is not an ACTIVE workforce employee "
+                    f"in workspace {workspace_id!r}"
+                )
         now = datetime.now(UTC)
 
         async with self._session_factory() as session:
@@ -146,18 +319,21 @@ class PostgresWorkforceRepository:
                     INSERT INTO agent.workforce_assignments (
                         assignment_id, workspace_id, functional_key, spec_id, spec_version,
                         definition_hash, reports_to_assignment_id, configured_by, status,
-                        created_at, retired_at
+                        created_at, retired_at, agent_instance_id
                     ) VALUES (
                         :assignment_id, :workspace_id, :functional_key, :spec_id, :spec_version,
                         :definition_hash, :reports_to_assignment_id, :configured_by, 'ACTIVE',
-                        :created_at, NULL
+                        :created_at, NULL, :agent_instance_id
                     )
                     ON CONFLICT (workspace_id, functional_key, spec_id, spec_version, definition_hash)
                     DO UPDATE SET
                         status = 'ACTIVE',
                         retired_at = NULL,
                         reports_to_assignment_id = EXCLUDED.reports_to_assignment_id,
-                        configured_by = EXCLUDED.configured_by
+                        configured_by = EXCLUDED.configured_by,
+                        agent_instance_id = COALESCE(
+                            EXCLUDED.agent_instance_id, agent.workforce_assignments.agent_instance_id
+                        )
                     """
                 ),
                 {
@@ -170,6 +346,7 @@ class PostgresWorkforceRepository:
                     "reports_to_assignment_id": str(rid) if rid else None,
                     "configured_by": configured_by,
                     "created_at": now,
+                    "agent_instance_id": str(eid) if eid else None,
                 },
             )
             await session.commit()
@@ -180,7 +357,7 @@ class PostgresWorkforceRepository:
                     """
                     SELECT assignment_id, workspace_id, functional_key, spec_id, spec_version,
                            definition_hash, reports_to_assignment_id, configured_by, status,
-                           created_at, retired_at
+                           created_at, retired_at, agent_instance_id
                     FROM agent.workforce_assignments
                     WHERE workspace_id = :workspace_id
                       AND functional_key = :functional_key
@@ -211,7 +388,7 @@ class PostgresWorkforceRepository:
                     """
                     SELECT assignment_id, workspace_id, functional_key, spec_id, spec_version,
                            definition_hash, reports_to_assignment_id, configured_by, status,
-                           created_at, retired_at
+                           created_at, retired_at, agent_instance_id
                     FROM agent.workforce_assignments
                     WHERE workspace_id = :workspace_id AND assignment_id = :assignment_id
                     """
@@ -269,7 +446,7 @@ class PostgresWorkforceRepository:
                     WHERE workspace_id = :workspace_id AND assignment_id = :assignment_id
                     RETURNING assignment_id, workspace_id, functional_key, spec_id, spec_version,
                               definition_hash, reports_to_assignment_id, configured_by, status,
-                              created_at, retired_at
+                              created_at, retired_at, agent_instance_id
                     """
                 ),
                 {"workspace_id": workspace_id, "assignment_id": str(aid), "now": now},
@@ -637,6 +814,7 @@ class PostgresWorkforceRepository:
 
     @staticmethod
     def _row_to_assignment(row: Any) -> WorkforceAssignmentRecord:
+        emp = row.get("agent_instance_id") if hasattr(row, "get") else row["agent_instance_id"]
         return WorkforceAssignmentRecord(
             assignment_id=UUID(str(row["assignment_id"])),
             workspace_id=row["workspace_id"],
@@ -650,6 +828,21 @@ class PostgresWorkforceRepository:
             configured_by=row["configured_by"],
             status=row["status"],
             created_at=row["created_at"],
+            retired_at=row["retired_at"],
+            agent_instance_id=UUID(str(emp)) if emp else None,
+        )
+
+    @staticmethod
+    def _row_to_employee(row: Any) -> WorkforceEmployeeRecord:
+        return WorkforceEmployeeRecord(
+            agent_instance_id=UUID(str(row["agent_instance_id"])),
+            workspace_id=row["workspace_id"],
+            employee_code=row["employee_code"],
+            display_name=row["display_name"],
+            status=row["status"],
+            created_by=row["created_by"],
+            created_at=row["created_at"],
+            suspended_at=row["suspended_at"],
             retired_at=row["retired_at"],
         )
 
@@ -717,10 +910,95 @@ class PostgresWorkforceRepository:
 
 class InMemoryWorkforceRepository:
     def __init__(self) -> None:
+        self.employees: dict[UUID, WorkforceEmployeeRecord] = {}
         self.assignments: dict[UUID, WorkforceAssignmentRecord] = {}
         self.schedules: dict[UUID, WorkforceScheduleRecord] = {}
         self.cost_observations: list[RunCostObservationRecord] = []
         self.outbox: dict[UUID, RuntimeSignalOutboxRecord] = {}
+
+    async def create_employee(
+        self,
+        workspace_id: str,
+        employee_code: str,
+        display_name: str,
+        created_by: str,
+        agent_instance_id: UUID | str | None = None,
+    ) -> WorkforceEmployeeRecord:
+        for existing in self.employees.values():
+            if existing.workspace_id == workspace_id and existing.employee_code == employee_code:
+                raise DuplicateEmployeeCodeError(
+                    f"employee_code {employee_code!r} already exists in workspace {workspace_id!r}"
+                )
+        eid = UUID(str(agent_instance_id)) if agent_instance_id else uuid4()
+        record = WorkforceEmployeeRecord(
+            agent_instance_id=eid,
+            workspace_id=workspace_id,
+            employee_code=employee_code,
+            display_name=display_name,
+            status="ACTIVE",
+            created_by=created_by,
+            created_at=datetime.now(UTC),
+            suspended_at=None,
+            retired_at=None,
+        )
+        self.employees[eid] = record
+        return record
+
+    async def get_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None:
+        try:
+            eid = UUID(str(agent_instance_id))
+        except ValueError:
+            return None
+        rec = self.employees.get(eid)
+        if rec and rec.workspace_id == workspace_id:
+            return rec
+        return None
+
+    async def list_employees(
+        self, workspace_id: str, status: str | None = None
+    ) -> list[WorkforceEmployeeRecord]:
+        return [
+            e
+            for e in self.employees.values()
+            if e.workspace_id == workspace_id and (status is None or e.status == status)
+        ]
+
+    def _set_employee_lifecycle(
+        self, workspace_id: str, agent_instance_id: UUID | str, status: str
+    ) -> WorkforceEmployeeRecord | None:
+        try:
+            eid = UUID(str(agent_instance_id))
+        except ValueError:
+            return None
+        rec = self.employees.get(eid)
+        if not rec or rec.workspace_id != workspace_id:
+            return None
+        now = datetime.now(UTC)
+        updated = WorkforceEmployeeRecord(
+            agent_instance_id=rec.agent_instance_id,
+            workspace_id=rec.workspace_id,
+            employee_code=rec.employee_code,
+            display_name=rec.display_name,
+            status=status,  # type: ignore[arg-type]
+            created_by=rec.created_by,
+            created_at=rec.created_at,
+            suspended_at=now if status == "SUSPENDED" else rec.suspended_at,
+            retired_at=now if status == "RETIRED" else rec.retired_at,
+        )
+        self.employees[eid] = updated
+        return updated
+
+    async def suspend_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None:
+        return self._set_employee_lifecycle(workspace_id, agent_instance_id, "SUSPENDED")
+
+    async def retire_employee(
+        self, workspace_id: str, agent_instance_id: UUID | str
+    ) -> WorkforceEmployeeRecord | None:
+        return self._set_employee_lifecycle(workspace_id, agent_instance_id, "RETIRED")
 
     async def create_schedule(
         self,
@@ -779,8 +1057,19 @@ class InMemoryWorkforceRepository:
         configured_by: str,
         reports_to_assignment_id: UUID | str | None = None,
         assignment_id: UUID | str | None = None,
+        agent_instance_id: UUID | str | None = None,
     ) -> WorkforceAssignmentRecord:
         rid = UUID(str(reports_to_assignment_id)) if reports_to_assignment_id else None
+
+        eid: UUID | None = None
+        if agent_instance_id is not None:
+            eid = UUID(str(agent_instance_id))
+            employee = await self.get_employee(workspace_id, eid)
+            if employee is None or employee.status != "ACTIVE":
+                raise EmployeeNotAssignableError(
+                    f"employee {agent_instance_id!r} is not an ACTIVE workforce employee "
+                    f"in workspace {workspace_id!r}"
+                )
 
         # Check unique constraint (workspace_id, functional_key, spec_id, spec_version, definition_hash)
         for existing in self.assignments.values():
@@ -803,6 +1092,7 @@ class InMemoryWorkforceRepository:
                     status="ACTIVE",
                     created_at=existing.created_at,
                     retired_at=None,
+                    agent_instance_id=eid or existing.agent_instance_id,
                 )
                 self.assignments[existing.assignment_id] = updated
                 return updated
@@ -820,6 +1110,7 @@ class InMemoryWorkforceRepository:
             status="ACTIVE",
             created_at=datetime.now(UTC),
             retired_at=None,
+            agent_instance_id=eid,
         )
         self.assignments[aid] = record
         return record

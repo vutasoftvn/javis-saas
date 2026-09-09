@@ -10,6 +10,24 @@ from uuid import UUID
 
 
 @dataclass(frozen=True)
+class WorkforceEmployeeRecord:
+    """AI employee bền vững theo workspace — identity immutable
+    (agent_instance_id, không tái sử dụng), status mutable. Suspend/retire
+    chỉ chặn lease/assignment mới, không xóa run/contract/attempt/scorecard.
+    Display name không phải authority (xem spec §5.1)."""
+
+    agent_instance_id: UUID
+    workspace_id: str
+    employee_code: str
+    display_name: str
+    status: Literal["ACTIVE", "SUSPENDED", "RETIRED"]
+    created_by: str
+    created_at: datetime
+    suspended_at: datetime | None = None
+    retired_at: datetime | None = None
+
+
+@dataclass(frozen=True)
 class WorkforceAssignmentRecord:
     assignment_id: UUID
     workspace_id: str
@@ -22,6 +40,8 @@ class WorkforceAssignmentRecord:
     status: Literal["ACTIVE", "RETIRED"]
     created_at: datetime
     retired_at: datetime | None = None
+    # Nullable — assignment lịch sử (trước migration 033) chưa nối employee.
+    agent_instance_id: UUID | None = None
 
 
 @dataclass(frozen=True)
