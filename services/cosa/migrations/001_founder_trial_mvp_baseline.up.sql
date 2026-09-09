@@ -5,7 +5,7 @@
 CREATE SCHEMA IF NOT EXISTS control_plane;
 CREATE SCHEMA IF NOT EXISTS cosa;
 
-CREATE TABLE control_plane.workspace_connector_installations (
+CREATE TABLE IF NOT EXISTS control_plane.workspace_connector_installations (
     id text NOT NULL,
     workspace_id text NOT NULL,
     connector_key text NOT NULL,
@@ -16,12 +16,16 @@ CREATE TABLE control_plane.workspace_connector_installations (
     CONSTRAINT chk_installation_status CHECK ((status = ANY (ARRAY['enabled'::text, 'disabled'::text])))
 );
 
-ALTER TABLE ONLY control_plane.workspace_connector_installations ADD CONSTRAINT uq_connector_installation UNIQUE (workspace_id, connector_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_connector_installations ADD CONSTRAINT uq_connector_installation UNIQUE (workspace_id, connector_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY control_plane.workspace_connector_installations ADD CONSTRAINT workspace_connector_installations_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_connector_installations ADD CONSTRAINT workspace_connector_installations_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE control_plane.connector_authorizations (
+CREATE TABLE IF NOT EXISTS control_plane.connector_authorizations (
     id text NOT NULL,
     installation_id text NOT NULL,
     principal_id text NOT NULL,
@@ -36,14 +40,18 @@ CREATE TABLE control_plane.connector_authorizations (
     CONSTRAINT chk_authorization_state CHECK ((state = ANY (ARRAY['active'::text, 'expired'::text, 'revoked'::text])))
 );
 
-ALTER TABLE ONLY control_plane.connector_authorizations ADD CONSTRAINT connector_authorizations_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.connector_authorizations ADD CONSTRAINT connector_authorizations_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY control_plane.connector_authorizations ADD CONSTRAINT connector_authorizations_installation_id_fkey FOREIGN KEY (installation_id) REFERENCES control_plane.workspace_connector_installations(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.connector_authorizations ADD CONSTRAINT connector_authorizations_installation_id_fkey FOREIGN KEY (installation_id) REFERENCES control_plane.workspace_connector_installations(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_connector_authorizations_workspace ON control_plane.connector_authorizations USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_connector_authorizations_workspace ON control_plane.connector_authorizations USING btree (workspace_id);
 
 
-CREATE TABLE control_plane.session_connector_grants (
+CREATE TABLE IF NOT EXISTS control_plane.session_connector_grants (
     id text NOT NULL,
     workspace_id text NOT NULL,
     conversation_id text NOT NULL,
@@ -58,14 +66,20 @@ CREATE TABLE control_plane.session_connector_grants (
     CONSTRAINT chk_session_grant_state CHECK ((state = ANY (ARRAY['enabled'::text, 'revoked'::text, 'expired'::text])))
 );
 
-ALTER TABLE ONLY control_plane.session_connector_grants ADD CONSTRAINT session_connector_grants_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.session_connector_grants ADD CONSTRAINT session_connector_grants_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY control_plane.session_connector_grants ADD CONSTRAINT uq_session_grant UNIQUE (conversation_id, authorization_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.session_connector_grants ADD CONSTRAINT uq_session_grant UNIQUE (conversation_id, authorization_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY control_plane.session_connector_grants ADD CONSTRAINT session_connector_grants_authorization_id_fkey FOREIGN KEY (authorization_id) REFERENCES control_plane.connector_authorizations(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.session_connector_grants ADD CONSTRAINT session_connector_grants_authorization_id_fkey FOREIGN KEY (authorization_id) REFERENCES control_plane.connector_authorizations(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE control_plane.snowflake_generator_slots (
+CREATE TABLE IF NOT EXISTS control_plane.snowflake_generator_slots (
     generator_id text NOT NULL,
     slot integer NOT NULL,
     runtime_role text NOT NULL,
@@ -79,12 +93,14 @@ CREATE TABLE control_plane.snowflake_generator_slots (
     CONSTRAINT snowflake_generator_slots_slot_check CHECK (((slot >= 0) AND (slot <= 1023)))
 );
 
-ALTER TABLE ONLY control_plane.snowflake_generator_slots ADD CONSTRAINT snowflake_generator_slots_pkey PRIMARY KEY (generator_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.snowflake_generator_slots ADD CONSTRAINT snowflake_generator_slots_pkey PRIMARY KEY (generator_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE UNIQUE INDEX uq_snowflake_generator_slot ON control_plane.snowflake_generator_slots USING btree (slot);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_snowflake_generator_slot ON control_plane.snowflake_generator_slots USING btree (slot);
 
 
-CREATE TABLE control_plane.workspace_runtime_nodes (
+CREATE TABLE IF NOT EXISTS control_plane.workspace_runtime_nodes (
     node_id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     device_key_fingerprint text NOT NULL,
@@ -100,14 +116,16 @@ CREATE TABLE control_plane.workspace_runtime_nodes (
     CONSTRAINT workspace_runtime_nodes_runtime_role_check CHECK ((runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text])))
 );
 
-ALTER TABLE ONLY control_plane.workspace_runtime_nodes ADD CONSTRAINT workspace_runtime_nodes_pkey PRIMARY KEY (node_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_runtime_nodes ADD CONSTRAINT workspace_runtime_nodes_pkey PRIMARY KEY (node_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_runtime_nodes_ws_presence ON control_plane.workspace_runtime_nodes USING btree (workspace_id, presence_status);
+CREATE INDEX IF NOT EXISTS idx_workspace_runtime_nodes_ws_presence ON control_plane.workspace_runtime_nodes USING btree (workspace_id, presence_status);
 
-CREATE UNIQUE INDEX uq_workspace_runtime_nodes_ws_fingerprint ON control_plane.workspace_runtime_nodes USING btree (workspace_id, device_key_fingerprint) WHERE (revoked_at IS NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_workspace_runtime_nodes_ws_fingerprint ON control_plane.workspace_runtime_nodes USING btree (workspace_id, device_key_fingerprint) WHERE (revoked_at IS NULL);
 
 
-CREATE TABLE control_plane.workspace_schedule_definitions (
+CREATE TABLE IF NOT EXISTS control_plane.workspace_schedule_definitions (
     id text NOT NULL,
     workspace_id text NOT NULL,
     created_by text NOT NULL,
@@ -129,12 +147,14 @@ CREATE TABLE control_plane.workspace_schedule_definitions (
     CONSTRAINT chk_schedule_state CHECK ((state = ANY (ARRAY['enabled'::text, 'paused'::text, 'archived'::text])))
 );
 
-ALTER TABLE ONLY control_plane.workspace_schedule_definitions ADD CONSTRAINT workspace_schedule_definitions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_schedule_definitions ADD CONSTRAINT workspace_schedule_definitions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_schedules_due ON control_plane.workspace_schedule_definitions USING btree (state, next_run_at);
+CREATE INDEX IF NOT EXISTS idx_workspace_schedules_due ON control_plane.workspace_schedule_definitions USING btree (state, next_run_at);
 
 
-CREATE TABLE control_plane.workspace_schedule_executions (
+CREATE TABLE IF NOT EXISTS control_plane.workspace_schedule_executions (
     id text NOT NULL,
     definition_id text NOT NULL,
     workspace_id text NOT NULL,
@@ -154,14 +174,20 @@ CREATE TABLE control_plane.workspace_schedule_executions (
     CONSTRAINT chk_schedule_execution_state CHECK ((state = ANY (ARRAY['queued'::text, 'enqueue_retry'::text, 'enqueue_failed'::text, 'running'::text, 'succeeded'::text, 'failed'::text, 'blocked_reauth'::text, 'cancelled'::text])))
 );
 
-ALTER TABLE ONLY control_plane.workspace_schedule_executions ADD CONSTRAINT uq_schedule_execution UNIQUE (definition_id, scheduled_for);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_schedule_executions ADD CONSTRAINT uq_schedule_execution UNIQUE (definition_id, scheduled_for);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY control_plane.workspace_schedule_executions ADD CONSTRAINT workspace_schedule_executions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_schedule_executions ADD CONSTRAINT workspace_schedule_executions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY control_plane.workspace_schedule_executions ADD CONSTRAINT workspace_schedule_executions_definition_id_fkey FOREIGN KEY (definition_id) REFERENCES control_plane.workspace_schedule_definitions(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_schedule_executions ADD CONSTRAINT workspace_schedule_executions_definition_id_fkey FOREIGN KEY (definition_id) REFERENCES control_plane.workspace_schedule_definitions(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE control_plane.workspace_settings_audit_events (
+CREATE TABLE IF NOT EXISTS control_plane.workspace_settings_audit_events (
     event_id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     actor_id text NOT NULL,
@@ -172,12 +198,14 @@ CREATE TABLE control_plane.workspace_settings_audit_events (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY control_plane.workspace_settings_audit_events ADD CONSTRAINT workspace_settings_audit_events_pkey PRIMARY KEY (event_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_settings_audit_events ADD CONSTRAINT workspace_settings_audit_events_pkey PRIMARY KEY (event_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_settings_audit_events_ws ON control_plane.workspace_settings_audit_events USING btree (workspace_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workspace_settings_audit_events_ws ON control_plane.workspace_settings_audit_events USING btree (workspace_id, created_at DESC);
 
 
-CREATE TABLE control_plane.workspace_skill_policies (
+CREATE TABLE IF NOT EXISTS control_plane.workspace_skill_policies (
     workspace_id bigint NOT NULL,
     skill_key text NOT NULL,
     enabled boolean DEFAULT true NOT NULL,
@@ -188,12 +216,14 @@ CREATE TABLE control_plane.workspace_skill_policies (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY control_plane.workspace_skill_policies ADD CONSTRAINT workspace_skill_policies_pkey PRIMARY KEY (workspace_id, skill_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY control_plane.workspace_skill_policies ADD CONSTRAINT workspace_skill_policies_pkey PRIMARY KEY (workspace_id, skill_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_skill_policies_ws_updated ON control_plane.workspace_skill_policies USING btree (workspace_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workspace_skill_policies_ws_updated ON control_plane.workspace_skill_policies USING btree (workspace_id, updated_at DESC);
 
 
-CREATE TABLE cosa.plans (
+CREATE TABLE IF NOT EXISTS cosa.plans (
     id text NOT NULL,
     name text NOT NULL,
     description text,
@@ -204,10 +234,12 @@ CREATE TABLE cosa.plans (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY cosa.plans ADD CONSTRAINT plans_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.plans ADD CONSTRAINT plans_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.roles (
+CREATE TABLE IF NOT EXISTS cosa.roles (
     id text NOT NULL,
     scope text,
     level integer,
@@ -217,10 +249,12 @@ CREATE TABLE cosa.roles (
     sort_order integer DEFAULT 0 NOT NULL
 );
 
-ALTER TABLE ONLY cosa.roles ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.roles ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.users (
+CREATE TABLE IF NOT EXISTS cosa.users (
     id bigint NOT NULL,
     email text,
     phone text,
@@ -235,20 +269,28 @@ CREATE TABLE cosa.users (
     CONSTRAINT users_email_or_phone_required CHECK (((email IS NOT NULL) OR (phone IS NOT NULL)))
 );
 
-ALTER TABLE ONLY cosa.users ADD CONSTRAINT users_email_key UNIQUE (email);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.users ADD CONSTRAINT users_email_key UNIQUE (email);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.users ADD CONSTRAINT users_phone_key UNIQUE (phone);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.users ADD CONSTRAINT users_phone_key UNIQUE (phone);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.users ADD CONSTRAINT users_platform_role_id_fkey FOREIGN KEY (platform_role_id) REFERENCES cosa.roles(id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.users ADD CONSTRAINT users_platform_role_id_fkey FOREIGN KEY (platform_role_id) REFERENCES cosa.roles(id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_cp_users_email ON cosa.users USING btree (email);
+CREATE INDEX IF NOT EXISTS idx_cp_users_email ON cosa.users USING btree (email);
 
-CREATE INDEX idx_cp_users_phone ON cosa.users USING btree (phone);
+CREATE INDEX IF NOT EXISTS idx_cp_users_phone ON cosa.users USING btree (phone);
 
 
-CREATE TABLE cosa.profiles (
+CREATE TABLE IF NOT EXISTS cosa.profiles (
     user_id bigint NOT NULL,
     full_name text,
     avatar_url text,
@@ -261,14 +303,20 @@ CREATE TABLE cosa.profiles (
     CONSTRAINT chk_profiles_preferred_locale CHECK (((preferred_locale)::text = ANY ((ARRAY['vi-VN'::character varying, 'en-US'::character varying])::text[])))
 );
 
-ALTER TABLE ONLY cosa.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (user_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.profiles ADD CONSTRAINT profiles_role_id_fkey FOREIGN KEY (role_id) REFERENCES cosa.roles(id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.profiles ADD CONSTRAINT profiles_role_id_fkey FOREIGN KEY (role_id) REFERENCES cosa.roles(id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.profiles ADD CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.profiles ADD CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.user_workspace_module_preferences (
+CREATE TABLE IF NOT EXISTS cosa.user_workspace_module_preferences (
     workspace_id bigint NOT NULL,
     user_id bigint NOT NULL,
     module_key text NOT NULL,
@@ -277,12 +325,16 @@ CREATE TABLE cosa.user_workspace_module_preferences (
     CONSTRAINT user_workspace_module_preferences_module_key_check CHECK ((module_key = ANY (ARRAY['finance'::text, 'legal'::text, 'crm'::text])))
 );
 
-ALTER TABLE ONLY cosa.user_workspace_module_preferences ADD CONSTRAINT user_workspace_module_preferences_pkey PRIMARY KEY (workspace_id, user_id, module_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.user_workspace_module_preferences ADD CONSTRAINT user_workspace_module_preferences_pkey PRIMARY KEY (workspace_id, user_id, module_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.user_workspace_module_preferences ADD CONSTRAINT user_workspace_module_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.user_workspace_module_preferences ADD CONSTRAINT user_workspace_module_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.workspace_agent_policy (
+CREATE TABLE IF NOT EXISTS cosa.workspace_agent_policy (
     id bigint NOT NULL,
     platform_workspace_id bigint NOT NULL,
     tool_pattern text NOT NULL,
@@ -293,14 +345,16 @@ CREATE TABLE cosa.workspace_agent_policy (
     CONSTRAINT workspace_agent_policy_decision_check CHECK ((decision = ANY (ARRAY['ALLOW'::text, 'REQUIRE_APPROVAL'::text, 'DENY'::text])))
 );
 
-ALTER TABLE ONLY cosa.workspace_agent_policy ADD CONSTRAINT workspace_agent_policy_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_agent_policy ADD CONSTRAINT workspace_agent_policy_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_agent_policy_workspace_id ON cosa.workspace_agent_policy USING btree (platform_workspace_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_agent_policy_workspace_id ON cosa.workspace_agent_policy USING btree (platform_workspace_id);
 
-CREATE UNIQUE INDEX idx_workspace_agent_policy_workspace_tool ON cosa.workspace_agent_policy USING btree (platform_workspace_id, tool_pattern);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_agent_policy_workspace_tool ON cosa.workspace_agent_policy USING btree (platform_workspace_id, tool_pattern);
 
 
-CREATE TABLE cosa.workspace_business_policy_references (
+CREATE TABLE IF NOT EXISTS cosa.workspace_business_policy_references (
     platform_workspace_id bigint NOT NULL,
     business_workspace_id text NOT NULL,
     version integer NOT NULL,
@@ -308,10 +362,12 @@ CREATE TABLE cosa.workspace_business_policy_references (
     synced_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY cosa.workspace_business_policy_references ADD CONSTRAINT workspace_business_policy_references_pkey PRIMARY KEY (platform_workspace_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_business_policy_references ADD CONSTRAINT workspace_business_policy_references_pkey PRIMARY KEY (platform_workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.workspace_entitlements (
+CREATE TABLE IF NOT EXISTS cosa.workspace_entitlements (
     platform_workspace_id bigint NOT NULL,
     plan_id text NOT NULL,
     effective_limits jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -322,12 +378,16 @@ CREATE TABLE cosa.workspace_entitlements (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY cosa.workspace_entitlements ADD CONSTRAINT workspace_entitlements_pkey PRIMARY KEY (platform_workspace_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_entitlements ADD CONSTRAINT workspace_entitlements_pkey PRIMARY KEY (platform_workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_entitlements ADD CONSTRAINT workspace_entitlements_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES cosa.plans(id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_entitlements ADD CONSTRAINT workspace_entitlements_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES cosa.plans(id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.workspace_invitations (
+CREATE TABLE IF NOT EXISTS cosa.workspace_invitations (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     email_normalized text NOT NULL,
@@ -343,20 +403,26 @@ CREATE TABLE cosa.workspace_invitations (
     CONSTRAINT workspace_invitations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'revoked'::text, 'expired'::text])))
 );
 
-ALTER TABLE ONLY cosa.workspace_invitations ADD CONSTRAINT workspace_invitations_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_invitations ADD CONSTRAINT workspace_invitations_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_invitations ADD CONSTRAINT workspace_invitations_invited_by_user_id_fkey FOREIGN KEY (invited_by_user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_invitations ADD CONSTRAINT workspace_invitations_invited_by_user_id_fkey FOREIGN KEY (invited_by_user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_invitations ADD CONSTRAINT workspace_invitations_role_id_fkey FOREIGN KEY (role_id) REFERENCES cosa.roles(id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_invitations ADD CONSTRAINT workspace_invitations_role_id_fkey FOREIGN KEY (role_id) REFERENCES cosa.roles(id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_invitations_workspace ON cosa.workspace_invitations USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_invitations_workspace ON cosa.workspace_invitations USING btree (workspace_id);
 
-CREATE UNIQUE INDEX ux_workspace_invitations_pending_email ON cosa.workspace_invitations USING btree (workspace_id, email_normalized) WHERE (status = 'pending'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_workspace_invitations_pending_email ON cosa.workspace_invitations USING btree (workspace_id, email_normalized) WHERE (status = 'pending'::text);
 
-CREATE UNIQUE INDEX ux_workspace_invitations_token_hash ON cosa.workspace_invitations USING btree (token_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_workspace_invitations_token_hash ON cosa.workspace_invitations USING btree (token_hash);
 
 
-CREATE TABLE cosa.workspace_licenses (
+CREATE TABLE IF NOT EXISTS cosa.workspace_licenses (
     id bigint NOT NULL,
     platform_workspace_id bigint NOT NULL,
     plan_id text NOT NULL,
@@ -370,16 +436,24 @@ CREATE TABLE cosa.workspace_licenses (
     deleted_at timestamp with time zone
 );
 
-ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_license_key_key UNIQUE (license_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_license_key_key UNIQUE (license_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_platform_workspace_id_key UNIQUE (platform_workspace_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_platform_workspace_id_key UNIQUE (platform_workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES cosa.plans(id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES cosa.plans(id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.workspace_memberships (
+CREATE TABLE IF NOT EXISTS cosa.workspace_memberships (
     id bigint NOT NULL,
     platform_workspace_id bigint NOT NULL,
     user_id bigint NOT NULL,
@@ -389,14 +463,20 @@ CREATE TABLE cosa.workspace_memberships (
     CONSTRAINT workspace_memberships_role_check CHECK ((role = ANY (ARRAY['founder'::text, 'co-founder'::text, 'admin'::text, 'member'::text, 'viewer'::text])))
 );
 
-ALTER TABLE ONLY cosa.workspace_memberships ADD CONSTRAINT platform_workspace_membership_platform_workspace_id_user_id_key UNIQUE (platform_workspace_id, user_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_memberships ADD CONSTRAINT platform_workspace_membership_platform_workspace_id_user_id_key UNIQUE (platform_workspace_id, user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_memberships ADD CONSTRAINT platform_workspace_memberships_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_memberships ADD CONSTRAINT platform_workspace_memberships_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_memberships ADD CONSTRAINT platform_workspace_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_memberships ADD CONSTRAINT platform_workspace_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.workspace_module_configs (
+CREATE TABLE IF NOT EXISTS cosa.workspace_module_configs (
     workspace_id bigint NOT NULL,
     module_key text NOT NULL,
     enabled boolean DEFAULT true NOT NULL,
@@ -405,10 +485,12 @@ CREATE TABLE cosa.workspace_module_configs (
     CONSTRAINT workspace_module_configs_module_key_check CHECK ((module_key = ANY (ARRAY['finance'::text, 'legal'::text, 'crm'::text])))
 );
 
-ALTER TABLE ONLY cosa.workspace_module_configs ADD CONSTRAINT workspace_module_configs_pkey PRIMARY KEY (workspace_id, module_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_module_configs ADD CONSTRAINT workspace_module_configs_pkey PRIMARY KEY (workspace_id, module_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE cosa.workspace_surface_overrides (
+CREATE TABLE IF NOT EXISTS cosa.workspace_surface_overrides (
     workspace_id bigint NOT NULL,
     surface_key text NOT NULL,
     status_override text NOT NULL,
@@ -418,12 +500,14 @@ CREATE TABLE cosa.workspace_surface_overrides (
     CONSTRAINT workspace_surface_overrides_status_override_check CHECK ((status_override = ANY (ARRAY['PILOT'::text, 'PLANNED'::text, 'CONFIGURATION_REQUIRED'::text, 'UNAVAILABLE'::text])))
 );
 
-ALTER TABLE ONLY cosa.workspace_surface_overrides ADD CONSTRAINT workspace_surface_overrides_pkey PRIMARY KEY (workspace_id, surface_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_surface_overrides ADD CONSTRAINT workspace_surface_overrides_pkey PRIMARY KEY (workspace_id, surface_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_surface_overrides_workspace ON cosa.workspace_surface_overrides USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_surface_overrides_workspace ON cosa.workspace_surface_overrides USING btree (workspace_id);
 
 
-CREATE TABLE cosa.workspace_sync_log (
+CREATE TABLE IF NOT EXISTS cosa.workspace_sync_log (
     id bigint NOT NULL,
     platform_workspace_id bigint NOT NULL,
     client_creation_id text NOT NULL,
@@ -434,7 +518,11 @@ CREATE TABLE cosa.workspace_sync_log (
     CONSTRAINT platform_workspace_sync_log_sync_status_check CHECK ((sync_status = ANY (ARRAY['pending'::text, 'success'::text, 'failed'::text])))
 );
 
-ALTER TABLE ONLY cosa.workspace_sync_log ADD CONSTRAINT platform_workspace_sync_log_client_creation_id_key UNIQUE (client_creation_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_sync_log ADD CONSTRAINT platform_workspace_sync_log_client_creation_id_key UNIQUE (client_creation_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY cosa.workspace_sync_log ADD CONSTRAINT platform_workspace_sync_log_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_sync_log ADD CONSTRAINT platform_workspace_sync_log_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 

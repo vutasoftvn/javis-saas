@@ -5,7 +5,7 @@
 CREATE SCHEMA IF NOT EXISTS operating;
 CREATE SCHEMA IF NOT EXISTS strategy;
 
-CREATE TABLE strategy.projects (
+CREATE TABLE IF NOT EXISTS strategy.projects (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     title character varying(255) NOT NULL,
@@ -29,16 +29,20 @@ CREATE TABLE strategy.projects (
     CONSTRAINT projects_status_chk CHECK (((status)::text = ANY ((ARRAY['ACTIVE'::character varying, 'PAUSED'::character varying, 'COMPLETED'::character varying, 'ARCHIVED'::character varying])::text[])))
 );
 
-ALTER TABLE ONLY strategy.projects ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.projects ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.projects ADD CONSTRAINT uix_projects_id_workspace UNIQUE (id, workspace_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.projects ADD CONSTRAINT uix_projects_id_workspace UNIQUE (id, workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_projects_portfolio ON strategy.projects USING btree (portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_projects_portfolio ON strategy.projects USING btree (portfolio_id);
 
-CREATE INDEX idx_projects_workspace ON strategy.projects USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_projects_workspace ON strategy.projects USING btree (workspace_id);
 
 
-CREATE TABLE operating.twelve_week_cycles (
+CREATE TABLE IF NOT EXISTS operating.twelve_week_cycles (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint,
@@ -63,14 +67,18 @@ CREATE TABLE operating.twelve_week_cycles (
     calendar_state character varying(50) DEFAULT 'READY'::character varying NOT NULL
 );
 
-ALTER TABLE ONLY operating.twelve_week_cycles ADD CONSTRAINT twelve_week_cycles_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.twelve_week_cycles ADD CONSTRAINT twelve_week_cycles_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.twelve_week_cycles ADD CONSTRAINT fk_twelve_week_cycles_project_id FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.twelve_week_cycles ADD CONSTRAINT fk_twelve_week_cycles_project_id FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_twelve_week_cycles_workspace ON operating.twelve_week_cycles USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_twelve_week_cycles_workspace ON operating.twelve_week_cycles USING btree (workspace_id);
 
 
-CREATE TABLE strategy.decision_records (
+CREATE TABLE IF NOT EXISTS strategy.decision_records (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint,
@@ -97,16 +105,20 @@ CREATE TABLE strategy.decision_records (
     CONSTRAINT decision_records_founder_decision_check CHECK ((founder_decision = ANY (ARRAY['accepted'::text, 'rejected'::text, 'deferred'::text])))
 );
 
-ALTER TABLE ONLY strategy.decision_records ADD CONSTRAINT decision_records_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.decision_records ADD CONSTRAINT decision_records_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.decision_records ADD CONSTRAINT decision_records_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.decision_records ADD CONSTRAINT decision_records_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_decision_records_project ON strategy.decision_records USING btree (project_id);
+CREATE INDEX IF NOT EXISTS idx_decision_records_project ON strategy.decision_records USING btree (project_id);
 
-CREATE INDEX idx_decision_records_workspace_type_created ON strategy.decision_records USING btree (workspace_id, decision_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_decision_records_workspace_type_created ON strategy.decision_records USING btree (workspace_id, decision_type, created_at);
 
 
-CREATE TABLE operating.cycle_reviews (
+CREATE TABLE IF NOT EXISTS operating.cycle_reviews (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint,
@@ -129,20 +141,28 @@ CREATE TABLE operating.cycle_reviews (
     deleted_at timestamp with time zone
 );
 
-ALTER TABLE ONLY operating.cycle_reviews ADD CONSTRAINT cycle_reviews_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.cycle_reviews ADD CONSTRAINT cycle_reviews_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.cycle_reviews ADD CONSTRAINT cycle_reviews_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES operating.twelve_week_cycles(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.cycle_reviews ADD CONSTRAINT cycle_reviews_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES operating.twelve_week_cycles(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.cycle_reviews ADD CONSTRAINT cycle_reviews_decision_id_fkey FOREIGN KEY (decision_id) REFERENCES strategy.decision_records(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.cycle_reviews ADD CONSTRAINT cycle_reviews_decision_id_fkey FOREIGN KEY (decision_id) REFERENCES strategy.decision_records(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.cycle_reviews ADD CONSTRAINT cycle_reviews_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.cycle_reviews ADD CONSTRAINT cycle_reviews_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX ix_cycle_reviews_workspace_cycle ON operating.cycle_reviews USING btree (workspace_id, cycle_id, scheduled_week_no, kind) WHERE (deleted_at IS NULL);
+CREATE INDEX IF NOT EXISTS ix_cycle_reviews_workspace_cycle ON operating.cycle_reviews USING btree (workspace_id, cycle_id, scheduled_week_no, kind) WHERE (deleted_at IS NULL);
 
-CREATE UNIQUE INDEX uix_cycle_reviews_active_slot ON operating.cycle_reviews USING btree (cycle_id, kind, scheduled_week_no) WHERE (((status)::text <> ALL ((ARRAY['SUPERSEDED'::character varying, 'SKIPPED'::character varying])::text[])) AND (deleted_at IS NULL));
+CREATE UNIQUE INDEX IF NOT EXISTS uix_cycle_reviews_active_slot ON operating.cycle_reviews USING btree (cycle_id, kind, scheduled_week_no) WHERE (((status)::text <> ALL ((ARRAY['SUPERSEDED'::character varying, 'SKIPPED'::character varying])::text[])) AND (deleted_at IS NULL));
 
 
-CREATE TABLE operating.cycle_revisions (
+CREATE TABLE IF NOT EXISTS operating.cycle_revisions (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     cycle_id bigint NOT NULL,
@@ -155,16 +175,22 @@ CREATE TABLE operating.cycle_revisions (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY operating.cycle_revisions ADD CONSTRAINT cycle_revisions_cycle_id_revision_key UNIQUE (cycle_id, revision);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.cycle_revisions ADD CONSTRAINT cycle_revisions_cycle_id_revision_key UNIQUE (cycle_id, revision);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.cycle_revisions ADD CONSTRAINT cycle_revisions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.cycle_revisions ADD CONSTRAINT cycle_revisions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.cycle_revisions ADD CONSTRAINT cycle_revisions_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES operating.twelve_week_cycles(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.cycle_revisions ADD CONSTRAINT cycle_revisions_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES operating.twelve_week_cycles(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_cycle_revisions_ws_cycle ON operating.cycle_revisions USING btree (workspace_id, cycle_id, revision DESC);
+CREATE INDEX IF NOT EXISTS idx_cycle_revisions_ws_cycle ON operating.cycle_revisions USING btree (workspace_id, cycle_id, revision DESC);
 
 
-CREATE TABLE operating.weekly_plans (
+CREATE TABLE IF NOT EXISTS operating.weekly_plans (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     cycle_id bigint NOT NULL,
@@ -182,20 +208,28 @@ CREATE TABLE operating.weekly_plans (
     decision_id bigint
 );
 
-ALTER TABLE ONLY operating.weekly_plans ADD CONSTRAINT uix_weekly_plan_cycle_week UNIQUE (cycle_id, week_no);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.weekly_plans ADD CONSTRAINT uix_weekly_plan_cycle_week UNIQUE (cycle_id, week_no);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.weekly_plans ADD CONSTRAINT weekly_plans_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.weekly_plans ADD CONSTRAINT weekly_plans_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.weekly_plans ADD CONSTRAINT weekly_plans_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES operating.twelve_week_cycles(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.weekly_plans ADD CONSTRAINT weekly_plans_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES operating.twelve_week_cycles(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.weekly_plans ADD CONSTRAINT weekly_plans_decision_id_fkey FOREIGN KEY (decision_id) REFERENCES strategy.decision_records(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.weekly_plans ADD CONSTRAINT weekly_plans_decision_id_fkey FOREIGN KEY (decision_id) REFERENCES strategy.decision_records(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_weekly_plans_cycle ON operating.weekly_plans USING btree (cycle_id);
+CREATE INDEX IF NOT EXISTS idx_weekly_plans_cycle ON operating.weekly_plans USING btree (cycle_id);
 
-CREATE INDEX idx_weekly_plans_workspace ON operating.weekly_plans USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_weekly_plans_workspace ON operating.weekly_plans USING btree (workspace_id);
 
 
-CREATE TABLE operating.weekly_commitments (
+CREATE TABLE IF NOT EXISTS operating.weekly_commitments (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     weekly_plan_id bigint NOT NULL,
@@ -219,18 +253,24 @@ CREATE TABLE operating.weekly_commitments (
     decision_id bigint
 );
 
-ALTER TABLE ONLY operating.weekly_commitments ADD CONSTRAINT weekly_commitments_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.weekly_commitments ADD CONSTRAINT weekly_commitments_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.weekly_commitments ADD CONSTRAINT weekly_commitments_decision_id_fkey FOREIGN KEY (decision_id) REFERENCES strategy.decision_records(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.weekly_commitments ADD CONSTRAINT weekly_commitments_decision_id_fkey FOREIGN KEY (decision_id) REFERENCES strategy.decision_records(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.weekly_commitments ADD CONSTRAINT weekly_commitments_weekly_plan_id_fkey FOREIGN KEY (weekly_plan_id) REFERENCES operating.weekly_plans(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.weekly_commitments ADD CONSTRAINT weekly_commitments_weekly_plan_id_fkey FOREIGN KEY (weekly_plan_id) REFERENCES operating.weekly_plans(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_weekly_commitments_plan ON operating.weekly_commitments USING btree (weekly_plan_id);
+CREATE INDEX IF NOT EXISTS idx_weekly_commitments_plan ON operating.weekly_commitments USING btree (weekly_plan_id);
 
-CREATE INDEX idx_weekly_commitments_workspace ON operating.weekly_commitments USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_weekly_commitments_workspace ON operating.weekly_commitments USING btree (workspace_id);
 
 
-CREATE TABLE operating.tasks (
+CREATE TABLE IF NOT EXISTS operating.tasks (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     title text NOT NULL,
@@ -258,20 +298,28 @@ CREATE TABLE operating.tasks (
     active_outcome_contract_id bigint
 );
 
-ALTER TABLE ONLY operating.tasks ADD CONSTRAINT tasks_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.tasks ADD CONSTRAINT tasks_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.tasks ADD CONSTRAINT tasks_workspace_id_idempotency_key_key UNIQUE (workspace_id, idempotency_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.tasks ADD CONSTRAINT tasks_workspace_id_idempotency_key_key UNIQUE (workspace_id, idempotency_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.tasks ADD CONSTRAINT uix_tasks_id_workspace UNIQUE (id, workspace_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.tasks ADD CONSTRAINT uix_tasks_id_workspace UNIQUE (id, workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY operating.tasks ADD CONSTRAINT fk_tasks_weekly_commitment_id FOREIGN KEY (weekly_commitment_id) REFERENCES operating.weekly_commitments(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY operating.tasks ADD CONSTRAINT fk_tasks_weekly_commitment_id FOREIGN KEY (weekly_commitment_id) REFERENCES operating.weekly_commitments(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_tasks_function ON operating.tasks USING btree (function);
+CREATE INDEX IF NOT EXISTS idx_tasks_function ON operating.tasks USING btree (function);
 
-CREATE INDEX idx_tasks_workspace_id ON operating.tasks USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_workspace_id ON operating.tasks USING btree (workspace_id);
 
 
-CREATE TABLE strategy.assumptions (
+CREATE TABLE IF NOT EXISTS strategy.assumptions (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint NOT NULL,
@@ -285,14 +333,18 @@ CREATE TABLE strategy.assumptions (
     deleted_at timestamp with time zone
 );
 
-ALTER TABLE ONLY strategy.assumptions ADD CONSTRAINT assumptions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.assumptions ADD CONSTRAINT assumptions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.assumptions ADD CONSTRAINT assumptions_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.assumptions ADD CONSTRAINT assumptions_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_assumptions_project ON strategy.assumptions USING btree (project_id);
+CREATE INDEX IF NOT EXISTS idx_assumptions_project ON strategy.assumptions USING btree (project_id);
 
 
-CREATE TABLE strategy.evidence_ingestions (
+CREATE TABLE IF NOT EXISTS strategy.evidence_ingestions (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint NOT NULL,
@@ -307,14 +359,16 @@ CREATE TABLE strategy.evidence_ingestions (
     CONSTRAINT evidence_ingestions_source_system_chk CHECK (((source_system)::text = ANY ((ARRAY['interview'::character varying, 'crm'::character varying, 'telemetry'::character varying, 'payment'::character varying])::text[])))
 );
 
-ALTER TABLE ONLY strategy.evidence_ingestions ADD CONSTRAINT evidence_ingestions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.evidence_ingestions ADD CONSTRAINT evidence_ingestions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_evidence_ingestions_ws_proj ON strategy.evidence_ingestions USING btree (workspace_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_ingestions_ws_proj ON strategy.evidence_ingestions USING btree (workspace_id, project_id);
 
-CREATE UNIQUE INDEX uq_evidence_ingestions_source_hash ON strategy.evidence_ingestions USING btree (workspace_id, source_system, source_record_id, source_payload_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_evidence_ingestions_source_hash ON strategy.evidence_ingestions USING btree (workspace_id, source_system, source_record_id, source_payload_hash);
 
 
-CREATE TABLE strategy.experiments (
+CREATE TABLE IF NOT EXISTS strategy.experiments (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint NOT NULL,
@@ -330,18 +384,24 @@ CREATE TABLE strategy.experiments (
     deleted_at timestamp with time zone
 );
 
-ALTER TABLE ONLY strategy.experiments ADD CONSTRAINT experiments_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.experiments ADD CONSTRAINT experiments_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.experiments ADD CONSTRAINT experiments_assumption_id_fkey FOREIGN KEY (assumption_id) REFERENCES strategy.assumptions(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.experiments ADD CONSTRAINT experiments_assumption_id_fkey FOREIGN KEY (assumption_id) REFERENCES strategy.assumptions(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.experiments ADD CONSTRAINT experiments_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.experiments ADD CONSTRAINT experiments_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_experiments_assumption ON strategy.experiments USING btree (assumption_id);
+CREATE INDEX IF NOT EXISTS idx_experiments_assumption ON strategy.experiments USING btree (assumption_id);
 
-CREATE INDEX idx_experiments_project ON strategy.experiments USING btree (project_id);
+CREATE INDEX IF NOT EXISTS idx_experiments_project ON strategy.experiments USING btree (project_id);
 
 
-CREATE TABLE strategy.evidence (
+CREATE TABLE IF NOT EXISTS strategy.evidence (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     experiment_id bigint,
@@ -367,22 +427,30 @@ CREATE TABLE strategy.evidence (
     fresh_until timestamp with time zone
 );
 
-ALTER TABLE ONLY strategy.evidence ADD CONSTRAINT evidence_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.evidence ADD CONSTRAINT evidence_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.evidence ADD CONSTRAINT evidence_evidence_ingestion_id_fkey FOREIGN KEY (evidence_ingestion_id) REFERENCES strategy.evidence_ingestions(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.evidence ADD CONSTRAINT evidence_evidence_ingestion_id_fkey FOREIGN KEY (evidence_ingestion_id) REFERENCES strategy.evidence_ingestions(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.evidence ADD CONSTRAINT evidence_experiment_id_fkey FOREIGN KEY (experiment_id) REFERENCES strategy.experiments(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.evidence ADD CONSTRAINT evidence_experiment_id_fkey FOREIGN KEY (experiment_id) REFERENCES strategy.experiments(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.evidence ADD CONSTRAINT evidence_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.evidence ADD CONSTRAINT evidence_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_evidence_experiment ON strategy.evidence USING btree (experiment_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_experiment ON strategy.evidence USING btree (experiment_id);
 
-CREATE INDEX idx_evidence_project ON strategy.evidence USING btree (project_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_project ON strategy.evidence USING btree (project_id);
 
-CREATE INDEX idx_evidence_ws_proj_status ON strategy.evidence USING btree (workspace_id, project_id, status);
+CREATE INDEX IF NOT EXISTS idx_evidence_ws_proj_status ON strategy.evidence USING btree (workspace_id, project_id, status);
 
 
-CREATE TABLE strategy.interviews (
+CREATE TABLE IF NOT EXISTS strategy.interviews (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint NOT NULL,
@@ -394,14 +462,18 @@ CREATE TABLE strategy.interviews (
     deleted_at timestamp with time zone
 );
 
-ALTER TABLE ONLY strategy.interviews ADD CONSTRAINT interviews_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.interviews ADD CONSTRAINT interviews_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.interviews ADD CONSTRAINT interviews_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.interviews ADD CONSTRAINT interviews_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_interviews_project ON strategy.interviews USING btree (project_id);
+CREATE INDEX IF NOT EXISTS idx_interviews_project ON strategy.interviews USING btree (project_id);
 
 
-CREATE TABLE strategy.project_operating_setups (
+CREATE TABLE IF NOT EXISTS strategy.project_operating_setups (
     project_id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     status text DEFAULT 'NOT_STARTED'::text NOT NULL,
@@ -435,14 +507,18 @@ CREATE TABLE strategy.project_operating_setups (
     CONSTRAINT project_operating_setups_weekly_review_weekday_check CHECK (((weekly_review_weekday >= 1) AND (weekly_review_weekday <= 7)))
 );
 
-ALTER TABLE ONLY strategy.project_operating_setups ADD CONSTRAINT project_operating_setups_pkey PRIMARY KEY (project_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.project_operating_setups ADD CONSTRAINT project_operating_setups_pkey PRIMARY KEY (project_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.project_operating_setups ADD CONSTRAINT project_operating_setups_project_id_workspace_id_fkey FOREIGN KEY (project_id, workspace_id) REFERENCES strategy.projects(id, workspace_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.project_operating_setups ADD CONSTRAINT project_operating_setups_project_id_workspace_id_fkey FOREIGN KEY (project_id, workspace_id) REFERENCES strategy.projects(id, workspace_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_project_operating_setups_workspace_status ON strategy.project_operating_setups USING btree (workspace_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_project_operating_setups_workspace_status ON strategy.project_operating_setups USING btree (workspace_id, status, updated_at DESC);
 
 
-CREATE TABLE strategy.workspace_strategy_settings (
+CREATE TABLE IF NOT EXISTS strategy.workspace_strategy_settings (
     workspace_id bigint NOT NULL,
     strategy_method text DEFAULT 'CLASSIC'::text NOT NULL,
     bsc_mode text DEFAULT 'OFF'::text NOT NULL,
@@ -463,7 +539,11 @@ CREATE TABLE strategy.workspace_strategy_settings (
     CONSTRAINT workspace_strategy_settings_tows_selection_limit_check CHECK (((tows_selection_limit >= 1) AND (tows_selection_limit <= 2)))
 );
 
-ALTER TABLE ONLY strategy.workspace_strategy_settings ADD CONSTRAINT workspace_strategy_settings_pkey PRIMARY KEY (workspace_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.workspace_strategy_settings ADD CONSTRAINT workspace_strategy_settings_pkey PRIMARY KEY (workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY strategy.workspace_strategy_settings ADD CONSTRAINT workspace_strategy_settings_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY strategy.workspace_strategy_settings ADD CONSTRAINT workspace_strategy_settings_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 

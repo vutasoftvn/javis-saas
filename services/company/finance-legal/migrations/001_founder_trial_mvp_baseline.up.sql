@@ -4,7 +4,7 @@
 
 CREATE SCHEMA IF NOT EXISTS finance;
 
-CREATE TABLE finance.bank_connections (
+CREATE TABLE IF NOT EXISTS finance.bank_connections (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     provider text NOT NULL,
@@ -37,14 +37,16 @@ CREATE TABLE finance.bank_connections (
     CONSTRAINT bank_connections_secret_ref_check CHECK (((secret_ref IS NULL) OR (secret_ref ~~ 'secret://cosa-connectors/%'::text)))
 );
 
-ALTER TABLE ONLY finance.bank_connections ADD CONSTRAINT bank_connections_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.bank_connections ADD CONSTRAINT bank_connections_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE UNIQUE INDEX idx_bank_connections_provider_account_unique ON finance.bank_connections USING btree (provider, provider_environment, provider_grant_id, external_account_id) WHERE ((provider_grant_id IS NOT NULL) AND (external_account_id IS NOT NULL) AND (consent_state <> 'REVOKED'::text));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_connections_provider_account_unique ON finance.bank_connections USING btree (provider, provider_environment, provider_grant_id, external_account_id) WHERE ((provider_grant_id IS NOT NULL) AND (external_account_id IS NOT NULL) AND (consent_state <> 'REVOKED'::text));
 
-CREATE INDEX idx_bank_connections_ws_provider ON finance.bank_connections USING btree (workspace_id, provider);
+CREATE INDEX IF NOT EXISTS idx_bank_connections_ws_provider ON finance.bank_connections USING btree (workspace_id, provider);
 
 
-CREATE TABLE finance.bank_transactions (
+CREATE TABLE IF NOT EXISTS finance.bank_transactions (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     bank_connection_id bigint NOT NULL,
@@ -66,22 +68,28 @@ CREATE TABLE finance.bank_transactions (
     CONSTRAINT bank_transactions_status_check CHECK ((status = ANY (ARRAY['UNRECONCILED'::text, 'MATCHED'::text, 'CONFIRMED'::text])))
 );
 
-ALTER TABLE ONLY finance.bank_transactions ADD CONSTRAINT bank_transactions_bank_connection_id_external_transaction_i_key UNIQUE (bank_connection_id, external_transaction_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.bank_transactions ADD CONSTRAINT bank_transactions_bank_connection_id_external_transaction_i_key UNIQUE (bank_connection_id, external_transaction_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY finance.bank_transactions ADD CONSTRAINT bank_transactions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.bank_transactions ADD CONSTRAINT bank_transactions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY finance.bank_transactions ADD CONSTRAINT bank_transactions_bank_connection_id_fkey FOREIGN KEY (bank_connection_id) REFERENCES finance.bank_connections(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.bank_transactions ADD CONSTRAINT bank_transactions_bank_connection_id_fkey FOREIGN KEY (bank_connection_id) REFERENCES finance.bank_connections(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE UNIQUE INDEX idx_bank_transactions_conn_ext_unique ON finance.bank_transactions USING btree (bank_connection_id, external_transaction_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_transactions_conn_ext_unique ON finance.bank_transactions USING btree (bank_connection_id, external_transaction_id);
 
-CREATE INDEX idx_bank_transactions_reconcile_status ON finance.bank_transactions USING btree (workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_bank_transactions_reconcile_status ON finance.bank_transactions USING btree (workspace_id, status);
 
-CREATE INDEX idx_bank_transactions_ws_posted ON finance.bank_transactions USING btree (workspace_id, posted_at);
+CREATE INDEX IF NOT EXISTS idx_bank_transactions_ws_posted ON finance.bank_transactions USING btree (workspace_id, posted_at);
 
-CREATE INDEX idx_bank_transactions_ws_status ON finance.bank_transactions USING btree (workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_bank_transactions_ws_status ON finance.bank_transactions USING btree (workspace_id, status);
 
 
-CREATE TABLE finance.cas_link_sessions (
+CREATE TABLE IF NOT EXISTS finance.cas_link_sessions (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     legal_entity_id bigint,
@@ -94,16 +102,20 @@ CREATE TABLE finance.cas_link_sessions (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY finance.cas_link_sessions ADD CONSTRAINT cas_link_sessions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.cas_link_sessions ADD CONSTRAINT cas_link_sessions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY finance.cas_link_sessions ADD CONSTRAINT cas_link_sessions_state_hash_key UNIQUE (state_hash);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.cas_link_sessions ADD CONSTRAINT cas_link_sessions_state_hash_key UNIQUE (state_hash);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_cas_link_sessions_state_hash ON finance.cas_link_sessions USING btree (state_hash) WHERE (consumed_at IS NULL);
+CREATE INDEX IF NOT EXISTS idx_cas_link_sessions_state_hash ON finance.cas_link_sessions USING btree (state_hash) WHERE (consumed_at IS NULL);
 
-CREATE INDEX idx_cas_link_sessions_ws ON finance.cas_link_sessions USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_cas_link_sessions_ws ON finance.cas_link_sessions USING btree (workspace_id);
 
 
-CREATE TABLE finance.cas_sync_inbox (
+CREATE TABLE IF NOT EXISTS finance.cas_sync_inbox (
     id bigint NOT NULL,
     bank_connection_id bigint,
     provider text DEFAULT 'cas'::text NOT NULL,
@@ -123,20 +135,26 @@ CREATE TABLE finance.cas_sync_inbox (
     processed_at timestamp with time zone
 );
 
-ALTER TABLE ONLY finance.cas_sync_inbox ADD CONSTRAINT cas_sync_inbox_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.cas_sync_inbox ADD CONSTRAINT cas_sync_inbox_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY finance.cas_sync_inbox ADD CONSTRAINT cas_sync_inbox_bank_connection_id_fkey FOREIGN KEY (bank_connection_id) REFERENCES finance.bank_connections(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.cas_sync_inbox ADD CONSTRAINT cas_sync_inbox_bank_connection_id_fkey FOREIGN KEY (bank_connection_id) REFERENCES finance.bank_connections(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY finance.cas_sync_inbox ADD CONSTRAINT cas_sync_inbox_bank_transaction_id_fkey FOREIGN KEY (bank_transaction_id) REFERENCES finance.bank_transactions(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.cas_sync_inbox ADD CONSTRAINT cas_sync_inbox_bank_transaction_id_fkey FOREIGN KEY (bank_transaction_id) REFERENCES finance.bank_transactions(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_cas_sync_inbox_conn ON finance.cas_sync_inbox USING btree (bank_connection_id, received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cas_sync_inbox_conn ON finance.cas_sync_inbox USING btree (bank_connection_id, received_at DESC);
 
-CREATE UNIQUE INDEX idx_cas_sync_inbox_dedup ON finance.cas_sync_inbox USING btree (provider, environment, event_identity);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cas_sync_inbox_dedup ON finance.cas_sync_inbox USING btree (provider, environment, event_identity);
 
-CREATE INDEX idx_cas_sync_inbox_due ON finance.cas_sync_inbox USING btree (status, next_attempt_at, lease_until);
+CREATE INDEX IF NOT EXISTS idx_cas_sync_inbox_due ON finance.cas_sync_inbox USING btree (status, next_attempt_at, lease_until);
 
 
-CREATE TABLE finance.cas_webhook_inbox (
+CREATE TABLE IF NOT EXISTS finance.cas_webhook_inbox (
     id bigint NOT NULL,
     provider_event_id text NOT NULL,
     raw_payload text NOT NULL,
@@ -148,14 +166,18 @@ CREATE TABLE finance.cas_webhook_inbox (
     CONSTRAINT cas_webhook_inbox_status_check CHECK ((status = ANY (ARRAY['RECEIVED'::text, 'PROCESSING'::text, 'PROCESSED'::text, 'FAILED'::text, 'DLQ'::text])))
 );
 
-ALTER TABLE ONLY finance.cas_webhook_inbox ADD CONSTRAINT cas_webhook_inbox_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.cas_webhook_inbox ADD CONSTRAINT cas_webhook_inbox_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY finance.cas_webhook_inbox ADD CONSTRAINT cas_webhook_inbox_provider_event_id_key UNIQUE (provider_event_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.cas_webhook_inbox ADD CONSTRAINT cas_webhook_inbox_provider_event_id_key UNIQUE (provider_event_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_cas_webhook_inbox_status ON finance.cas_webhook_inbox USING btree (status, received_at);
+CREATE INDEX IF NOT EXISTS idx_cas_webhook_inbox_status ON finance.cas_webhook_inbox USING btree (status, received_at);
 
 
-CREATE TABLE finance.financial_transactions (
+CREATE TABLE IF NOT EXISTS finance.financial_transactions (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     document_id bigint,
@@ -180,14 +202,18 @@ CREATE TABLE finance.financial_transactions (
     legal_entity_id bigint
 );
 
-ALTER TABLE ONLY finance.financial_transactions ADD CONSTRAINT financial_transactions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.financial_transactions ADD CONSTRAINT financial_transactions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY finance.financial_transactions ADD CONSTRAINT financial_transactions_workspace_idempotency_key UNIQUE (workspace_id, idempotency_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.financial_transactions ADD CONSTRAINT financial_transactions_workspace_idempotency_key UNIQUE (workspace_id, idempotency_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_financial_transactions_workspace_id ON finance.financial_transactions USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_financial_transactions_workspace_id ON finance.financial_transactions USING btree (workspace_id);
 
 
-CREATE TABLE finance.finance_exceptions (
+CREATE TABLE IF NOT EXISTS finance.finance_exceptions (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     transaction_id bigint,
@@ -200,16 +226,20 @@ CREATE TABLE finance.finance_exceptions (
     deleted_at timestamp with time zone
 );
 
-ALTER TABLE ONLY finance.finance_exceptions ADD CONSTRAINT finance_exceptions_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.finance_exceptions ADD CONSTRAINT finance_exceptions_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY finance.finance_exceptions ADD CONSTRAINT finance_exceptions_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES finance.financial_transactions(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.finance_exceptions ADD CONSTRAINT finance_exceptions_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES finance.financial_transactions(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_finance_exceptions_transaction_id ON finance.finance_exceptions USING btree (transaction_id);
+CREATE INDEX IF NOT EXISTS idx_finance_exceptions_transaction_id ON finance.finance_exceptions USING btree (transaction_id);
 
-CREATE INDEX idx_finance_exceptions_workspace_id ON finance.finance_exceptions USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_finance_exceptions_workspace_id ON finance.finance_exceptions USING btree (workspace_id);
 
 
-CREATE TABLE finance.financial_snapshots (
+CREATE TABLE IF NOT EXISTS finance.financial_snapshots (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     snapshot_date date NOT NULL,
@@ -227,14 +257,16 @@ CREATE TABLE finance.financial_snapshots (
     legal_entity_id bigint
 );
 
-ALTER TABLE ONLY finance.financial_snapshots ADD CONSTRAINT financial_snapshots_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.financial_snapshots ADD CONSTRAINT financial_snapshots_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE UNIQUE INDEX financial_snapshots_workspace_snapshot_currency_entity_key ON finance.financial_snapshots USING btree (workspace_id, snapshot_date, currency, COALESCE(legal_entity_id, (0)::bigint));
+CREATE UNIQUE INDEX IF NOT EXISTS financial_snapshots_workspace_snapshot_currency_entity_key ON finance.financial_snapshots USING btree (workspace_id, snapshot_date, currency, COALESCE(legal_entity_id, (0)::bigint));
 
-CREATE INDEX idx_financial_snapshots_ws_date ON finance.financial_snapshots USING btree (workspace_id, snapshot_date);
+CREATE INDEX IF NOT EXISTS idx_financial_snapshots_ws_date ON finance.financial_snapshots USING btree (workspace_id, snapshot_date);
 
 
-CREATE TABLE finance.project_budget_envelopes (
+CREATE TABLE IF NOT EXISTS finance.project_budget_envelopes (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint NOT NULL,
@@ -250,7 +282,9 @@ CREATE TABLE finance.project_budget_envelopes (
     deleted_at timestamp with time zone
 );
 
-ALTER TABLE ONLY finance.project_budget_envelopes ADD CONSTRAINT project_budget_envelopes_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY finance.project_budget_envelopes ADD CONSTRAINT project_budget_envelopes_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_budget_envelopes_project ON finance.project_budget_envelopes USING btree (project_id, period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_budget_envelopes_project ON finance.project_budget_envelopes USING btree (project_id, period_start, period_end);
 

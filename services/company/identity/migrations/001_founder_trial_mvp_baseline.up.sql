@@ -5,7 +5,7 @@
 CREATE SCHEMA IF NOT EXISTS core;
 CREATE SCHEMA IF NOT EXISTS integration;
 
-CREATE TABLE core.cosa_delegation_replays (
+CREATE TABLE IF NOT EXISTS core.cosa_delegation_replays (
     jti text NOT NULL,
     capability_id text NOT NULL,
     workspace_id text NOT NULL,
@@ -13,12 +13,14 @@ CREATE TABLE core.cosa_delegation_replays (
     consumed_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY core.cosa_delegation_replays ADD CONSTRAINT cosa_delegation_replays_pkey PRIMARY KEY (jti, capability_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.cosa_delegation_replays ADD CONSTRAINT cosa_delegation_replays_pkey PRIMARY KEY (jti, capability_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX cosa_delegation_replays_workspace_run_idx ON core.cosa_delegation_replays USING btree (workspace_id, run_id);
+CREATE INDEX IF NOT EXISTS cosa_delegation_replays_workspace_run_idx ON core.cosa_delegation_replays USING btree (workspace_id, run_id);
 
 
-CREATE TABLE core.user_projections (
+CREATE TABLE IF NOT EXISTS core.user_projections (
     id bigint NOT NULL,
     email text,
     phone text,
@@ -31,16 +33,24 @@ CREATE TABLE core.user_projections (
     CONSTRAINT user_projections_email_or_phone_required CHECK (((email IS NOT NULL) OR (phone IS NOT NULL)))
 );
 
-ALTER TABLE ONLY core.user_projections ADD CONSTRAINT user_projections_email_key UNIQUE (email);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.user_projections ADD CONSTRAINT user_projections_email_key UNIQUE (email);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.user_projections ADD CONSTRAINT user_projections_phone_key UNIQUE (phone);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.user_projections ADD CONSTRAINT user_projections_phone_key UNIQUE (phone);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.user_projections ADD CONSTRAINT user_projections_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.user_projections ADD CONSTRAINT user_projections_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.user_projections ADD CONSTRAINT user_projections_platform_user_id_key UNIQUE (platform_user_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.user_projections ADD CONSTRAINT user_projections_platform_user_id_key UNIQUE (platform_user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE core.workspaces (
+CREATE TABLE IF NOT EXISTS core.workspaces (
     id bigint NOT NULL,
     name text NOT NULL,
     lifecycle_stage text DEFAULT 'W0_IDEA'::text NOT NULL,
@@ -68,16 +78,22 @@ CREATE TABLE core.workspaces (
     CONSTRAINT workspaces_sync_status_chk CHECK ((sync_status = ANY (ARRAY['LOCAL_ONLY'::text, 'PENDING'::text, 'IN_SYNC'::text, 'CONFLICT'::text, 'ERROR'::text])))
 );
 
-ALTER TABLE ONLY core.workspaces ADD CONSTRAINT workspaces_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspaces ADD CONSTRAINT workspaces_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workspaces ADD CONSTRAINT workspaces_platform_company_id_key UNIQUE (platform_company_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspaces ADD CONSTRAINT workspaces_platform_company_id_key UNIQUE (platform_company_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workspaces ADD CONSTRAINT workspaces_platform_workspace_id_key UNIQUE (platform_workspace_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspaces ADD CONSTRAINT workspaces_platform_workspace_id_key UNIQUE (platform_workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE UNIQUE INDEX uq_workspaces_slug ON core.workspaces USING btree (slug) WHERE (slug IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_workspaces_slug ON core.workspaces USING btree (slug) WHERE (slug IS NOT NULL);
 
 
-CREATE TABLE core.workforce_members (
+CREATE TABLE IF NOT EXISTS core.workforce_members (
     id bigint NOT NULL,
     member_type text NOT NULL,
     human_user_id bigint,
@@ -94,20 +110,30 @@ CREATE TABLE core.workforce_members (
     CONSTRAINT workforce_members_type_consistency CHECK ((((member_type = 'HUMAN'::text) AND (human_user_id IS NOT NULL) AND (agent_spec_id IS NULL) AND (agent_spec_version IS NULL)) OR ((member_type = 'AI_AGENT'::text) AND (human_user_id IS NULL) AND (agent_spec_id IS NOT NULL) AND (agent_spec_version IS NOT NULL))))
 );
 
-ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT uq_workforce_members_id_workspace UNIQUE (id, workspace_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT uq_workforce_members_id_workspace UNIQUE (id, workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT workforce_members_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT workforce_members_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT workforce_members_human_user_id_fkey FOREIGN KEY (human_user_id) REFERENCES core.user_projections(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT workforce_members_human_user_id_fkey FOREIGN KEY (human_user_id) REFERENCES core.user_projections(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT workforce_members_manager_same_workspace_fkey FOREIGN KEY (manager_member_id, workspace_id) REFERENCES core.workforce_members(id, workspace_id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT workforce_members_manager_same_workspace_fkey FOREIGN KEY (manager_member_id, workspace_id) REFERENCES core.workforce_members(id, workspace_id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT workforce_members_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workforce_members ADD CONSTRAINT workforce_members_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workforce_members_human_user_id ON core.workforce_members USING btree (human_user_id);
+CREATE INDEX IF NOT EXISTS idx_workforce_members_human_user_id ON core.workforce_members USING btree (human_user_id);
 
 
-CREATE TABLE core.workspace_roles (
+CREATE TABLE IF NOT EXISTS core.workspace_roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workspace_id bigint NOT NULL,
     role_key text NOT NULL,
@@ -117,14 +143,20 @@ CREATE TABLE core.workspace_roles (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY core.workspace_roles ADD CONSTRAINT uq_workspace_roles_key UNIQUE (workspace_id, role_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_roles ADD CONSTRAINT uq_workspace_roles_key UNIQUE (workspace_id, role_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workspace_roles ADD CONSTRAINT workspace_roles_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_roles ADD CONSTRAINT workspace_roles_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workspace_roles ADD CONSTRAINT workspace_roles_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_roles ADD CONSTRAINT workspace_roles_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE core.member_role_assignments (
+CREATE TABLE IF NOT EXISTS core.member_role_assignments (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workspace_id bigint NOT NULL,
     workforce_member_id bigint NOT NULL,
@@ -137,28 +169,38 @@ CREATE TABLE core.member_role_assignments (
     CONSTRAINT check_valid_until_after_valid_from CHECK (((valid_until IS NULL) OR (valid_until > valid_from)))
 );
 
-ALTER TABLE ONLY core.member_role_assignments ADD CONSTRAINT member_role_assignments_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.member_role_assignments ADD CONSTRAINT member_role_assignments_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.member_role_assignments ADD CONSTRAINT member_role_assignments_role_id_fkey FOREIGN KEY (role_id) REFERENCES core.workspace_roles(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.member_role_assignments ADD CONSTRAINT member_role_assignments_role_id_fkey FOREIGN KEY (role_id) REFERENCES core.workspace_roles(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.member_role_assignments ADD CONSTRAINT member_role_assignments_workforce_member_id_fkey FOREIGN KEY (workforce_member_id) REFERENCES core.workforce_members(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.member_role_assignments ADD CONSTRAINT member_role_assignments_workforce_member_id_fkey FOREIGN KEY (workforce_member_id) REFERENCES core.workforce_members(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.member_role_assignments ADD CONSTRAINT member_role_assignments_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.member_role_assignments ADD CONSTRAINT member_role_assignments_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_member_role_assignments_lookup ON core.member_role_assignments USING btree (workspace_id, workforce_member_id);
+CREATE INDEX IF NOT EXISTS idx_member_role_assignments_lookup ON core.member_role_assignments USING btree (workspace_id, workforce_member_id);
 
 
-CREATE TABLE core.permission_definitions (
+CREATE TABLE IF NOT EXISTS core.permission_definitions (
     permission_key text NOT NULL,
     domain text NOT NULL,
     description text,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY core.permission_definitions ADD CONSTRAINT permission_definitions_pkey PRIMARY KEY (permission_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.permission_definitions ADD CONSTRAINT permission_definitions_pkey PRIMARY KEY (permission_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE core.role_permissions (
+CREATE TABLE IF NOT EXISTS core.role_permissions (
     role_id uuid NOT NULL,
     permission_key text NOT NULL,
     effect text NOT NULL,
@@ -167,14 +209,20 @@ CREATE TABLE core.role_permissions (
     CONSTRAINT role_permissions_effect_check CHECK ((effect = ANY (ARRAY['ALLOW'::text, 'DENY'::text, 'REQUIRE_APPROVAL'::text])))
 );
 
-ALTER TABLE ONLY core.role_permissions ADD CONSTRAINT role_permissions_pkey PRIMARY KEY (role_id, permission_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.role_permissions ADD CONSTRAINT role_permissions_pkey PRIMARY KEY (role_id, permission_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.role_permissions ADD CONSTRAINT role_permissions_permission_key_fkey FOREIGN KEY (permission_key) REFERENCES core.permission_definitions(permission_key) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.role_permissions ADD CONSTRAINT role_permissions_permission_key_fkey FOREIGN KEY (permission_key) REFERENCES core.permission_definitions(permission_key) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.role_permissions ADD CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES core.workspace_roles(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.role_permissions ADD CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES core.workspace_roles(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE core.workspace_memberships (
+CREATE TABLE IF NOT EXISTS core.workspace_memberships (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     user_id bigint NOT NULL,
@@ -187,20 +235,28 @@ CREATE TABLE core.workspace_memberships (
     deleted_at timestamp with time zone
 );
 
-ALTER TABLE ONLY core.workspace_memberships ADD CONSTRAINT workspace_memberships_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_memberships ADD CONSTRAINT workspace_memberships_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workspace_memberships ADD CONSTRAINT workspace_memberships_workspace_id_user_id_key UNIQUE (workspace_id, user_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_memberships ADD CONSTRAINT workspace_memberships_workspace_id_user_id_key UNIQUE (workspace_id, user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workspace_memberships ADD CONSTRAINT workspace_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES core.user_projections(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_memberships ADD CONSTRAINT workspace_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES core.user_projections(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workspace_memberships ADD CONSTRAINT workspace_memberships_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_memberships ADD CONSTRAINT workspace_memberships_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_memberships_user_id ON core.workspace_memberships USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_memberships_user_id ON core.workspace_memberships USING btree (user_id);
 
-CREATE INDEX idx_workspace_memberships_workspace_id ON core.workspace_memberships USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_memberships_workspace_id ON core.workspace_memberships USING btree (workspace_id);
 
 
-CREATE TABLE core.workspace_slugs (
+CREATE TABLE IF NOT EXISTS core.workspace_slugs (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     slug text NOT NULL,
@@ -213,18 +269,22 @@ CREATE TABLE core.workspace_slugs (
     CONSTRAINT workspace_slugs_status_check CHECK ((status = ANY (ARRAY['ACTIVE'::text, 'REDIRECT'::text, 'RELEASED'::text])))
 );
 
-ALTER TABLE ONLY core.workspace_slugs ADD CONSTRAINT workspace_slugs_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_slugs ADD CONSTRAINT workspace_slugs_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY core.workspace_slugs ADD CONSTRAINT workspace_slugs_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY core.workspace_slugs ADD CONSTRAINT workspace_slugs_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_slugs_workspace ON core.workspace_slugs USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_slugs_workspace ON core.workspace_slugs USING btree (workspace_id);
 
-CREATE UNIQUE INDEX uq_workspace_slugs_active ON core.workspace_slugs USING btree (slug) WHERE (status = ANY (ARRAY['ACTIVE'::text, 'REDIRECT'::text]));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_workspace_slugs_active ON core.workspace_slugs USING btree (slug) WHERE (status = ANY (ARRAY['ACTIVE'::text, 'REDIRECT'::text]));
 
-CREATE UNIQUE INDEX uq_workspace_slugs_one_active_per_workspace ON core.workspace_slugs USING btree (workspace_id) WHERE (status = 'ACTIVE'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_workspace_slugs_one_active_per_workspace ON core.workspace_slugs USING btree (workspace_id) WHERE (status = 'ACTIVE'::text);
 
 
-CREATE TABLE integration.event_audit (
+CREATE TABLE IF NOT EXISTS integration.event_audit (
     id bigint NOT NULL,
     workspace_id text NOT NULL,
     action text NOT NULL,
@@ -233,12 +293,14 @@ CREATE TABLE integration.event_audit (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY integration.event_audit ADD CONSTRAINT event_audit_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY integration.event_audit ADD CONSTRAINT event_audit_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_event_audit_ws_action ON integration.event_audit USING btree (workspace_id, action, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_event_audit_ws_action ON integration.event_audit USING btree (workspace_id, action, created_at DESC);
 
 
-CREATE TABLE integration.event_outbox (
+CREATE TABLE IF NOT EXISTS integration.event_outbox (
     id bigint NOT NULL,
     event_id uuid NOT NULL,
     workspace_id text NOT NULL,
@@ -262,13 +324,17 @@ CREATE TABLE integration.event_outbox (
     CONSTRAINT event_outbox_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'claimed'::text, 'delivered'::text, 'dead'::text])))
 );
 
-ALTER TABLE ONLY integration.event_outbox ADD CONSTRAINT event_outbox_event_id_key UNIQUE (event_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY integration.event_outbox ADD CONSTRAINT event_outbox_event_id_key UNIQUE (event_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY integration.event_outbox ADD CONSTRAINT event_outbox_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY integration.event_outbox ADD CONSTRAINT event_outbox_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_event_outbox_due ON integration.event_outbox USING btree (visibility_timeout_at) WHERE (status = ANY (ARRAY['pending'::text, 'claimed'::text]));
+CREATE INDEX IF NOT EXISTS idx_event_outbox_due ON integration.event_outbox USING btree (visibility_timeout_at) WHERE (status = ANY (ARRAY['pending'::text, 'claimed'::text]));
 
-CREATE INDEX idx_event_outbox_type ON integration.event_outbox USING btree (event_type);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_type ON integration.event_outbox USING btree (event_type);
 
-CREATE INDEX idx_event_outbox_ws_aggr ON integration.event_outbox USING btree (workspace_id, aggregate_type, aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_ws_aggr ON integration.event_outbox USING btree (workspace_id, aggregate_type, aggregate_id);
 

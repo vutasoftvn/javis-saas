@@ -8,7 +8,7 @@ CREATE SCHEMA IF NOT EXISTS agent_governance;
 CREATE SCHEMA IF NOT EXISTS agent_registry;
 CREATE SCHEMA IF NOT EXISTS models;
 
-CREATE TABLE agent.agent_web_search_budget (
+CREATE TABLE IF NOT EXISTS agent.agent_web_search_budget (
     workspace_id character varying(64) NOT NULL,
     window_start date NOT NULL,
     query_count integer DEFAULT 0 NOT NULL,
@@ -18,12 +18,14 @@ CREATE TABLE agent.agent_web_search_budget (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY agent.agent_web_search_budget ADD CONSTRAINT agent_web_search_budget_pkey PRIMARY KEY (workspace_id, window_start);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.agent_web_search_budget ADD CONSTRAINT agent_web_search_budget_pkey PRIMARY KEY (workspace_id, window_start);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_web_search_budget_workspace ON agent.agent_web_search_budget USING btree (workspace_id, window_start DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_web_search_budget_workspace ON agent.agent_web_search_budget USING btree (workspace_id, window_start DESC);
 
 
-CREATE TABLE agent.runs (
+CREATE TABLE IF NOT EXISTS agent.runs (
     run_id character varying(64) NOT NULL,
     workspace_id character varying(64) NOT NULL,
     conversation_id character varying(64),
@@ -51,20 +53,22 @@ CREATE TABLE agent.runs (
     wf_work_attempt_id text
 );
 
-ALTER TABLE ONLY agent.runs ADD CONSTRAINT runs_pkey PRIMARY KEY (run_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.runs ADD CONSTRAINT runs_pkey PRIMARY KEY (run_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_runs_correlation ON agent.runs USING btree (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_correlation ON agent.runs USING btree (correlation_id);
 
-CREATE INDEX idx_agent_runs_idempotency ON agent.runs USING btree (idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_idempotency ON agent.runs USING btree (idempotency_key);
 
-CREATE INDEX idx_agent_runs_wf_attempt ON agent.runs USING btree (wf_work_attempt_id) WHERE (wf_work_attempt_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_wf_attempt ON agent.runs USING btree (wf_work_attempt_id) WHERE (wf_work_attempt_id IS NOT NULL);
 
-CREATE INDEX idx_agent_runs_wf_employee ON agent.runs USING btree (workspace_id, wf_agent_instance_id) WHERE (wf_agent_instance_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_wf_employee ON agent.runs USING btree (workspace_id, wf_agent_instance_id) WHERE (wf_agent_instance_id IS NOT NULL);
 
-CREATE INDEX idx_agent_runs_workspace_status ON agent.runs USING btree (workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_workspace_status ON agent.runs USING btree (workspace_id, status);
 
 
-CREATE TABLE agent.run_tool_calls (
+CREATE TABLE IF NOT EXISTS agent.run_tool_calls (
     tool_call_id character varying(128) NOT NULL,
     run_id character varying(64) NOT NULL,
     checkpoint_ref character varying(128),
@@ -82,20 +86,26 @@ CREATE TABLE agent.run_tool_calls (
     completed_at timestamp with time zone
 );
 
-ALTER TABLE ONLY agent.run_tool_calls ADD CONSTRAINT run_tool_calls_pkey PRIMARY KEY (run_id, tool_call_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_tool_calls ADD CONSTRAINT run_tool_calls_pkey PRIMARY KEY (run_id, tool_call_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.run_tool_calls ADD CONSTRAINT uq_agent_run_tool_calls_tool_call_id UNIQUE (tool_call_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_tool_calls ADD CONSTRAINT uq_agent_run_tool_calls_tool_call_id UNIQUE (tool_call_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.run_tool_calls ADD CONSTRAINT run_tool_calls_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_tool_calls ADD CONSTRAINT run_tool_calls_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_tool_calls_cap ON agent.run_tool_calls USING btree (capability_id);
+CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_cap ON agent.run_tool_calls USING btree (capability_id);
 
-CREATE INDEX idx_agent_tool_calls_idempotency ON agent.run_tool_calls USING btree (run_id, idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_idempotency ON agent.run_tool_calls USING btree (run_id, idempotency_key);
 
-CREATE INDEX idx_agent_tool_calls_run ON agent.run_tool_calls USING btree (run_id);
+CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_run ON agent.run_tool_calls USING btree (run_id);
 
 
-CREATE TABLE agent.approvals (
+CREATE TABLE IF NOT EXISTS agent.approvals (
     approval_id character varying(64) NOT NULL,
     run_id character varying(64) NOT NULL,
     tool_call_id character varying(128) NOT NULL,
@@ -114,22 +124,28 @@ CREATE TABLE agent.approvals (
     decision_version integer DEFAULT 0 NOT NULL
 );
 
-ALTER TABLE ONLY agent.approvals ADD CONSTRAINT approvals_pkey PRIMARY KEY (approval_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.approvals ADD CONSTRAINT approvals_pkey PRIMARY KEY (approval_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.approvals ADD CONSTRAINT approvals_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.approvals ADD CONSTRAINT approvals_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.approvals ADD CONSTRAINT approvals_run_tool_call_fkey FOREIGN KEY (run_id, tool_call_id) REFERENCES agent.run_tool_calls(run_id, tool_call_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.approvals ADD CONSTRAINT approvals_run_tool_call_fkey FOREIGN KEY (run_id, tool_call_id) REFERENCES agent.run_tool_calls(run_id, tool_call_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_approvals_checkpoint ON agent.approvals USING btree (checkpoint_ref);
+CREATE INDEX IF NOT EXISTS idx_agent_approvals_checkpoint ON agent.approvals USING btree (checkpoint_ref);
 
-CREATE INDEX idx_agent_approvals_run ON agent.approvals USING btree (run_id);
+CREATE INDEX IF NOT EXISTS idx_agent_approvals_run ON agent.approvals USING btree (run_id);
 
-CREATE INDEX idx_agent_approvals_status ON agent.approvals USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_agent_approvals_status ON agent.approvals USING btree (status);
 
-CREATE INDEX idx_agent_approvals_tool_call ON agent.approvals USING btree (tool_call_id);
+CREATE INDEX IF NOT EXISTS idx_agent_approvals_tool_call ON agent.approvals USING btree (tool_call_id);
 
 
-CREATE TABLE agent.idempotency_claims (
+CREATE TABLE IF NOT EXISTS agent.idempotency_claims (
     claim_id character varying(64) NOT NULL,
     tenant_id character varying(64),
     capability_id character varying(128) NOT NULL,
@@ -147,18 +163,24 @@ CREATE TABLE agent.idempotency_claims (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY agent.idempotency_claims ADD CONSTRAINT idempotency_claims_pkey PRIMARY KEY (claim_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.idempotency_claims ADD CONSTRAINT idempotency_claims_pkey PRIMARY KEY (claim_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.idempotency_claims ADD CONSTRAINT uq_agent_idempotency_claims_scope UNIQUE (scope_kind, scope_key, capability_id, idempotency_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.idempotency_claims ADD CONSTRAINT uq_agent_idempotency_claims_scope UNIQUE (scope_kind, scope_key, capability_id, idempotency_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.idempotency_claims ADD CONSTRAINT idempotency_claims_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.idempotency_claims ADD CONSTRAINT idempotency_claims_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_idempotency_claims_run ON agent.idempotency_claims USING btree (run_id);
+CREATE INDEX IF NOT EXISTS idx_agent_idempotency_claims_run ON agent.idempotency_claims USING btree (run_id);
 
-CREATE INDEX idx_agent_idempotency_claims_status ON agent.idempotency_claims USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_agent_idempotency_claims_status ON agent.idempotency_claims USING btree (status);
 
 
-CREATE TABLE agent.run_checkpoints (
+CREATE TABLE IF NOT EXISTS agent.run_checkpoints (
     checkpoint_ref character varying(128) NOT NULL,
     run_id character varying(64) NOT NULL,
     sequence_no integer NOT NULL,
@@ -170,16 +192,22 @@ CREATE TABLE agent.run_checkpoints (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY agent.run_checkpoints ADD CONSTRAINT run_checkpoints_pkey PRIMARY KEY (checkpoint_ref);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_checkpoints ADD CONSTRAINT run_checkpoints_pkey PRIMARY KEY (checkpoint_ref);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.run_checkpoints ADD CONSTRAINT uq_agent_checkpoint_run_seq UNIQUE (run_id, sequence_no);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_checkpoints ADD CONSTRAINT uq_agent_checkpoint_run_seq UNIQUE (run_id, sequence_no);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.run_checkpoints ADD CONSTRAINT run_checkpoints_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_checkpoints ADD CONSTRAINT run_checkpoints_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_checkpoints_run ON agent.run_checkpoints USING btree (run_id);
+CREATE INDEX IF NOT EXISTS idx_agent_checkpoints_run ON agent.run_checkpoints USING btree (run_id);
 
 
-CREATE TABLE agent.run_cost_observations (
+CREATE TABLE IF NOT EXISTS agent.run_cost_observations (
     observation_id uuid NOT NULL,
     workspace_id text NOT NULL,
     run_id text NOT NULL,
@@ -195,14 +223,18 @@ CREATE TABLE agent.run_cost_observations (
     CONSTRAINT run_cost_observations_output_tokens_check CHECK ((output_tokens >= 0))
 );
 
-ALTER TABLE ONLY agent.run_cost_observations ADD CONSTRAINT run_cost_observations_pkey PRIMARY KEY (observation_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_cost_observations ADD CONSTRAINT run_cost_observations_pkey PRIMARY KEY (observation_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.run_cost_observations ADD CONSTRAINT run_cost_observations_workspace_id_run_id_provider_key_mode_key UNIQUE (workspace_id, run_id, provider_key, model_key, observed_at);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_cost_observations ADD CONSTRAINT run_cost_observations_workspace_id_run_id_provider_key_mode_key UNIQUE (workspace_id, run_id, provider_key, model_key, observed_at);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_run_cost_observations_ws_time ON agent.run_cost_observations USING btree (workspace_id, observed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_run_cost_observations_ws_time ON agent.run_cost_observations USING btree (workspace_id, observed_at DESC);
 
 
-CREATE TABLE agent.run_events (
+CREATE TABLE IF NOT EXISTS agent.run_events (
     event_id character varying(64) NOT NULL,
     run_id character varying(64) NOT NULL,
     sequence_no bigint NOT NULL,
@@ -212,16 +244,20 @@ CREATE TABLE agent.run_events (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY agent.run_events ADD CONSTRAINT run_events_pkey PRIMARY KEY (event_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_events ADD CONSTRAINT run_events_pkey PRIMARY KEY (event_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.run_events ADD CONSTRAINT run_events_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.run_events ADD CONSTRAINT run_events_run_id_fkey FOREIGN KEY (run_id) REFERENCES agent.runs(run_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_events_run_seq ON agent.run_events USING btree (run_id, sequence_no);
+CREATE INDEX IF NOT EXISTS idx_agent_events_run_seq ON agent.run_events USING btree (run_id, sequence_no);
 
-CREATE INDEX idx_agent_events_type ON agent.run_events USING btree (event_type);
+CREATE INDEX IF NOT EXISTS idx_agent_events_type ON agent.run_events USING btree (event_type);
 
 
-CREATE TABLE agent.runtime_signal_outbox (
+CREATE TABLE IF NOT EXISTS agent.runtime_signal_outbox (
     outbox_id uuid NOT NULL,
     workspace_id text NOT NULL,
     source_kind text NOT NULL,
@@ -238,14 +274,18 @@ CREATE TABLE agent.runtime_signal_outbox (
     CONSTRAINT runtime_signal_outbox_state_delivery_check CHECK ((state_delivery = ANY (ARRAY['PENDING'::text, 'DELIVERED'::text, 'FAILED'::text])))
 );
 
-ALTER TABLE ONLY agent.runtime_signal_outbox ADD CONSTRAINT runtime_signal_outbox_pkey PRIMARY KEY (outbox_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.runtime_signal_outbox ADD CONSTRAINT runtime_signal_outbox_pkey PRIMARY KEY (outbox_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent.runtime_signal_outbox ADD CONSTRAINT runtime_signal_outbox_workspace_id_source_kind_source_id_se_key UNIQUE (workspace_id, source_kind, source_id, sequence);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent.runtime_signal_outbox ADD CONSTRAINT runtime_signal_outbox_workspace_id_source_kind_source_id_se_key UNIQUE (workspace_id, source_kind, source_id, sequence);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_runtime_signal_outbox_pending ON agent.runtime_signal_outbox USING btree (state_delivery, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_signal_outbox_pending ON agent.runtime_signal_outbox USING btree (state_delivery, next_attempt_at);
 
 
-CREATE TABLE agent_conversation.conversations (
+CREATE TABLE IF NOT EXISTS agent_conversation.conversations (
     conversation_id character varying(64) NOT NULL,
     workspace_id character varying(64) NOT NULL,
     created_by_principal character varying(128) NOT NULL,
@@ -257,12 +297,14 @@ CREATE TABLE agent_conversation.conversations (
     archived_at timestamp with time zone
 );
 
-ALTER TABLE ONLY agent_conversation.conversations ADD CONSTRAINT conversations_pkey PRIMARY KEY (conversation_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_conversation.conversations ADD CONSTRAINT conversations_pkey PRIMARY KEY (conversation_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_conversation_conversations_workspace ON agent_conversation.conversations USING btree (workspace_id, archived_at);
+CREATE INDEX IF NOT EXISTS idx_agent_conversation_conversations_workspace ON agent_conversation.conversations USING btree (workspace_id, archived_at);
 
 
-CREATE TABLE agent_conversation.messages (
+CREATE TABLE IF NOT EXISTS agent_conversation.messages (
     message_id character varying(64) NOT NULL,
     conversation_id character varying(64) NOT NULL,
     sequence_no bigint NOT NULL,
@@ -274,18 +316,24 @@ CREATE TABLE agent_conversation.messages (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY agent_conversation.messages ADD CONSTRAINT messages_pkey PRIMARY KEY (message_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_conversation.messages ADD CONSTRAINT messages_pkey PRIMARY KEY (message_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent_conversation.messages ADD CONSTRAINT uq_agent_conversation_messages_conv_seq UNIQUE (conversation_id, sequence_no);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_conversation.messages ADD CONSTRAINT uq_agent_conversation_messages_conv_seq UNIQUE (conversation_id, sequence_no);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent_conversation.messages ADD CONSTRAINT messages_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES agent_conversation.conversations(conversation_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_conversation.messages ADD CONSTRAINT messages_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES agent_conversation.conversations(conversation_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_conversation_messages_conv ON agent_conversation.messages USING btree (conversation_id, sequence_no);
+CREATE INDEX IF NOT EXISTS idx_agent_conversation_messages_conv ON agent_conversation.messages USING btree (conversation_id, sequence_no);
 
-CREATE INDEX idx_agent_conversation_messages_run ON agent_conversation.messages USING btree (run_id);
+CREATE INDEX IF NOT EXISTS idx_agent_conversation_messages_run ON agent_conversation.messages USING btree (run_id);
 
 
-CREATE TABLE agent_conversation.message_attachments (
+CREATE TABLE IF NOT EXISTS agent_conversation.message_attachments (
     attachment_id character varying(64) NOT NULL,
     message_id character varying(64) NOT NULL,
     object_ref text NOT NULL,
@@ -297,14 +345,18 @@ CREATE TABLE agent_conversation.message_attachments (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY agent_conversation.message_attachments ADD CONSTRAINT message_attachments_pkey PRIMARY KEY (attachment_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_conversation.message_attachments ADD CONSTRAINT message_attachments_pkey PRIMARY KEY (attachment_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent_conversation.message_attachments ADD CONSTRAINT message_attachments_message_id_fkey FOREIGN KEY (message_id) REFERENCES agent_conversation.messages(message_id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_conversation.message_attachments ADD CONSTRAINT message_attachments_message_id_fkey FOREIGN KEY (message_id) REFERENCES agent_conversation.messages(message_id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_conversation_attachments_message ON agent_conversation.message_attachments USING btree (message_id);
+CREATE INDEX IF NOT EXISTS idx_agent_conversation_attachments_message ON agent_conversation.message_attachments USING btree (message_id);
 
 
-CREATE TABLE agent_conversation.run_stream_events (
+CREATE TABLE IF NOT EXISTS agent_conversation.run_stream_events (
     sequence bigint NOT NULL,
     run_id character varying(64) NOT NULL,
     event_type character varying(64) NOT NULL,
@@ -315,14 +367,16 @@ CREATE TABLE agent_conversation.run_stream_events (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY agent_conversation.run_stream_events ADD CONSTRAINT run_stream_events_pkey PRIMARY KEY (sequence);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_conversation.run_stream_events ADD CONSTRAINT run_stream_events_pkey PRIMARY KEY (sequence);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_run_stream_events_conversation ON agent_conversation.run_stream_events USING btree (conversation_id);
+CREATE INDEX IF NOT EXISTS idx_run_stream_events_conversation ON agent_conversation.run_stream_events USING btree (conversation_id);
 
-CREATE INDEX idx_run_stream_events_run_seq ON agent_conversation.run_stream_events USING btree (run_id, sequence);
+CREATE INDEX IF NOT EXISTS idx_run_stream_events_run_seq ON agent_conversation.run_stream_events USING btree (run_id, sequence);
 
 
-CREATE TABLE agent_governance.approval_evidence (
+CREATE TABLE IF NOT EXISTS agent_governance.approval_evidence (
     id text NOT NULL,
     approver text NOT NULL,
     scope text NOT NULL,
@@ -330,12 +384,14 @@ CREATE TABLE agent_governance.approval_evidence (
     valid_until text
 );
 
-ALTER TABLE ONLY agent_governance.approval_evidence ADD CONSTRAINT approval_evidence_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_governance.approval_evidence ADD CONSTRAINT approval_evidence_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_approval_evidence_scope ON agent_governance.approval_evidence USING btree (scope);
+CREATE INDEX IF NOT EXISTS idx_approval_evidence_scope ON agent_governance.approval_evidence USING btree (scope);
 
 
-CREATE TABLE agent_governance.invocation_governance_history (
+CREATE TABLE IF NOT EXISTS agent_governance.invocation_governance_history (
     id text NOT NULL,
     run_id text NOT NULL,
     tool_call_id text NOT NULL,
@@ -345,22 +401,26 @@ CREATE TABLE agent_governance.invocation_governance_history (
     CONSTRAINT invocation_governance_history_source_check CHECK ((source = ANY (ARRAY['ambient'::text, 'historical'::text])))
 );
 
-ALTER TABLE ONLY agent_governance.invocation_governance_history ADD CONSTRAINT invocation_governance_history_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_governance.invocation_governance_history ADD CONSTRAINT invocation_governance_history_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_invocation_governance_history_invocation ON agent_governance.invocation_governance_history USING btree (run_id, tool_call_id, observed_at);
+CREATE INDEX IF NOT EXISTS idx_invocation_governance_history_invocation ON agent_governance.invocation_governance_history USING btree (run_id, tool_call_id, observed_at);
 
 
-CREATE TABLE agent_governance.invocation_governance_state (
+CREATE TABLE IF NOT EXISTS agent_governance.invocation_governance_state (
     run_id text NOT NULL,
     tool_call_id text NOT NULL,
     accumulated jsonb NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY agent_governance.invocation_governance_state ADD CONSTRAINT invocation_governance_state_pkey PRIMARY KEY (run_id, tool_call_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_governance.invocation_governance_state ADD CONSTRAINT invocation_governance_state_pkey PRIMARY KEY (run_id, tool_call_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
-CREATE TABLE agent_governance.spec_resolution_manifest_entries (
+CREATE TABLE IF NOT EXISTS agent_governance.spec_resolution_manifest_entries (
     run_id text NOT NULL,
     spec_kind text NOT NULL,
     spec_id text NOT NULL,
@@ -370,12 +430,14 @@ CREATE TABLE agent_governance.spec_resolution_manifest_entries (
     CONSTRAINT spec_resolution_manifest_entries_spec_kind_check CHECK ((spec_kind = ANY (ARRAY['agent'::text, 'workflow'::text, 'skill'::text, 'prompt'::text, 'model_policy'::text, 'tool_contract'::text])))
 );
 
-ALTER TABLE ONLY agent_governance.spec_resolution_manifest_entries ADD CONSTRAINT spec_resolution_manifest_entries_pkey PRIMARY KEY (run_id, spec_kind, spec_id, definition_hash);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_governance.spec_resolution_manifest_entries ADD CONSTRAINT spec_resolution_manifest_entries_pkey PRIMARY KEY (run_id, spec_kind, spec_id, definition_hash);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_spec_resolution_manifest_run_id ON agent_governance.spec_resolution_manifest_entries USING btree (run_id);
+CREATE INDEX IF NOT EXISTS idx_spec_resolution_manifest_run_id ON agent_governance.spec_resolution_manifest_entries USING btree (run_id);
 
 
-CREATE TABLE agent_registry.published_specs (
+CREATE TABLE IF NOT EXISTS agent_registry.published_specs (
     spec_kind character varying(32) NOT NULL,
     spec_id character varying(128) NOT NULL,
     version character varying(32) NOT NULL,
@@ -388,14 +450,18 @@ CREATE TABLE agent_registry.published_specs (
     retired_at timestamp with time zone
 );
 
-ALTER TABLE ONLY agent_registry.published_specs ADD CONSTRAINT published_specs_pkey PRIMARY KEY (spec_kind, spec_id, version);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_registry.published_specs ADD CONSTRAINT published_specs_pkey PRIMARY KEY (spec_kind, spec_id, version);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY agent_registry.published_specs ADD CONSTRAINT uq_agent_registry_published_specs_hash UNIQUE (spec_kind, spec_id, definition_hash);
+DO $$ BEGIN
+  ALTER TABLE ONLY agent_registry.published_specs ADD CONSTRAINT uq_agent_registry_published_specs_hash UNIQUE (spec_kind, spec_id, definition_hash);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_agent_registry_published_specs_status ON agent_registry.published_specs USING btree (status);
+CREATE INDEX IF NOT EXISTS idx_agent_registry_published_specs_status ON agent_registry.published_specs USING btree (status);
 
 
-CREATE TABLE models.model_provider_profiles (
+CREATE TABLE IF NOT EXISTS models.model_provider_profiles (
     workspace_id text NOT NULL,
     profile_id text NOT NULL,
     provider_type text NOT NULL,
@@ -413,12 +479,14 @@ CREATE TABLE models.model_provider_profiles (
     CONSTRAINT model_provider_profiles_status_check CHECK ((status = ANY (ARRAY['ACTIVE'::text, 'DISABLED'::text])))
 );
 
-ALTER TABLE ONLY models.model_provider_profiles ADD CONSTRAINT model_provider_profiles_pkey PRIMARY KEY (workspace_id, profile_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY models.model_provider_profiles ADD CONSTRAINT model_provider_profiles_pkey PRIMARY KEY (workspace_id, profile_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_model_provider_profiles_workspace_status ON models.model_provider_profiles USING btree (workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_model_provider_profiles_workspace_status ON models.model_provider_profiles USING btree (workspace_id, status);
 
 
-CREATE TABLE models.workspace_credentials (
+CREATE TABLE IF NOT EXISTS models.workspace_credentials (
     workspace_id text NOT NULL,
     credential_id text NOT NULL,
     ciphertext text NOT NULL,
@@ -427,12 +495,14 @@ CREATE TABLE models.workspace_credentials (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY models.workspace_credentials ADD CONSTRAINT workspace_credentials_pkey PRIMARY KEY (workspace_id, credential_id);
+DO $$ BEGIN
+  ALTER TABLE ONLY models.workspace_credentials ADD CONSTRAINT workspace_credentials_pkey PRIMARY KEY (workspace_id, credential_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_credentials_workspace ON models.workspace_credentials USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_credentials_workspace ON models.workspace_credentials USING btree (workspace_id);
 
 
-CREATE TABLE models.workspace_model_policies (
+CREATE TABLE IF NOT EXISTS models.workspace_model_policies (
     workspace_id text NOT NULL,
     scope text NOT NULL,
     scope_key text NOT NULL,
@@ -443,9 +513,13 @@ CREATE TABLE models.workspace_model_policies (
     CONSTRAINT workspace_model_policies_scope_check CHECK ((scope = ANY (ARRAY['WORKSPACE'::text, 'AGENT_PROFILE'::text])))
 );
 
-ALTER TABLE ONLY models.workspace_model_policies ADD CONSTRAINT workspace_model_policies_pkey PRIMARY KEY (workspace_id, scope, scope_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY models.workspace_model_policies ADD CONSTRAINT workspace_model_policies_pkey PRIMARY KEY (workspace_id, scope, scope_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY models.workspace_model_policies ADD CONSTRAINT workspace_model_policies_workspace_id_primary_profile_id_fkey FOREIGN KEY (workspace_id, primary_profile_id) REFERENCES models.model_provider_profiles(workspace_id, profile_id) ON DELETE RESTRICT;
+DO $$ BEGIN
+  ALTER TABLE ONLY models.workspace_model_policies ADD CONSTRAINT workspace_model_policies_workspace_id_primary_profile_id_fkey FOREIGN KEY (workspace_id, primary_profile_id) REFERENCES models.model_provider_profiles(workspace_id, profile_id) ON DELETE RESTRICT;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_workspace_model_policies_workspace_scope ON models.workspace_model_policies USING btree (workspace_id, scope);
+CREATE INDEX IF NOT EXISTS idx_workspace_model_policies_workspace_scope ON models.workspace_model_policies USING btree (workspace_id, scope);
 

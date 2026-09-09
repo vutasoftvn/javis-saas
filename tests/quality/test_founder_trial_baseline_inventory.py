@@ -66,7 +66,7 @@ def test_baseline_creates_only_retained_schemas(group: str):
     assert created == RETAINED_SCHEMAS[group], (
         f"{group}: schemas {created} != expected {RETAINED_SCHEMAS[group]}"
     )
-    tabled = set(re.findall(r"CREATE TABLE (\w+)\.\w+", src))
+    tabled = set(re.findall(r"CREATE TABLE (?:IF NOT EXISTS )?(\w+)\.\w+", src))
     stray = tabled - RETAINED_SCHEMAS[group]
     assert not stray, f"{group}: tables in non-retained schemas {stray}"
 
@@ -92,4 +92,4 @@ def test_company_operations_has_the_founder_trial_core_tables():
         "operating.cycle_reviews",
         "operating.cycle_revisions",
     ):
-        assert f"CREATE TABLE {tbl} (" in src, tbl
+        assert f"CREATE TABLE IF NOT EXISTS {tbl} (" in src, tbl

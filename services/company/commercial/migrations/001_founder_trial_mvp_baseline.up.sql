@@ -5,7 +5,7 @@
 CREATE SCHEMA IF NOT EXISTS commercial;
 CREATE SCHEMA IF NOT EXISTS sales;
 
-CREATE TABLE commercial.marketing_campaigns (
+CREATE TABLE IF NOT EXISTS commercial.marketing_campaigns (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     name character varying(255) NOT NULL,
@@ -21,16 +21,20 @@ CREATE TABLE commercial.marketing_campaigns (
     project_id bigint
 );
 
-ALTER TABLE ONLY commercial.marketing_campaigns ADD CONSTRAINT marketing_campaigns_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY commercial.marketing_campaigns ADD CONSTRAINT marketing_campaigns_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY commercial.marketing_campaigns ADD CONSTRAINT marketing_campaigns_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY commercial.marketing_campaigns ADD CONSTRAINT marketing_campaigns_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_marketing_campaigns_project ON commercial.marketing_campaigns USING btree (workspace_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_campaigns_project ON commercial.marketing_campaigns USING btree (workspace_id, project_id);
 
-CREATE INDEX idx_marketing_campaigns_workspace ON commercial.marketing_campaigns USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_campaigns_workspace ON commercial.marketing_campaigns USING btree (workspace_id);
 
 
-CREATE TABLE commercial.marketing_experiments (
+CREATE TABLE IF NOT EXISTS commercial.marketing_experiments (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     campaign_id bigint,
@@ -49,18 +53,24 @@ CREATE TABLE commercial.marketing_experiments (
     project_id bigint
 );
 
-ALTER TABLE ONLY commercial.marketing_experiments ADD CONSTRAINT marketing_experiments_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY commercial.marketing_experiments ADD CONSTRAINT marketing_experiments_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY commercial.marketing_experiments ADD CONSTRAINT marketing_experiments_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES commercial.marketing_campaigns(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY commercial.marketing_experiments ADD CONSTRAINT marketing_experiments_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES commercial.marketing_campaigns(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY commercial.marketing_experiments ADD CONSTRAINT marketing_experiments_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY commercial.marketing_experiments ADD CONSTRAINT marketing_experiments_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_marketing_experiments_project ON commercial.marketing_experiments USING btree (workspace_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_experiments_project ON commercial.marketing_experiments USING btree (workspace_id, project_id);
 
-CREATE INDEX idx_marketing_experiments_workspace ON commercial.marketing_experiments USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_marketing_experiments_workspace ON commercial.marketing_experiments USING btree (workspace_id);
 
 
-CREATE TABLE sales.contacts (
+CREATE TABLE IF NOT EXISTS sales.contacts (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     account_id bigint,
@@ -78,18 +88,22 @@ CREATE TABLE sales.contacts (
     idempotency_key text
 );
 
-ALTER TABLE ONLY sales.contacts ADD CONSTRAINT contacts_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.contacts ADD CONSTRAINT contacts_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY sales.contacts ADD CONSTRAINT contacts_workspace_idempotency_key UNIQUE (workspace_id, idempotency_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.contacts ADD CONSTRAINT contacts_workspace_idempotency_key UNIQUE (workspace_id, idempotency_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_contacts_account_id ON sales.contacts USING btree (account_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_account_id ON sales.contacts USING btree (account_id);
 
-CREATE INDEX idx_contacts_workspace_id ON sales.contacts USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_workspace_id ON sales.contacts USING btree (workspace_id);
 
-CREATE UNIQUE INDEX uq_contacts_workspace_email ON sales.contacts USING btree (workspace_id, email) WHERE (email IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_contacts_workspace_email ON sales.contacts USING btree (workspace_id, email) WHERE (email IS NOT NULL);
 
 
-CREATE TABLE sales.contact_projects (
+CREATE TABLE IF NOT EXISTS sales.contact_projects (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     contact_id bigint NOT NULL,
@@ -98,18 +112,24 @@ CREATE TABLE sales.contact_projects (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-ALTER TABLE ONLY sales.contact_projects ADD CONSTRAINT contact_projects_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.contact_projects ADD CONSTRAINT contact_projects_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY sales.contact_projects ADD CONSTRAINT contact_projects_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES sales.contacts(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.contact_projects ADD CONSTRAINT contact_projects_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES sales.contacts(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY sales.contact_projects ADD CONSTRAINT contact_projects_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.contact_projects ADD CONSTRAINT contact_projects_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_contact_projects_project ON sales.contact_projects USING btree (workspace_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_contact_projects_project ON sales.contact_projects USING btree (workspace_id, project_id);
 
-CREATE UNIQUE INDEX ux_contact_projects_pair ON sales.contact_projects USING btree (workspace_id, contact_id, project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_contact_projects_pair ON sales.contact_projects USING btree (workspace_id, contact_id, project_id);
 
 
-CREATE TABLE sales.sales_leads (
+CREATE TABLE IF NOT EXISTS sales.sales_leads (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     key_result_id bigint,
@@ -142,21 +162,29 @@ CREATE TABLE sales.sales_leads (
     project_id bigint
 );
 
-ALTER TABLE ONLY sales.sales_leads ADD CONSTRAINT sales_leads_pkey PRIMARY KEY (id);
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.sales_leads ADD CONSTRAINT sales_leads_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY sales.sales_leads ADD CONSTRAINT sales_leads_workspace_idempotency_key UNIQUE (workspace_id, idempotency_key);
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.sales_leads ADD CONSTRAINT sales_leads_workspace_idempotency_key UNIQUE (workspace_id, idempotency_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY sales.sales_leads ADD CONSTRAINT sales_leads_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES sales.contacts(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.sales_leads ADD CONSTRAINT sales_leads_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES sales.contacts(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-ALTER TABLE ONLY sales.sales_leads ADD CONSTRAINT sales_leads_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE ONLY sales.sales_leads ADD CONSTRAINT sales_leads_project_id_fkey FOREIGN KEY (project_id) REFERENCES strategy.projects(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
-CREATE INDEX idx_sales_leads_account_id ON sales.sales_leads USING btree (account_id);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_account_id ON sales.sales_leads USING btree (account_id);
 
-CREATE INDEX idx_sales_leads_contact_id ON sales.sales_leads USING btree (contact_id);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_contact_id ON sales.sales_leads USING btree (contact_id);
 
-CREATE INDEX idx_sales_leads_key_result_id ON sales.sales_leads USING btree (key_result_id);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_key_result_id ON sales.sales_leads USING btree (key_result_id);
 
-CREATE INDEX idx_sales_leads_project ON sales.sales_leads USING btree (workspace_id, project_id);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_project ON sales.sales_leads USING btree (workspace_id, project_id);
 
-CREATE INDEX idx_sales_leads_workspace_id ON sales.sales_leads USING btree (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_sales_leads_workspace_id ON sales.sales_leads USING btree (workspace_id);
 
