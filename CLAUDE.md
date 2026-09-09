@@ -121,6 +121,14 @@ tự trong `docs/archive/` chỉ là lưu trữ lịch sử, KHÔNG phải ngu�
 - `docs/superpowers/specs/` — design đã duyệt (vd.
   `2026-08-31-maintainable-modular-truthful-mvp-design.md`).
 - `docs/superpowers/plans/` — plan triển khai đã duyệt.
+- **Founder Trial — nguồn sự thật DUY NHẤT:**
+  `docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md`
+  + plan kèm theo
+  `docs/superpowers/plans/2026-09-09-founder-trial-mvp-reset-baseline.md`. Các
+  spec/plan Founder Trial cùng ngày 2026-09-09 khác (domain-agent-mvp,
+  r1-reconciled, evidence-crm-marketing-finance, codebase-truthful-ui-
+  remediation, lifecycle-and-truthful-ui, agent-orchestration) đã bị `git rm` —
+  KHÔNG khôi phục.
 - `docs/architecture/generated/` — snapshot sinh tự động (contracts, route
   inventory, company usage inventory) — generator-owned, không hand-edit.
 
