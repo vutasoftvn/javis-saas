@@ -291,6 +291,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | DELETE | `/operations/key-results/:id` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | PUT | `/operations/key-results/:id` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/key-results/:id/checkin` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
+| POST | `/operations/kr-contributions/:id/verify` | company | ✓ |  | services/company/operations/handlers/task-outcome-review.handler.ts |
 | GET | `/operations/objectives` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/objectives` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | DELETE | `/operations/objectives/:id` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
@@ -304,6 +305,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/operations/objectives/:objectiveId/key-results` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | GET | `/operations/okr-cycles` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/okr-cycles` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
+| POST | `/operations/outcome-assessments` | company | ✓ |  | services/company/operations/handlers/task-outcome-analysis.handler.ts |
 | GET | `/operations/portfolios` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | POST | `/operations/portfolios` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | GET | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
@@ -314,6 +316,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/projects/:id/operating-setup` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
 | PUT | `/operations/projects/:id/operating-setup` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
 | POST | `/operations/projects/:id/operating-setup/activate` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
+| GET | `/operations/projects/:projectId/founder-brief` | company | ✓ |  | services/company/operations/strategy/handlers/founder-brief.handler.ts |
+| GET | `/operations/projects/:projectId/founder-trial-board` | company | ✓ |  | services/company/operations/strategy/handlers/founder-trial-board.handler.ts |
+| POST | `/operations/projects/:projectId/founder-trial/experiments` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
 | GET | `/operations/strategy/action-context` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | GET | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | POST | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
@@ -371,6 +376,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | DELETE | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | GET | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | PATCH | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
+| POST | `/operations/strategy/interviews/:id/submit-evidence` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | GET | `/operations/strategy/maturity-assessments` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
 | POST | `/operations/strategy/maturity-assessments` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
 | GET | `/operations/strategy/maturity-assessments/:id` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
@@ -442,6 +448,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/operations/strategy/weekly-reviews` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-review.handler.ts |
 | POST | `/operations/strategy/weekly-reviews/:id/complete` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-review.handler.ts |
 | POST | `/operations/task-dependencies` | company | ✓ |  | services/company/operations/handlers/task-dependency.handler.ts |
+| POST | `/operations/task-outcome-reviews` | company | ✓ |  | services/company/operations/handlers/task-outcome-review.handler.ts |
+| POST | `/operations/task-results` | company | ✓ |  | services/company/operations/handlers/task-result.handler.ts |
+| GET | `/operations/task-results/:taskResultId/analysis-requests` | company | ✓ |  | services/company/operations/handlers/task-result.handler.ts |
 | POST | `/operations/task-schedules` | company | ✓ |  | services/company/operations/handlers/task-dependency.handler.ts |
 | GET | `/operations/tasks` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
 | POST | `/operations/tasks` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
@@ -462,6 +471,13 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | PATCH | `/operations/twelve-week-plans/:id` | company | ✓ |  | services/company/operations/handlers/twelve-week-year.handler.ts |
 | POST | `/operations/weekly-commitments` | company | ✓ |  | services/company/operations/handlers/twelve-week-year.handler.ts |
 | POST | `/operations/weekly-plans` | company | ✓ |  | services/company/operations/handlers/twelve-week-year.handler.ts |
+| POST | `/operations/work-packages` | company | ✓ |  | services/company/operations/handlers/work-package.handler.ts |
+| GET | `/operations/work-packages/:id` | company | ✓ |  | services/company/operations/handlers/work-package.handler.ts |
+| POST | `/operations/work-packages/:id/priority` | company | ✓ |  | services/company/operations/handlers/task-outcome-review.handler.ts |
+| POST | `/operations/work-packages/:id/reassign` | company | ✓ |  | services/company/operations/handlers/work-package.handler.ts |
+| POST | `/operations/work-packages/:id/review` | company | ✓ |  | services/company/operations/handlers/task-outcome-review.handler.ts |
+| POST | `/operations/work-packages/confirm-proposal` | company | ✓ |  | services/company/operations/handlers/work-package.handler.ts |
+| POST | `/operations/work-packages/confirmed-task` | company | ✓ |  | services/company/operations/handlers/work-package.handler.ts |
 | GET | `/operations/workspace-runtime/blockers` | company | ✓ |  | services/company/operations/handlers/workspace-runtime.handler.ts |
 | GET | `/operations/workspace-runtime/items/:sourceKind/:sourceId` | company | ✓ |  | services/company/operations/handlers/workspace-runtime.handler.ts |
 | POST | `/operations/workspace-runtime/items/:sourceKind/:sourceId/snooze` | company | ✓ |  | services/company/operations/handlers/workspace-runtime.handler.ts |
@@ -469,11 +485,13 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/workspace-runtime/source-status` | company | ✓ |  | services/company/operations/handlers/workspace-runtime.handler.ts |
 | GET | `/operations/workspaces/:workspaceId/cycles` | company | ✓ |  | services/company/operations/handlers/twelve-week-year.handler.ts |
 | POST | `/platform/auth/companies/create` | cosa | ✓ | ✓ | services/cosa/handlers/company.handler.ts |
-| POST | `/platform/auth/companies/join` | cosa | ✓ | ✓ | services/cosa/handlers/company.handler.ts |
+| POST | `/platform/auth/companies/invitations` | cosa | ✓ | ✓ | services/cosa/handlers/company.handler.ts |
+| POST | `/platform/auth/companies/invitations/accept` | cosa | ✓ | ✓ | services/cosa/handlers/company.handler.ts |
 | GET | `/platform/auth/me` | cosa | ✓ | ✓ | services/cosa/handlers/auth.handler.ts |
 | PATCH | `/platform/auth/me` | cosa | ✓ | ✓ | services/cosa/handlers/auth.handler.ts |
 | GET | `/platform/auth/me/agent-policy-snapshot` | cosa | ✓ |  | services/cosa/handlers/agent-policy.handler.ts |
 | GET | `/platform/auth/me/companies` | cosa | ✓ | ✓ | services/cosa/handlers/company.handler.ts |
+| GET | `/platform/auth/me/locale-snapshot` | cosa | ✓ |  | services/cosa/handlers/auth.handler.ts |
 | POST | `/platform/auth/register` | cosa | ✓ |  | services/cosa/handlers/auth.handler.ts |
 | POST | `/platform/auth/sessions` | cosa | ✓ |  | services/cosa/handlers/auth.handler.ts |
 | GET | `/platform/internal/agent-policy` | cosa |  |  | services/cosa/handlers/agent-policy.handler.ts |
@@ -484,10 +502,15 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/platform/internal/validate-workspace-membership` | cosa | ✓ |  | services/cosa/handlers/venture-workspace.handler.ts |
 | GET | `/platform/workspaces/:id/entitlement` | cosa | ✓ | ✓ | services/cosa/handlers/venture-workspace.handler.ts |
 | GET | `/platform/workspaces/:workspaceId/audit-events` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/workspaces/:workspaceId/capability-manifest` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/workspaces/:workspaceId/capability-manifest/:surfaceKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | GET | `/platform/workspaces/:workspaceId/connectors` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | POST | `/platform/workspaces/:workspaceId/connectors/:connectorKey/install` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | POST | `/platform/workspaces/:workspaceId/connectors/:connectorKey/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | GET | `/platform/workspaces/:workspaceId/members` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/workspaces/:workspaceId/module-visibility` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/workspaces/:workspaceId/module-visibility/:moduleKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/workspaces/:workspaceId/module-visibility/:moduleKey/preference` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | GET | `/platform/workspaces/:workspaceId/runtime-nodes` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | POST | `/platform/workspaces/:workspaceId/runtime-nodes/:nodeId/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | GET | `/platform/workspaces/:workspaceId/session-context` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
@@ -501,6 +524,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - POST `/identity/session/renew` — services/company/identity/handlers/auth.handler.ts
 - POST `/identity/sync-from-platform` — services/company/identity/handlers/sync.handler.ts
 - GET `/platform/auth/me/agent-policy-snapshot` — services/cosa/handlers/agent-policy.handler.ts
+- GET `/platform/auth/me/locale-snapshot` — services/cosa/handlers/auth.handler.ts
 - POST `/platform/auth/register` — services/cosa/handlers/auth.handler.ts
 - POST `/platform/auth/sessions` — services/cosa/handlers/auth.handler.ts
 - POST `/platform/internal/list-workspace-memberships` — services/cosa/handlers/venture-workspace.handler.ts
@@ -540,7 +564,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:52 |
 | `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:67 |
 | `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:170 |
-| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:100, frontend/lib/modules/auth/services/auth_service.dart:519 |
+| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:100, frontend/lib/modules/auth/services/auth_service.dart:531 |
 | `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/settings/services/workspace_orientation_service.dart:16 |
 | `GET /marketing/analytics/overview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:134 |
 | `GET /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:602 |
@@ -566,12 +590,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /operations/cycles` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:833 |
 | `GET /operations/execution-settings` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:60 |
 | `GET /operations/initiatives` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:715, frontend/lib/modules/strategy/services/strategy_workflow_service.dart:755 |
-| `GET /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:220 |
-| `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:112, frontend/lib/modules/strategy/services/outcomes_service.dart:11, frontend/lib/modules/strategy/services/outcomes_service.dart:85 |
-| `GET /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:72 |
+| `GET /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:214 |
+| `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:106, frontend/lib/modules/strategy/services/outcomes_service.dart:11, frontend/lib/modules/strategy/services/outcomes_service.dart:85 |
+| `GET /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:66 |
 | `GET /operations/projects` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:109 |
 | `GET /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:21, frontend/lib/modules/vault/services/evidence_service.dart:88 |
-| `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:104, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
+| `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:102, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
 | `GET /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:60 |
 | `GET /operations/strategy/gate-evaluations` | ✓ |  | frontend/lib/modules/strategy/services/stage_gate_service.dart:40, frontend/lib/modules/strategy/services/stage_gate_service.dart:58 |
 | `GET /operations/strategy/maturity-assessments` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:153 |
@@ -580,7 +604,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /operations/strategy/objectives` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:152, frontend/lib/modules/strategy/services/strategy_workflow_service.dart:187 |
 | `GET /operations/strategy/pilots` | ✓ |  | frontend/lib/modules/strategy/services/pilot_run_service.dart:15, frontend/lib/modules/strategy/services/pilot_run_service.dart:31 |
 | `GET /operations/strategy/pmf-scoreboards` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:89, frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:110 |
-| `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:84 |
+| `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:82 |
 | `GET /operations/strategy/settings` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:71 |
 | `GET /operations/strategy/stage-context` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:85 |
 | `GET /operations/strategy/stage-policies` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:14, frontend/lib/modules/strategy/services/stage_service.dart:98 |
@@ -590,9 +614,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /operations/tasks/founder-inbox` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:81 |
 | `GET /org` | ✗ GHOST |  | frontend/lib/modules/organization/services/organization_service.dart:14, frontend/lib/modules/organization/services/organization_service.dart:25, frontend/lib/modules/organization/services/organization_service.dart:36 … |
 | `GET /plugins` | ✗ GHOST |  | frontend/lib/modules/skills/services/plugins_service.dart:14 |
-| `GET /policy-programs` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:172, frontend/lib/modules/finance/services/policy_funding_service.dart:202 |
-| `GET /policy-programs/draft-watchlist` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:165 |
-| `GET /projects` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:45, frontend/lib/modules/strategy/services/validation_service.dart:25, frontend/lib/modules/strategy/services/validation_service.dart:61 … |
+| `GET /policy-programs` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:174, frontend/lib/modules/finance/services/policy_funding_service.dart:204 |
+| `GET /policy-programs/draft-watchlist` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:167 |
+| `GET /projects` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:47, frontend/lib/modules/strategy/services/validation_service.dart:25, frontend/lib/modules/strategy/services/validation_service.dart:61 … |
 | `GET /runtime/doctor` | ✗ GHOST |  | frontend/lib/core/services/diagnostics_service.dart:8 |
 | `GET /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:13, frontend/lib/modules/strategy/services/canvas_service.dart:22 |
 | `GET /strategy/founder-profile` | ✗ GHOST |  | frontend/lib/modules/strategy/services/founder_service.dart:13 |
@@ -614,7 +638,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
 | `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136, frontend/lib/modules/sales/services/revenue_engine_service.dart:16, frontend/lib/modules/sales/services/revenue_engine_service.dart:70 … |
 | `PATCH /commercial/marketing-context/product-marketing` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:201 |
-| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:506 |
 | `PATCH /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:622 |
 | `PATCH /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:262 |
 | `PATCH /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:554 |
@@ -699,10 +722,14 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/dashboard-summary` | apps/cosa/api/workforce_routes.py |
 | GET | `/dead-letter` | apps/cosa/api/event_operations_routes.py |
 | GET | `/documents` | apps/cosa/api/vault_routes.py |
-| POST | `/documents/upload-ticket` | apps/cosa/api/vault_routes.py |
+| POST | `/documents` | apps/cosa/api/vault_routes.py |
 | DELETE | `/documents/{document_id}` | apps/cosa/api/vault_routes.py |
 | GET | `/documents/{document_id}` | apps/cosa/api/vault_routes.py |
-| POST | `/documents/{document_id}/confirm` | apps/cosa/api/vault_routes.py |
+| POST | `/documents/{document_id}/legal-hold` | apps/cosa/api/vault_routes.py |
+| POST | `/documents/{document_id}/publish` | apps/cosa/api/vault_routes.py |
+| POST | `/documents/{document_id}/purge` | apps/cosa/api/vault_routes.py |
+| POST | `/documents/{document_id}/review` | apps/cosa/api/vault_routes.py |
+| POST | `/eligibility` | apps/cosa/api/workforce_internal_routes.py |
 | POST | `/events` | apps/cosa/api/event_intake_routes.py |
 | GET | `/exceptions` | apps/cosa/api/workforce_routes.py |
 | POST | `/first-week-suggestion` | apps/cosa/api/kickoff_suggestion_routes.py |
@@ -718,6 +745,11 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/metrics` | apps/cosa/api/app.py |
 | GET | `/metrics` | apps/cosa/api/autopilot_metrics_routes.py |
 | GET | `/metrics` | apps/cosa/worker/health.py |
+| GET | `/model-policies/{agent_profile}` | apps/cosa/api/model_policy_routes.py |
+| PUT | `/model-policies/{agent_profile}` | apps/cosa/api/model_policy_routes.py |
+| GET | `/model-providers` | apps/cosa/api/model_policy_routes.py |
+| POST | `/model-providers` | apps/cosa/api/model_policy_routes.py |
+| POST | `/model-providers/{profile_id}/test` | apps/cosa/api/model_policy_routes.py |
 | GET | `/org-chart` | apps/cosa/api/workforce_routes.py |
 | GET | `/ready` | apps/cosa/api/app.py |
 | GET | `/ready` | apps/cosa/worker/health.py |
@@ -729,6 +761,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/runs/{run_id}/cancel` | apps/cosa/api/routes.py |
 | GET | `/runs/{run_id}/events` | apps/cosa/api/workforce_routes.py |
 | GET | `/runs/{run_id}/events` | apps/cosa/api/routes.py |
+| GET | `/runs/{run_id}/investigation` | apps/cosa/api/workforce_internal_routes.py |
 | GET | `/schedules` | apps/cosa/api/schedule_routes.py |
 | GET | `/schedules` | apps/cosa/api/workforce_routes.py |
 | POST | `/schedules` | apps/cosa/api/schedule_routes.py |
@@ -742,6 +775,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | PUT | `/skills/{skill_key}` | apps/cosa/api/settings_routes.py |
 | GET | `/stage-roster/{stage_code}` | apps/cosa/api/workforce_routes.py |
 | POST | `/sync-built-in` | apps/cosa/api/skill_registry_routes.py |
+| POST | `/uploads/{upload_id}/complete` | apps/cosa/api/vault_routes.py |
+| PUT | `/uploads/{upload_id}/content` | apps/cosa/api/vault_routes.py |
 | POST | `/{event_id}/retry` | apps/cosa/api/event_operations_routes.py |
 | POST | `/{rule_id}/enable` | apps/cosa/api/event_rule_routes.py |
 | GET | `/{skill_id}` | apps/cosa/api/skill_registry_routes.py |
