@@ -352,6 +352,15 @@ class ApiClient {
   static const Duration defaultTimeout = Duration(seconds: 15);
   static const Duration uploadTimeout = Duration(seconds: 30);
 
+  /// Founder Trial R1 — the caller targeted a route that was removed from the
+  /// MVP contract. Returns 410 Gone locally without touching the network so
+  /// legacy screens degrade to an explicit "not in this release" state.
+  static Future<http.Response> removed(String note) async => http.Response(
+        jsonEncode({'error': 'removed_in_r1', 'note': note}),
+        410,
+        headers: const {'content-type': 'application/json'},
+      );
+
   static Future<http.Response> get(String endpoint, {bool requiresAuth = true}) async {
     final target = resolveRequestTarget(endpoint);
     if (target.blockedResponse case final response?) return response;

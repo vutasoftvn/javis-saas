@@ -13,7 +13,7 @@ class RevenueEngineService {
     if (workspaceId == null || workspaceId.isEmpty) return null;
 
     try {
-      final response = await ApiClient.get('/workspaces/$workspaceId/revenue/icp');
+      final response = await ApiClient.removed('r1-removed:/workspaces/$workspaceId/revenue/icp');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['data'] as Map<String, dynamic>? ?? decoded;
@@ -48,10 +48,7 @@ class RevenueEngineService {
     if (workspaceId == null || workspaceId.isEmpty) return null;
 
     try {
-      final response = await ApiClient.post(
-        '/workspaces/$workspaceId/revenue/crm/leads/$leadId/score',
-        body: {},
-      );
+      final response = await ApiClient.removed('r1-removed:/workspaces/$workspaceId/revenue/crm/leads/$leadId/score');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['data'] as Map<String, dynamic>? ?? decoded;
@@ -67,7 +64,7 @@ class RevenueEngineService {
     if (workspaceId == null || workspaceId.isEmpty) return null;
 
     try {
-      final response = await ApiClient.get('/workspaces/$workspaceId/revenue/crm/pipeline');
+      final response = await ApiClient.removed('r1-removed:/workspaces/$workspaceId/revenue/crm/pipeline');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['data'] as Map<String, dynamic>? ?? decoded;
@@ -92,10 +89,7 @@ class RevenueEngineService {
       };
       if (lostReason != null) body['lost_reason'] = lostReason;
 
-      final response = await ApiClient.patch(
-        '/workspaces/$workspaceId/revenue/crm/opportunities/$opportunityId/stage',
-        body: body,
-      );
+      final response = await ApiClient.removed('r1-removed:/workspaces/$workspaceId/revenue/crm/opportunities/$opportunityId/stage');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['data'] as Map<String, dynamic>? ?? decoded;
@@ -120,10 +114,7 @@ class RevenueEngineService {
       };
       if (title != null) body['title'] = title;
 
-      final response = await ApiClient.post(
-        '/workspaces/$workspaceId/revenue/crm/leads/$leadId/convert-to-opportunity',
-        body: body,
-      );
+      final response = await ApiClient.removed('r1-removed:/workspaces/$workspaceId/revenue/crm/leads/$leadId/convert-to-opportunity');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['data'] as Map<String, dynamic>? ?? decoded;
@@ -153,10 +144,7 @@ class RevenueEngineService {
         body['focus_pain_point'] = focusPainPoint;
       }
 
-      final response = await ApiClient.post(
-        '/workspaces/$workspaceId/revenue/outreach/generate',
-        body: body,
-      );
+      final response = await ApiClient.removed('r1-removed:/workspaces/$workspaceId/revenue/outreach/generate');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['data'] as Map<String, dynamic>? ?? decoded;
@@ -184,7 +172,7 @@ class RevenueEngineService {
       if (tag != null && tag.isNotEmpty) params.add('tag=${Uri.encodeComponent(tag)}');
 
       final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
-      final response = await ApiClient.get('/workspaces/$workspaceId/revenue/crm/accounts$queryStr');
+      final response = await ApiClient.removed('r1-removed:/workspaces/$workspaceId/revenue/crm/accounts$queryStr');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['data'] as List<dynamic>? ?? [];
@@ -226,10 +214,7 @@ class RevenueEngineService {
       if (contactPhone != null) body['contact_phone'] = contactPhone;
       if (contactEmail != null) body['contact_email'] = contactEmail;
 
-      final response = await ApiClient.post(
-        '/workspaces/$workspaceId/revenue/crm/accounts',
-        body: body,
-      );
+      final response = await ApiClient.removed('r1-removed:/workspaces/$workspaceId/revenue/crm/accounts');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['data'] as Map<String, dynamic>? ?? decoded;
