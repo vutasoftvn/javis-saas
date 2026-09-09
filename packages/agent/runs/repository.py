@@ -59,6 +59,10 @@ class RunRepository(Protocol):
     # 2. Checkpoints
     async def save_checkpoint(self, checkpoint: RunCheckpointRecord) -> RunCheckpointRecord: ...
     async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None: ...
+    async def save_automation_manifest(
+        self, run_id: str, manifest_hash: str, manifest_json: dict[str, Any]
+    ) -> dict[str, Any]: ...
+    async def get_automation_manifest(self, run_id: str) -> dict[str, Any] | None: ...
     async def get_checkpoint(self, checkpoint_ref: str) -> RunCheckpointRecord | None: ...
     async def list_checkpoints(self, run_id: str) -> list[RunCheckpointRecord]: ...
 
@@ -122,6 +126,7 @@ class InMemoryRunRepository:
         self._approvals: dict[str, RunApprovalRecord] = {}  # approval_id -> record
         self._idempotency_claims: dict[str, IdempotencyClaimRecord] = {}  # claim_id -> record
         self._idempotency_index: dict[tuple[str, str, str, str], str] = {}  # scope key -> claim_id
+        self._automation_manifests: dict[str, dict[str, Any]] = {}  # run_id -> {hash, json}
 
     # Runs
     async def create_run(self, run: RunRecord) -> RunRecord:
@@ -234,6 +239,25 @@ class InMemoryRunRepository:
         if checkpoint.checkpoint_ref not in seq_list:
             seq_list.append(checkpoint.checkpoint_ref)
         return checkpoint
+
+    async def save_automation_manifest(
+        self, run_id: str, manifest_hash: str, manifest_json: dict[str, Any]
+    ) -> dict[str, Any]:
+        existing = self._automation_manifests.get(run_id)
+        if existing is not None:
+            if existing["manifest_hash"] != manifest_hash:
+                raise ValueError(
+                    f"run {run_id} already has a different automation manifest "
+                    f"({existing['manifest_hash']} != {manifest_hash})"
+                )
+            return dict(existing)
+        record = {"run_id": run_id, "manifest_hash": manifest_hash, "manifest_json": dict(manifest_json)}
+        self._automation_manifests[run_id] = record
+        return dict(record)
+
+    async def get_automation_manifest(self, run_id: str) -> dict[str, Any] | None:
+        rec = self._automation_manifests.get(run_id)
+        return dict(rec) if rec else None
 
     async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None:
         seq_list = self._run_checkpoints.get(run_id, [])
@@ -738,6 +762,58 @@ class PostgresRunRepository(BasePostgresRepository):
             )
             await self._commit(session)
         return checkpoint
+
+    async def save_automation_manifest(
+        self, run_id: str, manifest_hash: str, manifest_json: dict[str, Any]
+    ) -> dict[str, Any]:
+        async with self._session_factory() as session:
+            res = await self._execute(
+                session,
+                text(
+                    """
+                    INSERT INTO agent.automation_run_manifests (run_id, manifest_hash, manifest_json)
+                    VALUES (:run_id, :manifest_hash, CAST(:manifest_json AS jsonb))
+                    ON CONFLICT (run_id) DO NOTHING
+                    RETURNING run_id;
+                    """
+                ),
+                {
+                    "run_id": run_id,
+                    "manifest_hash": manifest_hash,
+                    "manifest_json": json.dumps(manifest_json),
+                },
+            )
+            inserted = res.first() is not None
+            await self._commit(session)
+        existing = await self.get_automation_manifest(run_id)
+        if existing is None:
+            raise RuntimeError(f"automation manifest for run {run_id} vanished after write")
+        if not inserted and existing["manifest_hash"] != manifest_hash:
+            raise ValueError(
+                f"run {run_id} already has a different automation manifest "
+                f"({existing['manifest_hash']} != {manifest_hash})"
+            )
+        return existing
+
+    async def get_automation_manifest(self, run_id: str) -> dict[str, Any] | None:
+        async with self._session_factory() as session:
+            res = await self._execute(
+                session,
+                text(
+                    """
+                    SELECT run_id, manifest_hash, manifest_json
+                    FROM agent.automation_run_manifests WHERE run_id = :run_id;
+                    """
+                ),
+                {"run_id": run_id},
+            )
+            row = res.first()
+        if row is None:
+            return None
+        mj = row.manifest_json
+        if isinstance(mj, str):
+            mj = json.loads(mj)
+        return {"run_id": row.run_id, "manifest_hash": row.manifest_hash, "manifest_json": mj}
 
     async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None:
         async with self._session_factory() as session:

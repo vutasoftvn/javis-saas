@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from apps.cosa.events.router import handle_event
+from apps.cosa.events.router import Unauthenticated, handle_event
 
 SECRET = "test-secret"
 
@@ -139,7 +139,7 @@ async def test_duplicate_signed_event_is_deduped_by_inbox() -> None:
 async def test_unsigned_event_is_rejected_before_scheduling() -> None:
     deps = Deps()
     env = _env(_dispatch_payload())
-    with pytest.raises(Exception):
+    with pytest.raises(Unauthenticated):
         await handle_event(deps, _raw(env), "deadbeef")
     assert deps.execution_plane.automation_dispatches == []
 

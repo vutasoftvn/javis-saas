@@ -34,6 +34,7 @@ from apps.cosa.observability.metrics import (
 )
 from apps.cosa.observability.otel import init_tracing, trace_span
 from apps.cosa.worker.handlers import (
+    execute_automation_run_task,
     execute_resume_task,
     execute_run_task,
     execute_scheduled_session_task,
@@ -456,6 +457,14 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
                         if delay:
                             await asyncio.sleep(float(delay))
                         await execute_outcome_analysis_run(plane, stream_mgr, payload)
+
+                    coro = _with_optional_delay()
+                elif task_type == "automation_run":
+
+                    async def _with_optional_delay():
+                        if delay:
+                            await asyncio.sleep(float(delay))
+                        await execute_automation_run_task(plane, stream_mgr, payload)
 
                     coro = _with_optional_delay()
                 else:

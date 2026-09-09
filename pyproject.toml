@@ -49,7 +49,7 @@ disallow_untyped_defs = true
 [tool.pytest.ini_options]
 # migrate nguyên trạng từ pytest.ini
 pythonpath = [".", "packages", "apps"]
-testpaths = ["tests/agent", "tests/apps", "tests/desktop_worker", "packages/agent_testkit", "tests/agent_integrations", "tests/e2e", "tests/integration"]
+testpaths = ["tests/agent", "tests/apps", "tests/desktop_worker", "packages/agent_testkit", "tests/agent_integrations", "tests/contracts", "tests/e2e", "tests/integration"]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
 markers = [

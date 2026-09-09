@@ -810,3 +810,170 @@ async def execute_scheduled_session_task(
                 logger.warning(
                     "Failed to report complete schedule execution %s: %s", schedule_exec_id, e
                 )
+
+
+# ---------------------------------------------------------------------------
+# COSA Automation MVP (Task 5) — curated automation run
+# ---------------------------------------------------------------------------
+
+
+async def execute_automation_run_task(
+    plane: CosaAgentPlane,
+    stream_mgr: CosaEventStreamManager,
+    payload: dict[str, Any],
+) -> None:
+    """Run one curated automation blueprint.
+
+    The manifest is resolved once, hash-verified and persisted insert-once; a
+    worker restart reloads it by run_id rather than re-reading a mutable
+    definition. Effects go only through the Capability Gateway and only for the
+    manifest's declared read/draft/evidence capabilities. A local-only blueprint
+    with no eligible local node BLOCKS with LOCAL_RUNTIME_UNAVAILABLE and never
+    falls back to cloud.
+    """
+    from agent.runs.models import RunCheckpointRecord, RunEventRecord, RunRecord
+    from agent.workflows.automation_blueprints import (
+        BlueprintContext,
+        get_blueprint_metadata,
+        get_blueprint_spec,
+        get_blueprint_step_fn,
+    )
+    from agent.workflows.automation_manifest import (
+        AutomationManifestError,
+        resolve_automation_manifest,
+    )
+    from agent.workflows.engine import WorkflowEngine
+    from agent.workflows.models import WorkflowStatus
+    from agent.workflows.steps import DeterministicStep
+
+    run_id = str(payload["run_id"])
+    workspace_id = str(payload.get("workspace_id", ""))
+    invocation_id = str(payload.get("invocation_id", ""))
+    automation_key = str(payload.get("automation_key", ""))
+    correlation_id = str(payload.get("correlation_id", "")) or None
+    conversation_id = f"auto:{invocation_id}"
+
+    async def _emit(event_type: str, body: dict[str, Any]) -> None:
+        await plane.run_repository.append_event(
+            RunEventRecord(run_id=run_id, event_type=event_type, payload=body, correlation_id=correlation_id)
+        )
+        repo = getattr(plane, "stream_event_repository", None)
+        if repo is not None:
+            with contextlib.suppress(Exception):
+                await stream_mgr.emit(
+                    repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type=event_type,
+                    payload=body,
+                    correlation_id=correlation_id,
+                )
+
+    # 1. Resolve + hash-verify + persist the manifest (insert-once).
+    try:
+        spec = get_blueprint_spec(automation_key)
+        metadata = get_blueprint_metadata(automation_key)
+        manifest = resolve_automation_manifest(
+            dispatch_payload=payload, blueprint_spec=spec, blueprint_metadata=metadata
+        )
+    except (KeyError, AutomationManifestError) as exc:
+        await _emit("run.failed", {"error": "automation_manifest_unresolved", "detail": str(exc)})
+        raise
+
+    manifest_hash = manifest.compute_hash()
+    persisted = await plane.run_repository.save_automation_manifest(
+        run_id, manifest_hash, manifest.model_dump(mode="json")
+    )
+    # A restart / reclaim must run the persisted manifest, not the current spec.
+    effective_hash = persisted["manifest_hash"]
+    if effective_hash != manifest_hash:
+        await _emit(
+            "run.failed",
+            {"error": "automation_manifest_drift", "persisted": effective_hash, "resolved": manifest_hash},
+        )
+        raise RuntimeError(f"automation manifest drift for run {run_id}")
+
+    # 2. Runtime gate — local-only blueprint with no local node BLOCKS.
+    if manifest.runtime_requirement == "local_only" and not payload.get("local_runtime_available", False):
+        existing = await plane.run_repository.get_run(run_id)
+        if existing is None:
+            await plane.run_repository.create_run(
+                RunRecord(
+                    run_id=run_id,
+                    workspace_id=workspace_id,
+                    principal=f"system:automation:{workspace_id}",
+                    root_executable_id=automation_key,
+                    root_executable_kind="workflow",
+                    root_definition_hash=manifest.blueprint_hash,
+                    correlation_id=correlation_id,
+                    status=RunStatus.FAILED,
+                )
+            )
+        await _emit("run.blocked", {"cause": "LOCAL_RUNTIME_UNAVAILABLE"})
+        await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"cause": "LOCAL_RUNTIME_UNAVAILABLE"})
+        return
+
+    # 3. Create / load the run.
+    run = await plane.run_repository.get_run(run_id)
+    if run is None:
+        run = await plane.run_repository.create_run(
+            RunRecord(
+                run_id=run_id,
+                workspace_id=workspace_id,
+                principal=f"system:automation:{workspace_id}",
+                root_executable_id=automation_key,
+                root_executable_kind="workflow",
+                root_executable_version=manifest.blueprint_version,
+                root_definition_hash=manifest.blueprint_hash,
+                correlation_id=correlation_id,
+                status=RunStatus.RUNNING,
+            )
+        )
+        await _emit("run.started", {"run_id": run_id, "automation_key": automation_key})
+    else:
+        await plane.run_repository.update_run_status(run_id, RunStatus.RUNNING)
+
+    # 4. Execute the pinned blueprint through the WorkflowEngine.
+    ctx = BlueprintContext(
+        manifest=manifest,
+        gateway=plane.gateway,
+        run_id=run_id,
+        config=dict(payload.get("configuration", {})),
+    )
+
+    def _builder(step_spec):
+        fn = get_blueprint_step_fn(automation_key, step_spec.id)
+
+        async def _run(state: dict[str, Any]) -> dict[str, Any]:
+            return await fn(ctx, state)
+
+        return DeterministicStep(name=step_spec.id, fn=_run)
+
+    engine = WorkflowEngine(gateway=plane.gateway)
+    custom_builders = {s.id: _builder for s in spec.steps}
+    try:
+        workflow = await engine.execute_spec(spec, initial_state={"config": ctx.config}, custom_step_builders=custom_builders)
+    except Exception as exc:
+        await _emit("run.failed", {"error": "automation_blueprint_error", "detail": str(exc)})
+        await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"detail": str(exc)})
+        raise
+
+    if workflow.status != WorkflowStatus.COMPLETED:
+        await _emit("run.failed", {"error": "automation_blueprint_not_completed", "status": str(workflow.status)})
+        await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"status": str(workflow.status)})
+        return
+
+    evidence = workflow.state.get("evidence", {})
+    # 5. Persist the evidence + manifest snapshot as a checkpoint, then complete.
+    await plane.run_repository.save_checkpoint(
+        RunCheckpointRecord(
+            run_id=run_id,
+            sequence_no=1,
+            step_name="automation.evidence",
+            state_kind="automation",
+            serialized_state={"evidence": evidence},
+            manifest_snapshot=manifest.model_dump(mode="json"),
+        )
+    )
+    await plane.run_repository.update_run_status(run_id, RunStatus.COMPLETED, final_output={"evidence": evidence})
+    await _emit("run.completed", {"run_id": run_id, "evidence_keys": sorted(evidence.keys())})
