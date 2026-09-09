@@ -1,3 +1,6 @@
+// Founder Trial R1 — strategy-analysis workflow (canvas/SWOT/TOWS/initiatives/
+// cycle-reviews) is PLANNED; every request here returns ApiClient.removed().
+// ignore_for_file: unused_local_variable, unused_field, unused_element, unused_import
 import 'dart:convert';
 import '../../../core/network/api_client.dart';
 import '../models/strategy_workflow_models.dart';
@@ -68,7 +71,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
   // --------------------------------------------------------------------------
 
   Future<WorkspaceStrategySettingsModel> getWorkspaceSettings() async {
-    final res = await ApiClient.get('/operations/strategy/settings');
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/settings');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     final settingsMap = (data['settings'] is Map<String, dynamic>)
@@ -118,10 +121,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'approvalPolicy': ?approval?.toApiString(),
       'expectedRevision': ?rev,
     };
-    final res = await ApiClient.put(
-      '/operations/strategy/settings',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/settings');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     final settingsMap = (data['settings'] is Map<String, dynamic>)
@@ -149,7 +149,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       queryParams.add('status=${Uri.encodeQueryComponent(status)}');
     }
     final q = queryParams.isEmpty ? '' : '?${queryParams.join('&')}';
-    final res = await ApiClient.get('/operations/strategy/objectives$q');
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives$q');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
@@ -174,17 +174,14 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'status': ?status,
       'ownerMemberId': ?ownerMemberId,
     };
-    final res = await ApiClient.post(
-      '/operations/strategy/objectives',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return StrategicObjectiveModel.fromJson(data);
   }
 
   Future<StrategicObjectiveModel> getStrategicObjective(String id) async {
-    final res = await ApiClient.get('/operations/strategy/objectives/$id');
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return StrategicObjectiveModel.fromJson(data);
@@ -209,10 +206,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'ownerMemberId': ?ownerMemberId,
       'expectedRevision': ?expectedRevision,
     };
-    final res = await ApiClient.put(
-      '/operations/strategy/objectives/$id',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return StrategicObjectiveModel.fromJson(data);
@@ -233,10 +227,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
           )
           .toList(),
     };
-    final res = await ApiClient.put(
-      '/operations/strategy/objectives/$objectiveId/bsc-focus',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/bsc-focus');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final scopesRaw = _extractItems(decoded, 'scopes');
@@ -266,9 +257,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
     final q = (status != null && status.isNotEmpty)
         ? '?status=${Uri.encodeQueryComponent(status)}'
         : '';
-    final res = await ApiClient.get(
-      '/operations/strategy/objectives/$objectiveId/analysis/pestel$q',
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/analysis/pestel$q');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
@@ -300,10 +289,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
           .toList()),
       'status': ?status,
     };
-    final res = await ApiClient.post(
-      '/operations/strategy/objectives/$targetObjectiveId/analysis/pestel',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$targetObjectiveId/analysis/pestel');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return PestelSignalModel.fromJson(data);
@@ -331,10 +317,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
           .toList()),
       'status': ?status,
     };
-    final res = await ApiClient.put(
-      '/operations/strategy/objectives/$objectiveId/analysis/pestel/$id',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/analysis/pestel/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return PestelSignalModel.fromJson(data);
@@ -351,9 +334,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
     final q = (status != null && status.isNotEmpty)
         ? '?status=${Uri.encodeQueryComponent(status)}'
         : '';
-    final res = await ApiClient.get(
-      '/operations/strategy/objectives/$objectiveId/analysis/resources$q',
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/analysis/resources$q');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
@@ -392,10 +373,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
           .toList()),
       'status': ?status,
     };
-    final res = await ApiClient.post(
-      '/operations/strategy/objectives/$targetObjectiveId/analysis/resources',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$targetObjectiveId/analysis/resources');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return ResourceCapabilityAssessmentModel.fromJson(data);
@@ -441,10 +419,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
           .toList()),
       'status': ?status,
     };
-    final res = await ApiClient.put(
-      '/operations/strategy/objectives/$objectiveId/analysis/resources/$id',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/analysis/resources/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return ResourceCapabilityAssessmentModel.fromJson(data);
@@ -461,9 +436,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
     final q = (status != null && status.isNotEmpty)
         ? '?status=${Uri.encodeQueryComponent(status)}'
         : '';
-    final res = await ApiClient.get(
-      '/operations/strategy/objectives/$objectiveId/analysis/swot$q',
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/analysis/swot$q');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
@@ -497,10 +470,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'bscPerspectives': bscPerspectives?.map((p) => p.toApiString()).toList(),
       'status': status,
     };
-    final res = await ApiClient.post(
-      '/operations/strategy/objectives/$targetObjectiveId/analysis/swot',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$targetObjectiveId/analysis/swot');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return SwotItemModel.fromJson(data);
@@ -522,20 +492,14 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'bscPerspectives': bscPerspectives?.map((p) => p.toApiString()).toList(),
       'status': status,
     };
-    final res = await ApiClient.put(
-      '/operations/strategy/objectives/$objectiveId/analysis/swot/$id',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/analysis/swot/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return SwotItemModel.fromJson(data);
   }
 
   Future<List<SwotItemModel>> deriveSwotDrafts(String objectiveId) async {
-    final res = await ApiClient.post(
-      '/operations/strategy/objectives/$objectiveId/analysis/swot/derive-drafts',
-      body: {},
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/analysis/swot/derive-drafts');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
@@ -561,9 +525,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       queryParams.add('status=${status.toApiString()}');
     }
     final q = queryParams.isEmpty ? '' : '?${queryParams.join('&')}';
-    final res = await ApiClient.get(
-      '/operations/strategy/objectives/$objectiveId/tows-options$q',
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$objectiveId/tows-options$q');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded);
@@ -591,10 +553,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'swotItemIds': swotLinkIds,
       'status': status,
     };
-    final res = await ApiClient.post(
-      '/operations/strategy/objectives/$targetObjectiveId/tows-options',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/objectives/$targetObjectiveId/tows-options');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
@@ -615,10 +574,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'swotItemIds': swotLinkIds,
       'expectedRevision': expectedRevision,
     };
-    final res = await ApiClient.put(
-      '/operations/strategy/tows-options/$id',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/tows-options/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
@@ -639,10 +595,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'rationale': finalRationale,
       'scorerKind': scorerKind,
     };
-    final res = await ApiClient.post(
-      '/operations/strategy/tows-options/$id/evaluations',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/tows-options/$id/evaluations');
     _checkResponse(res);
     // The evaluation command returns an evaluation record. Reload the option
     // so callers receive the canonical option with its latest priority score.
@@ -660,10 +613,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'reason': ?selectionRationale,
       'supersedeOptionId': ?supersedeOptionId,
     };
-    final res = await ApiClient.post(
-      '/operations/strategy/tows-options/$id/select',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/tows-options/$id/select');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
@@ -674,17 +624,14 @@ class StrategyWorkflowService extends StrategyServiceBase {
     String? rejectionReason,
   }) async {
     final body = <String, dynamic>{'reason': ?rejectionReason};
-    final res = await ApiClient.post(
-      '/operations/strategy/tows-options/$id/reject',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/tows-options/$id/reject');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
   }
 
   Future<TowsOptionModel> getTowsOption(String id) async {
-    final res = await ApiClient.get('/operations/strategy/tows-options/$id');
+    final res = await ApiClient.removed('r1-removed:/operations/strategy/tows-options/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return TowsOptionModel.fromJson(data);
@@ -712,7 +659,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       queryParams.add('status=${Uri.encodeQueryComponent(status)}');
     }
     final q = queryParams.isEmpty ? '' : '?${queryParams.join('&')}';
-    final res = await ApiClient.get('/operations/initiatives$q');
+    final res = await ApiClient.removed('r1-removed:/operations/initiatives$q');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded, 'initiatives');
@@ -745,14 +692,14 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'ownerMemberId': ?ownerMemberId,
       'keyResultIds': ?keyResultIds,
     };
-    final res = await ApiClient.post('/operations/initiatives', body: body);
+    final res = await ApiClient.removed('r1-removed:/operations/initiatives');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
   }
 
   Future<InitiativeModel> getInitiative(String id) async {
-    final res = await ApiClient.get('/operations/initiatives/$id');
+    final res = await ApiClient.removed('r1-removed:/operations/initiatives/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
@@ -775,7 +722,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'milestones': ?milestones,
       'expectedRevision': ?expectedRevision,
     };
-    final res = await ApiClient.put('/operations/initiatives/$id', body: body);
+    final res = await ApiClient.removed('r1-removed:/operations/initiatives/$id');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
@@ -790,10 +737,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'reason': ?reason,
       'expectedRevision': ?expectedRevision,
     };
-    final res = await ApiClient.post(
-      '/operations/initiatives/$id/approve',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/initiatives/$id/approve');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return InitiativeModel.fromJson(data);
@@ -808,14 +752,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       throw StateError('Chưa chọn workspace để tạo công việc');
     }
 
-    final res = await ApiClient.post(
-      '/operations/tasks',
-      body: {
-        'workspaceId': activeWorkspaceId,
-        'title': title,
-        'initiativeId': ?initiativeId,
-      },
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/tasks');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     final id = data['id']?.toString();
@@ -830,7 +767,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
   // --------------------------------------------------------------------------
 
   Future<List<CycleReviewModel>> listCycleReviews(String cycleId) async {
-    final res = await ApiClient.get('/operations/cycles/$cycleId/reviews');
+    final res = await ApiClient.removed('r1-removed:/operations/cycles/$cycleId/reviews');
     _checkResponse(res);
     final decoded = _decodeBody(res);
     final items = _extractItems(decoded, 'reviews');
@@ -840,16 +777,14 @@ class StrategyWorkflowService extends StrategyServiceBase {
   }
 
   Future<CycleReviewModel> getCycleReview(String reviewId) async {
-    final res = await ApiClient.get('/operations/cycle-reviews/$reviewId');
+    final res = await ApiClient.removed('r1-removed:/operations/cycle-reviews/$reviewId');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
   }
 
   Future<CycleReviewModel> startCycleReview(String reviewId) async {
-    final res = await ApiClient.post(
-      '/operations/cycle-reviews/$reviewId/start',
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/cycle-reviews/$reviewId/start');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
@@ -860,10 +795,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
     String? conclusion,
   }) async {
     final body = <String, dynamic>{'conclusion': ?conclusion};
-    final res = await ApiClient.patch(
-      '/operations/cycle-reviews/$reviewId',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/cycle-reviews/$reviewId');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
@@ -873,10 +805,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
     String cycleId,
     int scheduledWeekNo,
   ) async {
-    final res = await ApiClient.post(
-      '/operations/cycles/$cycleId/reviews/custom-mid-cycle',
-      body: {'scheduledWeekNo': scheduledWeekNo},
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/cycles/$cycleId/reviews/custom-mid-cycle');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);
@@ -891,10 +820,7 @@ class StrategyWorkflowService extends StrategyServiceBase {
       'conclusion': ?conclusion,
       'decisionId': ?decisionId,
     };
-    final res = await ApiClient.post(
-      '/operations/cycle-reviews/$reviewId/close',
-      body: body,
-    );
+    final res = await ApiClient.removed('r1-removed:/operations/cycle-reviews/$reviewId/close');
     _checkResponse(res);
     final data = _decodeBody(res) as Map<String, dynamic>;
     return CycleReviewModel.fromJson(data);

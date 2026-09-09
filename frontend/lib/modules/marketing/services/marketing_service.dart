@@ -1,3 +1,6 @@
+// Founder Trial R1 — the marketing cockpit is PLANNED; every request here
+// returns ApiClient.removed(). The R1 marketing pilot uses MarketingMvpService.
+// ignore_for_file: unused_local_variable, unused_field, unused_element, unused_import
 import 'dart:convert';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -106,7 +109,7 @@ class MarketingService {
   Future<List<dynamic>> getProjects() async {
     final workspaceId = await _requireWorkspaceId();
     try {
-      final response = await ApiClient.get('/operations/projects?workspace_id=$workspaceId');
+      final response = await ApiClient.removed('r1-removed:/operations/projects');
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body);
         return data is Map && data['projects'] is List ? (data['projects'] as List<dynamic>) : [];
@@ -124,14 +127,14 @@ class MarketingService {
   Future<Map<String, dynamic>> getCockpitSummary({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/cockpit-summary${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/cockpit-summary');
     return _map(_decode(response), 'summary');
   }
 
   Future<Map<String, dynamic>> getAnalyticsOverview({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/analytics/overview${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/analytics/overview');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -139,7 +142,7 @@ class MarketingService {
   Future<Map<String, dynamic>> getFunnel({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/funnel${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/funnel');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -149,7 +152,7 @@ class MarketingService {
   // ====================================================================
 
   Future<Map<String, dynamic>?> getMarketingContext([String? projectId]) async {
-    final response = await ApiClient.get('/commercial/marketing-context');
+    final response = await ApiClient.removed('r1-removed:/commercial/marketing-context');
     final data = _decode(response);
     if (data is Map) {
       final mapData = Map<String, dynamic>.from(data);
@@ -198,7 +201,7 @@ class MarketingService {
       ...payload,
       'expectedRevision': ?expectedRevision,
     };
-    final response = await ApiClient.patch('/commercial/marketing-context/product-marketing', body: body);
+    final response = await ApiClient.removed('r1-removed:/commercial/marketing-context/product-marketing');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -210,24 +213,24 @@ class MarketingService {
   Future<List<dynamic>> getMarketingObjectives({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/objectives${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/objectives');
     return _list(_decode(response), 'objectives');
   }
 
   Future<Map<String, dynamic>> createMarketingObjective(Map<String, dynamic> payload, {String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.post('/marketing/objectives${await _query(extra)}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/objectives');
     return _map(_decode(response), 'objective');
   }
 
   Future<Map<String, dynamic>> updateMarketingObjective(String objectiveId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/objectives/$objectiveId${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/objectives/$objectiveId');
     return _map(_decode(response), 'objective');
   }
 
   Future<void> deleteMarketingObjective(String objectiveId) async {
-    final response = await ApiClient.delete('/marketing/objectives/$objectiveId${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/objectives/$objectiveId');
     _decode(response);
   }
 
@@ -243,52 +246,46 @@ class MarketingService {
   Future<List<dynamic>> getCampaigns({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/campaigns${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/campaigns');
     return _list(_decode(response), 'campaigns');
   }
 
   Future<Map<String, dynamic>> createCampaign(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/campaigns${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/campaigns');
     return _map(_decode(response), 'campaign');
   }
 
   Future<Map<String, dynamic>> getCampaignDetail(String campaignId) async {
-    final response = await ApiClient.get('/marketing/campaigns/$campaignId${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/campaigns/$campaignId');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> updateCampaign(String campaignId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/campaigns/$campaignId${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/campaigns/$campaignId');
     return _map(_decode(response), 'campaign');
   }
 
   /// Đổi trạng thái chiến dịch. Với `active`/`paused` backend trả về
   /// `status == 'pending_approval'` vì thay đổi phải qua người duyệt.
   Future<Map<String, dynamic>> changeCampaignStatus(String campaignId, String status) async {
-    final response = await ApiClient.post(
-      '/marketing/campaigns/$campaignId/status${await _query()}',
-      body: {'status': status},
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/campaigns/$campaignId/status');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<void> deleteCampaign(String campaignId) async {
-    final response = await ApiClient.delete('/marketing/campaigns/$campaignId${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/campaigns/$campaignId');
     _decode(response);
   }
 
   Future<Map<String, dynamic>> createCampaignAsset(String campaignId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post(
-      '/marketing/campaigns/$campaignId/assets${await _query()}',
-      body: payload,
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/campaigns/$campaignId/assets');
     return _map(_decode(response), 'asset');
   }
 
   Future<Map<String, dynamic>> requestAssetApproval(String assetId) async {
-    final response = await ApiClient.post('/marketing/assets/$assetId/request-approval${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/assets/$assetId/request-approval');
     return _map(_decode(response), 'approval');
   }
 
@@ -297,29 +294,23 @@ class MarketingService {
   // ====================================================================
 
   Future<List<dynamic>> getExperiments() async {
-    final response = await ApiClient.get('/marketing/experiments${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/experiments');
     return _list(_decode(response), 'experiments');
   }
 
   Future<Map<String, dynamic>> createExperiment(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/experiments${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/experiments');
     return _map(_decode(response), 'experiment');
   }
 
   Future<Map<String, dynamic>> evaluateExperiment(String experimentId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post(
-      '/marketing/experiments/$experimentId/evaluate${await _query()}',
-      body: payload,
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/experiments/$experimentId/evaluate');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> decideExperiment(String experimentId, String decision, String? learning) async {
-    final response = await ApiClient.post(
-      '/marketing/experiments/$experimentId/decide${await _query()}',
-      body: {'decision': decision, 'learning': learning},
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/experiments/$experimentId/decide');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -329,28 +320,28 @@ class MarketingService {
   // ====================================================================
 
   Future<Map<String, dynamic>> getLearnings() async {
-    final response = await ApiClient.get('/marketing/learnings${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/learnings');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> createLearning(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/learnings${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/learnings');
     return _map(_decode(response), 'learning');
   }
 
   Future<List<dynamic>> getMetrics() async {
-    final response = await ApiClient.get('/marketing/metrics${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/metrics');
     return _list(_decode(response), 'metrics');
   }
 
   Future<Map<String, dynamic>> upsertMetric(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/metrics${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/metrics');
     return _map(_decode(response), 'metric');
   }
 
   Future<List<dynamic>> getMetricHistory(String metricName) async {
-    final response = await ApiClient.get('/marketing/metrics/$metricName/history${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/metrics/$metricName/history');
     return _list(_decode(response), 'points');
   }
 
@@ -359,40 +350,28 @@ class MarketingService {
   // ====================================================================
 
   Future<List<dynamic>> getSkills() async {
-    final response = await ApiClient.get('/marketing/skills${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/skills');
     return _list(_decode(response), 'skills');
   }
 
   Future<List<dynamic>> getSkillExecutions() async {
-    final response = await ApiClient.get('/marketing/skill-executions${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/skill-executions');
     return _list(_decode(response), 'executions');
   }
 
   Future<Map<String, dynamic>> executeSkill(String capabilityId, Map<String, dynamic> taskInput) async {
-    final response = await ApiClient.post(
-      '/marketing/execute-skill${await _query()}',
-      body: {
-        'capability_id': capabilityId,
-        'task_input': taskInput,
-        'requested_by_agent': 'Marketing Director',
-      },
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/execute-skill');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<List<dynamic>> getApprovals({String status = 'pending'}) async {
-    final response = await ApiClient.get(
-      '/marketing/approvals${await _query({'status': status})}',
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/approvals)}');
     return _list(_decode(response), 'approvals');
   }
 
   Future<Map<String, dynamic>> reviewApproval(String approvalId, bool approved, String? notes) async {
-    final response = await ApiClient.post(
-      '/marketing/approvals/$approvalId/review${await _query()}',
-      body: {'approved': approved, 'review_notes': notes},
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/approvals/$approvalId/review');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -411,10 +390,7 @@ class MarketingService {
       ...research,
       'expectedRevision': ?expectedRevision,
     };
-    final response = await ApiClient.patch(
-      '/commercial/marketing-context/customer-research',
-      body: body,
-    );
+    final response = await ApiClient.removed('r1-removed:/commercial/marketing-context/customer-research');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -429,10 +405,7 @@ class MarketingService {
       ...pm,
       'expectedRevision': ?expectedRevision,
     };
-    final response = await ApiClient.patch(
-      '/commercial/marketing-context/product-marketing',
-      body: body,
-    );
+    final response = await ApiClient.removed('r1-removed:/commercial/marketing-context/product-marketing');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -447,10 +420,7 @@ class MarketingService {
       'offerArchitecture': offer,
       'expectedRevision': ?expectedRevision,
     };
-    final response = await ApiClient.patch(
-      '/commercial/marketing-context/offer-architecture',
-      body: body,
-    );
+    final response = await ApiClient.removed('r1-removed:/commercial/marketing-context/offer-architecture');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -465,10 +435,7 @@ class MarketingService {
       'twelveWeekPlan': plan,
       'expectedRevision': ?expectedRevision,
     };
-    final response = await ApiClient.patch(
-      '/commercial/marketing-context/twelve-week-plan',
-      body: body,
-    );
+    final response = await ApiClient.removed('r1-removed:/commercial/marketing-context/twelve-week-plan');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -477,10 +444,7 @@ class MarketingService {
     final body = <String, dynamic>{
       'expectedRevision': ?expectedRevision,
     };
-    final response = await ApiClient.post(
-      '/commercial/marketing-context/submit-review',
-      body: body,
-    );
+    final response = await ApiClient.removed('r1-removed:/commercial/marketing-context/submit-review');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -489,10 +453,7 @@ class MarketingService {
     final body = <String, dynamic>{
       'expectedRevision': ?expectedRevision,
     };
-    final response = await ApiClient.post(
-      '/commercial/marketing-context/approve',
-      body: body,
-    );
+    final response = await ApiClient.removed('r1-removed:/commercial/marketing-context/approve');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -502,27 +463,27 @@ class MarketingService {
   // ====================================================================
 
   Future<List<dynamic>> getLoops() async {
-    final response = await ApiClient.get('/marketing/loops${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/loops');
     return _list(_decode(response), 'loops');
   }
 
   Future<Map<String, dynamic>> createLoop(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/loops${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/loops');
     return _map(_decode(response), 'loop');
   }
 
   Future<Map<String, dynamic>> updateLoop(String loopId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/loops/$loopId${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/loops/$loopId');
     return _map(_decode(response), 'loop');
   }
 
   Future<void> deleteLoop(String loopId) async {
-    final response = await ApiClient.delete('/marketing/loops/$loopId${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/loops/$loopId');
     _decode(response);
   }
 
   Future<Map<String, dynamic>> triggerLoop(String loopId) async {
-    final response = await ApiClient.post('/marketing/loops/$loopId/trigger${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/loops/$loopId/trigger');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -532,7 +493,7 @@ class MarketingService {
   // ====================================================================
 
   Future<Map<String, dynamic>> calculateAttribution(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/analytics/attribution${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/analytics/attribution');
     return _map(_decode(response), 'attribution');
   }
 
@@ -541,22 +502,22 @@ class MarketingService {
   // ====================================================================
 
   Future<List<dynamic>> getDecisions() async {
-    final response = await ApiClient.get('/marketing/decisions${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/decisions');
     return _list(_decode(response), 'decisions');
   }
 
   Future<Map<String, dynamic>> createDecision(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/decisions${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/decisions');
     return _map(_decode(response), 'decision');
   }
 
   Future<Map<String, dynamic>> updateDecision(String decisionId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/decisions/$decisionId${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/decisions/$decisionId');
     return _map(_decode(response), 'decision');
   }
 
   Future<void> deleteDecision(String decisionId) async {
-    final response = await ApiClient.delete('/marketing/decisions/$decisionId${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/decisions/$decisionId');
     _decode(response);
   }
 
@@ -566,20 +527,17 @@ class MarketingService {
 
   Future<List<dynamic>> getRecommendations({String? status}) async {
     final extra = status != null ? {'status': status} : const <String, String>{};
-    final response = await ApiClient.get('/marketing/recommendations${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/recommendations');
     return _list(_decode(response), 'recommendations');
   }
 
   Future<Map<String, dynamic>> createRecommendation(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/recommendations${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/recommendations');
     return _map(_decode(response), 'recommendation');
   }
 
   Future<Map<String, dynamic>> updateRecommendationStatus(String recId, String status) async {
-    final response = await ApiClient.post(
-      '/marketing/recommendations/$recId/status${await _query()}',
-      body: {'status': status},
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/recommendations/$recId/status');
     return _map(_decode(response), 'recommendation');
   }
 
@@ -599,7 +557,7 @@ class MarketingService {
     if (status != null && status.isNotEmpty) extra['status'] = status;
     if (minCriticality != null) extra['min_criticality'] = minCriticality.toString();
 
-    final response = await ApiClient.get('/marketing/assumptions${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/assumptions');
     final data = _decode(response);
     return data is List ? data : [];
   }
@@ -607,25 +565,25 @@ class MarketingService {
   Future<Map<String, dynamic>> getAssumptionsSummary({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/assumptions/summary${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/assumptions/summary');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> createAssumption(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/assumptions${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/assumptions');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> updateAssumption(String id, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/assumptions/$id${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/assumptions/$id');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<void> deleteAssumption(String id) async {
-    final response = await ApiClient.delete('/marketing/assumptions/$id${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/assumptions/$id');
     _decode(response);
   }
 
@@ -633,19 +591,19 @@ class MarketingService {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
     if (assumptionId != null && assumptionId.isNotEmpty) extra['assumption_id'] = assumptionId;
-    final response = await ApiClient.get('/marketing/evidence${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/evidence');
     final data = _decode(response);
     return data is List ? data : [];
   }
 
   Future<Map<String, dynamic>> createEvidence(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/evidence${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/evidence');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> extractAssumptionsAI(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/extract-assumptions${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/ai/extract-assumptions');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -653,43 +611,37 @@ class MarketingService {
   Future<Map<String, dynamic>> getCanvasesStatus({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/canvases/status${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/canvases/status');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> designExperimentAI(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/design-experiment${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/ai/design-experiment');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> checkScaleWarning(String assumptionId) async {
-    final response = await ApiClient.post(
-      '/marketing/scale-warning-check${await _query()}',
-      body: {'assumption_id': int.tryParse(assumptionId) ?? assumptionId},
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/scale-warning-check');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> completeValidationExperiment(String experimentId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post(
-      '/marketing/experiments/$experimentId/complete${await _query()}',
-      body: payload,
-    );
+    final response = await ApiClient.removed('r1-removed:/marketing/experiments/$experimentId/complete');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> extractInterviewAI(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/extract-interview${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/ai/extract-interview');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> recordCustomerInterview(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/crm/interviews${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/crm/interviews');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -698,7 +650,7 @@ class MarketingService {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
     if (contactId != null && contactId.isNotEmpty) extra['contact_id'] = contactId;
-    final response = await ApiClient.get('/marketing/crm/interviews${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/crm/interviews');
     final data = _decode(response);
     return data is List ? data : [];
   }
@@ -707,25 +659,25 @@ class MarketingService {
     final extra = <String, String>{};
     if (experimentId != null && experimentId.isNotEmpty) extra['experiment_id'] = experimentId;
     if (campaignId != null && campaignId.isNotEmpty) extra['campaign_id'] = campaignId;
-    final response = await ApiClient.get('/marketing/crm/attributions${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/crm/attributions');
     final data = _decode(response);
     return data is List ? data : [];
   }
 
   Future<Map<String, dynamic>> evaluateLearningLoopAI(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/evaluate-learning-loop${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/ai/evaluate-learning-loop');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> recordLearningAndDecision(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/learning-loop/decisions${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/learning-loop/decisions');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> proposeCanvasRevisionAI(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/propose-canvas-revision${await _query()}', body: payload);
+    final response = await ApiClient.removed('r1-removed:/marketing/ai/propose-canvas-revision');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -735,19 +687,19 @@ class MarketingService {
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
     if (canvasType != null && canvasType.isNotEmpty) extra['canvas_type'] = canvasType;
     if (status != null && status.isNotEmpty) extra['status'] = status;
-    final response = await ApiClient.get('/marketing/canvases/revisions${await _query(extra)}');
+    final response = await ApiClient.removed('r1-removed:/marketing/canvases/revisions');
     final data = _decode(response);
     return data is List ? data : [];
   }
 
   Future<Map<String, dynamic>> approveCanvasRevision(String revisionId) async {
-    final response = await ApiClient.post('/marketing/canvases/revisions/$revisionId/approve${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/canvases/revisions/$revisionId/approve');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> rejectCanvasRevision(String revisionId) async {
-    final response = await ApiClient.post('/marketing/canvases/revisions/$revisionId/reject${await _query()}');
+    final response = await ApiClient.removed('r1-removed:/marketing/canvases/revisions/$revisionId/reject');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
