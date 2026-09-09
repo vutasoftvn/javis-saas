@@ -60,7 +60,14 @@ async function grantApplicationAccess(client, applicationRole) {
   }
 }
 
-const BASELINE_MODE = process.argv.includes("--baseline");
+// Founder Trial R1 (Task 10) — `--baseline` mode removed (see company runner).
+if (process.argv.includes("--baseline")) {
+  console.error(
+    "[migrate:cosa] --baseline mode was removed. Rebuild the database with " +
+      "`make test-db-reset` instead of adopting an unknown schema."
+  );
+  process.exit(2);
+}
 const CHECK_MODE = process.argv.includes("--check");
 const CHECK_PENDING_MODE = process.argv.includes("--check-pending");
 const DOWN_FLAG_INDEX = process.argv.indexOf("--down");
@@ -261,21 +268,6 @@ async function main() {
           continue;
         }
 
-        if (BASELINE_MODE) {
-          // Database này đã có sẵn schema từ trước (migrate bằng cơ chế cũ,
-          // ví dụ encore.dev/storage/sqldb's SQLDatabase). --baseline chỉ đánh
-          // dấu "đã áp dụng" trong bảng theo dõi mới, KHÔNG chạy lại SQL (chạy
-          // lại sẽ lỗi "relation already exists"). Chỉ dùng 1 lần cho database
-          // đã tồn tại schema đúng — không dùng cho database rỗng.
-          console.log(`[migrate:cosa] baselining ${service}/${file} (not executed)`);
-          await client.query(
-            "INSERT INTO public.schema_migrations (service, filename, sha256) VALUES ($1, $2, $3)",
-            [service, file, checksum]
-          );
-          appliedCount += 1;
-          continue;
-        }
-
         console.log(`[migrate:cosa] applying ${service}/${file}`);
 
         await client.query("BEGIN");
@@ -294,13 +286,11 @@ async function main() {
       }
     }
 
-    if (!BASELINE_MODE) {
-      await grantApplicationAccess(client, "cosa_app");
-    }
+    await grantApplicationAccess(client, "cosa_app");
 
     console.log(
       appliedCount > 0
-        ? `[migrate:cosa] ${BASELINE_MODE ? "baselined" : "applied"} ${appliedCount} migration(s)`
+        ? `[migrate:cosa] applied ${appliedCount} migration(s)`
         : "[migrate:cosa] nothing to apply, already up to date"
     );
   } finally {

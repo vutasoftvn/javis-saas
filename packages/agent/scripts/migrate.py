@@ -145,7 +145,7 @@ async def check_migration_checksums(database_url: str, migrations_dir: Path) -> 
         await conn.close()
 
 
-async def run_migrations(database_url: str, migrations_dir: Path, *, baseline: bool = False) -> int:
+async def run_migrations(database_url: str, migrations_dir: Path) -> int:
     # `asyncpg.connect()` chỉ nhận scheme "postgresql://"/"postgres://" thuần,
     # trong khi AGENT_DATABASE_URL toàn hệ thống dùng dạng SQLAlchemy async
     # "postgresql+asyncpg://" (xem apps/cosa/composition/agent_plane.py,
@@ -186,17 +186,6 @@ async def run_migrations(database_url: str, migrations_dir: Path, *, baseline: b
                     raise MigrationChecksumMismatchError(file.name)
                 continue
 
-            if baseline:
-                print(f"[migrate:agent] baselining {file.name} (not executed)")
-                await conn.execute(
-                    "INSERT INTO public.schema_migrations (service, filename, sha256) VALUES ($1, $2, $3)",
-                    SERVICE_NAME,
-                    file.name,
-                    checksum,
-                )
-                applied_count += 1
-                continue
-
             print(f"[migrate:agent] applying {file.name}")
             async with conn.transaction():
                 await conn.execute(content)
@@ -208,13 +197,10 @@ async def run_migrations(database_url: str, migrations_dir: Path, *, baseline: b
                 )
             applied_count += 1
 
-        if not baseline:
-            await _grant_application_access(conn)
+        await _grant_application_access(conn)
 
         if applied_count > 0:
-            print(
-                f"[migrate:agent] {'baselined' if baseline else 'applied'} {applied_count} migration(s)"
-            )
+            print(f"[migrate:agent] applied {applied_count} migration(s)")
         else:
             print("[migrate:agent] nothing to apply, already up to date")
 
@@ -275,12 +261,21 @@ async def rollback_migrations(database_url: str, migrations_dir: Path, steps: in
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--baseline", action="store_true")
+    # Founder Trial R1 (Task 10) — accepted only to fail loudly; `--baseline`
+    # (adopt an unknown schema as current) is incompatible with a
+    # test-reset-only product. Rebuild via `make test-db-reset`.
+    parser.add_argument("--baseline", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--check", action="store_true")
     parser.add_argument(
         "--down", type=int, nargs="?", const=1, help="Number of migrations to roll back"
     )
     args = parser.parse_args()
+
+    if args.baseline:
+        raise SystemExit(
+            "[migrate:agent] --baseline mode was removed. Rebuild the database "
+            "with `make test-db-reset` instead of adopting an unknown schema."
+        )
 
     database_url = os.environ.get("AGENT_MIGRATOR_DATABASE_URL")
     if not database_url:
@@ -297,7 +292,7 @@ def main() -> None:
         asyncio.run(rollback_migrations(database_url, migrations_dir, steps=args.down))
         return
 
-    asyncio.run(run_migrations(database_url, migrations_dir, baseline=args.baseline))
+    asyncio.run(run_migrations(database_url, migrations_dir))
 
 
 if __name__ == "__main__":

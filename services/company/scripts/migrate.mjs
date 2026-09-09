@@ -65,7 +65,17 @@ async function grantApplicationAccess(client, applicationRole) {
   }
 }
 
-const BASELINE_MODE = process.argv.includes("--baseline");
+// Founder Trial R1 (Task 10) — `--baseline` (mark historical migrations as
+// applied without executing them) is removed: with a test-reset-only product,
+// marking an unknown existing database as current is incompatible. A pre-001
+// database must be rebuilt via the guarded `make test-db-reset`, not adopted.
+if (process.argv.includes("--baseline")) {
+  console.error(
+    "[migrate:company] --baseline mode was removed. Rebuild the database with " +
+      "`make test-db-reset` instead of adopting an unknown schema."
+  );
+  process.exit(2);
+}
 const CHECK_MODE = process.argv.includes("--check");
 const DOWN_FLAG_INDEX = process.argv.indexOf("--down");
 const DOWN_MODE = DOWN_FLAG_INDEX !== -1;
@@ -221,21 +231,6 @@ async function main() {
           continue;
         }
 
-        if (BASELINE_MODE) {
-          // Database này đã có sẵn schema từ trước (được migrate bằng cơ chế
-          // cũ, ví dụ encore.dev/storage/sqldb's SQLDatabase). --baseline chỉ
-          // đánh dấu "đã áp dụng" trong bảng theo dõi mới, KHÔNG chạy lại SQL
-          // (chạy lại sẽ lỗi "relation already exists"). Chỉ dùng 1 lần cho 1
-          // database đã tồn tại schema đúng — không dùng cho database rỗng.
-          console.log(`[migrate:company] baselining ${service}/${file} (not executed)`);
-          await client.query(
-            "INSERT INTO public.schema_migrations (service, filename, sha256) VALUES ($1, $2, $3)",
-            [service, file, checksum]
-          );
-          appliedCount += 1;
-          continue;
-        }
-
         console.log(`[migrate:company] applying ${service}/${file}`);
 
         await client.query("BEGIN");
@@ -254,13 +249,11 @@ async function main() {
       }
     }
 
-    if (!BASELINE_MODE) {
-      await grantApplicationAccess(client, "workspace_app");
-    }
+    await grantApplicationAccess(client, "workspace_app");
 
     console.log(
       appliedCount > 0
-        ? `[migrate:company] ${BASELINE_MODE ? "baselined" : "applied"} ${appliedCount} migration(s)`
+        ? `[migrate:company] applied ${appliedCount} migration(s)`
         : "[migrate:company] nothing to apply, already up to date"
     );
   } finally {
