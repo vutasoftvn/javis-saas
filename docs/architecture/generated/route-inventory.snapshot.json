@@ -13,26 +13,6 @@
       "resolved": false,
       "owner": null
     },
-    "DELETE /marketing/assumptions": {
-      "resolved": false,
-      "owner": null
-    },
-    "DELETE /marketing/campaigns": {
-      "resolved": false,
-      "owner": null
-    },
-    "DELETE /marketing/decisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "DELETE /marketing/loops": {
-      "resolved": false,
-      "owner": null
-    },
-    "DELETE /marketing/objectives": {
-      "resolved": false,
-      "owner": null
-    },
     "DELETE /strategy/canvases": {
       "resolved": false,
       "owner": null
@@ -58,10 +38,6 @@
       "owner": null
     },
     "GET /commercial/leads": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /commercial/marketing-context": {
       "resolved": true,
       "owner": null
     },
@@ -125,115 +101,7 @@
       "resolved": true,
       "owner": null
     },
-    "GET /marketing/analytics/overview": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/assumptions": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/assumptions/summary": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/campaigns": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/canvases/revisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/canvases/status": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/cockpit-summary": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/crm/attributions": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/crm/interviews": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/decisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/evidence": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/experiments": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/funnel": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/learnings": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/loops": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/metrics": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/objectives": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/recommendations": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/skill-executions": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /marketing/skills": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /operations/cycle-reviews": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/cycles": {
-      "resolved": true,
-      "owner": null
-    },
     "GET /operations/execution-settings": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/initiatives": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/key-results": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/objectives": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/okr-cycles": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/projects": {
       "resolved": true,
       "owner": null
     },
@@ -265,10 +133,6 @@
       "resolved": true,
       "owner": null
     },
-    "GET /operations/strategy/objectives": {
-      "resolved": true,
-      "owner": null
-    },
     "GET /operations/strategy/pilots": {
       "resolved": true,
       "owner": null
@@ -281,10 +145,6 @@
       "resolved": true,
       "owner": "M4"
     },
-    "GET /operations/strategy/settings": {
-      "resolved": true,
-      "owner": null
-    },
     "GET /operations/strategy/stage-context": {
       "resolved": true,
       "owner": null
@@ -294,10 +154,6 @@
       "owner": null
     },
     "GET /operations/strategy/stage-transitions": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/strategy/tows-options": {
       "resolved": true,
       "owner": null
     },
@@ -409,30 +265,6 @@
       "resolved": false,
       "owner": null
     },
-    "PATCH /commercial/marketing-context/product-marketing": {
-      "resolved": true,
-      "owner": null
-    },
-    "PATCH /marketing/assumptions": {
-      "resolved": false,
-      "owner": null
-    },
-    "PATCH /marketing/campaigns": {
-      "resolved": false,
-      "owner": null
-    },
-    "PATCH /marketing/decisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "PATCH /marketing/loops": {
-      "resolved": false,
-      "owner": null
-    },
-    "PATCH /marketing/objectives": {
-      "resolved": false,
-      "owner": null
-    },
     "POST /connectors/zalo/sessions": {
       "resolved": false,
       "owner": null
@@ -445,91 +277,7 @@
       "resolved": true,
       "owner": null
     },
-    "POST /marketing/ai/design-experiment": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/ai/evaluate-learning-loop": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/ai/extract-assumptions": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/ai/extract-interview": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/ai/propose-canvas-revision": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/analytics/attribution": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/assets": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/assumptions": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/campaigns": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/canvases/revisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/crm/interviews": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/decisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/evidence": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/experiments": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/learning-loop/decisions": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/learnings": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/loops": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/metrics": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/objectives": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /marketing/recommendations": {
-      "resolved": false,
-      "owner": null
-    },
     "POST /operations/execution-plans": {
-      "resolved": true,
-      "owner": null
-    },
-    "POST /operations/initiatives": {
       "resolved": true,
       "owner": null
     },
@@ -587,10 +335,6 @@
     },
     "POST /workforce/tools/webhook": {
       "resolved": false,
-      "owner": null
-    },
-    "PUT /operations/initiatives": {
-      "resolved": true,
       "owner": null
     }
   }

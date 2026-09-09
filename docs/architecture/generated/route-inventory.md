@@ -319,6 +319,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/projects/:projectId/founder-brief` | company | ✓ |  | services/company/operations/strategy/handlers/founder-brief.handler.ts |
 | GET | `/operations/projects/:projectId/founder-trial-board` | company | ✓ |  | services/company/operations/strategy/handlers/founder-trial-board.handler.ts |
 | POST | `/operations/projects/:projectId/founder-trial/experiments` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
+| PATCH | `/operations/projects/:projectId/operating-cycle` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
 | GET | `/operations/strategy/action-context` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | GET | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | POST | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
@@ -538,11 +539,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `DELETE /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:324 |
 | `DELETE /execution/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:250 |
 | `DELETE /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:167 |
-| `DELETE /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:628 |
-| `DELETE /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:278 |
-| `DELETE /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:559 |
-| `DELETE /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:520 |
-| `DELETE /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:230 |
 | `DELETE /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:52 |
 | `DELETE /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:388 |
 | `GET /admin` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:39, frontend/lib/modules/settings/services/admin_service.dart:14 |
@@ -550,7 +546,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /channels` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:50 |
 | `GET /channels/list` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:167 |
 | `GET /commercial/leads` | ✓ |  | frontend/lib/modules/sales/services/sales_service.dart:62 |
-| `GET /commercial/marketing-context` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:152 |
 | `GET /connectors` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:14 |
 | `GET /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:141 |
 | `GET /devices` | ✗ GHOST |  | frontend/lib/modules/settings/services/developer_service.dart:14 |
@@ -566,34 +561,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:170 |
 | `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:100, frontend/lib/modules/auth/services/auth_service.dart:531 |
 | `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/settings/services/workspace_orientation_service.dart:16 |
-| `GET /marketing/analytics/overview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:134 |
-| `GET /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:602 |
-| `GET /marketing/assumptions/summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:610 |
-| `GET /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:246, frontend/lib/modules/marketing/services/marketing_service.dart:256 |
-| `GET /marketing/canvases/revisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:738 |
-| `GET /marketing/canvases/status` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:656 |
-| `GET /marketing/cockpit-summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:127 |
-| `GET /marketing/crm/attributions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:710 |
-| `GET /marketing/crm/interviews` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:701 |
-| `GET /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:544 |
-| `GET /marketing/evidence` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:636 |
-| `GET /marketing/experiments` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:300 |
-| `GET /marketing/funnel` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:142 |
-| `GET /marketing/learnings` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:332 |
-| `GET /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:505 |
-| `GET /marketing/metrics` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:343, frontend/lib/modules/marketing/services/marketing_service.dart:353 |
-| `GET /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:213 |
-| `GET /marketing/recommendations` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:569 |
-| `GET /marketing/skill-executions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:367 |
-| `GET /marketing/skills` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:362 |
-| `GET /operations/cycle-reviews` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:843 |
-| `GET /operations/cycles` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:833 |
 | `GET /operations/execution-settings` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:60 |
-| `GET /operations/initiatives` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:715, frontend/lib/modules/strategy/services/strategy_workflow_service.dart:755 |
-| `GET /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:214 |
-| `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:106, frontend/lib/modules/strategy/services/outcomes_service.dart:11, frontend/lib/modules/strategy/services/outcomes_service.dart:85 |
-| `GET /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:66 |
-| `GET /operations/projects` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:109 |
 | `GET /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:21, frontend/lib/modules/vault/services/evidence_service.dart:88 |
 | `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:102, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
 | `GET /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:60 |
@@ -601,15 +569,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /operations/strategy/maturity-assessments` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:153 |
 | `GET /operations/strategy/metric-contracts` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:17 |
 | `GET /operations/strategy/metric-snapshots` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:42 |
-| `GET /operations/strategy/objectives` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:152, frontend/lib/modules/strategy/services/strategy_workflow_service.dart:187 |
 | `GET /operations/strategy/pilots` | ✓ |  | frontend/lib/modules/strategy/services/pilot_run_service.dart:15, frontend/lib/modules/strategy/services/pilot_run_service.dart:31 |
 | `GET /operations/strategy/pmf-scoreboards` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:89, frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:110 |
 | `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:82 |
-| `GET /operations/strategy/settings` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:71 |
 | `GET /operations/strategy/stage-context` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:85 |
 | `GET /operations/strategy/stage-policies` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:14, frontend/lib/modules/strategy/services/stage_service.dart:98 |
 | `GET /operations/strategy/stage-transitions` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:68 |
-| `GET /operations/strategy/tows-options` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:687 |
 | `GET /operations/tasks` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:32, frontend/lib/modules/tasks/services/task_service.dart:18, frontend/lib/modules/tasks/services/task_service.dart:42 … |
 | `GET /operations/tasks/founder-inbox` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:81 |
 | `GET /org` | ✗ GHOST |  | frontend/lib/modules/organization/services/organization_service.dart:14, frontend/lib/modules/organization/services/organization_service.dart:25, frontend/lib/modules/organization/services/organization_service.dart:36 … |
@@ -636,38 +601,11 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workforce/tools` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:84, frontend/lib/modules/agents/services/agent_platform_service.dart:429 |
 | `GET /workspace/file` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:21 |
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
-| `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136, frontend/lib/modules/sales/services/revenue_engine_service.dart:16, frontend/lib/modules/sales/services/revenue_engine_service.dart:70 … |
-| `PATCH /commercial/marketing-context/product-marketing` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:201 |
-| `PATCH /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:622 |
-| `PATCH /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:262 |
-| `PATCH /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:554 |
-| `PATCH /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:515 |
-| `PATCH /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:225 |
+| `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136 |
 | `POST /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:151 |
 | `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:153 |
 | `POST /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:86 |
-| `POST /marketing/ai/design-experiment` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:662 |
-| `POST /marketing/ai/evaluate-learning-loop` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:716 |
-| `POST /marketing/ai/extract-assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:648 |
-| `POST /marketing/ai/extract-interview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:686 |
-| `POST /marketing/ai/propose-canvas-revision` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:728 |
-| `POST /marketing/analytics/attribution` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:535 |
-| `POST /marketing/assets` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:291 |
-| `POST /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:616 |
-| `POST /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:251 |
-| `POST /marketing/canvases/revisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:744, frontend/lib/modules/marketing/services/marketing_service.dart:750 |
-| `POST /marketing/crm/interviews` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:692 |
-| `POST /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:549 |
-| `POST /marketing/evidence` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:642 |
-| `POST /marketing/experiments` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:305 |
-| `POST /marketing/learning-loop/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:722 |
-| `POST /marketing/learnings` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:338 |
-| `POST /marketing/loops` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:510, frontend/lib/modules/marketing/services/marketing_service.dart:525 |
-| `POST /marketing/metrics` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:348 |
-| `POST /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:220 |
-| `POST /marketing/recommendations` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:574 |
 | `POST /operations/execution-plans` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:95, frontend/lib/modules/strategy/services/execution_plan_service.dart:102 |
-| `POST /operations/initiatives` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:748 |
 | `POST /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:36 |
 | `POST /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:132 |
 | `POST /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:75 |
@@ -682,7 +620,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /workforce/routines` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:359 |
 | `POST /workforce/routing/test` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:97 |
 | `POST /workforce/tools/webhook` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:443 |
-| `PUT /operations/initiatives` | ✓ |  | frontend/lib/modules/strategy/services/strategy_workflow_service.dart:778 |
 
 ## 3. Known-broken allowlist (route ma đã biết — owned by M4/M7)
 
