@@ -6,7 +6,8 @@
 // tham chiếu tới capability id đang enabled trong contract; chỉ PLANNED mới có
 // contractEndpoint = null.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SurfacePolicyEntry } from "./surface-policy";
 
@@ -20,9 +21,25 @@ interface RawContract {
   capabilities: RawCapability[];
 }
 
-const CONTRACT_PATH = fileURLToPath(
-  new URL("../../../shared/contracts/mvp-surface.json", import.meta.url)
-);
+// Walk up from this module until `shared/contracts/mvp-surface.json` is found.
+// `import.meta.url` sits at a different depth under `encore run`'s `.encore/`
+// bundle than in the source tree, so a fixed relative path is not enough.
+function resolveContractPath(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 12; i += 1) {
+    const candidate = join(dir, "shared/contracts/mvp-surface.json");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Last resort: the source-tree location.
+  return fileURLToPath(
+    new URL("../../../shared/contracts/mvp-surface.json", import.meta.url)
+  );
+}
+
+const CONTRACT_PATH = resolveContractPath();
 
 let cached: { version: string; enabledIds: ReadonlySet<string> } | null = null;
 
