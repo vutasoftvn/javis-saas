@@ -1,7 +1,61 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../routing/module_routes.dart';
-import 'module_visibility_service.dart';
+import 'workspace_capability_manifest_controller.dart';
+import 'workspace_capability_manifest_model.dart';
+
+/// Founder Trial R1 — module visibility is no longer a second routing authority.
+/// It now derives entirely from [WorkspaceCapabilityManifestController]; the old
+/// `/platform/workspaces/:id/module-visibility` service is removed.
+abstract interface class ModuleVisibilityApi {
+  Future<List<ModuleVisibility>> fetchVisibility(String workspaceId);
+  Future<bool> setWorkspaceEnabled(String workspaceId, OptionalModule module, bool enabled);
+  Future<bool> setUserPreference(String workspaceId, OptionalModule module, bool visible);
+}
+
+/// Reads the per-workspace capability manifest and projects the three optional
+/// modules onto their R1 surface keys. Operator-only mutations are not exposed
+/// to the client in R1 and always return false.
+class ManifestBackedVisibilityApi implements ModuleVisibilityApi {
+  ManifestBackedVisibilityApi({WorkspaceCapabilityManifestController? manifest})
+      : _manifest = manifest ??
+            (Get.isRegistered<WorkspaceCapabilityManifestController>()
+                ? Get.find<WorkspaceCapabilityManifestController>()
+                : Get.put(WorkspaceCapabilityManifestController(), permanent: true));
+
+  final WorkspaceCapabilityManifestController _manifest;
+
+  static const Map<OptionalModule, String> _surfaceKey = {
+    OptionalModule.crm: 'crm.contact_lead',
+    OptionalModule.finance: 'finance.project_budget',
+    // No live legal surface in R1 → always hidden.
+    OptionalModule.legal: 'strategy.__legal_placeholder__',
+  };
+
+  @override
+  Future<List<ModuleVisibility>> fetchVisibility(String workspaceId) async {
+    await _manifest.reloadForWorkspace(workspaceId);
+    return _surfaceKey.entries.map((e) {
+      final status = _manifest.statusFor(e.value);
+      final visible = status == SurfaceStatus.available ||
+          status == SurfaceStatus.pilot ||
+          status == SurfaceStatus.configurationRequired;
+      return ModuleVisibility(
+        module: e.key,
+        workspaceEnabled: visible,
+        userVisible: true,
+      );
+    }).toList();
+  }
+
+  @override
+  Future<bool> setWorkspaceEnabled(String workspaceId, OptionalModule module, bool enabled) async =>
+      false;
+
+  @override
+  Future<bool> setUserPreference(String workspaceId, OptionalModule module, bool visible) async =>
+      false;
+}
 
 enum OptionalModule {
   finance,
@@ -68,7 +122,7 @@ class ModuleVisibility {
 
 class ModuleVisibilityController extends GetxController {
   ModuleVisibilityController({ModuleVisibilityApi? api})
-      : _api = api ?? ModuleVisibilityService();
+      : _api = api ?? ManifestBackedVisibilityApi();
 
   final ModuleVisibilityApi _api;
   final RxMap<OptionalModule, ModuleVisibility> entries = <OptionalModule, ModuleVisibility>{}.obs;

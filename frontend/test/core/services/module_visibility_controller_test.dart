@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/routing/module_routes.dart';
 import 'package:frontend/core/services/module_visibility_controller.dart';
-import 'package:frontend/core/services/module_visibility_service.dart';
 
 class FakeVisibilityApi implements ModuleVisibilityApi {
   FakeVisibilityApi({
