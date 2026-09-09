@@ -64,6 +64,8 @@ class EventIntakeDeps:
     evidence_store: Any
     fingerprint_provider: Any
     caller_workspace_id: str | None = None
+    # Task 4A — resolve Outcome Analyst binding cho task.result_submitted.v1.
+    workforce_repository: Any = None
 
     async def aclose(self) -> None:
         for c in (self.db, self.execution_plane):
@@ -92,6 +94,10 @@ async def build_event_intake_deps(
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     evidence_store = PostgresPromotionEvidenceRepository(session_factory)
 
+    from agent.workforce.repository import PostgresWorkforceRepository
+
+    workforce_repository = PostgresWorkforceRepository(session_factory)
+
     rule_store = PostgresTriggerRuleStore(pool)
     fingerprint_provider = SpecFingerprintProvider(spec_registry)
     trigger_policy = TriggerPolicyService(
@@ -114,4 +120,5 @@ async def build_event_intake_deps(
         evidence_store=evidence_store,
         fingerprint_provider=fingerprint_provider,
         caller_workspace_id=None,  # node đa-workspace; HMAC là ranh giới tin cậy
+        workforce_repository=workforce_repository,
     )

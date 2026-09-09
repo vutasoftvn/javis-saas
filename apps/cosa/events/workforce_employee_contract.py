@@ -46,6 +46,28 @@ def is_workforce_dispatch_event(event_type: str) -> bool:
     return event_type in WORKFORCE_DISPATCH_EVENTS
 
 
+def _to_snake(key: str) -> str:
+    out: list[str] = []
+    for ch in key:
+        if ch.isupper():
+            out.append("_")
+            out.append(ch.lower())
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _normalize_keys(payload: dict[str, object]) -> dict[str, object]:
+    """Company business-event payload dùng camelCase; adapter làm việc với
+    snake_case. Chuẩn hóa (không ghi đè key snake_case đã có)."""
+    norm: dict[str, object] = {}
+    for k, v in payload.items():
+        sk = _to_snake(k)
+        if sk not in norm:
+            norm[sk] = v
+    return norm
+
+
 def adapt_work_package_dispatch(
     payload: dict[str, object],
     *,
@@ -57,6 +79,7 @@ def adapt_work_package_dispatch(
     if not isinstance(payload, dict):
         return None, "invalid_payload"
 
+    payload = _normalize_keys(payload)
     missing = [k for k in _REQUIRED_ATTRIBUTION if not payload.get(k)]
     if missing:
         return None, "missing_workforce_attribution"

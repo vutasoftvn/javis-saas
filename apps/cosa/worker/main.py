@@ -39,6 +39,8 @@ from apps.cosa.worker.handlers import (
     execute_scheduled_session_task,
 )
 from apps.cosa.worker.health import WorkerHealthState, start_worker_health_server
+from apps.cosa.worker.outcome_analysis_run import execute_outcome_analysis_run
+from apps.cosa.worker.work_package_run import execute_work_package_task
 
 __all__ = ["WORKER_ID", "dispatch_one_task", "run_worker_loop"]
 
@@ -438,6 +440,22 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
                         await execute_scheduled_session_task(
                             plane, stream_mgr, payload, run_id=run_id
                         )
+
+                    coro = _with_optional_delay()
+                elif task_type == "work_package":
+
+                    async def _with_optional_delay():
+                        if delay:
+                            await asyncio.sleep(float(delay))
+                        await execute_work_package_task(plane, stream_mgr, payload)
+
+                    coro = _with_optional_delay()
+                elif task_type == "outcome_analysis":
+
+                    async def _with_optional_delay():
+                        if delay:
+                            await asyncio.sleep(float(delay))
+                        await execute_outcome_analysis_run(plane, stream_mgr, payload)
 
                     coro = _with_optional_delay()
                 else:
