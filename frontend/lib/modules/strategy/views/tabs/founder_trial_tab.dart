@@ -7,7 +7,7 @@ import '../../controllers/strategy_controller.dart';
 import '../../founder_trial/founder_trial_board_models.dart';
 import '../../founder_trial/founder_trial_board_service.dart';
 import '../../founder_trial/founder_trial_board_view.dart';
-import '../../services/project_operating_setup_service.dart';
+import '../../founder_trial/founder_trial_commands.dart';
 
 /// Tab "Founder Trial" trong StrategyView (thay ValidationStudioTab).
 /// Vòng lặp có dữ liệu thật: Operating Cycle → Assumptions → Experiments →
@@ -21,7 +21,7 @@ class FounderTrialTab extends StatefulWidget {
 
 class _FounderTrialTabState extends State<FounderTrialTab> {
   final _boardService = FounderTrialBoardService();
-  final _setupService = ProjectOperatingSetupService();
+  final _commands = FounderTrialCommands();
   late final WorkspaceCapabilityManifestController _manifest;
   late final StrategyController _strategy;
 
@@ -94,16 +94,35 @@ class _FounderTrialTabState extends State<FounderTrialTab> {
 
   Future<void> _setCycleDuration(int weeks) async {
     final pid = _projectId;
-    if (pid == null) return;
-    try {
-      await _setupService.updateCycleDuration(pid, weeks);
-      await _loadBoard();
-    } catch (e) {
-      if (mounted) {
+    final cycle = _board?.cycle;
+    if (pid == null || cycle?.cycleId == null || cycle?.revision == null) return;
+
+    // Founder Trial R1 — resize một Operating Cycle ĐANG CHẠY đi qua PATCH
+    // project-scoped với optimistic revision. KHÔNG dùng draft PUT
+    // operating-setup (nó từ chối setup ACTIVE).
+    final res = await _commands.resizeCycle(
+      projectId: pid,
+      cycleId: cycle!.cycleId!,
+      durationWeeks: weeks,
+      expectedRevision: cycle.revision!,
+    );
+    if (!mounted) return;
+    switch (res) {
+      case ApiSuccess():
+        await _loadBoard();
+      case ApiFailure(:final failure):
+        // 412 revision conflict — reload Board và mời founder chọn lại.
+        await _loadBoard();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không đổi được độ dài chu kỳ: $e')),
+          SnackBar(
+            content: Text(
+              failure.code == ApiFailureCode.conflict
+                  ? 'Chu kỳ vừa được đổi ở nơi khác — đã tải lại, vui lòng chọn lại độ dài.'
+                  : 'Không đổi được độ dài chu kỳ: ${failure.message}',
+            ),
+          ),
         );
-      }
     }
   }
 
