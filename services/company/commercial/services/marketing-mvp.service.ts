@@ -18,6 +18,7 @@ import { TenantContext } from "../../shared/types/tenant_context";
 import { MvpSourceRef, MvpSuccess, mvpItem, mvpList } from "../../shared/contracts/mvp-response";
 import { APIError } from "encore.dev/api";
 import type { MarketingContextDTO } from "./marketing-context.service";
+import { assertCommercialProjectInWorkspace } from "./project-record-link.service";
 
 const SOURCE_COMPANY_DB: MvpSourceRef = { kind: "company_db", ref: "commercial.marketing" };
 const SOURCE_CONNECTOR: MvpSourceRef = { kind: "external_connector", ref: "commercial.marketing_metrics" };
@@ -157,6 +158,7 @@ export async function createObjectiveService(
 export interface MarketingCampaignDTO {
   readonly id: string;
   readonly workspaceId: string;
+  readonly projectId: string | null;
   readonly name: string;
   readonly funnelStage: string;
   readonly channels: unknown;
@@ -169,20 +171,30 @@ export interface MarketingCampaignDTO {
 }
 
 export async function listCampaignsMvpService(
-  ctx: TenantContext
+  ctx: TenantContext,
+  projectId?: string
 ): Promise<MvpSuccess<readonly MarketingCampaignDTO[]>> {
 
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
 
+  const conditions = [
+    eq(marketingCampaigns.workspaceId, workspaceIdBigInt),
+    isNull(marketingCampaigns.deletedAt),
+  ];
+  if (projectId) {
+    conditions.push(eq(marketingCampaigns.projectId, BigInt(projectId)));
+  }
+
   const rows = await db
     .select()
     .from(marketingCampaigns)
-    .where(and(eq(marketingCampaigns.workspaceId, workspaceIdBigInt), isNull(marketingCampaigns.deletedAt)))
+    .where(and(...conditions))
     .orderBy(desc(marketingCampaigns.createdAt));
 
   const items: MarketingCampaignDTO[] = rows.map((r) => ({
     id: r.id.toString(),
     workspaceId: r.workspaceId.toString(),
+    projectId: r.projectId ? r.projectId.toString() : null,
     name: r.name,
     funnelStage: r.funnelStage,
     channels: r.channels,
@@ -201,6 +213,7 @@ export async function createCampaignMvpService(
   ctx: TenantContext,
   data: {
     name: string;
+    projectId?: string;
     funnelStage?: string;
     channels?: unknown;
     budget?: number;
@@ -210,12 +223,14 @@ export async function createCampaignMvpService(
 ): Promise<MvpSuccess<MarketingCampaignDTO>> {
 
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
+  if (data.projectId) await assertCommercialProjectInWorkspace(ctx, data.projectId);
 
   const inserted = await db
     .insert(marketingCampaigns)
     .values({
       id: BigInt(Date.now()),
       workspaceId: workspaceIdBigInt,
+      projectId: data.projectId ? BigInt(data.projectId) : null,
       name: data.name,
       funnelStage: data.funnelStage || "discover",
       channels: data.channels || null,
@@ -231,6 +246,7 @@ export async function createCampaignMvpService(
     {
       id: r.id.toString(),
       workspaceId: r.workspaceId.toString(),
+      projectId: r.projectId ? r.projectId.toString() : null,
       name: r.name,
       funnelStage: r.funnelStage,
       channels: r.channels,
@@ -297,6 +313,7 @@ export async function listAssetsMvpService(
 export interface MarketingExperimentDTO {
   readonly id: string;
   readonly workspaceId: string;
+  readonly projectId: string | null;
   readonly campaignId: string | null;
   readonly name: string;
   readonly hypothesis: string;
@@ -312,20 +329,30 @@ export interface MarketingExperimentDTO {
 }
 
 export async function listExperimentsMvpService(
-  ctx: TenantContext
+  ctx: TenantContext,
+  projectId?: string
 ): Promise<MvpSuccess<readonly MarketingExperimentDTO[]>> {
 
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
 
+  const conditions = [
+    eq(marketingExperiments.workspaceId, workspaceIdBigInt),
+    isNull(marketingExperiments.deletedAt),
+  ];
+  if (projectId) {
+    conditions.push(eq(marketingExperiments.projectId, BigInt(projectId)));
+  }
+
   const rows = await db
     .select()
     .from(marketingExperiments)
-    .where(and(eq(marketingExperiments.workspaceId, workspaceIdBigInt), isNull(marketingExperiments.deletedAt)))
+    .where(and(...conditions))
     .orderBy(desc(marketingExperiments.createdAt));
 
   const items: MarketingExperimentDTO[] = rows.map((r) => ({
     id: r.id.toString(),
     workspaceId: r.workspaceId.toString(),
+    projectId: r.projectId ? r.projectId.toString() : null,
     campaignId: r.campaignId?.toString() ?? null,
     name: r.name,
     hypothesis: r.hypothesis,
@@ -346,6 +373,7 @@ export async function listExperimentsMvpService(
 export async function createExperimentMvpService(
   ctx: TenantContext,
   data: {
+    projectId?: string;
     campaignId?: string;
     name: string;
     hypothesis: string;
@@ -357,6 +385,7 @@ export async function createExperimentMvpService(
 ): Promise<MvpSuccess<MarketingExperimentDTO>> {
 
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
+  if (data.projectId) await assertCommercialProjectInWorkspace(ctx, data.projectId);
 
   if (data.campaignId) {
     const camp = await db
@@ -374,6 +403,7 @@ export async function createExperimentMvpService(
     .values({
       id: BigInt(Date.now()),
       workspaceId: workspaceIdBigInt,
+      projectId: data.projectId ? BigInt(data.projectId) : null,
       campaignId: data.campaignId ? BigInt(data.campaignId) : null,
       name: data.name,
       hypothesis: data.hypothesis,
@@ -392,6 +422,7 @@ export async function createExperimentMvpService(
     {
       id: r.id.toString(),
       workspaceId: r.workspaceId.toString(),
+      projectId: r.projectId ? r.projectId.toString() : null,
       campaignId: r.campaignId?.toString() ?? null,
       name: r.name,
       hypothesis: r.hypothesis,

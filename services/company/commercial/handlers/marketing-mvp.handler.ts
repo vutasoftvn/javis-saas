@@ -83,16 +83,21 @@ export const createObjective = api(
 
 // ─── Campaigns ───
 
+export interface ListCampaignsMvpRequest extends MvpHeaderRequest {
+  projectId?: Query<string>;
+}
+
 export const listCampaignsMvp = api(
   { expose: true, method: "GET", path: "/commercial/marketing/campaigns" },
-  async ({ workspaceId, authorization }: MvpHeaderRequest): Promise<MvpSuccess<readonly MarketingCampaignDTO[]>> => {
+  async ({ workspaceId, authorization, projectId }: ListCampaignsMvpRequest): Promise<MvpSuccess<readonly MarketingCampaignDTO[]>> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    return listCampaignsMvpService(ctx);
+    return listCampaignsMvpService(ctx, projectId);
   }
 );
 
 export interface CreateCampaignMvpRequest extends MvpHeaderRequest {
   name: string;
+  projectId?: string;
   funnelStage?: string;
   channels?: unknown;
   budget?: number;
@@ -106,6 +111,7 @@ export const createCampaignMvp = api(
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return createCampaignMvpService(ctx, {
       name: req.name,
+      projectId: req.projectId,
       funnelStage: req.funnelStage,
       channels: req.channels,
       budget: req.budget,
@@ -131,15 +137,20 @@ export const listAssetsMvp = api(
 
 // ─── Experiments ───
 
+export interface ListExperimentsMvpRequest extends MvpHeaderRequest {
+  projectId?: Query<string>;
+}
+
 export const listExperimentsMvp = api(
   { expose: true, method: "GET", path: "/commercial/marketing/experiments" },
-  async ({ workspaceId, authorization }: MvpHeaderRequest): Promise<MvpSuccess<readonly MarketingExperimentDTO[]>> => {
+  async ({ workspaceId, authorization, projectId }: ListExperimentsMvpRequest): Promise<MvpSuccess<readonly MarketingExperimentDTO[]>> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    return listExperimentsMvpService(ctx);
+    return listExperimentsMvpService(ctx, projectId);
   }
 );
 
 export interface CreateExperimentMvpRequest extends MvpHeaderRequest {
+  projectId?: string;
   campaignId?: string;
   name: string;
   hypothesis: string;
@@ -154,6 +165,7 @@ export const createExperimentMvp = api(
   async (req: CreateExperimentMvpRequest): Promise<MvpSuccess<MarketingExperimentDTO>> => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return createExperimentMvpService(ctx, {
+      projectId: req.projectId,
       campaignId: req.campaignId,
       name: req.name,
       hypothesis: req.hypothesis,
