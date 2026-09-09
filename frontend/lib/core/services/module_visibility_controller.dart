@@ -18,12 +18,15 @@ abstract interface class ModuleVisibilityApi {
 /// to the client in R1 and always return false.
 class ManifestBackedVisibilityApi implements ModuleVisibilityApi {
   ManifestBackedVisibilityApi({WorkspaceCapabilityManifestController? manifest})
-      : _manifest = manifest ??
-            (Get.isRegistered<WorkspaceCapabilityManifestController>()
-                ? Get.find<WorkspaceCapabilityManifestController>()
-                : Get.put(WorkspaceCapabilityManifestController(), permanent: true));
+      : _injected = manifest;
 
-  final WorkspaceCapabilityManifestController _manifest;
+  final WorkspaceCapabilityManifestController? _injected;
+
+  WorkspaceCapabilityManifestController get _manifest =>
+      _injected ??
+      (Get.isRegistered<WorkspaceCapabilityManifestController>()
+          ? Get.find<WorkspaceCapabilityManifestController>()
+          : Get.put(WorkspaceCapabilityManifestController()));
 
   static const Map<OptionalModule, String> _surfaceKey = {
     OptionalModule.crm: 'crm.contact_lead',
