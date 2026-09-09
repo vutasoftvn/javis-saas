@@ -13,10 +13,15 @@ skill (InvalidCapabilityBoundary).
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 from uuid import UUID, uuid4
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.workforce.outcome_analysis import (
     OUTCOME_ANALYSIS_SKILL_ID,
@@ -110,6 +115,9 @@ class SkillGovernanceRepository(Protocol):
     async def latest_policy_version(
         self, workspace_id: str, analysis_kind: str
     ) -> OutcomeAnalysisPolicyVersion | None: ...
+    async def get_policy_version(
+        self, workspace_id: str, version_id: UUID | str
+    ) -> OutcomeAnalysisPolicyVersion | None: ...
     async def append_event(
         self, workspace_id: str, analysis_kind: str, event_type: str, actor_id: str
     ) -> None: ...
@@ -145,7 +153,9 @@ class InMemorySkillGovernanceRepository:
 
     async def next_version_no(self, workspace_id: str, analysis_kind: str) -> int:
         existing = [
-            v for v in self.versions if v.workspace_id == workspace_id and v.analysis_kind == analysis_kind
+            v
+            for v in self.versions
+            if v.workspace_id == workspace_id and v.analysis_kind == analysis_kind
         ]
         return len(existing) + 1
 
@@ -159,14 +169,265 @@ class InMemorySkillGovernanceRepository:
         self, workspace_id: str, analysis_kind: str
     ) -> OutcomeAnalysisPolicyVersion | None:
         matches = [
-            v for v in self.versions if v.workspace_id == workspace_id and v.analysis_kind == analysis_kind
+            v
+            for v in self.versions
+            if v.workspace_id == workspace_id and v.analysis_kind == analysis_kind
         ]
         return matches[-1] if matches else None
+
+    async def get_policy_version(
+        self, workspace_id: str, version_id: UUID | str
+    ) -> OutcomeAnalysisPolicyVersion | None:
+        return next(
+            (
+                v
+                for v in self.versions
+                if str(v.policy_version_id) == str(version_id) and v.workspace_id == workspace_id
+            ),
+            None,
+        )
 
     async def append_event(
         self, workspace_id: str, analysis_kind: str, event_type: str, actor_id: str
     ) -> None:
         self.events.append((analysis_kind, event_type, actor_id))
+
+
+def _draft_row(d: OutcomeAnalysisPolicyDraft) -> dict[str, Any]:
+    return {
+        "draft_id": str(d.draft_id),
+        "workspace_id": d.workspace_id,
+        "analysis_kind": d.analysis_kind,
+        "policy": d.policy,
+        "analyst_employee_id": str(d.analyst_employee_id),
+        "analyst_assignment_id": str(d.analyst_assignment_id),
+        "skill_id": d.skill_id,
+        "skill_version": d.skill_version,
+        "definition_hash": d.definition_hash,
+        "capability_allowlist": json.dumps(list(d.capability_allowlist)),
+        "depth_rules": json.dumps(d.depth_rules),
+        "status": d.status,
+        "version": d.version,
+        "created_by": d.created_by,
+    }
+
+
+def _to_draft(row: Any) -> OutcomeAnalysisPolicyDraft:
+    def _j(v: Any, default: Any) -> Any:
+        return default if v is None else (v if isinstance(v, (dict, list)) else json.loads(v))
+
+    return OutcomeAnalysisPolicyDraft(
+        draft_id=UUID(str(row["draft_id"])),
+        workspace_id=row["workspace_id"],
+        analysis_kind=row["analysis_kind"],
+        policy=row["policy"],
+        analyst_employee_id=UUID(str(row["analyst_employee_id"])),
+        analyst_assignment_id=UUID(str(row["analyst_assignment_id"])),
+        skill_id=row["skill_id"],
+        skill_version=row["skill_version"],
+        definition_hash=row["definition_hash"],
+        capability_allowlist=tuple(_j(row["capability_allowlist"], [])),
+        depth_rules=_j(row["depth_rules"], {}),
+        status=row["status"],
+        version=row["version"],
+        created_by=row["created_by"],
+    )
+
+
+def _to_version(row: Any) -> OutcomeAnalysisPolicyVersion:
+    def _j(v: Any, default: Any) -> Any:
+        return default if v is None else (v if isinstance(v, (dict, list)) else json.loads(v))
+
+    return OutcomeAnalysisPolicyVersion(
+        policy_version_id=UUID(str(row["policy_version_id"])),
+        workspace_id=row["workspace_id"],
+        analysis_kind=row["analysis_kind"],
+        version_no=row["version_no"],
+        policy=row["policy"],
+        analyst_employee_id=UUID(str(row["analyst_employee_id"])),
+        analyst_assignment_id=UUID(str(row["analyst_assignment_id"])),
+        skill_id=row["skill_id"],
+        skill_version=row["skill_version"],
+        definition_hash=row["definition_hash"],
+        capability_allowlist=tuple(_j(row["capability_allowlist"], [])),
+        effective_at=row["effective_at"],
+        created_by=row["created_by"],
+        approved_by=row["approved_by"],
+        rollback_target_version_id=(
+            UUID(str(row["rollback_target_version_id"]))
+            if row["rollback_target_version_id"]
+            else None
+        ),
+    )
+
+
+class PostgresSkillGovernanceRepository:
+    def __init__(self, session_factory: Callable[[], AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def create_policy_draft(
+        self, draft: OutcomeAnalysisPolicyDraft
+    ) -> OutcomeAnalysisPolicyDraft:
+        async with self._session_factory() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent.outcome_analysis_policy_drafts (
+                        draft_id, workspace_id, analysis_kind, policy, analyst_employee_id,
+                        analyst_assignment_id, skill_id, skill_version, definition_hash,
+                        capability_allowlist, depth_rules, status, version, created_by
+                    ) VALUES (
+                        :draft_id, :workspace_id, :analysis_kind, :policy, :analyst_employee_id,
+                        :analyst_assignment_id, :skill_id, :skill_version, :definition_hash,
+                        :capability_allowlist, :depth_rules, :status, :version, :created_by
+                    )
+                    """
+                ),
+                _draft_row(draft),
+            )
+            await session.commit()
+        return draft
+
+    async def get_policy_draft(
+        self, workspace_id: str, draft_id: UUID | str
+    ) -> OutcomeAnalysisPolicyDraft | None:
+        try:
+            did = UUID(str(draft_id))
+        except ValueError:
+            return None
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    "SELECT * FROM agent.outcome_analysis_policy_drafts "
+                    "WHERE workspace_id = :w AND draft_id = :d"
+                ),
+                {"w": workspace_id, "d": str(did)},
+            )
+            row = res.mappings().first()
+            return _to_draft(row) if row else None
+
+    async def mark_draft_published(self, draft_id: UUID | str) -> None:
+        async with self._session_factory() as session:
+            await session.execute(
+                text(
+                    "UPDATE agent.outcome_analysis_policy_drafts "
+                    "SET status = 'PUBLISHED', updated_at = now() WHERE draft_id = :d"
+                ),
+                {"d": str(draft_id)},
+            )
+            await session.commit()
+
+    async def next_version_no(self, workspace_id: str, analysis_kind: str) -> int:
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    "SELECT COALESCE(MAX(version_no), 0) + 1 AS n "
+                    "FROM agent.outcome_analysis_policy_versions "
+                    "WHERE workspace_id = :w AND analysis_kind = :k"
+                ),
+                {"w": workspace_id, "k": analysis_kind},
+            )
+            return int(res.scalar_one())
+
+    async def insert_policy_version(
+        self, version: OutcomeAnalysisPolicyVersion
+    ) -> OutcomeAnalysisPolicyVersion:
+        async with self._session_factory() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent.outcome_analysis_policy_versions (
+                        policy_version_id, workspace_id, analysis_kind, version_no, policy,
+                        analyst_employee_id, analyst_assignment_id, skill_id, skill_version,
+                        definition_hash, capability_allowlist, depth_rules, effective_at,
+                        created_by, approved_by, rollback_target_version_id
+                    ) VALUES (
+                        :policy_version_id, :workspace_id, :analysis_kind, :version_no, :policy,
+                        :analyst_employee_id, :analyst_assignment_id, :skill_id, :skill_version,
+                        :definition_hash, :capability_allowlist, '{}'::jsonb, :effective_at,
+                        :created_by, :approved_by, :rollback_target_version_id
+                    )
+                    """
+                ),
+                {
+                    "policy_version_id": str(version.policy_version_id),
+                    "workspace_id": version.workspace_id,
+                    "analysis_kind": version.analysis_kind,
+                    "version_no": version.version_no,
+                    "policy": version.policy,
+                    "analyst_employee_id": str(version.analyst_employee_id),
+                    "analyst_assignment_id": str(version.analyst_assignment_id),
+                    "skill_id": version.skill_id,
+                    "skill_version": version.skill_version,
+                    "definition_hash": version.definition_hash,
+                    "capability_allowlist": json.dumps(list(version.capability_allowlist)),
+                    "effective_at": version.effective_at,
+                    "created_by": version.created_by,
+                    "approved_by": version.approved_by,
+                    "rollback_target_version_id": (
+                        str(version.rollback_target_version_id)
+                        if version.rollback_target_version_id
+                        else None
+                    ),
+                },
+            )
+            await session.commit()
+        return version
+
+    async def latest_policy_version(
+        self, workspace_id: str, analysis_kind: str
+    ) -> OutcomeAnalysisPolicyVersion | None:
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    "SELECT * FROM agent.outcome_analysis_policy_versions "
+                    "WHERE workspace_id = :w AND analysis_kind = :k "
+                    "ORDER BY version_no DESC LIMIT 1"
+                ),
+                {"w": workspace_id, "k": analysis_kind},
+            )
+            row = res.mappings().first()
+            return _to_version(row) if row else None
+
+    async def get_policy_version(
+        self, workspace_id: str, version_id: UUID | str
+    ) -> OutcomeAnalysisPolicyVersion | None:
+        try:
+            vid = UUID(str(version_id))
+        except ValueError:
+            return None
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    "SELECT * FROM agent.outcome_analysis_policy_versions "
+                    "WHERE workspace_id = :w AND policy_version_id = :v"
+                ),
+                {"w": workspace_id, "v": str(vid)},
+            )
+            row = res.mappings().first()
+            return _to_version(row) if row else None
+
+    async def append_event(
+        self, workspace_id: str, analysis_kind: str, event_type: str, actor_id: str
+    ) -> None:
+        async with self._session_factory() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent.outcome_analysis_policy_events (
+                        event_id, workspace_id, analysis_kind, event_type, actor_id, payload
+                    ) VALUES (:e, :w, :k, :t, :a, '{}'::jsonb)
+                    """
+                ),
+                {
+                    "e": str(uuid4()),
+                    "w": workspace_id,
+                    "k": analysis_kind,
+                    "t": event_type,
+                    "a": actor_id,
+                },
+            )
+            await session.commit()
 
 
 async def create_policy_draft(
@@ -302,10 +563,7 @@ async def rollback_outcome_analysis_policy(
     if not await validators.is_founder(workspace_id, actor_id):
         raise FounderApprovalRequired("only a founder may roll back an analysis policy")
 
-    target = next(
-        (v for v in getattr(repository, "versions", []) if str(v.policy_version_id) == str(target_version_id)),
-        None,
-    )
+    target = await repository.get_policy_version(workspace_id, target_version_id)
     if target is None:
         raise ValueError("rollback target version not found")
 
