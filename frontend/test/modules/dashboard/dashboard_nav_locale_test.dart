@@ -43,7 +43,7 @@ void main() {
     // In Vietnamese
     expect(find.text('Hội thoại & Trung tâm'), findsOneWidget);
     expect(find.text('Chu kỳ & Chiến lược'), findsOneWidget);
-    expect(find.text('Công việc & Vận hành'), findsOneWidget);
+    expect(find.text('Đội ngũ AI & Nghiệp vụ'), findsOneWidget);
 
     // Switch to English
     Get.updateLocale(const Locale('en', 'US'));
@@ -52,6 +52,6 @@ void main() {
     // In English
     expect(find.text('Conversation & Center'), findsOneWidget);
     expect(find.text('Cycle & Strategy'), findsOneWidget);
-    expect(find.text('Work & Operations'), findsOneWidget);
+    expect(find.text('AI Team & Business'), findsOneWidget);
   });
 }

@@ -38,7 +38,6 @@ import 'package:frontend/modules/approvals/controllers/approvals_controller.dart
 import 'package:frontend/modules/approvals/services/approvals_service.dart';
 import 'package:frontend/modules/approvals/views/approvals_view.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
-import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
 import 'package:frontend/modules/hologram_hub/widgets/draggable_chat_panel.dart';
 import 'package:frontend/modules/settings/bindings/settings_binding.dart';
@@ -175,15 +174,6 @@ Future<void> pumpShellAt(WidgetTester tester, String initialRoute) async {
   _drainCosmeticOverflowExceptions(tester);
 }
 
-/// Sau fix Critical #1, `AppShell` không còn tự mở nhóm sidebar chứa mục
-/// active nữa (đó chính là mutation gây bug) — người dùng thật phải bấm mở
-/// nhóm trước khi thấy mục con. Helper này mô phỏng đúng bước đó (đọc
-/// `DashboardController` thật đang dùng trong cây widget, không tự bịa
-/// state) trước khi tap 1 mục con trong sidebar.
-void _expandSidebarGroup(int groupIndex) {
-  Get.find<DashboardController>().expandedGroupIndex.value = groupIndex;
-}
-
 void main() {
   setUp(() async {
     Get.testMode = true;
@@ -210,17 +200,14 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('back from approvals returns to tasks instead of resetting dashboard index', (tester) async {
+  testWidgets('back from a retained module returns to the previous route, not a dashboard-index reset', (tester) async {
     await pumpShellAt(tester, WorkspaceModule.tasks.path);
     expect(find.byType(TasksView), findsOneWidget);
 
-    // "Phê duyệt" nằm trong nhóm "Công việc & Vận hành" (index 2 trong
-    // `DashboardNavConfig.coreNavGroups`) — nhóm nhiều mục nên mặc định thu
-    // gọn, phải mở trước khi tap được.
-    _expandSidebarGroup(2);
-    await tester.pump();
-
-    await tester.tap(find.text('Phê duyệt'));
+    // Founder Trial R1 sidebar no longer lists a legacy module item; drive the
+    // navigation programmatically — the point of this test is Navigator stack
+    // back behavior, not the sidebar.
+    Get.toNamed(WorkspaceModule.approvals.path);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     _drainCosmeticOverflowExceptions(tester);

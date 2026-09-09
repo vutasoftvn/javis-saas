@@ -25,7 +25,7 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('tapping the menu icon opens a module list with OKRs entry', (
+  testWidgets('tapping the menu icon opens the R1 module list (Strategy entry)', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -49,7 +49,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('OKRs'), findsOneWidget);
-    expect(find.text('Dự án'), findsOneWidget);
+    expect(find.text('Chiến lược'), findsOneWidget);
+    expect(find.text('Cài đặt'), findsWidgets);
   });
 }

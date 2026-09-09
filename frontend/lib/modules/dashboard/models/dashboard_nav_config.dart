@@ -59,6 +59,9 @@ class DashboardNavGroup {
 }
 
 class DashboardNavConfig {
+  // Founder Trial R1 — sidebar giữ đúng 5 module: Founder Trial (Chiến lược),
+  // CRM, Marketing Pilot, Tài chính, Cài đặt (+ Command Center là entrypoint).
+  // Mọi module legacy chỉ còn route PLANNED placeholder, không hiện trên sidebar.
   static const List<DashboardNavGroup> coreNavGroups = [
     DashboardNavGroup(
       title: 'Hội thoại & Trung tâm',
@@ -85,80 +88,6 @@ class DashboardNavConfig {
           label: 'Chiến lược',
           labelKey: L10nKey.navStrategy,
           index: 3,
-          flagKey: 'strategy_module',
-        ),
-        DashboardNavItem(
-          icon: Icons.rocket_launch_outlined,
-          selectedIcon: Icons.rocket_launch,
-          label: 'Dự án',
-          labelKey: L10nKey.navProjects,
-          index: 29,
-        ),
-        DashboardNavItem(
-          icon: Icons.track_changes_outlined,
-          selectedIcon: Icons.track_changes,
-          label: 'OKRs',
-          labelKey: L10nKey.navOkrs,
-          index: 27,
-        ),
-        DashboardNavItem(
-          icon: Icons.calendar_month_outlined,
-          selectedIcon: Icons.calendar_month,
-          label: 'Kế hoạch 12WY',
-          labelKey: L10nKey.navTwelveWy,
-          index: 28,
-        ),
-        DashboardNavItem(
-          icon: Icons.account_balance_outlined,
-          selectedIcon: Icons.account_balance,
-          label: 'Nguồn lực & Tài trợ',
-          labelKey: L10nKey.navFunding,
-          index: 32,
-        ),
-      ],
-    ),
-    DashboardNavGroup(
-      title: 'Công việc & Vận hành',
-      titleKey: L10nKey.navGroupOperations,
-      groupIcon: Icons.work_outline,
-      items: [
-        DashboardNavItem(
-          icon: Icons.check_box_outline_blank,
-          selectedIcon: Icons.check_box,
-          label: 'Nhiệm vụ',
-          labelKey: L10nKey.moduleTasks,
-          index: 1,
-        ),
-        DashboardNavItem(
-          icon: Icons.fact_check_outlined,
-          selectedIcon: Icons.fact_check,
-          label: 'Phê duyệt',
-          labelKey: L10nKey.navApprovals,
-          index: 6,
-        ),
-        DashboardNavItem(
-          icon: Icons.notification_important_outlined,
-          selectedIcon: Icons.notification_important,
-          label: 'Cần bạn xử lý',
-          labelKey: L10nKey.navNeedsYou,
-          index: 24,
-          flagKey: 'needs_you_queue_v13_1',
-        ),
-        DashboardNavItem(
-          icon: Icons.block_outlined,
-          selectedIcon: Icons.block,
-          label: 'Công việc tắc nghẽn',
-          labelKey: L10nKey.navBlockedWork,
-          index: 25,
-          flagKey: 'structured_blocker_v13_1',
-        ),
-        DashboardNavItem(
-          icon: Icons.visibility_outlined,
-          selectedIcon: Icons.visibility,
-          label: 'Giám sát công việc',
-          labelKey: L10nKey.navWorkInspector,
-          index: 26,
-          flagKey: 'work_inspector_v13_1',
         ),
       ],
     ),
@@ -167,21 +96,6 @@ class DashboardNavConfig {
       titleKey: L10nKey.navGroupAi,
       groupIcon: Icons.groups_outlined,
       items: [
-        DashboardNavItem(
-          icon: Icons.groups_outlined,
-          selectedIcon: Icons.groups,
-          label: 'Đội ngũ AI Agents',
-          labelKey: L10nKey.navAiAgents,
-          index: 7,
-        ),
-        DashboardNavItem(
-          icon: Icons.gavel_outlined,
-          selectedIcon: Icons.gavel,
-          label: 'Pháp lý',
-          labelKey: L10nKey.moduleLegal,
-          moduleKey: 'legal',
-          index: 22,
-        ),
         DashboardNavItem(
           icon: Icons.campaign_outlined,
           selectedIcon: Icons.campaign,
@@ -197,18 +111,11 @@ class DashboardNavConfig {
           moduleKey: 'crm',
           index: 23,
         ),
-        DashboardNavItem(
-          icon: Icons.psychology_outlined,
-          selectedIcon: Icons.psychology,
-          label: 'Kỹ năng AI (Skill Registry)',
-          labelKey: L10nKey.navSkillRegistry,
-          index: 33,
-        ),
       ],
     ),
     DashboardNavGroup(
-      title: 'Tài chính & Tri thức',
-      titleKey: L10nKey.navGroupFinanceVault,
+      title: 'Tài chính',
+      titleKey: L10nKey.moduleFinance,
       groupIcon: Icons.account_balance_outlined,
       items: [
         DashboardNavItem(
@@ -219,42 +126,13 @@ class DashboardNavConfig {
           moduleKey: 'finance',
           index: 21,
         ),
-        DashboardNavItem(
-          icon: Icons.folder_open,
-          selectedIcon: Icons.folder,
-          label: 'Kho tri thức',
-          labelKey: L10nKey.navVault,
-          index: 2,
-        ),
       ],
     ),
     DashboardNavGroup(
-      title: 'Tổ chức & Cài đặt',
-      titleKey: L10nKey.navGroupOrganization,
+      title: 'Cài đặt',
+      titleKey: L10nKey.navSettings,
       groupIcon: Icons.settings_outlined,
       items: [
-        DashboardNavItem(
-          icon: Icons.corporate_fare_outlined,
-          selectedIcon: Icons.corporate_fare,
-          label: 'Sơ đồ tổ chức',
-          labelKey: L10nKey.navOrgChart,
-          index: 19,
-          flagKey: 'advanced_org_chart_v13',
-        ),
-        DashboardNavItem(
-          icon: Icons.account_tree_outlined,
-          selectedIcon: Icons.account_tree,
-          label: 'Quy trình',
-          labelKey: L10nKey.navWorkflows,
-          index: 5,
-        ),
-        DashboardNavItem(
-          icon: Icons.tune_rounded,
-          selectedIcon: Icons.tune,
-          label: 'Quản trị Template',
-          labelKey: L10nKey.navTemplates,
-          index: 30,
-        ),
         DashboardNavItem(
           icon: Icons.settings_outlined,
           selectedIcon: Icons.settings,

@@ -34,8 +34,8 @@ Widget buildLocalizedSidebar(SupportedLocale initial) {
 
   Get.put(FeatureFlagsController(), permanent: true);
   final dashboardController = Get.put(DashboardController(), permanent: true);
-  // Expand group containing Finance (group index 4: 'Tài chính & Tri thức')
-  dashboardController.expandedGroupIndex.value = 4;
+  // Founder Trial R1: Finance group is index 3 (Conversation, Cycle, AI, Finance).
+  dashboardController.expandedGroupIndex.value = 3;
 
   return GetMaterialApp(
     translations: AppTranslations(),
@@ -50,15 +50,19 @@ Widget buildLocalizedSidebar(SupportedLocale initial) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('sidebar re-renders finance label after changing to en-US', (tester) async {
+  testWidgets('sidebar re-renders a nav label after changing to en-US', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(buildLocalizedSidebar(SupportedLocale.viVN));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tài chính'), findsOneWidget);
+    expect(find.text('Tài chính'), findsWidgets);
 
     await Get.find<LocaleController>().applyServerLocale(SupportedLocale.enUS);
     await tester.pumpAndSettle();
 
-    expect(find.text('Finance'), findsOneWidget);
+    expect(find.text('Finance'), findsWidgets);
   });
 }

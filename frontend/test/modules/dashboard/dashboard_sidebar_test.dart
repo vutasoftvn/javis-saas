@@ -105,7 +105,7 @@ void main() {
     expect(find.textContaining('Demo Stage'), findsNothing);
   });
 
-  testWidgets('hides Finance and Legal navigation but leaves core modules visible', (tester) async {
+  testWidgets('Founder Trial R1 sidebar: only the 5 retained modules, no Tasks/Legal', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -135,8 +135,12 @@ void main() {
     );
     await tester.pump();
 
+    // Finance hidden by manifest; Legal/Tasks not in the R1 sidebar at all.
     expect(find.text('Finance'), findsNothing);
     expect(find.text('Legal'), findsNothing);
-    expect(find.text('Tasks'), findsOneWidget);
+    expect(find.text('Tasks'), findsNothing);
+    expect(find.text('OKRs'), findsNothing);
+    expect(find.text('Approvals'), findsNothing);
+    expect(find.text('Vault'), findsNothing);
   });
 }
