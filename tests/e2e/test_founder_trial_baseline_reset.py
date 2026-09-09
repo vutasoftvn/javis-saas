@@ -55,7 +55,6 @@ def _run_reset():
 def _fingerprint() -> dict[str, str]:
     import json
 
-    saved = _GOLDEN.read_text() if _GOLDEN.exists() else None
     try:
         subprocess.run(
             ["node", "scripts/schema-fingerprint.mjs", "--write"],
@@ -65,8 +64,11 @@ def _fingerprint() -> dict[str, str]:
         doc = json.loads(_GOLDEN.read_text())
         return {k: v["fingerprint"] for k, v in doc["groups"].items()}
     finally:
-        if saved is not None:
-            _GOLDEN.write_text(saved)  # never leave a test-DB fingerprint committed
+        # Never leave a test-DB fingerprint in the working tree.
+        subprocess.run(
+            ["git", "checkout", "--", "deploy/schema/fingerprints.json"],
+            cwd=ROOT, check=False, capture_output=True,
+        )
 
 
 def _ledger_rows() -> set[tuple[str, str]]:
