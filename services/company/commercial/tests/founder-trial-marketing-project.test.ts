@@ -26,14 +26,17 @@ describe("Founder Trial marketing project scoping", () => {
 
     await createCampaignMvpService(ctx, { name: "C for p1", projectId: p1 });
     await createCampaignMvpService(ctx, { name: "C for p2", projectId: p2 });
-    await createCampaignMvpService(ctx, { name: "C unscoped" });
+    // Founder Trial R1 — create không kèm projectId bị từ chối.
+    await expect(
+      createCampaignMvpService(ctx, { name: "C unscoped" })
+    ).rejects.toThrow(/projectId is required/);
 
     const p1List = await listCampaignsMvpService(ctx, p1);
     expect(p1List.data.map((c) => c.name)).toEqual(["C for p1"]);
     expect(p1List.data[0].projectId).toBe(p1);
 
-    const all = await listCampaignsMvpService(ctx);
-    expect(all.data).toHaveLength(3);
+    // List cũng phải project-scoped.
+    await expect(listCampaignsMvpService(ctx)).rejects.toThrow(/projectId is required/);
   });
 
   it("experiment create+list filter by project", async () => {
@@ -46,7 +49,9 @@ describe("Founder Trial marketing project scoping", () => {
       name: "E1",
       hypothesis: "H",
     });
-    await createExperimentMvpService(ctx, { name: "E unscoped", hypothesis: "H" });
+    await expect(
+      createExperimentMvpService(ctx, { name: "E unscoped", hypothesis: "H" })
+    ).rejects.toThrow(/projectId is required/);
 
     const scoped = await listExperimentsMvpService(ctx, p1);
     expect(scoped.data.map((e) => e.name)).toEqual(["E1"]);

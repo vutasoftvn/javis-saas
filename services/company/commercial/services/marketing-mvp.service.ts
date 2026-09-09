@@ -176,14 +176,17 @@ export async function listCampaignsMvpService(
 ): Promise<MvpSuccess<readonly MarketingCampaignDTO[]>> {
 
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
+  // Founder Trial R1 — mọi list/create Marketing pilot đều project-scoped.
+  if (!projectId) {
+    throw APIError.invalidArgument("projectId is required for Founder Trial marketing pilot");
+  }
+  await assertCommercialProjectInWorkspace(ctx, projectId);
 
   const conditions = [
     eq(marketingCampaigns.workspaceId, workspaceIdBigInt),
     isNull(marketingCampaigns.deletedAt),
+    eq(marketingCampaigns.projectId, BigInt(projectId)),
   ];
-  if (projectId) {
-    conditions.push(eq(marketingCampaigns.projectId, BigInt(projectId)));
-  }
 
   const rows = await db
     .select()
@@ -223,7 +226,10 @@ export async function createCampaignMvpService(
 ): Promise<MvpSuccess<MarketingCampaignDTO>> {
 
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
-  if (data.projectId) await assertCommercialProjectInWorkspace(ctx, data.projectId);
+  if (!data.projectId) {
+    throw APIError.invalidArgument("projectId is required for Founder Trial marketing pilot");
+  }
+  await assertCommercialProjectInWorkspace(ctx, data.projectId);
 
   const inserted = await db
     .insert(marketingCampaigns)
@@ -334,14 +340,16 @@ export async function listExperimentsMvpService(
 ): Promise<MvpSuccess<readonly MarketingExperimentDTO[]>> {
 
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
+  if (!projectId) {
+    throw APIError.invalidArgument("projectId is required for Founder Trial marketing pilot");
+  }
+  await assertCommercialProjectInWorkspace(ctx, projectId);
 
   const conditions = [
     eq(marketingExperiments.workspaceId, workspaceIdBigInt),
     isNull(marketingExperiments.deletedAt),
+    eq(marketingExperiments.projectId, BigInt(projectId)),
   ];
-  if (projectId) {
-    conditions.push(eq(marketingExperiments.projectId, BigInt(projectId)));
-  }
 
   const rows = await db
     .select()
@@ -385,7 +393,10 @@ export async function createExperimentMvpService(
 ): Promise<MvpSuccess<MarketingExperimentDTO>> {
 
   const workspaceIdBigInt = BigInt(ctx.workspaceId);
-  if (data.projectId) await assertCommercialProjectInWorkspace(ctx, data.projectId);
+  if (!data.projectId) {
+    throw APIError.invalidArgument("projectId is required for Founder Trial marketing pilot");
+  }
+  await assertCommercialProjectInWorkspace(ctx, data.projectId);
 
   if (data.campaignId) {
     const camp = await db

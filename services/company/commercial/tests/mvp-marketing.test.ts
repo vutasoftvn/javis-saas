@@ -13,6 +13,15 @@ import {
   updateMarketingContextMvpService,
 } from "../services/marketing-mvp.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { db } from "../models/db";
+import { projects } from "../../shared/db/schema/operations";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
+
+async function makeProject(workspaceId: string): Promise<string> {
+  const id = generateSnowflake();
+  await db.insert(projects).values({ id, workspaceId: BigInt(workspaceId), title: "MKT" });
+  return id.toString();
+}
 
 describe("Commercial Marketing MVP Services", () => {
   it("supports context get and update with honest empty state", async () => {
@@ -87,22 +96,28 @@ describe("Commercial Marketing MVP Services", () => {
     const listObjB = await listObjectivesService(ctxB);
     expect(listObjB.data.length).toBe(0);
 
+    // Founder Trial R1 — Marketing pilot là project-scoped.
+    const projA = await makeProject(wsA.workspaceId);
+    const projB = await makeProject(wsB.workspaceId);
+
     // 2. Campaigns
     const campRes = await createCampaignMvpService(ctxA, {
       name: "Product Launch Q4",
+      projectId: projA,
       budget: 10000000,
       funnelStage: "discover",
     });
     expect(campRes.data.name).toBe("Product Launch Q4");
     expect(campRes.data.budget).toBe(10000000);
 
-    const listCampA = await listCampaignsMvpService(ctxA);
+    const listCampA = await listCampaignsMvpService(ctxA, projA);
     expect(listCampA.data.length).toBe(1);
-    const listCampB = await listCampaignsMvpService(ctxB);
+    const listCampB = await listCampaignsMvpService(ctxB, projB);
     expect(listCampB.data.length).toBe(0);
 
     // 3. Experiments
     const expRes = await createExperimentMvpService(ctxA, {
+      projectId: projA,
       campaignId: campRes.data.id,
       name: "Hero Headline A/B Test",
       hypothesis: "Direct value prop increases signups by 20%",
@@ -111,9 +126,9 @@ describe("Commercial Marketing MVP Services", () => {
     });
     expect(expRes.data.name).toBe("Hero Headline A/B Test");
 
-    const listExpA = await listExperimentsMvpService(ctxA);
+    const listExpA = await listExperimentsMvpService(ctxA, projA);
     expect(listExpA.data.length).toBe(1);
-    const listExpB = await listExperimentsMvpService(ctxB);
+    const listExpB = await listExperimentsMvpService(ctxB, projB);
     expect(listExpB.data.length).toBe(0);
 
     // 4. Observed metrics

@@ -131,11 +131,13 @@ export async function computeProjectBudgetPosition(
 
 export interface BudgetSummaryView {
   currency: string;
-  limitMinor: string;
-  actualPaidMinor: string;
-  committedUnpaidMinor: string;
-  forecastUnapprovedMinor: string;
-  remainingAfterCommitmentsMinor: string;
+  // null (KHÔNG phải "0") khi coverage === "NO_ENVELOPE" — không dựng số 0 giả
+  // như thể là dữ liệu thật.
+  limitMinor: string | null;
+  actualPaidMinor: string | null;
+  committedUnpaidMinor: string | null;
+  forecastUnapprovedMinor: string | null;
+  remainingAfterCommitmentsMinor: string | null;
   coverage: BudgetCoverage;
   asOf: string;
 }
@@ -153,6 +155,19 @@ export async function getBudgetSummary(
       false
     )
   );
+
+  if (position.coverage === "NO_ENVELOPE") {
+    return {
+      currency,
+      limitMinor: null,
+      actualPaidMinor: null,
+      committedUnpaidMinor: null,
+      forecastUnapprovedMinor: null,
+      remainingAfterCommitmentsMinor: null,
+      coverage: "NO_ENVELOPE",
+      asOf: asOf.toISOString(),
+    };
+  }
 
   const remaining = position.limitMinor - position.actualPaidMinor - position.committedUnpaidMinor;
 
