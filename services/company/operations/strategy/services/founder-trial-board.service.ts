@@ -15,6 +15,9 @@ import { listDecisionRecordsInWorkspace } from "./decision-recording.service";
 export interface FounderTrialCycleView {
   cycleId: string | null;
   durationWeeks: number | null;
+  // Optimistic-lock revision của Operating Cycle. Flutter phải gửi lại giá trị
+  // này (`expectedRevision`) khi resize; null khi project chưa có cycle.
+  revision: number | null;
   currentWeek: number | null;
   stageAtStart: string | null;
   calendarState: string | null;
@@ -27,6 +30,37 @@ export interface FounderTrialCycleView {
     scheduledAt: string | null;
     status: string;
   }>;
+}
+
+type CycleRow = typeof twelveWeekCycles.$inferSelect;
+type ReviewRow = typeof cycleReviews.$inferSelect;
+
+// Dựng FounderTrialCycleView từ 1 cycle row + review rows đã lọc
+// (cycleId + workspaceId + deletedAt). Dùng chung bởi Board read model và
+// lệnh resize để tránh drift shape.
+export function buildFounderTrialCycleView(
+  cycleRow: CycleRow | null | undefined,
+  reviewRows: ReviewRow[]
+): FounderTrialCycleView {
+  return {
+    cycleId: cycleRow ? cycleRow.id.toString() : null,
+    durationWeeks: cycleRow?.durationWeeks ?? null,
+    revision: cycleRow?.revision ?? null,
+    currentWeek: cycleRow?.currentWeek ?? null,
+    stageAtStart: cycleRow?.stageAtStart ?? null,
+    calendarState: cycleRow?.calendarState ?? null,
+    startLocalDate: cycleRow?.startLocalDate ? String(cycleRow.startLocalDate) : null,
+    timezone: cycleRow?.timezone ?? null,
+    reviews: reviewRows
+      .map((r) => ({
+        id: r.id.toString(),
+        kind: r.kind,
+        scheduledWeekNo: r.scheduledWeekNo,
+        scheduledAt: r.scheduledAt ? r.scheduledAt.toISOString() : null,
+        status: r.status,
+      }))
+      .sort((a, b) => a.scheduledWeekNo - b.scheduledWeekNo),
+  };
 }
 
 export interface FounderTrialAssumptionView {
@@ -115,24 +149,7 @@ export async function getFounderTrialBoard(
         .where(eq(cycleReviews.cycleId, cycleRow.id))
     : [];
 
-  const cycle: FounderTrialCycleView = {
-    cycleId: cycleRow ? cycleRow.id.toString() : null,
-    durationWeeks: cycleRow?.durationWeeks ?? null,
-    currentWeek: cycleRow?.currentWeek ?? null,
-    stageAtStart: cycleRow?.stageAtStart ?? null,
-    calendarState: cycleRow?.calendarState ?? null,
-    startLocalDate: cycleRow?.startLocalDate ?? null,
-    timezone: cycleRow?.timezone ?? null,
-    reviews: reviewRows
-      .map((r) => ({
-        id: r.id.toString(),
-        kind: r.kind,
-        scheduledWeekNo: r.scheduledWeekNo,
-        scheduledAt: r.scheduledAt ? r.scheduledAt.toISOString() : null,
-        status: r.status,
-      }))
-      .sort((a, b) => a.scheduledWeekNo - b.scheduledWeekNo),
-  };
+  const cycle: FounderTrialCycleView = buildFounderTrialCycleView(cycleRow, reviewRows);
 
   const { items: ranked } = await getRankedAssumptionsByProjectInWorkspace(ctx, projectId);
   let focusCount = 0;

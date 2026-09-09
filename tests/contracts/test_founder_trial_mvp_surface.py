@@ -39,7 +39,6 @@ R1_IDS = {
 # Test files that later plan tasks introduce. Each entry removed once its task
 # has landed and the file exists on disk.
 PENDING_EVIDENCE = {
-    "services/company/operations/tests/active-cycle-resize.test.ts",  # Task 3
     "frontend/test/modules/strategy/founder_trial_full_loop_test.dart",  # Task 9
 }
 

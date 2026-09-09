@@ -2,9 +2,15 @@ import { APIError } from "encore.dev/api";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../../models/db";
-import { projects, tasks, twelveWeekCycles, cycleReviews } from "../../../shared/db/schema/operations";
+import { projects, tasks, twelveWeekCycles, cycleReviews, cycleRevisions } from "../../../shared/db/schema/operations";
 import { projectOperatingSetups } from "../../../shared/db/schema/strategy";
-import { scheduleInitialCycleReviews } from "./cycle-review.service";
+import { scheduleInitialCycleReviews, rescheduleCycleReviews } from "./cycle-review.service";
+import { getWorkspaceStrategySettings } from "./workspace-strategy-settings.service";
+import { calculateCycleEndDateExclusive } from "../../services/execution-calendar";
+import {
+  buildFounderTrialCycleView,
+  type FounderTrialCycleView,
+} from "./founder-trial-board.service";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
@@ -887,4 +893,190 @@ export async function applyKickoffSuggestionResult(
     );
 
   return { applied: true };
+}
+
+export interface ResizeProjectOperatingCycleRequest {
+  cycleId: string;
+  durationWeeks: number;
+  expectedRevision: number;
+  reason?: string | null;
+}
+
+// Resize một Operating Cycle ĐANG CHẠY của project — thay cho việc dùng
+// PUT operating-setup draft (draft PUT từ chối setup ACTIVE) hoặc endpoint
+// generic PATCH /operations/cycles/:id. Tất cả trong MỘT transaction
+// project-scoped:
+//   - verify project thuộc workspace;
+//   - chọn cycle chưa xoá theo (cycleId, projectId, workspaceId);
+//   - so khớp optimistic revision;
+//   - validate duration nguyên 1..12;
+//   - rescheduleCycleReviews (giữ COMPLETED, supersede slot lỗi thời, thêm slot mới 1 lần);
+//   - update duration/end date/revision của cycle;
+//   - đồng bộ project_operating_setups.cycleDurationWeeks;
+//   - ghi đúng 1 bản ghi cycle_revisions kèm before/after review schedule;
+//   - trả về Board cycle view đã refresh.
+export async function resizeProjectOperatingCycle(
+  ctx: TenantContext,
+  projectId: string,
+  req: ResizeProjectOperatingCycleRequest
+): Promise<FounderTrialCycleView> {
+  if (req.durationWeeks === undefined || req.durationWeeks === null) {
+    throw APIError.invalidArgument("durationWeeks is required");
+  }
+  validateCycleDurationWeeks(req.durationWeeks);
+  if (typeof req.expectedRevision !== "number" || !Number.isInteger(req.expectedRevision)) {
+    throw APIError.invalidArgument("expectedRevision must be an integer");
+  }
+
+  // Guardrail 8 — hành động rủi ro cao (đổi lịch vận hành) cần người, không phải agent.
+  if (
+    ctx.membershipRole === "agent" ||
+    (ctx as unknown as { actorKind?: string }).actorKind === "AI_AGENT" ||
+    (ctx as unknown as { isAgent?: boolean }).isAgent === true
+  ) {
+    throw APIError.permissionDenied(
+      "Agents cannot resize operating cycles; human approval required"
+    );
+  }
+
+  const wsId = BigInt(ctx.workspaceId);
+  const pId = BigInt(projectId);
+  const cycleIdBig = BigInt(req.cycleId);
+
+  return db.transaction(async (tx) => {
+    const [proj] = await tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, pId), eq(projects.workspaceId, wsId)))
+      .limit(1);
+    if (!proj) {
+      throw APIError.notFound("Project không tồn tại trong workspace này");
+    }
+
+    const [cycle] = await tx
+      .select()
+      .from(twelveWeekCycles)
+      .where(
+        and(
+          eq(twelveWeekCycles.id, cycleIdBig),
+          eq(twelveWeekCycles.projectId, pId),
+          eq(twelveWeekCycles.workspaceId, wsId),
+          isNull(twelveWeekCycles.deletedAt)
+        )
+      )
+      .limit(1);
+    if (!cycle) {
+      throw APIError.notFound(
+        `Cycle ${req.cycleId} không tồn tại cho project ${projectId}`
+      );
+    }
+
+    const currentRevision = cycle.revision ?? 1;
+    if (currentRevision !== req.expectedRevision) {
+      throw APIError.failedPrecondition(
+        `Cycle revision conflict: expected ${req.expectedRevision}, current is ${currentRevision}`
+      );
+    }
+
+    const oldDuration = cycle.durationWeeks;
+    const nextDuration = req.durationWeeks;
+    const nextRevision = currentRevision + 1;
+    const startLocal = cycle.startLocalDate ? String(cycle.startLocalDate) : null;
+    const timezone = cycle.timezone ?? "UTC";
+
+    const reviewFilter = and(
+      eq(cycleReviews.cycleId, cycleIdBig),
+      eq(cycleReviews.workspaceId, wsId),
+      isNull(cycleReviews.deletedAt)
+    );
+
+    const beforeReviews = await tx.select().from(cycleReviews).where(reviewFilter);
+
+    if (nextDuration !== oldDuration) {
+      const settings = await getWorkspaceStrategySettings(wsId);
+      await rescheduleCycleReviews(
+        tx,
+        cycleIdBig,
+        wsId,
+        oldDuration,
+        nextDuration,
+        settings,
+        startLocal,
+        timezone
+      );
+    }
+
+    const afterReviews = await tx.select().from(cycleReviews).where(reviewFilter);
+
+    const nextEndLocalExclusive = startLocal
+      ? calculateCycleEndDateExclusive(startLocal, nextDuration)
+      : null;
+
+    await tx
+      .update(twelveWeekCycles)
+      .set({
+        durationWeeks: nextDuration,
+        endLocalDateExclusive: nextEndLocalExclusive,
+        endDate: nextEndLocalExclusive
+          ? new Date(nextEndLocalExclusive + "T00:00:00Z")
+          : cycle.endDate,
+        revision: nextRevision,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(twelveWeekCycles.id, cycleIdBig), eq(twelveWeekCycles.workspaceId, wsId))
+      );
+
+    await tx
+      .update(projectOperatingSetups)
+      .set({ cycleDurationWeeks: nextDuration, updatedAt: new Date() })
+      .where(
+        and(
+          eq(projectOperatingSetups.projectId, pId),
+          eq(projectOperatingSetups.workspaceId, wsId)
+        )
+      );
+
+    const mapReview = (r: typeof cycleReviews.$inferSelect) => ({
+      id: String(r.id),
+      kind: r.kind,
+      scheduledWeekNo: r.scheduledWeekNo,
+      status: r.status,
+    });
+
+    await tx.insert(cycleRevisions).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      cycleId: cycleIdBig,
+      revision: nextRevision,
+      beforeState: {
+        durationWeeks: oldDuration,
+        revision: currentRevision,
+        reviewSchedule: beforeReviews.map(mapReview),
+      },
+      afterState: {
+        durationWeeks: nextDuration,
+        revision: nextRevision,
+        reviewSchedule: afterReviews.map(mapReview),
+      },
+      reason: req.reason || null,
+      actorId: ctx.userId || null,
+      actorKind: "user",
+    });
+
+    const [refreshed] = await tx
+      .select()
+      .from(twelveWeekCycles)
+      .where(
+        and(
+          eq(twelveWeekCycles.id, cycleIdBig),
+          eq(twelveWeekCycles.workspaceId, wsId),
+          isNull(twelveWeekCycles.deletedAt)
+        )
+      )
+      .limit(1);
+    const reviewsForView = await tx.select().from(cycleReviews).where(reviewFilter);
+
+    return buildFounderTrialCycleView(refreshed, reviewsForView);
+  });
 }

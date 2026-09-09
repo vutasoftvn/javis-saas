@@ -4,6 +4,7 @@ import {
   getProjectOperatingSetup,
   saveProjectOperatingSetup,
   activateProjectOperatingSetup,
+  resizeProjectOperatingCycle,
   requestKickoffSuggestion,
   applyKickoffSuggestionResult,
   ProjectOperatingSetupView,
@@ -15,6 +16,7 @@ import {
   BasicKickoffStage,
   FirstWeekAction,
 } from "../services/project-operating-setup.service";
+import type { FounderTrialCycleView } from "../services/founder-trial-board.service";
 import { Project } from "../../services/project.service";
 
 export type {
@@ -120,6 +122,32 @@ export const activateProjectOperatingSetupEndpoint = api(
       weeklyReviewTime: params.weeklyReviewTime,
       firstWeekOutcome: params.firstWeekOutcome,
       firstWeekActions: params.firstWeekActions,
+    });
+  }
+);
+
+export interface ResizeProjectOperatingCycleParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  projectId: string;
+  cycleId: string;
+  durationWeeks: number;
+  expectedRevision: number;
+  reason?: string | null;
+}
+
+// ── PATCH /operations/projects/:projectId/operating-cycle ──
+// Resize một Operating Cycle đang chạy với optimistic-lock revision. Trả về
+// FounderTrialCycleView đã refresh (dùng chung shape với Founder Trial Board).
+export const resizeProjectOperatingCycleEndpoint = api(
+  { method: "PATCH", path: "/operations/projects/:projectId/operating-cycle", expose: true },
+  async (params: ResizeProjectOperatingCycleParams): Promise<FounderTrialCycleView> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return resizeProjectOperatingCycle(ctx, params.projectId, {
+      cycleId: params.cycleId,
+      durationWeeks: params.durationWeeks,
+      expectedRevision: params.expectedRevision,
+      reason: params.reason,
     });
   }
 );

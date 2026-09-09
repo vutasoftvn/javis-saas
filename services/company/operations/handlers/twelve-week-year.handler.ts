@@ -1,4 +1,4 @@
-import { api, Header } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import {
   TwelveWeekCycle,
   CreateTwelveWeekCycleRequest,
@@ -64,6 +64,15 @@ export const updateCycle = api(
     status?: string;
     reason?: string | null;
   }): Promise<TwelveWeekCycle> => {
+    // Founder Trial R1 — việc đổi độ dài Operating Cycle đang chạy PHẢI đi qua
+    // PATCH /operations/projects/:projectId/operating-cycle (project-scoped,
+    // optimistic revision, reschedule review + audit). Endpoint generic này
+    // không còn nhận `durationWeeks` từ client.
+    if (durationWeeks !== undefined) {
+      throw APIError.invalidArgument(
+        "Resize the operating cycle via PATCH /operations/projects/:projectId/operating-cycle"
+      );
+    }
     const { updateCycleService } = await import("../services/twelve-week-year.service");
     return updateCycleService({
       workspaceId,
