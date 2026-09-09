@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-09T22:16:15.316Z",
+  "generated_at": "2026-09-09T22:21:32.886Z",
   "groups": {
     "agent": {
       "fingerprint": "6a707e6e137c7c140b28f0356f0f3d62854c525e110e076baae091f48b9b5056",
@@ -2960,12 +2960,12 @@
       }
     },
     "cosa": {
-      "fingerprint": "432f28898e0ad9b479e4af7d1858b3ebdedea72a8700a4b9ccf0a9d707dd9134",
+      "fingerprint": "65d13cc0c82a4a8535dfea03d0dd13332bbf4a6446e1a1cc1f178b7d5a523561",
       "schemas": [
         "control_plane",
         "cosa"
       ],
-      "tables_count": 23,
+      "tables_count": 24,
       "enums": [],
       "tables": {
         "control_plane.connector_authorizations": {
@@ -4710,6 +4710,18 @@
               ],
               "on_update": "NO ACTION",
               "on_delete": "CASCADE"
+            },
+            {
+              "name": "user_workspace_module_preferences_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
             }
           ],
           "check_constraints": [
@@ -4987,7 +4999,20 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_agent_policy_platform_workspace_id_fkey",
+              "columns": [
+                "platform_workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [
             {
               "name": "workspace_agent_policy_decision_check",
@@ -5072,7 +5097,20 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_business_policy_references_platform_workspace_id_fkey",
+              "columns": [
+                "platform_workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [],
           "indexes": [
             {
@@ -5186,6 +5224,18 @@
               ],
               "on_update": "NO ACTION",
               "on_delete": "NO ACTION"
+            },
+            {
+              "name": "workspace_entitlements_platform_workspace_id_fkey",
+              "columns": [
+                "platform_workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
             }
           ],
           "check_constraints": [],
@@ -5343,6 +5393,18 @@
               ],
               "on_update": "NO ACTION",
               "on_delete": "NO ACTION"
+            },
+            {
+              "name": "workspace_invitations_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
             }
           ],
           "check_constraints": [
@@ -5522,6 +5584,18 @@
               ],
               "on_update": "NO ACTION",
               "on_delete": "NO ACTION"
+            },
+            {
+              "name": "workspace_licenses_platform_workspace_id_fkey",
+              "columns": [
+                "platform_workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
             }
           ],
           "check_constraints": [],
@@ -5623,6 +5697,18 @@
           ],
           "foreign_keys": [
             {
+              "name": "platform_workspace_memberships_platform_workspace_id_fkey",
+              "columns": [
+                "platform_workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
               "name": "platform_workspace_memberships_user_id_fkey",
               "columns": [
                 "user_id"
@@ -5716,7 +5802,20 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_module_configs_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [
             {
               "name": "workspace_module_configs_module_key_check",
@@ -5804,7 +5903,20 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_surface_overrides_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [
             {
               "name": "workspace_surface_overrides_status_override_check",
@@ -5912,7 +6024,20 @@
               ]
             }
           ],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "platform_workspace_sync_log_platform_workspace_id_fkey",
+              "columns": [
+                "platform_workspace_id"
+              ],
+              "foreign_table": "cosa.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [
             {
               "name": "platform_workspace_sync_log_sync_status_check",
@@ -5927,6 +6052,110 @@
             {
               "name": "platform_workspace_sync_log_pkey",
               "definition": "CREATE UNIQUE INDEX platform_workspace_sync_log_pkey ON cosa.workspace_sync_log USING btree (id)"
+            }
+          ]
+        },
+        "cosa.workspaces": {
+          "schema": "cosa",
+          "name": "workspaces",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_name",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "owner_user_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'active'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "platform_workspaces_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "platform_workspaces_owner_user_id_fkey",
+              "columns": [
+                "owner_user_id"
+              ],
+              "foreign_table": "cosa.users",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "platform_workspaces_status_check",
+              "clause": "((status = ANY (ARRAY['active'::text, 'archived'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_platform_workspaces_owner",
+              "definition": "CREATE INDEX idx_platform_workspaces_owner ON cosa.workspaces USING btree (owner_user_id)"
+            },
+            {
+              "name": "platform_workspaces_pkey",
+              "definition": "CREATE UNIQUE INDEX platform_workspaces_pkey ON cosa.workspaces USING btree (id)"
             }
           ]
         }

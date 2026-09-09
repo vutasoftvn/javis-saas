@@ -316,6 +316,27 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
+CREATE TABLE IF NOT EXISTS cosa.workspaces (
+    id bigint NOT NULL,
+    workspace_name text NOT NULL,
+    owner_user_id bigint NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT platform_workspaces_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text])))
+);
+
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspaces ADD CONSTRAINT platform_workspaces_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspaces ADD CONSTRAINT platform_workspaces_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+CREATE INDEX IF NOT EXISTS idx_platform_workspaces_owner ON cosa.workspaces USING btree (owner_user_id);
+
+
 CREATE TABLE IF NOT EXISTS cosa.user_workspace_module_preferences (
     workspace_id bigint NOT NULL,
     user_id bigint NOT NULL,
@@ -331,6 +352,10 @@ EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN 
 
 DO $$ BEGIN
   ALTER TABLE ONLY cosa.user_workspace_module_preferences ADD CONSTRAINT user_workspace_module_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.user_workspace_module_preferences ADD CONSTRAINT user_workspace_module_preferences_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
@@ -349,6 +374,10 @@ DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_agent_policy ADD CONSTRAINT workspace_agent_policy_pkey PRIMARY KEY (id);
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_agent_policy ADD CONSTRAINT workspace_agent_policy_platform_workspace_id_fkey FOREIGN KEY (platform_workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
 CREATE INDEX IF NOT EXISTS idx_workspace_agent_policy_workspace_id ON cosa.workspace_agent_policy USING btree (platform_workspace_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_agent_policy_workspace_tool ON cosa.workspace_agent_policy USING btree (platform_workspace_id, tool_pattern);
@@ -364,6 +393,10 @@ CREATE TABLE IF NOT EXISTS cosa.workspace_business_policy_references (
 
 DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_business_policy_references ADD CONSTRAINT workspace_business_policy_references_pkey PRIMARY KEY (platform_workspace_id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_business_policy_references ADD CONSTRAINT workspace_business_policy_references_platform_workspace_id_fkey FOREIGN KEY (platform_workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
@@ -384,6 +417,10 @@ EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN 
 
 DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_entitlements ADD CONSTRAINT workspace_entitlements_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES cosa.plans(id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_entitlements ADD CONSTRAINT workspace_entitlements_platform_workspace_id_fkey FOREIGN KEY (platform_workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
@@ -413,6 +450,10 @@ EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN 
 
 DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_invitations ADD CONSTRAINT workspace_invitations_role_id_fkey FOREIGN KEY (role_id) REFERENCES cosa.roles(id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_invitations ADD CONSTRAINT workspace_invitations_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_workspace_invitations_workspace ON cosa.workspace_invitations USING btree (workspace_id);
@@ -452,6 +493,10 @@ DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES cosa.plans(id);
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_licenses ADD CONSTRAINT workspace_licenses_platform_workspace_id_fkey FOREIGN KEY (platform_workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
 
 CREATE TABLE IF NOT EXISTS cosa.workspace_memberships (
     id bigint NOT NULL,
@@ -472,6 +517,10 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_memberships ADD CONSTRAINT platform_workspace_memberships_platform_workspace_id_fkey FOREIGN KEY (platform_workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_memberships ADD CONSTRAINT platform_workspace_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES cosa.users(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
@@ -489,6 +538,10 @@ DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_module_configs ADD CONSTRAINT workspace_module_configs_pkey PRIMARY KEY (workspace_id, module_key);
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_module_configs ADD CONSTRAINT workspace_module_configs_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
 
 CREATE TABLE IF NOT EXISTS cosa.workspace_surface_overrides (
     workspace_id bigint NOT NULL,
@@ -502,6 +555,10 @@ CREATE TABLE IF NOT EXISTS cosa.workspace_surface_overrides (
 
 DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_surface_overrides ADD CONSTRAINT workspace_surface_overrides_pkey PRIMARY KEY (workspace_id, surface_key);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_surface_overrides ADD CONSTRAINT workspace_surface_overrides_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_workspace_surface_overrides_workspace ON cosa.workspace_surface_overrides USING btree (workspace_id);
@@ -524,5 +581,9 @@ EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN 
 
 DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_sync_log ADD CONSTRAINT platform_workspace_sync_log_pkey PRIMARY KEY (id);
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE ONLY cosa.workspace_sync_log ADD CONSTRAINT platform_workspace_sync_log_platform_workspace_id_fkey FOREIGN KEY (platform_workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
