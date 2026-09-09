@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:get/get.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/services/secure_storage_service.dart';
