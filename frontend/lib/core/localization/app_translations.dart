@@ -942,6 +942,7 @@ class AppTranslations extends Translations {
     ...viChat,
     ...viSettings,
     ...viStrategy,
+    ...viTasks,
   };
 
   static final Map<String, String> en = {
@@ -950,5 +951,6 @@ class AppTranslations extends Translations {
     ...enChat,
     ...enSettings,
     ...enStrategy,
+    ...enTasks,
   };
 }
