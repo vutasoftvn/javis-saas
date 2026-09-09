@@ -31,7 +31,11 @@ requires_migration_database = pytest.mark.skipif(
 def test_canonical_agent_package_and_primary_schema_are_available():
     """The reusable runtime package and its main persistence schema share `agent`."""
     repo_root = Path(__file__).resolve().parents[3]
-    migration = repo_root / "packages" / "agent" / "migrations" / "001_canonical_agent_schema.sql"
+    # Founder Trial R1 (Task 10) — the historical numbered migrations were
+    # replaced by a single curated baseline.
+    migration = (
+        repo_root / "packages" / "agent" / "migrations" / "001_founder_trial_mvp_baseline.sql"
+    )
 
     assert migration.exists()
     assert "CREATE SCHEMA IF NOT EXISTS agent" in migration.read_text(encoding="utf-8")
