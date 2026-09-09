@@ -20,15 +20,15 @@ Luồng chứng minh (không mock, không skip, tất cả process THẬT):
    `agent.runtime_signal_outbox` idempotent + projection signal sang company
    (`operating.runtime_source_signals`) idempotent qua unique constraint thật.
 
-Ghi chú giới hạn hiện tại (xem task-7-report.md): với identity gốc là
-`local_session` (đường seed hợp lệ duy nhất cho cross-check membership của
-`services/company`), delegation token mà route mint có shape local session
-(JWT_SECRET, KHÔNG audience) nên `services/cosa` gateway (chỉ nhận platform
-token `aud="cosa"`) từ chối → `execute_run_task` bail ở bước tenant-policy
-snapshot với `run.failed{error: "policy_snapshot_unavailable"}`. Scenario vẫn
-xác nhận được TOÀN BỘ chặng dispatch cross-process (schedule → worker poll →
-claim → lease → execute → complete) là thật; nhánh assert kernel/outbox/signal
-tự kích hoạt khi bridge token được vá.
+Bridge token B5 đã vá (ADR-COSA-DELEGATION-002 + Task 0 COSA Automation MVP):
+route `POST /agent/conversations/{id}/messages` mint token scoped
+`COSA_CONTROL_DELEGATION_SECRET` (`aud=cosa_control`, claims
+`{workspace_id, role}`) và nhét vào `input_payload.delegation_token`; worker
+forward token này cho `plane.tenant_policy_client.get_snapshot`, `services/cosa`
+`getMyTenantPolicySnapshot` verify qua `verifyControlDelegationToken`. Vì vậy
+scenario này giờ CHỜ `run.completed` và kiểm trọn nhánh kernel/outbox/signal —
+`run.failed{policy_snapshot_unavailable}` là REGRESSION, không còn là trạng
+thái chấp nhận được.
 """
 
 from __future__ import annotations
@@ -171,20 +171,15 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
     terminal_type, terminal_payload = terminal_row
     assert isinstance(terminal_payload, dict), terminal_payload
 
-    if terminal_type == "run.failed":
-        # Trạng thái hiện tại đã biết: identity local_session ⇒ delegation token
-        # bị `services/cosa` gateway từ chối ⇒ bail ở tenant-policy snapshot.
-        # Vẫn là bằng chứng worker THẬT đã chạy `execute_run_task` + gọi thật
-        # sang control-plane cosa. Assert lý do là mã lỗi CÓ CẤU TRÚC, không
-        # suy diễn từ text tự do.
-        assert terminal_payload.get("error") == "policy_snapshot_unavailable", (
-            f"run.failed với lý do ngoài dự kiến: {terminal_payload!r}. "
-            f"{_run_diagnostics(agent_dsn, cosa_dsn, run_id)}"
-        )
-        return
+    assert terminal_type == "run.completed", (
+        f"kỳ vọng run.completed sau khi bridge token B5 đã vá, nhận {terminal_type!r} "
+        f"payload={terminal_payload!r}. Nếu là run.failed{{policy_snapshot_unavailable}} "
+        f"thì delegation token bị forward/verify sai — xem "
+        f"COSA_CONTROL_DELEGATION_SECRET đối xứng giữa apps/cosa và services/cosa. "
+        f"{_run_diagnostics(agent_dsn, cosa_dsn, run_id)}"
+    )
 
-    # --- Nhánh full Tier-1 (kernel chạy trọn) — tự kích hoạt khi bridge token
-    #     platform cho identity local_session được vá. ---
+    # --- Nhánh full Tier-1: kernel chạy trọn → outbox + signal projection thật. ---
     _assert_completed_run_facts(stack, cluster, workspace_id, run_id)
 
 

@@ -6,19 +6,17 @@ pipeline (`operations_read` → `CompanyServiceClient` HTTP thật → `services
 bind `run_id + tool_call_id + checkpoint_ref`.
 
 Discovery (2026-09-02, đọc code): KHÔNG tồn tại route HTTP nào ở apps/cosa gọi
-`CapabilityGateway.execute` đồng bộ. `grep` cho thấy gateway chỉ được nối vào
-kernel/workflow (`apps/cosa/composition/kernel_factory.py`,
-`packages/agent/workflows/tool_step.py`) — nghĩa là capability pipeline CHỈ chạy
-bên trong một agent run. Và một agent run trong stack thật lại vướng đúng bức
-tường B5 (xem task-7-report.md): identity hợp lệ duy nhất qua boundary apps/cosa
-là `local_session` (services/company), nhưng worker cần token đó để gọi
-`GET services/cosa /platform/auth/me/agent-policy-snapshot` — gateway `services/cosa`
-(`verifyPlatformToken`, `PLATFORM_JWT_SECRET` + `aud="cosa"`) TỪ CHỐI token local
-session → `CosaTenantPolicyError` → run `run.failed{error:"policy_snapshot_unavailable"}`
-TRƯỚC khi kernel (và do đó trước capability pipeline) chạy.
+`CapabilityGateway.execute` đồng bộ — gateway chỉ nối vào kernel/workflow
+(`apps/cosa/composition/kernel_factory.py`, `packages/agent/workflows/tool_step.py`),
+nên capability pipeline CHỈ chạy bên trong một agent run.
 
-⇒ Tier 1 không REACH được. Scenario này khoá ở **Tier 2**, assert đúng những gì
-THẬT và có cấu trúc:
+Bridge token B5 đã vá (Task 0 COSA Automation MVP): route mint token scoped
+`COSA_CONTROL_DELEGATION_SECRET` (`aud=cosa_control`, `{workspace_id, role}`),
+worker forward cho hop `GET services/cosa /platform/auth/me/agent-policy-snapshot`,
+`services/cosa` verify qua `verifyControlDelegationToken`. Run giờ chạy trọn tới
+`run.completed`.
+
+Scenario này assert đúng những gì THẬT và có cấu trúc:
 
   (A) `entitlement.grant_entitlement` round-trip cross-plane: hàng ALLOW ghi
       thật vào `cosa.workspace_agent_policy` trên DB `services/cosa`, keyed theo
@@ -30,14 +28,13 @@ THẬT và có cấu trúc:
       company hợp lệ + `X-Workspace-Id` lạ (không phải member) → fail-closed;
       token hợp lệ + workspace của chính mình → 201 (positive control — cổng
       thật, không phải chặn mù).
-  (C) Governance path FAIL CLOSED khi policy snapshot không lấy được — kể cả khi
-      đã có hàng entitlement ALLOW trong `cosa.workspace_agent_policy`:
+  (C) Governance path:
       (c1) `GET services/cosa /platform/auth/me/agent-policy-snapshot` với token
-           company → 401 (gateway từ chối, không "ALLOW ngầm").
-      (c2) một run thật đi qua worker: terminal event = `run.failed` với
-           `payload["error"] == "policy_snapshot_unavailable"` CHÍNH XÁC — chứng
-           minh `CosaTenantPolicyError` dẫn tới DENY/NOT_READY, không bao giờ
-           ngầm ALLOW/execute capability.
+           company thô (KHÔNG phải control-delegation token) → 401 — gateway từ
+           chối, không "ALLOW ngầm".
+      (c2) một run thật đi qua worker chạy trọn tới `run.completed`; nếu run gọi
+           capability qua gateway thì `agent_governance.invocation_governance_state`
+           có hàng tương ứng (governance không bị bỏ qua).
 """
 
 from __future__ import annotations
@@ -287,33 +284,16 @@ def _assert_governance_fails_closed(
     terminal_type, terminal_payload = terminal_row
     assert isinstance(terminal_payload, dict), terminal_payload
 
-    # Nhánh theo KẾT QUẢ run (mirror S2 `dispatch_worker_result`) — KHÔNG hard-assert
-    # thất bại B5. Khi một PR sau vá B5 (bridge token cosa↔company) làm run chạy
-    # trọn, nhánh `run.completed` bên dưới tự kích hoạt; test này không khoá bug lại.
-    if terminal_type == "run.failed":
-        # Bức tường B5 (trạng thái hiện tại): kể cả khi `cosa.workspace_agent_policy`
-        # đã có hàng ALLOW cho workspace này (bước A ở trên), run vẫn KHÔNG chạm được
-        # capability pipeline vì hop lấy policy snapshot (auth) hỏng trước. Assert lý
-        # do là MÃ LỖI CÓ CẤU TRÚC, không suy diễn từ text tự do — bằng chứng
-        # governance path fail CLOSED: `CosaTenantPolicyError` ⇒ `run.failed`, không
-        # bao giờ ngầm ALLOW rồi execute capability.
-        assert terminal_payload.get("error") == "policy_snapshot_unavailable", (
-            f"run.failed với lý do ngoài dự kiến: {terminal_payload!r}. "
-            f"{_run_diag(agent_dsn, cosa_dsn, run_id)}"
-        )
-        # Governance không được "mở" khi policy unavailable: kernel chưa chạy nên
-        # `agent.runs` cho run này phải trống hoặc failed.
-        kernel_run_status = _scalar(
-            agent_dsn, "SELECT status FROM agent.runs WHERE run_id = %s", (run_id,)
-        )
-        assert kernel_run_status in (None, "failed"), (
-            f"agent.runs.status cho run {run_id} = {kernel_run_status!r} — kỳ vọng None/failed "
-            "(kernel không được chạy khi policy snapshot unavailable)"
-        )
-        return
+    # Bridge token B5 đã vá (Task 0 COSA Automation MVP): worker forward token
+    # scoped `COSA_CONTROL_DELEGATION_SECRET` (`aud=cosa_control`) cho hop
+    # policy-snapshot, nên run giờ CHỜ `run.completed`.
+    # `run.failed{policy_snapshot_unavailable}` = REGRESSION (token forward/verify
+    # sai) — assert mã lỗi có cấu trúc để chẩn đoán, không suy diễn từ text.
+    assert terminal_type == "run.completed", (
+        f"kỳ vọng run.completed sau khi bridge token B5 đã vá, nhận {terminal_type!r} "
+        f"payload={terminal_payload!r}. {_run_diag(agent_dsn, cosa_dsn, run_id)}"
+    )
 
-    # --- Nhánh `run.completed`: capability pipeline ĐÃ chạy trọn (tự kích hoạt khi
-    #     B5 được vá). Assert những fact THẬT của pipeline governance. ---
     kernel_run_status = _scalar(
         agent_dsn, "SELECT status FROM agent.runs WHERE run_id = %s", (run_id,)
     )
@@ -322,29 +302,38 @@ def _assert_governance_fails_closed(
         "khi terminal event là run.completed)"
     )
 
-    # (a) Audit ledger: `agent.run_events` là operational event ledger append-only —
-    #     một run chạm capability pipeline luôn ghi ≥1 hàng (run.started + tool calls
-    #     + run.completed).
+    # (a) Audit ledger: `agent.run_events` append-only — run chạy trọn luôn ghi
+    #     ≥1 hàng (run.started + run.completed tối thiểu).
     audit_event_count = _scalar(
         agent_dsn,
         "SELECT count(*) FROM agent.run_events WHERE run_id = %s",
         (run_id,),
     )
     assert audit_event_count and int(audit_event_count) > 0, (
-        f"agent.run_events cho run {run_id} rỗng — capability pipeline không ghi audit "
+        f"agent.run_events cho run {run_id} rỗng — pipeline không ghi audit "
         f"({_run_diag(agent_dsn, cosa_dsn, run_id)})"
     )
 
-    # (b) Governance accumulator đã đánh giá ít nhất một invocation cho run này.
+    # (b) Governance accumulator: chỉ ghi hàng khi run THỰC SỰ gọi ≥1 capability
+    #     qua gateway. Message S3 hiện là `operations_read` (LOW risk) và
+    #     COSA_MODEL_PROVIDER="fake" có thể trả thẳng text không tool-call — khi
+    #     đó không có invocation_governance_state, và đó KHÔNG phải lỗi. Chỉ khi
+    #     có tool call thì mới bắt buộc có governance state tương ứng.
+    tool_call_count = _scalar(
+        agent_dsn,
+        "SELECT count(*) FROM agent.run_tool_calls WHERE run_id = %s",
+        (run_id,),
+    )
     governance_state_count = _scalar(
         agent_dsn,
         "SELECT count(*) FROM agent_governance.invocation_governance_state WHERE run_id = %s",
         (run_id,),
     )
-    assert governance_state_count and int(governance_state_count) > 0, (
-        f"agent_governance.invocation_governance_state trống cho run {run_id} — "
-        "governance không chạy dù run.completed"
-    )
+    if tool_call_count and int(tool_call_count) > 0:
+        assert governance_state_count and int(governance_state_count) > 0, (
+            f"run {run_id} có {tool_call_count} tool call nhưng "
+            "agent_governance.invocation_governance_state trống — governance bị bỏ qua"
+        )
 
     # (c) TODO(B5): khi bridge token được vá VÀ scenario này bổ sung một lời gọi
     #     `operations_write` HIGH-risk, assert thêm: có đúng một hàng `run_approvals`

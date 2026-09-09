@@ -40,6 +40,14 @@ _SECRETS = {
     # `"dev-secret"` khi biến này trống ở APP_ENV=development, nhưng set tường
     # minh (>= 32 ký tự) để relay POST được chấp nhận không phụ thuộc default.
     "COSA_LOCAL_SERVICE_SECRET": "cosa-local-service-hmac-secret-change-in-prod-32b",
+    # Scoped cross-plane delegation (ADR-COSA-DELEGATION-002). Cả apps/cosa (ký)
+    # và services/cosa / services/company (verify) đều fallback về đúng các dev
+    # default này khi biến trống, nhưng pin tường minh để token B5
+    # (`aud=cosa_control`, dùng cho agent-policy-snapshot) ký==verify không phụ
+    # thuộc shell env của người chạy test. Đây là bug class B5 gốc:
+    # forward nhầm token nên policy_snapshot_unavailable.
+    "COSA_CONTROL_DELEGATION_SECRET": "cosa-control-delegation-dev-secret-change-in-prod",
+    "COSA_COMPANY_DELEGATION_SECRET": "cosa-company-delegation-dev-secret-change-in-prod",
 }
 
 # Export công khai cho test signer (vd. `_sign_worker_token` trong
