@@ -9,47 +9,21 @@ import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
 import '../services/module_visibility_controller.dart';
+import '../services/workspace_capability_manifest_model.dart';
 import '../shell/app_shell.dart';
-import '../widgets/capability_gated_view.dart';
+import '../widgets/surface_state_view.dart';
 import 'app_routes.dart';
 import 'auth_middleware.dart';
 import 'project_setup_guard_middleware.dart';
 
-import '../../modules/agents/bindings/agents_binding.dart';
-import '../../modules/agents/views/agents_view.dart';
-import '../../modules/approvals/bindings/approvals_binding.dart';
-import '../../modules/approvals/views/approvals_view.dart';
 import '../../modules/finance/bindings/finance_binding.dart';
 import '../../modules/finance/views/finance_view.dart';
-import '../../modules/legal/bindings/legal_binding.dart';
-import '../../modules/legal/views/legal_view.dart';
-import '../../modules/marketing/bindings/marketing_binding.dart';
-import '../../modules/marketing/views/marketing_cockpit_view.dart';
-import '../../modules/organization/bindings/organization_binding.dart';
-import '../../modules/organization/views/organization_view.dart';
-import '../../modules/sales/bindings/sales_binding.dart';
-import '../../modules/sales/views/sales_view.dart';
 import '../../modules/settings/bindings/settings_binding.dart';
 import '../../modules/settings/views/settings_view.dart';
-import '../../modules/skills/bindings/skill_registry_binding.dart';
-import '../../modules/skills/views/skill_registry_view.dart';
 import '../../modules/strategy/bindings/strategy_binding.dart';
-import '../../modules/strategy/views/okrs_view.dart';
-import '../../modules/strategy/views/project_funding_view.dart';
-import '../../modules/strategy/views/project_roadmap_view.dart';
 import '../../modules/strategy/views/strategy_view.dart';
-import '../../modules/strategy/views/template_library_view.dart';
-import '../../modules/strategy/views/twelve_week_year_view.dart';
 import '../../modules/tasks/bindings/tasks_binding.dart';
 import '../../modules/tasks/views/tasks_view.dart';
-import '../../modules/vault/bindings/vault_binding.dart';
-import '../../modules/vault/views/vault_view.dart';
-import '../../modules/workflows/bindings/workflows_binding.dart';
-import '../../modules/workflows/views/workflows_view.dart';
-import '../../modules/workspace_runtime/bindings/workspace_runtime_binding.dart';
-import '../../modules/workspace_runtime/views/blocked_work_view.dart';
-import '../../modules/workspace_runtime/views/needs_you_view.dart';
-import '../../modules/workspace_runtime/views/work_inspector_view.dart';
 
 /// 12 module có mặt trong sidebar workspace hiện tại (khớp với các nhóm
 /// trong `DashboardNavConfig`). `hub` là entrypoint COSA 5+1 core, giữ
@@ -104,8 +78,12 @@ class LegacyModuleRedirectMiddleware extends GetMiddleware {
   RouteSettings? redirect(String? route) => RouteSettings(name: canonicalPath);
 }
 
-class ModuleVisibilityGuardMiddleware extends GetMiddleware {
-  ModuleVisibilityGuardMiddleware(this.module);
+/// Founder Trial R1 — thay `ModuleVisibilityGuardMiddleware`. Chặn deep-link
+/// vào một module optional (crm/finance/legal) khi manifest per-workspace nói
+/// surface tương ứng KHÔNG live (PLANNED/UNAVAILABLE). Manifest là nguồn
+/// routing DUY NHẤT — không còn `ModuleVisibility` cache thứ hai.
+class ManifestRouteGuardMiddleware extends GetMiddleware {
+  ManifestRouteGuardMiddleware(this.module);
 
   final WorkspaceModule module;
 
@@ -114,15 +92,17 @@ class ModuleVisibilityGuardMiddleware extends GetMiddleware {
 
   @override
   RouteSettings? redirect(String? route) {
-    if (Get.isRegistered<ModuleVisibilityController>()) {
-      final controller = Get.find<ModuleVisibilityController>();
-      if (!controller.isVisible(module)) {
-        return const RouteSettings(name: AppRoutes.hub);
-      }
+    if (!Get.isRegistered<ModuleVisibilityController>()) return null;
+    final controller = Get.find<ModuleVisibilityController>();
+    if (!controller.isVisible(module)) {
+      return const RouteSettings(name: AppRoutes.hub);
     }
     return null;
   }
 }
+
+/// Back-compat alias — các route table cũ vẫn tham chiếu tên này.
+typedef ModuleVisibilityGuardMiddleware = ManifestRouteGuardMiddleware;
 
 /// Ánh xạ giữa index cũ trong `DashboardNavConfig` và module canonical mới.
 /// Ban đầu (Task 9) chỉ phủ một phần module, phần còn lại (OKRs, 12WY,
@@ -184,17 +164,26 @@ String resolveLegacyDashboardTarget(int targetTab) {
 /// Mỗi route bọc view HIỆN CÓ (không sửa nội dung/visual) bằng `AppShell`
 /// (sidebar/topbar/floating voice/banner) — đúng nguyên tắc Task 9: chỉ
 /// chuyển quyền sở hữu chrome, không viết lại widget nghiệp vụ.
+/// Founder Trial R1 — route cho một module CHƯA có màn hình MVP: render
+/// `SurfaceStateView` PLANNED (roadmap card, không CTA) thay vì mở view legacy.
+GetPage _plannedRoute(WorkspaceModule module) => GetPage(
+      name: module.path,
+      page: () => AppShell(
+        activeModule: module,
+        child: const SurfaceStateView(
+          status: SurfaceStatus.planned,
+          child: SizedBox.shrink(),
+        ),
+      ),
+      middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+    );
+
 final List<GetPage> moduleRoutes = [
+  // ── R1 live modules ──
   GetPage(
     name: WorkspaceModule.tasks.path,
     page: () => const AppShell(activeModule: WorkspaceModule.tasks, child: TasksView()),
     binding: TasksBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.approvals.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.approvals, child: ApprovalsView()),
-    binding: ApprovalsBinding(),
     middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
@@ -204,86 +193,14 @@ final List<GetPage> moduleRoutes = [
     middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
-    name: WorkspaceModule.agents.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.agents, child: AgentsView()),
-    binding: AgentsBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.vault.path,
-    page: () => AppShell(
-      activeModule: WorkspaceModule.vault,
-      child: CapabilityGatedView.gated(
-        moduleName: 'Vault & Knowledge Store',
-        capabilitySelector: (m) => m.vaultSupported,
-        child: const VaultView(),
-      ),
-    ),
-    binding: VaultBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.sales.path,
-    page: () => AppShell(
-      activeModule: WorkspaceModule.sales,
-      child: CapabilityGatedView.gated(
-        moduleName: 'Sales CRM & Deals',
-        capabilitySelector: (m) => m.salesSupported,
-        child: const SalesView(),
-      ),
-    ),
-    binding: SalesBinding(),
-    middlewares: [
-      AuthMiddleware(),
-      ProjectSetupGuardMiddleware(),
-      ModuleVisibilityGuardMiddleware(WorkspaceModule.sales),
-    ],
-  ),
-  GetPage(
-    name: WorkspaceModule.marketing.path,
-    page: () => AppShell(
-      activeModule: WorkspaceModule.marketing,
-      child: CapabilityGatedView.gated(
-        moduleName: 'Marketing Cockpit',
-        capabilitySelector: (m) => m.marketingSupported,
-        child: const MarketingCockpitView(),
-      ),
-    ),
-    binding: MarketingBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
     name: WorkspaceModule.finance.path,
     page: () => const AppShell(activeModule: WorkspaceModule.finance, child: FinanceView()),
     binding: FinanceBinding(),
     middlewares: [
       AuthMiddleware(),
       ProjectSetupGuardMiddleware(),
-      ModuleVisibilityGuardMiddleware(WorkspaceModule.finance),
+      ManifestRouteGuardMiddleware(WorkspaceModule.finance),
     ],
-  ),
-  GetPage(
-    name: WorkspaceModule.legal.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.legal, child: LegalView()),
-    binding: LegalBinding(),
-    middlewares: [
-      AuthMiddleware(),
-      ProjectSetupGuardMiddleware(),
-      ModuleVisibilityGuardMiddleware(WorkspaceModule.legal),
-    ],
-  ),
-  GetPage(
-    name: WorkspaceModule.workflows.path,
-    page: () => AppShell(
-      activeModule: WorkspaceModule.workflows,
-      child: CapabilityGatedView.gated(
-        moduleName: 'Automated Workflows',
-        capabilitySelector: (m) => m.workflowsSupported,
-        child: const WorkflowsView(),
-      ),
-    ),
-    binding: WorkflowsBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
   GetPage(
     name: WorkspaceModule.settings.path,
@@ -291,66 +208,26 @@ final List<GetPage> moduleRoutes = [
     binding: SettingsBinding(),
     middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
-  GetPage(
-    name: WorkspaceModule.organization.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.organization, child: OrganizationView()),
-    binding: OrganizationBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.needsYou.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.needsYou, child: NeedsYouView()),
-    binding: WorkspaceRuntimeBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.blockedWork.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.blockedWork, child: BlockedWorkView()),
-    binding: WorkspaceRuntimeBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.workInspector.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.workInspector, child: WorkInspectorView()),
-    binding: WorkspaceRuntimeBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.okrs.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.okrs, child: OkrsView()),
-    binding: StrategyBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.twelveWy.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.twelveWy, child: TwelveWeekYearView()),
-    binding: StrategyBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.projectRoadmap.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.projectRoadmap, child: ProjectRoadmapView()),
-    binding: StrategyBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.templateLibrary.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.templateLibrary, child: TemplateLibraryView()),
-    binding: StrategyBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.projectFunding.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.projectFunding, child: ProjectFundingView()),
-    binding: StrategyBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
-  GetPage(
-    name: WorkspaceModule.skillRegistry.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.skillRegistry, child: SkillRegistryView()),
-    binding: SkillRegistryBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
+
+  // ── PLANNED / not-yet-built-for-R1 — deep-link resolves to a roadmap card,
+  //    never a legacy cockpit ──
+  _plannedRoute(WorkspaceModule.approvals),
+  _plannedRoute(WorkspaceModule.agents),
+  _plannedRoute(WorkspaceModule.vault),
+  _plannedRoute(WorkspaceModule.sales),
+  _plannedRoute(WorkspaceModule.marketing),
+  _plannedRoute(WorkspaceModule.legal),
+  _plannedRoute(WorkspaceModule.workflows),
+  _plannedRoute(WorkspaceModule.organization),
+  _plannedRoute(WorkspaceModule.needsYou),
+  _plannedRoute(WorkspaceModule.blockedWork),
+  _plannedRoute(WorkspaceModule.workInspector),
+  _plannedRoute(WorkspaceModule.okrs),
+  _plannedRoute(WorkspaceModule.twelveWy),
+  _plannedRoute(WorkspaceModule.projectRoadmap),
+  _plannedRoute(WorkspaceModule.templateLibrary),
+  _plannedRoute(WorkspaceModule.projectFunding),
+  _plannedRoute(WorkspaceModule.skillRegistry),
 ];
 
 /// Test helper (Task 9 Step 1) — tra route đã đăng ký theo path, dùng để
