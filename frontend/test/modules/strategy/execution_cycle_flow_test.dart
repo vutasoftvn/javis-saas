@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/modules/strategy/models/mvp_strategy_models.dart';
 import 'package:frontend/modules/strategy/services/strategy_mvp_client.dart';
@@ -111,8 +112,10 @@ void main() {
       controller.isLoading.value = false;
 
       await tester.pumpWidget(
-        const GetMaterialApp(
-          home: Scaffold(
+        GetMaterialApp(
+          translations: AppTranslations(),
+          locale: const Locale('vi', 'VN'),
+          home: const Scaffold(
             body: TwelveWeekYearView(),
           ),
         ),

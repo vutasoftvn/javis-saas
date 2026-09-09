@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:ui' show Locale;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/modules/strategy/services/strategy_service_base.dart';
 import 'package:http/http.dart' as http;
@@ -16,6 +18,8 @@ void main() {
   setUp(() {
     realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({'workspace_id': 'workspace-1'});
+    // Service ném lỗi dùng L10nKey.*.tr — cần locale để trả chuỗi người-đọc.
+    Get.locale = const Locale('vi', 'VN');
   });
 
   tearDown(() {

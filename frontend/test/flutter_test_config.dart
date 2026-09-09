@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:ui' show Locale;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/core/services/secure_storage_service.dart';
 
 import 'core/services/fakes/fake_secret_store.dart';
@@ -27,6 +30,15 @@ import 'core/services/fakes/fake_secret_store.dart';
 /// `setUp` của chính nó — override này chạy sau, trong từng test, nên luôn
 /// thắng giá trị mặc định đặt ở đây.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  // GetX `.tr` đọc từ `Get.translations` (nạp khi app chạy qua `GetMaterialApp`).
+  // Trong `flutter test` thuần thì rỗng. Nạp sẵn bảng dịch thật cho toàn suite
+  // để test nào set `Get.locale` (hoặc dùng `GetMaterialApp(translations:...)`)
+  // đều có key thật. KHÔNG set `Get.locale` mặc định ở đây: nhiều widget test
+  // layout chật đang dựa vào việc `.tr` trả raw key (ngắn) khi không có locale;
+  // ép tiếng Việt (dài hơn) làm chúng overflow. Test cần chuỗi người-đọc tự set
+  // `Get.locale` trong `setUp` của chính nó.
+  Get.addTranslations(AppTranslations().keys);
+
   setUp(() {
     SecureStorageService.configureForTest(FakeSecretStore());
   });
