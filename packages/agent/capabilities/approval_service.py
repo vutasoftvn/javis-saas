@@ -92,8 +92,10 @@ class DurableApprovalService:
         requester: str = "agent_system",
         target_snapshot: ExecutionTargetSnapshot | None = None,
         payload_hash: str | None = None,
+        manifest_hash: str | None = None,
     ) -> tuple[RunApprovalRecord, WaitDescriptor]:
-        """Tạo bản ghi Approval gắn kết bất biến với (run_id, tool_call_id, checkpoint_ref)."""
+        """Tạo bản ghi Approval gắn kết bất biến với
+        (run_id, tool_call_id, checkpoint_ref[, manifest_hash])."""
         approval_id = f"appr_{run_id}_{tool_call_id}"
 
         record = RunApprovalRecord(
@@ -106,6 +108,7 @@ class DurableApprovalService:
             subject=subject,
             requirement=requirement or {},
             requester=requester,
+            manifest_hash=manifest_hash,
             evidence={
                 "payload_hash": payload_hash,
                 "target_snapshot": target_snapshot.model_dump() if target_snapshot else None,
@@ -236,6 +239,7 @@ class DurableApprovalService:
         checkpoint_ref: str,
         ambient_context: dict[str, Any] | None = None,
         current_target_snapshot: ExecutionTargetSnapshot | None = None,
+        expected_manifest_hash: str | None = None,
     ) -> ApprovalResumeResult:
         """Thẩm định an toàn toàn diện trước khi resume theo Master Guide §18.
 
@@ -291,6 +295,28 @@ class DurableApprovalService:
                     outcome=PolicyOutcome.DENY, reasons=("Approval not found",)
                 ),
                 reason=f"No matching approval for tool_call '{tool_call_id}' and checkpoint '{checkpoint_ref}'",
+            )
+
+        # COSA Automation MVP (Task 6) — an approval bound to a manifest is valid
+        # only against that exact manifest. A resume under a different manifest
+        # (a re-published revision after enqueue) is refused.
+        if (
+            expected_manifest_hash is not None
+            and approval.manifest_hash is not None
+            and approval.manifest_hash != expected_manifest_hash
+        ):
+            return ApprovalResumeResult(
+                can_resume=False,
+                effective_decision=PolicyDecision(
+                    outcome=PolicyOutcome.DENY, reasons=("Approval manifest mismatch",)
+                ),
+                reason=(
+                    f"Approval was granted under manifest '{approval.manifest_hash}', "
+                    f"resume is under '{expected_manifest_hash}'"
+                ),
+                approval_record=approval,
+                tool_call_record=tool_call,
+                checkpoint_record=checkpoint,
             )
 
         # 2. Kiểm tra trạng thái Approval

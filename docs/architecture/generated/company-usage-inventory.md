@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 105 | 22 |
 | VALID_KEEP (giữ nguyên) | 110 | 32 |
-| REVIEW (chưa phân loại) | 835 | 196 |
+| REVIEW (chưa phân loại) | 845 | 200 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -83,6 +83,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/marketing_write.py | 5 |
 | apps/cosa/capabilities/workspace_context_read.py | 5 |
 | apps/cosa/composition/capability_registration.py | 5 |
+| apps/cosa/events/automation_outcome_client.py | 5 |
 | apps/cosa/events/runtime_signal.py | 5 |
 | apps/cosa/worker/main.py | 5 |
 | frontend/lib/core/localization/locales/vi/vi_strategy.dart | 5 |
@@ -163,6 +164,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/strategy/views/tabs/foundation_tab.dart | 2 |
 | frontend/lib/modules/vault/services/evidence_service.dart | 2 |
 | packages/agent/contracts/invocation.py | 2 |
+| packages/agent/workflows/automation_manifest.py | 2 |
 | services/company/events/outbox-relay.service.ts | 2 |
 | services/company/finance-legal/services/cas-link.service.ts | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
@@ -170,6 +172,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/migrations/003_cosa_automation_mvp.up.sql | 2 |
 | services/company/operations/services/automation-definition.service.ts | 2 |
 | services/company/operations/services/automation-invocation.service.ts | 2 |
+| services/company/operations/services/automation-outcome.service.ts | 2 |
 | services/company/operations/services/executive-context.service.ts | 2 |
 | services/company/package-lock.json | 2 |
 | services/company/shared/contracts/mvp-response.ts | 2 |
@@ -205,6 +208,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent/prompts/bundle.py | 1 |
 | packages/agent/scripts/migrate.py | 1 |
 | packages/agent/vault/lifecycle.py | 1 |
+| packages/agent/workflows/automation_blueprints.py | 1 |
 | packages/agent_testkit/kernel_conformance/test_openai_agents_sdk_kernel.py | 1 |
 | services/company/finance-legal/cas-sync.cron.ts | 1 |
 | services/company/finance-legal/handlers/ai-compliance-runtime.handler.ts | 1 |

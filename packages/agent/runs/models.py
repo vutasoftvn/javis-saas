@@ -155,6 +155,11 @@ class RunApprovalRecord(BaseModel):
     reviewer: str | None = None
     reason: str | None = None
     evidence: dict[str, Any] | None = None
+    # COSA Automation MVP (Task 6) — bind the approval to the exact execution
+    # manifest that was in force. An approval is valid only for
+    # (run_id, tool_call_id, checkpoint_ref, manifest_hash). NULL for pre-existing
+    # / non-automation approvals.
+    manifest_hash: str | None = None
     decision_version: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     decided_at: datetime | None = None

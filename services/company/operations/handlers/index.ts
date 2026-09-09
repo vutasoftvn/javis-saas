@@ -14,4 +14,5 @@ export * from "./twelve-week-year.handler";
 export * from "./workspace-runtime.handler";
 export * from "./automation-definition.handler";
 export * from "./automation-invocation.handler";
+export * from "./automation-outcome.handler";
 export * from "../strategy/handlers";

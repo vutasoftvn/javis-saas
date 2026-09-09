@@ -1035,11 +1035,11 @@ class PostgresRunRepository(BasePostgresRepository):
                     INSERT INTO agent.approvals (
                         approval_id, run_id, tool_call_id, checkpoint_ref, status,
                         requirement, requester, action, subject, reviewer, reason, evidence,
-                        created_at, decided_at, expires_at
+                        manifest_hash, created_at, decided_at, expires_at
                     ) VALUES (
                         :approval_id, :run_id, :tool_call_id, :checkpoint_ref, :status,
                         :requirement, :requester, :action, :subject, :reviewer, :reason, :evidence,
-                        :created_at, :decided_at, :expires_at
+                        :manifest_hash, :created_at, :decided_at, :expires_at
                     )
                     ON CONFLICT (approval_id) DO NOTHING;
                     """
@@ -1059,6 +1059,7 @@ class PostgresRunRepository(BasePostgresRepository):
                     "evidence": json.dumps(approval.evidence)
                     if approval.evidence is not None
                     else None,
+                    "manifest_hash": approval.manifest_hash,
                     "created_at": approval.created_at,
                     "decided_at": approval.decided_at,
                     "expires_at": approval.expires_at,
@@ -1075,7 +1076,7 @@ class PostgresRunRepository(BasePostgresRepository):
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
-                           decision_version, created_at, decided_at, expires_at
+                           manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
                     WHERE approval_id = :approval_id
                     """
@@ -1098,7 +1099,7 @@ class PostgresRunRepository(BasePostgresRepository):
                     """
                     SELECT a.approval_id, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
                            a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
-                           a.decision_version, a.created_at, a.decided_at, a.expires_at
+                           a.manifest_hash, a.decision_version, a.created_at, a.decided_at, a.expires_at
                     FROM agent.approvals a
                     JOIN agent.runs r ON a.run_id = r.run_id
                     WHERE a.approval_id = :approval_id
@@ -1120,7 +1121,7 @@ class PostgresRunRepository(BasePostgresRepository):
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
-                           decision_version, created_at, decided_at, expires_at
+                           manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
                     WHERE tool_call_id = :tool_call_id
                     """
@@ -1140,7 +1141,7 @@ class PostgresRunRepository(BasePostgresRepository):
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
-                           decision_version, created_at, decided_at, expires_at
+                           manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
                     WHERE checkpoint_ref = :checkpoint_ref
                     """
@@ -1508,6 +1509,7 @@ class PostgresRunRepository(BasePostgresRepository):
             reviewer=row["reviewer"],
             reason=row["reason"],
             evidence=cls._parse_json(row["evidence"]),
+            manifest_hash=row.get("manifest_hash"),
             decision_version=row["decision_version"],
             created_at=row["created_at"],
             decided_at=row["decided_at"],

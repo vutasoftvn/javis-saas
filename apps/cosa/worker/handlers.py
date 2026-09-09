@@ -51,6 +51,7 @@ _AGENT_PROFILE_SPECS = AGENT_PROFILE_SPECS
 
 
 __all__ = [
+    "execute_automation_run_task",
     "execute_resume_task",
     "execute_run_task",
     "execute_scheduled_session_task",
@@ -853,6 +854,9 @@ async def execute_automation_run_task(
     correlation_id = str(payload.get("correlation_id", "")) or None
     conversation_id = f"auto:{invocation_id}"
 
+    outcome_client = getattr(plane, "automation_outcome_client", None)
+    _seq = {"n": 0}
+
     async def _emit(event_type: str, body: dict[str, Any]) -> None:
         await plane.run_repository.append_event(
             RunEventRecord(run_id=run_id, event_type=event_type, payload=body, correlation_id=correlation_id)
@@ -869,6 +873,41 @@ async def execute_automation_run_task(
                     correlation_id=correlation_id,
                 )
 
+    _mh = {"v": ""}  # manifest hash, set once resolved
+
+    async def _report_state(state: str) -> None:
+        if outcome_client is None:
+            return
+        _seq["n"] += 1
+        with contextlib.suppress(Exception):
+            await outcome_client.report_state_changed(
+                invocation_id=invocation_id,
+                run_id=run_id,
+                workspace_id=workspace_id,
+                state=state,
+                sequence=_seq["n"],
+                manifest_hash=_mh["v"],
+                correlation_id=correlation_id or "",
+                observed_at=datetime.now(UTC).isoformat(),
+            )
+
+    async def _report_outcome(outcome: str, **kw: Any) -> None:
+        if outcome_client is None:
+            return
+        _seq["n"] += 1
+        with contextlib.suppress(Exception):
+            await outcome_client.report_outcome(
+                invocation_id=invocation_id,
+                run_id=run_id,
+                workspace_id=workspace_id,
+                outcome=outcome,
+                sequence=_seq["n"],
+                manifest_hash=_mh["v"],
+                correlation_id=correlation_id or "",
+                observed_at=datetime.now(UTC).isoformat(),
+                **kw,
+            )
+
     # 1. Resolve + hash-verify + persist the manifest (insert-once).
     try:
         spec = get_blueprint_spec(automation_key)
@@ -881,6 +920,7 @@ async def execute_automation_run_task(
         raise
 
     manifest_hash = manifest.compute_hash()
+    _mh["v"] = manifest_hash
     persisted = await plane.run_repository.save_automation_manifest(
         run_id, manifest_hash, manifest.model_dump(mode="json")
     )
@@ -910,6 +950,7 @@ async def execute_automation_run_task(
                 )
             )
         await _emit("run.blocked", {"cause": "LOCAL_RUNTIME_UNAVAILABLE"})
+        await _report_outcome("BLOCKED", blocked_cause="LOCAL_RUNTIME_UNAVAILABLE")
         await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"cause": "LOCAL_RUNTIME_UNAVAILABLE"})
         return
 
@@ -930,6 +971,7 @@ async def execute_automation_run_task(
             )
         )
         await _emit("run.started", {"run_id": run_id, "automation_key": automation_key})
+        await _report_state("RUNNING")
     else:
         await plane.run_repository.update_run_status(run_id, RunStatus.RUNNING)
 
@@ -956,11 +998,13 @@ async def execute_automation_run_task(
     except Exception as exc:
         await _emit("run.failed", {"error": "automation_blueprint_error", "detail": str(exc)})
         await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"detail": str(exc)})
+        await _report_outcome("FAILED", failure_reason="automation_blueprint_error")
         raise
 
     if workflow.status != WorkflowStatus.COMPLETED:
         await _emit("run.failed", {"error": "automation_blueprint_not_completed", "status": str(workflow.status)})
         await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"status": str(workflow.status)})
+        await _report_outcome("FAILED", failure_reason="automation_blueprint_not_completed")
         return
 
     evidence = workflow.state.get("evidence", {})
@@ -977,3 +1021,4 @@ async def execute_automation_run_task(
     )
     await plane.run_repository.update_run_status(run_id, RunStatus.COMPLETED, final_output={"evidence": evidence})
     await _emit("run.completed", {"run_id": run_id, "evidence_keys": sorted(evidence.keys())})
+    await _report_outcome("COMPLETED", evidence_refs=sorted(evidence.keys()))
