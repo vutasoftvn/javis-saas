@@ -10,6 +10,7 @@ import {
   listInterviewsInWorkspace,
   updateInterviewInWorkspace,
   deleteInterviewInWorkspace,
+  submitInterviewAsEvidence,
 } from "../services/interview.service";
 
 export type { Interview };
@@ -67,6 +68,31 @@ export const updateInterview = api(
   async (params: UpdateInterviewParams): Promise<Interview> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return updateInterviewInWorkspace(ctx, params.id, params);
+  }
+);
+
+export interface SubmitInterviewEvidenceParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  id: string;
+  claim: string;
+  supportsOrRefutes?: "supports" | "refutes" | "neutral";
+  factOrInference?: "fact" | "inference" | "assumption";
+  hypothesisNote?: string;
+}
+
+// ── POST /operations/strategy/interviews/:id/submit-evidence ──
+// Founder tường minh biến outcome interview thành evidence candidate.
+export const submitInterviewEvidence = api(
+  { method: "POST", path: "/operations/strategy/interviews/:id/submit-evidence", expose: true },
+  async (params: SubmitInterviewEvidenceParams): Promise<{ evidenceIngestionId: string; evidenceCount: number; isReplay: boolean }> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return submitInterviewAsEvidence(ctx, params.id, {
+      claim: params.claim,
+      supportsOrRefutes: params.supportsOrRefutes,
+      factOrInference: params.factOrInference,
+      hypothesisNote: params.hypothesisNote,
+    });
   }
 );
 

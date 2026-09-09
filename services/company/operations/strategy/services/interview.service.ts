@@ -152,3 +152,53 @@ export async function deleteInterviewInWorkspace(
   if (!row) throw APIError.notFound("Interview not found");
   return { success: true };
 }
+
+// Founder Trial R1 — Node B: hành động TƯỜNG MINH của founder biến outcome
+// interview thành evidence candidate. KHÔNG tự chạy mỗi lần lưu interview.
+// Evidence vẫn phải qua review (POST /operations/strategy/evidence/:id/review)
+// mới thành approved.
+export interface SubmitInterviewEvidenceInput {
+  claim: string;
+  supportsOrRefutes?: "supports" | "refutes" | "neutral";
+  factOrInference?: "fact" | "inference" | "assumption";
+  hypothesisNote?: string;
+}
+
+export async function submitInterviewAsEvidence(
+  ctx: TenantContext,
+  interviewId: string,
+  input: SubmitInterviewEvidenceInput
+): Promise<{ evidenceIngestionId: string; evidenceCount: number; isReplay: boolean }> {
+  if (!input.claim || !input.claim.trim()) {
+    throw APIError.invalidArgument("claim is required");
+  }
+  const interview = await getInterviewInWorkspace(ctx, interviewId);
+
+  // Import động để tránh vòng import với evidence-ingestion.service.
+  const { ingestEvidenceSource } = await import("./evidence-ingestion.service");
+  const { createHash } = await import("node:crypto");
+  const payloadHash = createHash("sha256")
+    .update(`${interview.id}|${interview.notes}|${input.claim}`)
+    .digest("hex");
+
+  const receipt = await ingestEvidenceSource(ctx, {
+    projectId: interview.projectId,
+    sourceSystem: "crm",
+    sourceRecordId: `interview:${interview.id}`,
+    sourcePayloadHash: payloadHash,
+    observedAt: interview.conductedAt,
+    claims: [
+      {
+        claim: input.claim.trim(),
+        supportsOrRefutes: input.supportsOrRefutes ?? "supports",
+        factOrInference: input.factOrInference ?? "inference",
+      },
+    ],
+  });
+
+  return {
+    evidenceIngestionId: receipt.id,
+    evidenceCount: receipt.evidenceCount,
+    isReplay: receipt.isReplay,
+  };
+}

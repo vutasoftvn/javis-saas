@@ -5,6 +5,7 @@ import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { linkContactToProject } from "./project-record-link.service";
 
 const { contacts } = schema;
 
@@ -33,6 +34,8 @@ export interface CreateContactParams {
   email?: string;
   source?: string;
   ownerMemberId?: string;
+  /** Founder Trial R1 — gắn contact vào project qua typed link (sales.contact_projects). */
+  projectId?: string;
 }
 
 function toContact(row: typeof contacts.$inferSelect): Contact {
@@ -57,7 +60,7 @@ export async function createContactService(
   params: CreateContactParams,
   authorization: string | undefined
 ): Promise<Contact> {
-  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  const ctx = await requireWorkspaceAccess(authorization, String(params.workspaceId));
   await getWorkspaceRecord(String(params.workspaceId));
 
   const [row] = await db
@@ -76,6 +79,13 @@ export async function createContactService(
     .returning();
 
   if (!row) throw APIError.internal("failed to create contact");
+
+  // Founder Trial R1 — Node B: nếu request gắn projectId thì tạo link typed
+  // ngay (project được xác thực thuộc workspace trong link service).
+  if (params.projectId) {
+    await linkContactToProject(ctx, row.id.toString(), String(params.projectId));
+  }
+
   return toContact(row);
 }
 

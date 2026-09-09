@@ -43,6 +43,7 @@ export const salesLeads = salesSchema.table("sales_leads", {
   keyResultId: bigint("key_result_id", { mode: "bigint" }),
   accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id, { onDelete: "set null" }),
   contactId: bigint("contact_id", { mode: "bigint" }).references(() => contacts.id, { onDelete: "set null" }),
+  projectId: bigint("project_id", { mode: "bigint" }),
   name: text("name").notNull(),
   company: text("company"),
   stage: text("stage").default("NEW").notNull(),
@@ -66,6 +67,19 @@ export const salesLeads = salesSchema.table("sales_leads", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+// Founder Trial R1 — contact ↔ project (N:M). Một người có thể là evidence
+// source cho nhiều project.
+export const contactProjects = salesSchema.table("contact_projects", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  contactId: bigint("contact_id", { mode: "bigint" })
+    .notNull()
+    .references(() => contacts.id, { onDelete: "cascade" }),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  linkedByMemberId: bigint("linked_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const salesOpportunities = salesSchema.table("sales_opportunities", {
@@ -213,6 +227,7 @@ export const marketingCampaigns = commercialSchema.table("marketing_campaigns", 
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   funnelStage: varchar("funnel_stage", { length: 50 }).default("discover").notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }),
   channels: jsonb("channels"),
   budget: doublePrecision("budget"),
   status: varchar("status", { length: 50 }).default("draft").notNull(),
@@ -311,6 +326,7 @@ export const marketingExperiments = commercialSchema.table("marketing_experiment
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   campaignId: bigint("campaign_id", { mode: "bigint" }).references(() => marketingCampaigns.id, { onDelete: "set null" }),
+  projectId: bigint("project_id", { mode: "bigint" }),
   name: varchar("name", { length: 255 }).notNull(),
   hypothesis: text("hypothesis").notNull(),
   status: varchar("status", { length: 50 }).default("draft").notNull(),

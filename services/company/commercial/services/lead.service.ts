@@ -5,6 +5,7 @@ import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { assertCommercialProjectInWorkspace } from "./project-record-link.service";
 
 const { salesLeads } = schema;
 
@@ -42,6 +43,8 @@ export interface CreateSalesLeadParams {
   value?: number;
   source?: string;
   ownerMemberId?: string;
+  /** Founder Trial R1 — gắn lead vào tối đa 1 project (sales.sales_leads.project_id). */
+  projectId?: string;
 }
 
 function toSalesLead(row: typeof salesLeads.$inferSelect): SalesLead {
@@ -75,8 +78,12 @@ export async function createSalesLeadService(
   params: CreateSalesLeadParams,
   authorization: string | undefined
 ): Promise<SalesLead> {
-  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  const ctx = await requireWorkspaceAccess(authorization, String(params.workspaceId));
   await getWorkspaceRecord(String(params.workspaceId));
+
+  if (params.projectId) {
+    await assertCommercialProjectInWorkspace(ctx, params.projectId);
+  }
 
   const [row] = await db
     .insert(salesLeads)
@@ -85,6 +92,7 @@ export async function createSalesLeadService(
       workspaceId: BigInt(String(params.workspaceId)),
       accountId: params.accountId ? BigInt(String(params.accountId)) : null,
       contactId: params.contactId ? BigInt(String(params.contactId)) : null,
+      projectId: params.projectId ? BigInt(String(params.projectId)) : null,
       name: params.name,
       company: params.company || null,
       value: params.value ?? null,
