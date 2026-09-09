@@ -15,11 +15,16 @@ async function seed() {
     workspaceId: ws.workspaceId,
     title: "Founder Brief project",
   });
-  return { ws, project, ctx: makeTenantContext(ws), founderCtx: makeTenantContext(ws, { membershipRole: "founder" }) };
+  return {
+    ws,
+    project,
+    ctx: makeTenantContext(ws),
+    founderCtx: makeTenantContext(ws, { membershipRole: "founder" }),
+  };
 }
 
-describe("Founder Brief (deterministic, no agent recommendation)", () => {
-  it("reports no_evidence axes and a continue-discovery suggestion for a fresh project", async () => {
+describe("Founder Brief (coverage-only, deterministic, no verdict)", () => {
+  it("reports NO_EVIDENCE / CONFIGURATION_REQUIRED axes and a non-authoritative review focus", async () => {
     const { project, ctx } = await seed();
     await createAssumptionInWorkspace(ctx, {
       projectId: project.id,
@@ -29,22 +34,32 @@ describe("Founder Brief (deterministic, no agent recommendation)", () => {
     });
 
     const brief = await getFounderBrief(ctx, project.id);
-    const axisKeys = brief.axes.map((a) => a.axis);
-    expect(axisKeys).toEqual(["problem", "solution", "traction", "economics", "compliance"]);
+    expect(brief.axes.map((a) => a.axis)).toEqual([
+      "problem",
+      "solution",
+      "traction",
+      "economics",
+      "compliance",
+    ]);
 
     const problem = brief.axes.find((a) => a.axis === "problem")!;
-    expect(problem.state).toBe("no_evidence");
+    expect(problem.state).toBe("NO_EVIDENCE");
     expect(problem.knownGaps.join(" ")).toContain("chưa kiểm chứng");
 
-    expect(brief.axes.find((a) => a.axis === "compliance")!.state).toBe("not_assessed");
-    expect(brief.axes.find((a) => a.axis === "economics")!.state).toBe("configuration_required");
+    expect(brief.axes.find((a) => a.axis === "compliance")!.state).toBe("NOT_ASSESSED");
 
-    expect(brief.suggestedDecision.isAuthoritative).toBe(false);
-    expect(brief.suggestedDecision.label).toBe("proceed");
+    const economics = brief.axes.find((a) => a.axis === "economics")! as any;
+    expect(economics.projectBudget.state).toBe("CONFIGURATION_REQUIRED");
+    expect(economics.workspaceLiquidity.state).toBe("CONFIGURATION_REQUIRED");
+
+    expect(brief.nextReviewFocus.isAuthoritative).toBe(false);
+    expect(brief.nextReviewFocus.axis).toBe("problem");
     expect(brief.generatedFrom).toBe("deterministic_rules");
+    // Không còn field mang tính quyết định.
+    expect((brief as any).suggestedDecision).toBeUndefined();
   });
 
-  it("moves the problem axis to emerging once linked evidence is approved", async () => {
+  it("moves problem + solution to EVIDENCE_PRESENT once linked evidence is approved", async () => {
     const { project, ctx, founderCtx } = await seed();
     const a = await createAssumptionInWorkspace(ctx, {
       projectId: project.id,
@@ -69,11 +84,11 @@ describe("Founder Brief (deterministic, no agent recommendation)", () => {
     await reviewEvidenceInWorkspace(founderCtx, { id: ev.id, action: "approve" });
 
     const brief = await getFounderBrief(ctx, project.id);
-    const problem = brief.axes.find((a) => a.axis === "problem")!;
-    expect(problem.state).toBe("emerging");
-    expect(problem.evidenceRefs).toContain(ev.id);
-    // Problem has some support but solution not validated (1 approved ev) → still emerging/hold path.
-    expect(["hold", "proceed"]).toContain(brief.suggestedDecision.label);
+    expect(brief.axes.find((a) => a.axis === "problem")!.state).toBe("EVIDENCE_PRESENT");
+    expect(brief.axes.find((a) => a.axis === "problem")!.evidenceRefs).toContain(ev.id);
+    expect(brief.axes.find((a) => a.axis === "solution")!.state).toBe("EVIDENCE_PRESENT");
+    // Còn economics chưa cấu hình -> review focus trỏ economics.
+    expect(brief.nextReviewFocus.axis).toBe("economics");
   });
 
   it("refuses a project from another workspace", async () => {

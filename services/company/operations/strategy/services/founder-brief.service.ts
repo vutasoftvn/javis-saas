@@ -4,10 +4,15 @@ import { getBudgetSummary } from "../../../finance-legal/services/budget-summary
 import { getFinancialSnapshotsService } from "../../../finance-legal/services/financial-snapshot.service";
 
 // Founder Brief (Founder Trial R1 — spec §4 / Node E). Read model project-scoped:
-// 5 trục readiness tính TẤT ĐỊNH từ dữ liệu thật của Founder Trial Board +
-// finance. R1 KHÔNG có recommendation do agent sinh — chỉ một gợi ý DRAFT tính
-// bằng luật, ghi rõ non-authoritative. `DecisionRecord` chỉ tạo bởi command
-// tường minh của founder.
+// 5 trục readiness tính TẤT ĐỊNH từ dữ liệu thật. R1 chỉ báo EVIDENCE COVERAGE,
+// gaps, freshness và configuration state — KHÔNG phát verdict, KHÔNG đề xuất
+// quyết định. `DecisionRecord` (proceed | pivot | kill | hold) chỉ do command
+// tường minh của founder tạo.
+//
+// Attribution nghiêm ngặt: chỉ evidence đã DUYỆT và
+// `linkedToFounderTrialAssumption === true` (experiment→assumption cùng project)
+// mới đóng góp vào problem/solution coverage. Evidence trực tiếp / experiment
+// generic hiển thị được nhưng NẰM NGOÀI coverage.
 
 export type ReadinessAxisKey =
   | "problem"
@@ -16,31 +21,42 @@ export type ReadinessAxisKey =
   | "economics"
   | "compliance";
 
-export type ReadinessState =
-  | "not_assessed"
-  | "no_evidence"
-  | "emerging"
-  | "supported"
-  | "tracking"
-  | "configuration_required"
-  | "unavailable";
+export type AxisState =
+  | "NOT_ASSESSED"
+  | "NO_EVIDENCE"
+  | "EVIDENCE_PRESENT"
+  | "CONFIGURATION_REQUIRED"
+  | "UNAVAILABLE";
 
 export interface ReadinessAxis {
   axis: ReadinessAxisKey;
-  state: ReadinessState;
+  state: AxisState;
   evidenceRefs: string[];
   knownGaps: string[];
   lastObservedAt: string | null;
 }
 
+export interface EconomicsSubcomponent {
+  state: AxisState;
+  sourceTimestamp: string | null;
+  gap: string | null;
+}
+
+export interface EconomicsAxis extends ReadinessAxis {
+  axis: "economics";
+  // Hai thành phần ĐỘC LẬP — không gộp thành một economics status.
+  projectBudget: EconomicsSubcomponent;
+  workspaceLiquidity: EconomicsSubcomponent;
+}
+
 export interface FounderBriefView {
   projectId: string;
   axes: ReadinessAxis[];
-  // Gợi ý DRAFT, KHÔNG có thẩm quyền. Founder phải ra command riêng để ghi
-  // DecisionRecord (proceed | pivot | kill | hold).
-  suggestedDecision: {
-    label: "proceed" | "pivot" | "kill" | "hold";
-    rationale: string;
+  // Gợi ý trọng tâm cho lần review kế — KHÔNG có thẩm quyền, KHÔNG phải đề xuất
+  // quyết định. Chỉ nêu trục nào còn thiếu bằng chứng/cấu hình.
+  nextReviewFocus: {
+    axis: ReadinessAxisKey | null;
+    note: string;
     isAuthoritative: false;
   };
   generatedFrom: "deterministic_rules";
@@ -52,25 +68,25 @@ function latest(dates: Array<string | null | undefined>): string | null {
 }
 
 function problemAxis(board: FounderTrialBoardView): ReadinessAxis {
-  const approved = board.evidence.approved.filter((e) => e.linkedToExperiment);
+  const approved = board.evidence.approved.filter(
+    (e) => e.linkedToFounderTrialAssumption
+  );
   const focusUntested = board.assumptions.filter((a) => a.isFocus);
   const gaps: string[] = [];
   if (focusUntested.length > 0) {
     gaps.push(`${focusUntested.length} giả thuyết trọng tâm chưa kiểm chứng`);
   }
   if (approved.length === 0) {
-    gaps.push("Chưa có evidence được duyệt liên kết hypothesis");
+    gaps.push("Chưa có evidence duyệt liên kết assumption của project");
   }
   if (board.evidence.unlinked.length > 0) {
     gaps.push(
-      `${board.evidence.unlinked.length} evidence chưa liên kết hypothesis (ngoài kết luận)`
+      `${board.evidence.unlinked.length} evidence chưa liên kết hypothesis (ngoài coverage)`
     );
   }
-  const state: ReadinessState =
-    approved.length >= 3 ? "supported" : approved.length >= 1 ? "emerging" : "no_evidence";
   return {
     axis: "problem",
-    state,
+    state: approved.length > 0 ? "EVIDENCE_PRESENT" : "NO_EVIDENCE",
     evidenceRefs: approved.map((e) => e.id),
     knownGaps: gaps,
     lastObservedAt: latest(approved.map((e) => e.observedAt)),
@@ -78,38 +94,43 @@ function problemAxis(board: FounderTrialBoardView): ReadinessAxis {
 }
 
 function solutionAxis(board: FounderTrialBoardView): ReadinessAxis {
-  const experimentsWithAssumption = board.experiments.filter((e) => e.linkedToAssumption);
-  const approvedIds = new Set(
-    board.evidence.approved.filter((e) => e.linkedToExperiment).map((e) => e.experimentId)
+  // Chỉ experiment gắn assumption của project (linkedToAssumption) + có ít nhất
+  // một evidence duyệt cũng thoả linkedToFounderTrialAssumption.
+  const approvedByExperiment = new Set(
+    board.evidence.approved
+      .filter((e) => e.linkedToFounderTrialAssumption)
+      .map((e) => e.experimentId)
   );
-  const validated = experimentsWithAssumption.filter((e) => approvedIds.has(e.id));
+  const validated = board.experiments.filter(
+    (e) => e.linkedToAssumption && approvedByExperiment.has(e.id)
+  );
   const gaps: string[] = [];
+  const experimentsWithAssumption = board.experiments.filter((e) => e.linkedToAssumption);
   if (experimentsWithAssumption.length === 0) {
-    gaps.push("Chưa có experiment nào gắn giả thuyết");
+    gaps.push("Chưa có experiment nào gắn assumption của project");
   } else if (validated.length === 0) {
-    gaps.push("Có experiment nhưng chưa có evidence được duyệt cho nó");
+    gaps.push("Có experiment nhưng chưa có evidence duyệt liên kết assumption");
   }
-  const state: ReadinessState =
-    validated.length >= 2 ? "supported" : validated.length >= 1 ? "emerging" : "no_evidence";
   return {
     axis: "solution",
-    state,
-    evidenceRefs: validated.map((e) => e.id),
+    state: validated.length > 0 ? "EVIDENCE_PRESENT" : "NO_EVIDENCE",
+    evidenceRefs: board.evidence.approved
+      .filter((e) => e.linkedToFounderTrialAssumption && approvedByExperiment.has(e.experimentId))
+      .map((e) => e.id),
     knownGaps: gaps,
     lastObservedAt: null,
   };
 }
 
 function tractionAxis(board: FounderTrialBoardView): ReadinessAxis {
-  // R1: traction chỉ đo được khi có evidence không phải interview (vd telemetry,
-  // financial actuals) đã duyệt. Marketing/lead project-scoped sẽ nối ở R1.2.
+  // R1: traction chỉ đo được khi có evidence đã duyệt KHÔNG phải interview/CRM
+  // (vd telemetry, financial actuals). Marketing/lead project-scoped nối ở R1.2.
   const tractionEvidence = board.evidence.approved.filter(
     (e) => e.sourceType !== "sales_crm" && e.sourceType !== "interview"
   );
-  const state: ReadinessState = tractionEvidence.length > 0 ? "emerging" : "not_assessed";
   return {
     axis: "traction",
-    state,
+    state: tractionEvidence.length > 0 ? "EVIDENCE_PRESENT" : "NOT_ASSESSED",
     evidenceRefs: tractionEvidence.map((e) => e.id),
     knownGaps:
       tractionEvidence.length === 0
@@ -119,46 +140,92 @@ function tractionAxis(board: FounderTrialBoardView): ReadinessAxis {
   };
 }
 
-async function economicsAxis(
+async function projectBudgetSubcomponent(
   ctx: TenantContext,
   projectId: string
-): Promise<ReadinessAxis> {
-  const gaps: string[] = [];
-  let state: ReadinessState = "configuration_required";
-  let lastObservedAt: string | null = null;
-
+): Promise<EconomicsSubcomponent> {
   try {
     const budget = await getBudgetSummary(ctx, projectId);
     if (budget.coverage === "COMPLETE") {
-      state = "tracking";
-      lastObservedAt = budget.asOf;
-    } else {
-      gaps.push("Chưa cấu hình budget envelope cho project");
+      return { state: "EVIDENCE_PRESENT", sourceTimestamp: budget.asOf, gap: null };
     }
+    return {
+      state: "CONFIGURATION_REQUIRED",
+      sourceTimestamp: null,
+      gap: "Chưa cấu hình project budget envelope",
+    };
   } catch {
-    state = "unavailable";
-    gaps.push("Không đọc được budget summary");
+    return {
+      state: "UNAVAILABLE",
+      sourceTimestamp: null,
+      gap: "Không đọc được budget summary",
+    };
   }
+}
 
+async function workspaceLiquiditySubcomponent(
+  ctx: TenantContext
+): Promise<EconomicsSubcomponent> {
   try {
     const snapshots = await getFinancialSnapshotsService(BigInt(ctx.workspaceId));
     if (snapshots.length > 0) {
-      if (state === "configuration_required") state = "tracking";
-      lastObservedAt = latest([lastObservedAt, snapshots[0].snapshotDate ?? null]);
-    } else {
-      gaps.push("Chưa có cash snapshot ở mức workspace (workspace liquidity)");
+      return {
+        state: "EVIDENCE_PRESENT",
+        sourceTimestamp: snapshots[0].snapshotDate ?? null,
+        gap: null,
+      };
     }
+    return {
+      state: "CONFIGURATION_REQUIRED",
+      sourceTimestamp: null,
+      gap: "Chưa có cash snapshot ở mức workspace (CAS chưa active)",
+    };
   } catch {
-    gaps.push("Không đọc được cash snapshot");
+    return {
+      state: "UNAVAILABLE",
+      sourceTimestamp: null,
+      gap: "Không đọc được cash snapshot",
+    };
+  }
+}
+
+async function economicsAxis(
+  ctx: TenantContext,
+  projectId: string
+): Promise<EconomicsAxis> {
+  const projectBudget = await projectBudgetSubcomponent(ctx, projectId);
+  const workspaceLiquidity = await workspaceLiquiditySubcomponent(ctx);
+
+  const subStates = [projectBudget.state, workspaceLiquidity.state];
+  let state: AxisState;
+  if (subStates.includes("UNAVAILABLE")) {
+    state = "UNAVAILABLE";
+  } else if (subStates.includes("EVIDENCE_PRESENT")) {
+    state = "EVIDENCE_PRESENT";
+  } else {
+    state = "CONFIGURATION_REQUIRED";
   }
 
-  return { axis: "economics", state, evidenceRefs: [], knownGaps: gaps, lastObservedAt };
+  return {
+    axis: "economics",
+    state,
+    evidenceRefs: [],
+    knownGaps: [projectBudget.gap, workspaceLiquidity.gap].filter(
+      (g): g is string => !!g
+    ),
+    lastObservedAt: latest([
+      projectBudget.sourceTimestamp,
+      workspaceLiquidity.sourceTimestamp,
+    ]),
+    projectBudget,
+    workspaceLiquidity,
+  };
 }
 
 function complianceAxis(): ReadinessAxis {
   return {
     axis: "compliance",
-    state: "not_assessed",
+    state: "NOT_ASSESSED",
     evidenceRefs: [],
     knownGaps: [
       "Đánh giá pháp lý/compliance không thuộc phạm vi Release 1 (Legal Guard là post-R1)",
@@ -167,38 +234,32 @@ function complianceAxis(): ReadinessAxis {
   };
 }
 
-function deriveSuggestion(axes: ReadinessAxis[]): FounderBriefView["suggestedDecision"] {
-  const problem = axes.find((a) => a.axis === "problem")!;
-  const solution = axes.find((a) => a.axis === "solution")!;
-
-  if (problem.state === "no_evidence" && solution.state === "no_evidence") {
-    return {
-      label: "proceed",
-      rationale:
-        "Chưa có evidence duyệt cho giả thuyết trọng tâm — đề xuất tiếp tục discovery trong chu kỳ hiện tại.",
-      isAuthoritative: false,
-    };
-  }
-  if (problem.state === "supported" && solution.state !== "supported") {
-    return {
-      label: "hold",
-      rationale:
-        "Vấn đề đã có bằng chứng ủng hộ nhưng giải pháp chưa được kiểm chứng — cân nhắc tập trung experiment giải pháp trước khi mở rộng.",
-      isAuthoritative: false,
-    };
-  }
-  if (problem.state === "supported" && solution.state === "supported") {
-    return {
-      label: "proceed",
-      rationale:
-        "Cả vấn đề và giải pháp đều có evidence duyệt — đủ cơ sở để founder cân nhắc advance phase.",
-      isAuthoritative: false,
-    };
+// Non-authoritative: trục đầu tiên (problem → solution → traction → economics)
+// còn thiếu bằng chứng/cấu hình. KHÔNG map sang proceed/pivot/kill/hold.
+function deriveNextReviewFocus(
+  axes: ReadinessAxis[]
+): FounderBriefView["nextReviewFocus"] {
+  const order: ReadinessAxisKey[] = ["problem", "solution", "traction", "economics"];
+  for (const key of order) {
+    const axis = axes.find((a) => a.axis === key)!;
+    if (axis.state === "NO_EVIDENCE") {
+      return {
+        axis: key,
+        note: `Trục "${key}" chưa có evidence duyệt liên kết — ưu tiên thu thập ở review kế.`,
+        isAuthoritative: false,
+      };
+    }
+    if (axis.state === "CONFIGURATION_REQUIRED") {
+      return {
+        axis: key,
+        note: `Trục "${key}" cần cấu hình (budget/CAS) trước khi đọc được số liệu.`,
+        isAuthoritative: false,
+      };
+    }
   }
   return {
-    label: "hold",
-    rationale:
-      "Evidence còn mỏng — thu thêm dữ liệu trước khi ra quyết định lớn.",
+    axis: null,
+    note: "Không còn lỗ hổng evidence bắt buộc; founder tự chọn trọng tâm review.",
     isAuthoritative: false,
   };
 }
@@ -218,7 +279,7 @@ export async function getFounderBrief(
   return {
     projectId,
     axes,
-    suggestedDecision: deriveSuggestion(axes),
+    nextReviewFocus: deriveNextReviewFocus(axes),
     generatedFrom: "deterministic_rules",
   };
 }

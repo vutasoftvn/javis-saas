@@ -92,6 +92,11 @@ export interface FounderTrialEvidenceView {
   sourceType: string;
   experimentId: string | null;
   linkedToExperiment: boolean;
+  // True chỉ khi evidence gắn với một experiment thuộc project VÀ experiment đó
+  // gắn một assumption cũng thuộc project (same-project experiment→assumption
+  // join). Đây là điều kiện DUY NHẤT để evidence đóng góp vào readiness coverage
+  // của Founder Brief — evidence trực tiếp / experiment generic không được tính.
+  linkedToFounderTrialAssumption: boolean;
   observedAt: string | null;
 }
 
@@ -169,6 +174,8 @@ export async function getFounderTrialBoard(
     };
   });
 
+  const projectAssumptionIds = new Set(assumptions.map((a) => a.id));
+
   const { items: experimentItems } = await listExperimentsInWorkspace(ctx, { projectId });
   const experiments: FounderTrialExperimentView[] = experimentItems.map((e) => ({
     id: e.id,
@@ -179,6 +186,15 @@ export async function getFounderTrialBoard(
     status: e.status,
     linkedToAssumption: e.assumptionId != null,
   }));
+
+  // Experiment "Founder-Trial hợp lệ" = có assumptionId trỏ tới một assumption
+  // của CHÍNH project này. Chỉ evidence gắn experiment trong tập này mới đóng góp
+  // vào readiness coverage.
+  const founderTrialExperimentIds = new Set(
+    experiments
+      .filter((e) => e.assumptionId != null && projectAssumptionIds.has(e.assumptionId))
+      .map((e) => e.id)
+  );
 
   const evidenceRows = await db
     .select()
@@ -191,16 +207,21 @@ export async function getFounderTrialBoard(
       )
     );
 
-  const toEvidenceView = (r: typeof evidenceRows[number]): FounderTrialEvidenceView => ({
-    id: r.id.toString(),
-    claim: r.claim,
-    status: r.status,
-    supportsOrRefutes: r.supportsOrRefutes,
-    sourceType: r.sourceType,
-    experimentId: r.experimentId ? r.experimentId.toString() : null,
-    linkedToExperiment: r.experimentId != null,
-    observedAt: r.observedAt ? r.observedAt.toISOString() : null,
-  });
+  const toEvidenceView = (r: typeof evidenceRows[number]): FounderTrialEvidenceView => {
+    const experimentId = r.experimentId ? r.experimentId.toString() : null;
+    return {
+      id: r.id.toString(),
+      claim: r.claim,
+      status: r.status,
+      supportsOrRefutes: r.supportsOrRefutes,
+      sourceType: r.sourceType,
+      experimentId,
+      linkedToExperiment: experimentId != null,
+      linkedToFounderTrialAssumption:
+        experimentId != null && founderTrialExperimentIds.has(experimentId),
+      observedAt: r.observedAt ? r.observedAt.toISOString() : null,
+    };
+  };
 
   const evidenceViews = evidenceRows.map(toEvidenceView);
   const evidenceGroups = {
