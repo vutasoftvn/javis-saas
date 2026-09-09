@@ -162,6 +162,49 @@ export async function createExperimentInWorkspace(
   return toExperiment(row);
 }
 
+// Founder Trial flow: nghiêm hơn generic. Một experiment dùng để đánh giá
+// readiness BẮT BUỘC gắn assumption + method + successCriteria không rỗng
+// (spec §4.1). Endpoint generic `createExperimentInWorkspace` giữ permissive.
+export async function createFounderTrialExperiment(
+  ctx: TenantContext,
+  params: CreateExperimentInput
+): Promise<Experiment> {
+  if (!params.assumptionId) {
+    throw APIError.invalidArgument(
+      "assumptionId is required for a Founder Trial experiment"
+    );
+  }
+  if (!params.method || !params.method.trim()) {
+    throw APIError.invalidArgument("method must not be empty");
+  }
+  if (!params.successCriteria || !params.successCriteria.trim()) {
+    throw APIError.invalidArgument("successCriteria must not be empty");
+  }
+
+  // Assumption phải thuộc cùng workspace VÀ cùng project với experiment.
+  const wsId = BigInt(ctx.workspaceId);
+  const [assumptionRow] = await db
+    .select({ projectId: assumptions.projectId })
+    .from(assumptions)
+    .where(
+      and(
+        eq(assumptions.id, BigInt(params.assumptionId)),
+        eq(assumptions.workspaceId, wsId),
+        isNull(assumptions.deletedAt)
+      )
+    )
+    .limit(1);
+
+  if (!assumptionRow) {
+    throw APIError.invalidArgument("assumptionId not found in this workspace");
+  }
+  if (assumptionRow.projectId.toString() !== String(params.projectId)) {
+    throw APIError.invalidArgument("assumptionId belongs to a different project");
+  }
+
+  return createExperimentInWorkspace(ctx, params);
+}
+
 export async function getExperimentInWorkspace(
   ctx: TenantContext,
   id: string | number

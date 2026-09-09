@@ -6,6 +6,7 @@ import {
   ListExperimentsInput,
   UpdateExperimentInput,
   createExperimentInWorkspace,
+  createFounderTrialExperiment,
   getExperimentInWorkspace,
   listExperimentsInWorkspace,
   updateExperimentInWorkspace,
@@ -52,6 +53,38 @@ export const createExperiment = api(
   async (params: CreateExperimentParams): Promise<Experiment> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return createExperimentInWorkspace(ctx, params);
+  }
+);
+
+export interface CreateFounderTrialExperimentParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  projectId: string;
+  assumptionId: string | number;
+  hypothesis: string;
+  method: string;
+  successCriteria: string;
+  budget?: number;
+  ownerMemberId?: string | number;
+  status?: string;
+}
+
+// ── POST /operations/projects/:projectId/founder-trial/experiments ──
+// Nghiêm hơn generic: bắt buộc assumptionId + method + successCriteria.
+export const createFounderTrialExperimentEndpoint = api(
+  { method: "POST", path: "/operations/projects/:projectId/founder-trial/experiments", expose: true },
+  async (params: CreateFounderTrialExperimentParams): Promise<Experiment> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return createFounderTrialExperiment(ctx, {
+      projectId: params.projectId,
+      assumptionId: params.assumptionId,
+      hypothesis: params.hypothesis,
+      method: params.method,
+      successCriteria: params.successCriteria,
+      budget: params.budget,
+      ownerMemberId: params.ownerMemberId,
+      status: params.status,
+    });
   }
 );
 
