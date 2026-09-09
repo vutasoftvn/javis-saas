@@ -38,7 +38,7 @@ export interface SurfacePolicyEntry {
   readonly releaseNote: string | null;
 }
 
-export const SURFACE_POLICY_VERSION = "2026-09-09.1";
+export const SURFACE_POLICY_VERSION = "2026-09-10.1";
 
 export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
   // ── R1 Founder Trial: AVAILABLE ──
@@ -47,7 +47,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "strategy",
     featureKey: "founder_trial_board",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["strategy.founder_trial.board.read"],
     requiredConnectorKeys: [],
     contractEndpoint: "strategy.founder_trial.board.read",
     releaseNote: "Vòng lặp vận hành có dữ liệu thật: cycle → assumptions → experiments → evidence → decision.",
@@ -57,9 +57,9 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "strategy",
     featureKey: "operating_cycle",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["strategy.operating_cycle.resize"],
     requiredConnectorKeys: [],
-    contractEndpoint: "strategy.operating_setup.save",
+    contractEndpoint: "strategy.operating_cycle.resize",
     releaseNote: "Operating Cycle cấu hình được 1–12 tuần; 12 chỉ là template gợi ý.",
   },
   {
@@ -67,7 +67,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "strategy",
     featureKey: "assumptions",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["strategy.assumptions.ranked", "strategy.assumption.create"],
     requiredConnectorKeys: [],
     contractEndpoint: "strategy.assumptions.ranked",
     releaseNote: "Giả thuyết xếp hạng theo importance × uncertainty.",
@@ -77,7 +77,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "strategy",
     featureKey: "experiments",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["strategy.founder_trial.experiment.create"],
     requiredConnectorKeys: [],
     contractEndpoint: "strategy.founder_trial.experiment.create",
     releaseNote: "Test contract: bắt buộc chọn assumption + method + success criteria.",
@@ -87,7 +87,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "strategy",
     featureKey: "evidence",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["strategy.evidence.review"],
     requiredConnectorKeys: [],
     contractEndpoint: "strategy.evidence.review",
     releaseNote: "Evidence candidate/approved/rejected; evidence chưa liên kết hypothesis nằm ngoài kết luận.",
@@ -97,7 +97,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "strategy",
     featureKey: "founder_brief",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["strategy.founder_brief.read", "strategy.decision.create"],
     requiredConnectorKeys: [],
     contractEndpoint: "strategy.founder_brief.read",
     releaseNote: "Tổng hợp 5 trục readiness. R1 không có agent recommendation.",
@@ -108,7 +108,10 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "commercial",
     featureKey: "interview",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: [
+      "commercial.interview.create",
+      "commercial.interview.submit_evidence",
+    ],
     requiredConnectorKeys: [],
     optionalModuleKey: "crm",
     contractEndpoint: "commercial.interview.create",
@@ -119,7 +122,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "commercial",
     featureKey: "contact_lead",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["commercial.contact.create", "commercial.lead.create"],
     requiredConnectorKeys: [],
     optionalModuleKey: "crm",
     contractEndpoint: "commercial.contact.create",
@@ -131,7 +134,12 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "commercial",
     featureKey: "marketing_experiments",
     defaultStatus: "PILOT",
-    requiredCapabilities: [],
+    requiredCapabilities: [
+      "marketing.experiment.create",
+      "marketing.experiment.list",
+      "marketing.campaign.create",
+      "marketing.campaign.list",
+    ],
     requiredConnectorKeys: [],
     contractEndpoint: "marketing.experiment.create",
     releaseNote: "Experiment + campaign draft project-scoped. Không autonomous paid spend hoặc outbound send.",
@@ -142,7 +150,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     moduleKey: "finance",
     featureKey: "project_budget_coverage",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["finance.budget_summary.read"],
     requiredConnectorKeys: [],
     optionalModuleKey: "finance",
     contractEndpoint: "finance.budget_summary.read",
@@ -155,7 +163,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     // AVAILABLE là trạng thái "đã phát hành"; resolver tự hạ xuống
     // CONFIGURATION_REQUIRED khi connector "cas" chưa enabled.
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: [],
+    requiredCapabilities: ["finance.snapshot.latest"],
     requiredConnectorKeys: ["cas"],
     optionalModuleKey: "finance",
     contractEndpoint: "finance.snapshot.latest",
@@ -188,3 +196,16 @@ function planned(
     releaseNote,
   }));
 }
+
+// Fail-closed lúc khởi động: policy tĩnh phải khớp contract MVP đã sinh
+// (mọi surface live tham chiếu capability enabled; PLANNED có contractEndpoint
+// null). Import động để tránh phụ thuộc vòng khi test import riêng validator.
+import {
+  loadEnabledMvpCapabilityIds,
+  validateSurfacePolicyAgainstMvpContract,
+} from "./mvp-contract-policy";
+
+validateSurfacePolicyAgainstMvpContract(
+  FOUNDER_TRIAL_SURFACE_POLICY,
+  loadEnabledMvpCapabilityIds()
+);
