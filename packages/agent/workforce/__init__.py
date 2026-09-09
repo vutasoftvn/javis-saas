@@ -24,6 +24,12 @@ from agent.workforce.models import (
     WorkforceAssignmentRecord,
     WorkforceEmployeeRecord,
 )
+from agent.workforce.outcome_analysis import (
+    OUTCOME_ANALYSIS_SKILL_ID,
+    OUTCOME_ANALYST_CAPABILITY_REFS,
+    OutcomeAnalysisBinding,
+    resolve_outcome_analysis_binding,
+)
 from agent.workforce.repository import (
     DuplicateEmployeeCodeError,
     EmployeeNotAssignableError,
@@ -34,6 +40,8 @@ from agent.workforce.repository import (
 
 __all__ = [
     "FUNCTIONAL_AGENT_CATALOG",
+    "OUTCOME_ANALYSIS_SKILL_ID",
+    "OUTCOME_ANALYST_CAPABILITY_REFS",
     "CapabilityBoundaryError",
     "CompositionInput",
     "DuplicateEmployeeCodeError",
@@ -41,6 +49,7 @@ __all__ = [
     "EmployeeNotAssignableError",
     "FunctionalAgentEntry",
     "InMemoryWorkforceRepository",
+    "OutcomeAnalysisBinding",
     "PostgresWorkforceRepository",
     "RunCostObservationRecord",
     "RuntimeSignalOutboxRecord",
@@ -54,4 +63,5 @@ __all__ = [
     "catalog_keys",
     "compose_workforce",
     "execution_capabilities",
+    "resolve_outcome_analysis_binding",
 ]

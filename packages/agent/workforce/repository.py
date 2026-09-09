@@ -20,6 +20,7 @@ from agent.workforce.models import (
     WorkforceEmployeeRecord,
     WorkforceScheduleRecord,
 )
+from agent.workforce.outcome_analysis import OutcomeAnalysisBinding
 
 __all__ = [
     "DuplicateEmployeeCodeError",
@@ -65,6 +66,23 @@ class WorkforceRepository(Protocol):
     async def retire_employee(
         self, workspace_id: str, agent_instance_id: UUID | str
     ) -> WorkforceEmployeeRecord | None: ...
+
+    async def get_outcome_analysis_binding(
+        self, workspace_id: str, analysis_kind: str
+    ) -> OutcomeAnalysisBinding | None: ...
+
+    async def upsert_outcome_analysis_binding(
+        self,
+        workspace_id: str,
+        analysis_kind: str,
+        analyst_employee_id: UUID | str,
+        analyst_assignment_id: UUID | str,
+        policy: str,
+        skill_id: str,
+        skill_version: str,
+        definition_hash: str,
+        updated_by: str,
+    ) -> OutcomeAnalysisBinding: ...
 
     async def create_assignment(
         self,
@@ -286,6 +304,88 @@ class PostgresWorkforceRepository:
         self, workspace_id: str, agent_instance_id: UUID | str
     ) -> WorkforceEmployeeRecord | None:
         return await self._set_employee_lifecycle(workspace_id, agent_instance_id, "RETIRED")
+
+    async def get_outcome_analysis_binding(
+        self, workspace_id: str, analysis_kind: str
+    ) -> OutcomeAnalysisBinding | None:
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT workspace_id, analysis_kind, analyst_employee_id, analyst_assignment_id,
+                           policy, skill_id, skill_version, definition_hash, version
+                    FROM agent.outcome_analysis_bindings
+                    WHERE workspace_id = :workspace_id AND analysis_kind = :analysis_kind
+                    """
+                ),
+                {"workspace_id": workspace_id, "analysis_kind": analysis_kind},
+            )
+            row = res.mappings().first()
+            if not row:
+                return None
+            return OutcomeAnalysisBinding(
+                workspace_id=row["workspace_id"],
+                analysis_kind=row["analysis_kind"],
+                agent_instance_id=str(row["analyst_employee_id"]),
+                assignment_id=str(row["analyst_assignment_id"]),
+                policy=row["policy"],
+                skill_id=row["skill_id"],
+                skill_version=row["skill_version"],
+                definition_hash=row["definition_hash"],
+                version=row["version"],
+            )
+
+    async def upsert_outcome_analysis_binding(
+        self,
+        workspace_id: str,
+        analysis_kind: str,
+        analyst_employee_id: UUID | str,
+        analyst_assignment_id: UUID | str,
+        policy: str,
+        skill_id: str,
+        skill_version: str,
+        definition_hash: str,
+        updated_by: str,
+    ) -> OutcomeAnalysisBinding:
+        async with self._session_factory() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent.outcome_analysis_bindings (
+                        workspace_id, analysis_kind, analyst_employee_id, analyst_assignment_id,
+                        policy, skill_id, skill_version, definition_hash, version, updated_by
+                    ) VALUES (
+                        :workspace_id, :analysis_kind, :analyst_employee_id, :analyst_assignment_id,
+                        :policy, :skill_id, :skill_version, :definition_hash, 1, :updated_by
+                    )
+                    ON CONFLICT (workspace_id, analysis_kind) DO UPDATE SET
+                        analyst_employee_id = EXCLUDED.analyst_employee_id,
+                        analyst_assignment_id = EXCLUDED.analyst_assignment_id,
+                        policy = EXCLUDED.policy,
+                        skill_id = EXCLUDED.skill_id,
+                        skill_version = EXCLUDED.skill_version,
+                        definition_hash = EXCLUDED.definition_hash,
+                        version = agent.outcome_analysis_bindings.version + 1,
+                        updated_by = EXCLUDED.updated_by,
+                        updated_at = now()
+                    """
+                ),
+                {
+                    "workspace_id": workspace_id,
+                    "analysis_kind": analysis_kind,
+                    "analyst_employee_id": str(analyst_employee_id),
+                    "analyst_assignment_id": str(analyst_assignment_id),
+                    "policy": policy,
+                    "skill_id": skill_id,
+                    "skill_version": skill_version,
+                    "definition_hash": definition_hash,
+                    "updated_by": updated_by,
+                },
+            )
+            await session.commit()
+        result = await self.get_outcome_analysis_binding(workspace_id, analysis_kind)
+        assert result is not None
+        return result
 
     async def create_assignment(
         self,
@@ -915,6 +1015,40 @@ class InMemoryWorkforceRepository:
         self.schedules: dict[UUID, WorkforceScheduleRecord] = {}
         self.cost_observations: list[RunCostObservationRecord] = []
         self.outbox: dict[UUID, RuntimeSignalOutboxRecord] = {}
+        self.outcome_analysis_bindings: dict[tuple[str, str], OutcomeAnalysisBinding] = {}
+
+    async def get_outcome_analysis_binding(
+        self, workspace_id: str, analysis_kind: str
+    ) -> OutcomeAnalysisBinding | None:
+        return self.outcome_analysis_bindings.get((workspace_id, analysis_kind))
+
+    async def upsert_outcome_analysis_binding(
+        self,
+        workspace_id: str,
+        analysis_kind: str,
+        analyst_employee_id: UUID | str,
+        analyst_assignment_id: UUID | str,
+        policy: str,
+        skill_id: str,
+        skill_version: str,
+        definition_hash: str,
+        updated_by: str,
+    ) -> OutcomeAnalysisBinding:
+        existing = self.outcome_analysis_bindings.get((workspace_id, analysis_kind))
+        version = (existing.version + 1) if existing else 1
+        binding = OutcomeAnalysisBinding(
+            workspace_id=workspace_id,
+            analysis_kind=analysis_kind,
+            agent_instance_id=str(analyst_employee_id),
+            assignment_id=str(analyst_assignment_id),
+            policy=policy,
+            skill_id=skill_id,
+            skill_version=skill_version,
+            definition_hash=definition_hash,
+            version=version,
+        )
+        self.outcome_analysis_bindings[(workspace_id, analysis_kind)] = binding
+        return binding
 
     async def create_employee(
         self,

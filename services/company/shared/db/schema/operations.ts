@@ -173,6 +173,99 @@ export const workPackageEvents = operatingSchema.table("work_package_events", {
   ixWp: index("ix_work_package_events_wp").on(t.workPackageId, t.createdAt),
 }));
 
+// Task Result (append-only revision) + Outcome Analysis pipeline (spec §8,
+// migration 53). Không cột nào ghi KR.actualValue.
+export const taskResults = operatingSchema.table("task_results", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  taskId: bigint("task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  contractId: bigint("contract_id", { mode: "bigint" }).notNull().references(() => taskOutcomeContracts.id),
+  resultRevision: integer("result_revision").notNull(),
+  submittedByKind: varchar("submitted_by_kind", { length: 16 }).notNull(),
+  submittedById: text("submitted_by_id"),
+  workAttemptIds: jsonb("work_attempt_ids").default([]).notNull(),
+  summary: text("summary").notNull(),
+  structuredOutputs: jsonb("structured_outputs").default({}).notNull(),
+  artifactRefs: jsonb("artifact_refs").default([]).notNull(),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  claimedMeasurements: jsonb("claimed_measurements").default({}).notNull(),
+  blockers: jsonb("blockers").default([]).notNull(),
+  idempotencyKey: text("idempotency_key"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixTaskRevision: uniqueIndex("uix_task_results_task_revision").on(t.taskId, t.resultRevision),
+}));
+
+export const outcomeAnalysisRequests = operatingSchema.table("outcome_analysis_requests", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  taskResultId: bigint("task_result_id", { mode: "bigint" }).notNull().references(() => taskResults.id, { onDelete: "cascade" }),
+  contractId: bigint("contract_id", { mode: "bigint" }).notNull().references(() => taskOutcomeContracts.id),
+  contractRevision: integer("contract_revision").notNull(),
+  analysisKind: varchar("analysis_kind", { length: 32 }).notNull(),
+  analysisPolicy: varchar("analysis_policy", { length: 20 }).notNull(),
+  status: varchar("status", { length: 32 }).default("QUEUED").notNull(),
+  selectedAgentInstanceId: text("selected_agent_instance_id"),
+  selectedAssignmentId: text("selected_assignment_id"),
+  selectedRunId: text("selected_run_id"),
+  skillId: text("skill_id"),
+  skillVersion: text("skill_version"),
+  definitionHash: text("definition_hash"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixIdem: uniqueIndex("uix_outcome_analysis_requests_idem").on(
+    t.workspaceId, t.taskResultId, t.analysisKind, t.contractRevision
+  ),
+}));
+
+export const outcomeAssessments = operatingSchema.table("outcome_assessments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  requestId: bigint("request_id", { mode: "bigint" }).notNull().references(() => outcomeAnalysisRequests.id, { onDelete: "cascade" }),
+  taskResultId: bigint("task_result_id", { mode: "bigint" }).notNull().references(() => taskResults.id, { onDelete: "cascade" }),
+  contractId: bigint("contract_id", { mode: "bigint" }).notNull().references(() => taskOutcomeContracts.id),
+  agentInstanceId: text("agent_instance_id").notNull(),
+  assignmentId: text("assignment_id").notNull(),
+  runId: text("run_id").notNull(),
+  skillId: text("skill_id").notNull(),
+  skillVersion: text("skill_version").notNull(),
+  definitionHash: text("definition_hash").notNull(),
+  rubricVersion: text("rubric_version"),
+  evidenceUsedRefs: jsonb("evidence_used_refs").default([]).notNull(),
+  missingEvidenceRefs: jsonb("missing_evidence_refs").default([]).notNull(),
+  expectedVsActual: jsonb("expected_vs_actual").default({}).notNull(),
+  criterionScores: jsonb("criterion_scores").default({}).notNull(),
+  confidence: doublePrecision("confidence"),
+  riskFlags: jsonb("risk_flags").default([]).notNull(),
+  causalLimits: jsonb("causal_limits").default([]).notNull(),
+  nextActionProposals: jsonb("next_action_proposals").default([]).notNull(),
+  recommendation: varchar("recommendation", { length: 24 }).notNull(),
+  status: varchar("status", { length: 16 }).default("READY").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixResult: index("ix_outcome_assessments_result").on(t.taskResultId, t.status),
+}));
+
+export const krContributionAssessments = operatingSchema.table("kr_contribution_assessments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  assessmentId: bigint("assessment_id", { mode: "bigint" }).notNull().references(() => outcomeAssessments.id, { onDelete: "cascade" }),
+  krLinkId: bigint("kr_link_id", { mode: "bigint" }).references(() => taskOutcomeKrLinks.id, { onDelete: "set null" }),
+  keyResultId: bigint("key_result_id", { mode: "bigint" }).references(() => keyResults.id, { onDelete: "set null" }),
+  state: varchar("state", { length: 24 }).default("PROPOSED").notNull(),
+  claimedEffect: jsonb("claimed_effect").default({}).notNull(),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  causalConfidence: doublePrecision("causal_confidence"),
+  verifiedByMemberId: bigint("verified_by_member_id", { mode: "bigint" }),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  reason: text("reason"),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixAssessment: index("ix_kr_contribution_assessments_assessment").on(t.assessmentId, t.state),
+}));
+
 export const taskDependencies = operatingSchema.table("task_dependencies", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   taskId: bigint("task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
