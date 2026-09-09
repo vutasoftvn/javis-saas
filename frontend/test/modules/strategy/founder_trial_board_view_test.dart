@@ -89,6 +89,37 @@ void main() {
     expect(find.byKey(const Key('surface_state_configuration_required')), findsOneWidget);
   });
 
+  testWidgets('cycle-duration chips call back only when the surface is interactive', (t) async {
+    final live = await _manifest([_s('founder_trial.operating_cycle', 'AVAILABLE')]);
+    var picked = 0;
+    await t.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: FounderTrialBoardView(
+          board: _board(),
+          manifest: live,
+          onSetCycleDuration: (w) => picked = w,
+        ),
+      ),
+    ));
+    expect(find.byKey(const Key('cycle_week_1')), findsOneWidget);
+    expect(find.byKey(const Key('cycle_week_12')), findsOneWidget);
+    await t.tap(find.byKey(const Key('cycle_week_6')));
+    expect(picked, 6);
+
+    // PLANNED operating_cycle → no chips.
+    final planned = await _manifest([_s('founder_trial.operating_cycle', 'PLANNED')]);
+    await t.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: FounderTrialBoardView(
+          board: _board(),
+          manifest: planned,
+          onSetCycleDuration: (w) => picked = w,
+        ),
+      ),
+    ));
+    expect(find.byKey(const Key('cycle_week_1')), findsNothing);
+  });
+
   testWidgets('fail-closed manifest hides every section behind UNAVAILABLE', (t) async {
     // No reload() called → no snapshot → every surface UNAVAILABLE.
     final manifest = WorkspaceCapabilityManifestController(

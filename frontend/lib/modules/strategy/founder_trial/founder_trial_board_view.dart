@@ -18,12 +18,18 @@ class FounderTrialBoardView extends StatelessWidget {
     required this.manifest,
     this.onRetry,
     this.onConfigureFinance,
+    this.onSetCycleDuration,
+    this.maxCycleWeeks = 12,
   });
 
   final FounderTrialBoard board;
   final WorkspaceCapabilityManifestController manifest;
   final VoidCallback? onRetry;
   final VoidCallback? onConfigureFinance;
+  /// Nếu set và surface Operating Cycle cho phép thao tác, hiện chip 1..N để
+  /// founder chỉnh độ dài chu kỳ (gọi PUT operating-setup).
+  final void Function(int weeks)? onSetCycleDuration;
+  final int maxCycleWeeks;
 
   Widget _section({
     required String surfaceKey,
@@ -61,10 +67,34 @@ class FounderTrialBoardView extends StatelessWidget {
         _section(
           surfaceKey: 'founder_trial.operating_cycle',
           title: 'Operating Cycle',
-          body: Text(board.cycle.durationWeeks == null
-              ? 'Chưa cấu hình chu kỳ'
-              : 'Chu kỳ ${board.cycle.durationWeeks} tuần • tuần ${board.cycle.currentWeek ?? 1}'
-                  ' • ${board.cycle.reviews.length} mốc review'),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(board.cycle.durationWeeks == null
+                  ? 'Chưa cấu hình chu kỳ'
+                  : 'Chu kỳ ${board.cycle.durationWeeks} tuần • tuần ${board.cycle.currentWeek ?? 1}'
+                      ' • ${board.cycle.reviews.length} mốc review'),
+              if (onSetCycleDuration != null &&
+                  manifest.isInteractive('founder_trial.operating_cycle')) ...[
+                const SizedBox(height: 8),
+                const Text('Độ dài chu kỳ (tuần) — 12 chỉ là gợi ý:',
+                    style: TextStyle(fontSize: 12)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (var w = 1; w <= maxCycleWeeks; w++)
+                      ChoiceChip(
+                        key: Key('cycle_week_$w'),
+                        label: Text('$w'),
+                        selected: board.cycle.durationWeeks == w,
+                        onSelected: (_) => onSetCycleDuration!(w),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
         _section(
           surfaceKey: 'founder_trial.assumptions',

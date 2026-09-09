@@ -22,6 +22,29 @@ class ProjectOperatingSetupService extends StrategyServiceBase {
     );
   }
 
+  /// Founder Trial R1 — chỉnh riêng độ dài Operating Cycle (1–12 tuần) mà không
+  /// đụng các field khác của setup. Backend giữ nguyên field bị bỏ qua.
+  Future<ProjectOperatingSetup> updateCycleDuration(
+    String projectId,
+    int cycleDurationWeeks,
+  ) async {
+    final response = await ApiClient.put(
+      '/operations/projects/$projectId/operating-setup',
+      body: {'cycleDurationWeeks': cycleDurationWeeks},
+    );
+    final data = decode(response);
+    if (data is Map<String, dynamic>) {
+      if (data.containsKey('setup') && data['setup'] is Map<String, dynamic>) {
+        return ProjectOperatingSetup.fromJson(data['setup'] as Map<String, dynamic>);
+      }
+      return ProjectOperatingSetup.fromJson(data);
+    }
+    throw StrategyApiException(
+      response.statusCode,
+      'Invalid operating setup response format',
+    );
+  }
+
   Future<ProjectOperatingSetup> saveDraft(
     String projectId,
     ProjectOperatingSetupDraft draft,

@@ -7,7 +7,7 @@ import 'tabs/evidence_backbone_tab.dart';
 import 'tabs/decision_log_tab.dart';
 import 'tabs/stage_gate_audit_tab.dart';
 import 'tabs/twelve_wy_loop_tab.dart';
-import 'tabs/validation_studio_tab.dart';
+import 'tabs/founder_trial_tab.dart';
 import 'tabs/weekly_review_tab.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -175,7 +175,7 @@ class StrategyView extends GetView<StrategyController> {
             const Expanded(
               child: TabBarView(
                 children: [
-                  ValidationStudioTab(),
+                  FounderTrialTab(),
                   StrategyLensesTab(),
                   EvidenceBackboneTab(),
                   DecisionLogTab(),
