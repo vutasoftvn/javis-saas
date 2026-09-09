@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/core/runtime/mutation_gate.dart';
 import 'package:frontend/data/models/project_operating_setup_model.dart';
 import 'package:frontend/data/models/task_kanban_model.dart';
@@ -36,7 +37,10 @@ void main() {
   setUp(() {
     Get.reset();
     Get.testMode = true;
+    Get.addTranslations(AppTranslations().keys);
+    Get.locale = const Locale('vi', 'VN');
   });
+  tearDown(() => Get.locale = null);
 
   testWidgets('has Tổng quan and Kanban tabs, Kanban shows all 5 columns', (
     tester,

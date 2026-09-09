@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/services/workspace_capability_manifest_controller.dart';
 import 'package:frontend/core/services/workspace_capability_manifest_model.dart';
@@ -30,7 +32,7 @@ Map<String, dynamic> _s(String key, String status) => {
 
 FounderTrialBoard _board() => FounderTrialBoard.fromJson({
       'projectId': 'p1',
-      'cycle': {'durationWeeks': 8, 'currentWeek': 2, 'reviews': <dynamic>[]},
+      'cycle': {'cycleId': 'c1', 'durationWeeks': 8, 'revision': 1, 'currentWeek': 2, 'reviews': <dynamic>[]},
       'assumptions': [
         {'id': 'a1', 'statement': 'Weekly pain', 'importance': 9, 'uncertainty': 8, 'riskScore': 72, 'status': 'untested', 'rank': 1, 'isFocus': true},
       ],
@@ -64,7 +66,17 @@ Future<WorkspaceCapabilityManifestController> _manifest(List<Map<String, dynamic
 }
 
 void main() {
+  setUp(() {
+    Get.addTranslations(AppTranslations().keys);
+    Get.locale = const Locale('vi', 'VN');
+  });
+  tearDown(() => Get.locale = null);
+
   testWidgets('renders live sections and a PLANNED roadmap card', (t) async {
+    t.view.physicalSize = const Size(1200, 2400);
+    t.view.devicePixelRatio = 1.0;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
     final manifest = await _manifest([
       _s('founder_trial.operating_cycle', 'AVAILABLE'),
       _s('founder_trial.assumptions', 'AVAILABLE'),

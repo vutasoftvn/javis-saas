@@ -674,6 +674,30 @@ abstract final class L10nKey {
   static const projectStageWorkspaceSubtitle = 'projectStageWorkspace.subtitle';
   static const projectStageWorkspaceBack = 'projectStageWorkspace.back';
 
+  // Founder Trial Board (R1)
+  static const ftSectionStart = 'founderTrial.section.start';
+  static const ftSectionThisWeek = 'founderTrial.section.thisWeek';
+  static const ftSectionEvidence = 'founderTrial.section.evidence';
+  static const ftSectionCash = 'founderTrial.section.cash';
+  static const ftSectionDecision = 'founderTrial.section.decision';
+  static const ftCycleUnset = 'founderTrial.cycle.unset';
+  static const ftCycleSummary = 'founderTrial.cycle.summary';
+  static const ftCycleDurationHint = 'founderTrial.cycle.durationHint';
+  static const ftAssumptionsTitle = 'founderTrial.assumptions.title';
+  static const ftExperimentsTitle = 'founderTrial.experiments.title';
+  static const ftExperimentUnlinked = 'founderTrial.experiments.unlinked';
+  static const ftEvidenceCounts = 'founderTrial.evidence.counts';
+  static const ftEvidenceUnlinkedNote = 'founderTrial.evidence.unlinkedNote';
+  static const ftProjectBudgetTitle = 'founderTrial.cash.projectBudget';
+  static const ftWorkspaceLiquidityTitle = 'founderTrial.cash.workspaceLiquidity';
+  static const ftWorkspaceLiquidityNote = 'founderTrial.cash.workspaceLiquidityNote';
+  static const ftBriefTitle = 'founderTrial.brief.title';
+  static const ftNextReviewFocus = 'founderTrial.brief.nextReviewFocus';
+  static const ftDecisionsEmpty = 'founderTrial.decision.empty';
+  static const ftStrategicAnalysis = 'founderTrial.strategicAnalysis.title';
+  static const ftRetry = 'founderTrial.retry';
+  static const ftNoProject = 'founderTrial.noProject';
+
   static const List<String> required = [
     appTitle,
     profileLanguageTitle,

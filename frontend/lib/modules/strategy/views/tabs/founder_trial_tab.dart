@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/network/api_result.dart';
+import '../../../../core/localization/app_translations.dart';
 import '../../../../core/services/workspace_capability_manifest_controller.dart';
 import '../../controllers/strategy_controller.dart';
 import '../../founder_trial/founder_trial_board_models.dart';
 import '../../founder_trial/founder_trial_board_service.dart';
 import '../../founder_trial/founder_trial_board_view.dart';
 import '../../founder_trial/founder_trial_commands.dart';
+import '../../founder_trial/founder_brief_models.dart';
+import '../../founder_trial/founder_brief_service.dart';
 
 /// Tab "Founder Trial" trong StrategyView (thay ValidationStudioTab).
 /// Vòng lặp có dữ liệu thật: Operating Cycle → Assumptions → Experiments →
@@ -21,6 +24,7 @@ class FounderTrialTab extends StatefulWidget {
 
 class _FounderTrialTabState extends State<FounderTrialTab> {
   final _boardService = FounderTrialBoardService();
+  final _briefService = FounderBriefService();
   final _commands = FounderTrialCommands();
   late final WorkspaceCapabilityManifestController _manifest;
   late final StrategyController _strategy;
@@ -28,6 +32,7 @@ class _FounderTrialTabState extends State<FounderTrialTab> {
   bool _loading = true;
   String? _error;
   FounderTrialBoard? _board;
+  FounderBrief? _brief;
   String? _projectId;
 
   @override
@@ -62,7 +67,7 @@ class _FounderTrialTabState extends State<FounderTrialTab> {
     if (_projectId == null) {
       setState(() {
         _loading = false;
-        _error = 'Chưa có project nào để hiển thị Founder Trial.';
+        _error = L10nKey.ftNoProject.tr;
       });
       return;
     }
@@ -77,7 +82,13 @@ class _FounderTrialTabState extends State<FounderTrialTab> {
       _error = null;
     });
     final res = await _boardService.fetch(pid);
+    // Founder Brief đọc qua request typed riêng — CAS/brief lỗi KHÔNG được che
+    // một Board hợp lệ.
+    final briefRes = await _briefService.fetch(pid);
     if (!mounted) return;
+    if (briefRes case ApiSuccess<FounderBrief>(:final data)) {
+      _brief = data;
+    }
     switch (res) {
       case ApiSuccess<FounderTrialBoard>(:final data):
         setState(() {
@@ -138,7 +149,7 @@ class _FounderTrialTabState extends State<FounderTrialTab> {
           children: [
             Text(_error!),
             const SizedBox(height: 8),
-            FilledButton.tonal(onPressed: _bootstrap, child: const Text('Thử lại')),
+            FilledButton.tonal(onPressed: _bootstrap, child: Text(L10nKey.ftRetry.tr)),
           ],
         ),
       );
@@ -170,6 +181,7 @@ class _FounderTrialTabState extends State<FounderTrialTab> {
         Expanded(
           child: FounderTrialBoardView(
             board: board,
+            brief: _brief,
             manifest: _manifest,
             onRetry: _loadBoard,
             onSetCycleDuration: _setCycleDuration,
