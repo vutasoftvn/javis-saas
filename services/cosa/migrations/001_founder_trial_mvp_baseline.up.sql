@@ -587,3 +587,22 @@ DO $$ BEGIN
   ALTER TABLE ONLY cosa.workspace_sync_log ADD CONSTRAINT platform_workspace_sync_log_platform_workspace_id_fkey FOREIGN KEY (platform_workspace_id) REFERENCES cosa.workspaces(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
+
+-- Seed rows required by workspace provisioning (roles/plans are FK targets and
+-- must be present before the first platform user registers).
+INSERT INTO cosa.roles (id, scope, level, description) VALUES
+  ('superadmin', 'platform', 100, 'Super Administrator'),
+  ('admin', 'platform', 80, 'Platform Administrator'),
+  ('support', 'platform', 50, 'Support Specialist'),
+  ('founder', 'company', 90, 'Company Founder / Owner'),
+  ('co-founder', 'company', 80, 'Company Co-founder'),
+  ('user', 'company', 10, 'Regular Member'),
+  ('auditor', 'company', 20, 'Read-only company auditor')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO cosa.plans (id, name, description) VALUES
+  ('free', 'Free Plan', 'Free tier for exploration'),
+  ('starter', 'Starter Plan', 'Default plan for new workspaces'),
+  ('pro', 'Pro Plan', 'For growing companies'),
+  ('enterprise', 'Enterprise Plan', 'For large organizations')
+ON CONFLICT (id) DO NOTHING;
