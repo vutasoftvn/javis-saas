@@ -112,11 +112,12 @@ Kỳ vọng: FAIL (handler bỏ field; scheduler không được gọi ở kicko
 **Flutter:**
 - `project_operating_setup_model.dart`: thêm `int? cycleDurationWeeks` vào
   `ProjectOperatingSetup` (parse trong `fromJson`, thêm vào `copyWith`) và gửi
-  trong `ProjectOperatingSetupDraft.toJson`.
-- Nối `CycleReviewTimeline` (widget đã khai sẵn `int? cycleDurationWeeks`,
-  hiện không được dùng ở đâu trong `frontend/lib`) vào view kickoff/review, hoặc
-  tối thiểu truyền `controller.cycleDurationWeeks` xuống. Thêm
-  `cycleDurationWeeks` (obs) vào `project_kickoff_controller.dart`.
+  trong `ProjectOperatingSetupDraft.toJson`. ✅ ĐÃ LÀM (A0).
+- **Chuyển sang A1.4:** picker cho founder chọn `cycleDurationWeeks` tách khỏi
+  `stageDurationWeeks` + nối `CycleReviewTimeline` (widget đã khai sẵn
+  `int? cycleDurationWeeks`, hiện chưa dùng). Đây thuộc "configurable Operating
+  Cycle" của Founder Trial Board — làm ở A1 để tránh UX nửa vời trong wizard cũ.
+  Backend + model serialization (A0) đã sẵn sàng nhận giá trị này.
 
 ### A0.4 — Chạy xanh
 

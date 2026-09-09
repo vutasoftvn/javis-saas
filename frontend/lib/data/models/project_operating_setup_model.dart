@@ -125,6 +125,7 @@ class ProjectOperatingSetupDraft {
     this.evidenceLevel,
     this.selectedStage,
     this.stageDurationWeeks,
+    this.cycleDurationWeeks,
     this.weeklyReviewWeekday,
     this.weeklyReviewTime,
     this.firstWeekOutcome,
@@ -137,6 +138,7 @@ class ProjectOperatingSetupDraft {
   final KickoffEvidenceLevel? evidenceLevel;
   final ProjectLifecycleStage? selectedStage;
   final int? stageDurationWeeks;
+  final int? cycleDurationWeeks;
   final int? weeklyReviewWeekday;
   final String? weeklyReviewTime;
   final String? firstWeekOutcome;
@@ -149,6 +151,7 @@ class ProjectOperatingSetupDraft {
     if (evidenceLevel != null) 'evidenceLevel': evidenceLevel!.toApi(),
     if (selectedStage != null) 'selectedStage': selectedStage!.toApi(),
     if (stageDurationWeeks != null) 'stageDurationWeeks': stageDurationWeeks,
+    if (cycleDurationWeeks != null) 'cycleDurationWeeks': cycleDurationWeeks,
     if (weeklyReviewWeekday != null) 'weeklyReviewWeekday': weeklyReviewWeekday,
     if (weeklyReviewTime != null) 'weeklyReviewTime': weeklyReviewTime,
     if (firstWeekOutcome != null) 'firstWeekOutcome': firstWeekOutcome,
@@ -169,6 +172,7 @@ class ProjectOperatingSetup {
     this.recommendedStage,
     this.selectedStage,
     this.stageDurationWeeks,
+    this.cycleDurationWeeks,
     this.stageTargetDate,
     this.roundStartDate,
     this.weeklyReviewWeekday,
@@ -190,6 +194,7 @@ class ProjectOperatingSetup {
   final ProjectLifecycleStage? recommendedStage;
   final ProjectLifecycleStage? selectedStage;
   final int? stageDurationWeeks;
+  final int? cycleDurationWeeks;
   final DateTime? stageTargetDate;
   final DateTime? roundStartDate;
   final int? weeklyReviewWeekday;
@@ -224,6 +229,9 @@ class ProjectOperatingSetup {
       ),
       stageDurationWeeks: json['stageDurationWeeks'] is num
           ? (json['stageDurationWeeks'] as num).toInt()
+          : null,
+      cycleDurationWeeks: json['cycleDurationWeeks'] is num
+          ? (json['cycleDurationWeeks'] as num).toInt()
           : null,
       stageTargetDate: json['stageTargetDate'] != null
           ? DateTime.tryParse(json['stageTargetDate'].toString())
@@ -278,6 +286,7 @@ class ProjectOperatingSetup {
       recommendedStage: recommendedStage,
       selectedStage: selectedStage,
       stageDurationWeeks: stageDurationWeeks,
+      cycleDurationWeeks: cycleDurationWeeks,
       stageTargetDate: stageTargetDate,
       roundStartDate: roundStartDate,
       weeklyReviewWeekday: weeklyReviewWeekday,

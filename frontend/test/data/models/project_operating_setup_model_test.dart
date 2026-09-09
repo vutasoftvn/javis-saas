@@ -96,4 +96,36 @@ void main() {
     expect(setup.aiSuggestedOutcome, isNull);
     expect(setup.aiSuggestedActions, isNull);
   });
+
+  test('fromJson đọc cycleDurationWeeks', () {
+    final s = ProjectOperatingSetup.fromJson({
+      'projectId': 'p1',
+      'workspaceId': 'w1',
+      'status': 'ACTIVE',
+      'cycleDurationWeeks': 8,
+    });
+    expect(s.cycleDurationWeeks, 8);
+  });
+
+  test('fromJson cycleDurationWeeks vắng -> null', () {
+    final s = ProjectOperatingSetup.fromJson({
+      'projectId': 'p1',
+      'workspaceId': 'w1',
+      'status': 'IN_PROGRESS',
+    });
+    expect(s.cycleDurationWeeks, isNull);
+  });
+
+  test('draft.toJson phát cycleDurationWeeks khi có', () {
+    final d = ProjectOperatingSetupDraft(
+      cycleDurationWeeks: 6,
+      firstWeekActions: const [],
+    );
+    expect(d.toJson()['cycleDurationWeeks'], 6);
+  });
+
+  test('draft.toJson bỏ cycleDurationWeeks khi null', () {
+    final d = ProjectOperatingSetupDraft(firstWeekActions: const []);
+    expect(d.toJson().containsKey('cycleDurationWeeks'), isFalse);
+  });
 }

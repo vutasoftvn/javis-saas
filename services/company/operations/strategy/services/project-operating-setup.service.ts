@@ -1,9 +1,10 @@
 import { APIError } from "encore.dev/api";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db } from "../../models/db";
-import { projects, tasks } from "../../../shared/db/schema/operations";
+import { projects, tasks, twelveWeekCycles, cycleReviews } from "../../../shared/db/schema/operations";
 import { projectOperatingSetups } from "../../../shared/db/schema/strategy";
+import { scheduleInitialCycleReviews } from "./cycle-review.service";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
@@ -96,6 +97,24 @@ export const DURATION_LIMITS: Record<BasicKickoffStage, readonly [number, number
   P0_DISCOVERY: [1, 2],
   P1_PROBLEM_VALIDATION: [2, 4],
 };
+
+// Trần độ dài Operating Cycle cho Founder Trial Release 1. Engine cycle chung
+// (`execution-calendar.validateDurationWeeks`) không có upper bound; R1 giới hạn
+// 1..12 tuần. `stageDurationWeeks` P0/P1 vẫn theo `DURATION_LIMITS` riêng.
+export const FOUNDER_TRIAL_MAX_CYCLE_WEEKS = 12;
+
+function validateCycleDurationWeeks(value: number | null | undefined): void {
+  if (value === undefined || value === null) return;
+  if (
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > FOUNDER_TRIAL_MAX_CYCLE_WEEKS
+  ) {
+    throw APIError.invalidArgument(
+      `cycleDurationWeeks must be an integer between 1 and ${FOUNDER_TRIAL_MAX_CYCLE_WEEKS}`
+    );
+  }
+}
 
 export function startOfUtcDay(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -383,6 +402,12 @@ export async function saveProjectOperatingSetup(
       }
     }
 
+    validateCycleDurationWeeks(req.cycleDurationWeeks);
+    const resolvedCycleDurationWeeks =
+      req.cycleDurationWeeks !== undefined
+        ? req.cycleDurationWeeks
+        : existing?.cycleDurationWeeks ?? null;
+
     if (req.weeklyReviewWeekday !== undefined && req.weeklyReviewWeekday !== null) {
       if (req.weeklyReviewWeekday < 1 || req.weeklyReviewWeekday > 7) {
         throw APIError.invalidArgument("weeklyReviewWeekday must be between 1 and 7");
@@ -453,6 +478,7 @@ export async function saveProjectOperatingSetup(
         recommendedStage: recommendedStage as string | null,
         selectedStage: req.selectedStage !== undefined ? req.selectedStage : existing?.selectedStage ?? null,
         stageDurationWeeks: durationWeeks,
+        cycleDurationWeeks: resolvedCycleDurationWeeks,
         stageTargetDate,
         roundStartDate: resolvedRoundStart,
         weeklyReviewWeekday: req.weeklyReviewWeekday !== undefined ? req.weeklyReviewWeekday : existing?.weeklyReviewWeekday ?? null,
@@ -472,7 +498,7 @@ export async function saveProjectOperatingSetup(
           recommendedStage: recommendedStage as string | null,
           selectedStage: req.selectedStage !== undefined ? req.selectedStage : existing?.selectedStage ?? null,
           stageDurationWeeks: durationWeeks,
-          cycleDurationWeeks: req.cycleDurationWeeks !== undefined ? req.cycleDurationWeeks : existing?.cycleDurationWeeks ?? null,
+          cycleDurationWeeks: resolvedCycleDurationWeeks,
           stageTargetDate,
           roundStartDate: resolvedRoundStart,
           weeklyReviewWeekday: req.weeklyReviewWeekday !== undefined ? req.weeklyReviewWeekday : existing?.weeklyReviewWeekday ?? null,
@@ -534,6 +560,10 @@ export async function activateProjectOperatingSetup(
       `stageDurationWeeks must be between ${minWeeks} and ${maxWeeks} for ${req.selectedStage}`
     );
   }
+
+  validateCycleDurationWeeks(req.cycleDurationWeeks);
+  const resolvedCycleDurationWeeks =
+    req.cycleDurationWeeks ?? req.stageDurationWeeks ?? 2;
 
   if (
     typeof req.weeklyReviewWeekday !== "number" ||
@@ -621,6 +651,7 @@ export async function activateProjectOperatingSetup(
         recommendedStage,
         selectedStage: req.selectedStage,
         stageDurationWeeks: req.stageDurationWeeks,
+        cycleDurationWeeks: resolvedCycleDurationWeeks,
         stageTargetDate,
         roundStartDate,
         weeklyReviewWeekday: req.weeklyReviewWeekday,
@@ -640,7 +671,7 @@ export async function activateProjectOperatingSetup(
           recommendedStage,
           selectedStage: req.selectedStage,
           stageDurationWeeks: req.stageDurationWeeks,
-          cycleDurationWeeks: req.cycleDurationWeeks ?? req.stageDurationWeeks ?? 2,
+          cycleDurationWeeks: resolvedCycleDurationWeeks,
           stageTargetDate,
           roundStartDate,
           weeklyReviewWeekday: req.weeklyReviewWeekday,
@@ -683,9 +714,43 @@ export async function activateProjectOperatingSetup(
       firstWeekOutcome: req.firstWeekOutcome.trim(),
       selectedStage: req.selectedStage,
       stageDurationWeeks: req.stageDurationWeeks,
-      cycleDurationWeeks: req.cycleDurationWeeks ?? req.stageDurationWeeks ?? 2,
+      cycleDurationWeeks: resolvedCycleDurationWeeks,
       roundStartDate,
     });
+
+    // Lịch review chỉ được tạo lúc activate (KHÔNG lúc save draft — draft chưa có
+    // vòng chạy thật). `materializeFirstWeekPlan` đã tạo/đảm bảo `twelve_week_cycles`
+    // cho project; schedule một lần, idempotent khi activate lại.
+    const [cycleForReviews] = await tx
+      .select()
+      .from(twelveWeekCycles)
+      .where(
+        and(
+          eq(twelveWeekCycles.projectId, pId),
+          eq(twelveWeekCycles.workspaceId, wsId),
+          isNull(twelveWeekCycles.deletedAt)
+        )
+      )
+      .orderBy(desc(twelveWeekCycles.createdAt))
+      .limit(1);
+
+    if (cycleForReviews) {
+      const [existingReview] = await tx
+        .select({ id: cycleReviews.id })
+        .from(cycleReviews)
+        .where(eq(cycleReviews.cycleId, cycleForReviews.id))
+        .limit(1);
+      if (!existingReview) {
+        await scheduleInitialCycleReviews(tx, {
+          id: cycleForReviews.id,
+          workspaceId: cycleForReviews.workspaceId,
+          projectId: cycleForReviews.projectId,
+          durationWeeks: cycleForReviews.durationWeeks,
+          startLocalDate: cycleForReviews.startLocalDate,
+          timezone: cycleForReviews.timezone,
+        });
+      }
+    }
 
     const [refreshedProject] = await tx
       .select()
