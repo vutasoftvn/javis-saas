@@ -25,6 +25,7 @@ from apps.cosa.api.settings_routes import router as settings_router
 from apps.cosa.api.skill_registry_routes import create_skill_registry_router
 from apps.cosa.api.vault_routes import router as vault_router
 from apps.cosa.api.workforce_routes import router as workforce_router
+from apps.cosa.api.workforce_internal_routes import router as workforce_internal_router
 from apps.cosa.composition.agent_plane import (
     CosaAgentPlane,
     build_cosa_agent_plane,
@@ -208,6 +209,7 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     app.include_router(create_connector_router())
     app.include_router(create_schedule_router())
     app.include_router(workforce_router)
+    app.include_router(workforce_internal_router)
     app.include_router(vault_router)
     app.include_router(graphql_router)
     app.include_router(settings_router)

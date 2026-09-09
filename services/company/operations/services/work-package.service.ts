@@ -3,6 +3,16 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { appendOutboxEvent } from "../../shared/events/outbox.repository";
+import { makeBusinessEvent } from "../../shared/events/envelope";
+import {
+  OPERATING_WORK_PACKAGE_QUEUED_V1,
+  OPERATING_WORK_PACKAGE_REASSIGN_REQUESTED_V1,
+} from "../../shared/events/event-types";
+import {
+  EligibilityFacts,
+  assertEmployeeEligible,
+} from "./workforce-eligibility.client";
 import {
   CreateTaskOutcomeContractInput,
   Tx,
@@ -33,6 +43,26 @@ const PRIORITIES: readonly Priority[] = ["P0", "P1", "P2", "P3"];
 // Trạng thái attempt được coi là "đang giữ lease/đang chạy" — reassign lúc này
 // chỉ ghi reassignment_requested, không đóng attempt ngay (spec §7).
 const LEASED_WP_STATUSES: readonly WorkPackageStatus[] = ["LEASED", "RUNNING"];
+
+// Rollout flag (spec §14). Khi TẮT (mặc định): giữ hành vi Task 2, không gọi
+// Control Plane, attempt không có snapshot. Khi BẬT: fail-closed eligibility
+// check trước mọi attempt (Task 3). Pilot bật flag sau khi E2E xanh.
+function eligibilityEnabled(): boolean {
+  return process.env.AI_WORKFORCE_V2_ENABLED === "true";
+}
+
+async function checkEligibility(
+  ctx: TenantContext,
+  agentInstanceId: string
+): Promise<EligibilityFacts | null> {
+  if (!eligibilityEnabled()) return null;
+  return assertEmployeeEligible({
+    workspaceId: ctx.workspaceId,
+    agentInstanceId,
+    requiredCapabilityRefs: [],
+    correlationId: ctx.correlationId,
+  });
+}
 
 export interface WorkPackageView {
   workPackageId: string;
@@ -139,6 +169,8 @@ export async function openAttempt(
     workPackageId: string;
     assignedAgentInstanceId: string;
     sequenceNo?: number;
+    assignmentSnapshot?: Record<string, unknown> | null;
+    specSnapshot?: Record<string, unknown> | null;
   }
 ): Promise<AttemptView> {
   const wsId = BigInt(input.workspaceId);
@@ -171,6 +203,8 @@ export async function openAttempt(
       workPackageId: wpId,
       sequenceNo: seq,
       assignedAgentInstanceId: input.assignedAgentInstanceId,
+      assignmentSnapshot: input.assignmentSnapshot ?? null,
+      specSnapshot: input.specSnapshot ?? null,
       status: "ACTIVE",
     })
     .returning();
@@ -233,6 +267,8 @@ async function insertQueuedPackage(
     idempotencyKey?: string;
     requestedByManagerId?: string;
     actor: { kind: string; id?: string };
+    eligibility?: EligibilityFacts | null;
+    correlationId?: string;
   }
 ): Promise<{ wp: WorkPackageView; attempt: AttemptView }> {
   const [row] = await tx
@@ -263,6 +299,12 @@ async function insertQueuedPackage(
     workPackageId: wp.workPackageId,
     assignedAgentInstanceId: input.assignedAgentInstanceId,
     sequenceNo: 1,
+    assignmentSnapshot: input.eligibility
+      ? { assignmentId: input.eligibility.assignmentId }
+      : null,
+    specSnapshot: input.eligibility
+      ? (input.eligibility.specSnapshot as unknown as Record<string, unknown>)
+      : null,
   });
 
   await appendWpEvent(tx, {
@@ -271,6 +313,7 @@ async function insertQueuedPackage(
     eventType: "work_package.queued",
     actor: input.actor,
     after: { status: "QUEUED", effectivePriority: wp.effectivePriority },
+    correlationId: input.correlationId,
   });
   await appendWpEvent(tx, {
     workspaceId: input.workspaceId,
@@ -278,7 +321,33 @@ async function insertQueuedPackage(
     eventType: "work_package.attempt_opened",
     actor: input.actor,
     after: { attemptId: attempt.attemptId, sequenceNo: 1 },
+    correlationId: input.correlationId,
   });
+
+  // Signed outbox dispatch → Agent Platform (Task 3). Chỉ opaque IDs.
+  const correlationId = input.correlationId || generateSnowflake().toString();
+  await appendOutboxEvent(
+    tx,
+    makeBusinessEvent({
+      eventType: OPERATING_WORK_PACKAGE_QUEUED_V1,
+      workspaceId: input.workspaceId,
+      aggregateType: "work_package",
+      aggregateId: wp.workPackageId,
+      correlationId,
+      actor: { kind: input.actor.kind as "user" | "agent" | "system", id: input.actor.id || "0" },
+      classification: "internal",
+      payload: {
+        workspaceId: input.workspaceId,
+        workPackageId: wp.workPackageId,
+        workAttemptId: attempt.attemptId,
+        agentInstanceId: input.assignedAgentInstanceId,
+        assignmentId: input.eligibility?.assignmentId ?? "",
+        effectivePriority: wp.effectivePriority,
+        expectedCapabilityRefs: input.eligibility?.capabilityRefs ?? [],
+        correlationId,
+      },
+    })
+  );
 
   return { wp, attempt };
 }
@@ -347,6 +416,8 @@ export async function createWorkPackage(
     BigInt(input.outcomeContractId)
   );
 
+  const eligibility = await checkEligibility(ctx, input.assignedAgentInstanceId);
+
   const actor = { kind: ctx.userId ? "user" : "system", id: ctx.userId };
   const { wp } = await db.transaction((tx) =>
     insertQueuedPackage(tx, {
@@ -361,6 +432,8 @@ export async function createWorkPackage(
       idempotencyKey: input.idempotencyKey,
       requestedByManagerId: input.requestedByManagerId,
       actor,
+      eligibility,
+      correlationId: ctx.correlationId,
     })
   );
   return wp;
@@ -440,6 +513,7 @@ export async function createConfirmedTaskAndQueue(
     };
   }
 
+  const eligibility = await checkEligibility(ctx, input.initialPackage.assignedAgentInstanceId);
   const actor = { kind: ctx.userId ? "user" : "system", id: ctx.userId };
   return db.transaction(async (tx) => {
     const [taskRow] = await tx
@@ -487,6 +561,8 @@ export async function createConfirmedTaskAndQueue(
       idempotencyKey: input.idempotencyKey,
       requestedByManagerId: ctx.workforceMemberId,
       actor,
+      eligibility,
+      correlationId: ctx.correlationId,
     });
 
     return {
@@ -553,6 +629,7 @@ export async function confirmAiProposalAndQueue(
     );
   }
 
+  const eligibility = await checkEligibility(ctx, input.initialPackage.assignedAgentInstanceId);
   const actor = { kind: ctx.userId ? "user" : "system", id: ctx.userId };
   return db.transaction(async (tx) => {
     // Áp patch của manager thành một confirmed revision mới (append).
@@ -613,6 +690,8 @@ export async function confirmAiProposalAndQueue(
       idempotencyKey: input.idempotencyKey,
       requestedByManagerId: ctx.workforceMemberId,
       actor,
+      eligibility,
+      correlationId: ctx.correlationId,
     });
 
     return {
@@ -641,6 +720,10 @@ export async function reassignWorkPackage(
   const wsId = BigInt(ctx.workspaceId);
   const actor = { kind: ctx.userId ? "user" : "system", id: ctx.userId };
 
+  // Fail-closed eligibility cho employee đích TRƯỚC khi mở transaction (không
+  // ghi attempt nếu Control Plane từ chối).
+  const eligibility = await checkEligibility(ctx, input.targetAgentInstanceId);
+
   return db.transaction(async (tx) => {
     const [wp] = await tx
       .select()
@@ -660,6 +743,7 @@ export async function reassignWorkPackage(
     }
 
     const oldAssignee = wp.assignedAgentInstanceId;
+    const correlationId = ctx.correlationId || generateSnowflake().toString();
 
     if (LEASED_WP_STATUSES.includes(wp.status as WorkPackageStatus)) {
       await appendWpEvent(tx, {
@@ -670,7 +754,27 @@ export async function reassignWorkPackage(
         before: { assignedAgentInstanceId: oldAssignee },
         after: { targetAgentInstanceId: input.targetAgentInstanceId },
         reason: input.reason,
+        correlationId,
       });
+      await appendOutboxEvent(
+        tx,
+        makeBusinessEvent({
+          eventType: OPERATING_WORK_PACKAGE_REASSIGN_REQUESTED_V1,
+          workspaceId: ctx.workspaceId,
+          aggregateType: "work_package",
+          aggregateId: input.workPackageId,
+          correlationId,
+          actor: { kind: actor.kind as "user" | "agent" | "system", id: actor.id || "0" },
+          classification: "internal",
+          payload: {
+            workspaceId: ctx.workspaceId,
+            workPackageId: input.workPackageId,
+            fromAgentInstanceId: oldAssignee,
+            targetAgentInstanceId: input.targetAgentInstanceId,
+            correlationId,
+          },
+        })
+      );
       return toWpView(wp);
     }
 
@@ -695,6 +799,10 @@ export async function reassignWorkPackage(
       workspaceId: ctx.workspaceId,
       workPackageId: input.workPackageId,
       assignedAgentInstanceId: input.targetAgentInstanceId,
+      assignmentSnapshot: eligibility ? { assignmentId: eligibility.assignmentId } : null,
+      specSnapshot: eligibility
+        ? (eligibility.specSnapshot as unknown as Record<string, unknown>)
+        : null,
     });
 
     const [updated] = await tx
