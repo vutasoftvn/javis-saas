@@ -8,6 +8,7 @@ from agent.workforce.skill_governance import (
     FounderApprovalRequired,
     InMemorySkillGovernanceRepository,
     InvalidCapabilityBoundary,
+    PolicyValidationError,
     StalePolicyDraft,
     create_policy_draft,
     create_skill_change_draft,
@@ -112,7 +113,7 @@ async def test_publish_fails_closed_when_employee_or_skill_not_ready() -> None:
         _Validators(founders={"founder_1"}, effective=False),
         _Validators(founders={"founder_1"}, published=False),
     ):
-        with pytest.raises(Exception):  # PolicyValidationError
+        with pytest.raises(PolicyValidationError):
             await publish_outcome_analysis_policy(
                 repository=repo,
                 validators=bad,
