@@ -34,6 +34,10 @@ _EXPECTED_LEDGER = {
     ("operations", "001_founder_trial_mvp_baseline.up.sql"),
     ("commercial", "001_founder_trial_mvp_baseline.up.sql"),
     ("finance-legal", "001_founder_trial_mvp_baseline.up.sql"),
+    # Task 0 (COSA Automation MVP) — restore the execution/event-intake substrate
+    # the R1 squash dropped but still-running code depends on.
+    ("agent", "002_restore_event_intake_substrate.sql"),
+    ("cosa", "002_restore_control_plane_execution_substrate.up.sql"),
 }
 
 

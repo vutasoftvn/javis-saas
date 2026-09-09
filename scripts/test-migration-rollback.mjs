@@ -40,27 +40,38 @@ function run(cmd, cwd = REPO_ROOT) {
   });
 }
 
-function onlyBaselineMigrationsRemain() {
+const AGENT_MIGRATION_DIRS = [join(REPO_ROOT, "packages", "agent", "migrations")];
+const COSA_MIGRATION_DIRS = [join(REPO_ROOT, "services", "cosa", "migrations")];
+const COMPANY_MIGRATION_DIRS = [
+  join(REPO_ROOT, "services", "company", "identity", "migrations"),
+  join(REPO_ROOT, "services", "company", "operations", "migrations"),
+  join(REPO_ROOT, "services", "company", "commercial", "migrations"),
+  join(REPO_ROOT, "services", "company", "finance-legal", "migrations"),
+];
+
+function nonBaselineUpMigrationCount(dirs) {
   // Founder Trial R1 (Task 10) — the 001 baselines have no down migration and
-  // cannot be rolled back. Gate E is meaningful only once an incremental
-  // migration (numbered after 001) with paired up/down SQL exists.
-  const dirs = [
-    join(REPO_ROOT, "packages", "agent", "migrations"),
-    join(REPO_ROOT, "services", "cosa", "migrations"),
-    join(REPO_ROOT, "services", "company", "identity", "migrations"),
-    join(REPO_ROOT, "services", "company", "operations", "migrations"),
-    join(REPO_ROOT, "services", "company", "commercial", "migrations"),
-    join(REPO_ROOT, "services", "company", "finance-legal", "migrations"),
-  ];
+  // cannot be rolled back. Only migrations numbered after 001 with paired
+  // up/down SQL are rollback-eligible. Count them per plane so Phase 2 never
+  // asks a plane to roll back into its down-less baseline.
+  let count = 0;
   for (const d of dirs) {
     for (const f of readdirSync(d)) {
       if ((f.endsWith(".up.sql") || (f.endsWith(".sql") && !f.endsWith(".down.sql"))) &&
           !f.startsWith("001_founder_trial_mvp_baseline")) {
-        return false;
+        count += 1;
       }
     }
   }
-  return true;
+  return count;
+}
+
+function onlyBaselineMigrationsRemain() {
+  return (
+    nonBaselineUpMigrationCount(AGENT_MIGRATION_DIRS) === 0 &&
+    nonBaselineUpMigrationCount(COSA_MIGRATION_DIRS) === 0 &&
+    nonBaselineUpMigrationCount(COMPANY_MIGRATION_DIRS) === 0
+  );
 }
 
 async function main() {
@@ -86,11 +97,19 @@ async function main() {
   run("node scripts/migrate.mjs", join(REPO_ROOT, "services", "company"));
   console.log("✓ Phase 1 complete: All migrations applied.\n");
 
-  // Phase 2: Rollback N steps (Down)
-  console.log(`▶ Phase 2: Rolling back ${steps} migrations on each service (DOWN)...`);
-  run(`${pythonCmd} -m packages.agent.scripts.migrate --down ${steps}`);
-  run(`node scripts/migrate.mjs --down ${steps}`, join(REPO_ROOT, "services", "cosa"));
-  run(`node scripts/migrate.mjs --down ${steps}`, join(REPO_ROOT, "services", "company"));
+  // Phase 2: Rollback N steps (Down) — capped per plane to its rollback-eligible
+  // (post-001) migration count. A plane sitting on only its down-less 001
+  // baseline is skipped entirely so the runner never throws "missing down
+  // migration" for the baseline.
+  const agentSteps = Math.min(steps, nonBaselineUpMigrationCount(AGENT_MIGRATION_DIRS));
+  const cosaSteps = Math.min(steps, nonBaselineUpMigrationCount(COSA_MIGRATION_DIRS));
+  const companySteps = Math.min(steps, nonBaselineUpMigrationCount(COMPANY_MIGRATION_DIRS));
+  console.log(
+    `▶ Phase 2: Rolling back (DOWN) — agent:${agentSteps} cosa:${cosaSteps} company:${companySteps}...`
+  );
+  if (agentSteps > 0) run(`${pythonCmd} -m packages.agent.scripts.migrate --down ${agentSteps}`);
+  if (cosaSteps > 0) run(`node scripts/migrate.mjs --down ${cosaSteps}`, join(REPO_ROOT, "services", "cosa"));
+  if (companySteps > 0) run(`node scripts/migrate.mjs --down ${companySteps}`, join(REPO_ROOT, "services", "company"));
   console.log("✓ Phase 2 complete: Rollback applied successfully.\n");
 
   // Phase 3: Re-apply forward migrations (Up)

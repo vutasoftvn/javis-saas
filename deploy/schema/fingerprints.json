@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-09T22:23:46.833Z",
+  "generated_at": "2026-09-09T23:16:17.603Z",
   "groups": {
     "agent": {
       "fingerprint": "6a707e6e137c7c140b28f0356f0f3d62854c525e110e076baae091f48b9b5056",
@@ -2960,12 +2960,12 @@
       }
     },
     "cosa": {
-      "fingerprint": "65d13cc0c82a4a8535dfea03d0dd13332bbf4a6446e1a1cc1f178b7d5a523561",
+      "fingerprint": "a80d80567bae96f145086fb774bf36976bc4fcfabd9c95f4d99fcbd5804a6aa9",
       "schemas": [
         "control_plane",
         "cosa"
       ],
-      "tables_count": 24,
+      "tables_count": 27,
       "enums": [],
       "tables": {
         "control_plane.connector_authorizations": {
@@ -3119,6 +3119,412 @@
             {
               "name": "idx_connector_authorizations_workspace",
               "definition": "CREATE INDEX idx_connector_authorizations_workspace ON control_plane.connector_authorizations USING btree (workspace_id)"
+            }
+          ]
+        },
+        "control_plane.runtime_leases": {
+          "schema": "control_plane",
+          "name": "runtime_leases",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "worker_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "lease_token",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "acquired_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "expires_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "heartbeat_interval_sec",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "30",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            }
+          ],
+          "primary_key": {
+            "name": "runtime_leases_pkey",
+            "columns": [
+              "run_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "runtime_leases_worker_id_fkey",
+              "columns": [
+                "worker_id"
+              ],
+              "foreign_table": "control_plane.workers",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "runtime_leases_pkey",
+              "definition": "CREATE UNIQUE INDEX runtime_leases_pkey ON control_plane.runtime_leases USING btree (run_id)"
+            }
+          ]
+        },
+        "control_plane.scheduled_tasks": {
+          "schema": "control_plane",
+          "name": "scheduled_tasks",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "coalescing_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "target_spec_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "target_spec_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'agent'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "input_payload",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'scheduled'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "attempt_count",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "max_attempts",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "5",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "claimed_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "claim_token",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "claimed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "heartbeat_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "visibility_timeout_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "last_error",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "next_retry_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "completed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "dead_letter_reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "parent_task_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "child_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "depends_on",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "join_policy",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "join_quorum",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "child_result",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "completion_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "scheduled_tasks_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "scheduled_tasks_status_check",
+              "clause": "((status = ANY (ARRAY['scheduled'::text, 'processing'::text, 'completed'::text, 'coalesced'::text, 'failed'::text, 'blocked'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_control_plane_scheduled_tasks_coalescing_key_pending",
+              "definition": "CREATE UNIQUE INDEX idx_control_plane_scheduled_tasks_coalescing_key_pending ON control_plane.scheduled_tasks USING btree (coalescing_key) WHERE ((status = 'scheduled'::text) AND (coalescing_key IS NOT NULL))"
+            },
+            {
+              "name": "idx_control_plane_scheduled_tasks_next_retry",
+              "definition": "CREATE INDEX idx_control_plane_scheduled_tasks_next_retry ON control_plane.scheduled_tasks USING btree (next_retry_at) WHERE ((status = 'scheduled'::text) AND (next_retry_at IS NOT NULL))"
+            },
+            {
+              "name": "idx_control_plane_scheduled_tasks_status_run_at",
+              "definition": "CREATE INDEX idx_control_plane_scheduled_tasks_status_run_at ON control_plane.scheduled_tasks USING btree (status, run_at)"
+            },
+            {
+              "name": "idx_control_plane_scheduled_tasks_visibility_timeout",
+              "definition": "CREATE INDEX idx_control_plane_scheduled_tasks_visibility_timeout ON control_plane.scheduled_tasks USING btree (visibility_timeout_at) WHERE (status = 'processing'::text)"
+            },
+            {
+              "name": "idx_scheduled_tasks_parent",
+              "definition": "CREATE INDEX idx_scheduled_tasks_parent ON control_plane.scheduled_tasks USING btree (parent_task_id) WHERE (parent_task_id IS NOT NULL)"
+            },
+            {
+              "name": "scheduled_tasks_pkey",
+              "definition": "CREATE UNIQUE INDEX scheduled_tasks_pkey ON control_plane.scheduled_tasks USING btree (id)"
+            },
+            {
+              "name": "uq_scheduled_tasks_parent_child",
+              "definition": "CREATE UNIQUE INDEX uq_scheduled_tasks_parent_child ON control_plane.scheduled_tasks USING btree (parent_task_id, child_id) WHERE (parent_task_id IS NOT NULL)"
             }
           ]
         },
@@ -3406,6 +3812,123 @@
             {
               "name": "uq_snowflake_generator_slot",
               "definition": "CREATE UNIQUE INDEX uq_snowflake_generator_slot ON control_plane.snowflake_generator_slots USING btree (slot)"
+            }
+          ]
+        },
+        "control_plane.workers": {
+          "schema": "control_plane",
+          "name": "workers",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "runtime_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "endpoint",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "capabilities",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "concurrency_limit",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "trust_tier",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'T0'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "last_heartbeat_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'online'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workers_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "workers_status_check",
+              "clause": "((status = ANY (ARRAY['online'::text, 'offline'::text, 'degraded'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "workers_pkey",
+              "definition": "CREATE UNIQUE INDEX workers_pkey ON control_plane.workers USING btree (id)"
             }
           ]
         },
