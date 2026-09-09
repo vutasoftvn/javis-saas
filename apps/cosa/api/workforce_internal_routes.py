@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from agent.workforce.investigation import get_scoped_run_investigation
+from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/agent/internal/workforce", tags=["workforce-internal"])
@@ -105,3 +106,43 @@ async def get_eligibility(
         capability_refs=list(body.required_capability_refs),
         capacity_available=employee.status == "ACTIVE",
     )
+
+
+@router.get("/runs/{run_id}/investigation")
+async def run_investigation(
+    request: Request,
+    run_id: str,
+    workspace_id: str = Query(...),
+    x_workforce_authz_token: str | None = Header(default=None),
+) -> dict:
+    """Scoped run investigation từ governance ledger (Task 6). KHÔNG dùng SSE
+    `/events`. Run không thuộc workspace -> 404 (không lộ tồn tại)."""
+    _require_service_token(x_workforce_authz_token)
+
+    plane = getattr(request.app.state, "plane", None) or getattr(
+        request.app.state, "cosa_agent_plane", None
+    )
+    repo = getattr(plane, "repository", None) if plane else None
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="run repository not initialized",
+        )
+
+    inv = await get_scoped_run_investigation(repo, run_id, workspace_id)
+    if inv is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="run not found")
+
+    return {
+        "data": {
+            "run_id": inv.run_id,
+            "workspace_id": inv.workspace_id,
+            "status": inv.status,
+            "workforce_attribution": inv.workforce_attribution,
+            "checkpoints": inv.checkpoints,
+            "tool_calls": inv.tool_calls,
+            "approvals": inv.approvals,
+            "run_events": inv.run_events,
+            "artifacts": inv.artifacts,
+        }
+    }
