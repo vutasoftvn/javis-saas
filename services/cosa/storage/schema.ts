@@ -208,4 +208,24 @@ export const userWorkspaceModulePreferences = cosaSchema.table(
   })
 );
 
+// Operator override cho WorkspaceCapabilityManifest (migration 35). CHECK ở DB
+// đảm bảo status_override không bao giờ là 'AVAILABLE' — operator chỉ hạ cấp
+// hoặc bật PILOT per-workspace.
+export const workspaceSurfaceOverrides = cosaSchema.table(
+  "workspace_surface_overrides",
+  {
+    workspaceId: bigint("workspace_id", { mode: "bigint" })
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    surfaceKey: text("surface_key").notNull(),
+    statusOverride: text("status_override").notNull(),
+    reason: text("reason"),
+    updatedBy: text("updated_by").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.workspaceId, t.surfaceKey] }),
+  })
+);
+
 

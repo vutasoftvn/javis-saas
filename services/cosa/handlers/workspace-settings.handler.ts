@@ -21,6 +21,9 @@ import {
   setWorkspaceModuleEnabledService,
   setUserModulePreferenceService,
   WorkspaceModuleVisibilityDTO,
+  getWorkspaceCapabilityManifestService,
+  setWorkspaceSurfaceOverrideService,
+  WorkspaceCapabilityManifest,
 } from "../services/workspace-settings.service";
 
 export interface WorkspaceSettingsHeaderRequest {
@@ -150,6 +153,27 @@ export const setUserModulePreference = api(
   { expose: true, method: "PUT", path: "/platform/workspaces/:workspaceId/module-visibility/:moduleKey/preference" },
   async ({ workspaceId, moduleKey, visible, authorization }: SetUserModulePreferenceRequest): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> => {
     return setUserModulePreferenceService(workspaceId, moduleKey, visible, authorization);
+  }
+);
+
+// 8. Workspace Capability Manifest (Founder Trial R1 — spec §7.1)
+export interface SetSurfaceOverrideRequest extends WorkspaceSettingsHeaderRequest {
+  surfaceKey: string;
+  statusOverride: string;
+  reason?: string;
+}
+
+export const getWorkspaceCapabilityManifest = api(
+  { expose: true, method: "GET", path: "/platform/workspaces/:workspaceId/capability-manifest" },
+  async ({ workspaceId, authorization }: WorkspaceSettingsHeaderRequest): Promise<MvpSuccess<WorkspaceCapabilityManifest>> => {
+    return getWorkspaceCapabilityManifestService(workspaceId, authorization);
+  }
+);
+
+export const setWorkspaceSurfaceOverride = api(
+  { expose: true, method: "PUT", path: "/platform/workspaces/:workspaceId/capability-manifest/:surfaceKey" },
+  async ({ workspaceId, surfaceKey, statusOverride, reason, authorization }: SetSurfaceOverrideRequest): Promise<MvpSuccess<WorkspaceCapabilityManifest>> => {
+    return setWorkspaceSurfaceOverrideService(workspaceId, surfaceKey, statusOverride, reason, authorization);
   }
 );
 

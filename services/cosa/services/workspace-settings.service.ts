@@ -9,7 +9,13 @@ import {
   workspaceSkillPolicies,
   workspaceModuleConfigs,
   userWorkspaceModulePreferences,
+  workspaceSurfaceOverrides,
 } from "../storage/schema";
+import {
+  FOUNDER_TRIAL_SURFACE_POLICY,
+  SURFACE_POLICY_VERSION,
+  type SurfaceStatus,
+} from "./surface-policy";
 import {
   workspaceConnectorInstallations,
   workspaceRuntimeNodes,
@@ -766,5 +772,170 @@ export async function setUserModulePreferenceService(
     });
 
   return listWorkspaceModuleVisibilityService(workspaceId, authorization);
+}
+
+// ─── Workspace Capability Manifest (Founder Trial R1 — spec §7.1) ───
+
+export interface CapabilityManifestSurface {
+  readonly surfaceKey: string;
+  readonly moduleKey: string;
+  readonly featureKey: string;
+  readonly surfaceStatus: SurfaceStatus;
+  readonly requiredCapabilities: readonly string[];
+  readonly requiredConnectorKeys: readonly string[];
+  readonly entitled: boolean;
+  readonly reasons: readonly string[];
+  readonly contractEndpoint: string | null;
+  readonly releaseNote: string | null;
+  readonly updatedAt: string;
+}
+
+export interface WorkspaceCapabilityManifest {
+  readonly version: string;
+  readonly workspaceId: string;
+  readonly surfaces: readonly CapabilityManifestSurface[];
+}
+
+// Operator override chỉ được hạ cấp / bật PILOT — không bao giờ nâng lên
+// AVAILABLE (DB CHECK cũng chặn). Danh sách này để service từ chối sớm.
+const OVERRIDABLE_STATUSES: ReadonlySet<string> = new Set([
+  "PILOT",
+  "PLANNED",
+  "CONFIGURATION_REQUIRED",
+  "UNAVAILABLE",
+]);
+
+export async function getWorkspaceCapabilityManifestService(
+  workspaceId: string,
+  authorization?: string
+): Promise<MvpSuccess<WorkspaceCapabilityManifest>> {
+  await verifyWorkspaceMembership(authorization, workspaceId);
+  const wsIdBigInt = BigInt(workspaceId);
+  const nowIso = new Date().toISOString();
+
+  const [moduleConfigs, connectorRows, overrideRows] = await Promise.all([
+    db
+      .select()
+      .from(workspaceModuleConfigs)
+      .where(eq(workspaceModuleConfigs.workspaceId, wsIdBigInt)),
+    db
+      .select()
+      .from(workspaceConnectorInstallations)
+      .where(eq(workspaceConnectorInstallations.workspaceId, workspaceId)),
+    db
+      .select()
+      .from(workspaceSurfaceOverrides)
+      .where(eq(workspaceSurfaceOverrides.workspaceId, wsIdBigInt)),
+  ]);
+
+  const moduleEnabled = new Map(moduleConfigs.map((c) => [c.moduleKey, c.enabled]));
+  const enabledConnectors = new Set(
+    connectorRows.filter((c) => c.status === "enabled").map((c) => c.connectorKey)
+  );
+  const overrides = new Map(
+    overrideRows.map((o) => [
+      o.surfaceKey,
+      { status: o.statusOverride, reason: o.reason, updatedAt: o.updatedAt },
+    ])
+  );
+
+  const surfaces: CapabilityManifestSurface[] = FOUNDER_TRIAL_SURFACE_POLICY.map((entry) => {
+    const reasons: string[] = [];
+    const entitled = entry.optionalModuleKey
+      ? moduleEnabled.get(entry.optionalModuleKey) ?? true
+      : true;
+
+    let status: SurfaceStatus = entry.defaultStatus;
+    let updatedAt = nowIso;
+
+    if (!entitled) {
+      status = "UNAVAILABLE";
+      reasons.push(`module_disabled:${entry.optionalModuleKey}`);
+    } else {
+      const missingConnectors = entry.requiredConnectorKeys.filter(
+        (k) => !enabledConnectors.has(k)
+      );
+      if (missingConnectors.length > 0 && status !== "PLANNED") {
+        status = "CONFIGURATION_REQUIRED";
+        for (const k of missingConnectors) reasons.push(`connector_missing:${k}`);
+      }
+    }
+
+    const override = overrides.get(entry.surfaceKey);
+    if (override && OVERRIDABLE_STATUSES.has(override.status)) {
+      status = override.status as SurfaceStatus;
+      updatedAt = override.updatedAt.toISOString();
+      reasons.push(
+        override.reason ? `operator_override:${override.reason}` : "operator_override"
+      );
+    }
+
+    return {
+      surfaceKey: entry.surfaceKey,
+      moduleKey: entry.moduleKey,
+      featureKey: entry.featureKey,
+      surfaceStatus: status,
+      requiredCapabilities: entry.requiredCapabilities,
+      requiredConnectorKeys: entry.requiredConnectorKeys,
+      entitled,
+      reasons,
+      contractEndpoint: entry.contractEndpoint,
+      releaseNote: entry.releaseNote,
+      updatedAt,
+    };
+  });
+
+  return mvpItem(
+    { version: SURFACE_POLICY_VERSION, workspaceId, surfaces },
+    [SOURCE_CONTROL_PLANE]
+  );
+}
+
+export async function setWorkspaceSurfaceOverrideService(
+  workspaceId: string,
+  surfaceKey: string,
+  statusOverride: string,
+  reason: string | undefined,
+  authorization?: string
+): Promise<MvpSuccess<WorkspaceCapabilityManifest>> {
+  const actorId = await requireWorkspaceOperator(authorization, workspaceId);
+
+  const known = FOUNDER_TRIAL_SURFACE_POLICY.some((e) => e.surfaceKey === surfaceKey);
+  if (!known) {
+    throw APIError.invalidArgument(`unknown surface_key '${surfaceKey}'`);
+  }
+  if (!OVERRIDABLE_STATUSES.has(statusOverride)) {
+    throw APIError.invalidArgument(
+      `status_override must be one of PILOT, PLANNED, CONFIGURATION_REQUIRED, UNAVAILABLE (operator cannot force AVAILABLE)`
+    );
+  }
+
+  const wsIdBigInt = BigInt(workspaceId);
+  await db
+    .insert(workspaceSurfaceOverrides)
+    .values({
+      workspaceId: wsIdBigInt,
+      surfaceKey,
+      statusOverride,
+      reason: reason ?? null,
+      updatedBy: actorId,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [workspaceSurfaceOverrides.workspaceId, workspaceSurfaceOverrides.surfaceKey],
+      set: { statusOverride, reason: reason ?? null, updatedBy: actorId, updatedAt: new Date() },
+    });
+
+  await db.insert(workspaceSettingsAuditEvents).values({
+    eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
+    workspaceId: wsIdBigInt,
+    actorId,
+    eventType: "capability_manifest.surface_override_set",
+    targetKind: "workspace_surface",
+    targetId: surfaceKey,
+    details: { surfaceKey, statusOverride, reason: reason ?? null },
+  });
+
+  return getWorkspaceCapabilityManifestService(workspaceId, authorization);
 }
 
