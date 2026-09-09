@@ -217,18 +217,27 @@ hiện khi surface interactive), gọi `ProjectOperatingSetupService.updateCycle
 - Chạy `make e2e-test` với fixture thật cho `test_founder_trial_http.py`.
 
 **Breakage sẵn có trên `main` (KHÔNG do Founder Trial, từ phiên localization
-`b1b5adf2` + auth `d39a1bee`):**
-- ✅ **Đã vá:** `.tr` compile-fail 12 file test core (`da094cb1` — thêm import
-  `package:get/get.dart`); `make frontend-analyze` đỏ vì unused import
-  `en_tasks`/`vi_tasks` (`fcc6f677` — spread `...enTasks`/`...viTasks` vào map,
-  đúng ý đồ migration). `flutter analyze` giờ 0 lỗi.
-- ⚠️ **Còn (thuộc workstream localization/auth):** 6 test
-  `strategy_service_base_test` / `okr_service_test` / `execution_cycle_flow_test`
-  fail vì `flutter_test` env không nạp GetX translations → `L10nKey.errNoWorkspace.tr`
-  trả raw key. Cần setup dịch trong test harness (hoặc nới assertion) — của phiên
-  đó. `frontend-api-contract-check` đỏ (`/platform/auth/me` chưa vào mvp-surface.json)
-  + `route-inventory-check` đỏ (`PATCH /identity/me` xoá, snapshot chưa cập) là
-  cặp đôi auth migration dở — để phiên auth hoàn tất.
+`b1b5adf2` + auth `d39a1bee`) — ĐÃ VÁ hết phần an toàn:**
+- ✅ `.tr` compile-fail 12 file (`da094cb1` — thêm `import 'package:get/get.dart'`).
+- ✅ `frontend-analyze` đỏ vì unused `en_tasks`/`vi_tasks` (`fcc6f677` — spread
+  `...enTasks`/`...viTasks` vào map).
+- ✅ 6 test strategy/core l10n (`6f11d4dc` — `flutter_test_config` nạp
+  `Get.addTranslations`; `strategy_service_base_test`/`okr_service_test` set
+  `Get.locale=vi_VN` trong setUp; `execution_cycle_flow_test` truyền
+  `translations:`/`locale:` cho `GetMaterialApp`). `test/modules/strategy/` +
+  `test/core/` = 744 pass, 0 fail.
+- ✅ `frontend-api-contract-check` (`d3db4c38` — `/platform/auth/me` GET+PATCH
+  vào allowlist, cùng rationale "auth bootstrap" như `/identity/me`).
+- ✅ `route-inventory-check` (`d3db4c38` — regen bỏ dòng chết `PATCH /identity/me`).
+- **8/8 gate CI xanh:** mvp-contracts, mvp-surface, frontend-api-contract,
+  route-inventory, company-boundary, encore-handler-boundary, ts-suppression,
+  frontend-analyze.
+- ⚠️ **Còn (thuộc workstream localization) — cần bilingual copy, không đoán hộ:**
+  `tasks_view_test` + `hologram_hub_view_module_switcher_test` fail vì
+  `L10nKey.tasksTabOverview` / `tasksTitle` / … được `TasksView` tham chiếu
+  nhưng CHƯA thêm vào `locales/{vi,en}/*_tasks.dart`.
+- ⚠️ **Còn (không liên quan l10n/Founder Trial):** `dashboard_sidebar_test` — bug
+  layout `RenderFlex overflowed by 3.5px` ở `dashboard_sidebar.dart:368`.
 
 ## Verification (cho chính bước restructure)
 
