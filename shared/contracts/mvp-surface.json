@@ -2025,6 +2025,21 @@
       "backend_test": "services/company/operations/tests/founder-trial-experiment.service.test.ts",
       "flutter_test": "frontend/test/modules/strategy/founder_trial_board_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
+    },
+    {
+      "id": "strategy.founder_brief.read",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "GET",
+      "path": "/operations/projects/:projectId/founder-brief",
+      "schema": "strategy.founder_brief.read.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "frontend_symbol": "FounderBriefService.fetch",
+      "backend_test": "services/company/operations/tests/founder-brief.service.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/founder_brief_service_test.dart",
+      "integration_test": "tests/e2e/test_founder_trial_http.py"
     }
   ]
 }

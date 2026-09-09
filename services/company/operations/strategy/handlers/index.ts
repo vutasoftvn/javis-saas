@@ -5,6 +5,7 @@ export * from "./project-stage.handler";
 export * from "./assumption.handler";
 export * from "./experiment.handler";
 export * from "./founder-trial-board.handler";
+export * from "./founder-brief.handler";
 export * from "./evidence.handler";
 export * from "./interview.handler";
 export * from "./discovery-signal.handler";

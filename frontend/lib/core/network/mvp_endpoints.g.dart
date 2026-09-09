@@ -453,6 +453,14 @@ enum MvpEndpoint {
     path: '/operations/execution-cycle-view',
     requiresWorkspace: true,
   ),
+  strategyFounderBriefRead(
+    id: 'strategy.founder_brief.read',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'GET',
+    path: '/operations/projects/:projectId/founder-brief',
+    requiresWorkspace: true,
+  ),
   strategyFounderTrialBoardRead(
     id: 'strategy.founder_trial.board.read',
     enabled: true,
