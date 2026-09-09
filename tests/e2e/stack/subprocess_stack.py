@@ -42,6 +42,14 @@ _SECRETS = {
     "COSA_LOCAL_SERVICE_SECRET": "cosa-local-service-hmac-secret-change-in-prod-32b",
 }
 
+# Export công khai cho test signer (vd. `_sign_worker_token` trong
+# test_lease_mutual_exclusion_real.py / test_crash_recovery_subprocess.py) — các
+# test này PHẢI ký JWT bằng đúng secret cố định mà process isolated ở đây được
+# boot bằng, KHÔNG được đọc `os.environ` (ambient fallback là chính bug class mà
+# các test này được viết ra để chống). Đừng đổi giá trị này mà không đổi
+# `_SECRETS["WORKER_SERVICE_JWT_SECRET"]` ở trên — hai bên phải luôn khớp nhau.
+WORKER_SERVICE_JWT_SECRET = _SECRETS["WORKER_SERVICE_JWT_SECRET"]
+
 # Encore compile cả 2 service TS ở lần chạy đầu -> boot có thể mất 60-180s;
 # đó KHÔNG phải treo. Cho health-wait timeout rộng tay.
 _ENCORE_READY_TIMEOUT_S = 240.0
