@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 105 | 22 |
 | VALID_KEEP (giữ nguyên) | 110 | 32 |
-| REVIEW (chưa phân loại) | 811 | 192 |
+| REVIEW (chưa phân loại) | 832 | 195 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -41,12 +41,12 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | File | Hits |
 |---|---|
 | apps/cosa/auth/jwt.py | 35 |
+| frontend/lib/core/network/mvp_endpoints.g.dart | 29 |
 | apps/cosa/policies/company_policy_client.py | 27 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
 | apps/cosa/auth/dependency.py | 21 |
 | apps/cosa/worker/copilot_run.py | 19 |
 | apps/cosa/worker/wga_run.py | 18 |
-| frontend/lib/core/network/mvp_endpoints.g.dart | 18 |
 | services/cosa/services/workspace-connector.service.ts | 17 |
 | frontend/lib/modules/auth/services/auth_service.dart | 15 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 14 |
@@ -108,6 +108,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/views/hologram_hub_view.dart | 4 |
 | services/company/shared/events/envelope.ts | 4 |
 | services/cosa/handlers/agent-policy.handler.ts | 4 |
+| services/cosa/migrations/001_founder_trial_mvp_baseline.up.sql | 4 |
 | apps/cosa/api/app.py | 3 |
 | apps/cosa/api/copilot_routes.py | 3 |
 | apps/cosa/capabilities/__init__.py | 3 |
@@ -137,6 +138,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/services/okr.service.ts | 3 |
 | services/company/operations/services/twelve-week-year.service.ts | 3 |
 | services/company/shared/auth/cosa-task-delegation.ts | 3 |
+| services/company/shared/db/schema/operations.ts | 3 |
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
 | services/cosa/handlers/workspace-connector.handler.ts | 3 |
 | apps/cosa/api/schedule_routes.py | 2 |
@@ -165,6 +167,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/services/cas-link.service.ts | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
 | services/company/operations/application/runtime/runtime-signal-projector.ts | 2 |
+| services/company/operations/migrations/003_cosa_automation_mvp.up.sql | 2 |
+| services/company/operations/services/automation-definition.service.ts | 2 |
 | services/company/operations/services/executive-context.service.ts | 2 |
 | services/company/package-lock.json | 2 |
 | services/company/shared/contracts/mvp-response.ts | 2 |
@@ -223,7 +227,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/tests/_helpers.ts | 1 |
 | services/company/package.json | 1 |
 | services/company/shared/auth/workspace-access.ts | 1 |
-| services/company/shared/db/schema/operations.ts | 1 |
 | services/company/shared/events/customer-engagement-events.ts | 1 |
 | services/company/shared/events/event-types.ts | 1 |
 | services/company/shared/events/fixtures/operations.task.completed.v1.json | 1 |

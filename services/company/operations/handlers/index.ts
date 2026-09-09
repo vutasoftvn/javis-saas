@@ -12,4 +12,5 @@ export * from "./task-outcome-review.handler";
 export * from "./execution-plan.handler";
 export * from "./twelve-week-year.handler";
 export * from "./workspace-runtime.handler";
+export * from "./automation-definition.handler";
 export * from "../strategy/handlers";
