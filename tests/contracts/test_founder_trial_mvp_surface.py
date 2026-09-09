@@ -38,9 +38,7 @@ R1_IDS = {
 
 # Test files that later plan tasks introduce. Each entry removed once its task
 # has landed and the file exists on disk.
-PENDING_EVIDENCE = {
-    "frontend/test/modules/strategy/founder_trial_full_loop_test.dart",  # Task 9
-}
+PENDING_EVIDENCE: set[str] = set()
 
 
 def load_contract() -> dict:

@@ -6,6 +6,7 @@ class FounderTrialCycle {
   const FounderTrialCycle({
     required this.cycleId,
     required this.durationWeeks,
+    required this.revision,
     required this.currentWeek,
     required this.stageAtStart,
     required this.calendarState,
@@ -16,6 +17,8 @@ class FounderTrialCycle {
 
   final String? cycleId;
   final int? durationWeeks;
+  /// Optimistic-lock revision — phải gửi lại làm `expectedRevision` khi resize.
+  final int? revision;
   final int? currentWeek;
   final String? stageAtStart;
   final String? calendarState;
@@ -27,6 +30,7 @@ class FounderTrialCycle {
     return FounderTrialCycle(
       cycleId: json['cycleId']?.toString(),
       durationWeeks: (json['durationWeeks'] as num?)?.toInt(),
+      revision: (json['revision'] as num?)?.toInt(),
       currentWeek: (json['currentWeek'] as num?)?.toInt(),
       stageAtStart: json['stageAtStart']?.toString(),
       calendarState: json['calendarState']?.toString(),
@@ -143,6 +147,7 @@ class FounderTrialEvidence {
     required this.sourceType,
     required this.experimentId,
     required this.linkedToExperiment,
+    required this.linkedToFounderTrialAssumption,
     required this.observedAt,
   });
 
@@ -153,6 +158,9 @@ class FounderTrialEvidence {
   final String sourceType;
   final String? experimentId;
   final bool linkedToExperiment;
+  /// True chỉ khi evidence gắn experiment thuộc project VÀ experiment đó gắn
+  /// assumption cũng thuộc project — điều kiện DUY NHẤT đóng góp readiness.
+  final bool linkedToFounderTrialAssumption;
   final String? observedAt;
 
   factory FounderTrialEvidence.fromJson(Map<String, dynamic> json) {
@@ -164,6 +172,8 @@ class FounderTrialEvidence {
       sourceType: json['sourceType']?.toString() ?? '',
       experimentId: json['experimentId']?.toString(),
       linkedToExperiment: json['linkedToExperiment'] == true,
+      linkedToFounderTrialAssumption:
+          json['linkedToFounderTrialAssumption'] == true,
       observedAt: json['observedAt']?.toString(),
     );
   }
