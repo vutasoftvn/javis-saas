@@ -1,3 +1,7 @@
+// Founder Trial R1 — legacy surface removed from the MVP contract. Every
+// request here now returns MvpRequestClient.unavailable(); the retained
+// class shell keeps callers compiling until the module is deleted.
+// ignore_for_file: unused_field, unused_import, unused_element
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -38,10 +42,8 @@ class ApprovalsService extends WorkspaceService {
   /// malformed body đều thành `ApiFailure`, KHÔNG BAO GIỜ âm thầm co về `[]`
   /// (đúng bug mà lát dọc Task 6 này sửa).
   Future<ApiResult<List<ApprovalItemModel>>> list({String? status}) {
-    return _client.request<List<ApprovalItemModel>>(
-      MvpEndpoint.workforceApprovalList,
-      query: status != null ? {'status': status} : null,
-      decode: (json) => _asMapList(json).map(ApprovalItemModel.fromJson).toList(),
+    return MvpRequestClient.unavailable<List<ApprovalItemModel>>(
+      'Workforce approvals are not part of Founder Trial R1.',
     );
   }
 
@@ -53,14 +55,8 @@ class ApprovalsService extends WorkspaceService {
     required bool approved,
     String? reason,
   }) {
-    return _client.request<ApprovalItemModel>(
-      MvpEndpoint.workforceApprovalDecision,
-      pathParams: {'approvalId': approvalId},
-      body: {
-        'approved': approved,
-        'reason': ?reason,
-      },
-      decode: (json) => ApprovalItemModel.fromJson(json as Map<String, dynamic>),
+    return MvpRequestClient.unavailable<ApprovalItemModel>(
+      'Workforce approval decisions are not part of Founder Trial R1.',
     );
   }
 

@@ -1,3 +1,7 @@
+// Founder Trial R1 — legacy surface removed from the MVP contract. Every
+// request here now returns MvpRequestClient.unavailable(); the retained
+// class shell keeps callers compiling until the module is deleted.
+// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 import '../../../core/network/api_result.dart';
 import '../../../core/network/mvp_endpoints.g.dart';
@@ -11,10 +15,7 @@ class PermissionsService {
       : _client = client ?? MvpRequestClient(httpClient: httpClient);
 
   Future<ApiResult<PermissionsDataModel>> getPermissions() async {
-    return _client.request<PermissionsDataModel>(
-      MvpEndpoint.settingsPermissionGet,
-      decode: (json) => PermissionsDataModel.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<PermissionsDataModel>('settingsPermissionGet was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<SimulatePermissionsResponse>> simulatePermissions({
@@ -24,18 +25,7 @@ class PermissionsService {
     String? legalEntityId,
     Map<String, dynamic>? facts,
   }) async {
-    return _client.request<SimulatePermissionsResponse>(
-      MvpEndpoint.settingsPermissionSimulate,
-      body: {
-        'action': action,
-        'memberId': ?memberId,
-        'projectId': ?projectId,
-        'legalEntityId': ?legalEntityId,
-        'facts': ?facts,
-      },
-      decode: (json) =>
-          SimulatePermissionsResponse.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<SimulatePermissionsResponse>('settingsPermissionSimulate was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<Map<String, dynamic>>> updatePermissions({
@@ -43,14 +33,6 @@ class PermissionsService {
     required String reason,
     required List<Map<String, dynamic>> mutations,
   }) async {
-    return _client.request<Map<String, dynamic>>(
-      MvpEndpoint.settingsPermissionUpdate,
-      body: {
-        'expectedVersion': expectedVersion,
-        'reason': reason,
-        'mutations': mutations,
-      },
-      decode: (json) => (json as Map<String, dynamic>?) ?? {},
-    );
+    return MvpRequestClient.unavailable<Map<String, dynamic>>('settingsPermissionUpdate was removed from the Founder Trial R1 contract');
   }
 }

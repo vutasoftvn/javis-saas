@@ -38,6 +38,18 @@ class MvpRequestClient {
     return resolved;
   }
 
+  /// Founder Trial R1 — a surface that was removed from the MVP contract.
+  /// Returns a typed `unavailable` failure instead of calling a route that no
+  /// longer exists, so legacy screens degrade to an explicit state.
+  static Future<ApiResult<T>> unavailable<T>([String? note]) async {
+    return ApiFailure<T>(
+      ApiFailureDetail(
+        code: ApiFailureCode.unavailable,
+        message: note ?? 'This surface is not part of the Founder Trial R1 release.',
+      ),
+    );
+  }
+
   Future<ApiResult<T>> request<T>(
     MvpEndpoint endpoint, {
     Map<String, String>? pathParams,

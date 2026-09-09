@@ -1,3 +1,7 @@
+// Founder Trial R1 — legacy surface removed from the MVP contract. Every
+// request here now returns MvpRequestClient.unavailable(); the retained
+// class shell keeps callers compiling until the module is deleted.
+// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 import '../../../core/network/api_result.dart';
 import '../../../core/network/mvp_endpoints.g.dart';
@@ -13,38 +17,18 @@ class StrategyMvpClient {
   // ─── Canvas Methods ───
 
   Future<ApiResult<List<MvpCanvas>>> listCanvases() async {
-    return _client.request<List<MvpCanvas>>(
-      MvpEndpoint.strategyCanvasList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpCanvas.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpCanvas>>('strategyCanvasList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpCanvas>> createCanvas({
     required String name,
     String? description,
   }) async {
-    return _client.request<MvpCanvas>(
-      MvpEndpoint.strategyCanvasCreate,
-      body: {
-        'name': name,
-        'description': ?description,
-      },
-      decode: (json) => MvpCanvas.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpCanvas>('strategyCanvasCreate was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpCanvas>> getCanvas(String id) async {
-    return _client.request<MvpCanvas>(
-      MvpEndpoint.strategyCanvasGet,
-      pathParams: {'id': id},
-      decode: (json) => MvpCanvas.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpCanvas>('strategyCanvasGet was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpCanvas>> updateCanvas({
@@ -52,23 +36,11 @@ class StrategyMvpClient {
     String? name,
     String? description,
   }) async {
-    return _client.request<MvpCanvas>(
-      MvpEndpoint.strategyCanvasUpdate,
-      pathParams: {'id': id},
-      body: {
-        'name': ?name,
-        'description': ?description,
-      },
-      decode: (json) => MvpCanvas.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpCanvas>('strategyCanvasUpdate was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<void>> deleteCanvas(String id) async {
-    return _client.request<void>(
-      MvpEndpoint.strategyCanvasDelete,
-      pathParams: {'id': id},
-      decode: (_) {},
-    );
+    return MvpRequestClient.unavailable<void>('strategyCanvasDelete was removed from the Founder Trial R1 contract');
   }
 
   // ─── Revision Methods ───
@@ -80,140 +52,55 @@ class StrategyMvpClient {
     List<Map<String, dynamic>>? sourceRefs,
     String? parentRevisionId,
   }) async {
-    return _client.request<MvpCanvasRevision>(
-      MvpEndpoint.strategyCanvasRevisionCreate,
-      pathParams: {'id': canvasId},
-      body: {
-        'content': content,
-        'origin': origin,
-        'sourceRefs': ?sourceRefs,
-        'parentRevisionId': ?parentRevisionId,
-      },
-      decode: (json) => MvpCanvasRevision.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpCanvasRevision>('strategyCanvasRevisionCreate was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpCanvasRevision>> getRevision(String id) async {
-    return _client.request<MvpCanvasRevision>(
-      MvpEndpoint.strategyCanvasRevisionGet,
-      pathParams: {'id': id},
-      decode: (json) => MvpCanvasRevision.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpCanvasRevision>('strategyCanvasRevisionGet was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpCanvasRevision>> submitRevisionForReview(String id) async {
-    return _client.request<MvpCanvasRevision>(
-      MvpEndpoint.strategyCanvasRevisionSubmitReview,
-      pathParams: {'id': id},
-      decode: (json) => MvpCanvasRevision.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpCanvasRevision>('strategyCanvasRevisionSubmitReview was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpCanvasRevision>> approveRevision(String id, {String? reviewNote}) async {
-    return _client.request<MvpCanvasRevision>(
-      MvpEndpoint.strategyCanvasRevisionApprove,
-      pathParams: {'id': id},
-      body: {
-        'reviewNote': ?reviewNote,
-      },
-      decode: (json) => MvpCanvasRevision.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpCanvasRevision>('strategyCanvasRevisionApprove was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpCanvasRevision>> rejectRevision(String id, {String? reviewNote}) async {
-    return _client.request<MvpCanvasRevision>(
-      MvpEndpoint.strategyCanvasRevisionReject,
-      pathParams: {'id': id},
-      body: {
-        'reviewNote': ?reviewNote,
-      },
-      decode: (json) => MvpCanvasRevision.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpCanvasRevision>('strategyCanvasRevisionReject was removed from the Founder Trial R1 contract');
   }
 
   // ─── OKR Methods ───
 
   Future<ApiResult<List<MvpOkrCycle>>> listOkrCycles() async {
-    return _client.request<List<MvpOkrCycle>>(
-      MvpEndpoint.strategyOkrCycleList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpOkrCycle.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpOkrCycle>>('strategyOkrCycleList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<MvpObjective>>> listObjectives() async {
-    return _client.request<List<MvpObjective>>(
-      MvpEndpoint.strategyObjectiveList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpObjective.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpObjective>>('strategyObjectiveList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<void>> deleteObjective(String id) async {
-    return _client.request<void>(
-      MvpEndpoint.strategyObjectiveDelete,
-      pathParams: {'id': id},
-      decode: (_) {},
-    );
+    return MvpRequestClient.unavailable<void>('strategyObjectiveDelete was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpObjectiveProgress>> getObjectiveProgress(String id) async {
-    return _client.request<MvpObjectiveProgress>(
-      MvpEndpoint.strategyObjectiveProgress,
-      pathParams: {'id': id},
-      decode: (json) => MvpObjectiveProgress.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpObjectiveProgress>('strategyObjectiveProgress was removed from the Founder Trial R1 contract');
   }
 
   // ─── 12-Week Year Methods ───
 
   Future<ApiResult<List<MvpTwelveWeekCycle>>> listTwelveWeekCycles() async {
-    return _client.request<List<MvpTwelveWeekCycle>>(
-      MvpEndpoint.strategyTwelveWeekCycleList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpTwelveWeekCycle.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpTwelveWeekCycle>>('strategyTwelveWeekCycleList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<MvpWeeklyPlan>>> listTwelveWeekPlans() async {
-    return _client.request<List<MvpWeeklyPlan>>(
-      MvpEndpoint.strategyTwelveWeekPlanList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpWeeklyPlan.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpWeeklyPlan>>('strategyTwelveWeekPlanList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<MvpWeeklyCommitment>>> listTwelveWeekCommitments() async {
-    return _client.request<List<MvpWeeklyCommitment>>(
-      MvpEndpoint.strategyTwelveWeekCommitmentList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpWeeklyCommitment.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpWeeklyCommitment>>('strategyTwelveWeekCommitmentList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpWeeklyPlan>> updateWeeklyPlan({
@@ -222,16 +109,7 @@ class StrategyMvpClient {
     double? outcomeScore,
     String? reflection,
   }) async {
-    return _client.request<MvpWeeklyPlan>(
-      MvpEndpoint.strategyTwelveWeekPlanUpdate,
-      pathParams: {'id': id},
-      body: {
-        'executionScore': ?executionScore,
-        'outcomeScore': ?outcomeScore,
-        'reflection': ?reflection,
-      },
-      decode: (json) => MvpWeeklyPlan.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpWeeklyPlan>('strategyTwelveWeekPlanUpdate was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpExecutionCycleView>> getExecutionCycleView({
@@ -242,10 +120,6 @@ class StrategyMvpClient {
     if (cycleId != null && cycleId.isNotEmpty) {
       queryMap['cycleId'] = cycleId;
     }
-    return _client.request<MvpExecutionCycleView>(
-      MvpEndpoint.strategyExecutionCycleView,
-      query: queryMap,
-      decode: (json) => MvpExecutionCycleView.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpExecutionCycleView>('strategyExecutionCycleView was removed from the Founder Trial R1 contract');
   }
 }

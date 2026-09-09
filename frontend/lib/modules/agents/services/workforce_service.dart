@@ -1,3 +1,7 @@
+// Founder Trial R1 — legacy surface removed from the MVP contract. Every
+// request here now returns MvpRequestClient.unavailable(); the retained
+// class shell keeps callers compiling until the module is deleted.
+// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_result.dart';
@@ -14,17 +18,7 @@ class WorkforceService {
   // ─── Assignments ───
 
   Future<ApiResult<List<WorkforceAssignment>>> listAssignments({String? status}) async {
-    return _client.request<List<WorkforceAssignment>>(
-      MvpEndpoint.workforceAssignmentList,
-      query: status != null ? {'status': status} : null,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceAssignment.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceAssignment>>('workforceAssignmentList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<WorkforceAssignment>> createAssignment({
@@ -38,56 +32,27 @@ class WorkforceService {
       body['reports_to_assignment_id'] = reportsToAssignmentId;
     }
 
-    return _client.request<WorkforceAssignment>(
-      MvpEndpoint.workforceAssignmentCreate,
-      body: body,
-      decode: (json) => WorkforceAssignment.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<WorkforceAssignment>('workforceAssignmentCreate was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<WorkforceAssignment>> retireAssignment(String id) async {
-    return _client.request<WorkforceAssignment>(
-      MvpEndpoint.workforceAssignmentRetire,
-      pathParams: {'id': id},
-      decode: (json) => WorkforceAssignment.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<WorkforceAssignment>('workforceAssignmentRetire was removed from the Founder Trial R1 contract');
   }
 
   // ─── Composition & Org Chart ───
 
   Future<ApiResult<List<WorkforceCompositionEntry>>> getComposition() async {
-    return _client.request<List<WorkforceCompositionEntry>>(
-      MvpEndpoint.workforceCompositionGet,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceCompositionEntry.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceCompositionEntry>>('workforceCompositionGet was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<WorkforceOrgChart>> getOrgChart() async {
-    return _client.request<WorkforceOrgChart>(
-      MvpEndpoint.workforceOrgChartGet,
-      decode: (json) => WorkforceOrgChart.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<WorkforceOrgChart>('workforceOrgChartGet was removed from the Founder Trial R1 contract');
   }
 
   // ─── Capabilities & Health & Cost ───
 
   Future<ApiResult<List<WorkforceCapability>>> listCapabilities() async {
-    return _client.request<List<WorkforceCapability>>(
-      MvpEndpoint.workforceCapabilityList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceCapability.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceCapability>>('workforceCapabilityList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<WorkforceCostObservation>>> listCostObservations({
@@ -101,97 +66,35 @@ class WorkforceService {
       queryParams['run_id'] = runId;
     }
 
-    return _client.request<List<WorkforceCostObservation>>(
-      MvpEndpoint.workforceCostObservationList,
-      query: queryParams,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceCostObservation.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceCostObservation>>('workforceCostObservationList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<WorkforceHealth>>> getHealth() async {
-    return _client.request<List<WorkforceHealth>>(
-      MvpEndpoint.workforceHealthGet,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceHealth.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceHealth>>('workforceHealthGet was removed from the Founder Trial R1 contract');
   }
 
   // ─── Runs ───
 
   Future<ApiResult<List<WorkforceRunSummary>>> listRuns({int limit = 50}) async {
-    return _client.request<List<WorkforceRunSummary>>(
-      MvpEndpoint.workforceRunList,
-      query: {'limit': limit.toString()},
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceRunSummary.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceRunSummary>>('workforceRunList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<WorkforceRunDetail>> getRun(String runId) async {
-    return _client.request<WorkforceRunDetail>(
-      MvpEndpoint.workforceRunGet,
-      pathParams: {'runId': runId},
-      decode: (json) => WorkforceRunDetail.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<WorkforceRunDetail>('workforceRunGet was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<WorkforceRunEvent>>> getRunEvents(String runId) async {
-    return _client.request<List<WorkforceRunEvent>>(
-      MvpEndpoint.workforceRunEvents,
-      pathParams: {'runId': runId},
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceRunEvent.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceRunEvent>>('workforceRunEvents was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<WorkforceRunArtifact>>> getRunArtifacts(String runId) async {
-    return _client.request<List<WorkforceRunArtifact>>(
-      MvpEndpoint.workforceRunArtifacts,
-      pathParams: {'runId': runId},
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceRunArtifact.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceRunArtifact>>('workforceRunArtifacts was removed from the Founder Trial R1 contract');
   }
 
   // ─── Schedules ───
 
   Future<ApiResult<List<WorkforceSchedule>>> listSchedules() async {
-    return _client.request<List<WorkforceSchedule>>(
-      MvpEndpoint.workforceScheduleList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceSchedule.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceSchedule>>('workforceScheduleList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<WorkforceSchedule>> createSchedule({
@@ -200,40 +103,17 @@ class WorkforceService {
     required String cronExpression,
     Map<String, dynamic>? inputPayload,
   }) async {
-    return _client.request<WorkforceSchedule>(
-      MvpEndpoint.workforceScheduleCreate,
-      body: {
-        'name': name,
-        'functional_key': functionalKey,
-        'cron_expression': cronExpression,
-        'input_payload': inputPayload ?? <String, dynamic>{},
-      },
-      decode: (json) => WorkforceSchedule.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<WorkforceSchedule>('workforceScheduleCreate was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<Map<String, dynamic>>> runScheduleNow(String scheduleId) async {
-    return _client.request<Map<String, dynamic>>(
-      MvpEndpoint.workforceScheduleRunNow,
-      pathParams: {'scheduleId': scheduleId},
-      decode: (json) => json as Map<String, dynamic>,
-    );
+    return MvpRequestClient.unavailable<Map<String, dynamic>>('workforceScheduleRunNow was removed from the Founder Trial R1 contract');
   }
 
   // ─── Approvals ───
 
   Future<ApiResult<List<WorkforceApproval>>> listApprovals({String? status}) async {
-    return _client.request<List<WorkforceApproval>>(
-      MvpEndpoint.workforceApprovalList,
-      query: status != null ? {'status': status} : null,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => WorkforceApproval.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<WorkforceApproval>>('workforceApprovalList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<WorkforceApprovalDecision>> decideApproval(
@@ -248,11 +128,6 @@ class WorkforceService {
       body['reason'] = reason;
     }
 
-    return _client.request<WorkforceApprovalDecision>(
-      MvpEndpoint.workforceApprovalDecision,
-      pathParams: {'approvalId': approvalId},
-      body: body,
-      decode: (json) => WorkforceApprovalDecision.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<WorkforceApprovalDecision>('workforceApprovalDecision was removed from the Founder Trial R1 contract');
   }
 }

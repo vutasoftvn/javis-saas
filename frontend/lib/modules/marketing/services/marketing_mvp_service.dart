@@ -1,3 +1,7 @@
+// Founder Trial R1 — legacy surface removed from the MVP contract. Every
+// request here now returns MvpRequestClient.unavailable(); the retained
+// class shell keeps callers compiling until the module is deleted.
+// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_result.dart';
@@ -12,31 +16,15 @@ class MarketingMvpService {
       : _client = client ?? MvpRequestClient(httpClient: httpClient);
 
   Future<ApiResult<MarketingContextModel>> getContext() async {
-    return _client.request<MarketingContextModel>(
-      MvpEndpoint.marketingContextGet,
-      decode: (json) => MarketingContextModel.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MarketingContextModel>('marketingContextGet was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MarketingContextModel>> updateContext(Map<String, dynamic> data) async {
-    return _client.request<MarketingContextModel>(
-      MvpEndpoint.marketingContextUpdate,
-      body: data,
-      decode: (json) => MarketingContextModel.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MarketingContextModel>('marketingContextUpdate was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<MarketingObjectiveModel>>> listObjectives() async {
-    return _client.request<List<MarketingObjectiveModel>>(
-      MvpEndpoint.marketingObjectiveList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MarketingObjectiveModel.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MarketingObjectiveModel>>('marketingObjectiveList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<MarketingCampaignModel>>> listCampaigns() async {
@@ -57,17 +45,7 @@ class MarketingMvpService {
     if (campaignId != null) {
       query['campaignId'] = campaignId;
     }
-    return _client.request<List<CampaignAssetModel>>(
-      MvpEndpoint.marketingAssetList,
-      query: query.isNotEmpty ? query : null,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => CampaignAssetModel.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<CampaignAssetModel>>('marketingAssetList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<MarketingExperimentModel>>> listExperiments() async {
@@ -88,16 +66,6 @@ class MarketingMvpService {
     if (providerKey != null) {
       query['providerKey'] = providerKey;
     }
-    return _client.request<List<MarketingObservedMetricModel>>(
-      MvpEndpoint.marketingMetricObserved,
-      query: query.isNotEmpty ? query : null,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MarketingObservedMetricModel.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MarketingObservedMetricModel>>('marketingMetricObserved was removed from the Founder Trial R1 contract');
   }
 }

@@ -1,3 +1,7 @@
+// Founder Trial R1 — legacy surface removed from the MVP contract. Every
+// request here now returns MvpRequestClient.unavailable(); the retained
+// class shell keeps callers compiling until the module is deleted.
+// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_client.dart';
@@ -20,24 +24,11 @@ class VaultService {
       : _client = client ?? MvpRequestClient(httpClient: httpClient);
 
   Future<ApiResult<List<VaultDocument>>> listDocuments() async {
-    return _client.request<List<VaultDocument>>(
-      MvpEndpoint.vaultDocumentList,
-      decode: (json) {
-        final list = json is List ? json : const [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => VaultDocument.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<VaultDocument>>('vaultDocumentList was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<VaultDocument>> getDocument(String documentId) async {
-    return _client.request<VaultDocument>(
-      MvpEndpoint.vaultDocumentGet,
-      pathParams: {'id': documentId},
-      decode: (json) => VaultDocument.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<VaultDocument>('vaultDocumentGet was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<VaultDocumentUpload>> createDocument({
@@ -53,11 +44,7 @@ class VaultService {
     if (classification != null) body['classification'] = classification;
     if (visibility != null) body['visibility'] = visibility;
 
-    return _client.request<VaultDocumentUpload>(
-      MvpEndpoint.vaultDocumentCreate,
-      body: body,
-      decode: (json) => VaultDocumentUpload.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<VaultDocumentUpload>('vaultDocumentCreate was removed from the Founder Trial R1 contract');
   }
 
   /// [uploadUrl] LUÔN là giá trị server trả từ [createDocument] — không bao
@@ -68,11 +55,7 @@ class VaultService {
   }
 
   Future<ApiResult<VaultUploadStatus>> completeUpload(String uploadId) async {
-    return _client.request<VaultUploadStatus>(
-      MvpEndpoint.vaultUploadComplete,
-      pathParams: {'id': uploadId},
-      decode: (json) => VaultUploadStatus.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<VaultUploadStatus>('vaultUploadComplete was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<VaultUploadStatus>> reviewDocument(
@@ -80,12 +63,7 @@ class VaultService {
     required String reason,
     required String idempotencyKey,
   }) async {
-    return _client.request<VaultUploadStatus>(
-      MvpEndpoint.vaultDocumentReview,
-      pathParams: {'id': documentId},
-      body: {'reason': reason, 'idempotency_key': idempotencyKey},
-      decode: (json) => VaultUploadStatus.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<VaultUploadStatus>('vaultDocumentReview was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<VaultUploadStatus>> publishDocument(
@@ -93,27 +71,14 @@ class VaultService {
     required String reason,
     required String idempotencyKey,
   }) async {
-    return _client.request<VaultUploadStatus>(
-      MvpEndpoint.vaultDocumentPublish,
-      pathParams: {'id': documentId},
-      body: {'reason': reason, 'idempotency_key': idempotencyKey},
-      decode: (json) => VaultUploadStatus.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<VaultUploadStatus>('vaultDocumentPublish was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<VaultArchiveOrPurgeResult>> archiveDocument(String documentId) async {
-    return _client.request<VaultArchiveOrPurgeResult>(
-      MvpEndpoint.vaultDocumentArchive,
-      pathParams: {'id': documentId},
-      decode: (json) => VaultArchiveOrPurgeResult.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<VaultArchiveOrPurgeResult>('vaultDocumentArchive was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<VaultArchiveOrPurgeResult>> purgeDocument(String documentId) async {
-    return _client.request<VaultArchiveOrPurgeResult>(
-      MvpEndpoint.vaultDocumentPurge,
-      pathParams: {'id': documentId},
-      decode: (json) => VaultArchiveOrPurgeResult.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<VaultArchiveOrPurgeResult>('vaultDocumentPurge was removed from the Founder Trial R1 contract');
   }
 }

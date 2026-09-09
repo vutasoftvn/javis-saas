@@ -111,7 +111,7 @@ Future<ApiResult<Object>> requestWithDelayedClient({required Duration timeout}) 
     requestTimeout: timeout,
   );
   return client.request<Object>(
-    MvpEndpoint.strategyCanvasList,
+    MvpEndpoint.financeBudgetSummaryRead,
     decode: (json) => json ?? const <String>[],
   );
 }
@@ -145,7 +145,7 @@ void main() {
 
       final client = MvpRequestClient(httpClient: mockHttp);
       final result = await client.request<List<String>>(
-        MvpEndpoint.strategyCanvasList,
+        MvpEndpoint.financeBudgetSummaryRead,
         decode: (json) => (json as List<dynamic>).cast<String>(),
       );
 
@@ -175,7 +175,7 @@ void main() {
 
       final client = MvpRequestClient(httpClient: mockHttp);
       final result = await client.request<List<String>>(
-        MvpEndpoint.strategyCanvasList,
+        MvpEndpoint.financeBudgetSummaryRead,
         decode: (json) => (json as List<dynamic>).cast<String>(),
       );
 
@@ -205,7 +205,7 @@ void main() {
 
       final client = MvpRequestClient(httpClient: mockHttp);
       final result = await client.request<List<String>>(
-        MvpEndpoint.strategyCanvasList,
+        MvpEndpoint.financeBudgetSummaryRead,
         decode: (json) => (json as List<dynamic>).cast<String>(),
       );
 
@@ -220,7 +220,7 @@ void main() {
         authResolver: _FakeAuthResolver(token: null, wsId: '1001'),
       );
       final result = await client.request<List<String>>(
-        MvpEndpoint.strategyCanvasList,
+        MvpEndpoint.financeBudgetSummaryRead,
         decode: (json) => (json as List<dynamic>).cast<String>(),
       );
 
@@ -233,7 +233,7 @@ void main() {
         authResolver: _FakeAuthResolver(token: 'valid_tok', wsId: null),
       );
       final result = await client.request<List<String>>(
-        MvpEndpoint.strategyCanvasList,
+        MvpEndpoint.financeBudgetSummaryRead,
         decode: (json) => (json as List<dynamic>).cast<String>(),
       );
 
@@ -251,7 +251,7 @@ void main() {
         authResolver: _FakeAuthResolver(token: 'valid_tok', wsId: '1001'),
       );
       final result = await client.request<List<String>>(
-        MvpEndpoint.strategyCanvasList,
+        MvpEndpoint.financeBudgetSummaryRead,
         decode: (json) => (json as List<dynamic>).cast<String>(),
       );
 
@@ -269,7 +269,7 @@ void main() {
         authResolver: _FakeAuthResolver(token: 'valid_tok', wsId: '1001'),
       );
       final result = await client.request<List<String>>(
-        MvpEndpoint.strategyCanvasList,
+        MvpEndpoint.financeBudgetSummaryRead,
         decode: (json) => (json as List<dynamic>).cast<String>(),
       );
 
@@ -282,7 +282,7 @@ void main() {
     // offline guard và timeout nhất quán giữa mọi consumer.
     test('company MVP request uses relay in REMOTE_ACCESS', () async {
       ApiClient.runtimeMode = 'REMOTE_ACCESS';
-      final request = await captureRequest(MvpEndpoint.marketingContextGet);
+      final request = await captureRequest(MvpEndpoint.marketingCampaignList);
       expect(request.url.path, startsWith('/relay/commercial/'));
     });
 
@@ -290,7 +290,7 @@ void main() {
       ApiClient.runtimeMode = 'REMOTE_ACCESS';
       ApiClient.nodePresence = 'OFFLINE';
       final calls = <http.BaseRequest>[];
-      final result = await requestWithRecordingClient(calls, MvpEndpoint.strategyCanvasList);
+      final result = await requestWithRecordingClient(calls, MvpEndpoint.financeBudgetSummaryRead);
       expect(result, isA<ApiFailure<Object>>());
       expect(calls, isEmpty);
     });
@@ -300,32 +300,16 @@ void main() {
       expect((result as ApiFailure).failure.code, ApiFailureCode.unavailable);
     });
 
-    // Fix-review (2026-09-02, final review I-4) — `shared/contracts/
-    // mvp-surface.json` đánh dấu capability `vault.knowledge.*` là
-    // `enabled: false` (retrieval REST stub — Task 12 đã enable
-    // vault.document.*/vault.upload.* nhưng 3 route knowledge/retrieval vẫn
-    // chưa xong REST). Trước fix, `MvpEndpoint` (Dart) không mang field
-    // `enabled` nên client vẫn có thể gửi request thật tới một route đã biết
-    // trước là chưa khả dụng. Chứng minh request bị chặn TRƯỚC KHI chạm HTTP
-    // client.
-    test('a disabled endpoint is rejected before any HTTP call is attempted', () async {
-      expect(MvpEndpoint.vaultKnowledgeGraph.enabled, isFalse,
-          reason:
-              'vault.knowledge.* phải còn enabled:false trong mvp-surface.json cho test này có ý nghĩa');
-
-      final calls = <http.BaseRequest>[];
-      final result = await requestWithRecordingClient(calls, MvpEndpoint.vaultKnowledgeGraph);
-
-      expect(calls, isEmpty, reason: 'không được có traffic nào rời máy cho endpoint đã disable');
-      expect(result, isA<ApiFailure<Object>>());
-      expect((result as ApiFailure<Object>).failure.code, ApiFailureCode.unavailable);
-    });
+    // Founder Trial R1 — the trimmed MVP contract has NO disabled entries, so
+    // there is no fixture endpoint to exercise the pre-HTTP disabled guard.
+    // The guard itself still lives in MvpRequestClient; re-add a fixture here
+    // if a disabled capability is ever reintroduced.
 
     test('an enabled endpoint still reaches the HTTP client as before', () async {
-      expect(MvpEndpoint.strategyCanvasList.enabled, isTrue);
+      expect(MvpEndpoint.financeBudgetSummaryRead.enabled, isTrue);
 
       final calls = <http.BaseRequest>[];
-      final result = await requestWithRecordingClient(calls, MvpEndpoint.strategyCanvasList);
+      final result = await requestWithRecordingClient(calls, MvpEndpoint.financeBudgetSummaryRead);
 
       expect(calls, isNotEmpty);
       expect(result, isA<ApiSuccess<Object>>());

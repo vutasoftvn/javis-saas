@@ -1,3 +1,7 @@
+// Founder Trial R1 — legacy surface removed from the MVP contract. Every
+// request here now returns MvpRequestClient.unavailable(); the retained
+// class shell keeps callers compiling until the module is deleted.
+// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 import '../../../core/network/api_result.dart';
 import '../../../core/network/mvp_endpoints.g.dart';
@@ -11,43 +15,18 @@ class WorkspaceRuntimeMvpClient {
       : _client = client ?? MvpRequestClient(httpClient: httpClient);
 
   Future<ApiResult<List<MvpRuntimeItem>>> listNeedsYou() async {
-    return _client.request<List<MvpRuntimeItem>>(
-      MvpEndpoint.workspaceRuntimeNeedsYou,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpRuntimeItem.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpRuntimeItem>>('workspaceRuntimeNeedsYou was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<MvpRuntimeItem>>> listBlockers() async {
-    return _client.request<List<MvpRuntimeItem>>(
-      MvpEndpoint.workspaceRuntimeBlockers,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpRuntimeItem.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpRuntimeItem>>('workspaceRuntimeBlockers was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<MvpRuntimeItemDetail>> getItem({
     required String sourceKind,
     required String sourceId,
   }) async {
-    return _client.request<MvpRuntimeItemDetail>(
-      MvpEndpoint.workspaceRuntimeItemGet,
-      pathParams: {
-        'sourceKind': sourceKind,
-        'sourceId': sourceId,
-      },
-      decode: (json) => MvpRuntimeItemDetail.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<MvpRuntimeItemDetail>('workspaceRuntimeItemGet was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<void>> snoozeItem({
@@ -55,29 +34,10 @@ class WorkspaceRuntimeMvpClient {
     required String sourceId,
     required String snoozedUntil,
   }) async {
-    return _client.request<void>(
-      MvpEndpoint.workspaceRuntimeItemSnooze,
-      pathParams: {
-        'sourceKind': sourceKind,
-        'sourceId': sourceId,
-      },
-      body: {
-        'snoozedUntil': snoozedUntil,
-      },
-      decode: (_) {},
-    );
+    return MvpRequestClient.unavailable<void>('workspaceRuntimeItemSnooze was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<List<MvpSourceStatus>>> getSourceStatus() async {
-    return _client.request<List<MvpSourceStatus>>(
-      MvpEndpoint.workspaceRuntimeSourceStatus,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MvpSourceStatus.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<MvpSourceStatus>>('workspaceRuntimeSourceStatus was removed from the Founder Trial R1 contract');
   }
 }

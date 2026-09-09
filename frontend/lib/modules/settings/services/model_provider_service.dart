@@ -1,3 +1,7 @@
+// Founder Trial R1 — legacy surface removed from the MVP contract. Every
+// request here now returns MvpRequestClient.unavailable(); the retained
+// class shell keeps callers compiling until the module is deleted.
+// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_result.dart';
@@ -22,16 +26,7 @@ class ModelProviderService {
       : _client = client ?? MvpRequestClient(httpClient: httpClient);
 
   Future<ApiResult<List<ModelProviderModel>>> listProviders() async {
-    return _client.request<List<ModelProviderModel>>(
-      MvpEndpoint.settingsModelProviderList,
-      decode: (json) {
-        final list = json is List ? json : (json as Map<String, dynamic>)['items'] as List? ?? [];
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((e) => ModelProviderModel.fromJson(e))
-            .toList();
-      },
-    );
+    return MvpRequestClient.unavailable<List<ModelProviderModel>>('settingsModelProviderList was removed from the Founder Trial R1 contract');
   }
 
   /// Tạo (hoặc upsert) 1 provider profile. `apiKey` là optional (CLI/local
@@ -48,39 +43,18 @@ class ModelProviderService {
     double? budgetUsdLimit,
     int? maxConcurrency,
   }) async {
-    return _client.request<ModelProviderModel>(
-      MvpEndpoint.settingsModelProviderCreate,
-      body: {
-        'provider_type': providerType,
-        'profile_id': ?profileId,
-        'model_id': ?modelId,
-        'api_key': ?apiKey,
-        'base_url': ?baseUrl,
-        'allowed_models': ?allowedModels,
-        'budget_usd_limit': ?budgetUsdLimit,
-        'max_concurrency': ?maxConcurrency,
-      },
-      decode: (json) => ModelProviderModel.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<ModelProviderModel>('settingsModelProviderCreate was removed from the Founder Trial R1 contract');
   }
 
   /// Health-check server-side cho 1 profile đã tạo. Caller (UI) KHÔNG được tự
   /// suy luận "usable" từ `credentialConfigured` — chỉ tin `ok` trả về từ
   /// chính call này, và chỉ SAU KHI call này thành công.
   Future<ApiResult<ModelProviderTestResultModel>> testConnection(String profileId) async {
-    return _client.request<ModelProviderTestResultModel>(
-      MvpEndpoint.settingsModelProviderTest,
-      pathParams: {'profileId': profileId},
-      decode: (json) => ModelProviderTestResultModel.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<ModelProviderTestResultModel>('settingsModelProviderTest was removed from the Founder Trial R1 contract');
   }
 
   Future<ApiResult<ModelPolicyModel>> getPolicy(String agentProfile) async {
-    return _client.request<ModelPolicyModel>(
-      MvpEndpoint.settingsModelPolicyGet,
-      pathParams: {'agentProfile': agentProfile},
-      decode: (json) => ModelPolicyModel.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<ModelPolicyModel>('settingsModelPolicyGet was removed from the Founder Trial R1 contract');
   }
 
   /// `agentProfile` dùng sentinel `_workspace_default`
@@ -91,14 +65,6 @@ class ModelProviderService {
     required String primaryProfileId,
     List<String> fallbackProfileIds = const [],
   }) async {
-    return _client.request<ModelPolicyModel>(
-      MvpEndpoint.settingsModelPolicySet,
-      pathParams: {'agentProfile': agentProfile},
-      body: {
-        'primary_profile_id': primaryProfileId,
-        'fallback_profile_ids': fallbackProfileIds,
-      },
-      decode: (json) => ModelPolicyModel.fromJson(json as Map<String, dynamic>),
-    );
+    return MvpRequestClient.unavailable<ModelPolicyModel>('settingsModelPolicySet was removed from the Founder Trial R1 contract');
   }
 }
