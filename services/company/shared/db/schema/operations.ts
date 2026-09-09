@@ -106,6 +106,73 @@ export const taskOutcomeKrLinks = operatingSchema.table("task_outcome_kr_links",
   uixContractKr: uniqueIndex("uix_task_outcome_kr_links_contract_kr").on(t.contractId, t.keyResultId),
 }));
 
+// Work package = đơn vị queue; attempt = đơn vị quy trách nhiệm (spec §7,
+// migration 52). Company IDs Snowflake BIGINT; ref Agent Platform là opaque TEXT.
+export const taskWorkPackages = operatingSchema.table("task_work_packages", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  taskId: bigint("task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  outcomeContractId: bigint("outcome_contract_id", { mode: "bigint" }).notNull().references(() => taskOutcomeContracts.id),
+  title: text("title"),
+  objective: text("objective").notNull(),
+  inputRefs: jsonb("input_refs").default([]).notNull(),
+  outputContract: jsonb("output_contract").default({}).notNull(),
+  acceptanceRubric: jsonb("acceptance_rubric").default({}).notNull(),
+  requestedByManagerId: bigint("requested_by_manager_id", { mode: "bigint" }),
+  assignedAgentInstanceId: text("assigned_agent_instance_id").notNull(),
+  requestedPriority: varchar("requested_priority", { length: 4 }).notNull(),
+  effectivePriority: varchar("effective_priority", { length: 4 }).notNull(),
+  priorityReason: text("priority_reason"),
+  status: varchar("status", { length: 30 }).default("QUEUED").notNull(),
+  dependencyIds: jsonb("dependency_ids").default([]).notNull(),
+  reviewDueAt: timestamp("review_due_at", { withTimezone: true }),
+  budgetLimit: numeric("budget_limit"),
+  idempotencyKey: text("idempotency_key"),
+  version: integer("version").default(1).notNull(),
+  queuedAt: timestamp("queued_at", { withTimezone: true }).defaultNow().notNull(),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixQueue: index("ix_task_work_packages_queue").on(
+    t.workspaceId, t.status, t.effectivePriority, t.dueAt, t.queuedAt
+  ),
+  ixTask: index("ix_task_work_packages_task").on(t.workspaceId, t.taskId),
+}));
+
+export const workPackageAttempts = operatingSchema.table("work_package_attempts", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  workPackageId: bigint("work_package_id", { mode: "bigint" }).notNull().references(() => taskWorkPackages.id, { onDelete: "cascade" }),
+  sequenceNo: integer("sequence_no").notNull(),
+  assignedAgentInstanceId: text("assigned_agent_instance_id").notNull(),
+  assignmentSnapshot: jsonb("assignment_snapshot"),
+  specSnapshot: jsonb("spec_snapshot"),
+  runId: text("run_id"),
+  status: varchar("status", { length: 30 }).default("ACTIVE").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  endedReason: text("ended_reason"),
+}, (t) => ({
+  uixSeq: uniqueIndex("uix_work_package_attempts_seq").on(t.workPackageId, t.sequenceNo),
+}));
+
+export const workPackageEvents = operatingSchema.table("work_package_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  workPackageId: bigint("work_package_id", { mode: "bigint" }).notNull().references(() => taskWorkPackages.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  actorKind: text("actor_kind").notNull(),
+  actorId: text("actor_id"),
+  beforeJson: jsonb("before_json"),
+  afterJson: jsonb("after_json"),
+  reason: text("reason"),
+  correlationId: text("correlation_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixWp: index("ix_work_package_events_wp").on(t.workPackageId, t.createdAt),
+}));
+
 export const taskDependencies = operatingSchema.table("task_dependencies", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   taskId: bigint("task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
