@@ -201,24 +201,34 @@ DAG R1 đã triển khai xong A0 → A1 → B → C → E (8 commit, `11ad0d4e`.
 `tsc` (company + cosa), company test (~1500), cosa test (23),
 `tests/e2e/test_founder_trial_http.py` collect OK.
 
+**A1.4 UI wiring — ĐÃ XONG** (`cd3db2a3`): tab "Validation" của `StrategyView`
+giờ render `FounderTrialTab` (thay `ValidationStudioTab`) — resolve project từ
+`StrategyController`, load manifest + board, dropdown chọn project khi >1.
+`cycleDurationWeeks` = ChoiceChip 1–12 ở section Operating Cycle của board (chỉ
+hiện khi surface interactive), gọi `ProjectOperatingSetupService.updateCycleDuration`
+(bare PUT `{cycleDurationWeeks}`). length tab vẫn 7, không đụng routing/redirect.
+
 **Còn nợ (follow-up, có chủ đích):**
-- A1.4 UI wiring: slot `FounderTrialBoardView` vào `StrategyView`/`module_routes.dart`
-  + `AppShell` + `WorkspaceModule` enum. Model/service/widget đã test đủ; chỉ
-  thiếu điểm vào navigation.
-- A1.4 picker `cycleDurationWeeks` tách `stageDurationWeeks` trong wizard kickoff
-  + nối widget chết `CycleReviewTimeline` (backend + model đã sẵn nhận).
 - C.4 Flutter `marketing_controller.dart`: xoá pattern `Future.wait(... catchError => [])`
-  + gỡ dòng allowlist wildcard `/marketing/:await`. **Hoãn** vì `main` đang có
-  breakage frontend không liên quan.
+  + gỡ dòng allowlist wildcard `/marketing/:await`. **Hoãn** tới khi Nhóm 3 xong
+  (để `flutter test` toàn bộ chạy được mà verify).
 - Retire `module-visibility` sau khi mọi consumer đọc `capability-manifest`.
+- Xoá file chết `validation_studio_tab.dart` (không còn tham chiếu) — chờ user xác nhận.
 - Chạy `make e2e-test` với fixture thật cho `test_founder_trial_http.py`.
 
-**Breakage sẵn có trên `main` (KHÔNG do Founder Trial, từ phiên khác — localization
-migration `b1b5adf2` + auth `d39a1bee`):** `frontend-api-contract-check` đỏ
-(`/platform/auth/me` unknown literal ở `auth_service.dart:518`);
-`route-inventory-check` đỏ (`PATCH /identity/me` đã xoá, snapshot chưa cập nhật);
-nhiều test `frontend/test/core/**` compile-fail (`.tr` getter). R1 chưa thật sự
-"shippable" tới khi các mục này được phiên phụ trách localization/auth xử lý.
+**Breakage sẵn có trên `main` (KHÔNG do Founder Trial, từ phiên localization
+`b1b5adf2` + auth `d39a1bee`):**
+- ✅ **Đã vá:** `.tr` compile-fail 12 file test core (`da094cb1` — thêm import
+  `package:get/get.dart`); `make frontend-analyze` đỏ vì unused import
+  `en_tasks`/`vi_tasks` (`fcc6f677` — spread `...enTasks`/`...viTasks` vào map,
+  đúng ý đồ migration). `flutter analyze` giờ 0 lỗi.
+- ⚠️ **Còn (thuộc workstream localization/auth):** 6 test
+  `strategy_service_base_test` / `okr_service_test` / `execution_cycle_flow_test`
+  fail vì `flutter_test` env không nạp GetX translations → `L10nKey.errNoWorkspace.tr`
+  trả raw key. Cần setup dịch trong test harness (hoặc nới assertion) — của phiên
+  đó. `frontend-api-contract-check` đỏ (`/platform/auth/me` chưa vào mvp-surface.json)
+  + `route-inventory-check` đỏ (`PATCH /identity/me` xoá, snapshot chưa cập) là
+  cặp đôi auth migration dở — để phiên auth hoàn tất.
 
 ## Verification (cho chính bước restructure)
 
