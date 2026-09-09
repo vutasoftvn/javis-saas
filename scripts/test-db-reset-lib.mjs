@@ -12,6 +12,14 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+
+// Repo has no root package.json; `pg` lives in the service workspaces. Resolve
+// it from services/company for the reset's own DDL connection.
+const _require = createRequire(
+  fileURLToPath(new URL("../services/company/package.json", import.meta.url))
+);
 
 // Immutable target metadata. Thứ tự cột:
 //   plane, databaseName, migratorEnvKey, applicationEnvKey, migratorRole,
@@ -234,7 +242,7 @@ export async function resetPlane(target, { pgClientFactory, runMigration } = {})
   const makeClient =
     pgClientFactory ||
     (async () => {
-      const { Client } = await import("pg");
+      const { Client } = _require("pg");
       return new Client({ connectionString: target.migratorUrl });
     });
 

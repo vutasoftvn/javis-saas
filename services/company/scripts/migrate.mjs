@@ -31,12 +31,14 @@ if (!DATABASE_URL) {
 
 const MIGRATION_LOCK_NAME = "workspace:migrations";
 
+// Founder Trial R1 (Task 10) — apply order identity -> operations -> commercial
+// -> finance-legal so every cross-schema FK/grant resolves in an empty
+// database. `academy` is dropped: not an R1 source of truth.
 const MIGRATION_DIRS = [
-  { service: "commercial", dir: join(__dirname, "../commercial/migrations") },
-  { service: "finance-legal", dir: join(__dirname, "../finance-legal/migrations") },
   { service: "identity", dir: join(__dirname, "../identity/migrations") },
   { service: "operations", dir: join(__dirname, "../operations/migrations") },
-  { service: "academy", dir: join(__dirname, "../academy/migrations") },
+  { service: "commercial", dir: join(__dirname, "../commercial/migrations") },
+  { service: "finance-legal", dir: join(__dirname, "../finance-legal/migrations") },
 ];
 
 function sortByNumericPrefix(files) {

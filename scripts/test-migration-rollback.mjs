@@ -13,6 +13,7 @@
  */
 
 import { execSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -39,11 +40,42 @@ function run(cmd, cwd = REPO_ROOT) {
   });
 }
 
+function onlyBaselineMigrationsRemain() {
+  // Founder Trial R1 (Task 10) — the 001 baselines have no down migration and
+  // cannot be rolled back. Gate E is meaningful only once an incremental
+  // migration (numbered after 001) with paired up/down SQL exists.
+  const dirs = [
+    join(REPO_ROOT, "packages", "agent", "migrations"),
+    join(REPO_ROOT, "services", "cosa", "migrations"),
+    join(REPO_ROOT, "services", "company", "identity", "migrations"),
+    join(REPO_ROOT, "services", "company", "operations", "migrations"),
+    join(REPO_ROOT, "services", "company", "commercial", "migrations"),
+    join(REPO_ROOT, "services", "company", "finance-legal", "migrations"),
+  ];
+  for (const d of dirs) {
+    for (const f of readdirSync(d)) {
+      if ((f.endsWith(".up.sql") || (f.endsWith(".sql") && !f.endsWith(".down.sql"))) &&
+          !f.startsWith("001_founder_trial_mvp_baseline")) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 async function main() {
   const steps = parseSteps();
   console.log("================================================================================");
   console.log(`🔄 Starting Migration Gate E Roundtrip Test (Rollback Steps: ${steps})`);
   console.log("================================================================================\n");
+
+  if (onlyBaselineMigrationsRemain()) {
+    console.log(
+      "⏭  Only the 001 Founder Trial baselines are present — they have no down\n" +
+        "   migration by design. Gate E has nothing to roll back; skipping.\n"
+    );
+    return;
+  }
 
   const pythonCmd = process.env.PYTHON || ".venv/bin/python3";
 

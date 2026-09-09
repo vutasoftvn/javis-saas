@@ -37,15 +37,36 @@ _EXPECTED_LEDGER = {
 }
 
 
+_GOLDEN = ROOT / "deploy/schema/fingerprints.json"
+
+# schema-fingerprint reads the *non-test* migrator keys; point them at the test
+# DBs for this subprocess so it introspects what `make test-db-reset` built.
+_FP_ENV = {
+    "AGENT_MIGRATOR_DATABASE_URL": os.environ.get("AGENT_TEST_MIGRATOR_DATABASE_URL", ""),
+    "COSA_MIGRATOR_DATABASE_URL": os.environ.get("COSA_TEST_MIGRATOR_DATABASE_URL", ""),
+    "WORKSPACE_MIGRATOR_DATABASE_URL": os.environ.get("WORKSPACE_TEST_MIGRATOR_DATABASE_URL", ""),
+}
+
+
 def _run_reset():
     subprocess.run(["make", "test-db-reset"], cwd=ROOT, check=True)
 
 
-def _fingerprint() -> str:
-    subprocess.run(
-        ["make", "schema-fingerprint-write"], cwd=ROOT, check=True, capture_output=True, text=True
-    )
-    return (ROOT / "deploy/schema/fingerprints.json").read_text()
+def _fingerprint() -> dict[str, str]:
+    import json
+
+    saved = _GOLDEN.read_text() if _GOLDEN.exists() else None
+    try:
+        subprocess.run(
+            ["node", "scripts/schema-fingerprint.mjs", "--write"],
+            cwd=ROOT, check=True, capture_output=True, text=True,
+            env={**os.environ, **_FP_ENV},
+        )
+        doc = json.loads(_GOLDEN.read_text())
+        return {k: v["fingerprint"] for k, v in doc["groups"].items()}
+    finally:
+        if saved is not None:
+            _GOLDEN.write_text(saved)  # never leave a test-DB fingerprint committed
 
 
 def _ledger_rows() -> set[tuple[str, str]]:

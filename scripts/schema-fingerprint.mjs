@@ -41,15 +41,11 @@ const SCHEMA_GROUPS = {
     fallbackEnvKey: null,
     defaultUrl: "postgresql://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/agent",
     schemas: [
-      "agent_artifact",
-      "agent_conversation",
       "agent",
+      "agent_conversation",
       "agent_governance",
-      "agent_evals",
-      "agent_memory",
       "agent_registry",
-      "knowledge",
-      "events"
+      "models"
     ]
   },
   cosa: {
@@ -72,12 +68,9 @@ const SCHEMA_GROUPS = {
       "core",
       "finance",
       "integration",
-      "legal",
       "operating",
       "sales",
-      "strategy",
-      "validation",
-      "engagement"
+      "strategy"
     ]
   }
 };
