@@ -2425,6 +2425,13 @@
       "owner": "control-plane",
       "reason": "Auth bootstrap — profile self-update tied to session identity (moved to Control Plane by the auth migration d39a1bee); not an MVP business capability. Backend: services/cosa/handlers/auth.handler.ts.",
       "expires_on": "2027-06-01"
+    },
+    {
+      "path": "/platform/workspaces/:workspaceId/session-context",
+      "method": "GET",
+      "owner": "control-plane",
+      "reason": "Auth/session bootstrap — per-workspace session context fetched right after login/switch-workspace; foundational identity plumbing, not an MVP business capability (same class as /identity/me, /identity/sync-from-platform).",
+      "expires_on": "2027-06-01"
     }
   ]
 }
