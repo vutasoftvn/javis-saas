@@ -9,13 +9,13 @@ describe("workspace composite uniqueness", () => {
       FROM pg_constraint
       WHERE contype = 'u'
         AND conrelid::regclass::text IN (
-          'strategy.projects','strategy.portfolios',
+          'strategy.projects',
           'strategy.okr_objectives','operating.tasks')
         AND pg_get_constraintdef(oid) LIKE '%(id, workspace_id)%'
     `);
     const tables = (rows as unknown as { rows: { tbl: string }[] }).rows.map((r) => r.tbl);
     expect(new Set(tables)).toEqual(
-      new Set(["strategy.projects", "strategy.portfolios", "strategy.okr_objectives", "operating.tasks"])
+      new Set(["strategy.projects", "strategy.okr_objectives", "operating.tasks"])
     );
   });
 });

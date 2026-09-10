@@ -7,7 +7,6 @@ import {
   executionPlanItems,
   projects,
   tasks,
-  taskProjects,
   taskDependencies,
   weeklyCommitments,
   weeklyPlans,
@@ -456,7 +455,8 @@ function assertNoCycles(items: { id: string; deps: string[] }[]): void {
 
 /**
  * Duyệt cả lô: chuyển plan 'draft' -> 'accepted' và materialize từng item chưa
- * dropped thành weekly_commitments + operating.tasks + task_projects. Item AUTO/
+ * dropped thành weekly_commitments + operating.tasks (project gắn trực tiếp qua
+ * tasks.project_id). Item AUTO/
  * NEEDS_APPROVAL gán cho AI member của owner_agent_profile (execution_mode AGENT);
  * FOUNDER_ONLY gán founder member (execution_mode HUMAN). autonomy_class chính xác
  * vẫn nằm ở execution_plan_items — worker task-executor JOIN ngược để đọc.
@@ -585,11 +585,6 @@ export async function acceptExecutionPlanService(
         assigneeMemberId,
         executionMode,
       });
-
-      await tx
-        .insert(taskProjects)
-        .values({ workspaceId: wsId, taskId, projectId: plan.projectId })
-        .onConflictDoNothing();
 
       await tx
         .update(executionPlanItems)

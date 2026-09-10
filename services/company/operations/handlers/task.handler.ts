@@ -27,7 +27,6 @@ import {
   WGA_CAP_TASK_ADVANCE,
   WGA_CAP_TASK_LIST,
 } from "../../shared/auth/cosa-task-delegation";
-import { linkTaskProjects, listTaskProjects, unlinkTaskProject } from "../services/project-link.service";
 
 export { Task, TaskStatus, TASK_STATUSES };
 
@@ -233,70 +232,3 @@ export const setExecutionSettings = api(
   }
 );
 
-export interface LinkProjectsParams {
-  projectIds: string[];
-}
-
-export interface TaskProjectsResponse {
-  projectIds: string[];
-}
-
-export const linkTaskProjects_Endpoint = api(
-  { method: "POST", path: "/operations/tasks/:id/projects", expose: true },
-  async ({
-    id,
-    workspaceId,
-    authorization,
-    projectIds,
-  }: {
-    id: string;
-    workspaceId: Header<"X-Workspace-Id">;
-    authorization?: Header<"Authorization">;
-    projectIds: string[];
-  }): Promise<TaskProjectsResponse> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    await linkTaskProjects(ctx, id, projectIds);
-    const projectIdsList = await listTaskProjects(ctx, id);
-    return { projectIds: projectIdsList };
-  }
-);
-
-export const getTaskProjects = api(
-  { method: "GET", path: "/operations/tasks/:id/projects", expose: true },
-  async ({
-    id,
-    workspaceId,
-    authorization,
-  }: {
-    id: string;
-    workspaceId: Header<"X-Workspace-Id">;
-    authorization?: Header<"Authorization">;
-  }): Promise<TaskProjectsResponse> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    const projectIds = await listTaskProjects(ctx, id);
-    return { projectIds };
-  }
-);
-
-export interface DeleteProjectResponse {
-  success: boolean;
-}
-
-export const unlinkTaskProject_Endpoint = api(
-  { method: "DELETE", path: "/operations/tasks/:id/projects/:projectId", expose: true },
-  async ({
-    id,
-    projectId,
-    workspaceId,
-    authorization,
-  }: {
-    id: string;
-    projectId: string;
-    workspaceId: Header<"X-Workspace-Id">;
-    authorization?: Header<"Authorization">;
-  }): Promise<DeleteProjectResponse> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    await unlinkTaskProject(ctx, id, projectId);
-    return { success: true };
-  }
-);

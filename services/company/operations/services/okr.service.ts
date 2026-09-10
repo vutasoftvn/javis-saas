@@ -300,9 +300,9 @@ export async function publishObjectiveService(
     .where(eq(okrObjectives.id, objId))
     .returning();
 
-  const { listObjectiveProjects } = await import("./project-link.service");
-  const pIds = await listObjectiveProjects(ctx, updated.id.toString());
-  return toObjective(updated, pIds);
+  // Startup Core: Objective thuộc đúng một project qua cột trực tiếp
+  // `okr_objectives.project_id` — không còn M:N link table.
+  return toObjective(updated);
 }
 
 
@@ -507,12 +507,7 @@ export async function getObjectiveService(id: string, authorization: string | un
   // Verify caller has access to this objective's workspace
   await requireWorkspaceAccess(authorization, row.workspaceId.toString());
 
-  // Populate projectIds from link table
-  const { listObjectiveProjects } = await import("./project-link.service");
-  const ctx: any = { workspaceId: row.workspaceId.toString() };
-  const projectIds = await listObjectiveProjects(ctx, id);
-
-  return toObjective(row, projectIds);
+  return toObjective(row);
 }
 
 export async function getObjectiveProgressService(
@@ -576,13 +571,7 @@ export async function listObjectivesService(ctx: TenantContext): Promise<MvpSucc
     .where(eq(okrObjectives.workspaceId, wsId))
     .orderBy(desc(okrObjectives.createdAt));
 
-  const objectivesList: Objective[] = [];
-  const { listObjectiveProjects } = await import("./project-link.service");
-
-  for (const row of rows) {
-    const pIds = await listObjectiveProjects(ctx, row.id.toString());
-    objectivesList.push(toObjective(row, pIds));
-  }
+  const objectivesList: Objective[] = rows.map((row) => toObjective(row));
 
   return mvpList(
     objectivesList,

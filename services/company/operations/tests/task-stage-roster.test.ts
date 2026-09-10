@@ -28,15 +28,12 @@ describe("listStageRosterService", () => {
       selectedStage: "P0_DISCOVERY",
     });
 
+    // Startup Core: task gắn project qua cột trực tiếp `tasks.project_id` —
+    // createTaskService tự resolve về project duy nhất của workspace.
     const task = await createTaskService(
       { title: "Ship pricing page", workspaceId: ws.workspaceId, priority: "high" },
       ws.bearerToken
     );
-    await db.insert(schema.taskProjects).values({
-      workspaceId: BigInt(ws.workspaceId),
-      taskId: BigInt(task.id),
-      projectId: BigInt(project.id),
-    });
 
     const roster = await listStageRosterService(ws.workspaceId, "P0_DISCOVERY");
 

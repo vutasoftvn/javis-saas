@@ -4,7 +4,7 @@ import { db, schema } from "../models/db";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
-const { projects, portfolios } = schema;
+const { projects } = schema;
 
 export interface Project {
   id: string;
@@ -35,23 +35,6 @@ export interface CreateProjectRequest {
   endDate?: string | null;
 }
 
-export interface Portfolio {
-  id: string;
-  workspaceId: string;
-  name: string;
-  description?: string | null;
-  strategicFocus?: string | null;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreatePortfolioRequest {
-  name: string;
-  description?: string | null;
-  strategicFocus?: string | null;
-}
-
 function toProject(row: typeof projects.$inferSelect): Project {
   return {
     id: row.id.toString(),
@@ -68,19 +51,6 @@ function toProject(row: typeof projects.$inferSelect): Project {
     startDate: row.startDate ? row.startDate.toISOString() : null,
     endDate: row.endDate ? row.endDate.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
-  };
-}
-
-function toPortfolio(row: typeof portfolios.$inferSelect): Portfolio {
-  return {
-    id: row.id.toString(),
-    workspaceId: row.workspaceId.toString(),
-    name: row.name,
-    description: row.description,
-    strategicFocus: row.strategicFocus,
-    status: row.status,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
@@ -135,37 +105,4 @@ export async function listProjectsService(ctx: TenantContext): Promise<Project[]
     .orderBy(desc(projects.id));
 
   return rows.map(toProject);
-}
-
-export async function createPortfolioService(ctx: TenantContext, req: CreatePortfolioRequest): Promise<Portfolio> {
-  if (!req.name) {
-    throw APIError.invalidArgument("name is required");
-  }
-
-  const wsId = BigInt(ctx.workspaceId);
-
-  const [row] = await db
-    .insert(portfolios)
-    .values({
-      id: generateSnowflake(),
-      workspaceId: wsId,
-      name: req.name,
-      description: req.description || null,
-      strategicFocus: req.strategicFocus || null,
-    })
-    .returning();
-
-  if (!row) throw APIError.internal("Failed to create portfolio");
-  return toPortfolio(row);
-}
-
-export async function listPortfoliosService(ctx: TenantContext): Promise<Portfolio[]> {
-  const wsId = BigInt(ctx.workspaceId);
-  const rows = await db
-    .select()
-    .from(portfolios)
-    .where(eq(portfolios.workspaceId, wsId))
-    .orderBy(desc(portfolios.id));
-
-  return rows.map(toPortfolio);
 }

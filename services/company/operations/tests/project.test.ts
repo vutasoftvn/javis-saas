@@ -1,32 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { createProject, listProjects, createPortfolio, listPortfolios, getProject } from "../handlers/project.handler";
+import { createProject, listProjects, getProject } from "../handlers/project.handler";
 import { createTestWorkspaceWithMember, createSecondWorkspace } from "./_helpers";
 
-describe("Project & Portfolio Service with Workspace Isolation", () => {
-  it("creates a portfolio and lists it within workspace", async () => {
-    const wsA = await createTestWorkspaceWithMember();
-
-    const portfolio = await createPortfolio({
-      authorization: wsA.bearerToken,
-      workspaceId: wsA.workspaceId,
-      name: "Core AI SaaS Suite",
-      description: "Portfolio of main SaaS products",
-      strategicFocus: "AI Agent OS",
-    });
-
-    expect(portfolio.id).toBeDefined();
-    expect(typeof portfolio.id).toBe("string");
-    expect(portfolio.workspaceId).toBe(wsA.workspaceId);
-    expect(portfolio.name).toBe("Core AI SaaS Suite");
-    expect(portfolio.status).toBe("active");
-
-    const list = await listPortfolios({
-      authorization: wsA.bearerToken,
-      workspaceId: wsA.workspaceId,
-    });
-    expect(list.portfolios.some((p) => p.id === portfolio.id)).toBe(true);
-  });
-
+describe("Project Service with Workspace Isolation", () => {
   it("creates a project and lists it within workspace", async () => {
     const wsA = await createTestWorkspaceWithMember();
 

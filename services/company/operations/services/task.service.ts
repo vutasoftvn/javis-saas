@@ -324,11 +324,9 @@ export async function getTaskService(id: string, ctx: TenantContext): Promise<Ta
 
   if (!row) throw APIError.notFound(`task ${id} not found`);
 
-  // Populate projectIds from link table
-  const { listTaskProjects } = await import("./project-link.service");
-  const projectIds = await listTaskProjects(ctx, id);
-
-  return toTask(row, projectIds);
+  // Startup Core: task thuộc đúng một project qua cột trực tiếp
+  // `tasks.project_id` — không còn M:N link table.
+  return toTask(row);
 }
 
 export async function listTasksService(
@@ -683,14 +681,14 @@ export async function listStageRosterService(
       title: tasks.title,
       priority: tasks.priority,
       status: tasks.status,
-      projectId: schema.taskProjects.projectId,
+      projectId: tasks.projectId,
     })
-    .from(schema.taskProjects)
-    .innerJoin(tasks, eq(tasks.id, schema.taskProjects.taskId))
+    .from(tasks)
     .where(
       and(
-        eq(schema.taskProjects.workspaceId, wsId),
-        inArray(schema.taskProjects.projectId, projectIds)
+        eq(tasks.workspaceId, wsId),
+        inArray(tasks.projectId, projectIds),
+        isNull(tasks.deletedAt)
       )
     );
 

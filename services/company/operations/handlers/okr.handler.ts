@@ -27,7 +27,6 @@ import {
   deleteKeyResultService,
 } from "../services/okr.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
-import { linkObjectiveProjects, listObjectiveProjects, unlinkObjectiveProject } from "../services/project-link.service";
 
 export {
   OkrCycle,
@@ -186,70 +185,6 @@ export const getObjectiveProgress = api(
   }
 );
 
-
-export interface ObjectiveProjectsResponse {
-  projectIds: string[];
-}
-
-export const linkObjectiveProjects_Endpoint = api(
-  { method: "POST", path: "/operations/objectives/:id/projects", expose: true },
-  async ({
-    id,
-    workspaceId,
-    authorization,
-    projectIds,
-  }: {
-    id: string;
-    workspaceId: Header<"X-Workspace-Id">;
-    authorization?: Header<"Authorization">;
-    projectIds: string[];
-  }): Promise<ObjectiveProjectsResponse> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    await linkObjectiveProjects(ctx, id, projectIds);
-    const projectIdsList = await listObjectiveProjects(ctx, id);
-    return { projectIds: projectIdsList };
-  }
-);
-
-export const getObjectiveProjects = api(
-  { method: "GET", path: "/operations/objectives/:id/projects", expose: true },
-  async ({
-    id,
-    workspaceId,
-    authorization,
-  }: {
-    id: string;
-    workspaceId: Header<"X-Workspace-Id">;
-    authorization?: Header<"Authorization">;
-  }): Promise<ObjectiveProjectsResponse> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    const projectIds = await listObjectiveProjects(ctx, id);
-    return { projectIds };
-  }
-);
-
-export interface ObjectiveDeleteProjectResponse {
-  success: boolean;
-}
-
-export const unlinkObjectiveProject_Endpoint = api(
-  { method: "DELETE", path: "/operations/objectives/:id/projects/:projectId", expose: true },
-  async ({
-    id,
-    projectId,
-    workspaceId,
-    authorization,
-  }: {
-    id: string;
-    projectId: string;
-    workspaceId: Header<"X-Workspace-Id">;
-    authorization?: Header<"Authorization">;
-  }): Promise<ObjectiveDeleteProjectResponse> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    await unlinkObjectiveProject(ctx, id, projectId);
-    return { success: true };
-  }
-);
 
 export const publishObjective = api(
   { method: "POST", path: "/operations/objectives/:id/publish", expose: true },

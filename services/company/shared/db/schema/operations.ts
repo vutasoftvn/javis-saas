@@ -522,20 +522,6 @@ export const krObservations = operatingSchema.table("kr_observations", {
   uixIdempotency: uniqueIndex("uix_kr_observations_ws_kr_idempotency").on(t.workspaceId, t.krId, t.idempotencyKey),
 }));
 
-export const portfolios = strategySchema.table("portfolios", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
-  strategicFocus: varchar("strategic_focus", { length: 255 }),
-  status: varchar("status", { length: 50 }).default("active").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-}, (t) => ({
-  uixIdWorkspace: uniqueIndex("uix_portfolios_id_workspace").on(t.id, t.workspaceId),
-}));
-
 export const projects = strategySchema.table("projects", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
@@ -551,6 +537,8 @@ export const projects = strategySchema.table("projects", {
   projectType: varchar("project_type", { length: 50 }),
   strategicPriority: varchar("strategic_priority", { length: 50 }),
   founderAttentionBudget: doublePrecision("founder_attention_budget"),
+  // Startup Core: portfolio đã gỡ khỏi model. Cột `portfolio_id` còn trong
+  // baseline 001 như cột trơ (không FK, không code path) — giữ để khớp migration.
   portfolioId: bigint("portfolio_id", { mode: "bigint" }),
   startDate: timestamp("start_date", { withTimezone: true }),
   endDate: timestamp("end_date", { withTimezone: true }),
@@ -559,14 +547,6 @@ export const projects = strategySchema.table("projects", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (t) => ({
   uixIdWorkspace: uniqueIndex("uix_projects_id_workspace").on(t.id, t.workspaceId),
-  // Composite FK (portfolio_id, workspace_id) → strategy.portfolios(id, workspace_id)
-  // trong DB là ON DELETE SET NULL (portfolio_id) để chỉ xóa tham chiếu portfolio
-  // mà giữ workspace_id nguyên vẹn.
-  portfolioFk: foreignKey({
-    columns: [t.portfolioId, t.workspaceId],
-    foreignColumns: [portfolios.id, portfolios.workspaceId],
-    name: "fk_projects_portfolio_ws",
-  }).onDelete("set null"),
 }));
 
 // M4 §3 — lịch sử chuyển lifecycle stage của Project (append-only, do người
@@ -583,38 +563,6 @@ export const projectLifecycleEvents = strategySchema.table("project_lifecycle_ev
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   ixProjCreated: index("ix_project_lifecycle_events_proj").on(t.projectId, t.createdAt),
-}));
-
-export const portfolioProjects = strategySchema.table("portfolio_projects", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  portfolioId: bigint("portfolio_id", { mode: "bigint" }).notNull().references(() => portfolios.id, { onDelete: "cascade" }),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
-  strategicPriority: varchar("strategic_priority", { length: 50 }).default("core").notNull(),
-  capacityAllocation: doublePrecision("capacity_allocation").default(0.0).notNull(),
-  founderAttentionHours: doublePrecision("founder_attention_hours").default(0.0).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-export const taskProjects = operatingSchema.table("task_projects", {
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  taskId: bigint("task_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.taskId, t.projectId] }),
-}));
-
-// 13. OKR Objective Projects Link
-export const okrObjectiveProjects = strategySchema.table("okr_objective_projects", {
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  objectiveId: bigint("objective_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.objectiveId, t.projectId] }),
 }));
 
 // 14. Task Execution Records (Phase 5 / Release E)
