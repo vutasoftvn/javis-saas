@@ -40,8 +40,6 @@ from apps.cosa.worker.handlers import (
     execute_scheduled_session_task,
 )
 from apps.cosa.worker.health import WorkerHealthState, start_worker_health_server
-from apps.cosa.worker.outcome_analysis_run import execute_outcome_analysis_run
-from apps.cosa.worker.work_package_run import execute_work_package_task
 
 __all__ = ["WORKER_ID", "dispatch_one_task", "run_worker_loop"]
 
@@ -237,39 +235,6 @@ async def _dispatch_wga_task(plane: CosaAgentPlane, task, payload: dict, task_ty
         )
 
 
-async def _dispatch_kickoff_suggestion_task(plane: CosaAgentPlane, task, payload: dict) -> None:
-    """Dispatch kickoff wizard Bước 3 AI-suggestion task — task claim fencing
-    only (no RunLeaseManager), giống `_dispatch_wga_task`. Handler tự callback
-    company (completed/failed) trong mọi nhánh, không rơi vào im lặng."""
-    try:
-        from apps.cosa.worker.kickoff_suggestion_run import execute_kickoff_suggestion_task
-
-        stream_mgr = get_cosa_event_stream_manager()
-
-        async def _execute_handler():
-            await execute_kickoff_suggestion_task(plane, stream_mgr, payload)
-
-        await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
-
-        ok = await plane.scheduler.complete_task(
-            task.task_id, worker_id=WORKER_ID, claim_token=task.claim_token, success=True
-        )
-        if not ok:
-            logger.warning(
-                "worker=%s task=%s (kickoff_suggestion) completed but fencing rejected",
-                WORKER_ID,
-                task.task_id,
-            )
-    except Exception as exc:
-        logger.exception("task=%s (kickoff_suggestion) failed during execution", task.task_id)
-        await plane.scheduler.complete_task(
-            task.task_id,
-            worker_id=WORKER_ID,
-            claim_token=task.claim_token,
-            success=False,
-            error=str(exc),
-        )
-
 
 async def _run_with_heartbeats(
     plane: CosaAgentPlane, run_id: str, lease_token: str, task_id: str, claim_token: str, coro
@@ -381,12 +346,6 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
                 await _dispatch_wga_task(plane, task, payload, task_type)
                 return
 
-            # Branch: kickoff wizard Bước 3 AI-suggestion — task claim fencing
-            # only, giống WGA headless task.
-            if task_type == "kickoff_suggestion":
-                await _dispatch_kickoff_suggestion_task(plane, task, payload)
-                return
-
             if not run_id:
                 logger.error("task=%s missing run_id in payload, marking failed", task.task_id)
                 await plane.scheduler.complete_task(
@@ -441,22 +400,6 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
                         await execute_scheduled_session_task(
                             plane, stream_mgr, payload, run_id=run_id
                         )
-
-                    coro = _with_optional_delay()
-                elif task_type == "work_package":
-
-                    async def _with_optional_delay():
-                        if delay:
-                            await asyncio.sleep(float(delay))
-                        await execute_work_package_task(plane, stream_mgr, payload)
-
-                    coro = _with_optional_delay()
-                elif task_type == "outcome_analysis":
-
-                    async def _with_optional_delay():
-                        if delay:
-                            await asyncio.sleep(float(delay))
-                        await execute_outcome_analysis_run(plane, stream_mgr, payload)
 
                     coro = _with_optional_delay()
                 elif task_type == "automation_run":

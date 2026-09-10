@@ -4,6 +4,7 @@ import logging
 import os
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -51,11 +52,19 @@ _AGENT_PROFILE_SPECS = AGENT_PROFILE_SPECS
 
 
 __all__ = [
+    "RunTaskResult",
     "execute_automation_run_task",
     "execute_resume_task",
     "execute_run_task",
     "execute_scheduled_session_task",
 ]
+
+
+@dataclass
+class RunTaskResult:
+    status: str
+    error: str | None = None
+    run_id: str | None = None
 
 
 async def _weekly_goal_suggestion(plane: CosaAgentPlane, user_prompt: str) -> GoalIntentSuggestion:
@@ -104,32 +113,46 @@ async def execute_run_task(
     plane: CosaAgentPlane,
     stream_mgr: CosaEventStreamManager,
     payload: dict[str, Any],
-) -> None:
+) -> RunTaskResult:
     """Thực thi 1 run mới — trước đây là `asyncio.create_task(_execute_canonical_
     run_task(...))` sống trong HTTP process (`apps/cosa/api/routes.py`), giờ
     chạy trong worker process riêng, dispatch bởi `apps/cosa/worker/main.py`
     sau khi claim task + acquire lease durable — theo
     COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §5/§29.6 Phase 4.
     """
-    run_id = payload["run_id"]
+    run_id = payload.get("run_id") or str(uuid.uuid4())
     agent_profile = payload.get("agent_profile") or "operations"
-    workspace_id = payload["workspace_id"]
+    workspace_id = payload.get("workspace_id")
+
+    if agent_profile == "operations" and not payload.get("project_id"):
+        conversation_id = payload.get("conversation_id")
+        stream_repo = getattr(plane, "stream_event_repository", None)
+        if stream_repo and conversation_id and stream_mgr:
+            await stream_mgr.emit(
+                stream_repo,
+                run_id=run_id,
+                conversation_id=conversation_id,
+                event_type="run.failed",
+                payload={"error": "project_context_required"},
+            )
+        return RunTaskResult(status="failed", error="project_context_required", run_id=run_id)
 
     if agent_profile == "customer_support" or payload.get("copilot") is True:
         with log_context(run_id=run_id, workspace_id=workspace_id):
             await run_customer_support_copilot(plane, stream_mgr, payload)
-            return
+            return RunTaskResult(status="completed", run_id=run_id)
 
     if agent_profile == "customer_support_autopilot":
         with log_context(run_id=run_id, workspace_id=workspace_id):
             await run_customer_support_autopilot(plane, stream_mgr, payload)
-            return
+            return RunTaskResult(status="completed", run_id=run_id)
 
     # Ensure correlation context is active for all log lines emitted within this handler.
     # worker/main.py already sets log_context for dispatch_one_task, but
     # execute_run_task can also be called directly from execute_scheduled_session_task.
     with log_context(run_id=run_id, workspace_id=workspace_id):
         await _execute_run_task_inner(plane, stream_mgr, payload)
+        return RunTaskResult(status="completed", run_id=run_id)
 
 
 async def _execute_run_task_inner(

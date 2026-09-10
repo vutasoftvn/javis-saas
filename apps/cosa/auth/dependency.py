@@ -102,7 +102,12 @@ class AuthenticatedIdentity(BaseModel):
         return mint_delegation_token(self.platform_user_id, ttl_seconds=ttl_seconds)
 
     def mint_company_delegation(
-        self, *, run_id: str, capability_ids: list[str], ttl_seconds: int = 600
+        self,
+        *,
+        run_id: str,
+        capability_ids: list[str],
+        project_id: str | None = None,
+        ttl_seconds: int = 600,
     ) -> str:
         """Task 3 — delegation CÓ CẤU TRÚC (scoped) để gọi sang
         services/company thay mặt đúng workspace đã cross-check của identity
@@ -123,6 +128,7 @@ class AuthenticatedIdentity(BaseModel):
             workspace_id=self.workspace_id,
             run_id=run_id,
             capability_ids=capability_ids,
+            project_id=project_id,
             ttl_seconds=ttl_seconds,
         )
 

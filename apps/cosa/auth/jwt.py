@@ -185,6 +185,7 @@ def mint_company_delegation(
     workspace_id: str,
     run_id: str,
     capability_ids: list[str],
+    project_id: str | None = None,
     ttl_seconds: int = _COMPANY_DELEGATION_MAX_TTL_SECONDS,
 ) -> str:
     """Mint delegation JWT CÓ CẤU TRÚC (scoped) để apps/cosa gọi sang
@@ -221,6 +222,8 @@ def mint_company_delegation(
         "jti": str(uuid.uuid4()),
         "exp": int(time.time()) + ttl,
     }
+    if project_id:
+        payload["project_id"] = str(project_id)
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
