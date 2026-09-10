@@ -137,6 +137,7 @@ export async function materializeFirstWeekPlan(
     .values({
       id: generateSnowflake(),
       workspaceId: wsId,
+      projectId: pId,
       cycleId: cycle!.id,
       weekNo: 1,
       focus: firstWeekOutcome,
@@ -170,6 +171,7 @@ export async function materializeFirstWeekPlan(
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
+        projectId: pId,
         weeklyPlanId: plan!.id,
         initiativeId: null,
         title: action.title,
@@ -184,6 +186,7 @@ export async function materializeFirstWeekPlan(
     await tx.insert(tasks).values({
       id: taskId,
       workspaceId: wsId,
+      projectId: pId,
       title: action.title,
       source: "project_kickoff",
       sourceActionId: action.id,

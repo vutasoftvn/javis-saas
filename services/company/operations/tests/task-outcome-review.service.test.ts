@@ -12,7 +12,7 @@ import {
 } from "../services/task-outcome-analysis.service";
 import { reviewTaskOutcome, verifyKrContribution } from "../services/task-outcome-review.service";
 
-const { tasks, keyResults, okrObjectives, okrCycles, krContributionAssessments } = schema;
+const { tasks, keyResults, okrObjectives, krContributionAssessments } = schema;
 
 async function founderWs(name: string) {
   const user = await createTestSession({
@@ -28,12 +28,10 @@ async function founderWs(name: string) {
 async function seedConfirmedTaskWithKr(workspaceId: string) {
   const wsId = BigInt(workspaceId);
   const taskId = generateSnowflake();
-  const cycleId = generateSnowflake();
   const objectiveId = generateSnowflake();
   const krId = generateSnowflake();
   await db.transaction(async (tx) => {
-    await tx.insert(okrCycles).values({ id: cycleId, workspaceId: wsId, name: "C" });
-    await tx.insert(okrObjectives).values({ id: objectiveId, workspaceId: wsId, cycleId, title: "O" });
+    await tx.insert(okrObjectives).values({ id: objectiveId, workspaceId: wsId, projectId: wsId, title: "O" });
     await tx.insert(keyResults).values({
       id: krId,
       workspaceId: wsId,
@@ -44,6 +42,7 @@ async function seedConfirmedTaskWithKr(workspaceId: string) {
     await tx.insert(tasks).values({
       id: taskId,
       workspaceId: wsId,
+      projectId: wsId,
       title: "Outcome review task",
       status: "todo",
       source: "manager_create",

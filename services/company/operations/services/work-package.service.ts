@@ -20,7 +20,7 @@ import {
   insertContractRevision,
 } from "./task-outcome-contract.service";
 
-const { taskWorkPackages, workPackageAttempts, workPackageEvents, tasks, taskOutcomeContracts } =
+const { taskWorkPackages, workPackageAttempts, workPackageEvents, tasks, taskOutcomeContracts, projects } =
   schema;
 
 export type WorkPackageStatus =
@@ -516,11 +516,27 @@ export async function createConfirmedTaskAndQueue(
   const eligibility = await checkEligibility(ctx, input.initialPackage.assignedAgentInstanceId);
   const actor = { kind: ctx.userId ? "user" : "system", id: ctx.userId };
   return db.transaction(async (tx) => {
+    let pId: bigint;
+    if ((input.task as any).projectId) {
+      pId = BigInt((input.task as any).projectId);
+    } else {
+      const [firstProj] = await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
+        .limit(1);
+      if (!firstProj) {
+        throw APIError.invalidArgument("projectId is required or project must exist");
+      }
+      pId = firstProj.id;
+    }
+
     const [taskRow] = await tx
       .insert(tasks)
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
+        projectId: pId,
         title: input.task.title,
         status: "todo",
         priority: input.task.priority,

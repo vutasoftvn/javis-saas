@@ -10,6 +10,7 @@ import {
   taskProjects,
   taskDependencies,
   weeklyCommitments,
+  weeklyPlans,
   workspaceCapabilityPolicy,
 } from "../../shared/db/schema/operations";
 import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
@@ -500,6 +501,14 @@ export async function acceptExecutionPlanService(
       );
     }
 
+    const [wp] = await tx
+      .select({ projectId: weeklyPlans.projectId })
+      .from(weeklyPlans)
+      .where(and(eq(weeklyPlans.id, plan.weeklyPlanId), eq(weeklyPlans.workspaceId, wsId)))
+      .limit(1);
+    if (!wp) throw APIError.notFound(`weekly plan ${plan.weeklyPlanId} not found`);
+    const planProjectId = wp.projectId;
+
     const allItems = await tx
       .select()
       .from(executionPlanItems)
@@ -553,6 +562,7 @@ export async function acceptExecutionPlanService(
         .values({
           id: generateSnowflake(),
           workspaceId: wsId,
+          projectId: planProjectId,
           weeklyPlanId: plan.weeklyPlanId,
           initiativeId: validatedInitiativeId,
           title: it.title.slice(0, 255),
@@ -565,6 +575,7 @@ export async function acceptExecutionPlanService(
       await tx.insert(tasks).values({
         id: taskId,
         workspaceId: wsId,
+        projectId: planProjectId,
         title: it.title,
         status: "todo",
         priority: it.priority ?? "medium",

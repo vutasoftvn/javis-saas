@@ -24,7 +24,7 @@ import {
   insertContractRevision,
 } from "./task-outcome-contract.service";
 
-const { tasks } = schema;
+const { tasks, projects } = schema;
 
 // Queue gate (spec §6.1) — re-export để handler/test dùng một điểm.
 export { assertTaskCanEnterQueue, validateTaskOutcomeContractForQueue, createTaskOutcomeProposal } from "./task-outcome-contract.service";
@@ -54,6 +54,7 @@ export const TASK_STATUSES: readonly TaskStatus[] = [
 export interface Task {
   id: string;
   workspaceId: string;
+  projectId: string;
   title: string;
   idempotencyKey: string | null;
   status: TaskStatus;
@@ -77,6 +78,7 @@ export interface Task {
 
 export interface CreateTaskParams {
   workspaceId: string;
+  projectId?: string;
   title: string;
   priority?: "low" | "medium" | "high" | "urgent";
   dueAt?: string;
@@ -96,6 +98,7 @@ function toTask(row: typeof tasks.$inferSelect, projectIds: string[] = []): Task
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
     title: row.title,
     idempotencyKey: row.idempotencyKey,
     status: row.status as TaskStatus,
@@ -112,7 +115,7 @@ function toTask(row: typeof tasks.$inferSelect, projectIds: string[] = []): Task
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     executionMode: row.executionMode as Task["executionMode"],
     function: row.function,
-    projectIds,
+    projectIds: [row.projectId.toString()],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -157,6 +160,7 @@ export async function createTaskService(
   }
 
   let resolvedInitiativeId = params.initiativeId;
+  let commitmentRow: typeof weeklyCommitments.$inferSelect | undefined;
   if (params.weeklyCommitmentId) {
     const [commitment] = await db
       .select()
@@ -174,13 +178,30 @@ export async function createTaskService(
       throw APIError.notFound(`Weekly commitment ${params.weeklyCommitmentId} not found in workspace`);
     }
 
+    commitmentRow = commitment;
     if (commitment.initiativeId) {
       resolvedInitiativeId = commitment.initiativeId.toString();
     }
   }
 
-  if (resolvedInitiativeId) {
-    await assertInitiativeInWorkspace(resolvedInitiativeId, params.workspaceId, true);
+  let resolvedProjectId: bigint;
+  if (params.projectId) {
+    resolvedProjectId = BigInt(params.projectId);
+  } else if (commitmentRow) {
+    resolvedProjectId = commitmentRow.projectId;
+  } else if (resolvedInitiativeId) {
+    const initRow = await assertInitiativeInWorkspace(resolvedInitiativeId, params.workspaceId, false);
+    resolvedProjectId = initRow.projectId;
+  } else {
+    const [firstProj] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.workspaceId, BigInt(params.workspaceId)), isNull(projects.deletedAt)))
+      .limit(1);
+    if (!firstProj) {
+      throw APIError.invalidArgument("projectId is required or project must exist");
+    }
+    resolvedProjectId = firstProj.id;
   }
 
   const actor = params.actor || (authCtx.userId ? { kind: "user" as const, id: authCtx.userId } : { kind: "system" as const, id: "operations" });
@@ -195,6 +216,7 @@ export async function createTaskService(
       .values({
         id: generateSnowflake(),
         workspaceId: BigInt(params.workspaceId),
+        projectId: resolvedProjectId,
         title: params.title,
         priority: params.priority || "medium",
         dueAt: params.dueAt ? new Date(params.dueAt) : null,
@@ -245,8 +267,20 @@ export async function createAiTaskProposalService(
   if (params.workspaceId !== ctx.workspaceId) {
     throw APIError.permissionDenied("workspace mismatch");
   }
+  let pId: bigint;
   if (params.initiativeId) {
-    await assertInitiativeInWorkspace(params.initiativeId, ctx.workspaceId, false);
+    const init = await assertInitiativeInWorkspace(params.initiativeId, ctx.workspaceId, false);
+    pId = init.projectId;
+  } else {
+    const [firstProj] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.workspaceId, BigInt(ctx.workspaceId)), isNull(projects.deletedAt)))
+      .limit(1);
+    if (!firstProj) {
+      throw APIError.invalidArgument("projectId is required or project must exist");
+    }
+    pId = firstProj.id;
   }
 
   return db.transaction(async (tx) => {
@@ -255,6 +289,7 @@ export async function createAiTaskProposalService(
       .values({
         id: generateSnowflake(),
         workspaceId: BigInt(ctx.workspaceId),
+        projectId: pId,
         title: params.title,
         status: "draft",
         priority: params.priority || "medium",

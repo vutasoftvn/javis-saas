@@ -17,7 +17,7 @@ import {
 } from "../strategy/services/cycle-review.service";
 import { getWorkspaceStrategySettings } from "../strategy/services/workspace-strategy-settings.service";
 
-const { twelveWeekCycles, weeklyPlans, weeklyCommitments, cycleRevisions, cycleReviews } = schema;
+const { twelveWeekCycles, weeklyPlans, weeklyCommitments, cycleRevisions, cycleReviews, projects } = schema;
 
 
 export interface TwelveWeekCycle {
@@ -179,13 +179,28 @@ export async function createCycleService(req: CreateTwelveWeekCycleRequest): Pro
     }
   }
 
+  let pId: bigint;
+  if (req.projectId) {
+    pId = BigInt(req.projectId);
+  } else {
+    const [firstProj] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.workspaceId, BigInt(req.workspaceId)), isNull(projects.deletedAt)))
+      .limit(1);
+    if (!firstProj) {
+      throw APIError.invalidArgument("projectId is required or project must exist in workspace");
+    }
+    pId = firstProj.id;
+  }
+
   const [row] = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(twelveWeekCycles)
       .values({
         id: generateSnowflake(),
         workspaceId: BigInt(req.workspaceId),
-        projectId: req.projectId ? BigInt(req.projectId) : null,
+        projectId: pId,
         displayName: req.displayName || null,
         theme: req.theme || null,
         visionStatement: req.visionStatement ?? "",
@@ -444,6 +459,7 @@ export async function createWeeklyPlanService(req: CreateWeeklyPlanRequest): Pro
     .values({
       id: generateSnowflake(),
       workspaceId: wsId,
+      projectId: cycle.projectId,
       cycleId: cycleIdBig,
       weekNo: req.weekNo,
       startDate,
@@ -544,11 +560,21 @@ export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentR
     await assertInitiativeInWorkspace(req.initiativeId, req.workspaceId, true);
   }
 
+  const [plan] = await db
+    .select({ projectId: weeklyPlans.projectId })
+    .from(weeklyPlans)
+    .where(and(eq(weeklyPlans.id, BigInt(req.weeklyPlanId)), eq(weeklyPlans.workspaceId, BigInt(req.workspaceId))))
+    .limit(1);
+  if (!plan) {
+    throw APIError.notFound(`Weekly plan ${req.weeklyPlanId} not found in workspace`);
+  }
+
   const [row] = await db
     .insert(weeklyCommitments)
     .values({
       id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
+      projectId: plan.projectId,
       weeklyPlanId: BigInt(req.weeklyPlanId),
       initiativeId: req.initiativeId ? BigInt(req.initiativeId) : null,
       title: req.title,
@@ -556,7 +582,6 @@ export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentR
       commitmentOwnerType: req.commitmentOwnerType || "FOUNDER",
       executionMode: req.executionMode || "MANUAL",
     })
-
     .returning();
 
   if (!row) throw APIError.internal("Failed to create weekly commitment");

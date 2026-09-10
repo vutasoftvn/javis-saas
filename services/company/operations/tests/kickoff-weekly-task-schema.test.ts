@@ -26,6 +26,7 @@ describe("Kickoff weekly/task schema corrections", () => {
       db.insert(tasks).values({
         id: generateSnowflake(),
         workspaceId: BigInt(ws.workspaceId),
+        projectId: generateSnowflake(),
         title: "Orphan task",
         weeklyCommitmentId: generateSnowflake(), // random id, no matching commitment
       })
@@ -50,6 +51,7 @@ describe("Kickoff weekly/task schema corrections", () => {
     const [plan] = await db.insert(weeklyPlans).values({
       id: generateSnowflake(),
       workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(project.id),
       cycleId: cycle!.id,
       weekNo: 1,
       focus: "Test focus",
@@ -58,6 +60,7 @@ describe("Kickoff weekly/task schema corrections", () => {
     const [commitment] = await db.insert(weeklyCommitments).values({
       id: generateSnowflake(),
       workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(project.id),
       weeklyPlanId: plan!.id,
       title: "Test commitment",
     }).returning();

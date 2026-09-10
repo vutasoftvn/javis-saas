@@ -204,6 +204,7 @@ export async function setWeeklyGoalService(
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
+        projectId: targetCycle.projectId,
         cycleId: targetCycle.id,
         weekNo: targetWeekNo,
         focus,

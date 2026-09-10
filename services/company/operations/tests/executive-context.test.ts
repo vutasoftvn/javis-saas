@@ -4,7 +4,7 @@ import { db, schema } from "../db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { getExecutiveContext } from "../handlers/executive-context.handler";
 
-const { tasks, okrObjectives, okrCycles, projects } = schema;
+const { tasks, okrObjectives, projects } = schema;
 
 describe("Executive Context Snapshot", () => {
   it("returns workspace-scoped snapshot for workspace A only, never B's data", async () => {
@@ -17,6 +17,7 @@ describe("Executive Context Snapshot", () => {
     await db.insert(tasks).values({
       id: taskIdA,
       workspaceId: BigInt(wsA.workspaceId),
+      projectId: BigInt(wsA.workspaceId),
       title: "Complete implementation",
       status: "blocked",
       priority: "high",
@@ -24,19 +25,11 @@ describe("Executive Context Snapshot", () => {
     });
 
     // Create an objective in workspace A
-    const cycleIdA = generateSnowflake();
-    await db.insert(okrCycles).values({
-      id: cycleIdA,
-      workspaceId: BigInt(wsA.workspaceId),
-      name: "Q3 2026",
-      status: "active",
-    });
-
     const objectiveIdA = generateSnowflake();
     await db.insert(okrObjectives).values({
       id: objectiveIdA,
       workspaceId: BigInt(wsA.workspaceId),
-      cycleId: BigInt(cycleIdA),
+      projectId: BigInt(wsA.workspaceId),
       title: "Launch new platform",
       status: "in_progress",
     });
@@ -56,6 +49,7 @@ describe("Executive Context Snapshot", () => {
     await db.insert(tasks).values({
       id: taskIdB,
       workspaceId: BigInt(wsB.workspaceId),
+      projectId: BigInt(wsB.workspaceId),
       title: "B private task - secret token: sk_test_123",
       status: "todo",
       priority: "low",
@@ -103,6 +97,7 @@ describe("Executive Context Snapshot", () => {
       await db.insert(tasks).values({
         id: taskId,
         workspaceId: BigInt(ws.workspaceId),
+        projectId: BigInt(ws.workspaceId),
         title: `Task ${i}`,
         status: "todo",
         priority: "medium",
@@ -111,20 +106,12 @@ describe("Executive Context Snapshot", () => {
     }
 
     // Create 30 objectives (should be capped at 20)
-    const cycleId = generateSnowflake();
-    await db.insert(okrCycles).values({
-      id: cycleId,
-      workspaceId: BigInt(ws.workspaceId),
-      name: "Test Cycle",
-      status: "active",
-    });
-
     for (let i = 0; i < 30; i++) {
       const objectiveId = generateSnowflake();
       await db.insert(okrObjectives).values({
         id: objectiveId,
         workspaceId: BigInt(ws.workspaceId),
-        cycleId: BigInt(cycleId),
+        projectId: BigInt(ws.workspaceId),
         title: `Objective ${i}`,
         status: "in_progress",
       });
@@ -184,6 +171,7 @@ describe("Executive Context Snapshot", () => {
     await db.insert(tasks).values({
       id: taskId1,
       workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(ws.workspaceId),
       title: "Sensitive task with token sk_live_abc123xyz",
       status: "todo",
       priority: "high",
@@ -195,6 +183,7 @@ describe("Executive Context Snapshot", () => {
     await db.insert(tasks).values({
       id: taskId2,
       workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(ws.workspaceId),
       title: "Task with pk_test-live_abc123",
       status: "todo",
       priority: "high",
@@ -206,6 +195,7 @@ describe("Executive Context Snapshot", () => {
     await db.insert(tasks).values({
       id: taskId3,
       workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(ws.workspaceId),
       title: "Task with sk_test.prod_abc123",
       status: "todo",
       priority: "high",
@@ -237,6 +227,7 @@ describe("Executive Context Snapshot", () => {
     await db.insert(tasks).values({
       id: taskIdB,
       workspaceId: BigInt(wsB.workspaceId),
+      projectId: BigInt(wsB.workspaceId),
       title: "Private to B",
       status: "todo",
       priority: "low",
@@ -260,6 +251,7 @@ describe("Executive Context Snapshot", () => {
     await db.insert(tasks).values({
       id: blockedTaskId,
       workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(ws.workspaceId),
       title: "Blocked task",
       status: "blocked",
       priority: "high",
@@ -271,6 +263,7 @@ describe("Executive Context Snapshot", () => {
     await db.insert(tasks).values({
       id: todoTaskId,
       workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(ws.workspaceId),
       title: "TODO task",
       status: "todo",
       priority: "medium",

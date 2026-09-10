@@ -631,6 +631,7 @@ export async function acceptActionProposal(
           .values({
             id: generateSnowflake(),
             workspaceId: wsId,
+            projectId: cycle.projectId,
             cycleId: cycleIdBig,
             weekNo: input.weekNo,
             decisionId,
@@ -644,6 +645,7 @@ export async function acceptActionProposal(
       await tx.insert(weeklyCommitments).values({
         id: commitmentId,
         workspaceId: wsId,
+        projectId: cycle.projectId,
         weeklyPlanId: plan!.id,
         title: action.recommendation,
         purposeType,

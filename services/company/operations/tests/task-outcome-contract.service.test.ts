@@ -12,13 +12,14 @@ import {
 } from "../services/task-outcome-contract.service";
 import { createAiTaskProposalService } from "../services/task.service";
 
-const { tasks, taskOutcomeContracts, initiatives, initiativeKeyResults, keyResults, okrObjectives, okrCycles } =
+const { tasks, taskOutcomeContracts, initiatives, initiativeKeyResults, keyResults, okrObjectives } =
   schema;
 
 async function makeWorkspace(name: string) {
   const user = await createTestSession({
     email: `${name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName: name,
+    role: "founder",
   });
   const authorization = `Bearer ${user.accessToken}`;
   const ctx = await requireWorkspaceAccess(authorization, user.workspaceId);
@@ -27,22 +28,22 @@ async function makeWorkspace(name: string) {
 
 async function seedApprovedInitiativeWithKr(workspaceId: string) {
   const wsId = BigInt(workspaceId);
-  const cycleId = generateSnowflake();
   const objectiveId = generateSnowflake();
   const krId = generateSnowflake();
   const initiativeId = generateSnowflake();
 
   await db.transaction(async (tx) => {
-    await tx.insert(okrCycles).values({ id: cycleId, workspaceId: wsId, name: "Cycle A" });
     await tx
       .insert(okrObjectives)
-      .values({ id: objectiveId, workspaceId: wsId, cycleId, title: "Objective A" });
+      .values({ id: objectiveId, workspaceId: wsId, projectId: wsId, title: "Objective A" });
     await tx
       .insert(keyResults)
       .values({ id: krId, workspaceId: wsId, objectiveId, title: "KR A" });
     await tx.insert(initiatives).values({
       id: initiativeId,
       workspaceId: wsId,
+      projectId: wsId,
+      keyResultId: krId,
       title: "Initiative A",
       approvalStatus: "APPROVED",
     });
@@ -59,6 +60,7 @@ async function seedBareTask(workspaceId: string, status = "draft"): Promise<stri
   await db.insert(tasks).values({
     id,
     workspaceId: BigInt(workspaceId),
+    projectId: BigInt(workspaceId),
     title: "Proposal task",
     status,
     source: "ai_agent_proposal",
@@ -152,6 +154,7 @@ describe("Task Outcome Contract — atomic creation with every task (Task 1A)", 
     await db.insert(tasks).values({
       id: legacyId,
       workspaceId: BigInt(workspaceId),
+      projectId: BigInt(workspaceId),
       title: "Legacy task",
       status: "todo",
     });
@@ -171,14 +174,12 @@ describe("Task Outcome Contract — atomic creation with every task (Task 1A)", 
     const { initiativeId } = await seedApprovedInitiativeWithKr(workspaceId);
     // A second, unlinked KR.
     const wsId = BigInt(workspaceId);
-    const cycleId = generateSnowflake();
     const objectiveId = generateSnowflake();
     const strayKrId = generateSnowflake();
     await db.transaction(async (tx) => {
-      await tx.insert(okrCycles).values({ id: cycleId, workspaceId: wsId, name: "Cycle B" });
       await tx
         .insert(okrObjectives)
-        .values({ id: objectiveId, workspaceId: wsId, cycleId, title: "Objective B" });
+        .values({ id: objectiveId, workspaceId: wsId, projectId: wsId, title: "Objective B" });
       await tx
         .insert(keyResults)
         .values({ id: strayKrId, workspaceId: wsId, objectiveId, title: "Stray KR" });

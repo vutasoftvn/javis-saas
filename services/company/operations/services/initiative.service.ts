@@ -105,12 +105,8 @@ function toInitiative(
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
     projectId: row.projectId ? row.projectId.toString() : null,
-    strategicObjectiveId: row.strategicObjectiveId
-      ? row.strategicObjectiveId.toString()
-      : null,
-    sourceTowsOptionId: row.sourceTowsOptionId
-      ? row.sourceTowsOptionId.toString()
-      : null,
+    strategicObjectiveId: null,
+    sourceTowsOptionId: null,
     title: row.title,
     description: row.description,
     intendedOutcome: row.intendedOutcome,
@@ -127,7 +123,7 @@ function toInitiative(
     settingsRevision: row.settingsRevision ?? null,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     revision: row.revision,
-    keyResultIds,
+    keyResultIds: keyResultIds.length > 0 ? keyResultIds : [row.keyResultId.toString()],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -297,6 +293,36 @@ async function createInitiativeAuthorized(
     }
   }
 
+  let resolvedProjId: bigint;
+  if (projId) {
+    resolvedProjId = projId;
+  } else {
+    const [firstProj] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
+      .limit(1);
+    if (!firstProj) {
+      throw APIError.invalidArgument("projectId is required or project must exist");
+    }
+    resolvedProjId = firstProj.id;
+  }
+
+  let resolvedKeyResultId: bigint;
+  if (krIds.length > 0) {
+    resolvedKeyResultId = BigInt(krIds[0]);
+  } else {
+    const [firstKr] = await db
+      .select({ id: keyResults.id })
+      .from(keyResults)
+      .where(and(eq(keyResults.workspaceId, wsId), isNull(keyResults.deletedAt)))
+      .limit(1);
+    if (!firstKr) {
+      throw APIError.invalidArgument("keyResultId is required or key result must exist");
+    }
+    resolvedKeyResultId = firstKr.id;
+  }
+
   const id = generateSnowflake();
 
   const [row] = await db
@@ -304,9 +330,8 @@ async function createInitiativeAuthorized(
     .values({
       id,
       workspaceId: wsId,
-      projectId: projId,
-      strategicObjectiveId: stratObjId,
-      sourceTowsOptionId: sourceTowsId,
+      projectId: resolvedProjId,
+      keyResultId: resolvedKeyResultId,
       title: params.title.trim(),
       description: params.description || null,
       intendedOutcome: params.intendedOutcome || null,
@@ -351,9 +376,9 @@ export async function updateInitiativeService(
     );
   }
 
-  let stratObjId = existing.strategicObjectiveId;
-  let sourceTowsId = existing.sourceTowsOptionId;
-  let projId = existing.projectId;
+  let stratObjId: bigint | null = null;
+  let sourceTowsId: bigint | null = null;
+  let projId: bigint = existing.projectId;
 
   if (params.strategicObjectiveId !== undefined) {
     if (params.strategicObjectiveId === null || params.strategicObjectiveId === "") {
@@ -412,7 +437,7 @@ export async function updateInitiativeService(
 
   if (params.projectId !== undefined) {
     if (params.projectId === null || params.projectId === "") {
-      projId = null;
+      projId = existing.projectId;
     } else {
       projId = BigInt(params.projectId);
       const [proj] = await db
@@ -486,8 +511,6 @@ export async function updateInitiativeService(
     .update(initiatives)
     .set({
       projectId: projId,
-      strategicObjectiveId: stratObjId,
-      sourceTowsOptionId: sourceTowsId,
       title: params.title !== undefined ? params.title.trim() : existing.title,
       description:
         params.description !== undefined
@@ -583,8 +606,6 @@ export async function approveInitiativeService(
     evidenceSnapshot: {
       action: "INITIATIVE_APPROVED",
       initiativeId: existing.id.toString(),
-      strategicObjectiveId: existing.strategicObjectiveId?.toString() ?? null,
-      sourceTowsOptionId: existing.sourceTowsOptionId?.toString() ?? null,
       reason: params.reason || "",
       settingsRevision: settings.revision,
       approver: {
@@ -666,12 +687,6 @@ export async function listInitiativesService(
 
   if (params.projectId) {
     conditions.push(eq(initiatives.projectId, BigInt(params.projectId)));
-  }
-
-  if (params.strategicObjectiveId) {
-    conditions.push(
-      eq(initiatives.strategicObjectiveId, BigInt(params.strategicObjectiveId))
-    );
   }
 
   if (params.approvalStatus) {

@@ -9,7 +9,7 @@ import { mvpList, mvpItem, MvpSuccess } from "../../shared/contracts/mvp-respons
 import { TenantContext } from "../../shared/types/tenant_context";
 import { requireStrategyGovernanceAuthority } from "../strategy/services/strategy-governance-authorization.service";
 
-const { okrCycles, okrObjectives, keyResults, strategicObjectives, towsOptions } = schema;
+const { okrCycles, okrObjectives, keyResults, projects, strategicObjectives, towsOptions } = schema;
 
 export interface OkrCycle {
   id: string;
@@ -28,7 +28,8 @@ export interface CreateOkrCycleParams {
 export interface Objective {
   id: string;
   workspaceId: string;
-  cycleId: string;
+  projectId: string;
+  cycleId?: string;
   strategicObjectiveId?: string | null;
   towsOptionId?: string | null;
   title: string;
@@ -43,7 +44,8 @@ export interface Objective {
 
 export interface CreateObjectiveParams {
   workspaceId: string;
-  cycleId: string;
+  projectId?: string;
+  cycleId?: string;
   title: string;
   why?: string;
   ownerMemberId?: string;
@@ -139,16 +141,17 @@ function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
-    cycleId: row.cycleId.toString(),
-    strategicObjectiveId: row.strategicObjectiveId ? row.strategicObjectiveId.toString() : null,
-    towsOptionId: row.towsOptionId ? row.towsOptionId.toString() : null,
+    projectId: row.projectId.toString(),
+    cycleId: "",
+    strategicObjectiveId: null,
+    towsOptionId: null,
     title: row.title,
     why: row.why,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     status: row.status,
     publishedByMemberId: row.publishedByMemberId ? row.publishedByMemberId.toString() : null,
     publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
-    projectIds,
+    projectIds: [row.projectId.toString()],
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -180,17 +183,19 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
   await getWorkspaceRecord(params.workspaceId);
 
   const wsId = BigInt(params.workspaceId);
-  const cycleId = BigInt(params.cycleId);
+  const cycleId = params.cycleId ? BigInt(params.cycleId) : null;
 
-  // Validate cycle belongs to workspace
-  const [cycle] = await db
-    .select()
-    .from(okrCycles)
-    .where(and(eq(okrCycles.id, cycleId), eq(okrCycles.workspaceId, wsId)))
-    .limit(1);
+  if (cycleId) {
+    // Validate cycle belongs to workspace
+    const [cycle] = await db
+      .select()
+      .from(okrCycles)
+      .where(and(eq(okrCycles.id, cycleId), eq(okrCycles.workspaceId, wsId)))
+      .limit(1);
 
-  if (!cycle) {
-    throw APIError.notFound(`OKR cycle ${params.cycleId} not found in workspace`);
+    if (!cycle) {
+      throw APIError.notFound(`OKR cycle ${params.cycleId} not found in workspace`);
+    }
   }
 
   let stratObjId: bigint | null = null;
@@ -234,14 +239,27 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
     }
   }
 
+  let pId: bigint;
+  if (params.projectId) {
+    pId = BigInt(params.projectId);
+  } else {
+    const [firstProject] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
+      .limit(1);
+    if (!firstProject) {
+      throw APIError.invalidArgument("projectId is required or project must exist in workspace");
+    }
+    pId = firstProject.id;
+  }
+
   const [row] = await db
     .insert(okrObjectives)
     .values({
       id: generateSnowflake(),
       workspaceId: wsId,
-      cycleId,
-      strategicObjectiveId: stratObjId,
-      towsOptionId: towsOptId,
+      projectId: pId,
       title: params.title,
       why: params.why || null,
       ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,

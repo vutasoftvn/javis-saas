@@ -2,7 +2,7 @@ import { eq, and } from "drizzle-orm";
 import { db, schema } from "../db";
 import { TenantContext } from "../../shared/types/tenant_context";
 
-const { tasks, okrObjectives, okrCycles, projects } = schema;
+const { tasks, okrObjectives, projects } = schema;
 
 // Định nghĩa Evidence Reference — định danh deterministic cho từng entity
 export interface ExecutiveEvidenceRef {

@@ -34,6 +34,7 @@ async function seedConfirmedTask(workspaceId: string) {
   await db.insert(tasks).values({
     id: taskId,
     workspaceId: wsId,
+    projectId: wsId,
     title: "Dispatch task",
     status: "todo",
     source: "manager_create",

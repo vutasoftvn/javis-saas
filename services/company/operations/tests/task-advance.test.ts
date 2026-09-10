@@ -53,6 +53,7 @@ async function seedTask(opts: { assignee: "ai" | "human" | "none"; status: strin
   await db.insert(tasks).values({
     id: taskId,
     workspaceId: BigInt(ws.workspaceId),
+    projectId: BigInt(ws.workspaceId),
     title: "WGA advance task",
     status: opts.status,
     source: "ai_agent_proposal",

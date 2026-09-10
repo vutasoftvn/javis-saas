@@ -402,8 +402,8 @@ export async function startCycleReviewService(
       title: i.title,
       status: i.status,
       approvalStatus: i.approvalStatus,
-      strategicObjectiveId: i.strategicObjectiveId ? String(i.strategicObjectiveId) : null,
-      sourceTowsOptionId: i.sourceTowsOptionId ? String(i.sourceTowsOptionId) : null,
+      strategicObjectiveId: null,
+      sourceTowsOptionId: null,
       targetDate: i.targetDate ? i.targetDate.toISOString() : null,
       milestones: i.milestones,
     }));
@@ -681,8 +681,8 @@ export async function closeCycleReviewService(
         title: i.title,
         status: i.status,
         approvalStatus: i.approvalStatus,
-        strategicObjectiveId: i.strategicObjectiveId ? String(i.strategicObjectiveId) : null,
-        sourceTowsOptionId: i.sourceTowsOptionId ? String(i.sourceTowsOptionId) : null,
+        strategicObjectiveId: null,
+        sourceTowsOptionId: null,
         targetDate: i.targetDate ? i.targetDate.toISOString() : null,
         milestones: i.milestones,
       }));

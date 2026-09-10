@@ -13,7 +13,6 @@ import { createTestWorkspaceWithMember } from "./_helpers";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const {
-  okrCycles,
   okrObjectives,
   keyResults,
   krObservations,
@@ -58,14 +57,17 @@ describe("Execution & Outcome Scores (Pure Logic)", () => {
       { status: "done", hasEligibleEvidence: true },
       { status: "todo", hasEligibleEvidence: false },
     ]);
-    expect(score).toBeCloseTo(0.6667, 3);
+    expect(score).toBeCloseTo(2 / 3);
+  });
 
-    // Done task without eligible evidence is excluded from numerator
-    const scoreWithoutEvidence = calculateExecutionScore([
-      { status: "done", hasEligibleEvidence: false },
+  it("treats commitment without eligible evidence as NOT executed (IA22/IA23)", () => {
+    // 3 done nhưng chỉ 1 có evidence -> 1/3, không phải 3/3 (1.0)
+    const score = calculateExecutionScore([
       { status: "done", hasEligibleEvidence: true },
+      { status: "done", hasEligibleEvidence: false },
+      { status: "done", hasEligibleEvidence: false },
     ]);
-    expect(scoreWithoutEvidence).toBe(0.5);
+    expect(score).toBeCloseTo(1 / 3);
   });
 
   it("calculates outcome score based on valid KR progress", () => {
@@ -81,34 +83,23 @@ describe("Execution & Outcome Scores (Pure Logic)", () => {
   });
 });
 
-describe("Key Result Observations & Task Completion (DB Operations)", () => {
+describe("Execution & Outcome DB Handlers", () => {
   async function seedOkrFixture() {
     const ws = await createTestWorkspaceWithMember();
     const wsId = BigInt(ws.workspaceId);
 
-    // 1. Create OKR Cycle
-    const [cycle] = await db
-      .insert(okrCycles)
-      .values({
-        id: generateSnowflake(),
-        workspaceId: wsId,
-        name: "Q3 Strategy Cycle",
-        status: "active",
-      })
-      .returning();
-
-    // 2. Create Objective
+    // 1. Create Objective
     const [obj] = await db
       .insert(okrObjectives)
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
-        cycleId: cycle!.id,
+        projectId: wsId,
         title: "Achieve Product-Market Fit",
       })
       .returning();
 
-    // 3. Create Key Result
+    // 2. Create Key Result
     const [kr] = await db
       .insert(keyResults)
       .values({
@@ -127,7 +118,7 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
       workspaceId: ws.workspaceId,
       auth: ws.bearerToken,
       krId: kr!.id.toString(),
-      cycleId: cycle!.id.toString(),
+      cycleId: "1",
     };
   }
 
@@ -269,6 +260,7 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
+        projectId: wsId,
         displayName: "Cycle 1",
         durationWeeks: 6,
       })
@@ -279,6 +271,7 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
+        projectId: wsId,
         displayName: "Cycle 2",
         durationWeeks: 6,
       })
@@ -306,6 +299,7 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
     await db.insert(tasks).values({
       id: taskId,
       workspaceId: wsId,
+      projectId: wsId,
       title: "Chạy chiến dịch quảng cáo",
       status: "todo",
       revision: 1,
@@ -353,6 +347,7 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
     await db.insert(tasks).values({
       id: taskId,
       workspaceId: wsId,
+      projectId: wsId,
       title: "Task without evidence",
       status: "todo",
       revision: 1,
@@ -386,17 +381,18 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
 
     const [cycle] = await db
       .insert(twelveWeekCycles)
-      .values({ id: generateSnowflake(), workspaceId: wsId, durationWeeks: 6 })
+      .values({ id: generateSnowflake(), workspaceId: wsId, projectId: wsId, durationWeeks: 6 })
       .returning();
     const [plan] = await db
       .insert(weeklyPlans)
-      .values({ id: generateSnowflake(), workspaceId: wsId, cycleId: cycle!.id, weekNo: 1 })
+      .values({ id: generateSnowflake(), workspaceId: wsId, projectId: wsId, cycleId: cycle!.id, weekNo: 1 })
       .returning();
     const [commitment] = await db
       .insert(weeklyCommitments)
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
+        projectId: wsId,
         weeklyPlanId: plan!.id,
         title: "Ship onboarding flow",
       })
@@ -408,6 +404,7 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
       {
         id: taskAId,
         workspaceId: wsId,
+        projectId: wsId,
         title: "Task A",
         status: "todo",
         revision: 1,
@@ -416,6 +413,7 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
       {
         id: taskBId,
         workspaceId: wsId,
+        projectId: wsId,
         title: "Task B (still pending)",
         status: "todo",
         revision: 1,
@@ -465,6 +463,7 @@ describe("Key Result Observations & Task Completion (DB Operations)", () => {
     await db.insert(tasks).values({
       id: taskId,
       workspaceId: wsId,
+      projectId: wsId,
       title: "Racy task",
       status: "todo",
       revision: 1,

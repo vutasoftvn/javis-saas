@@ -59,6 +59,7 @@ describe("execution_plans / execution_plan_items schema", () => {
     const [plan] = await db.insert(weeklyPlans).values({
       id: generateSnowflake(),
       workspaceId: BigInt(ws.workspaceId),
+      projectId: BigInt(project.id),
       cycleId: cycle!.id,
       weekNo: 1,
       focus: "x",

@@ -36,6 +36,7 @@ async function seedConfirmedTask(workspaceId: string): Promise<{ taskId: string;
   await db.insert(tasks).values({
     id: taskId,
     workspaceId: wsId,
+    projectId: wsId,
     title: "Confirmed task",
     status: "todo",
     source: "manager_create",
@@ -105,7 +106,7 @@ describe("Company-owned work packages, attempts and immutable events (Task 2)", 
     const { workspaceId, ctx } = await makeWs("WP WS 2");
     const wsId = BigInt(workspaceId);
     const taskId = generateSnowflake();
-    await db.insert(tasks).values({ id: taskId, workspaceId: wsId, title: "bare", status: "todo" });
+    await db.insert(tasks).values({ id: taskId, workspaceId: wsId, projectId: wsId, title: "bare", status: "todo" });
     await expect(
       createWorkPackage(
         {
