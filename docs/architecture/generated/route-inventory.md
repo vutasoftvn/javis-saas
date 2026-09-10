@@ -7,13 +7,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 
 | Method | Path | Service | expose | auth | File |
 |---|---|---|---|---|---|
-| POST | `/academy/enrollments` | company | ✓ |  | services/company/academy/handlers/program.handler.ts |
-| POST | `/academy/enrollments/:enrollmentId/complete-lesson` | company | ✓ |  | services/company/academy/handlers/program.handler.ts |
-| GET | `/academy/enrollments/:id` | company | ✓ |  | services/company/academy/handlers/program.handler.ts |
-| GET | `/academy/programs` | company | ✓ |  | services/company/academy/handlers/program.handler.ts |
-| GET | `/academy/programs/:id` | company | ✓ |  | services/company/academy/handlers/program.handler.ts |
-| POST | `/academy/template-exports` | company | ✓ |  | services/company/academy/handlers/template-export.handler.ts |
-| GET | `/academy/template-exports/:id` | company | ✓ |  | services/company/academy/handlers/template-export.handler.ts |
 | POST | `/commercial/accounts` | company | ✓ |  | services/company/commercial/handlers/account.handler.ts |
 | GET | `/commercial/accounts/:id` | company | ✓ |  | services/company/commercial/handlers/account.handler.ts |
 | POST | `/commercial/campaign-assets` | company | ✓ |  | services/company/commercial/handlers/marketing.handler.ts |
@@ -94,6 +87,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/commercial/subscriptions` | company | ✓ |  | services/company/commercial/handlers/billing.handler.ts |
 | GET | `/commercial/workspaces/:workspaceId/campaigns` | company | ✓ |  | services/company/commercial/handlers/marketing.handler.ts |
 | GET | `/commercial/workspaces/:workspaceId/invoices` | company | ✓ |  | services/company/commercial/handlers/billing.handler.ts |
+| POST | `/control-plane/internal/automation-dispatches` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
+| GET | `/control-plane/internal/automation-dispatches/:invocationId` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
+| POST | `/control-plane/internal/automation-dispatches/:invocationId/complete` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | POST | `/control-plane/internal/child-tasks` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | GET | `/control-plane/internal/child-tasks/:parentTaskId` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | GET | `/control-plane/internal/child-tasks/:parentTaskId/join` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
@@ -252,6 +248,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/identity/workspaces` | company |  |  | services/company/identity/handlers/workspace.handler.ts |
 | GET | `/identity/workspaces/:id` | company | ✓ |  | services/company/identity/handlers/workspace.handler.ts |
 | PATCH | `/identity/workspaces/:id/company-identity` | company | ✓ |  | services/company/identity/handlers/workspace.handler.ts |
+| PATCH | `/identity/workspaces/:workspaceId/lifecycle` | company | ✓ |  | services/company/identity/handlers/workspace-lifecycle.handler.ts |
+| GET | `/identity/workspaces/:workspaceId/lifecycle/events` | company | ✓ |  | services/company/identity/handlers/workspace-lifecycle.handler.ts |
 | GET | `/identity/workspaces/:workspaceId/platform-company` | company | ✓ |  | services/company/identity/handlers/workspace.handler.ts |
 | GET | `/legal/applicable-obligations` | company | ✓ |  | services/company/finance-legal/handlers/legal-applicability.handler.ts |
 | GET | `/legal/legal-entity-profiles` | company | ✓ |  | services/company/finance-legal/handlers/legal-entity-profile.handler.ts |
@@ -262,6 +260,17 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/legal/obligation-instances` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
 | POST | `/legal/obligation-instances/:id/transition` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
 | GET | `/legal/obligation-instances/:id/transitions` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
+| GET | `/operations/automation/definitions` | company | ✓ |  | services/company/operations/handlers/automation-definition.handler.ts |
+| GET | `/operations/automation/definitions/:definitionId` | company | ✓ |  | services/company/operations/handlers/automation-definition.handler.ts |
+| PATCH | `/operations/automation/definitions/:definitionId/configuration` | company | ✓ |  | services/company/operations/handlers/automation-definition.handler.ts |
+| POST | `/operations/automation/definitions/:definitionId/invocations` | company | ✓ |  | services/company/operations/handlers/automation-invocation.handler.ts |
+| POST | `/operations/automation/definitions/:definitionId/revisions` | company | ✓ |  | services/company/operations/handlers/automation-definition.handler.ts |
+| POST | `/operations/automation/definitions/:definitionId/suspension` | company | ✓ |  | services/company/operations/handlers/automation-definition.handler.ts |
+| POST | `/operations/automation/internal/outcome` | company | ✓ |  | services/company/operations/handlers/automation-outcome.handler.ts |
+| GET | `/operations/automation/invocations/:invocationId` | company | ✓ |  | services/company/operations/handlers/automation-invocation.handler.ts |
+| POST | `/operations/automation/invocations/:invocationId/cancellation` | company | ✓ |  | services/company/operations/handlers/automation-invocation.handler.ts |
+| GET | `/operations/automation/invocations/:invocationId/inspector` | company | ✓ |  | services/company/operations/handlers/automation-inspector.handler.ts |
+| GET | `/operations/automation/needs-you` | company | ✓ |  | services/company/operations/handlers/automation-inspector.handler.ts |
 | GET | `/operations/capability-policy` | company | ✓ |  | services/company/operations/handlers/execution-plan.handler.ts |
 | POST | `/operations/capability-policy` | company | ✓ |  | services/company/operations/handlers/execution-plan.handler.ts |
 | GET | `/operations/cycle-reviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/cycle-review.handler.ts |
@@ -311,39 +320,27 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | POST | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | GET | `/operations/projects/:id` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
-| POST | `/operations/projects/:id/kickoff-suggestion` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
-| POST | `/operations/projects/:id/kickoff-suggestion/result` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
-| GET | `/operations/projects/:id/operating-setup` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
-| PUT | `/operations/projects/:id/operating-setup` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
-| POST | `/operations/projects/:id/operating-setup/activate` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
-| GET | `/operations/projects/:projectId/founder-brief` | company | ✓ |  | services/company/operations/strategy/handlers/founder-brief.handler.ts |
-| GET | `/operations/projects/:projectId/founder-trial-board` | company | ✓ |  | services/company/operations/strategy/handlers/founder-trial-board.handler.ts |
 | POST | `/operations/projects/:projectId/founder-trial/experiments` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
-| PATCH | `/operations/projects/:projectId/operating-cycle` | company | ✓ |  | services/company/operations/strategy/handlers/project-operating-setup.handler.ts |
+| PATCH | `/operations/projects/:projectId/lifecycle` | company | ✓ |  | services/company/operations/handlers/project-lifecycle.handler.ts |
+| GET | `/operations/projects/:projectId/lifecycle/events` | company | ✓ |  | services/company/operations/handlers/project-lifecycle.handler.ts |
+| GET | `/operations/projects/:projectId/operating-loop` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
+| POST | `/operations/projects/:projectId/operating-loop/commitments` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
+| POST | `/operations/projects/:projectId/operating-loop/cycles` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
+| POST | `/operations/projects/:projectId/operating-loop/initiatives` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
+| POST | `/operations/projects/:projectId/operating-loop/key-results` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
+| POST | `/operations/projects/:projectId/operating-loop/objectives` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
+| POST | `/operations/projects/:projectId/operating-loop/tasks` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
+| PATCH | `/operations/projects/:projectId/operating-loop/tasks/:taskId/status` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
+| POST | `/operations/projects/:projectId/operating-loop/weeks` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
 | GET | `/operations/strategy/action-context` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | GET | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | POST | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | POST | `/operations/strategy/action-proposals/:id/accept` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
-| GET | `/operations/strategy/agents` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-copilot.handler.ts |
-| POST | `/operations/strategy/agents/configure` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-copilot.handler.ts |
 | GET | `/operations/strategy/assumptions` | company | ✓ |  | services/company/operations/strategy/handlers/assumption.handler.ts |
 | POST | `/operations/strategy/assumptions` | company | ✓ |  | services/company/operations/strategy/handlers/assumption.handler.ts |
 | DELETE | `/operations/strategy/assumptions/:id` | company | ✓ |  | services/company/operations/strategy/handlers/assumption.handler.ts |
 | GET | `/operations/strategy/assumptions/:id` | company | ✓ |  | services/company/operations/strategy/handlers/assumption.handler.ts |
 | PATCH | `/operations/strategy/assumptions/:id` | company | ✓ |  | services/company/operations/strategy/handlers/assumption.handler.ts |
-| GET | `/operations/strategy/canvas-revisions/:id` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| POST | `/operations/strategy/canvas-revisions/:id/approve` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| POST | `/operations/strategy/canvas-revisions/:id/reject` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| POST | `/operations/strategy/canvas-revisions/:id/submit-review` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| GET | `/operations/strategy/canvases` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| POST | `/operations/strategy/canvases` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| DELETE | `/operations/strategy/canvases/:id` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| GET | `/operations/strategy/canvases/:id` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| PUT | `/operations/strategy/canvases/:id` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| POST | `/operations/strategy/canvases/:id/revisions` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| POST | `/operations/strategy/copilot/propose-initiatives` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-copilot.handler.ts |
-| POST | `/operations/strategy/copilot/propose-pestel` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-copilot.handler.ts |
-| POST | `/operations/strategy/copilot/propose-tows` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-copilot.handler.ts |
 | GET | `/operations/strategy/decision-records` | company | ✓ |  | services/company/operations/strategy/handlers/decision-record.handler.ts |
 | POST | `/operations/strategy/decision-records` | company | ✓ |  | services/company/operations/strategy/handlers/decision-record.handler.ts |
 | DELETE | `/operations/strategy/decision-records/:id` | company | ✓ |  | services/company/operations/strategy/handlers/decision-record.handler.ts |
@@ -366,21 +363,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | DELETE | `/operations/strategy/experiments/:id` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
 | GET | `/operations/strategy/experiments/:id` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
 | PATCH | `/operations/strategy/experiments/:id` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
-| GET | `/operations/strategy/funding-matches` | company | ✓ |  | services/company/operations/handlers/canvas.handler.ts |
-| GET | `/operations/strategy/gate-evaluations` | company | ✓ |  | services/company/operations/strategy/handlers/gate-evaluation.handler.ts |
-| POST | `/operations/strategy/gate-evaluations` | company | ✓ |  | services/company/operations/strategy/handlers/gate-evaluation.handler.ts |
-| DELETE | `/operations/strategy/gate-evaluations/:id` | company | ✓ |  | services/company/operations/strategy/handlers/gate-evaluation.handler.ts |
-| GET | `/operations/strategy/gate-evaluations/:id` | company | ✓ |  | services/company/operations/strategy/handlers/gate-evaluation.handler.ts |
-| PATCH | `/operations/strategy/gate-evaluations/:id` | company | ✓ |  | services/company/operations/strategy/handlers/gate-evaluation.handler.ts |
 | GET | `/operations/strategy/interviews` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | POST | `/operations/strategy/interviews` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | DELETE | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | GET | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | PATCH | `/operations/strategy/interviews/:id` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
 | POST | `/operations/strategy/interviews/:id/submit-evidence` | company | ✓ |  | services/company/operations/strategy/handlers/interview.handler.ts |
-| GET | `/operations/strategy/maturity-assessments` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
-| POST | `/operations/strategy/maturity-assessments` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
-| GET | `/operations/strategy/maturity-assessments/:id` | company | ✓ |  | services/company/operations/strategy/handlers/maturity-assessment.handler.ts |
 | GET | `/operations/strategy/metric-contracts` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
 | POST | `/operations/strategy/metric-contracts` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
 | GET | `/operations/strategy/metric-contracts/:id` | company | ✓ |  | services/company/operations/strategy/handlers/metric-contract.handler.ts |
@@ -390,61 +378,19 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/strategy/metric-snapshots` | company | ✓ |  | services/company/operations/strategy/handlers/metric-snapshot.handler.ts |
 | POST | `/operations/strategy/metric-snapshots` | company | ✓ |  | services/company/operations/strategy/handlers/metric-snapshot.handler.ts |
 | GET | `/operations/strategy/metric-snapshots/:id` | company | ✓ |  | services/company/operations/strategy/handlers/metric-snapshot.handler.ts |
-| GET | `/operations/strategy/objectives` | company | ✓ |  | services/company/operations/strategy/handlers/strategic-objective.handler.ts |
-| POST | `/operations/strategy/objectives` | company | ✓ |  | services/company/operations/strategy/handlers/strategic-objective.handler.ts |
-| GET | `/operations/strategy/objectives/:id` | company | ✓ |  | services/company/operations/strategy/handlers/strategic-objective.handler.ts |
-| PUT | `/operations/strategy/objectives/:id` | company | ✓ |  | services/company/operations/strategy/handlers/strategic-objective.handler.ts |
-| PUT | `/operations/strategy/objectives/:id/bsc-focus` | company | ✓ |  | services/company/operations/strategy/handlers/strategic-objective.handler.ts |
-| GET | `/operations/strategy/objectives/:objectiveId/analysis/pestel` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| POST | `/operations/strategy/objectives/:objectiveId/analysis/pestel` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| PUT | `/operations/strategy/objectives/:objectiveId/analysis/pestel/:id` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| GET | `/operations/strategy/objectives/:objectiveId/analysis/resources` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| POST | `/operations/strategy/objectives/:objectiveId/analysis/resources` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| PUT | `/operations/strategy/objectives/:objectiveId/analysis/resources/:id` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| GET | `/operations/strategy/objectives/:objectiveId/analysis/swot` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| POST | `/operations/strategy/objectives/:objectiveId/analysis/swot` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| PUT | `/operations/strategy/objectives/:objectiveId/analysis/swot/:id` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| POST | `/operations/strategy/objectives/:objectiveId/analysis/swot/derive-drafts` | company | ✓ |  | services/company/operations/strategy/handlers/strategy-analysis.handler.ts |
-| GET | `/operations/strategy/objectives/:objectiveId/tows-options` | company | ✓ |  | services/company/operations/strategy/handlers/tows-option.handler.ts |
-| POST | `/operations/strategy/objectives/:objectiveId/tows-options` | company | ✓ |  | services/company/operations/strategy/handlers/tows-option.handler.ts |
 | GET | `/operations/strategy/pilots` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
 | POST | `/operations/strategy/pilots` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
 | GET | `/operations/strategy/pilots/:id` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
 | POST | `/operations/strategy/pilots/:id/activate` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
 | POST | `/operations/strategy/pilots/:id/approve` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
 | POST | `/operations/strategy/pilots/:id/close` | company | ✓ |  | services/company/operations/strategy/handlers/pilot-run.handler.ts |
-| GET | `/operations/strategy/pmf-scoreboards` | company | ✓ |  | services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts |
-| GET | `/operations/strategy/pmf-scoreboards/:id` | company | ✓ |  | services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts |
-| POST | `/operations/strategy/pmf-scoreboards/calculate` | company | ✓ |  | services/company/operations/strategy/handlers/pmf-scoreboard.handler.ts |
 | GET | `/operations/strategy/projects/:id/action-context` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | GET | `/operations/strategy/projects/:id/next-best-actions` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
-| POST | `/operations/strategy/projects/:id/stage` | company | ✓ |  | services/company/operations/strategy/handlers/project-stage.handler.ts |
-| GET | `/operations/strategy/projects/:id/stage/transitions` | company | ✓ |  | services/company/operations/strategy/handlers/project-stage.handler.ts |
 | POST | `/operations/strategy/projects/:id/weekly-goal` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-goal.handler.ts |
 | GET | `/operations/strategy/projects/:projectId/proposed-experiments` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
 | GET | `/operations/strategy/projects/:projectId/ranked-assumptions` | company | ✓ |  | services/company/operations/strategy/handlers/assumption.handler.ts |
 | GET | `/operations/strategy/settings` | company | ✓ |  | services/company/operations/strategy/handlers/workspace-strategy-settings.handler.ts |
 | PUT | `/operations/strategy/settings` | company | ✓ |  | services/company/operations/strategy/handlers/workspace-strategy-settings.handler.ts |
-| GET | `/operations/strategy/stage-context` | company | ✓ |  | services/company/operations/strategy/handlers/project-stage.handler.ts |
-| GET | `/operations/strategy/stage-policies` | company | ✓ |  | services/company/operations/strategy/handlers/stage-policy.handler.ts |
-| POST | `/operations/strategy/stage-policies` | company | ✓ |  | services/company/operations/strategy/handlers/stage-policy.handler.ts |
-| DELETE | `/operations/strategy/stage-policies/:id` | company | ✓ |  | services/company/operations/strategy/handlers/stage-policy.handler.ts |
-| GET | `/operations/strategy/stage-policies/:id` | company | ✓ |  | services/company/operations/strategy/handlers/stage-policy.handler.ts |
-| PATCH | `/operations/strategy/stage-policies/:id` | company | ✓ |  | services/company/operations/strategy/handlers/stage-policy.handler.ts |
-| GET | `/operations/strategy/stage-transitions` | company | ✓ |  | services/company/operations/strategy/handlers/stage-transition-config.handler.ts |
-| POST | `/operations/strategy/stage-transitions` | company | ✓ |  | services/company/operations/strategy/handlers/stage-transition-config.handler.ts |
-| DELETE | `/operations/strategy/stage-transitions/:id` | company | ✓ |  | services/company/operations/strategy/handlers/stage-transition-config.handler.ts |
-| GET | `/operations/strategy/stage-transitions/:id` | company | ✓ |  | services/company/operations/strategy/handlers/stage-transition-config.handler.ts |
-| GET | `/operations/strategy/tows-options/:id` | company | ✓ |  | services/company/operations/strategy/handlers/tows-option.handler.ts |
-| PUT | `/operations/strategy/tows-options/:id` | company | ✓ |  | services/company/operations/strategy/handlers/tows-option.handler.ts |
-| POST | `/operations/strategy/tows-options/:id/evaluations` | company | ✓ |  | services/company/operations/strategy/handlers/tows-option.handler.ts |
-| POST | `/operations/strategy/tows-options/:id/reject` | company | ✓ |  | services/company/operations/strategy/handlers/tows-option.handler.ts |
-| POST | `/operations/strategy/tows-options/:id/select` | company | ✓ |  | services/company/operations/strategy/handlers/tows-option.handler.ts |
-| GET | `/operations/strategy/venture-profile` | company | ✓ |  | services/company/operations/strategy/handlers/venture-profile.handler.ts |
-| PUT | `/operations/strategy/venture-profile` | company | ✓ |  | services/company/operations/strategy/handlers/venture-profile.handler.ts |
-| POST | `/operations/strategy/venture-stage/assess` | company | ✓ |  | services/company/operations/strategy/handlers/venture-stage.handler.ts |
-| POST | `/operations/strategy/venture-stage/transition` | company | ✓ |  | services/company/operations/strategy/handlers/venture-stage.handler.ts |
-| GET | `/operations/strategy/venture-stage/transitions` | company | ✓ |  | services/company/operations/strategy/handlers/venture-stage.handler.ts |
 | GET | `/operations/strategy/weekly-reviews` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-review.handler.ts |
 | POST | `/operations/strategy/weekly-reviews` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-review.handler.ts |
 | POST | `/operations/strategy/weekly-reviews/:id/complete` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-review.handler.ts |
@@ -539,13 +485,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `DELETE /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:324 |
 | `DELETE /execution/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:250 |
 | `DELETE /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:167 |
-| `DELETE /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:52 |
 | `DELETE /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:388 |
 | `GET /admin` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:39, frontend/lib/modules/settings/services/admin_service.dart:14 |
 | `GET /business/packs` | ✗ GHOST |  | frontend/lib/modules/organization/services/business_pack_service.dart:17, frontend/lib/modules/organization/services/business_pack_service.dart:35, frontend/lib/modules/organization/services/business_pack_service.dart:52 … |
 | `GET /channels` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:50 |
 | `GET /channels/list` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:167 |
-| `GET /commercial/leads` | ✓ |  | frontend/lib/modules/sales/services/sales_service.dart:62 |
+| `GET /commercial/leads` | ✓ |  | frontend/lib/modules/sales/services/sales_service.dart:69 |
 | `GET /connectors` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:14 |
 | `GET /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:141 |
 | `GET /devices` | ✗ GHOST |  | frontend/lib/modules/settings/services/developer_service.dart:14 |
@@ -555,39 +500,26 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /execution/twelve-week-cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:17, frontend/lib/modules/strategy/services/twelve_week_service.dart:181 |
 | `GET /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:121 |
 | `GET /execution/weekly-plans` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:64 |
-| `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:101 |
+| `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:105 |
 | `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:52 |
-| `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:67 |
-| `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:170 |
+| `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:68 |
+| `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:174 |
 | `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:100, frontend/lib/modules/auth/services/auth_service.dart:531 |
 | `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/settings/services/workspace_orientation_service.dart:16 |
 | `GET /operations/execution-settings` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:60 |
 | `GET /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:21, frontend/lib/modules/vault/services/evidence_service.dart:88 |
 | `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:102, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
 | `GET /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:60 |
-| `GET /operations/strategy/gate-evaluations` | ✓ |  | frontend/lib/modules/strategy/services/stage_gate_service.dart:40, frontend/lib/modules/strategy/services/stage_gate_service.dart:58 |
-| `GET /operations/strategy/maturity-assessments` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:153 |
-| `GET /operations/strategy/metric-contracts` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:17 |
-| `GET /operations/strategy/metric-snapshots` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:42 |
-| `GET /operations/strategy/pilots` | ✓ |  | frontend/lib/modules/strategy/services/pilot_run_service.dart:15, frontend/lib/modules/strategy/services/pilot_run_service.dart:31 |
-| `GET /operations/strategy/pmf-scoreboards` | ✓ |  | frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:89, frontend/lib/modules/strategy/services/pmf_scoreboard_service.dart:110 |
 | `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:82 |
-| `GET /operations/strategy/stage-context` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:85 |
-| `GET /operations/strategy/stage-policies` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:14, frontend/lib/modules/strategy/services/stage_service.dart:98 |
-| `GET /operations/strategy/stage-transitions` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:68 |
 | `GET /operations/tasks` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:32, frontend/lib/modules/tasks/services/task_service.dart:18, frontend/lib/modules/tasks/services/task_service.dart:42 … |
 | `GET /operations/tasks/founder-inbox` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:81 |
 | `GET /org` | ✗ GHOST |  | frontend/lib/modules/organization/services/organization_service.dart:14, frontend/lib/modules/organization/services/organization_service.dart:25, frontend/lib/modules/organization/services/organization_service.dart:36 … |
 | `GET /plugins` | ✗ GHOST |  | frontend/lib/modules/skills/services/plugins_service.dart:14 |
 | `GET /policy-programs` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:174, frontend/lib/modules/finance/services/policy_funding_service.dart:204 |
 | `GET /policy-programs/draft-watchlist` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:167 |
-| `GET /projects` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:47, frontend/lib/modules/strategy/services/validation_service.dart:25, frontend/lib/modules/strategy/services/validation_service.dart:61 … |
+| `GET /projects` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:47 |
 | `GET /runtime/doctor` | ✗ GHOST |  | frontend/lib/core/services/diagnostics_service.dart:8 |
-| `GET /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:13, frontend/lib/modules/strategy/services/canvas_service.dart:22 |
-| `GET /strategy/founder-profile` | ✗ GHOST |  | frontend/lib/modules/strategy/services/founder_service.dart:13 |
 | `GET /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/project_service.dart:124 |
-| `GET /strategy/portfolios` | ✗ GHOST |  | frontend/lib/modules/strategy/services/portfolio_service.dart:323 |
-| `GET /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:75 |
 | `GET /workforce/agents` | ✗ GHOST | M7 | frontend/lib/modules/agents/services/agent_platform_service.dart:519 |
 | `GET /workforce/budgets` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:264 |
 | `GET /workforce/cost-ledger` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:303 |
@@ -603,16 +535,13 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
 | `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136 |
 | `POST /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:151 |
-| `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:153 |
-| `POST /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:86 |
+| `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:157 |
+| `POST /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:90 |
 | `POST /operations/execution-plans` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:95, frontend/lib/modules/strategy/services/execution_plan_service.dart:102 |
 | `POST /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:36 |
 | `POST /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:132 |
 | `POST /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:75 |
-| `POST /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:77 |
-| `POST /projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/validation_service.dart:219 |
-| `POST /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:58 |
-| `POST /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:81 |
+| `POST /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:81 |
 | `POST /tech-radar/seed` | ✗ GHOST |  | frontend/lib/modules/skills/services/tech_radar_service.dart:116 |
 | `POST /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:374 |
 | `POST /workforce/decisions` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:251 |
@@ -666,6 +595,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/documents/{document_id}/publish` | apps/cosa/api/vault_routes.py |
 | POST | `/documents/{document_id}/purge` | apps/cosa/api/vault_routes.py |
 | POST | `/documents/{document_id}/review` | apps/cosa/api/vault_routes.py |
+| POST | `/documents/{document_id}/revoke` | apps/cosa/api/vault_routes.py |
 | POST | `/eligibility` | apps/cosa/api/workforce_internal_routes.py |
 | POST | `/events` | apps/cosa/api/event_intake_routes.py |
 | GET | `/exceptions` | apps/cosa/api/workforce_routes.py |
@@ -674,6 +604,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/healthz` | apps/cosa/api/app.py |
 | GET | `/knowledge/graph` | apps/cosa/api/vault_routes.py |
 | POST | `/knowledge/ingestions/{ingestion_id}/review` | apps/cosa/api/knowledge_routes.py |
+| POST | `/knowledge/projects/{project_id}/search` | apps/cosa/api/project_knowledge_routes.py |
 | GET | `/knowledge/sources` | apps/cosa/api/vault_routes.py |
 | POST | `/knowledge/uploads` | apps/cosa/api/knowledge_routes.py |
 | POST | `/knowledge/uploads/{ingestion_id}/complete` | apps/cosa/api/knowledge_routes.py |

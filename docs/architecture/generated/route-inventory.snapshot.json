@@ -13,10 +13,6 @@
       "resolved": false,
       "owner": null
     },
-    "DELETE /strategy/canvases": {
-      "resolved": false,
-      "owner": null
-    },
     "DELETE /workforce/agents": {
       "resolved": false,
       "owner": null
@@ -117,45 +113,9 @@
       "resolved": true,
       "owner": null
     },
-    "GET /operations/strategy/gate-evaluations": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/strategy/maturity-assessments": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/strategy/metric-contracts": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/strategy/metric-snapshots": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/strategy/pilots": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/strategy/pmf-scoreboards": {
-      "resolved": true,
-      "owner": null
-    },
     "GET /operations/strategy/projects": {
       "resolved": true,
       "owner": "M4"
-    },
-    "GET /operations/strategy/stage-context": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/strategy/stage-policies": {
-      "resolved": true,
-      "owner": null
-    },
-    "GET /operations/strategy/stage-transitions": {
-      "resolved": true,
-      "owner": null
     },
     "GET /operations/tasks": {
       "resolved": true,
@@ -189,23 +149,7 @@
       "resolved": false,
       "owner": null
     },
-    "GET /strategy/canvases": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/founder-profile": {
-      "resolved": false,
-      "owner": null
-    },
     "GET /strategy/initiatives": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/portfolios": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /strategy/revisions": {
       "resolved": false,
       "owner": null
     },
@@ -295,18 +239,6 @@
     },
     "POST /operations/tasks": {
       "resolved": true,
-      "owner": null
-    },
-    "POST /projects": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /strategy/canvases": {
-      "resolved": false,
-      "owner": null
-    },
-    "POST /strategy/revisions": {
-      "resolved": false,
       "owner": null
     },
     "POST /tech-radar/seed": {
