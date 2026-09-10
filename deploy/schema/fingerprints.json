@@ -1,17 +1,19 @@
 {
   "version": 1,
-  "generated_at": "2026-09-10T22:49:30.039Z",
+  "generated_at": "2026-09-10T23:41:57.848Z",
   "groups": {
     "agent": {
-      "fingerprint": "6a707e6e137c7c140b28f0356f0f3d62854c525e110e076baae091f48b9b5056",
+      "fingerprint": "8b223b3f7ae2879f6488f85b4240acaaaf4a927b9e54e236740dc372df7d1b37",
       "schemas": [
         "agent",
+        "agent_artifact",
         "agent_conversation",
         "agent_governance",
         "agent_registry",
+        "knowledge",
         "models"
       ],
-      "tables_count": 21,
+      "tables_count": 28,
       "enums": [],
       "tables": {
         "agent.agent_web_search_budget": {
@@ -275,6 +277,16 @@
               "max_length": null,
               "precision": 32,
               "scale": 0
+            },
+            {
+              "name": "manifest_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -333,6 +345,85 @@
             {
               "name": "idx_agent_approvals_tool_call",
               "definition": "CREATE INDEX idx_agent_approvals_tool_call ON agent.approvals USING btree (tool_call_id)"
+            }
+          ]
+        },
+        "agent.automation_run_manifests": {
+          "schema": "agent",
+          "name": "automation_run_manifests",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "manifest_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "manifest_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "automation_run_manifests_pkey",
+            "columns": [
+              "run_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "automation_run_manifests_run_id_fkey",
+              "columns": [
+                "run_id"
+              ],
+              "foreign_table": "agent.runs",
+              "foreign_columns": [
+                "run_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "automation_run_manifests_pkey",
+              "definition": "CREATE UNIQUE INDEX automation_run_manifests_pkey ON agent.automation_run_manifests USING btree (run_id)"
+            },
+            {
+              "name": "idx_automation_run_manifests_hash",
+              "definition": "CREATE INDEX idx_automation_run_manifests_hash ON agent.automation_run_manifests USING btree (manifest_hash)"
             }
           ]
         },
@@ -1627,6 +1718,195 @@
             }
           ]
         },
+        "agent_artifact.workspace_artifacts": {
+          "schema": "agent_artifact",
+          "name": "workspace_artifacts",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "artifact_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "conversation_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_message_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "artifact_kind",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "display_name",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 255,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "media_type",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "object_ref",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 512,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "checksum",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "size_bytes",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "status",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'available'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "input_artifact_ids",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "archived_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_artifacts_pkey",
+            "columns": [
+              "artifact_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "chk_workspace_artifact_kind",
+              "clause": "(((artifact_kind)::text = ANY (ARRAY[('assistant_output'::character varying)::text, ('report'::character varying)::text, ('table'::character varying)::text, ('file_export'::character varying)::text])))"
+            },
+            {
+              "name": "chk_workspace_artifact_status",
+              "clause": "(((status)::text = ANY (ARRAY[('available'::character varying)::text, ('failed'::character varying)::text, ('archived'::character varying)::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workspace_artifacts_lookup",
+              "definition": "CREATE INDEX idx_workspace_artifacts_lookup ON agent_artifact.workspace_artifacts USING btree (workspace_id, conversation_id, created_at DESC)"
+            },
+            {
+              "name": "idx_workspace_artifacts_run",
+              "definition": "CREATE INDEX idx_workspace_artifacts_run ON agent_artifact.workspace_artifacts USING btree (run_id)"
+            },
+            {
+              "name": "workspace_artifacts_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_artifacts_pkey ON agent_artifact.workspace_artifacts USING btree (artifact_id)"
+            }
+          ]
+        },
         "agent_conversation.conversations": {
           "schema": "agent_conversation",
           "name": "conversations",
@@ -2589,6 +2869,761 @@
             {
               "name": "uq_agent_registry_published_specs_hash",
               "definition": "CREATE UNIQUE INDEX uq_agent_registry_published_specs_hash ON agent_registry.published_specs USING btree (spec_kind, spec_id, definition_hash)"
+            }
+          ]
+        },
+        "knowledge.chunk_embeddings": {
+          "schema": "knowledge",
+          "name": "chunk_embeddings",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "chunk_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "embedding_model",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "embedding_version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "dimensions",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "embedding",
+              "type": "USER-DEFINED",
+              "udt": "vector",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "chunk_embeddings_pkey",
+            "columns": [
+              "chunk_id",
+              "embedding_model",
+              "embedding_version"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "chunk_embeddings_chunk_id_fkey",
+              "columns": [
+                "chunk_id"
+              ],
+              "foreign_table": "knowledge.knowledge_chunks",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "chunk_embeddings_pkey",
+              "definition": "CREATE UNIQUE INDEX chunk_embeddings_pkey ON knowledge.chunk_embeddings USING btree (chunk_id, embedding_model, embedding_version)"
+            },
+            {
+              "name": "idx_knowledge_chunk_embeddings_workspace",
+              "definition": "CREATE INDEX idx_knowledge_chunk_embeddings_workspace ON knowledge.chunk_embeddings USING btree (workspace_id)"
+            }
+          ]
+        },
+        "knowledge.knowledge_chunks": {
+          "schema": "knowledge",
+          "name": "knowledge_chunks",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "chunk_index",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "content",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "embedding",
+              "type": "USER-DEFINED",
+              "udt": "vector",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "embedding_model",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "embedding_dimensions",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "embedding_version",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "content_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "metadata",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_version_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "chunker_name",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "chunker_version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "knowledge_chunks_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "knowledge_chunks_source_id_fkey",
+              "columns": [
+                "source_id"
+              ],
+              "foreign_table": "knowledge.knowledge_sources",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "knowledge_chunks_source_version_id_fkey",
+              "columns": [
+                "source_version_id"
+              ],
+              "foreign_table": "knowledge.source_versions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_knowledge_chunks_content_hash",
+              "definition": "CREATE INDEX idx_knowledge_chunks_content_hash ON knowledge.knowledge_chunks USING btree (content_hash)"
+            },
+            {
+              "name": "idx_knowledge_chunks_source_id",
+              "definition": "CREATE INDEX idx_knowledge_chunks_source_id ON knowledge.knowledge_chunks USING btree (source_id)"
+            },
+            {
+              "name": "idx_knowledge_chunks_source_version",
+              "definition": "CREATE INDEX idx_knowledge_chunks_source_version ON knowledge.knowledge_chunks USING btree (source_version_id)"
+            },
+            {
+              "name": "idx_knowledge_chunks_workspace_id",
+              "definition": "CREATE INDEX idx_knowledge_chunks_workspace_id ON knowledge.knowledge_chunks USING btree (workspace_id)"
+            },
+            {
+              "name": "knowledge_chunks_pkey",
+              "definition": "CREATE UNIQUE INDEX knowledge_chunks_pkey ON knowledge.knowledge_chunks USING btree (id)"
+            }
+          ]
+        },
+        "knowledge.knowledge_sources": {
+          "schema": "knowledge",
+          "name": "knowledge_sources",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "title",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "uri",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "metadata",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "application_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "tenant_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "scope_type",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "scope_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "authority_class",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'REFERENCE'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'active'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "vault_document_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "vault_version_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "access_policy_version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            }
+          ],
+          "primary_key": {
+            "name": "knowledge_sources_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_knowledge_sources_workspace_id",
+              "definition": "CREATE INDEX idx_knowledge_sources_workspace_id ON knowledge.knowledge_sources USING btree (workspace_id)"
+            },
+            {
+              "name": "knowledge_sources_pkey",
+              "definition": "CREATE UNIQUE INDEX knowledge_sources_pkey ON knowledge.knowledge_sources USING btree (id)"
+            }
+          ]
+        },
+        "knowledge.snapshots": {
+          "schema": "knowledge",
+          "name": "snapshots",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "snapshot_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "content",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "snapshots_pkey",
+            "columns": [
+              "snapshot_id",
+              "version"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uq_knowledge_snapshots_hash",
+              "columns": [
+                "snapshot_id",
+                "version",
+                "definition_hash"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_knowledge_snapshots_workspace",
+              "definition": "CREATE INDEX idx_knowledge_snapshots_workspace ON knowledge.snapshots USING btree (workspace_id)"
+            },
+            {
+              "name": "snapshots_pkey",
+              "definition": "CREATE UNIQUE INDEX snapshots_pkey ON knowledge.snapshots USING btree (snapshot_id, version)"
+            },
+            {
+              "name": "uq_knowledge_snapshots_hash",
+              "definition": "CREATE UNIQUE INDEX uq_knowledge_snapshots_hash ON knowledge.snapshots USING btree (snapshot_id, version, definition_hash)"
+            }
+          ]
+        },
+        "knowledge.source_versions": {
+          "schema": "knowledge",
+          "name": "source_versions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "content_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "ingestion_run_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "parser_name",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "parser_version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "source_versions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uq_knowledge_source_versions_source_version",
+              "columns": [
+                "source_id",
+                "version"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "source_versions_source_id_fkey",
+              "columns": [
+                "source_id"
+              ],
+              "foreign_table": "knowledge.knowledge_sources",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_knowledge_source_versions_source",
+              "definition": "CREATE INDEX idx_knowledge_source_versions_source ON knowledge.source_versions USING btree (source_id)"
+            },
+            {
+              "name": "idx_knowledge_source_versions_workspace",
+              "definition": "CREATE INDEX idx_knowledge_source_versions_workspace ON knowledge.source_versions USING btree (workspace_id)"
+            },
+            {
+              "name": "source_versions_pkey",
+              "definition": "CREATE UNIQUE INDEX source_versions_pkey ON knowledge.source_versions USING btree (id)"
+            },
+            {
+              "name": "uq_knowledge_source_versions_source_version",
+              "definition": "CREATE UNIQUE INDEX uq_knowledge_source_versions_source_version ON knowledge.source_versions USING btree (source_id, version)"
             }
           ]
         },

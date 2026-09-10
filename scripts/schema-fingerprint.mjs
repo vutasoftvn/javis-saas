@@ -42,9 +42,11 @@ const SCHEMA_GROUPS = {
     defaultUrl: "postgresql://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/agent",
     schemas: [
       "agent",
+      "agent_artifact",
       "agent_conversation",
       "agent_governance",
       "agent_registry",
+      "knowledge",
       "models"
     ]
   },
