@@ -5,9 +5,9 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | Lớp | Occurrences | Files |
 |---|---|---|
-| LEGACY_TENANCY (M2 xóa) | 105 | 22 |
+| LEGACY_TENANCY (M2 xóa) | 108 | 23 |
 | VALID_KEEP (giữ nguyên) | 110 | 32 |
-| REVIEW (chưa phân loại) | 848 | 202 |
+| REVIEW (chưa phân loại) | 853 | 205 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -20,6 +20,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/data/models/company_pulse_model.dart | 4 |
 | frontend/lib/data/models/stage_model.dart | 4 |
 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart | 3 |
+| services/company/finance-legal/migrations/002_restore_baseline_gaps.up.sql | 3 |
 | services/company/identity/services/sync.service.ts | 3 |
 | apps/cosa/api/workforce_routes.py | 2 |
 | apps/cosa/policies/evaluator.py | 2 |
@@ -54,10 +55,10 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/services/workspace-runtime.service.ts | 13 |
 | apps/cosa/capabilities/project_lifecycle.py | 12 |
 | apps/cosa/compliance/resolver.py | 12 |
+| apps/cosa/composition/agent_plane.py | 12 |
 | frontend/lib/data/models/stage_model.dart | 12 |
 | frontend/lib/modules/auth/views/register_view.dart | 12 |
 | apps/cosa/capabilities/client.py | 11 |
-| apps/cosa/composition/agent_plane.py | 10 |
 | frontend/lib/core/localization/app_translations.dart | 10 |
 | packages/agent/capabilities/readiness.py | 10 |
 | frontend/lib/core/localization/locales/en/en_strategy.dart | 9 |
@@ -214,10 +215,12 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/cas-sync.cron.ts | 1 |
 | services/company/finance-legal/handlers/ai-compliance-runtime.handler.ts | 1 |
 | services/company/finance-legal/handlers/ai-data-governance.handler.ts | 1 |
+| services/company/finance-legal/migrations/002_restore_baseline_gaps.up.sql | 1 |
 | services/company/finance-legal/services/ingestion.service.ts | 1 |
 | services/company/identity/handlers/auth.handler.ts | 1 |
 | services/company/identity/handlers/e2e-session.handler.ts | 1 |
 | services/company/identity/handlers/workforce.handler.ts | 1 |
+| services/company/identity/migrations/002_restore_business_policy_tables.up.sql | 1 |
 | services/company/identity/services/e2e-session.service.ts | 1 |
 | services/company/identity/services/health.service.ts | 1 |
 | services/company/identity/services/tenant-context.service.ts | 1 |
@@ -240,6 +243,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/events/fixtures/operations.task.created.v1.json | 1 |
 | services/company/shared/types/encore-auth.d.ts | 1 |
 | services/cosa/handlers/index.ts | 1 |
+| services/cosa/migrations/004_seed_canonical_cosa_roles.up.sql | 1 |
 | services/cosa/services/index.ts | 1 |
 | services/cosa/services/runtime-router.service.ts | 1 |
 

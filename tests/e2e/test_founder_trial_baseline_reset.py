@@ -49,6 +49,10 @@ _EXPECTED_LEDGER = {
     # cutover markers, and the stripped GENERATED-IDENTITY clauses.
     ("identity", "002_restore_business_policy_tables.up.sql"),
     ("agent", "004_restore_baseline_identity_columns.sql"),
+    # Task 1–2 (baseline-completeness harness health) — restore the legal.*
+    # schema and control_plane.document_ingestion* tables the R1 squash dropped.
+    ("finance-legal", "002_restore_baseline_gaps.up.sql"),
+    ("cosa", "005_restore_baseline_gaps.up.sql"),
 }
 
 

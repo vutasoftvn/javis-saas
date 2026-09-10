@@ -68,6 +68,7 @@ const SCHEMA_GROUPS = {
       "core",
       "finance",
       "integration",
+      "legal",
       "operating",
       "sales",
       "strategy"
