@@ -15,7 +15,7 @@ luồng nào đang chạy và giới hạn hiện tại nằm ở đâu.
 
 | Lĩnh vực | Chức năng chính | Nơi giữ sự thật nghiệp vụ |
 | --- | --- | --- |
-| Chiến lược | Hồ sơ venture, stage, evidence, phân tích PESTEL/SWOT/TOWS, mục tiêu, OKR, initiative, task, review và next-best action | `services/company/operations/strategy/` |
+| Chiến lược / Project | Lifecycle Workspace (W0→W5) và Project (P0→P6), OKR, initiative, operating cycle (1–12 tuần), commitment, task, evidence/decision và next-best action | `services/company/operations/strategy/` + `services/company/identity/` (lifecycle) |
 | Vận hành | Project, execution plan, task, dependency, lịch chu kỳ và theo dõi kết quả thực thi | `services/company/operations/` |
 | Thương mại | CRM (lead, account, contact, opportunity, customer), marketing, chiến dịch và customer engagement | `services/company/commercial/` |
 | Tài chính và pháp lý | Pháp nhân, kỳ kế toán, chứng từ, sổ sách/báo cáo TT58, CAS, thanh toán, nghĩa vụ pháp lý và AI compliance | `services/company/finance-legal/` |
@@ -66,9 +66,9 @@ flowchart LR
 2. **COSA Control Plane — `services/cosa/`**: xác thực nền tảng, workspace
    membership, entitlement/agent policy, connector grant, scheduler bền vững,
    execution lease, schedule, mission/task/worker và document-ingestion record.
-3. **Company Business Plane — `services/company/`**: sáu service Encore
-   (`identity`, `operations`, `commercial`, `finance-legal`, `events`,
-   `academy`). Đây là nguồn sự thật cho dữ liệu doanh nghiệp và quyết định
+3. **Company Business Plane — `services/company/`**: các service Encore
+   (`identity`, `operations`, `commercial`, `finance-legal`, `events`). Đây là
+   nguồn sự thật cho dữ liệu doanh nghiệp và quyết định
    nghiệp vụ.
 4. **Agent Platform — `packages/agent/` + `apps/cosa/`**: framework Python
    dùng lại được và lớp composition COSA. Agent Platform không ghi trực tiếp
@@ -100,29 +100,29 @@ PostgreSQL/pgvector được tách theo quyền sở hữu dữ liệu thành ba
 
 ### 2. Chiến lược đến thực thi
 
-Chiến lược không nằm trong slide tĩnh. Hệ thống duy trì lineage giữa phân tích,
-quyết định và việc thực hiện:
+Baseline project-centric (COSA Startup Core, 2026-09-10): hệ thống duy trì
+lineage giữa lifecycle, mục tiêu và việc thực hiện:
 
 ```text
-Venture / Project
-  → stage và assumption
-  → experiment, interview, signal và evidence
-  → gate evaluation + decision record
-  → BSC (khung lọc cấu hình theo workspace)
-  → PESTEL / resource assessment / SWOT
-  → TOWS option được ưu tiên
-  → strategic objective / OKR
-  → initiative được duyệt
-  → task, dependency và execution record
-  → weekly/cycle review, PMF scoreboard, next-best action
+Workspace (lifecycle W0_IDEA → W5_SCALE)
+  → Project (lifecycle P0_DISCOVERY → P6_SCALE_GOVERN)
+    → Objective → Key Result
+    → Initiative
+    → Operating Cycle (1–12 tuần) → Week → Commitment → Task
+    → evidence + decision record + next-best action
 ```
 
-- BSC là bộ lọc khi ghi chiến lược theo cấu hình workspace, không phải một
-  “lens” song song tách rời chuỗi thực thi.
-- TOWS → OKR → Initiative → Task là lineage được lưu lại. Task không phải
-  BAU chỉ có thể được tạo dưới initiative đã được duyệt.
-- Stage và gate được đánh giá bằng policy/evidence có cấu trúc; chuyển stage
-  dùng versioning và kiểm tra decision/evidence để tránh dùng quyết định cũ.
+- Lifecycle stage là **context phát triển**, không phải bộ máy tự động: chuyển
+  giai đoạn do người có quyền (founder/co-founder/admin) thực hiện thủ công qua
+  `PATCH /identity/workspaces/:id/lifecycle` và `PATCH /operations/projects/:id/lifecycle`,
+  dùng optimistic locking trên `stage_version`, ghi lịch sử append-only
+  (`*_lifecycle_events`). Không có gate framework, không gọi model, không
+  background job tự tiến giai đoạn.
+- Objective → Key Result → Initiative → Task là lineage được lưu lại. Task
+  không phải BAU chỉ có thể tạo dưới initiative + weekly commitment hợp lệ.
+- Các khung phân tích cũ (BSC, PESTEL, SWOT/TOWS, Porter, maturity, stage-gate
+  scoreboard tự động) đã được gỡ khỏi cả 4 vùng trong đợt clean-slate — xem
+  `docs/superpowers/plans/2026-09-10-cosa-startup-core-clean-slate.md`.
 - Xem chi tiết miền này tại
   [`services/company/operations/strategy/README.md`](services/company/operations/strategy/README.md).
 
@@ -185,7 +185,7 @@ bị để thay thế authority profile một cách âm thầm.
 
 | Agent | Mức tự chủ | Phạm vi thực tế |
 | --- | --- | --- |
-| Operations Specialist | `L0_OBSERVE` | Đọc task/project/PMF/evidence, gợi ý next action và tạo task draft. `founder_assistant` hiện ánh xạ vào agent này. |
+| Operations Specialist | `L0_OBSERVE` | Đọc task/project/evidence, gợi ý next action và tạo task draft. `founder_assistant` hiện ánh xạ vào agent này. |
 | Finance Specialist | `L1_PROPOSE` | Đọc giao dịch/kết nối, ghi nhận hoặc phân loại theo capability; các khoản chi/xác nhận nhạy cảm vẫn đi qua policy và approval. |
 | Marketing Specialist | `L0_OBSERVE` | Marketing context, campaign/asset/experiment, knowledge profile và web search có budget. |
 | Customer Support Copilot | `L0_OBSERVE` | Đọc thread/customer 360/knowledge đã duyệt và tạo bản nháp hoặc artifact; không tự gửi tin hay ghi CRM. |

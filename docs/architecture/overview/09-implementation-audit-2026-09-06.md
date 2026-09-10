@@ -4,7 +4,7 @@ Ngày kiểm tra: 2026-09-06. Baseline trước triển khai: `e4829b75`. Mốc 
 
 **Kết luận: chưa triển khai đúng và đủ để nghiệm thu plan tổng.** Có nhiều cấu phần mới hữu ích, nhưng còn đường public bỏ qua quyền, helper không có caller production, UI vẫn dùng stub và test không chứng minh luồng thật. F4/F5/F6 và H1 chưa có các đầu ra chính. Không thể dùng tên commit hoặc số test pass để đánh dấu các task đã xong.
 
-Nguồn yêu cầu (loạt plan `2026-09-05-business-agents-*` — master, permissions, strategy/operating, runtime, legal, finance — đã bị `git rm` bởi `11494e69` và được thay bằng [Founder Trial reset baseline design](/docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md)).
+Nguồn yêu cầu (loạt plan `2026-09-05-business-agents-*` — master, permissions, strategy/operating, runtime, legal, finance — đã bị `git rm` bởi `11494e69` và được thay bằng `Founder Trial reset baseline design` (2026-09-09, superseded 2026-09-10)).
 
 ## 1. Ma trận 24 task
 
