@@ -1014,51 +1014,22 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-## Task 5E: Reset the dev `workspace` DB + apply all restore migrations to the dev DBs
+## Task 5E: SUPERSEDED — no dev DB reset needed
 
-**Files:** none (operational).
-
-**Interfaces:**
-- Consumes: Tasks 1, 2, 5A, 5B, 5C committed.
-- Produces: the dev `workspace` / `agent` / `cosa` DBs match the committed migration tree — clears the `identity/002_restore_business_policy_tables.up.sql` checksum drift a concurrent session left, so `make e2e-test` (which uses ambient env) can run.
-
-**Rationale:** the Founder Trial baseline is a test-reset-only product (reset spec §7.3 — "marking an unknown existing database as current is incompatible with a test-reset-only product"). User approved the destructive reset.
-
-- [ ] **Step 1: Confirm the drift is still there and snapshot what's in the dev DB**
-
-```bash
-cd /Volumes/SSD/javis-saas
-set -a; source .env; set +a
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U postgres -d workspace -c \
-  "SELECT name, substr(checksum,1,12), applied_at FROM schema_migrations WHERE name LIKE '%002_restore_business_policy%';"
-PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U postgres -d workspace -c "\dn"   # note any non-R1 schemas present
-```
-
-- [ ] **Step 2: Reset + re-migrate the dev DBs from the committed tree**
-
-```bash
-cd /Volumes/SSD/javis-saas
-set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
-# the dev-DB variant of the founder-trial reset — same script, dev URLs:
-APP_ENV=development DATABASE_RESET=CONFIRM_FOUNDER_TRIAL_MVP_RESET node scripts/test-db-reset.mjs   # if it supports a dev mode
-# OR, if that script is test-only: drop+recreate the app schemas in dev `workspace`/`agent`/`cosa`
-#   and re-run the plane migrators:
-#   node services/company/scripts/migrate.mjs   (WORKSPACE_MIGRATOR_DATABASE_URL=...@/workspace)
-#   node services/cosa/scripts/migrate.mjs      (COSA_MIGRATOR_DATABASE_URL=...@/cosa)
-#   python packages/agent/scripts/migrate.py    (AGENT_MIGRATOR_DATABASE_URL=...@/agent)
-```
-Investigate the exact repo idiom first (`grep -rn "DATABASE_RESET\|test-db-reset" scripts/ Makefile package.json`); use whatever the repo provides for a dev reset. If none exists, the minimal safe path is: `DROP SCHEMA ... CASCADE` for each app schema in the dev DB + `CREATE SCHEMA` + re-run the migrator (the migrator recreates everything from `001` + restores).
-
-- [ ] **Step 3: Verify**
-
-```bash
-cd /Volumes/SSD/javis-saas
-set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
-node services/company/scripts/migrate.mjs   # "nothing to apply, already up to date"
-node scripts/schema-fingerprint.mjs --check # against dev DBs — MATCH
-```
-
-- [ ] **Step 4: No commit** (operational). Record the before/after `schema_migrations` state and `\dn` in the report.
+> **2026-09-10 — controller finding.** The dev `workspace` DB reset (user-approved
+> as a fallback) turns out to be **unnecessary and avoidable**. `tests/e2e/conftest.py`
+> resolves `WORKSPACE_DATABASE_URL` / `WORKSPACE_MIGRATOR_DATABASE_URL` from
+> `os.environ` with only a fallback default (conftest.py:57-65) — so `make e2e-test`
+> (`pytest tests/e2e -m "not cross_plane"`, Makefile:183) runs fine against the
+> `javis_workspace_test` DB when those vars are exported. The `identity/002`
+> checksum drift lives only in the dev `workspace` DB and is irrelevant when the
+> suite points at the test DB.
+>
+> **Folded into Task 5F:** run `make verify-local` with every
+> `*_DATABASE_URL` / `*_MIGRATOR_DATABASE_URL` exported to the freshly-reset
+> `javis_{agent,cosa,workspace}_test` DBs. No `DROP SCHEMA` on any dev database.
+> The dev-DB drift becomes a one-line note for the operator (Task 6), not an
+> action here.
 
 ---
 
@@ -1067,38 +1038,80 @@ node scripts/schema-fingerprint.mjs --check # against dev DBs — MATCH
 **Files:** whichever the sweep still surfaces — a genuine `legal.*`/`control_plane.*`/`operating.*`/`finance.*` structural gap folds into that plane's `restore_baseline_gaps` migration (all new & unreleased). No test weakening, no `type: ignore`, no `001_*` edit, no secret reuse.
 
 **Interfaces:**
-- Consumes: Tasks 1–4, 5A, 5B, 5C, 5C2, 5C3, 5D, 5E, plus Task 6's doc-link fixes.
+- Consumes: Tasks 1–4, 5A, 5B, 5C, 5C2, 5C3, 5D. (5E superseded — no dev reset.) Task 6's doc-link fixes should land before Step 3 for a fully-green `check-docs`, but `check-docs` failures are Task 6's, not this task's.
 - Produces: `make verify-local` green end to end; `make automation-mvp-e2e` 6/6.
 
-- [ ] **Step 1: Run the aggregate gate**
+- [ ] **Step 1: Reset the test DBs, then run the aggregate gate pointed at them**
 
 ```bash
 cd /Volumes/SSD/javis-saas
 set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+bash scripts/provision-founder-trial-test-dbs.sh
+env -u WORKSPACE_DATABASE_URL -u AGENT_DATABASE_URL -u COSA_DATABASE_URL \
+  AGENT_TEST_MIGRATOR_DATABASE_URL='postgresql+asyncpg://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/javis_agent_test' \
+  COSA_TEST_MIGRATOR_DATABASE_URL='postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/javis_cosa_test?sslmode=disable' \
+  WORKSPACE_TEST_MIGRATOR_DATABASE_URL='postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/javis_workspace_test?sslmode=disable' \
+  APP_ENV=test TEST_DATABASE_RESET=CONFIRM_FOUNDER_TRIAL_MVP_RESET node scripts/test-db-reset.mjs
+
+# now export the app + migrator URLs to the test DBs so every verify-local sub-target
+# (esp. e2e-test, which conftest.py resolves from os.environ) hits javis_*_test, NOT dev:
+export WORKSPACE_DATABASE_URL='postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/javis_workspace_test?sslmode=disable'
+export WORKSPACE_MIGRATOR_DATABASE_URL='postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/javis_workspace_test?sslmode=disable'
+export AGENT_DATABASE_URL='postgresql+asyncpg://agent_app:change-me-agent-app@127.0.0.1:5432/javis_agent_test'
+export AGENT_MIGRATOR_DATABASE_URL='postgresql+asyncpg://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/javis_agent_test'
+export COSA_DATABASE_URL='postgresql://cosa_app:change-me-cosa-app@127.0.0.1:5432/javis_cosa_test?sslmode=disable'
+export COSA_MIGRATOR_DATABASE_URL='postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/javis_cosa_test?sslmode=disable'
+# (confirm the exact app-role names/passwords from scripts/provision-founder-trial-test-dbs.sh)
+
 make verify-local 2>&1 | tee /tmp/verify-local.log
 ```
 
 `verify-local = lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs contract-freeze-check e2e-test e2e-cross-plane-smoke`.
 
-- [ ] **Step 2: For each failure, root-cause before fixing**
+Note: `e2e-cross-plane-smoke` boots its own `disposable_cluster` and ignores these vars — leave it. If exporting the app URLs breaks a sub-target that expected the dev DB, narrow the export to just what `e2e-test` needs.
 
-Use `superpowers:systematic-debugging`. After Tasks 5A–5E the expected state per sub-target:
-- **`lint`, `typecheck-py`, `boundary-check`, `contract-freeze-check`, `desktop-worker-test`** — green (unchanged / fixed by `404920f3`).
-- **`python-test-unit`, `knowledge-ingestion-test`** — green with the 5D skips. If a NON-descoped module still fails, that's a new finding — debug it, don't skip it.
-- **`python-test-integration`** — green (fixed by `6c2a1513`). If a test drives the AI-compliance HTTP path and needs regulation **content** rows, add the **minimal** seed into a new `services/company/finance-legal/migrations/00X_seed_min_legal_for_tests.up.sql` (separate file — seed is not structure), header naming each test that forced each row.
-- **`check-docs`** — Task 6 fixes the 15 pre-existing broken links; if any remain, they belong to Task 6, not here.
-- **`e2e-test`** — after 5E reset the dev DB and 5B/5C restored `operating.*`/`finance.*`, the golden path should boot. A remaining missing `<retained-schema>.*` column folds into that plane's `restore_baseline_gaps` migration from `81461673^`.
-- **`e2e-cross-plane-smoke`** — after 5A, S2 must reach a real `run.completed` with `runtime_signal_outbox` populated. Other scenarios were already green.
+- [ ] **Step 2: For each failure, root-cause before fixing** (`superpowers:systematic-debugging`)
+
+Expected state per sub-target after Tasks 1–5D:
+- **`lint`, `typecheck-py`, `boundary-check`, `contract-freeze-check`, `desktop-worker-test`** — green.
+- **`python-test-unit`, `knowledge-ingestion-test`** — green with the 5D surgical skips. A NON-descoped module failing = new finding: debug, don't skip.
+- **`python-test-integration`** — green (fixed by `6c2a1513`).
+- **`check-docs`** — Task 6 owns the 15 pre-existing broken links; not this task's failure.
+- **`e2e-test`** — with the URLs pointed at `javis_workspace_test` (fully migrated incl. Tasks 1/5B/5C/5C2/5C3) it should boot. Known residual: **`core.permission_definitions` is seeded with 0 rows** (`identity/001` created the table, never seeded the canonical permission/role rows) — some e2e + `operations`/`finance-legal` suites need those rows. Fix = a **minimal seed** migration `services/company/identity/migrations/003_seed_canonical_permissions.up.sql` (+ `.down.sql`) that upserts only the permission/role rows the failing assertions require (source: `git show 81461673^:services/company/identity/migrations/<the seed migration>` — find via `git show 81461673 --stat -- services/company/identity/migrations/ | grep -i perm`). Seed, not structure → its own migration; add its `_EXPECTED_LEDGER` row. If a different retained-schema **column** is missing, fold it into that plane's `restore_baseline_gaps` migration from the dump.
+- **`e2e-cross-plane-smoke`** — after 5A, S2 reaches a real `run.completed` with `runtime_signal_outbox` populated. If S2 now also needs `operating.runtime_source_signals` (5B restored it) the projection should complete. Other scenarios were green.
+
+- [ ] **Step 2b: Regenerate the golden fingerprint + ledger (single regen for the whole epic)**
+
+After all migrations are final and `verify-local` sub-targets pass:
+```bash
+node scripts/schema-fingerprint.mjs --write && node scripts/schema-fingerprint.mjs --check
+node scripts/check-migration-backward-compat.mjs
+node scripts/test-migration-rollback.mjs
+# extend tests/e2e/test_founder_trial_baseline_reset.py::_EXPECTED_LEDGER with every
+# migration added this epic that isn't already there:
+#   agent/005_fix_runtime_signal_outbox_sequence.sql
+#   finance-legal/003_restore_finance_baseline_gaps.up.sql
+#   commercial/002_restore_baseline_gaps.up.sql
+#   operations/005_restore_baseline_gaps.up.sql
+#   identity/003_seed_canonical_permissions.up.sql  (if added)
+# run the ledger pytest LAST (reverts fingerprints.json in teardown), then re-write:
+env -u AGENT_MIGRATOR_DATABASE_URL -u COSA_MIGRATOR_DATABASE_URL -u WORKSPACE_MIGRATOR_DATABASE_URL \
+  AGENT_TEST_MIGRATOR_DATABASE_URL=... COSA_TEST_MIGRATOR_DATABASE_URL=... WORKSPACE_TEST_MIGRATOR_DATABASE_URL=... \
+  .venv/bin/python -m pytest tests/e2e/test_founder_trial_baseline_reset.py tests/quality/test_founder_trial_baseline_inventory.py -q
+node scripts/schema-fingerprint.mjs --write && node scripts/schema-fingerprint.mjs --check
+```
+Commit the regenerated `deploy/schema/fingerprints.json` + `_EXPECTED_LEDGER` + `docs/architecture/generated/company-usage-inventory.md` (`make company-usage-inventory`) together.
 
 - [ ] **Step 3: Re-run until green**
 
 ```bash
 cd /Volumes/SSD/javis-saas
 set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+# re-export the javis_*_test URLs as in Step 1
 make verify-local
 ```
 
-Expected: exits 0.
+Expected: exits 0. (`check-docs` needs Task 6 landed first — if Task 6 isn't done, note `check-docs` as the only red and proceed.)
 
 - [ ] **Step 4: Confirm no Automation regression**
 
