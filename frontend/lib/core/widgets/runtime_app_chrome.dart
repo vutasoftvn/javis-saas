@@ -8,8 +8,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../modules/remote_access/controllers/remote_access_controller.dart';
-import '../../modules/remote_access/widgets/remote_access_banner.dart';
+import '../remote_access/controllers/remote_access_controller.dart';
+import '../remote_access/widgets/remote_access_banner.dart';
 
 class RuntimeAppChrome extends StatelessWidget {
   const RuntimeAppChrome({super.key, required this.child});

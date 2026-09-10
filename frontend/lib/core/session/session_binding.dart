@@ -17,7 +17,7 @@ import 'package:get/get.dart';
 
 import '../localization/locale_controller.dart';
 import '../services/module_visibility_controller.dart';
-import '../../modules/remote_access/controllers/remote_access_controller.dart';
+import '../remote_access/controllers/remote_access_controller.dart';
 import 'session_controller.dart';
 
 class SessionBinding extends Bindings {

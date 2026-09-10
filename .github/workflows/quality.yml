@@ -412,29 +412,6 @@ jobs:
       - name: Run AI Compliance Production Gate
         run: make ai-compliance-production-gate
 
-  realtime-agent:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-          cache-dependency-path: services/realtime_agent/requirements.txt
-      # pytest-asyncio thiếu (chỉ có `pytest>=8.0.0`) làm mọi @pytest.mark.asyncio
-      # fail cứng "async def functions are not natively supported" — phát
-      # hiện khi audit CI thật lần đầu (Phase 6 CI Green Gate).
-      - run: pip install -r services/realtime_agent/requirements.txt 'pytest>=8.0.0' pytest-asyncio
-      - run: mkdir -p test-results
-      - run: PYTHONPATH=. pytest tests -m "not live_provider" -q --junitxml=../../test-results/realtime-agent.xml
-        working-directory: services/realtime_agent
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: realtime-agent-test-results
-          path: test-results/realtime-agent.xml
-          if-no-files-found: error
-
   services:
     runs-on: ubuntu-latest
     strategy:

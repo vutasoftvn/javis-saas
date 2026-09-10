@@ -12,7 +12,7 @@ import 'core/localization/app_translations.dart';
 import 'core/localization/locale_controller.dart';
 import 'core/localization/supported_locale.dart';
 import './modules/auth/services/auth_service.dart';
-import './modules/remote_access/controllers/remote_access_controller.dart';
+import 'core/remote_access/controllers/remote_access_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
