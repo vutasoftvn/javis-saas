@@ -26,6 +26,22 @@ export interface MvpCapabilityMetadata {
 
 export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   {
+    id: "agent.knowledge.project.search",
+    enabled: true,
+    owner: "cosa-knowledge",
+    plane: "agent",
+    method: "POST",
+    path: "/agent/knowledge/projects/:projectId/search",
+    schema: "agent.knowledge.project.search.v1",
+    sourceKind: "agent_db",
+    requiresWorkspace: true,
+    requiresProject: true,
+    frontendSymbol: "ProjectKnowledgeService.search",
+    backendTest: "tests/apps/cosa/api/test_project_knowledge_routes.py",
+    flutterTest: "frontend/test/modules/knowledge/project_knowledge_service_test.dart",
+    integrationTest: "tests/integration/test_startup_core_knowledge_e2e.py",
+  },
+  {
     id: "commercial.contact.create",
     enabled: true,
     owner: "company-commercial",

@@ -35,6 +35,22 @@ class MvpCapabilityMetadata:
 
 MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     MvpCapabilityMetadata(
+        id="agent.knowledge.project.search",
+        enabled=True,
+        owner="cosa-knowledge",
+        plane="agent",
+        method="POST",
+        path="/agent/knowledge/projects/:projectId/search",
+        schema="agent.knowledge.project.search.v1",
+        source_kind="agent_db",
+        requires_workspace=True,
+        requires_project=True,
+        frontend_symbol="ProjectKnowledgeService.search",
+        backend_test="tests/apps/cosa/api/test_project_knowledge_routes.py",
+        flutter_test="frontend/test/modules/knowledge/project_knowledge_service_test.dart",
+        integration_test="tests/integration/test_startup_core_knowledge_e2e.py",
+    ),
+    MvpCapabilityMetadata(
         id="commercial.contact.create",
         enabled=True,
         owner="company-commercial",

@@ -272,6 +272,22 @@
       "backend_test": "services/cosa/tests/workspace-capability-manifest.test.ts",
       "flutter_test": "frontend/test/core/services/workspace_capability_manifest_controller_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
+    },
+    {
+      "id": "agent.knowledge.project.search",
+      "enabled": true,
+      "owner": "cosa-knowledge",
+      "plane": "agent",
+      "method": "POST",
+      "path": "/agent/knowledge/projects/:projectId/search",
+      "schema": "agent.knowledge.project.search.v1",
+      "source_kind": "agent_db",
+      "requires_workspace": true,
+      "requires_project": true,
+      "frontend_symbol": "ProjectKnowledgeService.search",
+      "backend_test": "tests/apps/cosa/api/test_project_knowledge_routes.py",
+      "flutter_test": "frontend/test/modules/knowledge/project_knowledge_service_test.dart",
+      "integration_test": "tests/integration/test_startup_core_knowledge_e2e.py"
     }
   ]
 }

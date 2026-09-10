@@ -425,6 +425,28 @@ async def delete_document(
     return mvp_item(ArchiveOrPurgeOut(document_id=document_id, accepted=True), [_VAULT_SOURCE])
 
 
+@router.post("/documents/{document_id}/revoke", response_model=MvpSuccess[ArchiveOrPurgeOut])
+async def revoke_document(
+    request: Request,
+    document_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[ArchiveOrPurgeOut]:
+    """Revoke a published document."""
+    plane = _get_plane(request)
+    doc_uuid = _parse_document_id(document_id)
+    auth = KnowledgeAuthorization(plane.vault_repository)
+    decision = await auth.resolve(identity, doc_uuid)
+    if not decision.manage:
+        raise HTTPException(status_code=404, detail="not found")
+
+    updated = await plane.vault_repository.update_document_state(
+        identity.workspace_id, doc_uuid, "REVOKED"
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return mvp_item(ArchiveOrPurgeOut(document_id=document_id, accepted=True), [_VAULT_SOURCE])
+
+
 @router.post(
     "/documents/{document_id}/purge",
     status_code=202,

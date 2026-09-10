@@ -5,6 +5,15 @@
 import 'api_result.dart';
 
 enum MvpEndpoint {
+  agentKnowledgeProjectSearch(
+    id: 'agent.knowledge.project.search',
+    enabled: true,
+    plane: ApiPlane.agent,
+    method: 'POST',
+    path: '/agent/knowledge/projects/:projectId/search',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
   commercialContactCreate(
     id: 'commercial.contact.create',
     enabled: true,
