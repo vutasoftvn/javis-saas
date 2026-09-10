@@ -9,14 +9,21 @@ auto-sequence rơi về `bigint NOT NULL` trần. Ba migration khôi phục đã
   - services/company/identity/migrations/002_restore_business_policy_tables.up.sql
     (integration.event_outbox.id, integration.event_audit.id)
   - packages/agent/migrations/004_restore_baseline_identity_columns.sql
-    (agent.run_events.sequence_no, agent.runtime_signal_outbox.sequence,
-     agent_conversation.messages.sequence_no,
+    (agent.run_events.sequence_no, agent_conversation.messages.sequence_no,
      agent_conversation.run_stream_events.sequence)
   - services/cosa/migrations/005_restore_baseline_gaps.up.sql
     (control_plane.document_ingestion_audit_events.id)
 
 Test này bắt lỗi tái diễn: nếu một lần regenerate baseline sau này lại strip mất
 một mệnh đề identity, guard sẽ đỏ.
+
+Lưu ý (SP-A Task 5A): `agent.runtime_signal_outbox.sequence` KHÔNG phải cột
+DB-generated — nó là một thành phần natural-key do caller cấp
+(`enqueue_runtime_signal` INSERT tường minh, `ON CONFLICT (workspace_id,
+source_kind, source_id, sequence)`). Migration 004 (một Phase-3 commit) phân
+loại nhầm nó là auto-sequence và gắn lại `GENERATED ALWAYS AS IDENTITY`;
+migration 005 gỡ IDENTITY đó ra. Vì vậy cột này bị loại khỏi
+`DB_GENERATED_COLUMNS` (7 -> 6).
 """
 
 from __future__ import annotations
@@ -34,7 +41,6 @@ DB_GENERATED_COLUMNS = [
     ("integration", "event_audit", "id"),
     ("control_plane", "document_ingestion_audit_events", "id"),
     ("agent", "run_events", "sequence_no"),
-    ("agent", "runtime_signal_outbox", "sequence"),
     ("agent_conversation", "messages", "sequence_no"),
     ("agent_conversation", "run_stream_events", "sequence"),
 ]
@@ -124,7 +130,7 @@ def test_every_db_generated_column_has_an_identity_clause():
 def test_declared_generated_identity_sources_are_all_listed():
     """Nếu một schema source thêm cột `.generatedAlwaysAsIdentity()` mới,
     DB_GENERATED_COLUMNS phải được cập nhật — fail thật to để guard ở trên vẫn
-    đầy đủ. Lưu ý: 4 cột agent sequence được gắn lại bằng raw SQL ALTER (không
+    đầy đủ. Lưu ý: 3 cột agent sequence được gắn lại bằng raw SQL ALTER (không
     phải Drizzle) nên chúng KHÔNG nằm trong grep này nhưng vẫn thuộc
     DB_GENERATED_COLUMNS."""
     sources = list((ROOT / "services/company/shared/db/schema").glob("*.ts"))
