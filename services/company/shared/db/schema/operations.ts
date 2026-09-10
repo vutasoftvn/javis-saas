@@ -720,7 +720,6 @@ export const cycleReviews = operatingSchema.table(
     status: varchar("status", { length: 50 }).default("SCHEDULED").notNull(), // 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED' | 'SUPERSEDED'
     krSnapshots: jsonb("kr_snapshots").default([]).notNull(),
     initiativeSnapshots: jsonb("initiative_snapshots").default([]).notNull(),
-    pestelSnapshots: jsonb("pestel_snapshots").default([]).notNull(),
     decisionId: bigint("decision_id", { mode: "bigint" }),
     conclusion: text("conclusion"),
     conductedByMemberId: bigint("conducted_by_member_id", { mode: "bigint" }),

@@ -4,34 +4,6 @@ import { identityWorkspaces } from "./identity";
 
 
 // 1. Stage Policies
-export const stagePolicies = strategySchema.table("stage_policies", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  stageKey: varchar("stage_key", { length: 50 }).notNull(),
-  requirements: jsonb("requirements").default([]).notNull(),
-  minimumEvidenceScore: doublePrecision("minimum_evidence_score").default(0.0).notNull(),
-  blockingRiskRules: jsonb("blocking_risk_rules").default([]).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-// 2. Stage Transition Policies (config edge/policy — KHÔNG phải history journal; xem workspaceStageTransitions)
-export const stageTransitionPolicies = strategySchema.table("stage_transition_policies", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  fromStage: varchar("from_stage", { length: 50 }).notNull(),
-  toStage: varchar("to_stage", { length: 50 }).notNull(),
-  policyId: bigint("policy_id", { mode: "bigint" }).references(() => stagePolicies.id, { onDelete: "set null" }),
-  allowed: boolean("allowed").default(true).notNull(),
-  // M4 §2 — versioned policy: journal ghi lại policy_version áp dụng cho từng transition.
-  policyVersion: text("policy_version").default("v1").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-// 3. Assumptions
 export const assumptions = strategySchema.table("assumptions", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
@@ -132,31 +104,10 @@ export const discoverySignals = strategySchema.table("discovery_signals", {
 });
 
 // 8. Gate Evaluations
-export const gateEvaluations = strategySchema.table("gate_evaluations", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
-  stagePolicyId: bigint("stage_policy_id", { mode: "bigint" }).references(() => stagePolicies.id, { onDelete: "set null" }),
-  requirementsMet: boolean("requirements_met").default(false).notNull(),
-  evidenceScore: doublePrecision("evidence_score").default(0.0).notNull(),
-  blockingRisks: jsonb("blocking_risks").default([]).notNull(),
-  result: varchar("result", { length: 50 }).default("pending").notNull(),
-  rationale: text("rationale").default("").notNull(),
-  humanOverride: boolean("human_override").default(false).notNull(),
-  provenanceSnapshot: jsonb("provenance_snapshot").default({}).notNull(),
-  decisionId: bigint("decision_id", { mode: "bigint" }),
-  expectedStageVersion: integer("expected_stage_version"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-// 9. Decision Records
 export const decisionRecords = strategySchema.table("decision_records", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).references(() => projects.id, { onDelete: "cascade" }),
-  gateEvaluationId: bigint("gate_evaluation_id", { mode: "bigint" }).references(() => gateEvaluations.id, { onDelete: "set null" }),
   decision: varchar("decision", { length: 50 }).notNull(),
   decisionType: text("decision_type"),
   createdByKind: text("created_by_kind"), // 'FOUNDER' | 'AI' | 'SYSTEM'
@@ -178,32 +129,6 @@ export const decisionRecords = strategySchema.table("decision_records", {
 });
 
 // 10. Next Action Candidates
-export const nextActionCandidates = strategySchema.table("next_action_candidates", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
-  source: varchar("source", { length: 50 }).notNull(),
-  score: doublePrecision("score").default(0.0).notNull(),
-  rationale: text("rationale").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-// 11. Next Action Rankings
-export const nextActionRankings = strategySchema.table("next_action_rankings", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
-  candidateId: bigint("candidate_id", { mode: "bigint" }).notNull().references(() => nextActionCandidates.id, { onDelete: "cascade" }),
-  rank: integer("rank").notNull(),
-  llmRerankNote: text("llm_rerank_note"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-// 12. Venture Profiles
 export const ventureProfiles = strategySchema.table("venture_profiles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().unique(),
@@ -221,69 +146,6 @@ export const ventureProfiles = strategySchema.table("venture_profiles", {
 });
 
 // 13. Workspace Stage Transitions Journal (history — M4 §1 đổi tên từ venture_stage_transitions)
-export const workspaceStageTransitions = strategySchema.table("workspace_stage_transitions", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  fromStage: varchar("from_stage", { length: 50 }).notNull(),
-  toStage: varchar("to_stage", { length: 50 }).notNull(),
-  reason: text("reason").notNull(),
-  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
-  overrideFlag: boolean("override_flag").default(false).notNull(),
-  // M4 §2 — CAS + provenance: version workspace lúc transition, nguồn, role actor,
-  // policy_version áp dụng, ref approval override, và snapshot evidence/eval kèm quyết định.
-  stageVersionFrom: integer("stage_version_from"),
-  source: text("source").default("manual").notNull(), // manual | autonomous | api | system
-  actorRole: text("actor_role"),
-  policyVersion: text("policy_version"),
-  overrideApprovalRef: text("override_approval_ref"),
-  evidenceSnapshot: jsonb("evidence_snapshot").default({}).notNull(),
-  evaluationResult: jsonb("evaluation_result"),
-  provenanceSnapshot: jsonb("provenance_snapshot").default({}).notNull(),
-  decisionId: bigint("decision_id", { mode: "bigint" }),
-  expectedStageVersion: integer("expected_stage_version"),
-  decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 13b. Project Stage Transition Policies (M4 §3 — riêng cho Project P0..P6, KHÔNG dùng chung Workspace)
-export const projectStageTransitionPolicies = strategySchema.table("project_stage_transition_policies", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }),
-  fromStage: varchar("from_stage", { length: 50 }).notNull(),
-  toStage: varchar("to_stage", { length: 50 }).notNull(),
-  allowed: boolean("allowed").default(true).notNull(),
-  policyVersion: text("policy_version").default("v1").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-// 13c. Project Stage Transitions Journal (M4 §3)
-export const projectStageTransitions = strategySchema.table("project_stage_transitions", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
-  fromStage: varchar("from_stage", { length: 50 }).notNull(),
-  toStage: varchar("to_stage", { length: 50 }).notNull(),
-  reason: text("reason").notNull(),
-  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
-  actorRole: text("actor_role"),
-  overrideFlag: boolean("override_flag").default(false).notNull(),
-  overrideApprovalRef: text("override_approval_ref"),
-  source: text("source").default("manual").notNull(),
-  stageVersionFrom: integer("stage_version_from"),
-  policyVersion: text("policy_version"),
-  evidenceSnapshot: jsonb("evidence_snapshot").default({}).notNull(),
-  evaluationResult: jsonb("evaluation_result"),
-  provenanceSnapshot: jsonb("provenance_snapshot").default({}).notNull(),
-  decisionId: bigint("decision_id", { mode: "bigint" }),
-  expectedStageVersion: integer("expected_stage_version"),
-  decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 13d. Project Operating Setups (Founder Project Kickoff)
 export const projectOperatingSetups = strategySchema.table("project_operating_setups", {
   projectId: bigint("project_id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
@@ -429,74 +291,10 @@ export const metricSnapshots = strategySchema.table("metric_snapshots", {
 });
 
 // 19. PMF Scoreboard Runs (Tranche B2 / Task 3)
-export const pmfScoreboardRuns = strategySchema.table("pmf_scoreboard_runs", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
-  contractVersionIds: jsonb("contract_version_ids").default([]).notNull(),
-  inputSnapshotIds: jsonb("input_snapshot_ids").default([]).notNull(),
-  reviewedEvidenceIds: jsonb("reviewed_evidence_ids").default([]).notNull(),
-  policyVersion: text("policy_version").default("v1").notNull(),
-  scoreComponents: jsonb("score_components").default([]).notNull(),
-  missingDataFlags: jsonb("missing_data_flags").default([]).notNull(),
-  reliabilityFlags: jsonb("reliability_flags").default([]).notNull(),
-  calculationHash: text("calculation_hash").notNull(),
-  result: varchar("result", { length: 50 }).notNull(),
-  humanReviewState: jsonb("human_review_state").default({}).notNull(),
-  calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 20. Maturity Assessments (Tranche B2 / Task 3)
-export const maturityAssessments = strategySchema.table("maturity_assessments", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
-  scoreboardRunId: bigint("scoreboard_run_id", { mode: "bigint" }).references(() => pmfScoreboardRuns.id, { onDelete: "set null" }),
-  dimensions: jsonb("dimensions").default({}).notNull(),
-  assessedAt: timestamp("assessed_at", { withTimezone: true }).defaultNow().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 21. Strategy Canvases (Full MVP)
-export const canvases = strategySchema.table("canvases", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-  currentRevisionId: bigint("current_revision_id", { mode: "bigint" }),
-  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-// 22. Strategy Canvas Revisions (Full MVP)
-export const canvasRevisions = strategySchema.table("canvas_revisions", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  canvasId: bigint("canvas_id", { mode: "bigint" }).notNull().references(() => canvases.id, { onDelete: "cascade" }),
-  parentRevisionId: bigint("parent_revision_id", { mode: "bigint" }),
-  content: jsonb("content").notNull(),
-  status: text("status").notNull(), // 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED'
-  origin: text("origin").notNull(), // 'USER' | 'MODEL_DRAFT'
-  sourceRefs: jsonb("source_refs").default([]).notNull(),
-  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
-  reviewedByMemberId: bigint("reviewed_by_member_id", { mode: "bigint" }),
-  reviewNote: text("review_note"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-});
-
-// 23. Workspace Strategy Settings
 export const workspaceStrategySettings = strategySchema.table("workspace_strategy_settings", {
   workspaceId: bigint("workspace_id", { mode: "bigint" })
     .primaryKey()
     .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  strategyMethod: text("strategy_method").default("CLASSIC").notNull(),
-  bscMode: text("bsc_mode").default("OFF").notNull(),
-  enabledBscPerspectives: jsonb("enabled_bsc_perspectives").$type<string[]>().default([]).notNull(),
-  towsSelectionLimit: integer("tows_selection_limit").default(1).notNull(),
   weeklyReviewEnabled: boolean("weekly_review_enabled").default(true).notNull(),
   midCycleReviewPolicy: text("mid_cycle_review_policy").default("AUTO").notNull(),
   endCycleReviewEnabled: boolean("end_cycle_review_enabled").default(true).notNull(),
@@ -508,155 +306,3 @@ export const workspaceStrategySettings = strategySchema.table("workspace_strateg
 });
 
 // 24. Strategic Objectives
-export const strategicObjectives = strategySchema.table("strategic_objectives", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" })
-    .notNull()
-    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  projectId: bigint("project_id", { mode: "bigint" })
-    .references(() => projects.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  successDefinition: text("success_definition"),
-  timeHorizonEnd: timestamp("time_horizon_end", { withTimezone: true }),
-  status: text("status").default("DRAFT").notNull(), // DRAFT | ACTIVE | ARCHIVED
-  ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
-  settingsRevision: integer("settings_revision"),
-  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
-  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
-  revision: integer("revision").default(1).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 25. BSC Focus Scopes
-export const bscFocusScopes = strategySchema.table("bsc_focus_scopes", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" })
-    .notNull()
-    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
-    .notNull()
-    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
-  perspective: text("perspective").notNull(), // FINANCIAL | CUSTOMER | INTERNAL_PROCESS | LEARNING_AND_GROWTH
-  focusQuestion: text("focus_question"),
-  focusStatement: text("focus_statement").notNull(),
-  priority: integer("priority").default(1).notNull(),
-  status: text("status").default("ACTIVE").notNull(), // ACTIVE | INACTIVE | ARCHIVED
-  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
-  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
-  revision: integer("revision").default(1).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 26. PESTEL Signals
-export const pestelSignals = strategySchema.table("pestel_signals", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" })
-    .notNull()
-    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
-    .notNull()
-    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
-  dimension: text("dimension").notNull(), // POLITICAL | ECONOMIC | SOCIAL | TECHNOLOGICAL | ENVIRONMENTAL | LEGAL
-  statement: text("statement").notNull(),
-  impact: text("impact").notNull(), // HIGH | MEDIUM | LOW | POSITIVE | NEGATIVE
-  certainty: text("certainty").notNull(), // HIGH | MEDIUM | LOW
-  evidenceRefs: jsonb("evidence_refs").$type<string[]>().default([]).notNull(),
-  bscPerspectives: jsonb("bsc_perspectives").$type<string[]>().default([]).notNull(),
-  status: text("status").default("DRAFT").notNull(), // DRAFT | ACTIVE | ARCHIVED
-  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
-  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
-  revision: integer("revision").default(1).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 27. Resource & Capability Assessments
-export const resourceCapabilityAssessments = strategySchema.table("resource_capability_assessments", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" })
-    .notNull()
-    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
-    .notNull()
-    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
-  category: text("category").notNull(), // FINANCIAL_RESOURCE | HUMAN_ORGANIZATIONAL_CAPABILITY | INTELLECTUAL_DATA_IP_ASSET | TECHNOLOGY_OPERATIONAL_ASSET | MARKET_RELATIONSHIP_ASSET | GOVERNANCE_LEGAL_RISK_CAPABILITY
-  statement: text("statement").notNull(),
-  strengthLevel: text("strength_level").notNull(), // STRONG | ADEQUATE | WEAK
-  evidenceRefs: jsonb("evidence_refs").$type<string[]>().default([]).notNull(),
-  bscPerspectives: jsonb("bsc_perspectives").$type<string[]>().default([]).notNull(),
-  status: text("status").default("DRAFT").notNull(), // DRAFT | ACTIVE | ARCHIVED
-  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
-  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
-  revision: integer("revision").default(1).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 28. SWOT Items
-export const swotItems = strategySchema.table("swot_items", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" })
-    .notNull()
-    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
-    .notNull()
-    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
-  kind: text("kind").notNull(), // STRENGTH | WEAKNESS | OPPORTUNITY | THREAT
-  statement: text("statement").notNull(),
-  sourceType: text("source_type").notNull(), // PESTEL_SIGNAL | RESOURCE_CAPABILITY | MANUAL
-  sourceId: bigint("source_id", { mode: "bigint" }),
-  evidenceRefs: jsonb("evidence_refs").$type<string[]>().default([]).notNull(),
-  bscPerspectives: jsonb("bsc_perspectives").$type<string[]>().default([]).notNull(),
-  status: text("status").default("DRAFT").notNull(), // DRAFT | ACTIVE | ARCHIVED
-  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
-  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
-  revision: integer("revision").default(1).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 29. TOWS Options
-export const towsOptions = strategySchema.table("tows_options", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" })
-    .notNull()
-    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" })
-    .notNull()
-    .references(() => strategicObjectives.id, { onDelete: "cascade" }),
-  quadrant: text("quadrant").notNull(), // SO | WO | ST | WT
-  title: text("title").notNull(),
-  rationale: text("rationale"),
-  swotItemIds: jsonb("swot_item_ids").$type<string[]>().default([]).notNull(),
-  status: text("status").default("DRAFT").notNull(), // DRAFT | PROPOSED | SELECTED | REJECTED | SUPERSEDED
-  aiProvenance: jsonb("ai_provenance").$type<Record<string, any>>(),
-  selectedByMemberId: bigint("selected_by_member_id", { mode: "bigint" }),
-  selectedAt: timestamp("selected_at", { withTimezone: true }),
-  decisionId: bigint("decision_id", { mode: "bigint" }).references(() => decisionRecords.id, { onDelete: "set null" }),
-  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
-  updatedByMemberId: bigint("updated_by_member_id", { mode: "bigint" }),
-  revision: integer("revision").default(1).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// 30. TOWS Option Evaluations
-export const towsOptionEvaluations = strategySchema.table("tows_option_evaluations", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" })
-    .notNull()
-    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  towsOptionId: bigint("tows_option_id", { mode: "bigint" })
-    .notNull()
-    .references(() => towsOptions.id, { onDelete: "cascade" }),
-  impactScore: integer("impact_score").notNull(),
-  difficultyScore: integer("difficulty_score").notNull(),
-  rationale: text("rationale"),
-  scoredByMemberId: bigint("scored_by_member_id", { mode: "bigint" }),
-  scorerKind: text("scorer_kind").default("HUMAN").notNull(), // HUMAN | AI_AGENT
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-

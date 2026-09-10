@@ -246,7 +246,6 @@ CREATE TABLE IF NOT EXISTS strategy.decision_records (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,
     project_id bigint,
-    gate_evaluation_id bigint,
     decision character varying(50) NOT NULL,
     actor_member_id bigint,
     evidence_snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -292,7 +291,6 @@ CREATE TABLE IF NOT EXISTS operating.cycle_reviews (
     status character varying(50) DEFAULT 'SCHEDULED'::character varying NOT NULL,
     kr_snapshots jsonb DEFAULT '[]'::jsonb NOT NULL,
     initiative_snapshots jsonb DEFAULT '[]'::jsonb NOT NULL,
-    pestel_snapshots jsonb DEFAULT '[]'::jsonb NOT NULL,
     decision_id bigint,
     conclusion text,
     conducted_by_member_id bigint,
@@ -546,10 +544,6 @@ CREATE INDEX IF NOT EXISTS idx_project_operating_setups_workspace_status ON stra
 
 CREATE TABLE IF NOT EXISTS strategy.workspace_strategy_settings (
     workspace_id bigint NOT NULL,
-    strategy_method text DEFAULT 'CLASSIC'::text NOT NULL,
-    bsc_mode text DEFAULT 'OFF'::text NOT NULL,
-    enabled_bsc_perspectives jsonb DEFAULT '[]'::jsonb NOT NULL,
-    tows_selection_limit smallint DEFAULT 1 NOT NULL,
     weekly_review_enabled boolean DEFAULT true NOT NULL,
     mid_cycle_review_policy text DEFAULT 'AUTO'::text NOT NULL,
     end_cycle_review_enabled boolean DEFAULT true NOT NULL,
@@ -559,10 +553,7 @@ CREATE TABLE IF NOT EXISTS strategy.workspace_strategy_settings (
     updated_by_member_id bigint,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT workspace_strategy_settings_approval_policy_check CHECK ((approval_policy = ANY (ARRAY['FOUNDER_ONLY'::text, 'DELEGATED_APPROVER'::text]))),
-    CONSTRAINT workspace_strategy_settings_bsc_mode_check CHECK ((bsc_mode = ANY (ARRAY['OFF'::text, 'OPTIONAL'::text, 'REQUIRED'::text]))),
-    CONSTRAINT workspace_strategy_settings_mid_cycle_review_policy_check CHECK ((mid_cycle_review_policy = ANY (ARRAY['OFF'::text, 'AUTO'::text, 'CUSTOM'::text]))),
-    CONSTRAINT workspace_strategy_settings_strategy_method_check CHECK ((strategy_method = ANY (ARRAY['CLASSIC'::text, 'BSC_FILTER'::text]))),
-    CONSTRAINT workspace_strategy_settings_tows_selection_limit_check CHECK (((tows_selection_limit >= 1) AND (tows_selection_limit <= 2)))
+    CONSTRAINT workspace_strategy_settings_mid_cycle_review_policy_check CHECK ((mid_cycle_review_policy = ANY (ARRAY['OFF'::text, 'AUTO'::text, 'CUSTOM'::text])))
 );
 
 DO $$ BEGIN
