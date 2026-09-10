@@ -715,28 +715,43 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `operating.runtime_source_signals`, `operating.task_projects` (and any sibling `operating.*` / `strategy.*` table the `e2e-test` sweep proves missing) exist, matching `services/company/shared/db/schema/operating.ts` / `strategy.ts`. `operating` and `strategy` are RETAINED R1 schemas (`test_founder_trial_baseline_inventory.py::RETAINED_SCHEMAS["company-operations"]`).
+- Produces: every `operating.*` / `strategy.*` table declared in `services/company/shared/db/schema/operations.ts` + `strategy.ts` but absent from `services/company/operations/migrations/001_founder_trial_mvp_baseline.up.sql` now exists. `operating` and `strategy` are RETAINED R1 schemas (`test_founder_trial_baseline_inventory.py::RETAINED_SCHEMAS["company-operations"]`).
 
-`operations` migrations currently: `001_founder_trial_mvp_baseline.up.sql` + `003_cosa_automation_mvp.up.sql`. Add `004`.
+`operations` migrations currently: `001_founder_trial_mvp_baseline.up.sql` + `003_cosa_automation_mvp.up.sql`. Add `004_restore_baseline_gaps.up.sql` + `.down.sql`.
 
-- [ ] **Step 1: Enumerate the gap**
+**Controller research (2026-09-10) — the gap set and its exact source migrations:**
+
+| Drizzle decl (missing from `001`) | Source migration at `81461673^` |
+|---|---|
+| `operations.ts:585` `operating.task_projects` | `services/company/operations/migrations/14_project_link_tables.up.sql` |
+| `operations.ts:684` `operating.runtime_source_signals` | `services/company/operations/migrations/33_mvp_strategy_canvas_runtime.up.sql` |
+| `operations.ts:698` `operating.runtime_snoozes` | `33_mvp_strategy_canvas_runtime.up.sql` |
+| `strategy.ts:462` `strategy.canvases` | `33_mvp_strategy_canvas_runtime.up.sql` |
+| `strategy.ts:475` `strategy.canvas_revisions` | `33_mvp_strategy_canvas_runtime.up.sql` |
+| `strategy.okr_objective_projects` (verify it's in `strategy.ts`) | `14_project_link_tables.up.sql` |
+
+`14_project_link_tables.up.sql` is 2 tables (`operating.task_projects`, `strategy.okr_objective_projects`) with composite FKs into `operating.tasks` / `strategy.projects` / `strategy.okr_objectives` (+ 2 indexes each). `33_mvp_strategy_canvas_runtime.up.sql` is `strategy.canvases`, `strategy.canvas_revisions` (composite FK + CHECKs), `operating.runtime_source_signals` (`UNIQUE (workspace_id, source_kind, source_id, sequence)`), `operating.runtime_snoozes` (+ indexes).
+
+- [ ] **Step 1: Confirm the exact missing set**
 
 ```bash
 cd /Volumes/SSD/javis-saas
-# what operating.* / strategy.* tables does the Drizzle schema declare?
-grep -oE '\.table\("(\w+)"' services/company/shared/db/schema/operating.ts services/company/shared/db/schema/strategy.ts | sort -u
-# what does baseline 001 actually create?
-grep -oE 'CREATE TABLE (IF NOT EXISTS )?(operating|strategy)\.\w+' services/company/operations/migrations/001_founder_trial_mvp_baseline.up.sql | sort -u
-# diff → the missing set. Cross-check with the e2e-test failure list (Task 5 report §2.5):
-#   operating.runtime_source_signals, operating.task_projects were named explicitly.
+# Drizzle-declared operating.*/strategy.* table names:
+grep -oE '(operating|strategy)Schema\.table\("(\w+)"' services/company/shared/db/schema/operations.ts services/company/shared/db/schema/strategy.ts | sed -E 's/.*"(\w+)"/\1/' | sort -u
+# baseline 001 creates:
+grep -oE 'CREATE TABLE (IF NOT EXISTS )?(operating|strategy)\.\w+' services/company/operations/migrations/001_founder_trial_mvp_baseline.up.sql | sed -E 's/.*(operating|strategy)\./\1./' | sort -u
 ```
-Also apply the test DBs and probe: `PGPASSWORD=change-me-workspace-migrator psql -h 127.0.0.1 -U workspace_migrator -d javis_workspace_test -c "\dt operating.*"`.
+The difference is your table list. Cross-check it against the controller table above; if the diff turns up MORE missing tables than listed, restore those too (same gap class). If it turns up FEWER (e.g. `okr_objective_projects` is actually in `001`), restore only what's genuinely missing. Also probe the migrated test DB: `PGPASSWORD=change-me-workspace-migrator psql -h 127.0.0.1 -U workspace_migrator -d javis_workspace_test -c "\dt operating.* strategy.*"`.
 
-- [ ] **Step 2: Reconstruct DDL**
+- [ ] **Step 2: Reconstruct DDL into `004_restore_baseline_gaps.up.sql`**
 
-For each missing table, pull its real DDL from the deleted operations migrations at `81461673^` (candidates by name: `14_project_link_tables.up.sql` for `task_projects`; the runtime-source-signals table is likely in a mission/runtime migration — `git show 81461673 --stat -- services/company/operations/migrations/ | grep -iE "signal|runtime|source|mission"`, then `git show 81461673^:services/company/operations/migrations/<file>`). Keep `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `ADD CONSTRAINT` (wrapped in `DO $$ ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`) only. Strip `INSERT`/`UPDATE`/`DELETE` and `NOT VALID`/`VALIDATE` pairs. Cross-check every column against `operating.ts` / `strategy.ts` — **Drizzle wins on disagreement**. Snowflake bigint PKs: `id bigint` no identity, unless the `.ts` says `.generatedAlwaysAsIdentity()`.
+```bash
+git show 81461673^:services/company/operations/migrations/14_project_link_tables.up.sql
+git show 81461673^:services/company/operations/migrations/33_mvp_strategy_canvas_runtime.up.sql
+```
+Reproduce the `CREATE TABLE` / `CREATE INDEX` verbatim BUT: every `CREATE TABLE` → `CREATE TABLE IF NOT EXISTS` (some already are), every `CREATE INDEX` → `CREATE INDEX IF NOT EXISTS`, and wrap any bare `ALTER TABLE ... ADD CONSTRAINT` (there are none in these two, the FKs are inline) in `DO $$ ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`. Strip nothing else — these two files are pure DDL (no INSERT/UPDATE). Order: parent tables before children (`strategy.canvases` before `strategy.canvas_revisions`; `task_projects`/`okr_objective_projects` need `operating.tasks`, `strategy.projects`, `strategy.okr_objectives` which `001` already created). Cross-check every column + constraint name against `operations.ts` / `strategy.ts` — **Drizzle wins on disagreement**; note any deviation in the report. `id BIGINT PRIMARY KEY` no identity (Snowflake, app-supplied) unless the `.ts` says `.generatedAlwaysAsIdentity()`.
 
-- [ ] **Step 3: `.down.sql`** — `DROP TABLE IF EXISTS operating.<t> CASCADE;` for each table added, child-first.
+- [ ] **Step 3: `.down.sql`** — `DROP TABLE IF EXISTS <schema>.<t> CASCADE;` for each table added, child-first (`canvas_revisions` before `canvases`; the link tables before nothing in particular). Do not drop schemas.
 
 - [ ] **Step 4: Apply + verify**
 
