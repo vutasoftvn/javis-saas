@@ -36,6 +36,8 @@ from agent.runs.control_plane_client import HttpControlPlaneLeaseClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from tests.e2e.stack.subprocess_stack import WORKER_SERVICE_JWT_SECRET
+
 __all__ = [
     "test_independent_run_ids_parallel_acquisition",
     "test_lease_lifecycle_fencing_and_expiry_handover",
@@ -44,11 +46,12 @@ __all__ = [
 
 
 def _sign_worker_token(worker_id: str) -> str:
-    secret = (
-        os.environ.get("WORKER_SERVICE_JWT_SECRET")
-        or os.environ.get("PLATFORM_JWT_SECRET")
-        or "cosa-worker-service-jwt-key-change-in-prod-min32chars"
-    )
+    # Ký bằng ĐÚNG secret mà fixture ép vào tiến trình `services/cosa` vừa spawn
+    # (`subprocess_stack._clean_env()` luôn `env.update(_SECRETS)`, ghi đè shell
+    # env). Trước đây hàm này đọc `os.environ` nên khi dev đã `source .env`
+    # (đúng quy trình tài liệu) thì signer dùng secret .env còn verifier dùng
+    # dev default -> 401 Unauthorized. Pin theo hằng số dùng chung để ký == verify.
+    secret = WORKER_SERVICE_JWT_SECRET
     return jwt.encode(
         {
             "sub": worker_id,

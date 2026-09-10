@@ -39,16 +39,18 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from apps.cosa.auth.jwt import mint_delegation_token
+from tests.e2e.stack.subprocess_stack import WORKER_SERVICE_JWT_SECRET
 
 __all__ = ["test_two_real_processes_crash_recovery_real_worker"]
 
 
 def _sign_worker_token(worker_id: str) -> str:
-    secret = (
-        os.environ.get("WORKER_SERVICE_JWT_SECRET")
-        or os.environ.get("PLATFORM_JWT_SECRET")
-        or "cosa-worker-service-jwt-key-change-in-prod-min32chars"
-    )
+    # Ký bằng ĐÚNG secret mà fixture ép vào tiến trình `services/cosa` vừa spawn
+    # (`subprocess_stack._clean_env()` luôn `env.update(_SECRETS)`, ghi đè shell
+    # env). Trước đây hàm này đọc `os.environ` nên khi dev đã `source .env`
+    # (đúng quy trình tài liệu) thì signer dùng secret .env còn verifier dùng
+    # dev default -> 401 Unauthorized. Pin theo hằng số dùng chung để ký == verify.
+    secret = WORKER_SERVICE_JWT_SECRET
     return jwt.encode(
         {
             "sub": worker_id,
@@ -220,6 +222,13 @@ def test_two_real_processes_crash_recovery_real_worker(
     env_base["DATABASE_URL"] = control_plane_dsn
     env_base["AGENT_DATABASE_URL"] = agent_dsn
     env_base["COSA_CONTROL_PLANE_URL"] = control_plane_service
+    # `COSA_CONTROL_PLANE_URL` chỉ là fallback CẤP 2 trong `config/planes.py`.
+    # Nếu shell đã `source .env` (đúng quy trình tài liệu) thì
+    # `COSA_EXECUTION_PLANE_URL`/`COSA_PLATFORM_CONTROL_PLANE_URL` = :4001 sẽ
+    # THẮNG và worker con poll nhầm cổng dev đã chết -> "All connection attempts
+    # failed". Pin cả 3 biến về service vừa spawn, giống `boot_subprocess_stack`.
+    env_base["COSA_EXECUTION_PLANE_URL"] = control_plane_service
+    env_base["COSA_PLATFORM_CONTROL_PLANE_URL"] = control_plane_service
 
     try:
         # --- Phase 1: Process A starts, claims lease/task, then gets killed ---
@@ -247,7 +256,16 @@ def test_two_real_processes_crash_recovery_real_worker(
             if proc_a.poll() is not None:
                 break
             time.sleep(0.2)
-        assert claimed, "Worker A did not claim the task within timeout"
+        if not claimed:
+            # Worker A chết sớm => stdout/stderr của nó là bằng chứng DUY NHẤT
+            # về nguyên nhân; không nuốt nó đi rồi báo "timeout" mơ hồ.
+            if proc_a.poll() is None:
+                proc_a.kill()
+            early_out = proc_a.communicate()[0] if proc_a.stdout else b""
+            raise AssertionError(
+                "Worker A did not claim the task within timeout; "
+                f"returncode={proc_a.returncode}, output:\n{early_out.decode(errors='replace')}"
+            )
 
         # Kill worker A mid-execution
         proc_a.terminate()
