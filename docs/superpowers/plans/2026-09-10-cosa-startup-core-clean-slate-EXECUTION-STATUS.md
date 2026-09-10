@@ -111,6 +111,51 @@ fingerprint Gate D passes.
 2. Local dev `workspace` DB is polluted (173 tables, `node scripts/migrate.mjs` fails on it with `column "project_id" does not exist` because `001`'s content changed after it was first applied). Reset it — `make db-bootstrap` / drop+recreate the three dev DBs then `make dev-migrate` — so `make schema-fingerprint-check` (which introspects `WORKSPACE_MIGRATOR_DATABASE_URL` = dev, not the test DB) matches the golden. The golden itself must then be regenerated: the correct clean-baseline fingerprint is agent 21 / cosa 29 / workspace 150 tables (from `make test-db-reset` + `WORKSPACE_MIGRATOR_DATABASE_URL=$WORKSPACE_TEST_MIGRATOR_DATABASE_URL node scripts/schema-fingerprint.mjs --write`), vs the committed golden's 36/40/173 which came from the polluted dev DB.
 3. Then `make verify` + `make e2e-cross-plane-smoke`; on green, bump the design spec from `ACCEPTED (implementation IN PROGRESS)` to `VERIFIED`.
 
+### Session 2026-09-11 — steps 1 + 2 done; `make verify` still red (debt larger than estimated)
+
+Commits on `main`: `50da7667` → `e7cd1967` → `3523439d`.
+
+- **Step 1a — M:N link removal (`50da7667`).** Dropped `portfolios` /
+  `portfolio_projects` / `task_projects` / `okr_objective_projects` from the
+  Drizzle schema + the `projects`→`portfolios` composite FK (`projects.portfolio_id`
+  kept as an inert bare column matching `001`). Deleted `project-link.service.ts`
+  and its 7 `expose:true` endpoints (task↔projects, objective↔projects
+  link/unlink/list) from `okr.handler` / `task.handler`; none were in
+  `mvp-surface.json`, no frontend caller. Dropped portfolio CRUD +
+  `/operations/portfolios`. `okr.service` / `task.service` now read the direct
+  `project_id` column; `listStageRosterService` joins `tasks.project_id`
+  directly (function + cross-plane `getStageRoster` endpoint kept per decision —
+  `project_operating_setups` is retained in `001`); `execution-plan.service`
+  no longer double-writes `task_projects`. Deleted `link-tables-schema.test.ts`,
+  `project-link.test.ts`, `workspace-scoped-links.test.ts`; trimmed portfolio /
+  M:N assertions from `project` / `okr` / `task` / `composite-uniqueness` /
+  `task-stage-roster` tests. typecheck + `encore check` + `company-boundary-check`
+  green.
+- **Step 1b — test-fixture project seed (`e7cd1967`).** `createObjective` /
+  `createTask` require a project in the workspace (design §156 — workspaces
+  start empty, founder creates the first project). `makeAuthedWorkspace` /
+  `makeCycle` in `okr.test` / `task.test` now seed a "Default Project" and
+  return its id. `okr.test` "creates an objective under a cycle" no longer
+  asserts `objective.cycleId` round-trips — the clean `okr_objectives` has **no
+  `cycle_id` column**; `cycleId` is validated at create time but not persisted.
+  `okr` + `task` + `task-stage-roster` + `project` test files: 42/42 green.
+- **Step 2 — golden fingerprint regen + dev DB reset (`3523439d`).**
+  `make test-db-reset`, then regenerated `deploy/schema/fingerprints.json` from
+  the `*_TEST_MIGRATOR_DATABASE_URL`s → **agent 21 / cosa 29 / workspace 150**
+  (was 36/40/173 from the polluted dev DB). Dropped + recreated + re-granted +
+  re-migrated the three dev DBs (`agent` / `cosa` / `workspace`).
+  `make schema-fingerprint-check` (Gate D) **green**.
+
+**`make verify` is still red.** Full `services/company` vitest: **388 → 328
+failed** (−60 this session). The doc's "still to do" list above under-scoped the
+debt — the M:N services were only ~60 of the failures. The remaining ~328 are
+the broader Task-2 service/test reconciliation (other schema drift, other stale
+fixtures) and are genuinely multi-session. **Do not bump the spec to VERIFIED**
+until full `services/company` vitest is green and `make verify` +
+`make e2e-cross-plane-smoke` pass. Next: enumerate the remaining failing test
+files by category (schema-drift vs stale-fixture vs behavior) and reconcile in
+batches, each its own green commit.
+
 ## Phased execution (each phase = its own green commit + checkpoint)
 
 - **Phase A — Company backend clean-slate.** Reconcile Drizzle schema ↔ baseline migration to the retained set; strip `tows` / `strategic_objective` / `stage` coupling from `okr` / `initiative` / `twelve-week-year` / `task` services + handlers + tests; delete framework services/handlers/tests (`stage-*`, `gate-evaluation`, `pmf-scoreboard`, `maturity-assessment`, `workspace-strategy-settings`, `strategic-objective`, `strategy-analysis`, `tows-option`, `strategy-copilot`, `venture-*`, `discovery-signal`, `founder-*`, `pilot-run`); fix `permission-catalog` + `autonomy-classifier`. Green: `cd services/company && npm run typecheck && npx vitest run` + `make company-boundary-check` + schema-fingerprint regen + `tests/db_baseline_candidate`.
