@@ -18,12 +18,10 @@ from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 
 pytestmark = pytest.mark.integration
 
-# 95 (pre-existing catalog baseline) + 22 real Tranche C growth/scale packs
-# (Task 4/5/6: marketing, sales, finance, customer-success, operations, growth,
-# strategy, people domains) - 3 duplicate legacy packs retired 2026-08-31
-# (strategy.assumption-discovery, strategy.gate-evaluation, marketing.positioning
-# — content merged into their governed canonical successors), minus product/outcome-roadmap (framework roadmap surface removed) = 113.
-TRANCHE_C_CANONICAL_COUNT = 113
+# Startup Core clean-slate (`8b5ea05a`, "scope agents to startup projects")
+# removed the framework strategy-analysis / PMF / lifecycle-gate skillpack
+# family. The retained governed catalog now syncs to 90 packs.
+TRANCHE_C_CANONICAL_COUNT = 90
 
 
 @pytest.fixture
