@@ -60,11 +60,12 @@ class FinanceService extends WorkspaceService {
     return null;
   }
 
-  Future<List<dynamic>> getTransactions() async {
+  Future<List<dynamic>> getTransactions({String? projectId}) async {
     final wId = await stringWorkspaceId();
     if (wId == null || wId.isEmpty) return const [];
     try {
-      final response = await ApiClient.get('/finance-legal/transactions?workspaceId=$wId');
+      final pQuery = projectId != null ? '&projectId=$projectId' : '';
+      final response = await ApiClient.get('/finance-legal/transactions?workspaceId=$wId$pQuery');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         return data is Map && data['transactions'] is List ? data['transactions'] as List<dynamic> : const [];
@@ -73,11 +74,14 @@ class FinanceService extends WorkspaceService {
     return const [];
   }
 
-  Future<Map<String, dynamic>?> recordTransaction(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>?> recordTransaction(Map<String, dynamic> payload, {String? projectId}) async {
     final wId = await stringWorkspaceId();
     if (wId == null || wId.isEmpty) return null;
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    if (projectId != null && !body.containsKey('projectId')) {
+      body['projectId'] = projectId;
+    }
     final res = await postJson('/finance-legal/transactions', body);
     return res is Map<String, dynamic> ? res : null;
   }

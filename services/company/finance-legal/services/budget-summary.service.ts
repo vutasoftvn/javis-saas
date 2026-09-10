@@ -5,7 +5,27 @@ import { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { requireFounderCommand } from "../../shared/auth/workspace-access";
 
+import { projects } from "../../shared/db/schema/operations";
+
 const { projectBudgetEnvelopes, paymentRequests, paymentAllocations } = schema;
+
+export async function assertProjectInWorkspace(
+  workspaceId: string | number,
+  projectId: string | number
+): Promise<void> {
+  const [row] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(
+      and(
+        eq(projects.id, BigInt(projectId)),
+        eq(projects.workspaceId, BigInt(workspaceId)),
+        isNull(projects.deletedAt)
+      )
+    )
+    .limit(1);
+  if (!row) throw APIError.notFound("Project không tồn tại trong workspace này");
+}
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -147,6 +167,7 @@ export async function getBudgetSummary(
   projectId: string,
   currency: string = "VND"
 ): Promise<BudgetSummaryView> {
+  await assertProjectInWorkspace(ctx.workspaceId, projectId);
   const asOf = new Date();
   const position = await db.transaction((tx) =>
     computeProjectBudgetPosition(

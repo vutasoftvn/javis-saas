@@ -1,4 +1,4 @@
-import { api, Header } from "encore.dev/api";
+import { api, Header, Query } from "encore.dev/api";
 import {
   FinancialTransaction,
   RecordFinancialTransactionParams as BaseRecordParams,
@@ -34,13 +34,9 @@ export const recordFinancialTransaction = api(
  */
 export const approveFinancialTransaction = api(
   { method: "POST", path: "/finance-legal/transactions/:id/approve", expose: true },
-  async ({
-    id,
-    workspaceId,
-    authorization,
-  }: ApproveFinancialTransactionParams): Promise<FinancialTransaction> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    return approveFinancialTransactionService({ id, ctx });
+  async (params: ApproveFinancialTransactionParams): Promise<FinancialTransaction> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return approveFinancialTransactionService({ id: params.id, ctx });
   }
 );
 
@@ -64,13 +60,14 @@ export const listFinancialTransactions = api(
   { method: "GET", path: "/finance-legal/transactions", expose: true },
   async ({
     workspaceId,
+    projectId,
     authorization,
   }: {
     workspaceId: string;
+    projectId?: Query<string>;
     authorization?: Header<"Authorization">;
   }): Promise<{ transactions: FinancialTransaction[] }> => {
-    const transactions = await listFinancialTransactionsService(workspaceId, authorization);
+    const transactions = await listFinancialTransactionsService(workspaceId, authorization, projectId);
     return { transactions };
   }
 );
-

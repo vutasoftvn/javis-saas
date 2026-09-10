@@ -7,6 +7,7 @@ import { requireCommandAuthority } from "../../identity/services/command-authori
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { assertOpenPostingPeriod } from "./posting-guard.service";
+import { assertProjectInWorkspace } from "./budget-summary.service";
 
 const { financialTransactions } = schema;
 
@@ -45,6 +46,7 @@ export interface FinancialTransaction {
 export interface RecordFinancialTransactionParams {
   workspaceId: string;
   legalEntityId?: string;
+  projectId?: string;
   transactionDate: string;
   description: string;
   amount: string;
@@ -151,12 +153,17 @@ export async function recordFinancialTransactionService(
       ? "PENDING_APPROVAL"
       : "AUTO_APPROVED";
 
+    if (params.projectId) {
+      await assertProjectInWorkspace(params.workspaceId, params.projectId);
+    }
+
     const [row] = await tx
       .insert(financialTransactions)
       .values({
         id: generateSnowflake(),
         workspaceId: BigInt(params.workspaceId),
         legalEntityId: params.legalEntityId ? BigInt(params.legalEntityId) : null,
+        projectId: params.projectId ? BigInt(params.projectId) : null,
         transactionDate: params.transactionDate,
         description: params.description,
         amount: params.amount,
@@ -243,14 +250,20 @@ export async function getFinancialTransactionService(
 
 export async function listFinancialTransactionsService(
   workspaceId: string,
-  authorization: string | undefined
+  authorization: string | undefined,
+  projectId?: string
 ): Promise<FinancialTransaction[]> {
   await requireWorkspaceAccess(authorization, workspaceId);
+
+  const conditions = [eq(financialTransactions.workspaceId, BigInt(workspaceId))];
+  if (projectId) {
+    conditions.push(eq(financialTransactions.projectId, BigInt(projectId)));
+  }
 
   const rows = await db
     .select()
     .from(financialTransactions)
-    .where(eq(financialTransactions.workspaceId, BigInt(workspaceId)))
+    .where(and(...conditions))
     .orderBy(desc(financialTransactions.transactionDate));
 
   return rows.map(toFinancialTransaction);

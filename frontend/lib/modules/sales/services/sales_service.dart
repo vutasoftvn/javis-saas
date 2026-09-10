@@ -40,26 +40,33 @@ class SalesService extends WorkspaceService {
   }
 
   // Contacts
-  Future<List<dynamic>> getContacts({String? accountId}) async {
+  Future<List<dynamic>> getContacts({String? accountId, String? projectId}) async {
     final wId = await stringWorkspaceId() ?? '1';
-    final path = accountId != null ? '/commercial/workspaces/$wId/contacts?accountId=$accountId' : '/commercial/workspaces/$wId/contacts';
-    final data = await getJson(path);
+    final params = <String>[];
+    if (accountId != null) params.add('accountId=$accountId');
+    if (projectId != null) params.add('projectId=$projectId');
+    final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
+    final data = await getJson('/commercial/workspaces/$wId/contacts$queryStr');
     return data is Map && data['contacts'] is List ? data['contacts'] as List<dynamic> : const [];
   }
 
-  Future<Map<String, dynamic>?> createContact(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>?> createContact(Map<String, dynamic> payload, {String? projectId}) async {
     final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    if (projectId != null && !body.containsKey('projectId')) {
+      body['projectId'] = projectId;
+    }
     final res = await postJson('/commercial/contacts', body);
     return res is Map<String, dynamic> ? res : null;
   }
 
   // Leads
-  Future<List<dynamic>> getLeads() async {
+  Future<List<dynamic>> getLeads({String? projectId}) async {
     final wId = await stringWorkspaceId() ?? '1';
     try {
-      final response = await ApiClient.get('/commercial/leads?workspace_id=$wId');
+      final pQuery = projectId != null ? '&projectId=$projectId' : '';
+      final response = await ApiClient.get('/commercial/leads?workspace_id=$wId$pQuery');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         return data is Map && data['leads'] is List ? data['leads'] as List<dynamic> : const [];
@@ -68,10 +75,13 @@ class SalesService extends WorkspaceService {
     return const [];
   }
 
-  Future<Map<String, dynamic>?> createLead(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>?> createLead(Map<String, dynamic> payload, {String? projectId}) async {
     final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    if (projectId != null && !body.containsKey('projectId')) {
+      body['projectId'] = projectId;
+    }
     final res = await postJson('/commercial/leads', body);
     return res is Map<String, dynamic> ? res : null;
   }
@@ -92,20 +102,24 @@ class SalesService extends WorkspaceService {
   }
 
   // Opportunities
-  Future<List<dynamic>> getOpportunities({String? stage, String? accountId}) async {
+  Future<List<dynamic>> getOpportunities({String? stage, String? accountId, String? projectId}) async {
     final wId = await stringWorkspaceId() ?? '1';
     final params = <String>[];
     if (stage != null) params.add('stage=$stage');
     if (accountId != null) params.add('accountId=$accountId');
+    if (projectId != null) params.add('projectId=$projectId');
     final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
     final data = await getJson('/commercial/workspaces/$wId/opportunities$queryStr');
     return data is Map && data['opportunities'] is List ? data['opportunities'] as List<dynamic> : const [];
   }
 
-  Future<Map<String, dynamic>?> createOpportunity(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>?> createOpportunity(Map<String, dynamic> payload, {String? projectId}) async {
     final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    if (projectId != null && !body.containsKey('projectId')) {
+      body['projectId'] = projectId;
+    }
     final res = await postJson('/commercial/opportunities', body);
     return res is Map<String, dynamic> ? res : null;
   }
