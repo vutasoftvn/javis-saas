@@ -6,8 +6,6 @@ export interface PermissionDefinition {
 
 export type StrategyGovernancePermission =
   | "strategy.framework.manage"
-  | "strategy.analysis.write"
-  | "strategy.option.select"
   | "strategy.okr.publish"
   | "strategy.initiative.approve"
   | "strategy.review.close"
@@ -24,8 +22,6 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = [
   { permissionKey: "strategy.target.manage", domain: "operations", description: "Quản lý chỉ tiêu mục tiêu tuần và quý" },
   { permissionKey: "strategy.transition", domain: "operations", description: "Chuyển đổi stage và trạng thái chiến lược" },
   { permissionKey: "strategy.framework.manage", domain: "operations", description: "Cấu hình khung chiến lược và policy workspace" },
-  { permissionKey: "strategy.analysis.write", domain: "operations", description: "Tạo và cập nhật phân tích PESTEL, nguồn lực và SWOT" },
-  { permissionKey: "strategy.option.select", domain: "operations", description: "Đánh giá và chọn chiến lược TOWS" },
   { permissionKey: "strategy.okr.publish", domain: "operations", description: "Công bố mục tiêu chiến lược và OKRs" },
   { permissionKey: "strategy.initiative.approve", domain: "operations", description: "Phê duyệt sáng kiến chiến lược" },
   { permissionKey: "strategy.review.close", domain: "operations", description: "Chốt đánh giá chu kỳ và review chiến lược" },

@@ -18,7 +18,7 @@ export const VALID_AGENT_PROFILES = [
 ] as const;
 
 // Cấu hình vận hành cấp workspace cho operating loop (đã bỏ nhánh framework
-// strategy-method / BSC / TOWS trong clean-slate).
+// strategy-method trong clean-slate) — chỉ giữ config vận hành.
 export interface WorkspaceStrategySettings {
   workspaceId: string;
   weeklyReviewEnabled: boolean;
