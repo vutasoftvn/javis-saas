@@ -771,37 +771,175 @@ Apply to dev `workspace` DB too (after Task 5E resets it) or note it's deferred 
 
 ---
 
-## Task 5C: Restore `finance.accounting_fiscal_profiles`
+## Tasks 5C / 5C2 / 5C3 — Full company-plane schema restore
+
+**User decision (2026-09-10):** the R1 baseline `001` files capture only ~25% of
+the declared company schema (~95 tables have no creating migration anywhere).
+**The Drizzle schema `services/company/shared/db/schema/*.ts` is the R1 source of
+truth** — restore *every* declared-but-absent `operating` / `strategy` /
+`commercial` / `sales` / `finance` table. No per-table "R1 or PLANNED?" ruling.
+
+**Primary DDL source — a schema-only `pg_dump` of the dev `workspace` DB**, which
+still holds the *complete* pre-squash schema (verified: `operating` 35,
+`strategy` 43, `commercial` 21, `sales` 6, `finance` 29 — every declared table).
+The reset spec §7.3 explicitly sanctions "a schema-only dump from a temporary
+fully migrated legacy database … as a comparison aid for constraints and
+indexes". Dumps are already captured:
+
+```
+.superpowers/sdd/2026-09-10-baseline-completeness-harness-health/dump/operations_dump.sql   (operating + strategy)
+.superpowers/sdd/2026-09-10-baseline-completeness-harness-health/dump/commercial_dump.sql   (commercial + sales)
+.superpowers/sdd/2026-09-10-baseline-completeness-harness-health/dump/finance_dump.sql      (finance)
+```
+
+Exact per-group missing-table lists:
+`.superpowers/sdd/2026-09-10-baseline-completeness-harness-health/missing-tables.json`
+(operations 53, commercial 22, finance-legal 20).
+
+### Shared restore recipe (all three tasks follow this)
+
+1. **Freshen the dump** (dev DB may have moved): re-run the `pg_dump` for your
+   group — `pg_dump -h 127.0.0.1 -U postgres -d workspace --schema-only
+   --no-owner --no-privileges -n <schema> [-n <schema2>] > /tmp/<group>_dump.sql`
+   (`PGPASSWORD=$POSTGRES_PASSWORD`). Diff against the captured copy; investigate
+   any surprise.
+2. **Recompute the missing list** for your group: declared table names
+   (`grep -oE '(<s1>|<s2>)Schema\.table\("[a-z_]+"' services/company/shared/db/schema/*.ts`)
+   minus every table any current migration in your sub-service dir already
+   `CREATE`s. Must equal `missing-tables.json`'s list for your group (± real dev
+   drift — reconcile and note).
+3. **Build the migration** `services/company/<subservice>/migrations/<NNN>_restore_baseline_gaps.up.sql`
+   from the dump, keeping ONLY objects for the missing tables:
+   - `CREATE TABLE <schema>.<t> (...)` → prefix `IF NOT EXISTS`. Copy column
+     list, types, `DEFAULT`, `NOT NULL`, inline `CHECK`, `PRIMARY KEY` verbatim
+     from the dump.
+   - pg_dump emits identity as a separate `ALTER TABLE <t> ALTER COLUMN <c> ADD
+     GENERATED {ALWAYS|BY DEFAULT} AS IDENTITY (...)` — **keep these** (this is
+     exactly what the original squash filter wrongly dropped). Wrap each in
+     `DO $$ BEGIN ... EXCEPTION WHEN others THEN NULL; END $$;` only if it is not
+     already guarded; simplest is a `DO` block testing `attidentity = ''`.
+   - `CREATE INDEX` / `CREATE UNIQUE INDEX` for the missing tables → prefix
+     `IF NOT EXISTS`.
+   - `ALTER TABLE ... ADD CONSTRAINT ... {FOREIGN KEY|UNIQUE|CHECK}` for the
+     missing tables → wrap each in
+     `DO $$ BEGIN <stmt>; EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; END $$;`.
+     An FK whose target is ALSO in your missing set is fine (table created
+     earlier in the same file). An FK whose target is a table NOT being restored
+     and NOT in `001` → **drop that FK** and note it in the report (parent
+     genuinely absent; Drizzle will not declare it either — verify).
+   - **Strip**: every `SET ...`, `SELECT pg_catalog.set_config`, `\restrict` /
+     `\unrestrict`, `COMMENT ON`, `ALTER TABLE ... OWNER TO`, `GRANT` / `REVOKE`
+     (the migrate runner grants), `CREATE SCHEMA` (already in `001`), and every
+     object belonging to a table that already exists.
+   - Order: within the file, a table precedes any table whose FK references it.
+     Easiest — emit ALL `CREATE TABLE` first (missing set, dependency-sorted),
+     then all `CREATE INDEX`, then all `ALTER TABLE ADD CONSTRAINT` last (so FK
+     order doesn't matter).
+4. **Cross-check against Drizzle**: for a sample of ~8 tables spanning the group,
+   diff the emitted columns/types against the `*.ts` declaration. Drizzle wins
+   on any disagreement (adjust the migration). Snowflake `id bigint` with no
+   identity/default is correct unless the `.ts` says `.generatedAlwaysAsIdentity()`.
+5. **`.down.sql`**: `DROP TABLE IF EXISTS <schema>.<t> CASCADE;` for every table
+   the `.up.sql` adds, reverse dependency order. No `DROP SCHEMA`.
+6. **Apply + verify** (per-group commands in each task).
+7. **Do NOT** run `schema-fingerprint.mjs --write` here — Task 5F owns the single
+   golden regen after all restores land. Just `check-migration-compat` + `tsc` +
+   targeted tests + `\dt` count.
+8. Dev `workspace` DB has a pre-existing `identity/002` checksum drift — Task 5E
+   resets it. If `migrate.mjs` against dev errors on that, note and move on;
+   verify on `javis_workspace_test`.
+
+---
+
+## Task 5C: Restore all missing `finance.*` tables (20)
 
 **Files:**
 - Create: `services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.up.sql`
 - Create: `services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.down.sql`
 
 **Interfaces:**
-- Consumes: nothing (independent of Task 1's `002` legal restore).
-- Produces: `finance.accounting_fiscal_profiles` (+ any sibling `finance.*` table the finance-legal vitest / e2e sweep proves missing) exists, matching `services/company/shared/db/schema/finance.ts`. `finance` is a RETAINED R1 schema.
+- Consumes: nothing (independent of Task 1's legal `002`).
+- Produces: every `finance.*` table in `finance-legal.ts` exists. Missing set (from `missing-tables.json` → `finance-legal`): `accounting_book_entries, accounting_coa_mappings, accounting_documents, accounting_fiscal_profiles, accounting_mapping_confirmations, accounting_periods, accounting_policies, accounting_profiles, accounting_regime_policies, accounting_regime_transition_logs, accounting_report_mappings, accounting_report_snapshots, cas_normalizer_log, document_reconciliation_proposals, finance_management_snapshots, ingestion_dlq, ingestion_events, payment_allocations, payment_requests, tax_obligation_instances`.
 
-`finance-legal` migrations after Task 1: `001_*` + `002_restore_baseline_gaps` (legal). This is `003`, **finance** structure only — keep it separate from the legal `002` (different schema, different concern).
+`finance-legal` migrations: `001_*`, `002_restore_baseline_gaps` (legal, Task 1). This is `003` — **finance** only, separate from legal.
 
-- [ ] **Step 1: Enumerate** — `grep -oE '\.table\("(\w+)"' services/company/shared/db/schema/finance.ts | sort -u` vs `grep -oE 'CREATE TABLE (IF NOT EXISTS )?finance\.\w+' services/company/finance-legal/migrations/001_founder_trial_mvp_baseline.up.sql | sort -u`. The Task 1 report + Task 5 report both named `finance.accounting_fiscal_profiles`; confirm whether anything else is missing.
+- [ ] **Step 1: Recipe steps 1–5** with `dump/finance_dump.sql`, schema `finance`, sub-service `finance-legal`, migration `003_restore_finance_baseline_gaps`.
 
-- [ ] **Step 2: Reconstruct DDL** — `git show 81461673 --stat -- services/company/finance-legal/migrations/ | grep -iE "fiscal|accounting|profile"`, then `git show 81461673^:services/company/finance-legal/migrations/<file>` for the `CREATE TABLE finance.accounting_fiscal_profiles` DDL. `CREATE TABLE IF NOT EXISTS`, cross-check columns against `finance.ts` (Drizzle wins), strip seed/backfill.
-
-- [ ] **Step 3: `.down.sql`** — `DROP TABLE IF EXISTS finance.<t> CASCADE;` child-first.
-
-- [ ] **Step 4: Apply + verify**
+- [ ] **Step 2: Apply + verify**
 
 ```bash
 cd /Volumes/SSD/javis-saas
+set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+bash scripts/provision-founder-trial-test-dbs.sh
 export WORKSPACE_MIGRATOR_DATABASE_URL='postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/javis_workspace_test?sslmode=disable'
-node services/company/scripts/migrate.mjs
+env -u WORKSPACE_DATABASE_URL AGENT_TEST_MIGRATOR_DATABASE_URL=... COSA_TEST_MIGRATOR_DATABASE_URL=... WORKSPACE_TEST_MIGRATOR_DATABASE_URL="$WORKSPACE_MIGRATOR_DATABASE_URL" \
+  APP_ENV=test TEST_DATABASE_RESET=CONFIRM_FOUNDER_TRIAL_MVP_RESET node scripts/test-db-reset.mjs
+node services/company/scripts/migrate.mjs        # finance-legal/003 applies
+PGPASSWORD=change-me-workspace-migrator psql -h 127.0.0.1 -U workspace_migrator -d javis_workspace_test -c "\dt finance.*" | tail -40
 node scripts/check-migration-backward-compat.mjs
-cd services/company && WORKSPACE_DATABASE_URL='postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/javis_workspace_test?sslmode=disable' \
-  npx vitest run finance-legal/tests/legal-applicability-integrity.test.ts finance-legal/tests/legal-applicability.test.ts
+cd services/company && npx tsc --noEmit
+cd /Volumes/SSD/javis-saas && WORKSPACE_DATABASE_URL='postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/javis_workspace_test?sslmode=disable' \
+  npx --prefix services/company vitest run --root services/company finance-legal/tests/
 ```
-Expected: the 3 finance-legal suites that were red on `relation "finance.accounting_fiscal_profiles" does not exist` (Task 1 report) go green (they may still need a row or two of legal content seed — if so, that seed is Task 5C-local: add a `003_seed...` only if a specific assertion needs it, and document which).
+Expected: `\dt finance.*` shows all 29 (`001`'s 9 + your 20). `check-migration-compat` + `tsc` pass. The 3 finance-legal suites that were red on `finance.accounting_fiscal_profiles` go green.
 
-- [ ] **Step 5: Commit** — `git add services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.{up,down}.sql`; message `fix(db): restore finance.accounting_fiscal_profiles dropped by the R1 baseline squash`; `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+- [ ] **Step 3: Commit** — `git add services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.{up,down}.sql`; message `fix(db): restore the 20 finance.* tables dropped by the R1 baseline squash`; `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+
+---
+
+## Task 5C2: Restore all missing `commercial.*` + `sales.*` tables (22)
+
+**Files:**
+- Create: `services/company/commercial/migrations/002_restore_baseline_gaps.up.sql`
+- Create: `services/company/commercial/migrations/002_restore_baseline_gaps.down.sql`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: every `commercial.*` / `sales.*` table in `commercial.ts` exists. Missing set (`missing-tables.json` → `commercial`): `commercial.campaign_assets, commercial.invoices, commercial.marketing_attributions, commercial.marketing_context_evidence, commercial.marketing_context_revisions, commercial.marketing_contexts, commercial.marketing_customer_language, commercial.marketing_customer_research_themes, commercial.marketing_decisions, commercial.marketing_forms, commercial.marketing_icp_segments, commercial.marketing_lead_intakes, commercial.marketing_learnings, commercial.marketing_metric_definitions, commercial.marketing_metric_observations, commercial.marketing_objectives, commercial.marketing_product_marketing, commercial.marketing_proposals, commercial.subscriptions, sales.accounts, sales.customers, sales.sales_opportunities`.
+
+`commercial` migrations: only `001_*`. This is `002`.
+
+- [ ] **Step 1: Recipe steps 1–5** with `dump/commercial_dump.sql`, schemas `commercial` + `sales`, sub-service `commercial`, migration `002_restore_baseline_gaps`.
+
+- [ ] **Step 2: Apply + verify** — same shape as 5C Step 2 but `\dt commercial.*` (expect `001`'s 2 + 19 = 21) and `\dt sales.*` (expect `001`'s 3 + 3 = 6); run `npx vitest run --root services/company commercial/tests/`; expect `test_mvp_release_smoke`'s `/commercial/marketing/objectives` 500 (Task 5B report §4) to clear.
+
+- [ ] **Step 3: Commit** — `git add services/company/commercial/migrations/002_restore_baseline_gaps.{up,down}.sql`; message `fix(db): restore the 22 commercial.* / sales.* tables dropped by the R1 baseline squash`; `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+
+---
+
+## Task 5C3: Restore all missing `operating.*` + `strategy.*` tables (53)
+
+**Files:**
+- Create: `services/company/operations/migrations/005_restore_baseline_gaps.up.sql`
+- Create: `services/company/operations/migrations/005_restore_baseline_gaps.down.sql`
+
+**Interfaces:**
+- Consumes: Task 5B's `operations/004` (which already restored `task_projects`, `runtime_source_signals`, `runtime_snoozes`, `canvases`, `canvas_revisions`, `okr_objective_projects` — these are NOT in your set).
+- Produces: every remaining `operating.*` / `strategy.*` table in `operations.ts` + `strategy.ts` exists. Missing set: the 53 in `missing-tables.json` → `operations` (21 `operating.*` + 32 `strategy.*`). This is the largest restore — build it carefully in dependency order.
+
+`operations` migrations: `001_*`, `003_cosa_automation_mvp`, `004_restore_baseline_gaps` (Task 5B). This is `005`.
+
+> **Note on `automation_*`:** `missing-tables.json` lists `operating.automation_definitions/_invocations/_revisions/_invocation_events` — but these ARE created by `operations/003_cosa_automation_mvp.up.sql`. Recipe step 2 (subtract every table any current migration creates) removes them. Do NOT re-create them. Your real set is 53: verify by running step 2.
+
+- [ ] **Step 1: Recipe steps 1–5** with `dump/operations_dump.sql`, schemas `operating` + `strategy`, sub-service `operations`, migration `005_restore_baseline_gaps`. Because of the size, emit in this order: (a) all `strategy.*` parent tables (`portfolios`, `okr_cycles`, `okr_objectives`, `strategic_objectives`, `initiatives`, `venture_profiles`, `stage_policies`, `metric_contracts`, …), (b) `strategy.*` child tables (`key_results`, `initiative_key_results`, `portfolio_projects`, `project_stage_transitions`, `tows_options`→`tows_option_evaluations`, `next_action_candidates`→`next_action_rankings`, …), (c) all `operating.*` parents (`execution_plans`, `task_work_packages`, `task_schedules`, …), (d) `operating.*` children (`execution_plan_items`, `work_package_attempts`/`_events`/`_reviews`/`_priority_events`, `task_outcome_*`, `kr_observations`, `kr_contribution_assessments`, `commitment_key_results`, `cycle_key_results`, …). Then all indexes, then all `ADD CONSTRAINT` (FK/unique/check) wrapped in `DO` blocks — so intra-file ordering of constraints is irrelevant.
+
+- [ ] **Step 2: Apply + verify**
+
+```bash
+cd /Volumes/SSD/javis-saas
+set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+export WORKSPACE_MIGRATOR_DATABASE_URL='postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/javis_workspace_test?sslmode=disable'
+env -u WORKSPACE_DATABASE_URL AGENT_TEST_MIGRATOR_DATABASE_URL=... COSA_TEST_MIGRATOR_DATABASE_URL=... WORKSPACE_TEST_MIGRATOR_DATABASE_URL="$WORKSPACE_MIGRATOR_DATABASE_URL" \
+  APP_ENV=test TEST_DATABASE_RESET=CONFIRM_FOUNDER_TRIAL_MVP_RESET node scripts/test-db-reset.mjs
+node services/company/scripts/migrate.mjs
+PGPASSWORD=change-me-workspace-migrator psql -h 127.0.0.1 -U workspace_migrator -d javis_workspace_test -c "\dt operating.*" | tail -50
+PGPASSWORD=change-me-workspace-migrator psql -h 127.0.0.1 -U workspace_migrator -d javis_workspace_test -c "\dt strategy.*" | tail -60
+node scripts/check-migration-backward-compat.mjs
+cd services/company && npx tsc --noEmit && npx vitest run --root services/company operations/tests/ strategy/tests/ 2>/dev/null || true
+```
+Expected: `\dt operating.*` shows all 35, `\dt strategy.*` all 43. `check-migration-compat` + `tsc` pass. `/workspace-runtime/blockers` 500 on `operating.task_dependencies` (Task 5B report §2) clears.
+
+- [ ] **Step 3: Commit** — `git add services/company/operations/migrations/005_restore_baseline_gaps.{up,down}.sql`; message `fix(db): restore the 53 operating.* / strategy.* tables dropped by the R1 baseline squash`; `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
 
 ---
 
@@ -925,7 +1063,7 @@ node scripts/schema-fingerprint.mjs --check # against dev DBs — MATCH
 **Files:** whichever the sweep still surfaces — a genuine `legal.*`/`control_plane.*`/`operating.*`/`finance.*` structural gap folds into that plane's `restore_baseline_gaps` migration (all new & unreleased). No test weakening, no `type: ignore`, no `001_*` edit, no secret reuse.
 
 **Interfaces:**
-- Consumes: Tasks 1–4, 5A–5E, plus Task 6's doc-link fixes.
+- Consumes: Tasks 1–4, 5A, 5B, 5C, 5C2, 5C3, 5D, 5E, plus Task 6's doc-link fixes.
 - Produces: `make verify-local` green end to end; `make automation-mvp-e2e` 6/6.
 
 - [ ] **Step 1: Run the aggregate gate**
