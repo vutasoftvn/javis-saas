@@ -54,14 +54,21 @@ _READY_TIMEOUT_SECONDS = 60.0
 
 
 def _workspace_database_url() -> str:
-    return os.environ.get(
+    # `WORKSPACE_TEST_DATABASE_URL` được ưu tiên để cả `make e2e-test` chạy được
+    # trọn vẹn trên `javis_workspace_test`. Không thể chỉ export
+    # `WORKSPACE_DATABASE_URL` trỏ sang DB test: `scripts/test-db-reset-lib.mjs`
+    # cố tình từ chối reset khi BẤT KỲ biến non-test nào phân giải ra đúng DB
+    # test (guard chống xoá nhầm DB dev), nên
+    # `test_founder_trial_baseline_reset.py` — vốn shell ra `make test-db-reset`
+    # — sẽ fail. Đọc biến `*_TEST_*` giữ cả hai phía cùng đúng.
+    return os.environ.get("WORKSPACE_TEST_DATABASE_URL") or os.environ.get(
         "WORKSPACE_DATABASE_URL",
         f"postgresql://workspace_app:{_DEFAULT_APP_PASSWORD}@{_DEFAULT_DB_HOST}:{_DEFAULT_DB_PORT}/workspace?sslmode=disable",
     )
 
 
 def _workspace_migrator_database_url() -> str:
-    return os.environ.get(
+    return os.environ.get("WORKSPACE_TEST_MIGRATOR_DATABASE_URL") or os.environ.get(
         "WORKSPACE_MIGRATOR_DATABASE_URL",
         f"postgresql://workspace_migrator:{_DEFAULT_MIGRATOR_PASSWORD}@{_DEFAULT_DB_HOST}:{_DEFAULT_DB_PORT}/workspace?sslmode=disable",
     )
