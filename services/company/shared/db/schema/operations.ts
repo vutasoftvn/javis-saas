@@ -6,7 +6,8 @@ export const strategySchema = pgSchema("strategy");
 export const initiatives = strategySchema.table("initiatives", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  keyResultId: bigint("key_result_id", { mode: "bigint" }).notNull(),
   title: text("title").notNull(),
   status: text("status").default("active").notNull(),
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
@@ -34,6 +35,7 @@ export const initiatives = strategySchema.table("initiatives", {
 export const tasks = operatingSchema.table("tasks", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
   title: text("title").notNull(),
   idempotencyKey: text("idempotency_key"),
   status: text("status").default("todo").notNull(),
@@ -354,7 +356,8 @@ export const okrCycles = strategySchema.table("okr_cycles", {
 export const okrObjectives = strategySchema.table("okr_objectives", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => okrCycles.id, { onDelete: "cascade" }),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  cycleId: bigint("cycle_id", { mode: "bigint" }).references(() => okrCycles.id, { onDelete: "set null" }),
   strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" }),
   towsOptionId: bigint("tows_option_id", { mode: "bigint" }),
   title: text("title").notNull(),
@@ -397,7 +400,7 @@ export const keyResults = strategySchema.table("key_results", {
 export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).references(() => projects.id, { onDelete: "set null" }),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
   theme: varchar("theme", { length: 255 }),
   visionStatement: text("vision_statement").default("").notNull(),
   stageAtStart: varchar("stage_at_start", { length: 50 }).default("S1_PROBLEM_VALIDATION").notNull(),
@@ -422,6 +425,7 @@ export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
 export const weeklyPlans = operatingSchema.table("weekly_plans", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
   cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => twelveWeekCycles.id, { onDelete: "cascade" }),
   weekNo: integer("week_no").notNull(),
   startDate: timestamp("start_date", { withTimezone: true }),
@@ -440,6 +444,7 @@ export const weeklyPlans = operatingSchema.table("weekly_plans", {
 export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
   weeklyPlanId: bigint("weekly_plan_id", { mode: "bigint" }).notNull().references(() => weeklyPlans.id, { onDelete: "cascade" }),
   initiativeId: bigint("initiative_id", { mode: "bigint" }).references(() => initiatives.id, { onDelete: "set null" }),
   title: varchar("title", { length: 255 }).notNull(),

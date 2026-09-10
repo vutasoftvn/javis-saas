@@ -383,7 +383,7 @@ dev-preflight: ## Validate config, migrations and dependency health
 	bash scripts/check-dev-preflight.sh
 
 test-db-reset: ## Recreate ONLY the three Startup Core test databases (test-only, fail-closed)
-	APP_ENV=test TEST_DATABASE_RESET=CONFIRM_COSA_STARTUP_CORE_RESET node scripts/test-db-reset.mjs
+	APP_ENV=test TEST_DATABASE_RESET=CONFIRM_COSA_STARTUP_CORE_RESET node --env-file-if-exists=.env scripts/test-db-reset.mjs
 
 dev-stack: dev-infra dev-migrate ## Launch Company, COSA, API and worker with signal-cleanup trap
 	$(MAKE) dev-stack-no-infra

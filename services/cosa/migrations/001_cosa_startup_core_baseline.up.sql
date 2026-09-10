@@ -1,3 +1,5 @@
+-- COSA Startup Core baseline migration for services/cosa
+
 -- GENERATED from a pg_dump --schema-only of the fully-migrated dev DB,
 -- then filtered to the Founder Trial R1 retained allowlist. Review before use.
 -- Task 10 of docs/superpowers/plans/2026-09-09-founder-trial-mvp-reset-baseline.md
@@ -588,17 +590,25 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN duplicate_table THEN NULL; WHEN invalid_table_definition THEN NULL; END $$;
 
 
--- Seed rows required by workspace provisioning (roles/plans are FK targets and
--- must be present before the first platform user registers).
-INSERT INTO cosa.roles (id, scope, level, description) VALUES
-  ('superadmin', 'platform', 100, 'Super Administrator'),
-  ('admin', 'platform', 80, 'Platform Administrator'),
-  ('support', 'platform', 50, 'Support Specialist'),
-  ('founder', 'company', 90, 'Company Founder / Owner'),
-  ('co-founder', 'company', 80, 'Company Co-founder'),
-  ('user', 'company', 10, 'Regular Member'),
-  ('auditor', 'company', 20, 'Read-only company auditor')
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO cosa.roles (id, name, category, sort_order, description) VALUES
+  ('founder',    'Sáng lập',      'leadership', 1,  'Nhà sáng lập doanh nghiệp / workspace'),
+  ('co-founder', 'Đồng sáng lập', 'leadership', 2,  'Đồng sáng lập doanh nghiệp / workspace'),
+  ('mentor',     'Cố vấn',        'community',  3,  'Cố vấn chuyên môn và phát triển doanh nghiệp'),
+  ('investor',   'Nhà đầu tư',    'community',  4,  'Nhà đầu tư / Quỹ đầu tư mạo hiểm'),
+  ('tech',       'Công nghệ',     'department', 5,  'Khối Kỹ thuật & Công nghệ'),
+  ('marketing',  'Marketing',     'department', 6,  'Khối Tiếp thị & Truyền thông'),
+  ('sales',      'Kinh doanh',    'department', 7,  'Khối Bán hàng & Phát triển thị trường'),
+  ('finance',    'Tài chính',     'department', 8,  'Khối Kế toán & Tài chính'),
+  ('hr',         'Nhân sự',       'department', 9,  'Khối Quản trị nhân sự'),
+  ('operations', 'Vận hành',      'department', 10, 'Khối Vận hành doanh nghiệp'),
+  ('member',     'Thành viên',    'community',  11, 'Thành viên chung'),
+  ('superadmin', 'Quản trị viên', 'system',     12, 'Quản trị tối cao toàn bộ nền tảng'),
+  ('support',    'Hỗ trợ viên',   'system',     13, 'Hỗ trợ khách hàng và vận hành hệ thống')
+ON CONFLICT (id) DO UPDATE
+SET name = EXCLUDED.name,
+    category = EXCLUDED.category,
+    sort_order = EXCLUDED.sort_order,
+    description = EXCLUDED.description;
 
 INSERT INTO cosa.plans (id, name, description) VALUES
   ('free', 'Free Plan', 'Free tier for exploration'),
@@ -606,3 +616,148 @@ INSERT INTO cosa.plans (id, name, description) VALUES
   ('pro', 'Pro Plan', 'For growing companies'),
   ('enterprise', 'Enterprise Plan', 'For large organizations')
 ON CONFLICT (id) DO NOTHING;
+
+-- Task 0 — Khôi phục Control Plane execution substrate bị đợt squash baseline
+-- Founder Trial R1 (commit 81461673) xoá khỏi migration history NHƯNG code đang
+-- chạy vẫn phụ thuộc:
+--   * services/cosa/storage/control-plane-schema.ts  (workers, runtime_leases, scheduled_tasks)
+--   * services/cosa/services/control-plane-scheduler.service.ts / control-plane-lease.service.ts
+--     / child-scheduler.service.ts + services/cosa/control-plane.cron.ts (reclaimStuckTasks)
+--   * apps/cosa/worker/main.py (plane.scheduler.* + plane.lease_client.*)
+--
+-- Đây là state PHẲNG cuối cùng của các migration đã xoá:
+--   7_control_plane_leases_workers  + 10_scheduled_tasks_durable_claims
+--   + 16_scheduled_task_child_edges + 17_scheduled_task_status_blocked
+-- Schema `control_plane` đã tồn tại từ 001_founder_trial_mvp_baseline. Thuần
+-- expand-only: CREATE ... IF NOT EXISTS, không DROP/ALTER cột sẵn có.
+-- KHÔNG khôi phục missions/tasks/assignments/watches/trigger_policies/
+-- signal_observations/delivery_*/cost_ledger (dormant, không có consumer
+-- production) và workspace_execution_leases/workspace_runtime_nodes (M5/M6
+-- local-vs-cloud failover, ngoài happy path dispatch).
+
+CREATE TABLE IF NOT EXISTS control_plane.workers (
+    id TEXT PRIMARY KEY,
+    runtime_kind TEXT NOT NULL,
+    endpoint TEXT,
+    capabilities JSONB NOT NULL DEFAULT '[]'::jsonb,
+    concurrency_limit INTEGER NOT NULL DEFAULT 1,
+    trust_tier TEXT NOT NULL DEFAULT 'T0',
+    last_heartbeat_at TIMESTAMPTZ,
+    status TEXT NOT NULL DEFAULT 'online' CHECK (status IN ('online', 'offline', 'degraded')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Thay packages/agent/runs/leases.py::RunLeaseManager (in-memory) — khoá thực
+-- thi phân tán chống split-brain thật giữa nhiều process. 1 run_id ≤ 1 lease.
+CREATE TABLE IF NOT EXISTS control_plane.runtime_leases (
+    run_id TEXT PRIMARY KEY,
+    worker_id TEXT NOT NULL REFERENCES control_plane.workers(id) ON DELETE CASCADE,
+    lease_token TEXT NOT NULL,
+    acquired_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    heartbeat_interval_sec INTEGER NOT NULL DEFAULT 30
+);
+
+-- Thay packages/agent/coordination/scheduler.py::RunScheduler (in-memory).
+-- Cột attempt_count..dead_letter_reason: Phase 3 Durable Queue Recovery
+-- (claim atomic bằng fencing token claim_token + retry backoff + dead-letter).
+-- Cột parent_task_id..completion_key: P1 durable hierarchical supervisor.
+-- CHECK status có 'blocked' (child task chờ depends_on) — đặt tên constraint
+-- tường minh để migration sau ALTER được.
+CREATE TABLE IF NOT EXISTS control_plane.scheduled_tasks (
+    id TEXT PRIMARY KEY,
+    coalescing_key TEXT,
+    target_spec_id TEXT NOT NULL,
+    target_spec_kind TEXT NOT NULL DEFAULT 'agent',
+    input_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    run_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    status TEXT NOT NULL DEFAULT 'scheduled',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 5,
+    claimed_by TEXT,
+    claim_token TEXT,
+    claimed_at TIMESTAMPTZ,
+    heartbeat_at TIMESTAMPTZ,
+    visibility_timeout_at TIMESTAMPTZ,
+    last_error TEXT,
+    next_retry_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    dead_letter_reason TEXT,
+    parent_task_id TEXT,
+    child_id TEXT,
+    depends_on JSONB NOT NULL DEFAULT '[]'::jsonb,
+    join_policy TEXT,
+    join_quorum INTEGER,
+    child_result JSONB,
+    completion_key TEXT,
+    CONSTRAINT scheduled_tasks_status_check
+        CHECK (status IN ('scheduled', 'processing', 'completed', 'coalesced', 'failed', 'blocked'))
+);
+
+-- Chỉ 1 task 'scheduled' đang chờ cho mỗi coalescing_key — khớp hành vi coalesce
+-- của RunScheduler gốc.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_control_plane_scheduled_tasks_coalescing_key_pending
+    ON control_plane.scheduled_tasks (coalescing_key)
+    WHERE status = 'scheduled' AND coalescing_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_control_plane_scheduled_tasks_status_run_at
+    ON control_plane.scheduled_tasks (status, run_at);
+-- Sweeper (cron) quét đúng tập nhỏ: processing đã hết visibility timeout.
+CREATE INDEX IF NOT EXISTS idx_control_plane_scheduled_tasks_visibility_timeout
+    ON control_plane.scheduled_tasks (visibility_timeout_at)
+    WHERE status = 'processing';
+CREATE INDEX IF NOT EXISTS idx_control_plane_scheduled_tasks_next_retry
+    ON control_plane.scheduled_tasks (next_retry_at)
+    WHERE status = 'scheduled' AND next_retry_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_parent
+    ON control_plane.scheduled_tasks (parent_task_id)
+    WHERE parent_task_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_scheduled_tasks_parent_child
+    ON control_plane.scheduled_tasks (parent_task_id, child_id)
+    WHERE parent_task_id IS NOT NULL;
+
+-- SP-A: restore control_plane.document_ingestion* dropped by the 001 cosa squash.
+-- Flattened from deleted 15_document_ingestions.up.sql (git ref 81461673^),
+-- matching control-plane-schema.ts. Expand-only, idempotent. Audit id is
+-- GENERATED IDENTITY (Drizzle) not BIGSERIAL (old migration).
+CREATE SCHEMA IF NOT EXISTS control_plane;
+
+CREATE TABLE IF NOT EXISTS control_plane.document_ingestions (
+  id                    TEXT PRIMARY KEY,
+  workspace_id          TEXT NOT NULL,
+  created_by            TEXT NOT NULL,
+  original_filename     TEXT NOT NULL,
+  declared_media_type   TEXT NOT NULL,
+  detected_media_type   TEXT,
+  size_bytes            BIGINT,
+  source_sha256         TEXT,
+  original_object_key   TEXT,
+  state                 TEXT NOT NULL CHECK (state IN ('UPLOADING', 'QUARANTINED', 'QUEUED', 'VALIDATING', 'CONVERTING', 'REVIEW_PENDING', 'PUBLISHED', 'REJECTED', 'FAILED', 'EXPIRED')),
+  idempotency_key       TEXT NOT NULL,
+  knowledge_source_id   TEXT,
+  converter_spec_id     TEXT,
+  manifest_json         JSONB,
+  failure_code          TEXT,
+  claim_token           TEXT,
+  created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  UNIQUE (workspace_id, created_by, idempotency_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_ingestions_workspace_state_created
+  ON control_plane.document_ingestions (workspace_id, state, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS control_plane.document_ingestion_audit_events (
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  ingestion_id  TEXT NOT NULL REFERENCES control_plane.document_ingestions(id) ON DELETE CASCADE,
+  actor_kind    TEXT NOT NULL CHECK (actor_kind IN ('user', 'worker', 'system')),
+  actor_id      TEXT NOT NULL,
+  old_state     TEXT,
+  new_state     TEXT NOT NULL,
+  reason        TEXT,
+  failure_code  TEXT,
+  created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_ingestion_audit_events_ingestion_created
+  ON control_plane.document_ingestion_audit_events (ingestion_id, created_at DESC);
