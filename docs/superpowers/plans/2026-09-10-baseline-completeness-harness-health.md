@@ -537,13 +537,381 @@ Expected: tests pass (`_EXPECTED_LEDGER` now matches), then the fingerprint is r
 
 ---
 
-## Task 5: Full `make verify-local` sweep
+## Task 5: Full `make verify-local` sweep — SUPERSEDED (partially executed)
 
-**Files:** whichever the sweep surfaces — folded into `002_restore_baseline_gaps` (finance-legal or cosa) as `ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS`, never a new migration file.
+> **2026-09-10 — scope revised.** Task 5's first pass proved the SP-A spec's
+> "two gaps" premise wrong: the R1 squash (`81461673`) dropped **five** gap
+> classes, plus a CRITICAL bug landed in a Phase-3 migration. `make verify-local`
+> has never been green since the squash; the previously-"green" targets rode
+> leftover pre-squash state in the dev DB.
+>
+> **Landed and kept** (legitimate side-fixes, out of the blocked scope):
+> - `404920f3` — pre-existing ruff debt (from `8dc6b72e`) that blocked `make lint`.
+> - `6c2a1513` — two durability tests: signer used `os.environ["WORKER_SERVICE_JWT_SECRET"]`
+>   while the spawned `services/cosa` verified with the module constant; and
+>   `test_crash_recovery_subprocess.py` didn't pin `COSA_EXECUTION_PLANE_URL`
+>   (the primary key `resolve_execution_plane_url()` reads) so the worker polled
+>   the dead dev port. Both fixed to use the value the service-under-test uses.
+>
+> **User decisions (2026-09-10):** restore the RETAINED-scope gaps (A/B/C below);
+> **quarantine** the DELIBERATELY-DESCOPED subsystems' tests (D — Vault/RAG, eval
+> promotion, agent memory/artifact are `PLANNED` per reset spec §7.3 line 66/187,
+> not R1); **reset the dev `workspace` DB** to clear the checksum drift.
+>
+> The `make verify-local` gate itself moves to **Task 5F**. Tasks 5A–5E do the
+> restores/quarantine/reset that make it reachable.
+
+---
+
+## Task 5A: Fix the `agent.runtime_signal_outbox.sequence` identity bug
+
+**Files:**
+- Create: `packages/agent/migrations/005_fix_runtime_signal_outbox_sequence.sql`
+- Create: `packages/agent/migrations/005_fix_runtime_signal_outbox_sequence.down.sql`
+- Modify: `tests/quality/test_baseline_identity_columns.py` (the `DB_GENERATED_COLUMNS` list: 7 → 6 tuples)
+- Modify: `tests/e2e/test_founder_trial_baseline_reset.py` (`_EXPECTED_LEDGER` += the new agent migration)
+- Modify: `deploy/schema/fingerprints.json` (regenerated — the `agent` group's `runtime_signal_outbox.sequence` column loses its identity attribute)
 
 **Interfaces:**
-- Consumes: Tasks 1–4.
-- Produces: `make verify-local` green end to end.
+- Consumes: the committed `packages/agent/migrations/004_restore_baseline_identity_columns.sql` (which introduced the bug) and Task 3's guard test.
+- Produces: `enqueue_runtime_signal` works on a fresh baseline DB → the agent-run → runtime-signal-outbox → Company projection path is unblocked; cross-plane smoke S2 can reach a real `run.completed`.
+
+**Root cause (already diagnosed, controller-verified):** `004_restore_baseline_identity_columns.sql` lists `('agent','runtime_signal_outbox','sequence')` alongside genuine auto-sequence columns and re-attaches `GENERATED ALWAYS AS IDENTITY` to it. But `packages/agent/workforce/repository.py::enqueue_runtime_signal` (line ~782) inserts `sequence` **explicitly** — it is a caller-supplied natural-key component (`ON CONFLICT (workspace_id, source_kind, source_id, sequence)`), and the worker passes `sequence=1`. Pre-squash DDL (`git show 81461673^:packages/agent/migrations/022_workforce_assignments_and_runtime_outbox.sql`) and the current baseline `001_founder_trial_mvp_baseline.sql:265` both declare it `sequence BIGINT NOT NULL` — never identity. Every `enqueue_runtime_signal` on a baseline-migrated DB dies with `cannot insert a non-DEFAULT value into column "sequence"`, swallowed by the worker's broad `except Exception` in `apps/cosa/worker/handlers.py`. This is cross-plane smoke S2's real blocker; commit `9edb3db1`'s "fake provider ran out of turns" attribution was wrong.
+
+- [ ] **Step 1: Reproduce (RED)**
+
+```bash
+cd /Volumes/SSD/javis-saas
+bash scripts/provision-founder-trial-test-dbs.sh
+export AGENT_MIGRATOR_DATABASE_URL='postgresql+asyncpg://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/javis_agent_test'
+# reset+apply agent plane only is fine here; or the full 3-var test-db-reset
+PGPASSWORD=change-me-agent-migrator psql -h 127.0.0.1 -U agent_migrator -d javis_agent_test -c \
+  "INSERT INTO agent.runtime_signal_outbox (outbox_id, workspace_id, source_kind, source_id, sequence, state, observed_at, correlation_id, payload_hash, state_delivery) VALUES (gen_random_uuid(), 'ws_x', 'run', 'r1', 1, 'COMPLETED', now(), 'c', 'h', 'PENDING');"
+```
+Expected: `ERROR: cannot insert a non-DEFAULT value into column "sequence"` … `Column "sequence" is an identity column defined as GENERATED ALWAYS.`
+
+- [ ] **Step 2: Write the fix migration**
+
+`packages/agent/migrations/005_fix_runtime_signal_outbox_sequence.sql`:
+
+```sql
+-- SP-A Task 5A: migration 004 wrongly attached GENERATED ALWAYS AS IDENTITY to
+-- agent.runtime_signal_outbox.sequence. That column is a caller-supplied natural-key
+-- component (enqueue_runtime_signal inserts it explicitly; pre-squash 022_* and the
+-- current baseline 001 both declare it plain `sequence BIGINT NOT NULL`). Detach the
+-- identity so explicit inserts work again. 004 is checksum-immutable — do NOT edit it.
+-- Non-destructive: the column keeps its data, type (bigint) and NOT NULL; only the
+-- auto-generation is removed. Idempotent.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'agent' AND c.relname = 'runtime_signal_outbox'
+      AND a.attname = 'sequence' AND a.attidentity <> ''
+  ) THEN
+    EXECUTE 'ALTER TABLE agent.runtime_signal_outbox ALTER COLUMN sequence DROP IDENTITY IF EXISTS';
+  END IF;
+END $$;
+```
+
+`.down.sql` (best-effort inverse; the "correct" state has no identity, so down re-adds it to match what `004` left):
+
+```sql
+-- Inverse of 005: re-attach the (incorrect, per 004) identity. Only for rollback symmetry.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'agent' AND c.relname = 'runtime_signal_outbox'
+      AND a.attname = 'sequence' AND a.attidentity <> ''
+  ) THEN
+    EXECUTE 'ALTER TABLE agent.runtime_signal_outbox ALTER COLUMN sequence ADD GENERATED ALWAYS AS IDENTITY';
+  END IF;
+END $$;
+```
+
+`ALTER COLUMN ... DROP IDENTITY` is not in `check-migration-backward-compat.mjs`'s `DESTRUCTIVE_PATTERNS` (DROP TABLE/COLUMN/SCHEMA, RENAME, TRUNCATE) — the gate passes.
+
+- [ ] **Step 3: Apply + GREEN**
+
+```bash
+cd /Volumes/SSD/javis-saas
+python packages/agent/scripts/migrate.py   # or the repo's agent migrate entrypoint; AGENT_MIGRATOR_DATABASE_URL set
+# re-run the Step 1 INSERT → now succeeds
+PGPASSWORD=change-me-agent-migrator psql -h 127.0.0.1 -U agent_migrator -d javis_agent_test -c "\d agent.runtime_signal_outbox" | grep sequence
+# → `sequence | bigint | not null` (no "generated always as identity")
+node scripts/check-migration-backward-compat.mjs   # pass
+```
+Apply to the dev `agent` DB too (`AGENT_MIGRATOR_DATABASE_URL=...@127.0.0.1:5432/agent`).
+
+- [ ] **Step 4: Fix Task 3's guard test**
+
+In `tests/quality/test_baseline_identity_columns.py`, remove the tuple `("agent", "runtime_signal_outbox", "sequence")` from `DB_GENERATED_COLUMNS` (7 → 6) and update the module docstring / any comment that claimed this column is DB-generated (it isn't — that claim was inherited from `004`'s wrong comment). The declaration-count test (`declared == 3`) is unaffected — `runtime_signal_outbox.sequence` was never a `.generatedAlwaysAsIdentity()` Drizzle column. Run:
+```bash
+.venv/bin/python -m pytest tests/quality/test_baseline_identity_columns.py -q   # 2 passed
+```
+
+- [ ] **Step 5: Ledger + fingerprint**
+
+```bash
+cd /Volumes/SSD/javis-saas
+# _EXPECTED_LEDGER += ("agent", "005_fix_runtime_signal_outbox_sequence.sql")
+export AGENT_MIGRATOR_DATABASE_URL='postgresql+asyncpg://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/javis_agent_test'
+export COSA_MIGRATOR_DATABASE_URL='postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/javis_cosa_test?sslmode=disable'
+export WORKSPACE_MIGRATOR_DATABASE_URL='postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/javis_workspace_test?sslmode=disable'
+# re-apply all planes to the test DBs first (3-var test-db-reset.mjs), then:
+node scripts/schema-fingerprint.mjs --write && node scripts/schema-fingerprint.mjs --check
+node scripts/test-migration-rollback.mjs   # Gate E: 005 down→up roundtrip
+# run the ledger pytest LAST (reverts fingerprints.json in teardown), then re-write:
+env -u AGENT_MIGRATOR_DATABASE_URL -u COSA_MIGRATOR_DATABASE_URL -u WORKSPACE_MIGRATOR_DATABASE_URL \
+  AGENT_TEST_MIGRATOR_DATABASE_URL='postgresql+asyncpg://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/javis_agent_test' \
+  COSA_TEST_MIGRATOR_DATABASE_URL='postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/javis_cosa_test?sslmode=disable' \
+  WORKSPACE_TEST_MIGRATOR_DATABASE_URL='postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/javis_workspace_test?sslmode=disable' \
+  .venv/bin/python -m pytest tests/e2e/test_founder_trial_baseline_reset.py -q
+node scripts/schema-fingerprint.mjs --write && node scripts/schema-fingerprint.mjs --check
+```
+
+- [ ] **Step 6: Prove it end to end**
+
+```bash
+cd /Volumes/SSD/javis-saas
+set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+.venv/bin/python -m pytest tests/e2e/test_cross_plane_smoke.py -m cross_plane -q
+```
+Expected: S2 (`test_s2_dispatch_worker_result`) now finds `agent.runtime_signal_outbox` populated `[(1, 'COMPLETED')]`. If S2's assertion was softened by `9edb3db1` to "durable facts, not stream terminal", tighten it back to also assert the stream terminal is `run.completed` (the bug that forced the softening is now fixed) — but only if S2 genuinely reaches that state; otherwise leave the durable-fact assertion and note why in the report.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/agent/migrations/005_fix_runtime_signal_outbox_sequence.sql \
+        packages/agent/migrations/005_fix_runtime_signal_outbox_sequence.down.sql \
+        tests/quality/test_baseline_identity_columns.py \
+        tests/e2e/test_founder_trial_baseline_reset.py \
+        deploy/schema/fingerprints.json
+git commit -m "fix(db): detach the wrongly-attached IDENTITY from agent.runtime_signal_outbox.sequence
+
+Migration 004 mis-classified this caller-supplied natural-key column as an
+auto-sequence and re-attached GENERATED ALWAYS AS IDENTITY. Every
+enqueue_runtime_signal on a baseline-migrated DB then failed with
+'cannot insert a non-DEFAULT value', swallowed by the worker's broad except,
+so no runtime signal / Company projection was ever written. New migration 005
+drops the identity; 004 stays untouched (checksum-immutable). Guard test's
+tracked-column list corrected 7->6.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+---
+
+## Task 5B: Restore the `operating.*` baseline gap
+
+**Files:**
+- Create: `services/company/operations/migrations/004_restore_baseline_gaps.up.sql`
+- Create: `services/company/operations/migrations/004_restore_baseline_gaps.down.sql`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: `operating.runtime_source_signals`, `operating.task_projects` (and any sibling `operating.*` / `strategy.*` table the `e2e-test` sweep proves missing) exist, matching `services/company/shared/db/schema/operating.ts` / `strategy.ts`. `operating` and `strategy` are RETAINED R1 schemas (`test_founder_trial_baseline_inventory.py::RETAINED_SCHEMAS["company-operations"]`).
+
+`operations` migrations currently: `001_founder_trial_mvp_baseline.up.sql` + `003_cosa_automation_mvp.up.sql`. Add `004`.
+
+- [ ] **Step 1: Enumerate the gap**
+
+```bash
+cd /Volumes/SSD/javis-saas
+# what operating.* / strategy.* tables does the Drizzle schema declare?
+grep -oE '\.table\("(\w+)"' services/company/shared/db/schema/operating.ts services/company/shared/db/schema/strategy.ts | sort -u
+# what does baseline 001 actually create?
+grep -oE 'CREATE TABLE (IF NOT EXISTS )?(operating|strategy)\.\w+' services/company/operations/migrations/001_founder_trial_mvp_baseline.up.sql | sort -u
+# diff → the missing set. Cross-check with the e2e-test failure list (Task 5 report §2.5):
+#   operating.runtime_source_signals, operating.task_projects were named explicitly.
+```
+Also apply the test DBs and probe: `PGPASSWORD=change-me-workspace-migrator psql -h 127.0.0.1 -U workspace_migrator -d javis_workspace_test -c "\dt operating.*"`.
+
+- [ ] **Step 2: Reconstruct DDL**
+
+For each missing table, pull its real DDL from the deleted operations migrations at `81461673^` (candidates by name: `14_project_link_tables.up.sql` for `task_projects`; the runtime-source-signals table is likely in a mission/runtime migration — `git show 81461673 --stat -- services/company/operations/migrations/ | grep -iE "signal|runtime|source|mission"`, then `git show 81461673^:services/company/operations/migrations/<file>`). Keep `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `ADD CONSTRAINT` (wrapped in `DO $$ ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`) only. Strip `INSERT`/`UPDATE`/`DELETE` and `NOT VALID`/`VALIDATE` pairs. Cross-check every column against `operating.ts` / `strategy.ts` — **Drizzle wins on disagreement**. Snowflake bigint PKs: `id bigint` no identity, unless the `.ts` says `.generatedAlwaysAsIdentity()`.
+
+- [ ] **Step 3: `.down.sql`** — `DROP TABLE IF EXISTS operating.<t> CASCADE;` for each table added, child-first.
+
+- [ ] **Step 4: Apply + verify**
+
+```bash
+cd /Volumes/SSD/javis-saas
+export WORKSPACE_MIGRATOR_DATABASE_URL='postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/javis_workspace_test?sslmode=disable'
+node services/company/scripts/migrate.mjs
+node scripts/check-migration-backward-compat.mjs
+cd services/company && npx tsc --noEmit
+# run the e2e-test suites that were failing on these relations, isolated to the test DB:
+cd /Volumes/SSD/javis-saas && WORKSPACE_DATABASE_URL='postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/javis_workspace_test?sslmode=disable' \
+  .venv/bin/python -m pytest tests/e2e -k "operating or runtime_source or task_project" -q
+```
+Apply to dev `workspace` DB too (after Task 5E resets it) or note it's deferred to 5E.
+
+- [ ] **Step 5: Commit** — `git add services/company/operations/migrations/004_restore_baseline_gaps.{up,down}.sql`; message `fix(db): restore operating.* tables dropped by the R1 baseline squash`; `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+
+---
+
+## Task 5C: Restore `finance.accounting_fiscal_profiles`
+
+**Files:**
+- Create: `services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.up.sql`
+- Create: `services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.down.sql`
+
+**Interfaces:**
+- Consumes: nothing (independent of Task 1's `002` legal restore).
+- Produces: `finance.accounting_fiscal_profiles` (+ any sibling `finance.*` table the finance-legal vitest / e2e sweep proves missing) exists, matching `services/company/shared/db/schema/finance.ts`. `finance` is a RETAINED R1 schema.
+
+`finance-legal` migrations after Task 1: `001_*` + `002_restore_baseline_gaps` (legal). This is `003`, **finance** structure only — keep it separate from the legal `002` (different schema, different concern).
+
+- [ ] **Step 1: Enumerate** — `grep -oE '\.table\("(\w+)"' services/company/shared/db/schema/finance.ts | sort -u` vs `grep -oE 'CREATE TABLE (IF NOT EXISTS )?finance\.\w+' services/company/finance-legal/migrations/001_founder_trial_mvp_baseline.up.sql | sort -u`. The Task 1 report + Task 5 report both named `finance.accounting_fiscal_profiles`; confirm whether anything else is missing.
+
+- [ ] **Step 2: Reconstruct DDL** — `git show 81461673 --stat -- services/company/finance-legal/migrations/ | grep -iE "fiscal|accounting|profile"`, then `git show 81461673^:services/company/finance-legal/migrations/<file>` for the `CREATE TABLE finance.accounting_fiscal_profiles` DDL. `CREATE TABLE IF NOT EXISTS`, cross-check columns against `finance.ts` (Drizzle wins), strip seed/backfill.
+
+- [ ] **Step 3: `.down.sql`** — `DROP TABLE IF EXISTS finance.<t> CASCADE;` child-first.
+
+- [ ] **Step 4: Apply + verify**
+
+```bash
+cd /Volumes/SSD/javis-saas
+export WORKSPACE_MIGRATOR_DATABASE_URL='postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/javis_workspace_test?sslmode=disable'
+node services/company/scripts/migrate.mjs
+node scripts/check-migration-backward-compat.mjs
+cd services/company && WORKSPACE_DATABASE_URL='postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/javis_workspace_test?sslmode=disable' \
+  npx vitest run finance-legal/tests/legal-applicability-integrity.test.ts finance-legal/tests/legal-applicability.test.ts
+```
+Expected: the 3 finance-legal suites that were red on `relation "finance.accounting_fiscal_profiles" does not exist` (Task 1 report) go green (they may still need a row or two of legal content seed — if so, that seed is Task 5C-local: add a `003_seed...` only if a specific assertion needs it, and document which).
+
+- [ ] **Step 5: Commit** — `git add services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.{up,down}.sql`; message `fix(db): restore finance.accounting_fiscal_profiles dropped by the R1 baseline squash`; `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+
+---
+
+## Task 5D: Quarantine the descoped agent-plane test suites
+
+**Files:**
+- Modify: the failing test modules under `tests/agent/**` (44 `python-test-unit` failures) and `tests/**` for `knowledge-ingestion-test` (14 failures) — add module-level skip markers.
+- Modify (if needed): `Makefile` `python-test-unit` `--cov-fail-under=80` and/or a coverage `omit` list.
+
+**Interfaces:**
+- Consumes: the Task 5 report's failure inventory (relations `vault.*`, `knowledge.*`, `agent_memory.*`, `agent_evals.*`, `agent_artifact.*`, `agent.workforce_schedules`, `agent.local_ingestion_attempts`).
+- Produces: `make python-test-unit` and `make knowledge-ingestion-test` green — the descoped-subsystem tests skip with a traceable reason instead of erroring.
+
+**Rationale:** Vault/RAG, eval promotion, agent memory and artifact are `PLANNED`, not Founder Trial R1 — `docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md` line 66 ("Vault/RAG … PLANNED — no live route/module") and line 187, and `tests/quality/test_founder_trial_baseline_inventory.py::FORBIDDEN_SCHEMAS`. Their schemas were intentionally dropped. Restoring them would reopen an architecture decision (forbidden by CLAUDE.md). The tests are stale; quarantine them.
+
+- [ ] **Step 1: Inventory the exact failing modules**
+
+```bash
+cd /Volumes/SSD/javis-saas
+set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+bash scripts/provision-founder-trial-test-dbs.sh
+# reset+apply test DBs (3-var test-db-reset.mjs)
+make python-test-unit 2>&1 | grep -E "^FAILED|^ERROR" | sed 's/::.*//' | sort -u > /tmp/pu-fails.txt
+make knowledge-ingestion-test 2>&1 | grep -E "^FAILED|^ERROR" | sed 's/::.*//' | sort -u > /tmp/ki-fails.txt
+cat /tmp/pu-fails.txt /tmp/ki-fails.txt
+# For each file, confirm it references a FORBIDDEN/PLANNED schema:
+while read f; do echo "== $f =="; grep -oE '(vault|knowledge|agent_memory|agent_evals|agent_artifact|workforce_schedules|local_ingestion)[._]' "$f" | sort -u; done < /tmp/pu-fails.txt
+```
+If a failing module does **not** reference any descoped schema, it is NOT a 5D case — STOP and report it (it may be a real regression or a different gap).
+
+- [ ] **Step 2: Add the skip marker**
+
+At the top of each confirmed-descoped test module (after imports), add:
+
+```python
+import pytest
+
+pytestmark = pytest.mark.skip(
+    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
+    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3. "
+    "Schema (vault/knowledge/agent_memory/agent_evals/agent_artifact) intentionally "
+    "dropped from the 001 baseline; re-enable when the subsystem is promoted to R1."
+)
+```
+
+Prefer a module-level `pytestmark`; only skip individual functions if a module mixes descoped and in-scope tests (check — most won't). Do **not** delete the tests.
+
+- [ ] **Step 3: Coverage floor**
+
+Re-run `make python-test-unit`. If `--cov-fail-under=80` now fails because the skipped modules dropped the measured coverage, either (a) add the descoped `packages/agent` subpackages (`packages/agent/vault`, `.../knowledge`, `.../memory`, `.../evals`, `.../artifacts`) to a coverage `omit` in `pyproject.toml`/`.coveragerc` so the ratio reflects only R1 code, or (b) lower the floor with a comment citing this task. Prefer (a). Document the before/after coverage number.
+
+- [ ] **Step 4: Verify + commit**
+
+```bash
+cd /Volumes/SSD/javis-saas
+set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+make python-test-unit          # green (N skipped)
+make knowledge-ingestion-test  # green (M skipped)
+git add -A && git status --short   # test modules + maybe pyproject.toml/.coveragerc + Makefile
+git commit -m "test: quarantine descoped Vault/RAG + eval-promotion + agent-memory suites
+
+These test PLANNED subsystems whose schemas were intentionally dropped from the
+Founder Trial R1 baseline (reset spec §7.3). Skip with a spec reference rather
+than restore the schemas (which would reopen the R1 descoping decision).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+---
+
+## Task 5E: Reset the dev `workspace` DB + apply all restore migrations to the dev DBs
+
+**Files:** none (operational).
+
+**Interfaces:**
+- Consumes: Tasks 1, 2, 5A, 5B, 5C committed.
+- Produces: the dev `workspace` / `agent` / `cosa` DBs match the committed migration tree — clears the `identity/002_restore_business_policy_tables.up.sql` checksum drift a concurrent session left, so `make e2e-test` (which uses ambient env) can run.
+
+**Rationale:** the Founder Trial baseline is a test-reset-only product (reset spec §7.3 — "marking an unknown existing database as current is incompatible with a test-reset-only product"). User approved the destructive reset.
+
+- [ ] **Step 1: Confirm the drift is still there and snapshot what's in the dev DB**
+
+```bash
+cd /Volumes/SSD/javis-saas
+set -a; source .env; set +a
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U postgres -d workspace -c \
+  "SELECT name, substr(checksum,1,12), applied_at FROM schema_migrations WHERE name LIKE '%002_restore_business_policy%';"
+PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U postgres -d workspace -c "\dn"   # note any non-R1 schemas present
+```
+
+- [ ] **Step 2: Reset + re-migrate the dev DBs from the committed tree**
+
+```bash
+cd /Volumes/SSD/javis-saas
+set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+# the dev-DB variant of the founder-trial reset — same script, dev URLs:
+APP_ENV=development DATABASE_RESET=CONFIRM_FOUNDER_TRIAL_MVP_RESET node scripts/test-db-reset.mjs   # if it supports a dev mode
+# OR, if that script is test-only: drop+recreate the app schemas in dev `workspace`/`agent`/`cosa`
+#   and re-run the plane migrators:
+#   node services/company/scripts/migrate.mjs   (WORKSPACE_MIGRATOR_DATABASE_URL=...@/workspace)
+#   node services/cosa/scripts/migrate.mjs      (COSA_MIGRATOR_DATABASE_URL=...@/cosa)
+#   python packages/agent/scripts/migrate.py    (AGENT_MIGRATOR_DATABASE_URL=...@/agent)
+```
+Investigate the exact repo idiom first (`grep -rn "DATABASE_RESET\|test-db-reset" scripts/ Makefile package.json`); use whatever the repo provides for a dev reset. If none exists, the minimal safe path is: `DROP SCHEMA ... CASCADE` for each app schema in the dev DB + `CREATE SCHEMA` + re-run the migrator (the migrator recreates everything from `001` + restores).
+
+- [ ] **Step 3: Verify**
+
+```bash
+cd /Volumes/SSD/javis-saas
+set -a; source .env; set +a; export PGPASSWORD="$POSTGRES_PASSWORD" PGUSER=postgres
+node services/company/scripts/migrate.mjs   # "nothing to apply, already up to date"
+node scripts/schema-fingerprint.mjs --check # against dev DBs — MATCH
+```
+
+- [ ] **Step 4: No commit** (operational). Record the before/after `schema_migrations` state and `\dn` in the report.
+
+---
+
+## Task 5F: Full `make verify-local` sweep (final gate)
+
+**Files:** whichever the sweep still surfaces — a genuine `legal.*`/`control_plane.*`/`operating.*`/`finance.*` structural gap folds into that plane's `restore_baseline_gaps` migration (all new & unreleased). No test weakening, no `type: ignore`, no `001_*` edit, no secret reuse.
+
+**Interfaces:**
+- Consumes: Tasks 1–4, 5A–5E, plus Task 6's doc-link fixes.
+- Produces: `make verify-local` green end to end; `make automation-mvp-e2e` 6/6.
 
 - [ ] **Step 1: Run the aggregate gate**
 
@@ -557,12 +925,13 @@ make verify-local 2>&1 | tee /tmp/verify-local.log
 
 - [ ] **Step 2: For each failure, root-cause before fixing**
 
-Use `superpowers:systematic-debugging`. Expected failures and their handling:
-- **`e2e-cross-plane-smoke` S2** (`test_s2_dispatch_worker_result`) — was red on `legal.ai_system_catalog` missing; must be green now. If it fails elsewhere, debug that specific point.
-- **`e2e-test`** golden path — should be unaffected; if a scenario now reaches AI-compliance and fails on a missing `legal.*` column, add the column to `002_restore_baseline_gaps` from the source file at `81461673^`.
-- **`knowledge-ingestion-test`** — should pass now that `document_ingestion*` exist.
-- **`python-test-integration`** (`pytest tests/agent tests/apps/cosa tests/integration -m "integration and not live_provider and not durability"`) — if a test drives the AI-compliance HTTP path (`tests/e2e/test_ai_compliance_company_http.py`, `tests/apps/cosa/compliance/`) and needs regulation **content** (rows in `regulation_versions` / `applicability_rules`), add the **minimal** seed those tests require — copy only the specific `INSERT` rows the failing assertion needs from `81461673^:.../14_legal_seed_tt58_nq86.up.sql` or `.../30_*.up.sql`, into a new `services/company/finance-legal/migrations/003_seed_min_legal_for_tests.up.sql` (a separate file — seed is not structure). Document in the file header exactly which test forced each row.
-- **`check-docs`** — if `scripts/check_doc_links.py` flags the new spec/plan, fix the link.
+Use `superpowers:systematic-debugging`. After Tasks 5A–5E the expected state per sub-target:
+- **`lint`, `typecheck-py`, `boundary-check`, `contract-freeze-check`, `desktop-worker-test`** — green (unchanged / fixed by `404920f3`).
+- **`python-test-unit`, `knowledge-ingestion-test`** — green with the 5D skips. If a NON-descoped module still fails, that's a new finding — debug it, don't skip it.
+- **`python-test-integration`** — green (fixed by `6c2a1513`). If a test drives the AI-compliance HTTP path and needs regulation **content** rows, add the **minimal** seed into a new `services/company/finance-legal/migrations/00X_seed_min_legal_for_tests.up.sql` (separate file — seed is not structure), header naming each test that forced each row.
+- **`check-docs`** — Task 6 fixes the 15 pre-existing broken links; if any remain, they belong to Task 6, not here.
+- **`e2e-test`** — after 5E reset the dev DB and 5B/5C restored `operating.*`/`finance.*`, the golden path should boot. A remaining missing `<retained-schema>.*` column folds into that plane's `restore_baseline_gaps` migration from `81461673^`.
+- **`e2e-cross-plane-smoke`** — after 5A, S2 must reach a real `run.completed` with `runtime_signal_outbox` populated. Other scenarios were already green.
 
 - [ ] **Step 3: Re-run until green**
 
@@ -603,10 +972,21 @@ If `git status --short` shows nothing to commit (verify-local was already green 
 
 **Files:**
 - Modify: `docs/superpowers/plans/2026-09-09-founder-trial-mvp-reset-baseline.md`
+- Modify: whichever doc files carry the 15 broken relative links `check-docs` flags (all pre-existing, in `docs/archive/2026-08/`, `docs/architecture/overview/07-*`, `09-*`, and an old `.superpowers/sdd/2026-08-30-*/task-1-report.md`).
 
 **Interfaces:**
-- Consumes: git history + the verified state after Tasks 1–5.
-- Produces: an accurate plan doc — no code change.
+- Consumes: git history + the verified state after Tasks 1–5F.
+- Produces: an accurate plan doc + `make check-docs` green — no runtime code change.
+
+- [ ] **Step 0: Fix the 15 broken doc links**
+
+```bash
+cd /Volumes/SSD/javis-saas
+make check-docs 2>&1 | grep -E "broken|->" > /tmp/broken-links.txt
+cat /tmp/broken-links.txt
+```
+
+For each: the target was `git rm`'d by `81461673` or an earlier cleanup. Fix by (a) repointing to the surviving replacement doc if there is an obvious one, else (b) unlinking — convert `[text](dead-path)` to plain `text` — and, if the sentence only exists to point at the dead file, delete the sentence. Do **not** recreate deleted files. Re-run `make check-docs` → green. Keep these edits in their own commit, separate from the reset-plan reconcile.
 
 - [ ] **Step 1: Establish real status per task**
 
@@ -643,11 +1023,27 @@ expand-only migrations, not by editing 001:
   (commit a9709b70)
 - `services/company/finance-legal/migrations/002_restore_baseline_gaps.up.sql`
   — the entire `legal` schema (regulation catalog + AI-compliance, ~23 tables).
-  Structure only; regulation content seed deferred. (SP-A, this effort)
+  Structure only; regulation content seed deferred. (SP-A)
 - `services/cosa/migrations/005_restore_baseline_gaps.up.sql`
   — control_plane.document_ingestions + document_ingestion_audit_events. (SP-A)
+- `packages/agent/migrations/005_fix_runtime_signal_outbox_sequence.sql`
+  — detaches the IDENTITY that migration 004 wrongly attached to
+  agent.runtime_signal_outbox.sequence (a caller-supplied natural-key column);
+  every enqueue_runtime_signal was failing on a fresh baseline DB. (SP-A Task 5A)
+- `services/company/operations/migrations/004_restore_baseline_gaps.up.sql`
+  — operating.runtime_source_signals / operating.task_projects (retained R1
+  schema). (SP-A Task 5B)
+- `services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.up.sql`
+  — finance.accounting_fiscal_profiles (retained R1 schema). (SP-A Task 5C)
 
-Regression guard: `tests/quality/test_baseline_identity_columns.py`.
+Deliberately NOT restored (PLANNED, not R1 — reset spec §7.3): schemas
+`vault`, `knowledge`, `agent_memory`, `agent_evals`, `agent_artifact`. Their
+stale test suites are skipped with a spec reference (SP-A Task 5D), not
+re-enabled.
+
+Regression guard: `tests/quality/test_baseline_identity_columns.py` (tracks 6
+DB-generated columns after Task 5A corrected the `runtime_signal_outbox.sequence`
+entry).
 ```
 
 - [ ] **Step 3: Commit**
