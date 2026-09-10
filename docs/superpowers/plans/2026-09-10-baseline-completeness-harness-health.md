@@ -955,6 +955,10 @@ Expected: `\dt operating.*` shows all 35, `\dt strategy.*` all 43. `check-migrat
 
 **Rationale:** Vault/RAG, eval promotion, agent memory and artifact are `PLANNED`, not Founder Trial R1 — `docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md` line 66 ("Vault/RAG … PLANNED — no live route/module") and line 187, and `tests/quality/test_founder_trial_baseline_inventory.py::FORBIDDEN_SCHEMAS`. Their schemas were intentionally dropped. Restoring them would reopen an architecture decision (forbidden by CLAUDE.md). The tests are stale; quarantine them.
 
+**Scope note:** This task only needs to green the two `verify-local` sub-targets — `python-test-unit` and `knowledge-ingestion-test`. The `engagement.*` schema is also missing (35 red `services/company/*/tests/customer-engagement/*` vitest files, discovered in Task 5C2) and `engagement` is likewise on the descoped list (reset spec line 69) — but those vitest suites run only under `make verify` (`services-test`), NOT `verify-local`, so they are OUT of SP-A scope. Note them in the report as a follow-up; do not quarantine them here.
+
+**Also for Task 5F (not 5D):** `core.permission_definitions` exists but is seeded with 0 rows (`identity/001` created the table, never seeded the canonical permission rows) — 5 `operations/strategy` vitest suites and some `finance-legal` suites fail on it. That is a **seed** gap, handled by a minimal seed in Task 5F, not a quarantine.
+
 - [ ] **Step 1: Inventory the exact failing modules**
 
 ```bash
