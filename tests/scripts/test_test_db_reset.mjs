@@ -7,7 +7,7 @@ import {
 
 const safeEnv = {
   APP_ENV: "test",
-  TEST_DATABASE_RESET: "CONFIRM_FOUNDER_TRIAL_MVP_RESET",
+  TEST_DATABASE_RESET: "CONFIRM_COSA_STARTUP_CORE_RESET",
   AGENT_TEST_MIGRATOR_DATABASE_URL:
     "postgresql://agent_migrator:x@127.0.0.1/javis_agent_test",
   COSA_TEST_MIGRATOR_DATABASE_URL:
@@ -37,15 +37,23 @@ test("rejects an absent or wrong confirmation phrase", () => {
       delete env.TEST_DATABASE_RESET;
       assertResetPreconditions(env, parseResetTargets(env));
     },
-    /CONFIRM_FOUNDER_TRIAL_MVP_RESET/
+    /CONFIRM_COSA_STARTUP_CORE_RESET/
   );
   assert.throws(
     () =>
       assertResetPreconditions(
-        { ...safeEnv, TEST_DATABASE_RESET: "CONFIRM_FOUNDER_TRIAL_MVP_RESET " },
+        { ...safeEnv, TEST_DATABASE_RESET: "CONFIRM_COSA_STARTUP_CORE_RESET " },
         parseResetTargets(safeEnv)
       ),
-    /CONFIRM_FOUNDER_TRIAL_MVP_RESET/
+    /CONFIRM_COSA_STARTUP_CORE_RESET/
+  );
+  assert.throws(
+    () =>
+      assertResetPreconditions(
+        { ...safeEnv, TEST_DATABASE_RESET: "CONFIRM_FOUNDER_TRIAL_MVP_RESET" },
+        parseResetTargets(safeEnv)
+      ),
+    /CONFIRM_COSA_STARTUP_CORE_RESET/
   );
 });
 

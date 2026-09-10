@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-off: create the three disposable Founder Trial test databases used ONLY by
-# `make test-db-reset` (Tasks 10–11 of the 2026-09-09 reset baseline plan).
+# One-off: create the three disposable Startup Core test databases used ONLY by
+# `make test-db-reset`.
 #
 # Safe to re-run: it drops and recreates the three javis_*_test databases. It
 # NEVER touches the real agent / cosa / workspace databases.

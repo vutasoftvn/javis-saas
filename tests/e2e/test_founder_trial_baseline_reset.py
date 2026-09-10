@@ -28,45 +28,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 _EXPECTED_LEDGER = {
-    ("agent", "001_founder_trial_mvp_baseline.sql"),
-    ("cosa", "001_founder_trial_mvp_baseline.up.sql"),
-    ("identity", "001_founder_trial_mvp_baseline.up.sql"),
-    ("operations", "001_founder_trial_mvp_baseline.up.sql"),
-    ("commercial", "001_founder_trial_mvp_baseline.up.sql"),
-    ("finance-legal", "001_founder_trial_mvp_baseline.up.sql"),
-    # Task 0 (COSA Automation MVP) — restore the execution/event-intake substrate
-    # the R1 squash dropped but still-running code depends on.
-    ("agent", "002_restore_event_intake_substrate.sql"),
-    ("cosa", "002_restore_control_plane_execution_substrate.up.sql"),
-    # Task 1 (COSA Automation MVP) — automation definition/revision/invocation
-    # storage, control-plane dispatch fencing, agent run manifest.
-    ("agent", "003_cosa_automation_mvp.sql"),
-    ("cosa", "003_cosa_automation_mvp.up.sql"),
-    ("operations", "003_cosa_automation_mvp.up.sql"),
-    # Fix the stale cosa.roles seed in the 001 baseline (missing `member`).
-    ("cosa", "004_seed_canonical_cosa_roles.up.sql"),
-    # Restore objects the pg_dump squash lost: core.workspace_policy_versions +
-    # cutover markers, and the stripped GENERATED-IDENTITY clauses.
-    ("identity", "002_restore_business_policy_tables.up.sql"),
-    ("agent", "004_restore_baseline_identity_columns.sql"),
-    # SP-A Task 5A — detach the IDENTITY that 004 wrongly attached to
-    # agent.runtime_signal_outbox.sequence (a caller-supplied natural key).
-    ("agent", "005_fix_runtime_signal_outbox_sequence.sql"),
-    # Task 1–2 (baseline-completeness harness health) — restore the legal.*
-    # schema and control_plane.document_ingestion* tables the R1 squash dropped.
-    ("finance-legal", "002_restore_baseline_gaps.up.sql"),
-    ("cosa", "005_restore_baseline_gaps.up.sql"),
-    # SP-A Tasks 5B/5C/5C2/5C3 — restore the 95 company tables declared in the
-    # Drizzle schema but dropped by the R1 baseline squash (operating/strategy,
-    # commercial/sales, finance).
-    ("operations", "004_restore_baseline_gaps.up.sql"),
-    ("operations", "005_restore_baseline_gaps.up.sql"),
-    ("commercial", "002_restore_baseline_gaps.up.sql"),
-    ("finance-legal", "003_restore_finance_baseline_gaps.up.sql"),
-    # SP-A Task 5F — re-seed the AI legal corpus (sources/versions/applicability
-    # rules) the squash dropped; without it every resolve-snapshot fails closed
-    # with LEGAL_REVIEW_PENDING.
-    ("finance-legal", "004_seed_ai_legal_applicability_corpus.up.sql"),
+    ("agent", "001_cosa_startup_core_baseline.sql"),
+    ("cosa", "001_cosa_startup_core_baseline.up.sql"),
+    ("identity", "001_cosa_startup_core_baseline.up.sql"),
+    ("operations", "001_cosa_startup_core_baseline.up.sql"),
+    ("commercial", "001_cosa_startup_core_baseline.up.sql"),
+    ("finance-legal", "001_cosa_startup_core_baseline.up.sql"),
 }
 
 

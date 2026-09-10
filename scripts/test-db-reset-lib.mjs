@@ -2,7 +2,7 @@
 //
 // Lệnh reset CHỈ dành cho môi trường test: nó tái tạo đúng ba database test
 // disposable (javis_agent_test, javis_cosa_test, javis_workspace_test) từ các
-// migration baseline 001 Founder Trial. Mọi kiểm tra an toàn ở đây phải chạy
+// migration baseline 001 Startup Core. Mọi kiểm tra an toàn ở đây phải chạy
 // TRƯỚC khi mở bất kỳ kết nối phá huỷ nào (xem spec §7.2).
 //
 // Ranh giới cứng: không xoá nguyên database, không xoá schema public, không
@@ -54,7 +54,7 @@ export const TEST_RESET_TARGETS = [
   ],
 ];
 
-export const RESET_CONFIRMATION = "CONFIRM_FOUNDER_TRIAL_MVP_RESET";
+export const RESET_CONFIRMATION = "CONFIRM_COSA_STARTUP_CORE_RESET";
 export const RESET_APP_ENV = "test";
 
 // Các biến URL non-test mà lệnh reset TUYỆT ĐỐI không được trùng.

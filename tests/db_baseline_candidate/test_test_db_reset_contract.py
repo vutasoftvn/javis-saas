@@ -12,7 +12,7 @@ ROOT = Path(__file__).parent.parent.parent
 
 def test_reset_validates_before_destructive_sql():
     source = (ROOT / "scripts/test-db-reset-lib.mjs").read_text()
-    assert "CONFIRM_FOUNDER_TRIAL_MVP_RESET" in source
+    assert "CONFIRM_COSA_STARTUP_CORE_RESET" in source
     assert source.index("assertResetPreconditions") < source.index("DROP OWNED BY")
     assert "DROP DATABASE" not in source
     assert "DROP SCHEMA public" not in source
