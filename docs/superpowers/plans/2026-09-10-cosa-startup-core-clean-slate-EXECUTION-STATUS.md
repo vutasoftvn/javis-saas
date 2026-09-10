@@ -163,8 +163,36 @@ Gate D green. Commits after `3523439d`:
 | `e2df4c17` | **`finance-legal/004_correct_tt58_predicate`** — rule 301 predicate to `{"entity_status":"VERIFIED","accounting_regime":"TT58_2026"}` (migration-39 correction) | 1 → 0 |
 
 Golden fingerprint after all migrations: **agent 21 / cosa 29 / workspace 181**.
-Remaining before VERIFIED: `make verify` (all services + lint + boundary +
-frontend) and `make e2e-cross-plane-smoke`, then bump the design spec.
+
+### `make verify` — agent plane reconciled; blocker now at `apps-cosa-test`
+
+Continued the same session into the Python planes. `make verify` order is
+lint → typecheck-py → boundary → skillpacks-validate → **tenancy-check**
+(company vitest + `pytest tests/agent tests/apps/cosa/test_tenant_isolation`) →
+contract-freeze → agent-test → **apps-cosa-test** → services-test →
+frontend-test/analyze → check-docs. Everything up to and including `agent-test`
+and `services-test` and `frontend-test` now passes.
+
+| Commit | Effect |
+|---|---|
+| `8a1c652a` | **`packages/agent/migrations/002`** — the clean-slate agent `001` dropped `agent_artifact.workspace_artifacts`, the whole `knowledge.*` schema, `agent.automation_run_manifests` + `agent.approvals.manifest_hash` (from the deleted `003_cosa_automation_mvp`). Flat post-`017` shape restored. + restore `skillpacks/lifecycle/{context-resolver,next-best-action}` and `skillpacks/strategy/{competitor-profiling,positioning}` (deleted in `8b5ea05a`, still pinned by `apps/cosa/agents/specs.py`). + `test_migrate.py` filename. |
+| `1badf326` | prune the 8 `test_tranche_*` skillpack eval snapshot tests to the retained catalog (drop framework skill ids, fix `len()` counts, delete `pivot-persevere` / `outcome-roadmap` probe functions) |
+| `812e0302` | `agent_artifact` + `knowledge` added to the fingerprint scope (agent 21 → 28 tables); Gate D green |
+| `17ecac9c` | delete orphan test modules `8b5ea05a` left importing removed code (`tests/apps/cosa/academy/`, `events/test_workforce_dispatch_router.py`); `test_lifecycle_tranche_c_acceptance` canonical count 113 → 90 |
+
+`pytest tests/agent tests/apps/cosa/test_tenant_isolation.py`: **952 passed**.
+
+**`make verify` now fails only at `apps-cosa-test`** — 19 pre-existing
+behavioural failures in the `apps/cosa` worker run path, confirmed present at
+`fe3226d3` before any of this session's agent work: `worker/test_handlers.py`
+(8 — the run is not persisted for the `operations` agent profile, no `failed`
+message on unseeded registry), `compliance/test_run_delegation.py` (5),
+`test_founder_knowledge_context.py` (2), `test_vertical_slice_1_read_path` /
+`test_workspace_execution_e2e` / `test_scheduled_session_worker` (3). Coverage
+is fine (84.6% > 78%). These are a distinct worker-runtime reconciliation, not
+schema/inventory drift — they need systematic-debugging of `execute_run_task`,
+not another restore migration. Still open before VERIFIED: fix those 19 +
+`make e2e-cross-plane-smoke`, then bump the design spec.
 
 ## Phased execution (each phase = its own green commit + checkpoint)
 
