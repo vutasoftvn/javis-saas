@@ -254,6 +254,11 @@ describe("Execution & Outcome DB Handlers", () => {
     const { workspaceId, krId, auth } = await seedOkrFixture();
     const wsId = BigInt(workspaceId);
 
+    // Startup Core: tối đa 1 cycle ACTIVE mỗi project (uix_active_cycle_per_project,
+    // design §132) — hai cycle phải nằm ở hai project khác nhau.
+    const project2 = await createProject({ workspaceId, title: "Cycle 2 Project", authorization: auth });
+    const project2Id = BigInt(project2.id);
+
     // Create 2 TwelveWeekCycles
     const [c1] = await db
       .insert(twelveWeekCycles)
@@ -271,7 +276,7 @@ describe("Execution & Outcome DB Handlers", () => {
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
-        projectId: wsId,
+        projectId: project2Id,
         displayName: "Cycle 2",
         durationWeeks: 6,
       })

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createTestSession } from "../../../identity/tests/helpers/test-session";
+import { seedObjectiveWithKeyResult } from "../../tests/_helpers";
 import { createProject, listProjects } from "../../handlers/project.handler";
 import { createInitiative, approveInitiative, getInitiative } from "../../handlers/initiative.handler";
 import { createOkrCycle, createObjective, addKeyResult, getObjectiveProgress } from "../../handlers/okr.handler";
@@ -16,7 +17,13 @@ async function makeAuthedWorkspace(displayName: string) {
     displayName,
     role: "founder",
   });
-  return { workspaceId: user.workspaceId, authorization: `Bearer ${user.accessToken}` };
+  // Startup Core: Initiative thuộc một Key Result — seed OKR mặc định.
+  const okr = await seedObjectiveWithKeyResult(user.workspaceId, user.projectId);
+  return {
+    workspaceId: user.workspaceId,
+    authorization: `Bearer ${user.accessToken}`,
+    keyResultId: okr.keyResultId,
+  };
 }
 
 describe("Phase 2e: Execution & Planning Chain Integration Test", () => {

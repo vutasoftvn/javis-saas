@@ -160,9 +160,10 @@ describe("Executive Context Snapshot", () => {
     expect(snapshot.totals.tasks).toBe(0);
     expect(snapshot.totals.objectives).toBe(0);
     // Startup Core: workspace luôn có sẵn 1 project (helper seed) — "empty" ở
-    // đây nghĩa là không có task/objective/evidence.
+    // đây nghĩa là không có task/objective; evidence chỉ có đúng project đó.
     expect(snapshot.totals.projects).toBe(1);
-    expect(snapshot.evidence).toEqual([]);
+    expect(snapshot.evidence).toHaveLength(1);
+    expect(snapshot.evidence[0].redactedExcerpt).toBe("Default Test Project");
   });
 
   it("redacts secrets/tokens from redactedExcerpt including dash- and dot-variants", async () => {

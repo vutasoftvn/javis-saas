@@ -4,34 +4,25 @@
 // thuộc project đang chọn đúng stage đó trong workspace.
 import { describe, it, expect } from "vitest";
 import { db, schema } from "../models/db";
-import { createProject } from "../handlers/project.handler";
 import { createTaskService, listStageRosterService } from "../services/task.service";
 import { createTestWorkspaceWithMember } from "./_helpers";
 
 describe("listStageRosterService", () => {
   it("returns tasks only for projects whose selected_stage matches", async () => {
-    // Seed workspace/project bằng đúng helper các test operations khác trong
-    // thư mục này dùng (xem agent-claimable.test.ts, project-operating-setup.test.ts) —
-    // các cột workspaceId/projectId là bigint nên phải là snowflake id thật,
-    // không phải chuỗi tay như "test-ws-...".
+    // Startup Core: helper seed sẵn một project (id === workspaceId); dùng đúng
+    // project đó cho cả operating-setup lẫn task (task gắn project qua cột trực
+    // tiếp `tasks.project_id`).
     const ws = await createTestWorkspaceWithMember();
-    const project = await createProject({
-      authorization: ws.bearerToken,
-      workspaceId: ws.workspaceId,
-      title: "Stage roster project",
-    });
 
     await db.insert(schema.projectOperatingSetups).values({
-      projectId: BigInt(project.id),
+      projectId: BigInt(ws.projectId),
       workspaceId: BigInt(ws.workspaceId),
       status: "IN_PROGRESS",
       selectedStage: "P0_DISCOVERY",
     });
 
-    // Startup Core: task gắn project qua cột trực tiếp `tasks.project_id` —
-    // createTaskService tự resolve về project duy nhất của workspace.
     const task = await createTaskService(
-      { title: "Ship pricing page", workspaceId: ws.workspaceId, priority: "high" },
+      { title: "Ship pricing page", workspaceId: ws.workspaceId, priority: "high", projectId: ws.projectId },
       ws.bearerToken
     );
 

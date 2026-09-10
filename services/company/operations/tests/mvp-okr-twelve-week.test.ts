@@ -215,7 +215,8 @@ describe("MVP OKR & 12-Week Contracts", () => {
     const { getExecutionCycleViewEndpoint } = await import("../handlers/execution-cycle-view.handler");
     const { createProject } = await import("../handlers/project.handler");
     const { db, schema } = await import("../models/db");
-    const { eq } = await import("drizzle-orm");
+    const { eq, sql } = await import("drizzle-orm");
+    const { generateSnowflake } = await import("../../shared/services/snowflake.service");
 
     const project = await createProject({ workspaceId, authorization, title: "Fallback Status Project" });
 
@@ -228,20 +229,17 @@ describe("MVP OKR & 12-Week Contracts", () => {
       startLocalDate: "2026-09-07",
     });
 
-    const completedCycle = await createCycle({
-      workspaceId,
-      authorization,
-      projectId: project.id,
-      displayName: "Completed cycle (newer)",
-      durationWeeks: 6,
-      startLocalDate: "2026-09-14",
-    });
-    // Đánh dấu cycle mới hơn là đã kết thúc — trước đây fallback chọn theo
-    // createdAt desc, sẽ chọn nhầm cycle này dù đã COMPLETED.
-    await db
-      .update(schema.twelveWeekCycles)
-      .set({ status: "COMPLETED" })
-      .where(eq(schema.twelveWeekCycles.id, BigInt(completedCycle.id)));
+    // Startup Core: tối đa 1 cycle ACTIVE mỗi project (uix_active_cycle_per_project)
+    // — cycle COMPLETED "mới hơn" phải chèn thẳng với status='COMPLETED' và
+    // created_at muộn hơn, không qua createCycle (sẽ va uniqueness ACTIVE).
+    const completedId = generateSnowflake();
+    await db.execute(sql`
+      INSERT INTO operating.twelve_week_cycles
+        (id, workspace_id, project_id, display_name, vision_statement, duration_weeks,
+         current_week, status, start_local_date, created_at, updated_at)
+      VALUES (${completedId}, ${BigInt(workspaceId)}, ${BigInt(project.id)},
+              'Completed cycle (newer)', '', 6, 1, 'COMPLETED', '2026-09-14', now() + interval '1 second', now())
+    `);
 
     const view = await getExecutionCycleViewEndpoint({
       workspaceId,

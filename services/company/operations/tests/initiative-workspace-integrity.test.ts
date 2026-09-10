@@ -10,7 +10,7 @@ import {
 } from "../../shared/db/schema/identity";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { createProject } from "../handlers/project.handler";
-import { createTestWorkspaceWithMember, addMemberToWorkspace } from "./_helpers";
+import { createTestWorkspaceWithMember, addMemberToWorkspace, seedObjectiveWithKeyResult } from "./_helpers";
 import { setWeeklyGoalService } from "../strategy/services/weekly-goal.service";
 import {
   createExecutionPlanService,
@@ -73,6 +73,9 @@ async function setupProjectWithGoal() {
     ws.bearerToken
   );
 
+  // Startup Core: Initiative thuộc một Key Result — seed OKR mặc định trong project.
+  const okr = await seedObjectiveWithKeyResult(ws.workspaceId, project.id);
+
   return {
     workspaceId: ws.workspaceId,
     projectId: project.id,
@@ -80,6 +83,7 @@ async function setupProjectWithGoal() {
     userId: ws.userId,
     weeklyPlanId: goal.weeklyPlanId,
     founderMemberId: founderMemberId.toString(),
+    keyResultId: okr.keyResultId,
   };
 }
 

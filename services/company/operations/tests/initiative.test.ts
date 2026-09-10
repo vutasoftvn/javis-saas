@@ -7,6 +7,7 @@ import {
   updateInitiative,
 } from "../handlers/initiative.handler";
 import { createTask } from "../handlers/task.handler";
+import { seedObjectiveWithKeyResult } from "./_helpers";
 
 async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
@@ -14,7 +15,14 @@ async function makeAuthedWorkspace(displayName: string) {
     displayName,
     role: "founder",
   });
-  return { workspaceId: user.workspaceId, authorization: `Bearer ${user.accessToken}` };
+  // Startup Core: Initiative thuộc một Key Result — seed OKR mặc định.
+  const okr = await seedObjectiveWithKeyResult(user.workspaceId, user.projectId);
+  return {
+    workspaceId: user.workspaceId,
+    authorization: `Bearer ${user.accessToken}`,
+    objectiveId: okr.objectiveId,
+    keyResultId: okr.keyResultId,
+  };
 }
 
 describe("createInitiative", () => {

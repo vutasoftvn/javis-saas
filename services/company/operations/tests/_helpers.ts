@@ -143,3 +143,27 @@ export async function addMemberToWorkspace(
   };
 }
 
+
+/**
+ * Startup Core: một Initiative thuộc đúng một Key Result (design §131). Nhiều
+ * test tạo Initiative mà không dựng OKR trước — helper này seed nhanh một
+ * Objective + Key Result trực tiếp vào project mặc định của workspace.
+ */
+export async function seedObjectiveWithKeyResult(
+  workspaceId: string,
+  projectId: string = workspaceId
+): Promise<{ objectiveId: string; keyResultId: string }> {
+  const objectiveId = generateSnowflake();
+  const keyResultId = generateSnowflake();
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      INSERT INTO strategy.okr_objectives (id, workspace_id, project_id, title, status)
+      VALUES (${objectiveId}, ${BigInt(workspaceId)}, ${BigInt(projectId)}, 'Seed Objective', 'draft')
+    `);
+    await tx.execute(sql`
+      INSERT INTO strategy.key_results (id, workspace_id, objective_id, title)
+      VALUES (${keyResultId}, ${BigInt(workspaceId)}, ${objectiveId}, 'Seed KR')
+    `);
+  });
+  return { objectiveId: objectiveId.toString(), keyResultId: keyResultId.toString() };
+}
