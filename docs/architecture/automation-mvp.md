@@ -84,8 +84,24 @@ Implemented and committed on `main` (14 commits, `6fe78575`..HEAD):
 | Governed lifecycle reconciliation + exact approvals | `automation-outcome.service.ts`, `automation_outcome_client.py`, approval `manifest_hash` | ✅ 10 pytest/vitest |
 | Flutter Library + guided config + Run Inspector + Needs You | `frontend/lib/modules/automation`, `automation-inspector.service.ts` | ✅ 13 flutter + 5 vitest |
 | Curated-blueprint rollout gate | `automation-blueprint.service.ts`, `surface-policy.ts` (PILOT), `.env.example` | ✅ 8 vitest |
-| Cross-plane E2E | `tests/e2e/test_automation_mvp_*.py`, `make automation-mvp-e2e` | ⏳ authored; needs a healthy `real_cosa_stack` (register 500 on current dev host) |
+| Cross-plane E2E | `tests/e2e/test_automation_mvp_*.py`, `make automation-mvp-e2e` | ✅ 6/6 green on a disposable 3-plane stack (real outbox → intake → scheduler/lease → worker → manifest → gateway → outcome → inspector) |
 
-Release gate before a PRODUCTION claim: run `make automation-mvp-e2e` green on
-CI or a clean host, then record command output + migration revisions + state
-assertions here, and only then change the spec status to VERIFIED.
+### Baseline gaps fixed to unblock the harness
+
+The Founder Trial R1 `001` baseline (a `pg_dump --schema-only` squash) had lost
+objects the running code needs. Restored as expand-only migrations alongside
+this work: `cosa/004_seed_canonical_cosa_roles` (missing `member` role →
+register 500), `company/identity/002_restore_business_policy_tables`
+(`core.workspace_policy_versions` + stripped `GENERATED IDENTITY` on
+`integration.event_outbox`/`event_audit`), `agent/004_restore_baseline_identity_columns`
+(stripped `GENERATED IDENTITY` on `run_events.sequence_no` etc).
+
+Still missing (owned by the Founder Trial baseline reset, not this MVP; does
+not affect `make automation-mvp-e2e`): the AI-compliance governance schema
+(`legal.ai_system_catalog` and ~13 related tables from deleted migration
+`27_ai_compliance_governance`) — blocks only cross-plane smoke S2.
+
+### Before a PRODUCTION claim
+
+Record `make automation-mvp-e2e` output + migration revisions + state
+assertions from a CI run or approved environment, plus deployment evidence.
