@@ -89,6 +89,21 @@ fingerprint Gate D passes.
   (525) + `docs/archive` + Founder Trial spec/plan; `tests/e2e/test_startup_core_clean_baseline.py`;
   `make verify` + `make e2e-cross-plane-smoke`.
 
+## Final session state (2026-09-10)
+
+| Phase | Status |
+|---|---|
+| **A** — Company backend clean-slate | ✅ done + verified (typecheck, boundary, test-db-reset, schema fingerprint Gate D) |
+| **Lifecycle rebuild** (corrected scope) | ✅ done — `*_lifecycle_events` tables + `transition{Workspace,Project}Lifecycle` + 4 endpoints + 10 tests |
+| **B** — apps/cosa | ✅ done — framework gate/pmf/venture-assess capabilities + `outcome-roadmap` skillpack removed |
+| **C** — Flutter clean-slate | ✅ done — `modules/strategy` split (8 retained services kept, ~76 framework files deleted), `hologram_hub` framework mixins/widgets removed, `create_first_project_view` replaces the kickoff wizard, l10n framework keys purged. **`flutter analyze`: No issues found. `flutter test`: 703 passed.** |
+| **D** — contracts + inventories + removal test | ✅ done — `test_removed_startup_core_surfaces.py` passes; route-inventory + company-usage-inventory + mvp-contracts + frontend-api-contract all regenerated & green |
+| **E** — docs | ⚠️ partial — `docs/academy` (525) + `docs/archive` (5) deleted; CLAUDE.md source-of-truth updated (startup-core design, lifecycle retained); 27 dead code-links in history docs neutralized; `make check-docs` green; `make lint` unblocked. **Remaining: README/DEPLOYMENT rewrites, delete superseded Founder Trial spec/plan (many inbound refs), mark design spec ACCEPTED, `tests/e2e/test_startup_core_clean_baseline.py`.** |
+
+### `make verify` blocker — pre-existing, not from this session
+
+`make verify` fails at `tenancy-check` (= full `services/company` vitest): **440 failed / 882 passed (1322)**. This is the **baseline schema/migration drift that predates this session** and was flagged in the audit above: the committed `001_cosa_startup_core_baseline` migration (Task 2) is inconsistent with the Drizzle schema + tests (e.g. `strategy.ts` defined 34 tables, the migration created 12; many `operating.*` columns/tables the code+tests expect are absent — `relation "..." does not exist` at test setup). Every Phase A backend commit in this session was verified per-commit to introduce **zero new failures** (before/after comparison on affected files). Reconciling the whole baseline so `services/company` vitest goes green is a large separate task — effectively finishing what committed Task 2 left incomplete — and is the gate for marking the design spec `ACCEPTED` and running `make e2e-cross-plane-smoke`.
+
 ## Phased execution (each phase = its own green commit + checkpoint)
 
 - **Phase A — Company backend clean-slate.** Reconcile Drizzle schema ↔ baseline migration to the retained set; strip `tows` / `strategic_objective` / `stage` coupling from `okr` / `initiative` / `twelve-week-year` / `task` services + handlers + tests; delete framework services/handlers/tests (`stage-*`, `gate-evaluation`, `pmf-scoreboard`, `maturity-assessment`, `workspace-strategy-settings`, `strategic-objective`, `strategy-analysis`, `tows-option`, `strategy-copilot`, `venture-*`, `discovery-signal`, `founder-*`, `pilot-run`); fix `permission-catalog` + `autonomy-classifier`. Green: `cd services/company && npm run typecheck && npx vitest run` + `make company-boundary-check` + schema-fingerprint regen + `tests/db_baseline_candidate`.
