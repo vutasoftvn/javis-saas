@@ -94,7 +94,11 @@ async def get_employee_scorecard(
 
     if outcomes is None:
         return EmployeeScorecard.unavailable(
-            workspace_id, agent_instance_id, window_start, window_end, "company_evidence_unavailable"
+            workspace_id,
+            agent_instance_id,
+            window_start,
+            window_end,
+            "company_evidence_unavailable",
         )
 
     accepted = rework = reject = escalations = retries = 0

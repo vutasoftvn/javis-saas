@@ -21,13 +21,26 @@ TASK_RESULT_SUBMITTED_EVENT = "operating.task.result_submitted.v1"
 # AutomationDispatchEnvelopeV1. Reference-only; anything else is quarantined.
 AUTOMATION_INVOCATION_REQUESTED_EVENT = "automation.invocation.requested.v1"
 _AUTOMATION_ENVELOPE_FIELDS = (
-    "schema_version", "invocation_id", "workspace_id", "automation_key",
-    "revision", "revision_hash", "trigger_kind", "trigger_identity",
-    "correlation_id", "requested_at",
+    "schema_version",
+    "invocation_id",
+    "workspace_id",
+    "automation_key",
+    "revision",
+    "revision_hash",
+    "trigger_kind",
+    "trigger_identity",
+    "correlation_id",
+    "requested_at",
 )
 _AUTOMATION_FORBIDDEN_KEYS = (
-    "input", "input_payload", "prompt", "credential", "secret",
-    "authorization", "connector_grant", "document",
+    "input",
+    "input_payload",
+    "prompt",
+    "credential",
+    "secret",
+    "authorization",
+    "connector_grant",
+    "document",
 )
 
 
@@ -46,6 +59,7 @@ def _validate_automation_payload(payload: dict) -> str | None:
     if payload.get("trigger_kind") not in ("manual", "schedule", "business_event"):
         return "automation payload trigger_kind invalid"
     return None
+
 
 # Signed Company→Agent work-package dispatch (Task 3/4) — schedule một run
 # workforce dùng chung spec operations. target_spec_id giữ ổn định; employee/

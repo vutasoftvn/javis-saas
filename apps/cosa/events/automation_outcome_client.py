@@ -26,8 +26,12 @@ class AutomationOutcomeClient:
         client: httpx.AsyncClient | None = None,
         timeout_sec: float = 5.0,
     ) -> None:
-        self._base_url = (base_url or os.getenv("COMPANY_SERVICE_URL") or "http://localhost:4000").rstrip("/")
-        self._token = service_token or os.getenv("COSA_WORKER_SERVICE_TOKEN") or "dev-worker-service-token"
+        self._base_url = (
+            base_url or os.getenv("COMPANY_SERVICE_URL") or "http://localhost:4000"
+        ).rstrip("/")
+        self._token = (
+            service_token or os.getenv("COSA_WORKER_SERVICE_TOKEN") or "dev-worker-service-token"
+        )
         self._client = client or httpx.AsyncClient(timeout=timeout_sec)
 
     def _headers(self) -> dict[str, str]:

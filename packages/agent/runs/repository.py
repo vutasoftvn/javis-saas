@@ -251,7 +251,11 @@ class InMemoryRunRepository:
                     f"({existing['manifest_hash']} != {manifest_hash})"
                 )
             return dict(existing)
-        record = {"run_id": run_id, "manifest_hash": manifest_hash, "manifest_json": dict(manifest_json)}
+        record = {
+            "run_id": run_id,
+            "manifest_hash": manifest_hash,
+            "manifest_json": dict(manifest_json),
+        }
         self._automation_manifests[run_id] = record
         return dict(record)
 

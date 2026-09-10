@@ -859,7 +859,9 @@ async def execute_automation_run_task(
 
     async def _emit(event_type: str, body: dict[str, Any]) -> None:
         await plane.run_repository.append_event(
-            RunEventRecord(run_id=run_id, event_type=event_type, payload=body, correlation_id=correlation_id)
+            RunEventRecord(
+                run_id=run_id, event_type=event_type, payload=body, correlation_id=correlation_id
+            )
         )
         repo = getattr(plane, "stream_event_repository", None)
         if repo is not None:
@@ -936,7 +938,9 @@ async def execute_automation_run_task(
         )
 
     # 2. Runtime gate — local-only blueprint with no local node BLOCKS.
-    if manifest.runtime_requirement == "local_only" and not payload.get("local_runtime_available", False):
+    if manifest.runtime_requirement == "local_only" and not payload.get(
+        "local_runtime_available", False
+    ):
         if await plane.run_repository.get_run(run_id) is None:
             await plane.run_repository.create_run(_new_run(RunStatus.FAILED))
         await _emit("run.blocked", {"cause": "LOCAL_RUNTIME_UNAVAILABLE"})
@@ -963,10 +967,16 @@ async def execute_automation_run_task(
     if persisted["manifest_hash"] != manifest_hash:
         await _emit(
             "run.failed",
-            {"error": "automation_manifest_drift", "persisted": persisted["manifest_hash"], "resolved": manifest_hash},
+            {
+                "error": "automation_manifest_drift",
+                "persisted": persisted["manifest_hash"],
+                "resolved": manifest_hash,
+            },
         )
         await _report_outcome("FAILED", failure_reason="automation_manifest_drift")
-        await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"cause": "manifest_drift"})
+        await plane.run_repository.update_run_status(
+            run_id, RunStatus.FAILED, error_details={"cause": "manifest_drift"}
+        )
         return
 
     # 4. Execute the pinned blueprint through the WorkflowEngine.
@@ -988,16 +998,25 @@ async def execute_automation_run_task(
     engine = WorkflowEngine(gateway=plane.gateway)
     custom_builders = {s.id: _builder for s in spec.steps}
     try:
-        workflow = await engine.execute_spec(spec, initial_state={"config": ctx.config}, custom_step_builders=custom_builders)
+        workflow = await engine.execute_spec(
+            spec, initial_state={"config": ctx.config}, custom_step_builders=custom_builders
+        )
     except Exception as exc:
         await _emit("run.failed", {"error": "automation_blueprint_error", "detail": str(exc)})
-        await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"detail": str(exc)})
+        await plane.run_repository.update_run_status(
+            run_id, RunStatus.FAILED, error_details={"detail": str(exc)}
+        )
         await _report_outcome("FAILED", failure_reason="automation_blueprint_error")
         raise
 
     if workflow.status != WorkflowStatus.COMPLETED:
-        await _emit("run.failed", {"error": "automation_blueprint_not_completed", "status": str(workflow.status)})
-        await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"status": str(workflow.status)})
+        await _emit(
+            "run.failed",
+            {"error": "automation_blueprint_not_completed", "status": str(workflow.status)},
+        )
+        await plane.run_repository.update_run_status(
+            run_id, RunStatus.FAILED, error_details={"status": str(workflow.status)}
+        )
         await _report_outcome("FAILED", failure_reason="automation_blueprint_not_completed")
         return
 
@@ -1013,6 +1032,8 @@ async def execute_automation_run_task(
             manifest_snapshot=manifest.model_dump(mode="json"),
         )
     )
-    await plane.run_repository.update_run_status(run_id, RunStatus.COMPLETED, final_output={"evidence": evidence})
+    await plane.run_repository.update_run_status(
+        run_id, RunStatus.COMPLETED, final_output={"evidence": evidence}
+    )
     await _emit("run.completed", {"run_id": run_id, "evidence_keys": sorted(evidence.keys())})
     await _report_outcome("COMPLETED", evidence_refs=sorted(evidence.keys()))

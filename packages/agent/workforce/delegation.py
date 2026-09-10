@@ -42,9 +42,7 @@ class WorkforceDelegationRecord:
         now = at or datetime.now(UTC)
         if self.status != "ACTIVE":
             return False
-        if self.expires_at is not None and self.expires_at <= now:
-            return False
-        return True
+        return not (self.expires_at is not None and self.expires_at <= now)
 
 
 class WorkforceDelegationRepository(Protocol):
@@ -87,9 +85,12 @@ async def require_founder_or_delegate(
     for d in delegations:
         if not d.is_effective():
             continue
-        if d.functional_key is not None and functional_key is not None:
-            if d.functional_key != functional_key:
-                continue
+        if (
+            d.functional_key is not None
+            and functional_key is not None
+            and d.functional_key != functional_key
+        ):
+            continue
         return
 
     raise FounderApprovalRequired(
@@ -137,7 +138,12 @@ class InMemoryWorkforceDelegationRepository:
         if not rec or rec.workspace_id != workspace_id:
             return None
         revoked = WorkforceDelegationRecord(
-            **{**rec.__dict__, "status": "REVOKED", "revoked_at": datetime.now(UTC), "revoked_by": revoked_by}
+            **{
+                **rec.__dict__,
+                "status": "REVOKED",
+                "revoked_at": datetime.now(UTC),
+                "revoked_by": revoked_by,
+            }
         )
         self._rows[did] = revoked
         return revoked
