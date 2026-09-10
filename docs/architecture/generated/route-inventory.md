@@ -307,16 +307,11 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/objectives/:id` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | PUT | `/operations/objectives/:id` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | GET | `/operations/objectives/:id/progress` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
-| GET | `/operations/objectives/:id/projects` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
-| POST | `/operations/objectives/:id/projects` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
-| DELETE | `/operations/objectives/:id/projects/:projectId` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/objectives/:id/publish` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/objectives/:objectiveId/key-results` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | GET | `/operations/okr-cycles` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/okr-cycles` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/outcome-assessments` | company | ✓ |  | services/company/operations/handlers/task-outcome-analysis.handler.ts |
-| GET | `/operations/portfolios` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
-| POST | `/operations/portfolios` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | GET | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | POST | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | GET | `/operations/projects/:id` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
@@ -403,9 +398,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/operations/tasks` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
 | GET | `/operations/tasks/:id` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
 | POST | `/operations/tasks/:id/advance` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
-| GET | `/operations/tasks/:id/projects` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
-| POST | `/operations/tasks/:id/projects` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
-| DELETE | `/operations/tasks/:id/projects/:projectId` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
 | POST | `/operations/tasks/:id/schedule` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
 | POST | `/operations/tasks/:id/status` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
 | GET | `/operations/tasks/:taskId/dependencies` | company | ✓ |  | services/company/operations/handlers/task-dependency.handler.ts |
