@@ -6,8 +6,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | Lớp | Occurrences | Files |
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 108 | 23 |
-| VALID_KEEP (giữ nguyên) | 110 | 32 |
-| REVIEW (chưa phân loại) | 853 | 205 |
+| VALID_KEEP (giữ nguyên) | 111 | 33 |
+| REVIEW (chưa phân loại) | 858 | 209 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -167,6 +167,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent/contracts/invocation.py | 2 |
 | packages/agent/workflows/automation_manifest.py | 2 |
 | services/company/events/outbox-relay.service.ts | 2 |
+| services/company/finance-legal/migrations/004_seed_ai_legal_applicability_corpus.up.sql | 2 |
 | services/company/finance-legal/services/cas-link.service.ts | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
 | services/company/operations/application/runtime/runtime-signal-projector.ts | 2 |
@@ -216,6 +217,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/handlers/ai-compliance-runtime.handler.ts | 1 |
 | services/company/finance-legal/handlers/ai-data-governance.handler.ts | 1 |
 | services/company/finance-legal/migrations/002_restore_baseline_gaps.up.sql | 1 |
+| services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.up.sql | 1 |
 | services/company/finance-legal/services/ingestion.service.ts | 1 |
 | services/company/identity/handlers/auth.handler.ts | 1 |
 | services/company/identity/handlers/e2e-session.handler.ts | 1 |
@@ -228,6 +230,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/domain/runtime-observation.ts | 1 |
 | services/company/operations/handlers/execution-plan.handler.ts | 1 |
 | services/company/operations/handlers/task.handler.ts | 1 |
+| services/company/operations/migrations/004_restore_baseline_gaps.up.sql | 1 |
+| services/company/operations/migrations/005_restore_baseline_gaps.up.sql | 1 |
 | services/company/operations/services/automation-blueprint.service.ts | 1 |
 | services/company/operations/services/workforce-delegation.client.ts | 1 |
 | services/company/operations/services/workforce-eligibility.client.ts | 1 |
@@ -281,6 +285,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | landing/src/components/sections/FaqSection.tsx | 1 |
 | landing/src/lib/early-access.ts | 1 |
 | services/company/commercial/migrations/001_founder_trial_mvp_baseline.up.sql | 1 |
+| services/company/commercial/migrations/002_restore_baseline_gaps.up.sql | 1 |
 | services/company/commercial/services/customer-engagement/copilot-cosa-client.ts | 1 |
 | services/company/shared/db/schema/commercial.ts | 1 |
 

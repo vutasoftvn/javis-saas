@@ -56,6 +56,17 @@ _EXPECTED_LEDGER = {
     # schema and control_plane.document_ingestion* tables the R1 squash dropped.
     ("finance-legal", "002_restore_baseline_gaps.up.sql"),
     ("cosa", "005_restore_baseline_gaps.up.sql"),
+    # SP-A Tasks 5B/5C/5C2/5C3 — restore the 95 company tables declared in the
+    # Drizzle schema but dropped by the R1 baseline squash (operating/strategy,
+    # commercial/sales, finance).
+    ("operations", "004_restore_baseline_gaps.up.sql"),
+    ("operations", "005_restore_baseline_gaps.up.sql"),
+    ("commercial", "002_restore_baseline_gaps.up.sql"),
+    ("finance-legal", "003_restore_finance_baseline_gaps.up.sql"),
+    # SP-A Task 5F — re-seed the AI legal corpus (sources/versions/applicability
+    # rules) the squash dropped; without it every resolve-snapshot fails closed
+    # with LEGAL_REVIEW_PENDING.
+    ("finance-legal", "004_seed_ai_legal_applicability_corpus.up.sql"),
 }
 
 
