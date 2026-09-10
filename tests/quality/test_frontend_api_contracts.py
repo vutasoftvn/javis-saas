@@ -65,12 +65,12 @@ def test_checker_flags_disabled_contract_literal_separately() -> None:
 
 def test_checker_matches_dynamic_path_segment_against_enabled_template(tmp_path: Path) -> None:
     # Nội suy trong PATH (`$id`) được quy về template `:id` rồi so khớp với
-    # manifest. `/operations/projects/:projectId/founder-trial-board` GET là
+    # manifest. `/operations/projects/:projectId/operating-loop` GET là
     # entry enabled thật — một call site dynamic khớp đúng shape này phải PASS.
     source = tmp_path / "frontend/lib/dyn_ok.dart"
     source.parent.mkdir(parents=True)
     source.write_text(
-        "await ApiClient.get('/operations/projects/$projectId/founder-trial-board');"
+        "await ApiClient.get('/operations/projects/$projectId/operating-loop');"
     )
     result = run_checker(tmp_path)
     assert result.returncode == 0, result.stderr
@@ -80,9 +80,9 @@ def test_checker_accepts_enabled_strategy_workflow_routes(tmp_path: Path) -> Non
     source = tmp_path / "frontend/lib/strategy_workflow.dart"
     source.parent.mkdir(parents=True)
     source.write_text(
-        "await ApiClient.post('/operations/strategy/assumptions');\n"
+        "await ApiClient.post('/operations/projects/$projectId/operating-loop/objectives');\n"
         "await ApiClient.post('/operations/strategy/interviews/$id/submit-evidence');\n"
-        "await ApiClient.patch('/operations/projects/$projectId/operating-cycle');\n"
+        "await ApiClient.get('/operations/projects/$projectId/operating-loop');\n"
     )
 
     result = run_checker(tmp_path)

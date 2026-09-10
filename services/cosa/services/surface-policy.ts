@@ -38,71 +38,28 @@ export interface SurfacePolicyEntry {
   readonly releaseNote: string | null;
 }
 
-export const SURFACE_POLICY_VERSION = "2026-09-10.3";
+export const SURFACE_POLICY_VERSION = "2026-09-10.4-startup-core";
 
 export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
-  // ── R1 Founder Trial: AVAILABLE ──
+  // ── Startup Core: Project Operating Loop ──
   {
-    surfaceKey: "founder_trial.board",
-    moduleKey: "strategy",
-    featureKey: "founder_trial_board",
+    surfaceKey: "project.operating_loop",
+    moduleKey: "operations",
+    featureKey: "project_operating_loop",
     defaultStatus: "AVAILABLE",
-    requiredCapabilities: ["strategy.founder_trial.board.read"],
+    requiredCapabilities: [
+      "project.loop.read",
+      "project.okr.write",
+      "project.cycle.write",
+      "project.week.write",
+      "project.commitment.write",
+      "project.task.write",
+    ],
     requiredConnectorKeys: [],
-    contractEndpoint: "strategy.founder_trial.board.read",
-    releaseNote: "Vòng lặp vận hành có dữ liệu thật: cycle → assumptions → experiments → evidence → decision.",
+    contractEndpoint: "project.loop.read",
+    releaseNote: "Vòng lặp vận hành Project: OKRs, chu kỳ 1-12 tuần, weekly plan, cam kết và tasks.",
   },
-  {
-    surfaceKey: "founder_trial.operating_cycle",
-    moduleKey: "strategy",
-    featureKey: "operating_cycle",
-    defaultStatus: "AVAILABLE",
-    requiredCapabilities: ["strategy.operating_cycle.resize"],
-    requiredConnectorKeys: [],
-    contractEndpoint: "strategy.operating_cycle.resize",
-    releaseNote: "Operating Cycle cấu hình được 1–12 tuần; 12 chỉ là template gợi ý.",
-  },
-  {
-    surfaceKey: "founder_trial.assumptions",
-    moduleKey: "strategy",
-    featureKey: "assumptions",
-    defaultStatus: "AVAILABLE",
-    requiredCapabilities: ["strategy.assumptions.ranked", "strategy.assumption.create"],
-    requiredConnectorKeys: [],
-    contractEndpoint: "strategy.assumptions.ranked",
-    releaseNote: "Giả thuyết xếp hạng theo importance × uncertainty.",
-  },
-  {
-    surfaceKey: "founder_trial.experiments",
-    moduleKey: "strategy",
-    featureKey: "experiments",
-    defaultStatus: "AVAILABLE",
-    requiredCapabilities: ["strategy.founder_trial.experiment.create"],
-    requiredConnectorKeys: [],
-    contractEndpoint: "strategy.founder_trial.experiment.create",
-    releaseNote: "Test contract: bắt buộc chọn assumption + method + success criteria.",
-  },
-  {
-    surfaceKey: "founder_trial.evidence",
-    moduleKey: "strategy",
-    featureKey: "evidence",
-    defaultStatus: "AVAILABLE",
-    requiredCapabilities: ["strategy.evidence.review"],
-    requiredConnectorKeys: [],
-    contractEndpoint: "strategy.evidence.review",
-    releaseNote: "Evidence candidate/approved/rejected; evidence chưa liên kết hypothesis nằm ngoài kết luận.",
-  },
-  {
-    surfaceKey: "founder_trial.founder_brief",
-    moduleKey: "strategy",
-    featureKey: "founder_brief",
-    defaultStatus: "AVAILABLE",
-    requiredCapabilities: ["strategy.founder_brief.read", "strategy.decision.create"],
-    requiredConnectorKeys: [],
-    contractEndpoint: "strategy.founder_brief.read",
-    releaseNote: "Tổng hợp 5 trục readiness. R1 không có agent recommendation.",
-  },
-  // ── R1 CRM (gate bởi module 'crm') ──
+  // ── CRM (gate bởi module 'crm') ──
   {
     surfaceKey: "crm.interview",
     moduleKey: "commercial",
@@ -128,7 +85,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     contractEndpoint: "commercial.contact.create",
     releaseNote: "Contact/lead liên kết project qua typed link (contact_projects / project_id).",
   },
-  // ── R1 Marketing (PILOT — chưa có paid spend / outbound) ──
+  // ── Marketing (PILOT — chưa có paid spend / outbound) ──
   {
     surfaceKey: "marketing.experiments",
     moduleKey: "commercial",
@@ -144,7 +101,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     contractEndpoint: "marketing.experiment.create",
     releaseNote: "Experiment + campaign draft project-scoped. Không autonomous paid spend hoặc outbound send.",
   },
-  // ── R1 Finance ──
+  // ── Finance ──
   {
     surfaceKey: "finance.project_budget",
     moduleKey: "finance",
@@ -160,8 +117,6 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     surfaceKey: "finance.cash_liquidity",
     moduleKey: "finance",
     featureKey: "workspace_liquidity",
-    // AVAILABLE là trạng thái "đã phát hành"; resolver tự hạ xuống
-    // CONFIGURATION_REQUIRED khi connector "cas" chưa enabled.
     defaultStatus: "AVAILABLE",
     requiredCapabilities: ["finance.snapshot.latest"],
     requiredConnectorKeys: ["cas"],
@@ -169,37 +124,10 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     contractEndpoint: "finance.snapshot.latest",
     releaseNote: "Workspace liquidity từ CAS. Không trình bày là 'tiền của project'. Cần kết nối CAS.",
   },
-  {
-    surfaceKey: "automation.library",
-    moduleKey: "automation",
-    featureKey: "library",
-    // PILOT: curated blueprint library + Run Inspector. Default rollout is
-    // disabled per workspace (AUTOMATION_MVP_WORKSPACE_ALLOWLIST) — report /
-    // draft-only. commercial.outbound-draft stays draft-only.
-    defaultStatus: "PILOT",
-    requiredCapabilities: [
-      "automation.definition.list",
-      "automation.definition.configure",
-      "automation.definition.publish",
-      "automation.invocation.create",
-      "automation.run.inspector.read",
-      "automation.needs_you.list",
-    ],
-    requiredConnectorKeys: [],
-    contractEndpoint: "automation.definition.list",
-    releaseNote:
-      "COSA Automation MVP — curated business playbooks with pinned execution, governed effects and a truthful Run Inspector.",
-  },
-  // ── PLANNED (post-R1) ──
+  // ── PLANNED (retained domains only) ──
   ...planned([
-    ["strategy.vision_mission_value", "strategy", "vision_mission_value", "Vision/Mission/Value — R1.1 sau khi founder trial cho thấy vòng evidence được hiểu."],
-    ["strategy.pestel", "strategy", "pestel", "PESTEL — R1.2, cần decision consumer + version/review policy."],
-    ["strategy.swot_tows", "strategy", "swot_tows", "SWOT/TOWS — R1.2."],
-    ["strategy.bsc", "strategy", "bsc", "Balanced Scorecard — R1.2."],
-    ["knowledge.vault_rag", "knowledge", "vault_rag", "Vault/RAG retrieval — R3, cần retrieval authorization."],
-    ["automation.workflow_builder", "automation", "workflow_builder", "Free workflow builder — R3, cần workflow governance."],
-    ["experience.voice_agent", "experience", "voice_agent", "Voice agent — R3 enterprise."],
-    ["agents.domain_orchestration", "agents", "domain_orchestration", "Project Orchestrator + domain agents — sau khi persistent workforce đạt Task 9."],
+    ["knowledge.vault_rag", "knowledge", "vault_rag", "Vault/RAG retrieval — cần retrieval authorization."],
+    ["agents.domain_orchestration", "agents", "domain_orchestration", "Project Orchestrator + domain agents."],
   ]),
 ];
 

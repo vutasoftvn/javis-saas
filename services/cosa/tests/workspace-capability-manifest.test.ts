@@ -38,14 +38,14 @@ describe("Workspace Capability Manifest", () => {
     });
     expect(res.data.version).toBeTruthy();
     expect(res.data.workspaceId).toBe(wsId);
-    const board = res.data.surfaces.find((s) => s.surfaceKey === "founder_trial.board");
-    expect(board).toBeDefined();
-    expect(board!.surfaceStatus).toBe("AVAILABLE");
-    expect(board!.contractEndpoint).toBe("strategy.founder_trial.board.read");
-    expect(board!).toHaveProperty("moduleKey");
-    expect(board!).toHaveProperty("featureKey");
-    expect(board!).toHaveProperty("entitled");
-    expect(Array.isArray(board!.reasons)).toBe(true);
+    const loop = res.data.surfaces.find((s) => s.surfaceKey === "project.operating_loop");
+    expect(loop).toBeDefined();
+    expect(loop!.surfaceStatus).toBe("AVAILABLE");
+    expect(loop!.contractEndpoint).toBe("project.loop.read");
+    expect(loop!).toHaveProperty("moduleKey");
+    expect(loop!).toHaveProperty("featureKey");
+    expect(loop!).toHaveProperty("entitled");
+    expect(Array.isArray(loop!.reasons)).toBe(true);
   });
 
   it("planned surfaces are PLANNED with a null contract endpoint", async () => {
@@ -53,9 +53,9 @@ describe("Workspace Capability Manifest", () => {
       workspaceId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
-    const pestel = res.data.surfaces.find((s) => s.surfaceKey === "strategy.pestel");
-    expect(pestel!.surfaceStatus).toBe("PLANNED");
-    expect(pestel!.contractEndpoint).toBeNull();
+    const planned = res.data.surfaces.find((s) => s.surfaceKey === "knowledge.vault_rag");
+    expect(planned!.surfaceStatus).toBe("PLANNED");
+    expect(planned!.contractEndpoint).toBeNull();
   });
 
   it("finance cash liquidity is CONFIGURATION_REQUIRED until CAS connector enabled", async () => {
@@ -108,7 +108,7 @@ describe("Workspace Capability Manifest", () => {
   it("operator override can downgrade but never force AVAILABLE", async () => {
     await setWorkspaceSurfaceOverride({
       workspaceId: wsId,
-      surfaceKey: "founder_trial.board",
+      surfaceKey: "project.operating_loop",
       statusOverride: "PILOT",
       reason: "trial cohort",
       authorization: `Bearer ${operatorToken}`,
@@ -117,9 +117,9 @@ describe("Workspace Capability Manifest", () => {
       workspaceId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
-    const board = res.data.surfaces.find((s) => s.surfaceKey === "founder_trial.board");
-    expect(board!.surfaceStatus).toBe("PILOT");
-    expect(board!.reasons.some((r) => r.startsWith("operator_override"))).toBe(true);
+    const loop = res.data.surfaces.find((s) => s.surfaceKey === "project.operating_loop");
+    expect(loop!.surfaceStatus).toBe("PILOT");
+    expect(loop!.reasons.some((r) => r.startsWith("operator_override"))).toBe(true);
 
     await expect(
       setWorkspaceSurfaceOverride({

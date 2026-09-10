@@ -87,6 +87,21 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
             errors.append(f"Duplicate route '{route_key}' on capability '{cid}'")
         seen_routes.add(route_key)
 
+        requires_project = cap.get("requires_project", False)
+        if requires_project:
+            if ":projectId" not in path:
+                errors.append(
+                    f"capability '{cid}': declared requires_project: true without :projectId in path '{path}'"
+                )
+            if not cap.get("requires_workspace", False):
+                errors.append(
+                    f"capability '{cid}': project-bound capability must have requires_workspace: true"
+                )
+
+        for token in ("bsc", "pestel", "swot", "tows", "maturity", "automation", "founder_trial"):
+            if token in cid:
+                errors.append(f"capability '{cid}': forbidden legacy keyword '{token}'")
+
         enabled = cap.get("enabled", False)
         if enabled:
             # When enabled, required proof fields must be present and non-empty

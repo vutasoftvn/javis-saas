@@ -43,6 +43,11 @@ for (const cap of manifest.capabilities) {
     process.exit(1);
   }
   seenRoutes.add(routeKey);
+
+  if (cap.requires_project === true && !cap.path.includes(":projectId")) {
+    console.error(`Capability '${cap.id}' declared requires_project: true without :projectId in path '${cap.path}'`);
+    process.exit(1);
+  }
 }
 
 // Sort capabilities deterministically by id
@@ -78,6 +83,7 @@ function genTs() {
   out.push(`  readonly schema: string;`);
   out.push(`  readonly sourceKind: MvpSourceKind;`);
   out.push(`  readonly requiresWorkspace: boolean;`);
+  out.push(`  readonly requiresProject: boolean;`);
   out.push(`  readonly frontendSymbol: string;`);
   out.push(`  readonly backendTest: string;`);
   out.push(`  readonly flutterTest: string;`);
@@ -98,6 +104,7 @@ function genTs() {
     out.push(`    schema: ${JSON.stringify(cap.schema)},`);
     out.push(`    sourceKind: ${JSON.stringify(cap.source_kind)},`);
     out.push(`    requiresWorkspace: ${Boolean(cap.requires_workspace)},`);
+    out.push(`    requiresProject: ${Boolean(cap.requires_project)},`);
     out.push(`    frontendSymbol: ${JSON.stringify(cap.frontend_symbol || "")},`);
     out.push(`    backendTest: ${JSON.stringify(cap.backend_test || "")},`);
     out.push(`    flutterTest: ${JSON.stringify(cap.flutter_test || "")},`);
@@ -142,6 +149,7 @@ function genPy() {
   out.push("    schema: str");
   out.push("    source_kind: MvpSourceKind");
   out.push("    requires_workspace: bool");
+  out.push("    requires_project: bool");
   out.push("    frontend_symbol: str");
   out.push("    backend_test: str");
   out.push("    flutter_test: str");
@@ -162,6 +170,7 @@ function genPy() {
     out.push(`        schema=${JSON.stringify(cap.schema)},`);
     out.push(`        source_kind=${JSON.stringify(cap.source_kind)},`);
     out.push(`        requires_workspace=${cap.requires_workspace ? "True" : "False"},`);
+    out.push(`        requires_project=${cap.requires_project ? "True" : "False"},`);
     out.push(`        frontend_symbol=${JSON.stringify(cap.frontend_symbol || "")},`);
     out.push(`        backend_test=${JSON.stringify(cap.backend_test || "")},`);
     out.push(`        flutter_test=${JSON.stringify(cap.flutter_test || "")},`);
@@ -203,6 +212,7 @@ function genDart() {
     out.push(`    method: '${cap.method}',`);
     out.push(`    path: '${cap.path}',`);
     out.push(`    requiresWorkspace: ${Boolean(cap.requires_workspace)},`);
+    out.push(`    requiresProject: ${Boolean(cap.requires_project)},`);
     out.push(`  )${i === capabilities.length - 1 ? ";" : ","}`);
   }
 
@@ -214,6 +224,7 @@ function genDart() {
   out.push("    required this.method,");
   out.push("    required this.path,");
   out.push("    required this.requiresWorkspace,");
+  out.push("    required this.requiresProject,");
   out.push("  });");
   out.push("");
   out.push("  final String id;");
@@ -226,6 +237,7 @@ function genDart() {
   out.push("  final String method;");
   out.push("  final String path;");
   out.push("  final bool requiresWorkspace;");
+  out.push("  final bool requiresProject;");
   out.push("");
   out.push("  static MvpEndpoint? fromId(String id) {");
   out.push("    for (final endpoint in MvpEndpoint.values) {");

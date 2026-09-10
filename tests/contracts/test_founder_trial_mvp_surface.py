@@ -1,11 +1,4 @@
-"""The shared MVP contract is the Founder Trial R1 surface plus the (initially
-disabled) COSA Automation MVP surface.
-
-Per the 2026-09-09 reset baseline plan (Task 2) the R1 identity check is strict.
-The 2026-09-10 Automation MVP adds `automation.*` capabilities that ship
-`enabled: false` and flip on per task as their real handler + tests land, so
-evidence-path existence is only enforced for enabled rows.
-"""
+"""The shared MVP contract is the Startup Core clean-slate surface."""
 
 from __future__ import annotations
 
@@ -15,16 +8,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "shared/contracts/mvp-surface.json"
 
-R1_IDS = {
+STARTUP_CORE_IDS = {
     "settings.capability_manifest.read",
-    "strategy.founder_trial.board.read",
-    "strategy.operating_cycle.resize",
-    "strategy.assumption.create",
-    "strategy.assumptions.ranked",
-    "strategy.founder_trial.experiment.create",
-    "strategy.evidence.review",
-    "strategy.decision.create",
-    "strategy.founder_brief.read",
+    "project.loop.read",
+    "project.okr.write",
+    "project.cycle.write",
+    "project.week.write",
+    "project.commitment.write",
+    "project.task.write",
     "commercial.contact.create",
     "commercial.lead.create",
     "commercial.interview.create",
@@ -37,44 +28,24 @@ R1_IDS = {
     "finance.snapshot.latest",
 }
 
-# COSA Automation MVP (docs/superpowers/plans/2026-09-10-cosa-automation-mvp.md).
-# These start `enabled: false` and are flipped on one at a time as Tasks 2-10
-# land their real handler + authorization test + Flutter contract test.
-AUTOMATION_IDS = {
-    "automation.definition.list",
-    "automation.definition.get",
-    "automation.definition.configure",
-    "automation.definition.publish",
-    "automation.definition.suspend",
-    "automation.invocation.create",
-    "automation.invocation.get",
-    "automation.invocation.cancel",
-    "automation.run.inspector.read",
-    "automation.approval.decide",
-    "automation.needs_you.list",
+# Test files that later plan tasks introduce.
+PENDING_EVIDENCE: set[str] = {
+    "frontend/test/modules/projects/project_operating_loop_service_test.dart",
 }
-
-# Test files that later plan tasks introduce. Each entry removed once its task
-# has landed and the file exists on disk.
-PENDING_EVIDENCE: set[str] = set()
 
 
 def load_contract() -> dict:
     return json.loads(CONTRACT.read_text(encoding="utf-8"))
 
 
-def test_mvp_surface_is_r1_plus_automation():
+def test_mvp_surface_is_startup_core():
     ids = {row["id"] for row in load_contract()["capabilities"]}
-    assert R1_IDS <= ids, f"missing R1 capability ids: {R1_IDS - ids}"
-    extra = ids - R1_IDS - AUTOMATION_IDS
-    assert not extra, f"unexpected capability ids outside R1 + automation allowlist: {extra}"
+    assert STARTUP_CORE_IDS == ids, f"unexpected diff: {STARTUP_CORE_IDS ^ ids}"
 
 
-def test_r1_capabilities_are_enabled_with_real_evidence_paths():
+def test_capabilities_are_enabled_with_real_evidence_paths():
     missing: list[str] = []
     for row in load_contract()["capabilities"]:
-        if row["id"] not in R1_IDS:
-            continue
         assert row["enabled"] is True, row["id"]
         assert row["requires_workspace"] is True, row["id"]
         for field in ("backend_test", "flutter_test", "integration_test"):
@@ -86,23 +57,7 @@ def test_r1_capabilities_are_enabled_with_real_evidence_paths():
     assert not missing, "evidence files do not exist: " + "; ".join(missing)
 
 
-def test_enabled_automation_capabilities_have_real_evidence_paths():
-    """An automation row may ship disabled, but the moment it flips to enabled
-    every evidence path it names must exist on disk."""
-    missing: list[str] = []
-    for row in load_contract()["capabilities"]:
-        if row["id"] not in AUTOMATION_IDS or not row["enabled"]:
-            continue
-        assert row["requires_workspace"] is True, row["id"]
-        for field in ("backend_test", "flutter_test", "integration_test"):
-            rel = row[field]
-            if not (ROOT / rel).exists():
-                missing.append(f"{row['id']}.{field} -> {rel}")
-    assert not missing, "enabled automation evidence files do not exist: " + "; ".join(missing)
-
-
 def test_pending_evidence_paths_are_actually_referenced():
-    # Guard against a stale PENDING_EVIDENCE entry lingering after its file lands.
     referenced = {
         row[field]
         for row in load_contract()["capabilities"]

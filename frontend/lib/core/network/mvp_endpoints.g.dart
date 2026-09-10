@@ -5,94 +5,6 @@
 import 'api_result.dart';
 
 enum MvpEndpoint {
-  automationApprovalDecide(
-    id: 'automation.approval.decide',
-    enabled: false,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/automation/approvals/:approvalId/decision',
-    requiresWorkspace: true,
-  ),
-  automationDefinitionConfigure(
-    id: 'automation.definition.configure',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'PATCH',
-    path: '/operations/automation/definitions/:definitionId/configuration',
-    requiresWorkspace: true,
-  ),
-  automationDefinitionGet(
-    id: 'automation.definition.get',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'GET',
-    path: '/operations/automation/definitions/:definitionId',
-    requiresWorkspace: true,
-  ),
-  automationDefinitionList(
-    id: 'automation.definition.list',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'GET',
-    path: '/operations/automation/definitions',
-    requiresWorkspace: true,
-  ),
-  automationDefinitionPublish(
-    id: 'automation.definition.publish',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/automation/definitions/:definitionId/revisions',
-    requiresWorkspace: true,
-  ),
-  automationDefinitionSuspend(
-    id: 'automation.definition.suspend',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/automation/definitions/:definitionId/suspension',
-    requiresWorkspace: true,
-  ),
-  automationInvocationCancel(
-    id: 'automation.invocation.cancel',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/automation/invocations/:invocationId/cancellation',
-    requiresWorkspace: true,
-  ),
-  automationInvocationCreate(
-    id: 'automation.invocation.create',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/automation/definitions/:definitionId/invocations',
-    requiresWorkspace: true,
-  ),
-  automationInvocationGet(
-    id: 'automation.invocation.get',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'GET',
-    path: '/operations/automation/invocations/:invocationId',
-    requiresWorkspace: true,
-  ),
-  automationNeedsYouList(
-    id: 'automation.needs_you.list',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'GET',
-    path: '/operations/automation/needs-you',
-    requiresWorkspace: true,
-  ),
-  automationRunInspectorRead(
-    id: 'automation.run.inspector.read',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'GET',
-    path: '/operations/automation/invocations/:invocationId/inspector',
-    requiresWorkspace: true,
-  ),
   commercialContactCreate(
     id: 'commercial.contact.create',
     enabled: true,
@@ -100,6 +12,7 @@ enum MvpEndpoint {
     method: 'POST',
     path: '/commercial/contacts',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   commercialInterviewCreate(
     id: 'commercial.interview.create',
@@ -108,6 +21,7 @@ enum MvpEndpoint {
     method: 'POST',
     path: '/operations/strategy/interviews',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   commercialInterviewSubmitEvidence(
     id: 'commercial.interview.submit_evidence',
@@ -116,6 +30,7 @@ enum MvpEndpoint {
     method: 'POST',
     path: '/operations/strategy/interviews/:id/submit-evidence',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   commercialLeadCreate(
     id: 'commercial.lead.create',
@@ -124,6 +39,7 @@ enum MvpEndpoint {
     method: 'POST',
     path: '/commercial/leads',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   financeBudgetSummaryRead(
     id: 'finance.budget_summary.read',
@@ -132,6 +48,7 @@ enum MvpEndpoint {
     method: 'GET',
     path: '/finance/budget-summary',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   financeSnapshotLatest(
     id: 'finance.snapshot.latest',
@@ -140,6 +57,7 @@ enum MvpEndpoint {
     method: 'GET',
     path: '/finance/snapshots/latest',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   marketingCampaignCreate(
     id: 'marketing.campaign.create',
@@ -148,6 +66,7 @@ enum MvpEndpoint {
     method: 'POST',
     path: '/commercial/marketing/campaigns',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   marketingCampaignList(
     id: 'marketing.campaign.list',
@@ -156,6 +75,7 @@ enum MvpEndpoint {
     method: 'GET',
     path: '/commercial/marketing/campaigns',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   marketingExperimentCreate(
     id: 'marketing.experiment.create',
@@ -164,6 +84,7 @@ enum MvpEndpoint {
     method: 'POST',
     path: '/commercial/marketing/experiments',
     requiresWorkspace: true,
+    requiresProject: false,
   ),
   marketingExperimentList(
     id: 'marketing.experiment.list',
@@ -172,6 +93,61 @@ enum MvpEndpoint {
     method: 'GET',
     path: '/commercial/marketing/experiments',
     requiresWorkspace: true,
+    requiresProject: false,
+  ),
+  projectCommitmentWrite(
+    id: 'project.commitment.write',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/projects/:projectId/operating-loop/commitments',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
+  projectCycleWrite(
+    id: 'project.cycle.write',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/projects/:projectId/operating-loop/cycles',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
+  projectLoopRead(
+    id: 'project.loop.read',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'GET',
+    path: '/operations/projects/:projectId/operating-loop',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
+  projectOkrWrite(
+    id: 'project.okr.write',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/projects/:projectId/operating-loop/objectives',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
+  projectTaskWrite(
+    id: 'project.task.write',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/projects/:projectId/operating-loop/tasks',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
+  projectWeekWrite(
+    id: 'project.week.write',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/projects/:projectId/operating-loop/weeks',
+    requiresWorkspace: true,
+    requiresProject: true,
   ),
   settingsCapabilityManifestRead(
     id: 'settings.capability_manifest.read',
@@ -180,70 +156,7 @@ enum MvpEndpoint {
     method: 'GET',
     path: '/platform/workspaces/:workspaceId/capability-manifest',
     requiresWorkspace: true,
-  ),
-  strategyAssumptionCreate(
-    id: 'strategy.assumption.create',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/strategy/assumptions',
-    requiresWorkspace: true,
-  ),
-  strategyAssumptionsRanked(
-    id: 'strategy.assumptions.ranked',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'GET',
-    path: '/operations/strategy/projects/:projectId/ranked-assumptions',
-    requiresWorkspace: true,
-  ),
-  strategyDecisionCreate(
-    id: 'strategy.decision.create',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/strategy/decision-records',
-    requiresWorkspace: true,
-  ),
-  strategyEvidenceReview(
-    id: 'strategy.evidence.review',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/strategy/evidence/:id/review',
-    requiresWorkspace: true,
-  ),
-  strategyFounderBriefRead(
-    id: 'strategy.founder_brief.read',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'GET',
-    path: '/operations/projects/:projectId/founder-brief',
-    requiresWorkspace: true,
-  ),
-  strategyFounderTrialBoardRead(
-    id: 'strategy.founder_trial.board.read',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'GET',
-    path: '/operations/projects/:projectId/founder-trial-board',
-    requiresWorkspace: true,
-  ),
-  strategyFounderTrialExperimentCreate(
-    id: 'strategy.founder_trial.experiment.create',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'POST',
-    path: '/operations/projects/:projectId/founder-trial/experiments',
-    requiresWorkspace: true,
-  ),
-  strategyOperatingCycleResize(
-    id: 'strategy.operating_cycle.resize',
-    enabled: true,
-    plane: ApiPlane.company,
-    method: 'PATCH',
-    path: '/operations/projects/:projectId/operating-cycle',
-    requiresWorkspace: true,
+    requiresProject: false,
   );
 
   const MvpEndpoint({
@@ -253,6 +166,7 @@ enum MvpEndpoint {
     required this.method,
     required this.path,
     required this.requiresWorkspace,
+    required this.requiresProject,
   });
 
   final String id;
@@ -265,6 +179,7 @@ enum MvpEndpoint {
   final String method;
   final String path;
   final bool requiresWorkspace;
+  final bool requiresProject;
 
   static MvpEndpoint? fromId(String id) {
     for (final endpoint in MvpEndpoint.values) {
