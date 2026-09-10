@@ -13,6 +13,9 @@ async function makeCycle() {
   });
   const authorization = `Bearer ${user.accessToken}`;
   const workspace = { id: user.workspaceId };
+  // Startup Core: mọi Objective/Task sống bên trong một project — workspace mới
+  // khởi tạo rỗng nên test phải tự tạo project đầu tiên.
+  await createProject({ workspaceId: workspace.id, title: "Default Project", authorization });
   const cycle = await createOkrCycle({ workspaceId: workspace.id, name: "Q1", authorization });
   return { workspace, cycle, authorization };
 }
@@ -22,7 +25,11 @@ async function makeAuthedWorkspace(displayName: string) {
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName,
   });
-  return { workspaceId: user.workspaceId, userId: user.userId, authorization: `Bearer ${user.accessToken}` };
+  const authorization = `Bearer ${user.accessToken}`;
+  // Startup Core: seed project mặc định để createObjective/createTask có project
+  // để gắn (cột trực tiếp project_id).
+  const project = await createProject({ workspaceId: user.workspaceId, title: "Default Project", authorization });
+  return { workspaceId: user.workspaceId, userId: user.userId, authorization, projectId: project.id };
 }
 
 describe("createOkrCycle", () => {
@@ -57,7 +64,10 @@ describe("createObjective", () => {
     const objective = await createObjective({ workspaceId: workspace.id, cycleId: cycle.id, title: "Grow revenue", authorization });
     expect(objective.id).toBeTruthy();
     expect(typeof objective.id).toBe("string");
-    expect(objective.cycleId).toBe(cycle.id);
+    // Startup Core: Objective gắn project qua `okr_objectives.project_id`. cycleId
+    // được validate lúc tạo nhưng không lưu trên objective (không có cột cycle_id).
+    expect(objective.projectId).toBeTruthy();
+    expect(typeof objective.projectId).toBe("string");
   });
 
   it("rejects an objective under a cycle that doesn't exist (real DB FK)", async () => {

@@ -10,7 +10,11 @@ async function makeAuthedWorkspace(displayName: string) {
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName,
   });
-  return { workspaceId: user.workspaceId, userId: user.userId, authorization: `Bearer ${user.accessToken}` };
+  const authorization = `Bearer ${user.accessToken}`;
+  // Startup Core: task sống bên trong một project (cột trực tiếp
+  // tasks.project_id) — workspace mới khởi tạo rỗng nên seed project mặc định.
+  const project = await createProject({ workspaceId: user.workspaceId, title: "Default Project", authorization });
+  return { workspaceId: user.workspaceId, userId: user.userId, authorization, projectId: project.id };
 }
 
 describe("createTask", () => {
@@ -287,14 +291,13 @@ describe("updateTaskSchedule", () => {
 
 describe("task ↔ project (direct column)", () => {
   it("populates projectId / projectIds on getTask from tasks.project_id", async () => {
-    const { workspaceId, authorization } = await makeAuthedWorkspace("Task Fetch Link Test");
+    const { workspaceId, authorization, projectId } = await makeAuthedWorkspace("Task Fetch Link Test");
     // Startup Core: task thuộc đúng một project qua cột `tasks.project_id` —
-    // createTask tự resolve về project của workspace, không còn M:N link.
-    const project = await createProject({ workspaceId, title: "Project P", authorization });
-    const task = await createTask({ workspaceId, title: "Fetch with project", authorization });
+    // createTask với projectId tường minh, không còn M:N link.
+    const task = await createTask({ workspaceId, title: "Fetch with project", authorization, projectId });
 
     const fetched = await getTask({ id: task.id, workspaceId, authorization });
-    expect(fetched.projectId).toBe(project.id);
-    expect(fetched.projectIds).toEqual([project.id]);
+    expect(fetched.projectId).toBe(projectId);
+    expect(fetched.projectIds).toEqual([projectId]);
   });
 });
