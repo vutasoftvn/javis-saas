@@ -6,7 +6,6 @@ import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { scoreEvidence, EvidenceSourceType } from "./evidence-scoring.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 import { assertLifecyclePrivileged } from "./lifecycle-authorization.service";
-import { assertNotAcademyReference, assertNotAcademyTemplateDraft } from "../../../academy/contracts";
 import { EvidenceIngestionReceipt } from "./evidence-ingestion.service";
 
 const { evidence, evidenceIngestions } = schema;
@@ -85,11 +84,6 @@ export async function recordEvidenceInWorkspace(
     throw APIError.invalidArgument("projectId, sourceType, and claim are required");
   }
   const wsId = BigInt(ctx.workspaceId);
-
-  // Academy firewall: reject synthetic/academy artifact refs before any persistence
-  assertNotAcademyReference(params.artifactRef, "artifactRef");
-  assertNotAcademyReference(params.sourceRecordId, "sourceRecordId");
-  assertNotAcademyTemplateDraft(params.artifactKind, "artifactKind");
 
   // Xác nhận project thuộc workspace này
   await getProjectInWorkspace(params.projectId, ctx);
