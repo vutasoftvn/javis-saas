@@ -31,10 +31,10 @@ requires_migration_database = pytest.mark.skipif(
 def test_canonical_agent_package_and_primary_schema_are_available():
     """The reusable runtime package and its main persistence schema share `agent`."""
     repo_root = Path(__file__).resolve().parents[3]
-    # Founder Trial R1 (Task 10) — the historical numbered migrations were
-    # replaced by a single curated baseline.
+    # Startup Core clean-slate — the historical numbered migrations were replaced
+    # by a single curated baseline.
     migration = (
-        repo_root / "packages" / "agent" / "migrations" / "001_founder_trial_mvp_baseline.sql"
+        repo_root / "packages" / "agent" / "migrations" / "001_cosa_startup_core_baseline.sql"
     )
 
     assert migration.exists()

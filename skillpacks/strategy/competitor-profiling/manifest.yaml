@@ -1,0 +1,68 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: strategy.competitor-profiling
+  name: Competitor Profiling & Intelligence Dossier
+  version: 1.0.0
+  description: Xây dựng hồ sơ tình báo đối thủ cạnh tranh (Competitor Dossier), phân tích định vị, sản phẩm, mô hình giá, thế mạnh và điểm yếu dựa trên dữ liệu công khai.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/strategy/competitor-profiling
+
+capability:
+  domain: strategy
+  category: intelligence
+  intents:
+    - competitor profiling
+    - competitive intelligence
+    - hồ sơ đối thủ
+    - phân tích đối thủ cạnh tranh
+    - competitor dossier
+    - feature matrix
+    - pricing teardown
+
+runtime:
+  entrypoint: SKILL.md
+  tools:
+    - web.search
+
+applicability:
+  project_stages:
+    - P1_PROBLEM_VALIDATION
+  gates:
+    - G1
+  required_context:
+    - workspace
+    - project
+  outputs:
+    - artifact
+
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+
+quality:
+  eval_suite: evals/strategy/competitor-profiling.yaml
+  required_negative_cases:
+    - missing-workspace
+    - cross-workspace
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0
