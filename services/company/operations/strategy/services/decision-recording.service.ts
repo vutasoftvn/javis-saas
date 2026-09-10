@@ -4,19 +4,25 @@ import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
-import { EvidenceItem } from "./gate-evaluation.service";
 import { JsonObject, toJsonObject } from "./strategy-json";
 
-const { decisionRecords, gateEvaluations, evidence } = schema;
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+const { decisionRecords, evidence } = schema;
 
 export type StrategyDecision = "proceed" | "pivot" | "kill" | "hold";
+
+// Evidence tối giản dùng để dựng snapshot quyết định (trước đây import từ gate-evaluation).
+export interface EvidenceItem {
+  id?: string;
+  sourceType: string;
+  strength: number;
+  confidence: number;
+  supportsOrRefutes: string;
+}
 
 export interface DecisionRecord {
   id: string;
   workspaceId: string;
   projectId: string | null;
-  gateEvaluationId: string | null;
   decision: string;
   actorMemberId: string | null;
   evidenceSnapshot: JsonObject;
@@ -26,7 +32,6 @@ export interface DecisionRecord {
 
 export interface CreateDecisionRecordInput {
   projectId?: string | number;
-  gateEvaluationId?: string | number;
   decision: StrategyDecision;
   actorMemberId?: string | number;
   notes?: string;
@@ -38,19 +43,10 @@ export interface ListDecisionRecordsInput {
 
 export interface RecordDecisionInput {
   projectId: number | bigint | string;
-  gateEvaluationId?: number | bigint | string | null;
-  gateEvaluation?: DecisionGateEvaluationSummary;
   decision: StrategyDecision;
   actorMemberId?: number | bigint | string | null;
   evidenceList: EvidenceItem[];
   notes?: string;
-}
-
-export interface DecisionGateEvaluationSummary {
-  requirementsMet: boolean;
-  evidenceScore: number;
-  result: string;
-  rationale: string;
 }
 
 export interface EvidenceSnapshot {
@@ -66,13 +62,11 @@ export interface EvidenceSnapshot {
     confidence: number;
     supportsOrRefutes: string;
   }>;
-  gateEvaluationSummary?: DecisionGateEvaluationSummary;
   decisionNotes?: string;
 }
 
 export interface DecisionRecordPayload {
   projectId: number | bigint | string;
-  gateEvaluationId?: number | bigint | string | null;
   decision: StrategyDecision;
   actorMemberId?: number | bigint | string | null;
   evidenceSnapshot: EvidenceSnapshot;
@@ -84,15 +78,7 @@ export interface DecisionRecordPayload {
  * Hàm thuần tất định, không gọi LLM.
  */
 export function buildDecisionRecord(input: RecordDecisionInput): DecisionRecordPayload {
-  const {
-    projectId,
-    gateEvaluationId,
-    gateEvaluation,
-    decision,
-    actorMemberId,
-    evidenceList,
-    notes,
-  } = input;
+  const { projectId, decision, actorMemberId, evidenceList, notes } = input;
 
   const supporting = evidenceList.filter((e) => e.supportsOrRefutes === "supports");
   const refuting = evidenceList.filter((e) => e.supportsOrRefutes === "refutes");
@@ -114,18 +100,11 @@ export function buildDecisionRecord(input: RecordDecisionInput): DecisionRecordP
       confidence: e.confidence,
       supportsOrRefutes: e.supportsOrRefutes,
     })),
-    gateEvaluationSummary: gateEvaluation ? {
-      requirementsMet: gateEvaluation.requirementsMet,
-      evidenceScore: gateEvaluation.evidenceScore,
-      result: gateEvaluation.result,
-      rationale: gateEvaluation.rationale,
-    } : undefined,
     decisionNotes: notes,
   };
 
   return {
     projectId,
-    gateEvaluationId: gateEvaluationId ?? null,
     decision,
     actorMemberId: actorMemberId ?? null,
     evidenceSnapshot,
@@ -138,7 +117,6 @@ export function toDecisionRecord(row: typeof decisionRecords.$inferSelect): Deci
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
     projectId: row.projectId ? row.projectId.toString() : null,
-    gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
     decision: row.decision,
     actorMemberId: row.actorMemberId ? row.actorMemberId.toString() : null,
     evidenceSnapshot: toJsonObject(row.evidenceSnapshot),
@@ -159,36 +137,15 @@ export async function createDecisionRecordInWorkspace(
   // Verify project belongs to workspace
   await getProjectInWorkspace(params.projectId, ctx);
 
-  // 1. Fetch gate evaluation if provided
-  let gateEvalData: DecisionGateEvaluationSummary | undefined;
-  if (params.gateEvaluationId) {
-    const [evalRow] = await db
-      .select()
-      .from(gateEvaluations)
-      .where(and(eq(gateEvaluations.id, BigInt(params.gateEvaluationId)), eq(gateEvaluations.workspaceId, wsId), isNull(gateEvaluations.deletedAt)))
-      .limit(1);
-
-    if (evalRow) {
-      gateEvalData = {
-        requirementsMet: evalRow.requirementsMet,
-        evidenceScore: evalRow.evidenceScore,
-        result: evalRow.result,
-        rationale: evalRow.rationale,
-      };
-    }
-  }
-
-  // 2. Fetch current project evidence for snapshot
+  // Fetch current project evidence for snapshot
   const evidenceRows = await db
     .select()
     .from(evidence)
     .where(and(eq(evidence.projectId, BigInt(params.projectId)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)));
 
-  // 3. Build snapshot deterministically
+  // Build snapshot deterministically
   const built = buildDecisionRecord({
     projectId: params.projectId,
-    gateEvaluationId: params.gateEvaluationId,
-    gateEvaluation: gateEvalData,
     decision: params.decision,
     actorMemberId: params.actorMemberId,
     evidenceList: evidenceRows.map((e) => ({
@@ -201,14 +158,13 @@ export async function createDecisionRecordInWorkspace(
     notes: params.notes,
   });
 
-  // 4. Save record
+  // Save record
   const [row] = await db
     .insert(decisionRecords)
     .values({
       id: generateSnowflake(),
       workspaceId: wsId,
       projectId: BigInt(params.projectId),
-      gateEvaluationId: params.gateEvaluationId ? BigInt(params.gateEvaluationId) : null,
       decision: params.decision,
       actorMemberId: params.actorMemberId ? BigInt(params.actorMemberId) : null,
       evidenceSnapshot: built.evidenceSnapshot,
@@ -268,74 +224,4 @@ export async function deleteDecisionRecordInWorkspace(
 
   if (!row) throw APIError.notFound("Decision record not found");
   return { success: true };
-}
-
-export interface RecordTowsDecisionInput {
-  workspaceId: string | bigint;
-  strategicObjectiveId: string | bigint;
-  towsOptionId: string | bigint;
-  action: "SELECTED" | "REJECTED" | "SUPERSEDED";
-  actorMemberId?: string | bigint | null;
-  actorRole?: string | null;
-  reason?: string;
-  candidateRanking: Array<{
-    optionId: string;
-    title: string;
-    quadrant: string;
-    impactScore?: number;
-    difficultyScore?: number;
-    priorityScore?: number;
-    status: string;
-  }>;
-  selectedOptionIds: string[];
-  supersededOptionId?: string | null;
-  settingsRevision: number;
-  sourceEvidence?: Array<{ id: string; type?: string; title?: string; summary?: string }>;
-}
-
-export async function recordTowsDecision(
-  input: RecordTowsDecisionInput,
-  txClient?: Tx
-): Promise<string> {
-  const client = txClient ?? db;
-  const id = generateSnowflake();
-  const wsId = BigInt(input.workspaceId);
-  const decisionStr =
-    input.action === "SELECTED"
-      ? "TOWS_OPTION_SELECTED"
-      : input.action === "REJECTED"
-      ? "TOWS_OPTION_REJECTED"
-      : "TOWS_OPTION_SUPERSEDED";
-
-  await client.insert(decisionRecords).values({
-    id,
-    workspaceId: wsId,
-    projectId: null,
-    gateEvaluationId: null,
-    decision: decisionStr,
-    decisionType: "TOWS_SELECTION",
-    createdByKind: "FOUNDER",
-    policyVersion: String(input.settingsRevision),
-    actorMemberId: input.actorMemberId ? BigInt(input.actorMemberId) : null,
-    founderDecision: input.action === "SELECTED" ? "accepted" : "rejected",
-    decidedAt: new Date(),
-    evidenceSnapshot: {
-      action: input.action,
-      strategicObjectiveId: String(input.strategicObjectiveId),
-      towsOptionId: String(input.towsOptionId),
-      reason: input.reason || "",
-      settingsRevision: input.settingsRevision,
-      selectedIds: input.selectedOptionIds,
-      supersededOptionId: input.supersededOptionId ?? null,
-      candidateRanking: input.candidateRanking,
-      approver: {
-        memberId: input.actorMemberId ? String(input.actorMemberId) : null,
-        role: input.actorRole || null,
-      },
-      sourceEvidence: input.sourceEvidence || [],
-      recordedAt: new Date().toISOString(),
-    },
-  });
-
-  return id.toString();
 }

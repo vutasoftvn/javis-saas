@@ -12,8 +12,6 @@ const {
   initiatives,
   initiativeKeyResults,
   keyResults,
-  strategicObjectives,
-  towsOptions,
   projects,
   decisionRecords,
 } = schema;
@@ -29,8 +27,6 @@ export interface Initiative {
   id: string;
   workspaceId: string;
   projectId: string | null;
-  strategicObjectiveId: string | null;
-  sourceTowsOptionId: string | null;
   title: string;
   description: string | null;
   intendedOutcome: string | null;
@@ -53,8 +49,6 @@ export interface Initiative {
 export interface CreateInitiativeParams {
   workspaceId: string;
   projectId?: string;
-  strategicObjectiveId?: string;
-  sourceTowsOptionId?: string;
   title: string;
   description?: string;
   intendedOutcome?: string;
@@ -70,8 +64,6 @@ export interface UpdateInitiativeParams {
   id: string;
   workspaceId: string;
   projectId?: string;
-  strategicObjectiveId?: string;
-  sourceTowsOptionId?: string;
   title?: string;
   description?: string;
   intendedOutcome?: string;
@@ -93,7 +85,6 @@ export interface ApproveInitiativeParams {
 export interface ListInitiativesParams {
   workspaceId: string;
   projectId?: string;
-  strategicObjectiveId?: string;
   approvalStatus?: string;
 }
 
@@ -105,8 +96,6 @@ function toInitiative(
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
     projectId: row.projectId ? row.projectId.toString() : null,
-    strategicObjectiveId: null,
-    sourceTowsOptionId: null,
     title: row.title,
     description: row.description,
     intendedOutcome: row.intendedOutcome,
@@ -203,62 +192,7 @@ async function createInitiativeAuthorized(
     throw APIError.invalidArgument("title is required");
   }
 
-  let stratObjId: bigint | null = null;
-  let sourceTowsId: bigint | null = null;
   let projId: bigint | null = null;
-
-  if (params.strategicObjectiveId) {
-    stratObjId = BigInt(params.strategicObjectiveId);
-    const [stratObj] = await db
-      .select()
-      .from(strategicObjectives)
-      .where(
-        and(
-          eq(strategicObjectives.id, stratObjId),
-          eq(strategicObjectives.workspaceId, wsId)
-        )
-      )
-      .limit(1);
-
-    if (!stratObj) {
-      throw APIError.notFound(
-        `Strategic objective ${params.strategicObjectiveId} not found in workspace`
-      );
-    }
-
-    if (params.sourceTowsOptionId) {
-      sourceTowsId = BigInt(params.sourceTowsOptionId);
-      const [towsOpt] = await db
-        .select()
-        .from(towsOptions)
-        .where(
-          and(
-            eq(towsOptions.id, sourceTowsId),
-            eq(towsOptions.workspaceId, wsId)
-          )
-        )
-        .limit(1);
-
-      if (!towsOpt) {
-        throw APIError.notFound(
-          `TOWS option ${params.sourceTowsOptionId} not found in workspace`
-        );
-      }
-
-      if (towsOpt.strategicObjectiveId !== stratObjId) {
-        throw APIError.invalidArgument(
-          "Source TOWS option does not belong to specified strategic objective"
-        );
-      }
-
-      if (towsOpt.status !== "SELECTED") {
-        throw APIError.failedPrecondition(
-          `Source TOWS option must be SELECTED (current status: ${towsOpt.status})`
-        );
-      }
-    }
-  }
-
   if (params.projectId) {
     projId = BigInt(params.projectId);
     const [proj] = await db
@@ -376,65 +310,7 @@ export async function updateInitiativeService(
     );
   }
 
-  let stratObjId: bigint | null = null;
-  let sourceTowsId: bigint | null = null;
   let projId: bigint = existing.projectId;
-
-  if (params.strategicObjectiveId !== undefined) {
-    if (params.strategicObjectiveId === null || params.strategicObjectiveId === "") {
-      stratObjId = null;
-      sourceTowsId = null;
-    } else {
-      stratObjId = BigInt(params.strategicObjectiveId);
-      const [stratObj] = await db
-        .select()
-        .from(strategicObjectives)
-        .where(
-          and(
-            eq(strategicObjectives.id, stratObjId),
-            eq(strategicObjectives.workspaceId, wsId)
-          )
-        )
-        .limit(1);
-
-      if (!stratObj) {
-        throw APIError.notFound(
-          `Strategic objective ${params.strategicObjectiveId} not found in workspace`
-        );
-      }
-    }
-  }
-
-  if (params.sourceTowsOptionId !== undefined) {
-    if (params.sourceTowsOptionId === null || params.sourceTowsOptionId === "") {
-      sourceTowsId = null;
-    } else {
-      sourceTowsId = BigInt(params.sourceTowsOptionId);
-      const [towsOpt] = await db
-        .select()
-        .from(towsOptions)
-        .where(
-          and(
-            eq(towsOptions.id, sourceTowsId),
-            eq(towsOptions.workspaceId, wsId)
-          )
-        )
-        .limit(1);
-
-      if (!towsOpt) {
-        throw APIError.notFound(
-          `TOWS option ${params.sourceTowsOptionId} not found in workspace`
-        );
-      }
-
-      if (stratObjId && towsOpt.strategicObjectiveId !== stratObjId) {
-        throw APIError.invalidArgument(
-          "Source TOWS option does not belong to specified strategic objective"
-        );
-      }
-    }
-  }
-
   if (params.projectId !== undefined) {
     if (params.projectId === null || params.projectId === "") {
       projId = existing.projectId;

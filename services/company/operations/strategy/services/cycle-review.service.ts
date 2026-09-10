@@ -18,7 +18,6 @@ import { requireStrategyGovernanceAuthority } from "./strategy-governance-author
 const {
   cycleReviews,
   twelveWeekCycles,
-  pestelSignals,
   initiatives,
   keyResults,
   decisionRecords,
@@ -48,7 +47,6 @@ export interface CycleReviewView {
   status: CycleReviewStatus;
   krSnapshots: any[];
   initiativeSnapshots: any[];
-  pestelSnapshots: any[];
   decisionId: string | null;
   conclusion: string | null;
   conductedByMemberId: string | null;
@@ -71,7 +69,6 @@ export function toCycleReviewView(row: typeof cycleReviews.$inferSelect): CycleR
     status: row.status as CycleReviewStatus,
     krSnapshots: (row.krSnapshots as any[]) || [],
     initiativeSnapshots: (row.initiativeSnapshots as any[]) || [],
-    pestelSnapshots: (row.pestelSnapshots as any[]) || [],
     decisionId: row.decisionId ? String(row.decisionId) : null,
     conclusion: row.conclusion,
     conductedByMemberId: row.conductedByMemberId ? String(row.conductedByMemberId) : null,
@@ -375,23 +372,6 @@ export async function startCycleReviewService(
       );
     }
 
-    // Capture visible PESTEL signals
-    const pestelRows = await tx
-      .select()
-      .from(pestelSignals)
-      .where(eq(pestelSignals.workspaceId, wsId));
-    const pestelSnapshots = pestelRows.map((p) => ({
-      id: String(p.id),
-      strategicObjectiveId: String(p.strategicObjectiveId),
-      dimension: p.dimension,
-      statement: p.statement,
-      impact: p.impact,
-      certainty: p.certainty,
-      evidenceRefs: p.evidenceRefs,
-      bscPerspectives: p.bscPerspectives,
-      status: p.status,
-    }));
-
     // Capture active initiatives
     const initRows = await tx
       .select()
@@ -402,8 +382,6 @@ export async function startCycleReviewService(
       title: i.title,
       status: i.status,
       approvalStatus: i.approvalStatus,
-      strategicObjectiveId: null,
-      sourceTowsOptionId: null,
       targetDate: i.targetDate ? i.targetDate.toISOString() : null,
       milestones: i.milestones,
     }));
@@ -429,7 +407,6 @@ export async function startCycleReviewService(
       .update(cycleReviews)
       .set({
         status: "IN_PROGRESS",
-        pestelSnapshots,
         initiativeSnapshots,
         krSnapshots,
         revision: review.revision + 1,
@@ -649,27 +626,8 @@ export async function closeCycleReviewService(
     }
 
     // Ensure snapshots are preserved even if closed directly from SCHEDULED
-    let pestelSnapshots = review.pestelSnapshots as any[];
     let initiativeSnapshots = review.initiativeSnapshots as any[];
     let krSnapshots = review.krSnapshots as any[];
-
-    if (!pestelSnapshots || pestelSnapshots.length === 0) {
-      const pestelRows = await tx
-        .select()
-        .from(pestelSignals)
-        .where(eq(pestelSignals.workspaceId, wsId));
-      pestelSnapshots = pestelRows.map((p) => ({
-        id: String(p.id),
-        strategicObjectiveId: String(p.strategicObjectiveId),
-        dimension: p.dimension,
-        statement: p.statement,
-        impact: p.impact,
-        certainty: p.certainty,
-        evidenceRefs: p.evidenceRefs,
-        bscPerspectives: p.bscPerspectives,
-        status: p.status,
-      }));
-    }
 
     if (!initiativeSnapshots || initiativeSnapshots.length === 0) {
       const initRows = await tx
@@ -681,8 +639,6 @@ export async function closeCycleReviewService(
         title: i.title,
         status: i.status,
         approvalStatus: i.approvalStatus,
-        strategicObjectiveId: null,
-        sourceTowsOptionId: null,
         targetDate: i.targetDate ? i.targetDate.toISOString() : null,
         milestones: i.milestones,
       }));
@@ -717,7 +673,6 @@ export async function closeCycleReviewService(
         decisionId: linkedDecisionId,
         conductedByMemberId: actorMemberId,
         conductedAt: now,
-        pestelSnapshots,
         initiativeSnapshots,
         krSnapshots,
         revision: review.revision + 1,

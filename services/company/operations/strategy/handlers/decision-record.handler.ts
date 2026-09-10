@@ -17,7 +17,6 @@ export interface CreateDecisionRecordParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
-  gateEvaluationId?: string | number;
   decision: StrategyDecision;
   actorMemberId?: string | number;
   notes?: string;

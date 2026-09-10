@@ -16,8 +16,6 @@ export interface CreateInitiativeParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;
   projectId?: string;
-  strategicObjectiveId?: string;
-  sourceTowsOptionId?: string;
   title: string;
   description?: string;
   intendedOutcome?: string;
@@ -34,8 +32,6 @@ export interface UpdateInitiativeParams {
   workspaceId: Header<"X-Workspace-Id">;
   id: string;
   projectId?: string;
-  strategicObjectiveId?: string;
-  sourceTowsOptionId?: string;
   title?: string;
   description?: string;
   intendedOutcome?: string;
@@ -59,7 +55,6 @@ export interface ListInitiativesParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;
   projectId?: string;
-  strategicObjectiveId?: string;
   approvalStatus?: string;
 }
 

@@ -9,7 +9,7 @@ import { mvpList, mvpItem, MvpSuccess } from "../../shared/contracts/mvp-respons
 import { TenantContext } from "../../shared/types/tenant_context";
 import { requireStrategyGovernanceAuthority } from "../strategy/services/strategy-governance-authorization.service";
 
-const { okrCycles, okrObjectives, keyResults, projects, strategicObjectives, towsOptions } = schema;
+const { okrCycles, okrObjectives, keyResults, projects } = schema;
 
 export interface OkrCycle {
   id: string;
@@ -30,8 +30,6 @@ export interface Objective {
   workspaceId: string;
   projectId: string;
   cycleId?: string;
-  strategicObjectiveId?: string | null;
-  towsOptionId?: string | null;
   title: string;
   why: string | null;
   ownerMemberId: string | null;
@@ -49,8 +47,6 @@ export interface CreateObjectiveParams {
   title: string;
   why?: string;
   ownerMemberId?: string;
-  strategicObjectiveId?: string;
-  towsOptionId?: string;
   authorization?: string;
 }
 
@@ -143,8 +139,6 @@ function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[
     workspaceId: row.workspaceId.toString(),
     projectId: row.projectId.toString(),
     cycleId: "",
-    strategicObjectiveId: null,
-    towsOptionId: null,
     title: row.title,
     why: row.why,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
@@ -195,47 +189,6 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
 
     if (!cycle) {
       throw APIError.notFound(`OKR cycle ${params.cycleId} not found in workspace`);
-    }
-  }
-
-  let stratObjId: bigint | null = null;
-  let towsOptId: bigint | null = null;
-
-  if (params.strategicObjectiveId) {
-    stratObjId = BigInt(params.strategicObjectiveId);
-    const [stratObj] = await db
-      .select()
-      .from(strategicObjectives)
-      .where(and(eq(strategicObjectives.id, stratObjId), eq(strategicObjectives.workspaceId, wsId)))
-      .limit(1);
-
-    if (!stratObj) {
-      throw APIError.notFound(`Strategic objective ${params.strategicObjectiveId} not found in workspace`);
-    }
-
-    if (!params.towsOptionId) {
-      throw APIError.invalidArgument("towsOptionId is required when strategicObjectiveId is provided");
-    }
-
-    towsOptId = BigInt(params.towsOptionId);
-    const [towsOpt] = await db
-      .select()
-      .from(towsOptions)
-      .where(and(eq(towsOptions.id, towsOptId), eq(towsOptions.workspaceId, wsId)))
-      .limit(1);
-
-    if (!towsOpt) {
-      throw APIError.notFound(`TOWS option ${params.towsOptionId} not found in workspace`);
-    }
-
-    if (towsOpt.strategicObjectiveId !== stratObjId) {
-      throw APIError.invalidArgument("TOWS option does not belong to specified strategic objective");
-    }
-
-    if (towsOpt.status !== "SELECTED") {
-      throw APIError.failedPrecondition(
-        `TOWS option must be SELECTED to create a strategic OKR objective (current status: ${towsOpt.status})`
-      );
     }
   }
 
