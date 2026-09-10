@@ -39,6 +39,28 @@ Concrete entanglements:
 
 This is a multi-session programme, not a single pass. It cannot land as one commit without leaving `main` unbuildable for concurrent sessions.
 
+## Execution log
+
+| Commit | Phase | Result |
+|---|---|---|
+| `d2a8bfe5` | — | this audit doc |
+| `154aa71a` | A0 | fix `main` broken company typecheck (dangling `academy/contracts`) |
+| `6fa586ae` | A1a | delete 65 framework strategy files (stage-gate / venture / TOWS / PESTEL / SWOT / PMF / maturity / strategy-analysis / strategy-copilot / founder-trial-board / old kickoff) + framework-coupled tests |
+| `f61e199d` | A1b | delete canvas subsystem (11 files) |
+| `9d1c347b` | A1c | decouple `decision-recording` / `okr` / `initiative` / `cycle-review` from gate-eval + TOWS + PESTEL |
+| `90cadb1a` | A1c | drop pestel/swot/tows capability routing from `autonomy-classifier` |
+| `26d2d4dc` | A1d | trim `workspace_strategy_settings` service/handler to operating-loop columns |
+
+Every commit: `npm run typecheck` + `make company-boundary-check` green; retained
+operating-loop / integrity tests show only the pre-existing baseline schema-drift
+failures (identical count before and after each change), no new regressions.
+
+**Remaining A1:** `strategy.ts` schema table drops + `cycle_reviews.pestel_snapshots`
++ `projects.lifecycle_stage/stage_version` + baseline migration rewrite + fingerprint
+regen; stage-roster removal (`task.service.listStageRosterService` +
+`apps/cosa` `/agent/workforce/stage-roster` + Flutter `stage_roster_panel`);
+`identity/services/permission-catalog.ts`.
+
 ## Phased execution (each phase = its own green commit + checkpoint)
 
 - **Phase A — Company backend clean-slate.** Reconcile Drizzle schema ↔ baseline migration to the retained set; strip `tows` / `strategic_objective` / `stage` coupling from `okr` / `initiative` / `twelve-week-year` / `task` services + handlers + tests; delete framework services/handlers/tests (`stage-*`, `gate-evaluation`, `pmf-scoreboard`, `maturity-assessment`, `workspace-strategy-settings`, `strategic-objective`, `strategy-analysis`, `tows-option`, `strategy-copilot`, `venture-*`, `discovery-signal`, `founder-*`, `pilot-run`); fix `permission-catalog` + `autonomy-classifier`. Green: `cd services/company && npm run typecheck && npx vitest run` + `make company-boundary-check` + schema-fingerprint regen + `tests/db_baseline_candidate`.
