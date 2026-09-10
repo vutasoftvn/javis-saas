@@ -206,6 +206,8 @@ final List<GetPage> moduleRoutes = [
 
   // ── PLANNED / not-yet-built-for-R1 — deep-link resolves to a roadmap card,
   //    never a legacy cockpit ──
+  _plannedRoute(WorkspaceModule.workflows),
+  _plannedRoute(WorkspaceModule.automation),
   _plannedRoute(WorkspaceModule.approvals),
   _plannedRoute(WorkspaceModule.agents),
   _plannedRoute(WorkspaceModule.vault),
