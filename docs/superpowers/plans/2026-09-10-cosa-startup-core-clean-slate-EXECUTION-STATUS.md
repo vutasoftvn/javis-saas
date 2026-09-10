@@ -50,16 +50,39 @@ This is a multi-session programme, not a single pass. It cannot land as one comm
 | `9d1c347b` | A1c | decouple `decision-recording` / `okr` / `initiative` / `cycle-review` from gate-eval + TOWS + PESTEL |
 | `90cadb1a` | A1c | drop pestel/swot/tows capability routing from `autonomy-classifier` |
 | `26d2d4dc` | A1d | trim `workspace_strategy_settings` service/handler to operating-loop columns |
+| `a40d49f6` | A1e | drop `strategy.analysis.write` / `strategy.option.select` permissions |
+| `ba23dd95` | A1e | drop 19 framework tables from `strategy.ts` + baseline migration; regen fingerprint (`main`'s was already stale — Gate D failing before, passes now); `make test-db-reset` applies clean; `test_startup_core_schema.py` passes |
 
 Every commit: `npm run typecheck` + `make company-boundary-check` green; retained
 operating-loop / integrity tests show only the pre-existing baseline schema-drift
 failures (identical count before and after each change), no new regressions.
 
-**Remaining A1:** `strategy.ts` schema table drops + `cycle_reviews.pestel_snapshots`
-+ `projects.lifecycle_stage/stage_version` + baseline migration rewrite + fingerprint
-regen; stage-roster removal (`task.service.listStageRosterService` +
-`apps/cosa` `/agent/workforce/stage-roster` + Flutter `stage_roster_panel`);
-`identity/services/permission-catalog.ts`.
+**Phase A backend clean-slate is complete and verified.** `services/company`
+carries no `pestel/swot/tows/pmf-scoreboard/maturity-assessment` token outside
+tests; the three test DBs re-migrate from the trimmed baseline; schema
+fingerprint Gate D passes.
+
+**Remaining (still multi-session):**
+- Stage-roster removal — `task.service.listStageRosterService` +
+  `task.handler.getStageRoster` + `apps/cosa` `/agent/workforce/stage-roster` +
+  Flutter `hologram_hub`/`workforce` stage-roster widgets +
+  `project_operating_setups` stage columns.
+- `projects.lifecycle_stage / stage_version / stage_entered_at` — deeply wired
+  into retained `project.service`, `project-operating-loop.service` (Task 3),
+  `project-action-context.service`; not a removal-test token, deferred.
+- Phase B — `apps/cosa/capabilities/project_lifecycle.py` PMF block +
+  `services/cosa/tests/workspace-capability-manifest.test.ts` +
+  `services/docker-compose.yml` realtime_agent.
+- Phase C — Flutter `modules/strategy` (84) + `hologram_hub` framework
+  (controller mixins `HubLensesMixin`/`HubGateMixin`/`HubStageMixin`/
+  `HubTwelveWyMixin`, `strategy_navigation_panel`, `strategy_floating_action_bar`,
+  `widgets/lenses/`), `data/models/strategy_lens_model.dart`,
+  `vi_strategy.dart`/`en_strategy.dart`, routes.
+- Phase D — `make mvp-contracts-gen` + `route-inventory` + make
+  `test_removed_startup_core_surfaces.py` pass.
+- Phase E (Task 10) — README/CLAUDE/DEPLOYMENT rewrite; delete `docs/academy`
+  (525) + `docs/archive` + Founder Trial spec/plan; `tests/e2e/test_startup_core_clean_baseline.py`;
+  `make verify` + `make e2e-cross-plane-smoke`.
 
 ## Phased execution (each phase = its own green commit + checkpoint)
 
