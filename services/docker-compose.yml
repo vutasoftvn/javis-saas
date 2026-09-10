@@ -60,40 +60,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ─────────────────────────────────────────────────────────────
-  # Realtime Voice Agent (Python 3.11 / LiveKit Agent)
-  # ─────────────────────────────────────────────────────────────
-  realtime-agent:
-    build:
-      context: ./realtime_agent
-      dockerfile: Dockerfile
-    container_name: workspace_agent
-    environment:
-      - LIVEKIT_LOCAL_HTTP_URL=http://livekit:7880
-      - LIVEKIT_LOCAL_URL=ws://livekit:7880
-      - LIVEKIT_LOCAL_API_KEY=${LIVEKIT_LOCAL_API_KEY:-devkey}
-      - LIVEKIT_LOCAL_API_SECRET=${LIVEKIT_LOCAL_API_SECRET:-secret_local_cosa_desktop_key}
-      - LIVEKIT_URL=${LIVEKIT_URL:-ws://livekit:7880}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
-      - SERVICES_API_URL=http://localhost:4000
-      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?required — Workspace database URL}
-      - VOICE_INTERRUPTION_MIN_DURATION=${VOICE_INTERRUPTION_MIN_DURATION:-0.5}
-      - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
-      - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
-    volumes:
-      - ./realtime_agent:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      livekit:
-        condition: service_healthy
-    networks:
-      - workspace_net
-    restart: unless-stopped
-
 networks:
   workspace_net:
     driver: bridge

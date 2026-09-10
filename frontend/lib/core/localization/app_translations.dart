@@ -182,83 +182,12 @@ abstract final class L10nKey {
   static const hubSweepEnabled = 'hub.sweepEnabled';
   static const hubSweepDisabled = 'hub.sweepDisabled';
 
-  // Strategy Lenses: Hub Modal
   static const strategyHubTitle = 'strategy.hubTitle';
   static const strategyHubSubtitle = 'strategy.hubSubtitle';
-  static const strategyTabSwot = 'strategy.tabSwot';
-  static const strategyTabBsc = 'strategy.tabBsc';
-  static const strategyTabBscLocked = 'strategy.tabBscLocked';
 
-  // Strategy Lenses: PESTEL
-  static const pestelDimPolitical = 'pestel.dim.political';
-  static const pestelDimEconomic = 'pestel.dim.economic';
-  static const pestelDimSocial = 'pestel.dim.social';
-  static const pestelDimTechnological = 'pestel.dim.technological';
-  static const pestelDimEnvironmental = 'pestel.dim.environmental';
-  static const pestelDimLegal = 'pestel.dim.legal';
-  static const pestelCatchSignal = 'pestel.catchSignal';
-  static const pestelMacroDimLabel = 'pestel.macroDimLabel';
-  static const pestelSignalTitleLabel = 'pestel.signalTitleLabel';
-  static const pestelSignalTitleHint = 'pestel.signalTitleHint';
-  static const pestelContextLabel = 'pestel.contextLabel';
-  static const pestelSaveSignal = 'pestel.saveSignal';
-  static const pestelBannerDesc = 'pestel.bannerDesc';
-  static const pestelAddTooltip = 'pestel.addTooltip';
-  static const pestelEmpty = 'pestel.empty';
-  static const pestelHypothesisCreated = 'pestel.hypothesisCreated';
-  static const pestelGenerateHypothesis = 'pestel.generateHypothesis';
 
-  // Strategy Lenses: SWOT
-  static const swotTypeStrength = 'swot.type.strength';
-  static const swotTypeWeakness = 'swot.type.weakness';
-  static const swotTypeOpportunity = 'swot.type.opportunity';
-  static const swotTypeThreat = 'swot.type.threat';
-  static const swotAddTitle = 'swot.addTitle';
-  static const swotTypeLabel = 'swot.typeLabel';
-  static const swotContentLabel = 'swot.contentLabel';
-  static const swotContentHint = 'swot.contentHint';
-  static const swotSave = 'swot.save';
-  static const swotHeader = 'swot.header';
-  static const swotAddTooltip = 'swot.addTooltip';
-  static const swotEmpty = 'swot.empty';
 
-  // Strategy Lenses: TOWS
-  static const towsTypeSo = 'tows.type.so';
-  static const towsTypeWo = 'tows.type.wo';
-  static const towsTypeSt = 'tows.type.st';
-  static const towsTypeWt = 'tows.type.wt';
-  static const towsCreateTitle = 'tows.createTitle';
-  static const towsPairLabel = 'tows.pairLabel';
-  static const towsStrategyNameLabel = 'tows.strategyNameLabel';
-  static const towsStrategyNameHint = 'tows.strategyNameHint';
-  static const towsDescLabel = 'tows.descLabel';
-  static const towsSaveStrategy = 'tows.saveStrategy';
-  static const towsEvalTitle = 'tows.evalTitle';
-  static const towsImpactScore = 'tows.impactScore';
-  static const towsDifficultyScore = 'tows.difficultyScore';
-  static const towsRatingExplanation = 'tows.ratingExplanation';
-  static const towsSaveEvaluation = 'tows.saveEvaluation';
-  static const towsSelectTitle = 'tows.selectTitle';
-  static const towsSelectDesc = 'tows.selectDesc';
-  static const towsSelectReasonLabel = 'tows.selectReasonLabel';
-  static const towsConfirmSelect = 'tows.confirmSelect';
-  static const towsMatrixHeader = 'tows.matrixHeader';
-  static const towsSelectionCount = 'tows.selectionCount';
-  static const towsAddTooltip = 'tows.addTooltip';
-  static const towsEmpty = 'tows.empty';
-  static const towsSelected = 'tows.selected';
-  static const towsScoreBtn = 'tows.scoreBtn';
-  static const towsSelectBtn = 'tows.selectBtn';
 
-  // Strategy Lenses: BSC
-  static const bscPerspFinancial = 'bsc.persp.financial';
-  static const bscPerspCustomer = 'bsc.persp.customer';
-  static const bscPerspInternal = 'bsc.persp.internal';
-  static const bscPerspLearning = 'bsc.persp.learning';
-  static const bscTitle = 'bsc.title';
-  static const bscHeaderDesc = 'bsc.headerDesc';
-  static const bscReadOnlyDesc = 'bsc.readOnlyDesc';
-  static const bscEmpty = 'bsc.empty';
 
   // Project Setup & Kickoff
   static const projectSetupTitle = 'project.setup.title';
@@ -425,10 +354,8 @@ abstract final class L10nKey {
   static const strategyViewSubtitle = 'strategy.view.subtitle';
   static const strategySettingsTooltip = 'strategy.settingsTooltip';
   static const strategyTabValidation = 'strategy.tab.validation';
-  static const strategyTabLenses = 'strategy.tab.lenses';
   static const strategyTabAssumptions = 'strategy.tab.assumptions';
   static const strategyTabDecisions = 'strategy.tab.decisions';
-  static const strategyTabStageGate = 'strategy.tab.stageGate';
   static const strategyTab12WyLoop = 'strategy.tab.12wyLoop';
   static const strategyTabWeeklyReview = 'strategy.tab.weeklyReview';
 
@@ -913,10 +840,8 @@ abstract final class L10nKey {
     strategyViewSubtitle,
     strategySettingsTooltip,
     strategyTabValidation,
-    strategyTabLenses,
     strategyTabAssumptions,
     strategyTabDecisions,
-    strategyTabStageGate,
     strategyTab12WyLoop,
     strategyTabWeeklyReview,
     okrsTitle,

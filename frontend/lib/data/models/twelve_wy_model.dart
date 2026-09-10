@@ -8,7 +8,6 @@ class TacticalItemModel {
   final int weekNumber;
   final String title;
   final String description;
-  final int? towsOptionId;
   final int? hypothesisId;
   final String leadIndicatorName;
   final int targetCount;
@@ -26,7 +25,6 @@ class TacticalItemModel {
     required this.weekNumber,
     required this.title,
     required this.description,
-    this.towsOptionId,
     this.hypothesisId,
     required this.leadIndicatorName,
     required this.targetCount,
@@ -57,7 +55,6 @@ class TacticalItemModel {
       weekNumber: int.tryParse(json['week_number']?.toString() ?? '') ?? 1,
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
-      towsOptionId: json['tows_option_id'] != null ? int.tryParse(json['tows_option_id'].toString()) : null,
       hypothesisId: json['hypothesis_id'] != null ? int.tryParse(json['hypothesis_id'].toString()) : null,
       leadIndicatorName: json['lead_indicator_name']?.toString() ?? 'Lead Indicator',
       targetCount: int.tryParse(json['target_count']?.toString() ?? '') ?? 1,

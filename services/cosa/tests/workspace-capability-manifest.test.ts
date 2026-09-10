@@ -124,7 +124,7 @@ describe("Workspace Capability Manifest", () => {
     await expect(
       setWorkspaceSurfaceOverride({
         workspaceId: wsId,
-        surfaceKey: "strategy.pestel",
+        surfaceKey: "legacy.unknown_surface",
         statusOverride: "AVAILABLE",
         authorization: `Bearer ${operatorToken}`,
       })

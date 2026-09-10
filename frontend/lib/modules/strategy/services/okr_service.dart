@@ -121,8 +121,6 @@ class OkrService extends StrategyServiceBase {
     String? status,
     String? why,
     String? ownerMemberId,
-    String? strategicObjectiveId,
-    String? towsOptionId,
   }) async {
     final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.removed('r1-removed:/operations/objectives');
@@ -230,7 +228,6 @@ class OkrService extends StrategyServiceBase {
   }
 
   Future<Map<String, dynamic>> generateAiOkrs({
-    String? towsId,
     int objectivesCount = 2,
     int krsPerObjectiveCount = 3,
     String? cycleId,

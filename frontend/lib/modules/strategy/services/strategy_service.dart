@@ -108,12 +108,10 @@ class StrategyService extends StrategyServiceBase {
       _okrService.deleteKeyResult(keyResultId);
 
   Future<Map<String, dynamic>> generateAiOkrs({
-    String? towsId,
     int objectivesCount = 2,
     int krsPerObjectiveCount = 3,
     String? cycleId,
   }) => _okrService.generateAiOkrs(
-    towsId: towsId,
     objectivesCount: objectivesCount,
     krsPerObjectiveCount: krsPerObjectiveCount,
     cycleId: cycleId,

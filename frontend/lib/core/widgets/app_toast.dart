@@ -233,7 +233,6 @@ class AppToast {
     'Chưa có chu kỳ 12 tuần nào để biên dịch': 'No 12-week cycle to compile',
     'Chưa có chu kỳ 12 tuần nào để chuyển dịch': 'No 12-week cycle to transition',
     'Đã thêm dự án vào Portfolio': 'Project added to Portfolio',
-    'Đã thêm định hướng TOWS': 'TOWS direction added',
     'Đã thêm điểm cộng hưởng': 'Synergy point added',
     'Đã xóa quan hệ cộng hưởng': 'Synergy relationship removed',
     'Đã ghi nhận phụ thuộc': 'Dependency recorded',
