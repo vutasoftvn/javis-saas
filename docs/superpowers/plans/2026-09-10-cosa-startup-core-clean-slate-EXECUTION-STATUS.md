@@ -52,6 +52,11 @@ This is a multi-session programme, not a single pass. It cannot land as one comm
 | `26d2d4dc` | A1d | trim `workspace_strategy_settings` service/handler to operating-loop columns |
 | `a40d49f6` | A1e | drop `strategy.analysis.write` / `strategy.option.select` permissions |
 | `ba23dd95` | A1e | drop 19 framework tables from `strategy.ts` + baseline migration; regen fingerprint (`main`'s was already stale — Gate D failing before, passes now); `make test-db-reset` applies clean; `test_startup_core_schema.py` passes |
+| `93ca2419` | (user) | plan/spec corrected: **Workspace W0-W5 / Project P0-P6 lifecycle is retained** — only BSC/PESTEL/SWOT/TOWS/Porter/maturity + framework stage-gate/scoreboard + auto-progression removed |
+| `e40af06b` | B | drop framework `strategy.gate_evaluation.create` + `analytics.pmf_scoreboard.*` + `venture.stage.assess` (hardcoded readiness scorer) capabilities from `apps/cosa`; delete `product/outcome-roadmap` skillpack + framework acceptance tests |
+| `ee0445e3` | 3 (corrected) | **rebuild clean lifecycle transitions**: `core.workspace_lifecycle_events` + `strategy.project_lifecycle_events` (append-only) + `transitionWorkspaceLifecycle` / `transitionProjectLifecycle` (CAS on `stage_version`, ≤1 step forward, backward needs rationale, founder/admin only, **no gate, no model, no auto**) + `PATCH /identity/workspaces/:id/lifecycle` + `PATCH /operations/projects/:id/lifecycle` + 10 green tests |
+
+**Lifecycle audit result:** `projects.lifecycle_stage`/`stage_version`/`stage_entered_at` (operations.ts + migration) and workspace `lifecycle_stage`/`stage_version`/`stage_entered_at` (identity.ts + migration) with their CHECK enums were never removed by Phase A. `project-action-context.service.ts` still exposes lifecycle as agent context. The gate-coupled *transition* code removed in `6fa586ae` is replaced clean by `ee0445e3`.
 
 Every commit: `npm run typecheck` + `make company-boundary-check` green; retained
 operating-loop / integrity tests show only the pre-existing baseline schema-drift
