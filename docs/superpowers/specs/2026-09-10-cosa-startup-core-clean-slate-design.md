@@ -1,13 +1,24 @@
 # COSA Startup Core — Clean-Slate Design
 
-**Status:** Proposed for review
+**Status:** ACCEPTED (implementation IN PROGRESS)
 
 **Date:** 2026-09-10
 
-**Decision requested:** Replace the current Founder Trial-only baseline with a
-clean-slate Startup Core. Once approved, this document supersedes
-`2026-09-09-founder-trial-mvp-reset-baseline-design.md` and becomes the single
-product-boundary source of truth.
+This document supersedes `2026-09-09-founder-trial-mvp-reset-baseline-design.md`
+(deleted) and is the single product-boundary source of truth. Correction
+2026-09-10: **Workspace (W0_IDEA→W5_SCALE) and Project (P0_DISCOVERY→P6_SCALE_GOVERN)
+lifecycle is retained** — only BSC / PESTEL / SWOT/TOWS / Porter / maturity and
+the automatic framework stage-gate / scoreboard / progression are removed.
+
+**Implementation status** — see
+`docs/superpowers/plans/2026-09-10-cosa-startup-core-clean-slate-EXECUTION-STATUS.md`:
+Phases A (backend clean-slate), B (apps/cosa), C (Flutter), D (contracts/removal
+test) are done and independently verified; the lifecycle transition rebuild
+(events tables + `transition{Workspace,Project}Lifecycle` + endpoints + 10 tests)
+is done; Phase E (docs) is largely done. Full `make verify` is still blocked by a
+**pre-existing** `services/company` vitest baseline schema/migration drift that
+predates this work — reconciling it (finishing what committed Task 2 left
+incomplete) is the remaining gate for `PRODUCTION`/`VERIFIED`.
 
 ## 1. Goal
 
