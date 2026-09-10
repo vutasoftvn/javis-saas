@@ -68,13 +68,8 @@ const CAP_PREFIX_TO_PROFILE: ReadonlyArray<readonly [string, OwnerAgentProfile]>
   ["strategy.positioning", "marketing"],
   ["evidence.", "research_intelligence"],
   ["source.", "research_intelligence"],
-  ["pestel.", "research_intelligence"],
   ["resource.", "research_intelligence"],
   ["research.intelligence", "research_intelligence"],
-  ["swot.", "strategy"],
-  ["tows.", "strategy"],
-  ["strategy.swot", "strategy"],
-  ["strategy.tows", "strategy"],
   ["strategy.initiative", "strategy"],
   ["strategy.ranking", "strategy"],
   ["strategy.", "strategy"],
@@ -86,8 +81,8 @@ const DOMAIN_KEYWORDS: Record<OwnerAgentProfile, RegExp> = {
   operations: /(operation|ops|process|sop|task|workflow|support|onboard)/i,
   finance: /(finance|budget|runway|cash|billing|invoice|unit econ|pricing)/i,
   marketing: /(marketing|gtm|growth|positioning|campaign|content|brand|seo|launch)/i,
-  research_intelligence: /(research[_\s-]?intelligence|evidence|source[_\s-]?discovery|pestel|resource[_\s-]?capability)/i,
-  strategy: /(strategy|swot|tows|initiative[_\s-]?draft|ranking[_\s-]?explanation)/i,
+  research_intelligence: /(research[_\s-]?intelligence|evidence|source[_\s-]?discovery|resource[_\s-]?capability)/i,
+  strategy: /(strategy|initiative[_\s-]?draft|ranking[_\s-]?explanation)/i,
 };
 
 /**
