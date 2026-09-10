@@ -90,11 +90,32 @@ def test_marketing_contracts_live(real_company_service):
     assert obj_data["currentValue"] is None
 
     # ─── Campaigns ───
+    # Founder Trial R1 — marketing pilot là project-scoped: `fd682d47` bắt buộc
+    # `projectId` cho create/list campaign + experiment (tenant-guard qua
+    # `assertCommercialProjectInWorkspace`). Commit đó cập nhật test Encore
+    # nhưng bỏ sót test e2e HTTP này, nên nó dừng ở 400 invalidArgument.
+    create_proj_a = client.post(
+        "/operations/projects",
+        headers=headers_a,
+        json={"title": "Marketing Pilot A"},
+    )
+    assert create_proj_a.status_code == 200, create_proj_a.text
+    proj_a = str(create_proj_a.json()["id"])
+
+    create_proj_b = client.post(
+        "/operations/projects",
+        headers=headers_b,
+        json={"title": "Marketing Pilot B"},
+    )
+    assert create_proj_b.status_code == 200, create_proj_b.text
+    proj_b = str(create_proj_b.json()["id"])
+
     create_camp = client.post(
         "/commercial/marketing/campaigns",
         headers=headers_a,
         json={
             "name": "Q4 Global Growth Campaign",
+            "projectId": proj_a,
             "budget": 25000000.0,
             "funnelStage": "discover",
         },
@@ -106,7 +127,9 @@ def test_marketing_contracts_live(real_company_service):
     assert camp_data["budget"] == 25000000.0
 
     # List campaigns in Workspace A
-    list_camp_a = client.get("/commercial/marketing/campaigns", headers=headers_a)
+    list_camp_a = client.get(
+        "/commercial/marketing/campaigns", headers=headers_a, params={"projectId": proj_a}
+    )
     assert list_camp_a.status_code == 200
     assert len(list_camp_a.json()["data"]) == 1
 
@@ -116,6 +139,7 @@ def test_marketing_contracts_live(real_company_service):
         headers=headers_a,
         json={
             "campaignId": camp_id,
+            "projectId": proj_a,
             "name": "Interactive Demo vs Video Demo",
             "hypothesis": "Interactive demo boosts trial starts by 15%",
             "baselineValue": 8.0,
@@ -133,7 +157,9 @@ def test_marketing_contracts_live(real_company_service):
 
     # ─── Tenant Isolation Assertions ───
     # Workspace B sees no campaigns
-    list_camp_b = client.get("/commercial/marketing/campaigns", headers=headers_b)
+    list_camp_b = client.get(
+        "/commercial/marketing/campaigns", headers=headers_b, params={"projectId": proj_b}
+    )
     assert list_camp_b.status_code == 200
     assert list_camp_b.json()["data"] == []
 
@@ -146,5 +172,6 @@ def test_marketing_contracts_live(real_company_service):
     cross_res = client.get(
         "/commercial/marketing/campaigns",
         headers={"Authorization": f"Bearer {token_b}", "X-Workspace-Id": ws_a},
+        params={"projectId": proj_a},
     )
     assert cross_res.status_code in {401, 403}
