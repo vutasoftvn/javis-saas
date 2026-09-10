@@ -12,10 +12,8 @@ async function makeCycle() {
     role: "founder",
   });
   const authorization = `Bearer ${user.accessToken}`;
-  const workspace = { id: user.workspaceId };
-  // Startup Core: mọi Objective/Task sống bên trong một project — workspace mới
-  // khởi tạo rỗng nên test phải tự tạo project đầu tiên.
-  await createProject({ workspaceId: workspace.id, title: "Default Project", authorization });
+  // Startup Core: createTestSession seed sẵn một project (id === workspaceId).
+  const workspace = { id: user.workspaceId, projectId: user.projectId };
   const cycle = await createOkrCycle({ workspaceId: workspace.id, name: "Q1", authorization });
   return { workspace, cycle, authorization };
 }
@@ -26,10 +24,8 @@ async function makeAuthedWorkspace(displayName: string) {
     displayName,
   });
   const authorization = `Bearer ${user.accessToken}`;
-  // Startup Core: seed project mặc định để createObjective/createTask có project
-  // để gắn (cột trực tiếp project_id).
-  const project = await createProject({ workspaceId: user.workspaceId, title: "Default Project", authorization });
-  return { workspaceId: user.workspaceId, userId: user.userId, authorization, projectId: project.id };
+  // Startup Core: createTestSession seed sẵn một project (id === workspaceId).
+  return { workspaceId: user.workspaceId, userId: user.userId, authorization, projectId: user.projectId };
 }
 
 describe("createOkrCycle", () => {

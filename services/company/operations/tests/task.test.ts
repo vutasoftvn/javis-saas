@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { createTask, getTask, listTasks, updateTaskStatus, updateTaskSchedule } from "../handlers/task.handler";
-import { createProject } from "../handlers/project.handler";
 import { readOutbox } from "./helpers/outbox";
 
 async function makeAuthedWorkspace(displayName: string) {
@@ -11,10 +10,8 @@ async function makeAuthedWorkspace(displayName: string) {
     displayName,
   });
   const authorization = `Bearer ${user.accessToken}`;
-  // Startup Core: task sống bên trong một project (cột trực tiếp
-  // tasks.project_id) — workspace mới khởi tạo rỗng nên seed project mặc định.
-  const project = await createProject({ workspaceId: user.workspaceId, title: "Default Project", authorization });
-  return { workspaceId: user.workspaceId, userId: user.userId, authorization, projectId: project.id };
+  // Startup Core: createTestSession seed sẵn một project (id === workspaceId).
+  return { workspaceId: user.workspaceId, userId: user.userId, authorization, projectId: user.projectId };
 }
 
 describe("createTask", () => {

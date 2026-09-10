@@ -2,6 +2,7 @@
 //
 // Shared test fixtures: workspace + membership bootstrap cho operations tests.
 // Tái dùng pattern từ identity/tests/helpers/test-session.ts.
+import { sql } from "drizzle-orm";
 import { db, schema } from "../../identity/models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { signAccessToken } from "../../identity/services/token.service";
@@ -16,10 +17,19 @@ export interface TestWorkspaceWithMember {
   workspaceId: string;
   userId: string;
   bearerToken: string;
+  /**
+   * Startup Core: mọi Objective/Task/Cycle sống bên trong một project và
+   * `001` có composite FK (project_id, workspace_id) → strategy.projects.
+   * Helper seed sẵn một project có `id === workspaceId` để các test cũ chèn
+   * `projectId: BigInt(ws.workspaceId)` vẫn thoả FK; test mới nên dùng
+   * `ws.projectId` cho rõ nghĩa.
+   */
+  projectId: string;
 }
 
 export interface TestSecondWorkspace {
   workspaceId: string;
+  projectId: string;
 }
 
 /**
@@ -55,6 +65,13 @@ export async function createTestWorkspaceWithMember(
       userId,
       role,
     });
+
+    // Seed project mặc định (id === workspaceId) để thoả composite FK
+    // (project_id, workspace_id) trên tasks / okr_objectives / twelve_week_cycles.
+    await tx.execute(sql`
+      INSERT INTO strategy.projects (id, workspace_id, title, status, lifecycle_stage)
+      VALUES (${workspaceId}, ${workspaceId}, 'Default Test Project', 'ACTIVE', 'P0_DISCOVERY')
+    `);
   });
 
   const token = signAccessToken(userId.toString());
@@ -63,6 +80,7 @@ export async function createTestWorkspaceWithMember(
     workspaceId: workspaceId.toString(),
     userId: userId.toString(),
     bearerToken: `Bearer ${token}`,
+    projectId: workspaceId.toString(),
   };
 }
 
@@ -78,10 +96,16 @@ export async function createSecondWorkspace(): Promise<TestSecondWorkspace> {
       id: workspaceId,
       name: `Second Workspace (${Date.now()})`,
     });
+
+    await tx.execute(sql`
+      INSERT INTO strategy.projects (id, workspace_id, title, status, lifecycle_stage)
+      VALUES (${workspaceId}, ${workspaceId}, 'Default Test Project', 'ACTIVE', 'P0_DISCOVERY')
+    `);
   });
 
   return {
     workspaceId: workspaceId.toString(),
+    projectId: workspaceId.toString(),
   };
 }
 

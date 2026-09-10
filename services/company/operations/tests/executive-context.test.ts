@@ -159,7 +159,9 @@ describe("Executive Context Snapshot", () => {
     expect(snapshot.workspaceId).toBe(ws.workspaceId);
     expect(snapshot.totals.tasks).toBe(0);
     expect(snapshot.totals.objectives).toBe(0);
-    expect(snapshot.totals.projects).toBe(0);
+    // Startup Core: workspace luôn có sẵn 1 project (helper seed) — "empty" ở
+    // đây nghĩa là không có task/objective/evidence.
+    expect(snapshot.totals.projects).toBe(1);
     expect(snapshot.evidence).toEqual([]);
   });
 
