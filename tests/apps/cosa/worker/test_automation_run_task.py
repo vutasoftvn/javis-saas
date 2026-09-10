@@ -15,9 +15,14 @@ class RecordingGateway:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    async def execute(self, **kwargs):
-        self.calls.append(dict(kwargs))
-        return SimpleNamespace(tool_call_id=kwargs.get("tool_call_id", "call_x"), status="completed")
+    async def execute(self, request):
+        rec = {
+            "capability_id": getattr(request, "capability_id", None),
+            "run_id": getattr(request, "run_id", None),
+            "tool_call_id": getattr(request, "tool_call_id", None) or "call_x",
+        }
+        self.calls.append(rec)
+        return SimpleNamespace(tool_call_id=rec["tool_call_id"], status="completed")
 
 
 def _plane(gateway: RecordingGateway | None = None):

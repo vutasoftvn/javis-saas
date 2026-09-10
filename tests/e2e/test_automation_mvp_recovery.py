@@ -19,7 +19,7 @@ _TIMEOUT_S = 150.0
 
 
 def _publish(company, token, ws, *, key="operating.weekly-review") -> str:
-    r = company.post(
+    r = company.patch(
         "/operations/automation/definitions/x/configuration",
         json={
             "automationKey": key,
@@ -52,6 +52,7 @@ def _wait_terminal(company, token, ws, invocation_id) -> str:
     deadline = time.monotonic() + _TIMEOUT_S
     last = ""
     while time.monotonic() < deadline:
+        company.post("/events/relay/tick")
         r = company.get(
             f"/operations/automation/invocations/{invocation_id}/inspector", token=token, workspace_id=ws
         )

@@ -43,6 +43,12 @@ _EXPECTED_LEDGER = {
     ("agent", "003_cosa_automation_mvp.sql"),
     ("cosa", "003_cosa_automation_mvp.up.sql"),
     ("operations", "003_cosa_automation_mvp.up.sql"),
+    # Fix the stale cosa.roles seed in the 001 baseline (missing `member`).
+    ("cosa", "004_seed_canonical_cosa_roles.up.sql"),
+    # Restore objects the pg_dump squash lost: core.workspace_policy_versions +
+    # cutover markers, and the stripped GENERATED-IDENTITY clauses.
+    ("identity", "002_restore_business_policy_tables.up.sql"),
+    ("agent", "004_restore_baseline_identity_columns.sql"),
 }
 
 

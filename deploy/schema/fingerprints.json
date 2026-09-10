@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-09T23:16:17.603Z",
+  "generated_at": "2026-09-10T03:31:15.366Z",
   "groups": {
     "agent": {
-      "fingerprint": "6a707e6e137c7c140b28f0356f0f3d62854c525e110e076baae091f48b9b5056",
+      "fingerprint": "b58c86009c7fc32cd06d28e16c6d542b1f8fd570722d424b2f67670e6e9aca2d",
       "schemas": [
         "agent",
         "agent_conversation",
@@ -11,7 +11,7 @@
         "agent_registry",
         "models"
       ],
-      "tables_count": 21,
+      "tables_count": 22,
       "enums": [],
       "tables": {
         "agent.agent_web_search_budget": {
@@ -275,6 +275,16 @@
               "max_length": null,
               "precision": 32,
               "scale": 0
+            },
+            {
+              "name": "manifest_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -333,6 +343,85 @@
             {
               "name": "idx_agent_approvals_tool_call",
               "definition": "CREATE INDEX idx_agent_approvals_tool_call ON agent.approvals USING btree (tool_call_id)"
+            }
+          ]
+        },
+        "agent.automation_run_manifests": {
+          "schema": "agent",
+          "name": "automation_run_manifests",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "manifest_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "manifest_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "automation_run_manifests_pkey",
+            "columns": [
+              "run_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "automation_run_manifests_run_id_fkey",
+              "columns": [
+                "run_id"
+              ],
+              "foreign_table": "agent.runs",
+              "foreign_columns": [
+                "run_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "automation_run_manifests_pkey",
+              "definition": "CREATE UNIQUE INDEX automation_run_manifests_pkey ON agent.automation_run_manifests USING btree (run_id)"
+            },
+            {
+              "name": "idx_automation_run_manifests_hash",
+              "definition": "CREATE INDEX idx_automation_run_manifests_hash ON agent.automation_run_manifests USING btree (manifest_hash)"
             }
           ]
         },
@@ -2960,14 +3049,209 @@
       }
     },
     "cosa": {
-      "fingerprint": "a80d80567bae96f145086fb774bf36976bc4fcfabd9c95f4d99fcbd5804a6aa9",
+      "fingerprint": "4d52caca03663f898a5e02ed9043deb3197005de5904ec65a2f6ab4e9c894fca",
       "schemas": [
         "control_plane",
         "cosa"
       ],
-      "tables_count": 27,
+      "tables_count": 28,
       "enums": [],
       "tables": {
+        "control_plane.automation_dispatches": {
+          "schema": "control_plane",
+          "name": "automation_dispatches",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "invocation_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "automation_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "revision_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "trigger_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "trigger_identity",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "correlation_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "task_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "claim_token",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'received'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "last_error",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "scheduled_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "completed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "automation_dispatches_pkey",
+            "columns": [
+              "invocation_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "automation_dispatches_state_check",
+              "clause": "((state = ANY (ARRAY['received'::text, 'scheduled'::text, 'claimed'::text, 'completed'::text, 'failed'::text, 'quarantined'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "automation_dispatches_pkey",
+              "definition": "CREATE UNIQUE INDEX automation_dispatches_pkey ON control_plane.automation_dispatches USING btree (invocation_id)"
+            },
+            {
+              "name": "idx_automation_dispatches_state",
+              "definition": "CREATE INDEX idx_automation_dispatches_state ON control_plane.automation_dispatches USING btree (state, created_at)"
+            },
+            {
+              "name": "idx_automation_dispatches_task",
+              "definition": "CREATE INDEX idx_automation_dispatches_task ON control_plane.automation_dispatches USING btree (task_id) WHERE (task_id IS NOT NULL)"
+            }
+          ]
+        },
         "control_plane.connector_authorizations": {
           "schema": "control_plane",
           "name": "connector_authorizations",
@@ -6685,7 +6969,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "a2c95784673e2596c76cf338f94cef38502cf51486fd5637faaff1b7eb4368bd",
+      "fingerprint": "10dbd7c3de3935aca6ce0acc3b9189fcb17606e18404a5f75908c96140626929",
       "schemas": [
         "commercial",
         "core",
@@ -6695,7 +6979,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 41,
+      "tables_count": 47,
       "enums": [],
       "tables": {
         "commercial.marketing_campaigns": {
@@ -7083,6 +7367,101 @@
             {
               "name": "marketing_experiments_pkey",
               "definition": "CREATE UNIQUE INDEX marketing_experiments_pkey ON commercial.marketing_experiments USING btree (id)"
+            }
+          ]
+        },
+        "core.business_policy_cutover_markers": {
+          "schema": "core",
+          "name": "business_policy_cutover_markers",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "cutover_completed",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "false",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "cutover_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "migrated_rule_count",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "needs_review_count",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "business_policy_cutover_markers_pkey",
+            "columns": [
+              "workspace_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "business_policy_cutover_markers_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "core.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "business_policy_cutover_markers_pkey",
+              "definition": "CREATE UNIQUE INDEX business_policy_cutover_markers_pkey ON core.business_policy_cutover_markers USING btree (workspace_id)"
             }
           ]
         },
@@ -8004,6 +8383,122 @@
             {
               "name": "workspace_memberships_workspace_id_user_id_key",
               "definition": "CREATE UNIQUE INDEX workspace_memberships_workspace_id_user_id_key ON core.workspace_memberships USING btree (workspace_id, user_id)"
+            }
+          ]
+        },
+        "core.workspace_policy_versions": {
+          "schema": "core",
+          "name": "workspace_policy_versions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "policy_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "actor_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'native'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "cutover_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_policy_versions_pkey",
+            "columns": [
+              "workspace_id",
+              "version"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_policy_versions_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "core.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "workspace_policy_versions_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_policy_versions_pkey ON core.workspace_policy_versions USING btree (workspace_id, version)"
             }
           ]
         },
@@ -10651,6 +11146,726 @@
             {
               "name": "idx_event_outbox_ws_aggr",
               "definition": "CREATE INDEX idx_event_outbox_ws_aggr ON integration.event_outbox USING btree (workspace_id, aggregate_type, aggregate_id)"
+            }
+          ]
+        },
+        "operating.automation_definitions": {
+          "schema": "operating",
+          "name": "automation_definitions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "automation_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "current_revision_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "lifecycle_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'DRAFT'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deleted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "automation_definitions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "automation_definitions_lifecycle_state_check",
+              "clause": "((lifecycle_state = ANY (ARRAY['DRAFT'::text, 'PUBLISHED'::text, 'SUSPENDED'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "automation_definitions_pkey",
+              "definition": "CREATE UNIQUE INDEX automation_definitions_pkey ON operating.automation_definitions USING btree (id)"
+            },
+            {
+              "name": "idx_automation_definitions_workspace",
+              "definition": "CREATE INDEX idx_automation_definitions_workspace ON operating.automation_definitions USING btree (workspace_id)"
+            },
+            {
+              "name": "uix_automation_definitions_ws_key",
+              "definition": "CREATE UNIQUE INDEX uix_automation_definitions_ws_key ON operating.automation_definitions USING btree (workspace_id, automation_key) WHERE (deleted_at IS NULL)"
+            }
+          ]
+        },
+        "operating.automation_invocation_events": {
+          "schema": "operating",
+          "name": "automation_invocation_events",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "invocation_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "seq",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "event_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "payload_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "automation_invocation_events_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "automation_invocation_events_invocation_id_fkey",
+              "columns": [
+                "invocation_id"
+              ],
+              "foreign_table": "operating.automation_invocations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "automation_invocation_events_pkey",
+              "definition": "CREATE UNIQUE INDEX automation_invocation_events_pkey ON operating.automation_invocation_events USING btree (id)"
+            },
+            {
+              "name": "uix_automation_invocation_events_seq",
+              "definition": "CREATE UNIQUE INDEX uix_automation_invocation_events_seq ON operating.automation_invocation_events USING btree (workspace_id, invocation_id, seq)"
+            }
+          ]
+        },
+        "operating.automation_invocations": {
+          "schema": "operating",
+          "name": "automation_invocations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "definition_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "revision_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "automation_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revision_no",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "revision_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "idempotency_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "trigger_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "trigger_identity",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "caller_principal",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "business_scope_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "validated_input_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "fingerprint_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'REQUESTED'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "blocked_reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "agent_run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "correlation_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "automation_invocations_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "automation_invocations_definition_id_fkey",
+              "columns": [
+                "definition_id"
+              ],
+              "foreign_table": "operating.automation_definitions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "automation_invocations_revision_id_fkey",
+              "columns": [
+                "revision_id"
+              ],
+              "foreign_table": "operating.automation_revisions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "automation_invocations_state_check",
+              "clause": "((state = ANY (ARRAY['REQUESTED'::text, 'QUEUED'::text, 'LEASED'::text, 'RUNNING'::text, 'WAITING_APPROVAL'::text, 'COMPLETED'::text, 'FAILED'::text, 'CANCELLED'::text, 'BLOCKED'::text, 'CANCEL_REQUESTED'::text])))"
+            },
+            {
+              "name": "automation_invocations_trigger_kind_check",
+              "clause": "((trigger_kind = ANY (ARRAY['manual'::text, 'schedule'::text, 'business_event'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "automation_invocations_pkey",
+              "definition": "CREATE UNIQUE INDEX automation_invocations_pkey ON operating.automation_invocations USING btree (id)"
+            },
+            {
+              "name": "idx_automation_invocations_ws_run",
+              "definition": "CREATE INDEX idx_automation_invocations_ws_run ON operating.automation_invocations USING btree (workspace_id, agent_run_id)"
+            },
+            {
+              "name": "idx_automation_invocations_ws_state",
+              "definition": "CREATE INDEX idx_automation_invocations_ws_state ON operating.automation_invocations USING btree (workspace_id, state, created_at DESC)"
+            },
+            {
+              "name": "uix_automation_invocations_identity",
+              "definition": "CREATE UNIQUE INDEX uix_automation_invocations_identity ON operating.automation_invocations USING btree (workspace_id, revision_id, idempotency_key)"
+            }
+          ]
+        },
+        "operating.automation_revisions": {
+          "schema": "operating",
+          "name": "automation_revisions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "definition_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "revision_no",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "revision_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "configuration_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "trigger_contract_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "capability_ids",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "evidence_contract_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "autonomy_class",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'read_only'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "approval_contract_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "pinned_dependencies_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "effective_policy_revision",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "published_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "automation_revisions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "automation_revisions_definition_id_fkey",
+              "columns": [
+                "definition_id"
+              ],
+              "foreign_table": "operating.automation_definitions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "automation_revisions_autonomy_class_check",
+              "clause": "((autonomy_class = ANY (ARRAY['read_only'::text, 'draft_only'::text, 'gated_effect'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "automation_revisions_pkey",
+              "definition": "CREATE UNIQUE INDEX automation_revisions_pkey ON operating.automation_revisions USING btree (id)"
+            },
+            {
+              "name": "idx_automation_revisions_ws_definition",
+              "definition": "CREATE INDEX idx_automation_revisions_ws_definition ON operating.automation_revisions USING btree (workspace_id, definition_id, revision_no DESC)"
+            },
+            {
+              "name": "uix_automation_revisions_definition_no",
+              "definition": "CREATE UNIQUE INDEX uix_automation_revisions_definition_no ON operating.automation_revisions USING btree (definition_id, revision_no)"
             }
           ]
         },

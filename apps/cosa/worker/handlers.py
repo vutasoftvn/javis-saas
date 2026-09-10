@@ -908,7 +908,7 @@ async def execute_automation_run_task(
                 **kw,
             )
 
-    # 1. Resolve + hash-verify + persist the manifest (insert-once).
+    # 1. Resolve the manifest (no persist yet — its table FKs to agent.runs).
     try:
         spec = get_blueprint_spec(automation_key)
         metadata = get_blueprint_metadata(automation_key)
@@ -921,59 +921,53 @@ async def execute_automation_run_task(
 
     manifest_hash = manifest.compute_hash()
     _mh["v"] = manifest_hash
-    persisted = await plane.run_repository.save_automation_manifest(
-        run_id, manifest_hash, manifest.model_dump(mode="json")
-    )
-    # A restart / reclaim must run the persisted manifest, not the current spec.
-    effective_hash = persisted["manifest_hash"]
-    if effective_hash != manifest_hash:
-        await _emit(
-            "run.failed",
-            {"error": "automation_manifest_drift", "persisted": effective_hash, "resolved": manifest_hash},
+
+    def _new_run(status: RunStatus) -> RunRecord:
+        return RunRecord(
+            run_id=run_id,
+            workspace_id=workspace_id,
+            principal=f"system:automation:{workspace_id}",
+            root_executable_id=automation_key,
+            root_executable_kind="workflow",
+            root_executable_version=manifest.blueprint_version,
+            root_definition_hash=manifest.blueprint_hash,
+            correlation_id=correlation_id,
+            status=status,
         )
-        raise RuntimeError(f"automation manifest drift for run {run_id}")
 
     # 2. Runtime gate — local-only blueprint with no local node BLOCKS.
     if manifest.runtime_requirement == "local_only" and not payload.get("local_runtime_available", False):
-        existing = await plane.run_repository.get_run(run_id)
-        if existing is None:
-            await plane.run_repository.create_run(
-                RunRecord(
-                    run_id=run_id,
-                    workspace_id=workspace_id,
-                    principal=f"system:automation:{workspace_id}",
-                    root_executable_id=automation_key,
-                    root_executable_kind="workflow",
-                    root_definition_hash=manifest.blueprint_hash,
-                    correlation_id=correlation_id,
-                    status=RunStatus.FAILED,
-                )
-            )
+        if await plane.run_repository.get_run(run_id) is None:
+            await plane.run_repository.create_run(_new_run(RunStatus.FAILED))
         await _emit("run.blocked", {"cause": "LOCAL_RUNTIME_UNAVAILABLE"})
         await _report_outcome("BLOCKED", blocked_cause="LOCAL_RUNTIME_UNAVAILABLE")
-        await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"cause": "LOCAL_RUNTIME_UNAVAILABLE"})
+        await plane.run_repository.update_run_status(
+            run_id, RunStatus.FAILED, error_details={"cause": "LOCAL_RUNTIME_UNAVAILABLE"}
+        )
         return
 
-    # 3. Create / load the run.
+    # 3. Create / load the run FIRST (the manifest table references agent.runs).
     run = await plane.run_repository.get_run(run_id)
     if run is None:
-        run = await plane.run_repository.create_run(
-            RunRecord(
-                run_id=run_id,
-                workspace_id=workspace_id,
-                principal=f"system:automation:{workspace_id}",
-                root_executable_id=automation_key,
-                root_executable_kind="workflow",
-                root_executable_version=manifest.blueprint_version,
-                root_definition_hash=manifest.blueprint_hash,
-                correlation_id=correlation_id,
-                status=RunStatus.RUNNING,
-            )
-        )
+        run = await plane.run_repository.create_run(_new_run(RunStatus.RUNNING))
         await _emit("run.started", {"run_id": run_id, "automation_key": automation_key})
         await _report_state("RUNNING")
     else:
         await plane.run_repository.update_run_status(run_id, RunStatus.RUNNING)
+
+    # 3b. Persist the manifest insert-once (the run row now exists for the FK).
+    #     A restart / reclaim runs the persisted manifest, not the current spec.
+    persisted = await plane.run_repository.save_automation_manifest(
+        run_id, manifest_hash, manifest.model_dump(mode="json")
+    )
+    if persisted["manifest_hash"] != manifest_hash:
+        await _emit(
+            "run.failed",
+            {"error": "automation_manifest_drift", "persisted": persisted["manifest_hash"], "resolved": manifest_hash},
+        )
+        await _report_outcome("FAILED", failure_reason="automation_manifest_drift")
+        await plane.run_repository.update_run_status(run_id, RunStatus.FAILED, error_details={"cause": "manifest_drift"})
+        return
 
     # 4. Execute the pinned blueprint through the WorkflowEngine.
     ctx = BlueprintContext(

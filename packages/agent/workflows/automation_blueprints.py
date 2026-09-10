@@ -51,13 +51,37 @@ async def _gateway_read(ctx: BlueprintContext, capability_id: str, payload: dict
             f"blueprint attempted capability '{capability_id}' outside the manifest allowlist"
         )
     tool_call_id = f"call_{ctx.run_id}_{capability_id.replace('.', '_')}"
-    return await ctx.gateway.execute(
+    request = _build_gateway_request(
         run_id=ctx.run_id,
         capability_id=capability_id,
         input_payload=payload,
         idempotency_key=f"{ctx.run_id}:{capability_id}",
         tool_call_id=tool_call_id,
+        workspace_id=str(ctx.manifest.workspace_id),
+        principal=f"system:automation:{ctx.manifest.workspace_id}",
     )
+    return await ctx.gateway.execute(request)
+
+
+def _build_gateway_request(**kwargs: Any) -> Any:
+    """Build a real GatewayExecutionRequest. Imported lazily so a fake gateway
+    in unit tests can accept a plain object without the agent capability stack."""
+    try:
+        from agent.capabilities.gateway import GatewayExecutionRequest
+
+        return GatewayExecutionRequest(
+            run_id=kwargs["run_id"],
+            capability_id=kwargs["capability_id"],
+            input_payload=kwargs["input_payload"],
+            principal=kwargs.get("principal", "system"),
+            tool_call_id=kwargs.get("tool_call_id"),
+            idempotency_key=kwargs.get("idempotency_key"),
+            workspace_id=kwargs.get("workspace_id"),
+        )
+    except Exception:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(**kwargs)
 
 
 def _spec(key: str, title: str) -> WorkflowSpec:

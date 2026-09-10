@@ -14,7 +14,7 @@ pytestmark = pytest.mark.cross_plane
 
 
 def _configure(company, token, ws, *, key="operating.weekly-review"):
-    r = company.post(
+    r = company.patch(
         "/operations/automation/definitions/x/configuration",
         json={
             "automationKey": key,

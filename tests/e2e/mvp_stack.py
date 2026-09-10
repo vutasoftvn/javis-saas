@@ -79,6 +79,17 @@ class ServiceClient:
         with httpx.Client(base_url=self.base_url, timeout=10.0) as client:
             return client.put(path, json=json, headers=self._headers(token, workspace_id))
 
+    def patch(
+        self,
+        path: str,
+        *,
+        json: Any = None,
+        token: str | None = None,
+        workspace_id: str | None = None,
+    ) -> httpx.Response:
+        with httpx.Client(base_url=self.base_url, timeout=10.0) as client:
+            return client.patch(path, json=json, headers=self._headers(token, workspace_id))
+
     def delete(
         self,
         path: str,

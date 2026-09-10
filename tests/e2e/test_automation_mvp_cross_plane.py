@@ -21,12 +21,20 @@ _TERMINAL_TIMEOUT_S = 150.0
 _POLL_STEP_S = 2.0
 
 
+_BLUEPRINT_CONFIG = {
+    "operating.weekly-review": {"projectId": "p1"},
+    "operations.task-follow-up": {"projectId": "p1"},
+    "commercial.outbound-draft": {"audienceRef": "a1"},
+    "strategy.initiative-health": {"projectId": "p1"},
+}
+
+
 def _configure_and_publish(company, token: str, workspace_id: str, *, key: str) -> str:
-    r = company.post(
+    r = company.patch(
         f"/operations/automation/definitions/{_DEFINITION_ID_PLACEHOLDER}/configuration",
         json={
             "automationKey": key,
-            "configuration": {"projectId": "p1"},
+            "configuration": _BLUEPRINT_CONFIG[key],
             "triggerContract": {"kind": "manual"},
         },
         token=token,
@@ -77,6 +85,8 @@ def test_configure_publish_invoke_twice_yields_one_run_and_completes(
     deadline = time.monotonic() + _TERMINAL_TIMEOUT_S
     state = None
     while time.monotonic() < deadline:
+        # Drive the outbox relay synchronously instead of waiting for the 1m cron.
+        company.post("/events/relay/tick")
         r = company.get(
             f"/operations/automation/invocations/{invocation_id}/inspector",
             token=token,
@@ -113,6 +123,7 @@ def test_commercial_outbound_draft_cannot_deliver_externally(
     deadline = time.monotonic() + _TERMINAL_TIMEOUT_S
     data: dict[str, Any] = {}
     while time.monotonic() < deadline:
+        company.post("/events/relay/tick")
         r = company.get(
             f"/operations/automation/invocations/{inv['id']}/inspector", token=token, workspace_id=ws
         )

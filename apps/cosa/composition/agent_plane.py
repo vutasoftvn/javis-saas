@@ -111,6 +111,12 @@ class CosaAgentPlane:
         self.workflow_engine = workflow_engine
         self.company_client = company_client
         self.tenant_policy_client = tenant_policy_client
+        # COSA Automation MVP (Task 6) — worker -> Company outcome projection.
+        # Lazily created so a plane built for unit tests without COMPANY_SERVICE_URL
+        # simply reports nothing (the worker handler is None-safe).
+        from apps.cosa.events.automation_outcome_client import build_automation_outcome_client
+
+        self.automation_outcome_client = build_automation_outcome_client()
         self.profile_locale_client = profile_locale_client or ProfileLocaleClient()
         # Task 4 — thin HTTP client gọi COSA Control Plane (services/cosa) để
         # đọc/ghi workspace_skill_policies. Mặc định luôn có instance (không
