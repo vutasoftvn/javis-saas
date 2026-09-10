@@ -31,6 +31,7 @@ class ManifestBackedVisibilityApi implements ModuleVisibilityApi {
   static const Map<OptionalModule, String> _surfaceKey = {
     OptionalModule.crm: 'crm.contact_lead',
     OptionalModule.finance: 'finance.project_budget',
+    OptionalModule.automation: 'automation.library',
     // No live legal surface in R1 → always hidden.
     OptionalModule.legal: 'strategy.__legal_placeholder__',
   };
@@ -64,6 +65,7 @@ enum OptionalModule {
   finance,
   legal,
   crm,
+  automation,
 }
 
 extension OptionalModuleWire on OptionalModule {
@@ -71,6 +73,7 @@ extension OptionalModuleWire on OptionalModule {
         OptionalModule.finance => 'finance',
         OptionalModule.legal => 'legal',
         OptionalModule.crm => 'crm',
+        OptionalModule.automation => 'automation',
       };
 
   static OptionalModule? tryParse(String key) {
@@ -78,6 +81,7 @@ extension OptionalModuleWire on OptionalModule {
       'finance' => OptionalModule.finance,
       'legal' => OptionalModule.legal,
       'crm' || 'sales' => OptionalModule.crm,
+      'automation' => OptionalModule.automation,
       _ => null,
     };
   }
@@ -86,6 +90,7 @@ extension OptionalModuleWire on OptionalModule {
         OptionalModule.finance => WorkspaceModule.finance,
         OptionalModule.legal => WorkspaceModule.legal,
         OptionalModule.crm => WorkspaceModule.sales,
+        OptionalModule.automation => WorkspaceModule.automation,
       };
 }
 
@@ -94,6 +99,7 @@ OptionalModule? optionalModuleForWorkspaceModule(WorkspaceModule module) {
     WorkspaceModule.finance => OptionalModule.finance,
     WorkspaceModule.legal => OptionalModule.legal,
     WorkspaceModule.sales => OptionalModule.crm,
+    WorkspaceModule.automation => OptionalModule.automation,
     _ => null,
   };
 }

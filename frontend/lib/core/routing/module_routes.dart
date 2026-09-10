@@ -16,6 +16,8 @@ import 'app_routes.dart';
 import 'auth_middleware.dart';
 import 'project_setup_guard_middleware.dart';
 
+import '../../modules/automation/bindings/automation_binding.dart';
+import '../../modules/automation/views/automation_library_view.dart';
 import '../../modules/finance/bindings/finance_binding.dart';
 import '../../modules/finance/views/finance_view.dart';
 import '../../modules/settings/bindings/settings_binding.dart';
@@ -42,6 +44,7 @@ enum WorkspaceModule {
   finance,
   legal,
   workflows,
+  automation,
   settings,
   organization,
   needsYou,
@@ -207,6 +210,23 @@ final List<GetPage> moduleRoutes = [
     page: () => const AppShell(activeModule: WorkspaceModule.settings, child: SettingsView()),
     binding: SettingsBinding(),
     middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+
+  // COSA Automation MVP — gated on the `automation.library` surface. PLANNED
+  // until the automation.* capabilities are enabled + the cross-plane E2E is
+  // accepted, so the guard redirects to the hub while rollout is disabled.
+  GetPage(
+    name: WorkspaceModule.automation.path,
+    page: () => const AppShell(
+      activeModule: WorkspaceModule.automation,
+      child: AutomationLibraryView(),
+    ),
+    binding: AutomationBinding(),
+    middlewares: [
+      AuthMiddleware(),
+      ProjectSetupGuardMiddleware(),
+      ManifestRouteGuardMiddleware(WorkspaceModule.automation),
+    ],
   ),
 
   // ── PLANNED / not-yet-built-for-R1 — deep-link resolves to a roadmap card,

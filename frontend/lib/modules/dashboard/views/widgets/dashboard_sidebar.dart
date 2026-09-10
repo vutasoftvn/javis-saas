@@ -82,7 +82,9 @@ class DashboardDesktopSidebar extends StatelessWidget {
                               ? WorkspaceModule.legal
                               : (i.moduleKey == 'crm' || i.moduleKey == 'sales')
                                   ? WorkspaceModule.sales
-                                  : null)
+                                  : i.moduleKey == 'automation'
+                                      ? WorkspaceModule.automation
+                                      : null)
                       : moduleForLegacyIndex(i.index);
                   if (module != null && !visibilityController.isVisible(module)) {
                     return false;
@@ -418,7 +420,9 @@ class DashboardMobileDrawer extends StatelessWidget {
                               ? WorkspaceModule.legal
                               : (i.moduleKey == 'crm' || i.moduleKey == 'sales')
                                   ? WorkspaceModule.sales
-                                  : null)
+                                  : i.moduleKey == 'automation'
+                                      ? WorkspaceModule.automation
+                                      : null)
                       : moduleForLegacyIndex(i.index);
                   if (module != null && !visibilityController.isVisible(module)) {
                     return false;

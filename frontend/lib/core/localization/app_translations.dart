@@ -11,6 +11,8 @@ import 'locales/vi/vi_settings.dart';
 import 'locales/vi/vi_strategy.dart';
 import 'locales/en/en_tasks.dart';
 import 'locales/vi/vi_tasks.dart';
+import 'locales/en/en_automation.dart';
+import 'locales/vi/vi_automation.dart';
 
 abstract final class L10nKey {
   // App
@@ -698,8 +700,43 @@ abstract final class L10nKey {
   static const ftRetry = 'founderTrial.retry';
   static const ftNoProject = 'founderTrial.noProject';
 
+  // COSA Automation MVP
+  static const automationLibraryTitle = 'automation.library.title';
+  static const automationLibrarySubtitle = 'automation.library.subtitle';
+  static const automationInspectorTitle = 'automation.inspector.title';
+  static const automationInspectorSubtitle = 'automation.inspector.subtitle';
+  static const automationConfigure = 'automation.action.configure';
+  static const automationConfigureTitle = 'automation.configure.title';
+  static const automationRunNow = 'automation.action.runNow';
+  static const automationSuspend = 'automation.action.suspend';
+  static const automationCancelRun = 'automation.action.cancelRun';
+  static const automationSaveConfiguration = 'automation.action.saveConfiguration';
+  static const automationTriggerKind = 'automation.field.triggerKind';
+  static const automationFieldRequired = 'automation.field.required';
+  static const automationCardReady = 'automation.card.ready';
+  static const automationCardSetupRequired = 'automation.card.setupRequired';
+  static const automationCardSuspended = 'automation.card.suspended';
+  static const automationCardUnavailable = 'automation.card.unavailable';
+  static const automationCardForbidden = 'automation.card.forbidden';
+  static const automationStateForbidden = 'automation.state.forbidden';
+  static const automationStateUnavailable = 'automation.state.unavailable';
+  static const automationStateFailed = 'automation.state.failed';
+  static const automationStateEmpty = 'automation.state.empty';
+  static const automationPinnedRevision = 'automation.inspector.pinnedRevision';
+  static const automationRunState = 'automation.inspector.runState';
+  static const automationSourceHealth = 'automation.inspector.sourceHealth';
+  static const automationFailureReason = 'automation.inspector.failureReason';
+  static const automationTimeline = 'automation.inspector.timeline';
+  static const automationEvidence = 'automation.inspector.evidence';
+  static const navAutomation = 'nav.item.automation';
+
   static const List<String> required = [
     appTitle,
+    automationLibraryTitle,
+    automationInspectorTitle,
+    automationStateForbidden,
+    automationStateUnavailable,
+    navAutomation,
     profileLanguageTitle,
     profileLanguageVi,
     profileLanguageEn,
@@ -967,6 +1004,7 @@ class AppTranslations extends Translations {
     ...viSettings,
     ...viStrategy,
     ...viTasks,
+    ...viAutomation,
   };
 
   static final Map<String, String> en = {
@@ -976,5 +1014,6 @@ class AppTranslations extends Translations {
     ...enSettings,
     ...enStrategy,
     ...enTasks,
+    ...enAutomation,
   };
 }
