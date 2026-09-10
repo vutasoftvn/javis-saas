@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-10T22:24:22.520Z",
+  "generated_at": "2026-09-10T22:36:37.962Z",
   "groups": {
     "agent": {
       "fingerprint": "6a707e6e137c7c140b28f0356f0f3d62854c525e110e076baae091f48b9b5056",
@@ -7043,7 +7043,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "d64040d68901062c4a4ab5ec8420efca1411e8e89e1ba4493744f11d4f1e5c1a",
+      "fingerprint": "032e84a7017b3a05ba3c142c76bd4c30b0394102da606bd53cf79e7d12a99bb6",
       "schemas": [
         "commercial",
         "core",
@@ -7055,7 +7055,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 179,
+      "tables_count": 181,
       "enums": [],
       "tables": {
         "commercial.campaign_assets": {
@@ -25040,6 +25040,112 @@
             }
           ]
         },
+        "legal.legal_checklist_items": {
+          "schema": "legal",
+          "name": "legal_checklist_items",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "title",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'OPEN'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "evidence_artifact_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deleted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "legal_checklist_items_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_legal_checklist_items_workspace_id",
+              "definition": "CREATE INDEX idx_legal_checklist_items_workspace_id ON legal.legal_checklist_items USING btree (workspace_id)"
+            },
+            {
+              "name": "legal_checklist_items_pkey",
+              "definition": "CREATE UNIQUE INDEX legal_checklist_items_pkey ON legal.legal_checklist_items USING btree (id)"
+            }
+          ]
+        },
         "legal.legal_entity_profiles": {
           "schema": "legal",
           "name": "legal_entity_profiles",
@@ -25525,6 +25631,122 @@
             {
               "name": "legal_obligation_templates_pkey",
               "definition": "CREATE UNIQUE INDEX legal_obligation_templates_pkey ON legal.legal_obligation_templates USING btree (id)"
+            }
+          ]
+        },
+        "legal.legal_obligations": {
+          "schema": "legal",
+          "name": "legal_obligations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "title",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "description",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "due_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'OPEN'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deleted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "legal_obligations_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_legal_obligations_workspace_id",
+              "definition": "CREATE INDEX idx_legal_obligations_workspace_id ON legal.legal_obligations USING btree (workspace_id)"
+            },
+            {
+              "name": "legal_obligations_pkey",
+              "definition": "CREATE UNIQUE INDEX legal_obligations_pkey ON legal.legal_obligations USING btree (id)"
             }
           ]
         },
