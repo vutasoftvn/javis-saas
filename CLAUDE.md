@@ -107,8 +107,8 @@ make deploy              # preflight → migrate-all → deploy-app (tuần tự
 `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md`,
 `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md`,
 `DB_FINAL_CUTOVER.md`) cùng nhiều ADR cũ đã bị xóa trong commit `34507dd9`
-(2026-08-27). Giữ nguyên trạng thái đã xóa, không khôi phục. Các file tên tương
-tự trong `docs/archive/` chỉ là lưu trữ lịch sử, KHÔNG phải nguồn sự thật.
+(2026-08-27). Giữ nguyên trạng thái đã xóa, không khôi phục. `docs/archive/` và
+`docs/academy/` đã bị `git rm` trong đợt clean-slate 2026-09-10 — không khôi phục.
 
 **Document index hiện tại** (chỉ đọc các file TỒN TẠI trong cây):
 
@@ -121,14 +121,23 @@ tự trong `docs/archive/` chỉ là lưu trữ lịch sử, KHÔNG phải ngu�
 - `docs/superpowers/specs/` — design đã duyệt (vd.
   `2026-08-31-maintainable-modular-truthful-mvp-design.md`).
 - `docs/superpowers/plans/` — plan triển khai đã duyệt.
-- **Founder Trial — nguồn sự thật DUY NHẤT:**
+- **COSA Startup Core — nguồn sự thật kiến trúc hiện hành (thay Founder Trial):**
+  `docs/superpowers/specs/2026-09-10-cosa-startup-core-clean-slate-design.md`
+  + plan `docs/superpowers/plans/2026-09-10-cosa-startup-core-clean-slate.md`
+  + nhật ký thực thi
+  `docs/superpowers/plans/2026-09-10-cosa-startup-core-clean-slate-EXECUTION-STATUS.md`.
+  Baseline project-centric: framework BSC/PESTEL/SWOT/TOWS/Porter/maturity +
+  stage-gate/scoreboard tự động đã gỡ khỏi cả 4 vùng; **lifecycle Workspace
+  (W0_IDEA→W5_SCALE) và Project (P0_DISCOVERY→P6_SCALE_GOVERN) được GIỮ** —
+  `lifecycle_stage`/`stage_version`/`stage_entered_at` + lịch sử chuyển giai
+  đoạn append-only (`*_lifecycle_events`) + transition thủ công qua
+  `PATCH /identity/workspaces/:id/lifecycle` và `PATCH /operations/projects/:id/lifecycle`
+  (không gate framework, không model, không tự động).
+- **Founder Trial (2026-09-09) — đã bị thay thế (superseded):**
   `docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md`
-  + plan kèm theo
-  `docs/superpowers/plans/2026-09-09-founder-trial-mvp-reset-baseline.md`. Các
-  spec/plan Founder Trial cùng ngày 2026-09-09 khác (domain-agent-mvp,
-  r1-reconciled, evidence-crm-marketing-finance, codebase-truthful-ui-
-  remediation, lifecycle-and-truthful-ui, agent-orchestration) đã bị `git rm` —
-  KHÔNG khôi phục.
+  + `docs/superpowers/plans/2026-09-09-founder-trial-mvp-reset-baseline.md` giữ
+  lại làm lịch sử, KHÔNG còn là nguồn sự thật. Các spec/plan Founder Trial
+  2026-09-09 khác đã bị `git rm` — KHÔNG khôi phục.
 - `docs/architecture/generated/` — snapshot sinh tự động (contracts, route
   inventory, company usage inventory) — generator-owned, không hand-edit.
 

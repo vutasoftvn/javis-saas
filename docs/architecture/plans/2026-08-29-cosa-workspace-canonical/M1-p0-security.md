@@ -33,8 +33,8 @@ thật (unit/contract đã phủ).
   local JWT bị AgentOS/cloud từ chối (`InvalidPlatformTokenError`). Test service lẻ xanh nhưng
   hành trình sau sync 401.
 - **Missing policy fail-open**: no stage policy ⇒ gate pass mặc định
-  ([services/company/operations/strategy/services/stage-lifecycle.service.ts:82-88](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts#L82-L88));
-  `override:true` không check founder/admin ([:163](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts#L163)).
+  (`services/company/operations/strategy/services/stage-lifecycle.service.ts:82-88`);
+  `override:true` không check founder/admin (`:163`).
 
 M1 đóng tất cả các mục trên **trước** khi tăng bất kỳ tự động hóa nào.
 
@@ -110,10 +110,10 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
   (CLAUDE.md quy tắc 5: bind `run_id + tool_call_id + checkpoint_ref`, không lookup theo tên action).
 
 ### 7. Missing agent/stage policy fail-closed theo risk class (audit §3.2)
-- [stage-lifecycle.service.ts:82-88](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts#L82-L88) —
+- `stage-lifecycle.service.ts:82-88` —
   no policy ⇒ `gatePassed: false` cho autonomous transition (risk-class cao); chỉ human
   transition có founder/admin mới đi tiếp.
-- [stage-lifecycle.service.ts:163](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts#L163) —
+- `stage-lifecycle.service.ts:163` —
   `override:true` yêu cầu membership role ∈ {founder, admin} HOẶC approval workflow hợp lệ;
   override ghi một quyết định bổ sung có audit (actor, rationale, timestamp) vào history
   journal `ventureStageTransitions`, **không xóa** kết quả gate.

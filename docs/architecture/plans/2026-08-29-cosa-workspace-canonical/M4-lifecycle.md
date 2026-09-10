@@ -10,28 +10,28 @@ API trả cả `companyStage` lẫn alias `ventureStage`
 ([services/company/identity/services/workspace.service.ts:103](../../../../services/company/identity/services/workspace.service.ts#L103)).
 Backend enum: `S0_GENESIS, S1_PROBLEM_VALIDATION, S2_SOLUTION_VALIDATION, S3_MVP_BUILD,
 S4_PRODUCT_MARKET_FIT, S5_SCALE`
-([services/company/operations/strategy/services/stage-lifecycle.service.ts:11-26](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts#L11-L26)).
+(`services/company/operations/strategy/services/stage-lifecycle.service.ts:11-26`).
 
 Vấn đề đã verify:
-- Missing policy ⇒ gate pass mặc định ([:82-88](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts#L82-L88)) — *M1 đã đóng fail-open; M4 hoàn thiện policy model.*
-- `override:true` không check role ([:163](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts#L163)) — *M1 đã thêm role check; M4 thêm approval workflow + audit journal.*
+- Missing policy ⇒ gate pass mặc định (`:82-88`) — *M1 đã đóng fail-open; M4 hoàn thiện policy model.*
+- `override:true` không check role (`:163`) — *M1 đã thêm role check; M4 thêm approval workflow + audit journal.*
 - Không row-lock / `stage_version` CAS ⇒ hai transition đồng thời cùng xuất phát một stage.
-- Same-stage không định nghĩa (logic [:151-168](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts#L151-L168) không xử lý `toIndex == currentIndex`).
+- Same-stage không định nghĩa (logic `:151-168` không xử lý `toIndex == currentIndex`).
 - `stageTransitions` ([services/company/shared/db/schema/strategy.ts:19-29](../../../../services/company/shared/db/schema/strategy.ts#L19-L29))
   là config edge/policy nhưng tên giống history journal; history thật là `ventureStageTransitions` ([:192-202](../../../../services/company/shared/db/schema/strategy.ts#L192-L202)).
 
 Project lifecycle: backend `projects.phase` varchar tự do, default service-layer `PLANNING`
 ([services/company/operations/services/project.service.ts](../../../../services/company/operations/services/project.service.ts));
 gate evaluation lại coi phase là bộ S0–S5 của Workspace
-([services/company/operations/strategy/handlers/gate-evaluation.handler.ts:168](../../../../services/company/operations/strategy/handlers/gate-evaluation.handler.ts#L168),
-[services/company/operations/strategy/services/stage-assessment.service.ts:28-35](../../../../services/company/operations/strategy/services/stage-assessment.service.ts#L28-L35)).
+(`services/company/operations/strategy/handlers/gate-evaluation.handler.ts:168`,
+`services/company/operations/strategy/services/stage-assessment.service.ts:28-35`).
 Frontend có enum riêng `ProjectStage` 7 bậc `S0_EXPLORE, S1_PROBLEM_VALIDATION,
 S2_SOLUTION_VALIDATION, S3_BUSINESS_VALIDATION, S4_GO_TO_MARKET, S5_OPERATE_GROWTH,
 S6_SCALE_GOVERN` ([frontend/lib/data/models/stage_model.dart:142-154](../../../../frontend/lib/data/models/stage_model.dart#L142-L154))
 và gọi route không tồn tại `/operations/strategy/stage-context`,
 `/operations/strategy/projects/:id/stage`
-([frontend/lib/modules/strategy/services/stage_service.dart:85](../../../../frontend/lib/modules/strategy/services/stage_service.dart#L85),
-[:130](../../../../frontend/lib/modules/strategy/services/stage_service.dart#L130)); `StrategyService`
+(`frontend/lib/modules/strategy/services/stage_service.dart:85`,
+`:130`); `StrategyService`
 gọi `/strategy/projects...` trong khi handler ở `/operations/strategy/...`
 ([frontend/lib/modules/strategy/services/strategy_service.dart](../../../../frontend/lib/modules/strategy/services/strategy_service.dart)).
 
@@ -60,7 +60,7 @@ Mỗi transition:
 - missing policy ⇒ fail-closed cho autonomous transition; human override chỉ founder/admin
   hoặc approval workflow hợp lệ; override ghi quyết định bổ sung có audit vào
   `ventureStageTransitions` (đổi tên → `workspace_stage_transitions`), **không xóa** kết quả gate.
-- File: [services/company/operations/strategy/services/stage-lifecycle.service.ts](../../../../services/company/operations/strategy/services/stage-lifecycle.service.ts).
+- File: `services/company/operations/strategy/services/stage-lifecycle.service.ts`.
 
 ### 3. Project P0–P6 độc lập (audit §4.3)
 ```
@@ -79,8 +79,8 @@ Project { id(Snowflake), workspace_id(Snowflake), name,
   run, transition) vẫn offline được sau khi đã tạo.
 - Transition journal riêng `project_stage_transitions` + gate policy riêng
   `project_stage_transition_policies`; KHÔNG dùng Workspace journal/policy.
-- [gate-evaluation.handler.ts:168](../../../../services/company/operations/strategy/handlers/gate-evaluation.handler.ts#L168),
-  [stage-assessment.service.ts:28-35](../../../../services/company/operations/strategy/services/stage-assessment.service.ts#L28-L35) —
+- `gate-evaluation.handler.ts:168`,
+  `stage-assessment.service.ts:28-35` —
   dùng bộ P0–P6 cho project, không mượn S0–S5 Workspace.
 - Prefix `W`/`P` để không thể nhầm enum hay ý nghĩa.
 - Workspace maturity CÓ THỂ tổng hợp evidence từ portfolio projects, nhưng KHÔNG tự động bằng
@@ -89,8 +89,8 @@ Project { id(Snowflake), workspace_id(Snowflake), name,
 ### 4. Sửa route + enum contract frontend/backend (audit §3.3)
 - Frontend `ProjectStage` ([stage_model.dart:142-154](../../../../frontend/lib/data/models/stage_model.dart#L142-L154)) —
   giữ tên class, đổi giá trị wire sang P0_DISCOVERY..P6_SCALE_GOVERN (dùng bảng map từ M0).
-- Implement route thật cho [stage_service.dart:85](../../../../frontend/lib/modules/strategy/services/stage_service.dart#L85),
-  [:130](../../../../frontend/lib/modules/strategy/services/stage_service.dart#L130):
+- Implement route thật cho `stage_service.dart:85`,
+  `:130`:
   `GET /operations/strategy/stage-context`, `POST /operations/strategy/projects/:id/stage`
   (handler mới trong `services/company/operations/strategy/handlers/`).
 - Fix drift: [strategy_service.dart](../../../../frontend/lib/modules/strategy/services/strategy_service.dart)

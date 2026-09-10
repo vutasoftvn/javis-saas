@@ -94,7 +94,7 @@ eligible = workspace_stage_policy + project_stage_policy + entitlement
   đọc `effectiveFeatures`/`effectiveLimits` (khớp backend), không `features`/`limits`.
 - [ReconciliationCard](../../../../frontend/lib/modules/finance/widgets/reconciliation_card.dart),
   [CitationCard](../../../../frontend/lib/modules/legal/widgets/citation_card.dart),
-  [ActionProposalCard](../../../../frontend/lib/modules/strategy/widgets/action_proposal_card.dart) —
+  `ActionProposalCard` —
   vào screen Finance/Legal/Strategy thật (screen chính đã có route + controller; chỉ cần nối slice).
 - [api_client.dart:92-102](../../../../frontend/lib/core/network/api_client.dart#L92-L102) —
   **bỏ** rewrite `/finance/`→`/finance-legal/` và `/legal/`→`/finance-legal/`; để client gọi

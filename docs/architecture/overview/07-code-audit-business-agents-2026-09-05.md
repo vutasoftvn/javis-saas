@@ -40,7 +40,7 @@ Nguồn: [role permissions](/services/company/identity/services/tenant-context.s
 
 `assessVentureStage` lấy toàn bộ evidence workspace, không lọc `approved`, `deletedAt`, `freshUntil`. Evidence candidate/rejected/expired có thể tác động kết quả gate. Khi transition thật, cấu hình edge chỉ được đọc `policyVersion`; `allowed=false` không được thực thi. Hai lỗi trực tiếp ảnh hưởng W-stage, không tự động nâng P-stage.
 
-Nguồn: [evidence selection](/services/company/operations/strategy/services/stage-lifecycle.service.ts:121), [transition check](/services/company/operations/strategy/services/stage-lifecycle.service.ts:211), [edge lookup](/services/company/operations/strategy/services/stage-lifecycle.service.ts:247).
+Nguồn: `evidence selection`, `transition check`, `edge lookup`.
 
 Điều chỉnh: một bộ chọn evidence hợp lệ dùng chung; resolve và enforce edge đang hiệu lực cùng policy liên kết. Journal cần evidence ID/version và policy snapshot, không chỉ số lượng. Test candidate đủ điểm vẫn không qua; gate passed nhưng edge denied vẫn bị chặn.
 
@@ -96,13 +96,13 @@ Nguồn: [bank currency](/services/company/finance-legal/services/bank-transacti
 
 **F10. Mục tiêu tuần luôn ghi vào tuần 1.** Service chọn cycle mới nhất không xét trạng thái/tuần hiện tại, rồi upsert `weekNo:1`. Đổi mục tiêu ở tuần 2 trở đi ghi đè lịch sử tuần đầu. Cần week identity rõ: cycle + weekNo + date range/timezone, không suy ra bằng cycle mới nhất. [Code](/services/company/operations/strategy/services/weekly-goal.service.ts:59).
 
-**F11. Tab 12WY có thao tác chỉ tồn tại ở client.** `getDashboard(projectId)` bỏ projectId, lấy `cycles.first` và trả tactics/scores rỗng; `createTactic` chỉ dựng object với timestamp ID, `createOrGetCycle` chỉ đọc, update/review trả null. Cần nối API persistence và project scope; nếu chức năng chưa hỗ trợ thì trả trạng thái có cấu trúc, không thể hiện như đã tạo thành công. [Code](/frontend/lib/modules/strategy/services/twelve_wy_service.dart:35).
+**F11. Tab 12WY có thao tác chỉ tồn tại ở client.** `getDashboard(projectId)` bỏ projectId, lấy `cycles.first` và trả tactics/scores rỗng; `createTactic` chỉ dựng object với timestamp ID, `createOrGetCycle` chỉ đọc, update/review trả null. Cần nối API persistence và project scope; nếu chức năng chưa hỗ trợ thì trả trạng thái có cấu trúc, không thể hiện như đã tạo thành công. `Code`.
 
-**F12. PMF có thể PROMISING khi không có evidence approved.** Cờ `NO_REVIEWED_EVIDENCE` được tính trước khi lọc approved. Có một candidate/rejected, metric 0.8 và đủ contract có thể làm missing flag rỗng, valid evidence rỗng nhưng kết quả vẫn PROMISING. Mọi metric còn bị clamp về [0,1], không xét đơn vị hoặc chiều tốt/xấu. Cần kiểm tra đầu vào sau lọc; scoring theo contract, cohort, metric direction và quality. [Code](/services/company/operations/strategy/services/pmf-scoreboard.service.ts:115).
+**F12. PMF có thể PROMISING khi không có evidence approved.** Cờ `NO_REVIEWED_EVIDENCE` được tính trước khi lọc approved. Có một candidate/rejected, metric 0.8 và đủ contract có thể làm missing flag rỗng, valid evidence rỗng nhưng kết quả vẫn PROMISING. Mọi metric còn bị clamp về [0,1], không xét đơn vị hoặc chiều tốt/xấu. Cần kiểm tra đầu vào sau lọc; scoring theo contract, cohort, metric direction và quality. `Code`.
 
 **F13. Next best actions của project dùng assumption mẫu.** Handler luôn đưa assumption `id=1`, “Customer problem validation”, importance/uncertainty 8; không đọc project context thật. Cần lấy dữ liệu workspace/project đã kiểm quyền, trả insufficient data nếu thiếu; giữ Snowflake ID dạng string thay vì `Number`. [Code](/services/company/operations/strategy/handlers/next-best-action.handler.ts:49).
 
-**F14. Sửa kickoff giữ nguyên action ID không cập nhật task.** Materializer chỉ xử lý added/removed. Đổi “phỏng vấn 3 khách” thành “10 khách” có thể để task/commitment giữ yêu cầu cũ. Cần diff changed, cập nhật nội dung và giữ tiến độ, hoặc version/change order sau activation. [Code](/services/company/operations/strategy/services/project-kickoff-materialize.service.ts:98).
+**F14. Sửa kickoff giữ nguyên action ID không cập nhật task.** Materializer chỉ xử lý added/removed. Đổi “phỏng vấn 3 khách” thành “10 khách” có thể để task/commitment giữ yêu cầu cũ. Cần diff changed, cập nhật nội dung và giữ tiến độ, hoặc version/change order sau activation. `Code`.
 
 **F15. Legal có hai lệch enum làm mất nghĩa vụ khỏi đánh giá.** Migration 25 đổi `REGISTERED_VERIFIED` sang `VERIFIED`, nhưng rule seed migration 14 còn status cũ; evaluator so sánh literal. Bên cạnh đó create obligation ghi `OPEN`, trong khi action context chỉ lấy `PENDING`. Cần migration đồng bộ predicate, enum chung, test toàn chuỗi create obligation → action context. Applicability hiện lấy `profiles[0]` và chỉ xét `entity_status`, chưa evaluate đầy đủ điều kiện accounting regime trong predicate: cần evaluate từng pháp nhân bằng rules có kiểu.
 

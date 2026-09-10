@@ -57,19 +57,19 @@ Cần một writer/source cho quyền nghiệp vụ, client đúng plane/token, 
 
 ### IA03 — P1: W-stage vẫn dùng evidence chưa duyệt và bỏ cờ chặn edge; F03 còn nguyên
 
-[stage-lifecycle.service.ts:121](/services/company/operations/strategy/services/stage-lifecycle.service.ts:121) vẫn chọn tất cả evidence workspace, không lọc status/deletedAt/freshUntil. [Edge lookup](/services/company/operations/strategy/services/stage-lifecycle.service.ts:247) chỉ đọc policyVersion.
+`stage-lifecycle.service.ts:121` vẫn chọn tất cả evidence workspace, không lọc status/deletedAt/freshUntil. `Edge lookup` chỉ đọc policyVersion.
 
 Tình huống: candidate/expired evidence đủ điểm vẫn có thể góp vào assessment; edge allowed=false không được dùng ở luồng workspace transition. Evidence helper mới ở file khác không sửa được caller này. Cần test transition thật, gồm gate pass nhưng edge deny và candidate-only.
 
 ### IA04 — P1: Project transition chưa bắt buộc decision/gate hợp lệ; PMF chưa hiểu đơn vị đo đầy đủ
 
-[Project transition](/services/company/operations/strategy/services/project-stage-lifecycle.service.ts:142) chỉ kiểm decision khi caller có truyền `decisionId`. Có thể bỏ tham số và đi đường trước đây. Khi có decision, chưa resolve đầy đủ evaluation/policy/evidence freshness theo S1. PMF có sửa missing approved evidence nhưng vẫn chuẩn hóa giá trị metric bằng clamp [0,1] thay vì metric contract/cohort/direction.
+`Project transition` chỉ kiểm decision khi caller có truyền `decisionId`. Có thể bỏ tham số và đi đường trước đây. Khi có decision, chưa resolve đầy đủ evaluation/policy/evidence freshness theo S1. PMF có sửa missing approved evidence nhưng vẫn chuẩn hóa giá trị metric bằng clamp [0,1] thay vì metric contract/cohort/direction.
 
 Cần bắt buộc decision/evaluation phù hợp khi chuyển tới stage yêu cầu gate; không biến field optional thành biện pháp kiểm soát. Test tỷ lệ giảm, số đếm và stale contract bằng production evaluator.
 
 ### IA05 — P1: 12WY UI vẫn báo tạo công việc mà không lưu; F11 chưa sửa
 
-[getDashboard](/frontend/lib/modules/strategy/services/twelve_wy_service.dart:35) vẫn bỏ projectId, chọn cycles.first, trả tacticsByWeek/weeklyScores rỗng. createTactic vẫn sinh ID timestamp tại client; updateTactic/generateWeeklyReview trả null. Method getExecutionCycleView mới chưa thay thế luồng UI đang dùng các method cũ.
+`getDashboard` vẫn bỏ projectId, chọn cycles.first, trả tacticsByWeek/weeklyScores rỗng. createTactic vẫn sinh ID timestamp tại client; updateTactic/generateWeeklyReview trả null. Method getExecutionCycleView mới chưa thay thế luồng UI đang dùng các method cũ.
 
 Tình huống: tạo tactic rồi reload mất dữ liệu; đổi project có thể vẫn xem cycle đầu tiên. Test DTO/new endpoint riêng pass không chứng minh màn hình đã chuyển sang API thật. Cần thay caller/controller/mixin, kiểm request/persist/reload và stale response khi đổi project.
 
@@ -211,7 +211,7 @@ Thêm Authorization read không chứng minh principal đúng hoặc policy/audi
 |---|---|---|
 | [Cycle update:283](/services/company/operations/services/twelve-week-year.service.ts:283) | Đổi local dates/duration không reconcile legacy dates/weekly plans; rút 6→2 vẫn còn tuần 3–6 | Revision/change request, giữ tuần đã chốt, xử lý phần lịch tương lai rõ ràng |
 | [Weekly dates:357](/services/company/operations/services/twelve-week-year.service.ts:357) | Client truyền đủ dates thì server không derive/validate chúng trong cycle; weekNo chưa kiểm integer | Server là nguồn lịch; validate integer/timezone/date bounds |
-| [Kickoff:95](/services/company/operations/strategy/services/project-kickoff-materialize.service.ts:95) | Caller không bind cycleId; fallback latest cycle; upsert lại tuần 1; removal còn cancel in_progress | Bind cycle/revision từ đầu; thay đổi việc đã chạy qua change request |
+| `Kickoff:95` | Caller không bind cycleId; fallback latest cycle; upsert lại tuần 1; removal còn cancel in_progress | Bind cycle/revision từ đầu; thay đổi việc đã chạy qua change request |
 | [Projection:102](/services/company/operations/services/execution-cycle-view.service.ts:102) | Explicit cycle không kiểm project, fallback newest không lọc ACTIVE/READY | Chọn đúng project/cycle, xử lý multiple ACTIVE và NEEDS_SETUP |
 | [Review handler:26](/services/company/operations/strategy/handlers/weekly-review.handler.ts:26) | Không nhận weeklyPlanIds/decisionIds nên link luôn rỗng | Contract/API/UI lưu và reload các link đã kiểm tenant |
 

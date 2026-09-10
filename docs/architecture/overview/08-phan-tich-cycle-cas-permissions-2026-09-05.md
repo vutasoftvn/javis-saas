@@ -16,9 +16,9 @@ Ngày rà soát: 2026-09-05. Code nền: `e4829b75`, nhánh `main`. Đây là ph
 |---|---|
 | [Schema operations](/services/company/shared/db/schema/operations.ts:67) có `okr_cycles → okr_objectives → key_results`; đồng thời `twelve_week_cycles → weekly_plans → weekly_commitments → tasks` | Có hai mô hình mục tiêu và thực thi, chưa có liên kết KR trực tiếp trong commitment. `initiativeId` không bù được vì initiative hiện cũng không có FK tới KR |
 | [Create cycle](/services/company/operations/services/twelve-week-year.service.ts:108) nhận `durationWeeks`, mặc định 12; nhận start/end độc lập | Backend đã có nền tảng linh hoạt; còn thiếu xác thực số tuần nguyên dương và lịch nhất quán tại đường tạo này |
-| [Operating setup](/services/company/operations/strategy/services/project-operating-setup.service.ts:92) giới hạn P0 1–2 tuần, P1 2–4 tuần; kiểm lại khi kích hoạt | Lựa chọn độ dài chu kỳ đang bị buộc bởi thời lượng stage. Cần tách thời hạn kiểm chứng stage khỏi thời lượng chu kỳ |
+| `Operating setup` giới hạn P0 1–2 tuần, P1 2–4 tuần; kiểm lại khi kích hoạt | Lựa chọn độ dài chu kỳ đang bị buộc bởi thời lượng stage. Cần tách thời hạn kiểm chứng stage khỏi thời lượng chu kỳ |
 | [Weekly goal](/services/company/operations/strategy/services/weekly-goal.service.ts:59) chọn cycle mới nhất rồi upsert `weekNo: 1` | Sửa mục tiêu tuần sau có thể sửa tuần đầu; cycle mới nhất chưa chắc là cycle đang chạy |
-| [Modal chuyển chu kỳ](/frontend/lib/modules/strategy/widgets/twelve_wy/twelve_wy_modals.dart:370) nói tuần 13 bắt buộc | UX chưa phù hợp chu kỳ 2, 6 hoặc 16 tuần |
+| `Modal chuyển chu kỳ` nói tuần 13 bắt buộc | UX chưa phù hợp chu kỳ 2, 6 hoặc 16 tuần |
 | [Weekly reviews](/services/company/shared/db/schema/strategy.ts:322) gắn workspace/ngày đầu tuần, không gắn weekly plan | Cần phân biệt review tổng hợp của founder và review từng kế hoạch dự án |
 | [OKR scoring](/services/company/operations/services/okr-scoring.service.ts:1) dùng `current / target` | Không phản ánh tiến bộ từ baseline và chấm sai chỉ số cần giảm |
 

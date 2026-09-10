@@ -56,7 +56,7 @@ legal_entity_status:       [DRAFT, REGISTRATION_PREPARATION, REGISTERED_UNVERIFI
   (grep `ApiClient.(get|post|put|delete|patch)\(` + `postJson`/`getJson` trong `frontend/lib/`)
   đối chiếu handler Encore thật (`api({ ... path: ... })` trong `services/*/**/handlers/`).
 - Đánh dấu route "ma" đã biết: `/operations/strategy/stage-context`,
-  `/operations/strategy/projects/:id/stage` ([frontend/lib/modules/strategy/services/stage_service.dart:85](../../../../frontend/lib/modules/strategy/services/stage_service.dart#L85), [:130](../../../../frontend/lib/modules/strategy/services/stage_service.dart#L130));
+  `/operations/strategy/projects/:id/stage` (`frontend/lib/modules/strategy/services/stage_service.dart:85`, `:130`);
   `/workforce/agents`, `/workforce/packs`, `/workforce/org-chart` ([frontend/lib/modules/agents/services/agent_platform_service.dart](../../../../frontend/lib/modules/agents/services/agent_platform_service.dart));
   drift `/strategy/projects` vs `/operations/strategy/projects` ([frontend/lib/modules/strategy/services/strategy_service.dart](../../../../frontend/lib/modules/strategy/services/strategy_service.dart)).
 - CI check mới: fail nếu route Dart không khớp handler nào **và** không nằm trong allowlist
