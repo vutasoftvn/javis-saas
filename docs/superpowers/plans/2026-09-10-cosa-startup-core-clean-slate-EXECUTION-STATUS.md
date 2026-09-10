@@ -146,15 +146,25 @@ Commits on `main`: `50da7667` → `e7cd1967` → `3523439d`.
   re-migrated the three dev DBs (`agent` / `cosa` / `workspace`).
   `make schema-fingerprint-check` (Gate D) **green**.
 
-**`make verify` is still red.** Full `services/company` vitest: **388 → 328
-failed** (−60 this session). The doc's "still to do" list above under-scoped the
-debt — the M:N services were only ~60 of the failures. The remaining ~328 are
-the broader Task-2 service/test reconciliation (other schema drift, other stale
-fixtures) and are genuinely multi-session. **Do not bump the spec to VERIFIED**
-until full `services/company` vitest is green and `make verify` +
-`make e2e-cross-plane-smoke` pass. Next: enumerate the remaining failing test
-files by category (schema-drift vs stale-fixture vs behavior) and reconcile in
-batches, each its own green commit.
+**Update (same session, continued).** Task-2 reconciliation finished in batches
+— full `services/company` vitest **388 → 0 failed (1281/1281)**; typecheck +
+Gate D green. Commits after `3523439d`:
+
+| Commit | Batch | Effect |
+|---|---|---|
+| `9476eb99` | regen `route-inventory.md` after the M:N endpoint removal | — |
+| `b0bc4035` | **`commercial/002_restore_engagement_baseline`** — `001` omitted the whole `engagement.*` schema (Human Desk + copilot + channels + automation + autopilot); replays the 5 deleted pre-clean-slate migrations. `engagement` added to the fingerprint scope. | 328 → 161 |
+| `b9aa837a` | seed a default `strategy.projects` (id == workspaceId) in `createTestWorkspaceWithMember` / `createSecondWorkspace` / `createTestSession` so direct-insert tests satisfy the composite `project_id` FK | 161 → 67 |
+| `3b468b42` | **`identity/002_seed_permission_definitions`** (26 keys, `role_permissions` FK) + **`finance-legal/002_restore_legal_mvp_tables`** (`legal.legal_obligations` / `legal.legal_checklist_items`) | 67 → 52 |
+| `6da9116b` | **`operations/003_restore_upsert_constraints`** — restore PK on `workspace_execution_settings` / `workspace_capability_policy` + plain `uix_weekly_plan_cycle_week`; the `ON CONFLICT` upserts were failing 42P10 | 52 → 16 |
+| `68a3047e` | **`operations/004_restore_execution_plan_constraints`** (project FK + one-draft partial unique) + **`finance-legal/003_seed_tt58_nq86`** (regulation catalog, rule id=301) | 16 → 14 |
+| `0bb44acd` | `createTaskService` requires an APPROVED initiative on a direct `initiativeId` link (was `requireApproved=false`) | behaviour |
+| `b2ece707` | operations fixture reconciliation — `seedObjectiveWithKeyResult` (initiative needs a KR), one-ACTIVE-cycle-per-project in multi-cycle tests, stage-roster + executive-context "empty workspace" expectations | 14 → 1 |
+| `e2df4c17` | **`finance-legal/004_correct_tt58_predicate`** — rule 301 predicate to `{"entity_status":"VERIFIED","accounting_regime":"TT58_2026"}` (migration-39 correction) | 1 → 0 |
+
+Golden fingerprint after all migrations: **agent 21 / cosa 29 / workspace 181**.
+Remaining before VERIFIED: `make verify` (all services + lint + boundary +
+frontend) and `make e2e-cross-plane-smoke`, then bump the design spec.
 
 ## Phased execution (each phase = its own green commit + checkpoint)
 
