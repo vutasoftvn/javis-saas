@@ -190,7 +190,10 @@ export async function createTaskService(
   } else if (commitmentRow) {
     resolvedProjectId = commitmentRow.projectId;
   } else if (resolvedInitiativeId) {
-    const initRow = await assertInitiativeInWorkspace(resolvedInitiativeId, params.workspaceId, false);
+    // Startup Core: một task gắn thẳng initiative để lấy lineage chiến lược thì
+    // initiative đó phải đã APPROVED (giữ ràng buộc từ b4228176 — approval
+    // không tự mất khi policy nới lỏng).
+    const initRow = await assertInitiativeInWorkspace(resolvedInitiativeId, params.workspaceId, true);
     resolvedProjectId = initRow.projectId;
   } else {
     const [firstProj] = await db
