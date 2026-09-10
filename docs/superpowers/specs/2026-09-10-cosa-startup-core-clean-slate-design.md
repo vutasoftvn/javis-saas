@@ -43,6 +43,7 @@ execution preflight.
 | Surface | Purpose in Startup Core |
 | --- | --- |
 | Workspace and identity | Tenant, membership, roles and workspace configuration. |
+| Workspace and Project lifecycle | Persistent development-stage state, explicit transition history and founder/member-controlled progression. |
 | Project | The explicit context selected before operating work or an agent run. |
 | OKR and initiatives | Outcome, measurable Key Results and the initiatives that move them. |
 | Operating cycle, weekly work and tasks | Time-boxed commitments and accountable execution. |
@@ -60,8 +61,8 @@ agent capability dependencies and documentation topics:
 
 - BSC and BSC focus/perspective settings;
 - PESTEL, SWOT, TOWS, Porter and other strategy-lens matrices;
-- maturity tracks, stage gates, venture-stage state machines and framework
-  scoreboards;
+- maturity tracks, framework stage-gate scoreboards and automated framework
+  progression;
 - framework-driven strategic-analysis/copilot flows and generated framework
   tasks;
 - legacy canvas, portfolio, roadmap, funding cockpit and dashboard-index
@@ -73,6 +74,13 @@ agent capability dependencies and documentation topics:
 Removing a strategy framework does **not** remove factual `assumption`,
 `experiment`, `evidence` or `decision` records. Those records remain lightweight
 project evidence and must not require a BSC/PESTEL/SWOT/TOWS parent.
+
+It also does **not** remove lifecycle. Workspace and Project lifecycle are
+product state, not a strategy matrix: they describe where the startup and each
+project are in their development. They remain visible, independently editable
+by an authorized human and auditable. Evidence may inform a transition, but no
+framework score, agent output or background job may transition lifecycle state
+automatically.
 
 ## 3. Architecture and authority
 
@@ -115,6 +123,22 @@ The hierarchy below is mandatory in the new baseline.
 | Commitment | `workspace_id`, `project_id`, `week_id` | It is the executable weekly promise. |
 | Task | `workspace_id`, `project_id`, `commitment_id` | A task may link an Initiative, but it cannot cross project or week. |
 
+### 4.2 Workspace and Project lifecycle
+
+The baseline retains two independent lifecycle state machines:
+
+| Owner | Values | Stored fields | Transition rule |
+| --- | --- | --- | --- |
+| Workspace | `W0_IDEA`, `W1_PROBLEM_VALIDATION`, `W2_SOLUTION_VALIDATION`, `W3_MVP_BUILD`, `W4_PRODUCT_MARKET_FIT`, `W5_SCALE` | `lifecycle_stage`, `stage_version`, `stage_entered_at` | Founder/authorized workspace member submits `toStage`, `expectedStageVersion` and optional rationale. |
+| Project | `P0_DISCOVERY`, `P1_PROBLEM_VALIDATION`, `P2_SOLUTION_VALIDATION`, `P3_BUILD_VALIDATE`, `P4_GO_TO_MARKET`, `P5_OPERATE_GROWTH`, `P6_SCALE_GOVERN` | `lifecycle_stage`, `stage_version`, `stage_entered_at` | Founder/authorized project member submits `toStage`, `expectedStageVersion` and optional rationale. |
+
+Each accepted transition writes an append-only lifecycle event with previous
+stage, new stage, actor, timestamp and rationale. A stale `expectedStageVersion`
+returns a conflict and does not overwrite the newer transition. Lifecycle is
+context for the Project loop, companion domains and agents; it neither requires
+a BSC/PESTEL/SWOT/TOWS record nor blocks normal project reads, tasks, evidence
+or weekly work.
+
 An unplanned item is a `DRAFT` task in a project inbox. It cannot enter
 `IN_PROGRESS`, affect execution score or be offered to an agent until the
 founder/member assigns it to a Commitment in an active week. Task dependencies
@@ -127,7 +151,7 @@ assumption. Evidence has explicit provenance and review state; it is not made
 true by a prompt. A decision records a human author, rationale and linked
 evidence; it never automatically changes an OKR, cycle or task.
 
-### 4.2 Companion domains
+### 4.3 Companion domains
 
 Companion records carry project context without corrupting their own domain
 truth:
@@ -194,6 +218,9 @@ explicit project context.
   declared deterministic policy/approval exception.
 - Every spec is code-authored, pinned and resolved from the registry by exact
   hash. Unknown agent profiles fail closed.
+- The resolved Workspace and Project lifecycle stage is read-only run context.
+  It can guide relevance and language, but never grants a capability or causes
+  an automatic stage transition.
 - Runs, tool calls, checkpoints, approvals, idempotency keys, audit events,
   event inbox/outbox and leases remain durable platform infrastructure.
 
@@ -206,8 +233,9 @@ The application uses project-centric navigation, not a strategy-framework
 cockpit:
 
 1. Hub: conversation, needs-attention and selected workspace/project context.
-2. Projects: create/select project and project summary.
-3. Project: `OKRs`, `Cycle & Weekly`, `Tasks`, `Evidence & Decisions`.
+2. Projects: create/select project, lifecycle stage and project summary.
+3. Project: lifecycle header/transition history, `OKRs`, `Cycle & Weekly`,
+   `Tasks`, `Evidence & Decisions`.
 4. Customers: CRM, Sales and Support context linked into projects.
 5. Growth: Marketing campaigns and experiments linked into projects.
 6. Finance & Legal: workspace records plus project budgets/allocations and
@@ -273,6 +301,9 @@ the new empty baseline:
   every agent capability.
 - A project hierarchy test rejects wrong-project Objective/KR/Initiative/Cycle/
   Week/Commitment/Task links and prevents an unplanned task from starting.
+- Workspace and Project lifecycle tests prove authorized optimistic transitions,
+  append-only history, conflict on stale version and denial of automatic agent
+  transition.
 - A Flutter E2E creates and displays the full project loop, including a weekly
   task status mutation and refreshed execution score.
 - CRM/marketing/support evidence, finance/legal project context and Vault

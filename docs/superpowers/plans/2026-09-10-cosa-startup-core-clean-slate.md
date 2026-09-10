@@ -21,7 +21,7 @@
 - Preserve one-way, single-purpose cross-plane secrets. Scheduler payloads contain IDs/pins only, never raw business/Vault/model payloads.
 - Vault source/version/ACL is canonical; approved Knowledge is the retrieval projection. Source files, chunks, embeddings and prompts remain local to the Workspace Runtime Node.
 - All visible Flutter copy is present in `vi-VN` and `en-US` catalogs.
-- BSC, PESTEL, SWOT, TOWS, Porter, maturity, stages, framework scoreboards, Academy, voice/realtime, workflow-builder, automation-library, portfolio/roadmap/funding cockpit and their framework-only documents are removed only after the new replacement path passes its named tests.
+- BSC, PESTEL, SWOT, TOWS, Porter, maturity, framework stage-gate scoreboards, Academy, voice/realtime, workflow-builder, automation-library, portfolio/roadmap/funding cockpit and their framework-only documents are removed only after the new replacement path passes its named tests. Workspace and Project lifecycle stages are retained.
 
 ---
 
@@ -142,7 +142,7 @@
 **Interfaces:**
 
 - Produces exactly six baseline migration ledger entries listed in Task 1.
-- Produces the canonical Company hierarchy: `Project`, `Objective`, `KeyResult`, `Initiative`, `OperatingCycle`, `Week`, `Commitment`, `Task`.
+- Produces Workspace lifecycle (`W0_IDEA` through `W5_SCALE`), Project lifecycle (`P0_DISCOVERY` through `P6_SCALE_GOVERN`) and the canonical Company hierarchy: `Project`, `Objective`, `KeyResult`, `Initiative`, `OperatingCycle`, `Week`, `Commitment`, `Task`.
 - Produces only retained Control Plane and Agent substrate tables; no framework, Academy, automation product, realtime or legacy migration table remains.
 
 - [ ] **Step 1: Write a failing schema-introspection test**
@@ -191,7 +191,7 @@
     WHERE status = 'ACTIVE' AND deleted_at IS NULL;
   ```
 
-  Do not create `task_projects`, `okr_objective_projects`, framework-lens tables, portfolio tables or lifecycle/stage columns. Retain immutable audit, outbox/inbox and retained companion tables only.
+  Retain `lifecycle_stage`, `stage_version` and `stage_entered_at` for Workspace and Project, plus append-only workspace/project lifecycle events. Do not create `task_projects`, `okr_objective_projects`, BSC/PESTEL/SWOT/TOWS/maturity tables, framework stage-gate tables or portfolio tables. Lifecycle events record human transitions; they do not implement automatic stage progression.
 
 - [ ] **Step 4: Define the minimal Agent and Control Plane baselines**
 
@@ -221,7 +221,9 @@
 **Files:**
 
 - Modify: `services/company/operations/services/{project.service,okr.service,initiative.service,twelve-week-year.service,task.service}.ts`
+- Modify: `services/company/identity/services/workspace.service.ts`
 - Modify: `services/company/operations/handlers/{project.handler,okr.handler,initiative.handler,twelve-week-year.handler,task.handler}.ts`
+- Modify: `services/company/identity/handlers/workspace.handler.ts`
 - Create: `services/company/operations/services/project-operating-loop.service.ts`
 - Create: `services/company/operations/handlers/project-operating-loop.handler.ts`
 - Modify: `services/company/operations/handlers/index.ts`
@@ -232,8 +234,9 @@
 **Interfaces:**
 
 - Produces `getProjectOperatingLoop(ctx, projectId): ProjectOperatingLoop`.
+- Produces `transitionWorkspaceLifecycle(ctx, workspaceId, {toStage, expectedStageVersion, rationale})` and `transitionProjectLifecycle(ctx, projectId, {toStage, expectedStageVersion, rationale})`; both append immutable lifecycle events and reject stale versions.
 - Produces `createObjective`, `createKeyResult`, `createInitiative`, `createCycle`, `createWeeklyPlan`, `createCommitment`, `createTask` commands that accept a project-scoped request and reject hierarchy/workspace mismatch.
-- Produces `POST /operations/projects/:projectId/operating-loop/{objectives|cycles|weeks|commitments|tasks}` and `GET /operations/projects/:projectId/operating-loop`.
+- Produces `PATCH /identity/workspaces/:workspaceId/lifecycle`, `PATCH /operations/projects/:projectId/lifecycle`, `POST /operations/projects/:projectId/operating-loop/{objectives|cycles|weeks|commitments|tasks}` and `GET /operations/projects/:projectId/operating-loop`.
 
 - [ ] **Step 1: Write failing service tests for hierarchy rejection**
 
@@ -248,6 +251,12 @@
     taskId: draftUnplannedTask.id.toString(),
     status: "IN_PROGRESS",
   })).rejects.toThrow(/weekly commitment/i);
+
+  await expect(transitionProjectLifecycle(ctxA, projectA.id.toString(), {
+    toStage: "P2_SOLUTION_VALIDATION",
+    expectedStageVersion: 0,
+    rationale: "validated interviews",
+  })).resolves.toMatchObject({ lifecycleStage: "P2_SOLUTION_VALIDATION", stageVersion: 1 });
   ```
 
 - [ ] **Step 2: Run the focused service test and confirm it fails**
@@ -267,6 +276,17 @@
   ```
 
   Use the repository's actual `APIError` equivalent if `failedPrecondition` is unavailable; do not return a raw `Error`.
+
+  Implement lifecycle transitions in one transaction with the optimistic predicate. Do not call framework evaluation or a model:
+
+  ```ts
+  const updated = await tx.update(projects)
+    .set({ lifecycleStage: toStage, stageVersion: expectedStageVersion + 1, stageEnteredAt: new Date() })
+    .where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId), eq(projects.stageVersion, expectedStageVersion)))
+    .returning();
+  if (updated.length !== 1) throw APIError.aborted("Project lifecycle changed; reload before retrying");
+  await tx.insert(projectLifecycleEvents).values({ workspaceId, projectId, fromStage, toStage, actorId, rationale });
+  ```
 
 - [ ] **Step 4: Add public handler authorization tests**
 
@@ -350,11 +370,13 @@
 - Create: `frontend/lib/modules/projects/services/project_operating_loop_service.dart`
 - Create: `frontend/lib/modules/projects/controllers/project_operating_loop_controller.dart`
 - Create: `frontend/lib/modules/projects/views/project_operating_loop_view.dart`
+- Create: `frontend/lib/modules/projects/services/project_lifecycle_service.dart`
+- Create: `frontend/lib/modules/projects/views/widgets/lifecycle_header.dart`
 - Create: `frontend/lib/modules/projects/views/widgets/{okr_section,cycle_week_section,commitment_task_section,evidence_decision_section}.dart`
 - Modify: `frontend/lib/core/routing/{module_routes,app_routes,app_pages}.dart`
 - Modify: `frontend/lib/modules/tasks/{controllers/tasks_controller.dart,services/task_service.dart,views/tasks_view.dart}`
 - Delete: `frontend/lib/modules/strategy/views/tabs/{foundation_tab,strategy_lenses_tab,stage_gate_audit_tab,validation_studio_tab,project_roadmap_tab,project_funding_tab}.dart`
-- Delete: `frontend/lib/modules/strategy/services/{strategy_lens_service,stage_gate_service,stage_service,pmf_scoreboard_service,portfolio_service,canvas_service}.dart`
+- Delete: `frontend/lib/modules/strategy/services/{strategy_lens_service,stage_gate_service,pmf_scoreboard_service,portfolio_service,canvas_service}.dart`
 - Modify: `frontend/lib/core/localization/locales/{vi,en}/**.dart`
 - Create: `frontend/test/modules/projects/project_operating_loop_service_test.dart`
 - Create: `frontend/test/modules/projects/project_operating_loop_view_test.dart`
@@ -362,7 +384,7 @@
 **Interfaces:**
 
 - Produces `ProjectOperatingLoopService.get(String projectId)` using `MvpEndpoint.projectLoopRead`.
-- Produces `ProjectOperatingLoopController` with `load`, `createObjective`, `createCycle`, `createCommitment`, `createTask` and conflict-refresh handling.
+- Produces `ProjectOperatingLoopController` with `load`, `transitionLifecycle`, `createObjective`, `createCycle`, `createCommitment`, `createTask` and conflict-refresh handling.
 - Produces canonical route `/work/projects/:projectId`; removes standalone OKR/12WY/framework routes.
 
 - [ ] **Step 1: Write a failing typed-client test**
@@ -383,11 +405,11 @@
 
 - [ ] **Step 3: Implement the project view and task binding**
 
-  Render only four sections: `OKRs`, `Cycle & Weekly`, `Tasks`, `Evidence & Decisions`. Task creation sends project and weekly commitment IDs; task cards display project/week/commitment instead of relying on metadata. On cycle revision conflict, reload the loop before rendering the command again.
+  Render a lifecycle header and transition history before the four sections: `OKRs`, `Cycle & Weekly`, `Tasks`, `Evidence & Decisions`. The lifecycle header uses the typed lifecycle endpoint and current `stageVersion`; it shows the development stage but does not show a framework gate score or block work. Task creation sends project and weekly commitment IDs; task cards display project/week/commitment instead of relying on metadata. On cycle or lifecycle revision conflict, reload the loop before rendering the command again.
 
 - [ ] **Step 4: Remove framework navigation and translations**
 
-  Remove BSC/PESTEL/SWOT/TOWS/maturity/stage/roadmap/funding/canvas route registration, sidebar entries, voice/Hub commands, controllers, widgets and localization keys. Do not retain a PLANNED redirect or a mock response for a removed module.
+  Remove BSC/PESTEL/SWOT/TOWS/maturity/framework-stage-gate/roadmap/funding/canvas route registration, sidebar entries, voice/Hub commands, controllers, widgets and localization keys. Retain Workspace and Project lifecycle labels, transition commands, state history and context displays. Do not retain a PLANNED redirect or a mock response for a removed module.
 
 - [ ] **Step 5: Run UI tests and analyzer**
 
@@ -602,7 +624,7 @@
 
 **Files:**
 
-- Delete: framework handlers/services/tests under `services/company/operations/strategy/` matching `pestel`, `swot`, `tows`, `maturity`, `stage`, `strategy-analysis`, `strategic-objective`, `workspace-strategy-settings`, `pmf-scoreboard`, `gate-evaluation`
+- Delete: framework handlers/services/tests under `services/company/operations/strategy/` matching `pestel`, `swot`, `tows`, `maturity`, `strategy-analysis`, `strategic-objective`, `workspace-strategy-settings`, `pmf-scoreboard`, `gate-evaluation` and `stage-gate`; do not delete Workspace/Project lifecycle records, handlers, events or context adapters
 - Delete: canvas, automation, portfolio, roadmap, funding, Academy and realtime implementation directories after `rg` proves no retained importer
 - Delete: `frontend/lib/modules/{academy,automation,remote_access,workflows}/`
 - Delete: framework/placeholder route entries in `frontend/lib/core/routing/`
@@ -618,12 +640,12 @@
 - [ ] **Step 1: Write a failing removal-surface test**
 
   ```python
-  FORBIDDEN = ("bsc", "pestel", "swot", "tows", "porter", "maturity", "venture_stage", "academy", "realtime_agent", "automation")
+  FORBIDDEN = ("bsc", "pestel", "swot", "tows", "porter", "maturity", "academy", "realtime_agent", "automation")
   for source in retained_source_files():
       assert not any(token in source.read_text().lower() for token in FORBIDDEN), source
   ```
 
-  Exempt the historical `git` object database and this implementation plan; do not exempt runnable source, contract, deploy or generated route inventory.
+  Exempt the historical `git` object database and this implementation plan; do not exempt runnable source, contract, deploy or generated route inventory. `lifecycle_stage`, lifecycle transition and lifecycle event references are explicitly retained and must not be included in this forbidden-token check.
 
 - [ ] **Step 2: Run the removal test and confirm it fails**
 
@@ -680,7 +702,7 @@
 
 **Interfaces:**
 
-- Produces a documentation index with only retained architecture, runbooks, contracts, tests and companion-domain behavior.
+- Produces a documentation index with retained architecture, Workspace/Project lifecycle, runbooks, contracts, tests and companion-domain behavior.
 - Produces an E2E that constructs the startup loop, links companion facts, retrieves approved Knowledge and completes a governed agent run from empty test databases.
 
 - [ ] **Step 1: Write the clean-baseline E2E before documentation deletion**
@@ -707,7 +729,7 @@
 
 - [ ] **Step 3: Rewrite source-of-truth documentation**
 
-  Make the README describe the Startup Core loop and retained companion domains; make CLAUDE list only active ADR/spec/plan documents. Mark the new design `ACCEPTED` only after its acceptance gate passes. Remove Founder Trial as source of truth and delete its superseded spec/plan after every inbound link is rewritten.
+  Make the README describe the Startup Core loop, Workspace/Project development lifecycle and retained companion domains; make CLAUDE list only active ADR/spec/plan documents. Mark the new design `ACCEPTED` only after its acceptance gate passes. Remove Founder Trial as source of truth and delete its superseded spec/plan after every inbound link is rewritten.
 
 - [ ] **Step 4: Delete irrelevant documentation in reviewable batches**
 
