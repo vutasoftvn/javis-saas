@@ -64,7 +64,7 @@ Task 2 shared contract
 - ResetTarget has plane, databaseName, migratorUrl, applicationUrl, migratorRole and migrate command fields.
 - Later tasks call only make test-db-reset. No task uses raw broad deletion.
 
-- [ ] **Step 1: Write failing precondition tests**
+- [x] **Step 1: Write failing precondition tests**
 
 Create tests/scripts/test_test_db_reset.mjs:
 
@@ -94,12 +94,12 @@ Add tests for absent confirmation, a URL ending in cosa, duplicate normalized
 host-port-database tuple, a test URL equal to COSA_MIGRATOR_DATABASE_URL and a
 missing test migrator URL.
 
-- [ ] **Step 2: Prove the test is red**
+- [x] **Step 2: Prove the test is red**
 
 Run: node --test tests/scripts/test_test_db_reset.mjs
 Expected: FAIL because the reset library does not exist.
 
-- [ ] **Step 3: Implement fail-closed reset parsing**
+- [x] **Step 3: Implement fail-closed reset parsing**
 
 Create scripts/test-db-reset-lib.mjs with this immutable target metadata:
 
@@ -129,7 +129,7 @@ The implementation must not run DROP DATABASE, DROP SCHEMA public, DROP OWNED
 BY PUBLIC, a volume command, a shell delete or an environment-derived SQL
 identifier. Extensions in public, including vector, stay installed.
 
-- [ ] **Step 4: Add static guard and Make target**
+- [x] **Step 4: Add static guard and Make target**
 
 Create the Python contract:
 
@@ -152,7 +152,7 @@ test-db-reset: ## Recreate only Founder Trial test databases
 Document empty test-only URL variable names in .env.example; do not add
 credentials or a default connection string.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run:
 
@@ -205,7 +205,7 @@ finance.budget_summary.read
 finance.snapshot.latest
 ~~~
 
-- [ ] **Step 1: Write the failing exact-contract test**
+- [x] **Step 1: Write the failing exact-contract test**
 
 Create tests/contracts/test_founder_trial_mvp_surface.py:
 
@@ -223,13 +223,13 @@ def test_each_r1_capability_has_real_evidence_paths():
         assert Path(row["integration_test"]).exists()
 ~~~
 
-- [ ] **Step 2: Prove the current broad contract is red**
+- [x] **Step 2: Prove the current broad contract is red**
 
 Run: .venv/bin/python -m pytest tests/contracts/test_founder_trial_mvp_surface.py -q
 Expected: FAIL because canvas, strategy analysis, legacy marketing, and other
 non-R1 endpoints are still listed.
 
-- [ ] **Step 3: Replace contract, regenerate clients and remove stale allowlist entries**
+- [x] **Step 3: Replace contract, regenerate clients and remove stale allowlist entries**
 
 Use the exact endpoint shapes:
 
@@ -258,7 +258,7 @@ GET   /finance/snapshots/latest
 Run make mvp-contracts-gen. Remove every marketing legacy and revenue legacy
 allowlist entry; never replace those entries with a wildcard.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run:
 
@@ -296,7 +296,7 @@ git commit -m "feat(contract): restrict mvp surface to founder trial"
 - Exposes PATCH /operations/projects/:projectId/operating-cycle.
 - FounderTrialCycleView includes revision.
 
-- [ ] **Step 1: Write failing active-cycle tests**
+- [x] **Step 1: Write failing active-cycle tests**
 
 ~~~ts
 it("resizes an ACTIVE cycle atomically and preserves completed review", async () => {
@@ -320,7 +320,7 @@ it("rejects stale revision and another workspace cycle", async () => {
 
 Add a 6 to 10 test that proves added review slots appear once.
 
-- [ ] **Step 2: Confirm existing behavior fails**
+- [x] **Step 2: Confirm existing behavior fails**
 
 Run:
 
@@ -331,7 +331,7 @@ cd services/company && encore test operations/tests/active-cycle-resize.test.ts 
 
 Expected: FAIL because the existing Flutter-facing PUT refuses ACTIVE setup.
 
-- [ ] **Step 3: Implement the single project-scoped transaction**
+- [x] **Step 3: Implement the single project-scoped transaction**
 
 In one transaction, verify project workspace, select non-deleted cycle by
 cycleId plus projectId plus workspaceId, compare revision, validate integer
@@ -345,7 +345,7 @@ Retire public duration update through PATCH /operations/cycles/:id. The old
 generic endpoint may stay only for non-duration internal use if a direct caller
 exists; no Flutter contract may expose it.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ~~~bash
 cd services/company && encore test operations/tests/active-cycle-resize.test.ts \
@@ -377,7 +377,7 @@ git commit -m "feat(operations): resize active founder trial cycles safely"
 - Founder Brief returns non-authoritative nextReviewFocus, not a decision
   suggestion.
 
-- [ ] **Step 1: Write failing attribution and finance-composition tests**
+- [x] **Step 1: Write failing attribution and finance-composition tests**
 
 ~~~ts
 it("excludes approved evidence from a generic experiment without assumptionId", async () => {
@@ -396,7 +396,7 @@ it("does not call project economics tracking when only a workspace snapshot exis
 Also cover unlinked evidence, cross-project experiment evidence and soft-deleted
 review exclusion.
 
-- [ ] **Step 2: Confirm existing implementation is red**
+- [x] **Step 2: Confirm existing implementation is red**
 
 Run:
 
@@ -408,7 +408,7 @@ cd services/company && encore test operations/tests/founder-trial-evidence-bound
 Expected: FAIL because generic linked evidence is counted and cash changes the
 single economics state.
 
-- [ ] **Step 3: Implement coverage-only Brief**
+- [x] **Step 3: Implement coverage-only Brief**
 
 Build a map of only Board experiments that have an assumption owned by the
 Board project. Approved evidence contributes only through that map. Keep
@@ -416,7 +416,7 @@ successCriteria display-only; never parse its text into a pass/fail outcome.
 Replace supported, tracking and suggestedDecision with the types declared above.
 DecisionRecord remains the sole source for proceed, pivot, kill and hold.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ~~~bash
 cd services/company && encore test operations/tests/founder-trial-board.service.test.ts \
@@ -448,7 +448,7 @@ git commit -m "fix(strategy): make founder brief evidence coverage truthful"
 - Campaign/experiment list and create require projectId.
 - BudgetSummaryView and WorkspaceLiquidityView are independent typed results.
 
-- [ ] **Step 1: Write failing tenant and false-empty tests**
+- [x] **Step 1: Write failing tenant and false-empty tests**
 
 ~~~ts
 await expect(createCampaign(ctxA, { projectId: projectB.id, title: "wrong" }))
@@ -463,6 +463,12 @@ expect(finance.workspaceLiquidity.state).toBe("EVIDENCE_PRESENT");
 Add CAS missing and failed cases; neither may return a fake numeric zero.
 
 - [ ] **Step 2: Implement retained services and remove legacy source**
+
+> Trạng thái 2026-09-10: phần "implement retained services" đã xong và có test
+> (commit `fd682d47`). Phần "remove legacy source" bị hoãn — các handler/service/test
+> legacy (`finance-tt58`, `payment-request`/`payment-allocation`, `ai-compliance-*`,
+> `legal-applicability`, legacy marketing) vẫn còn trong cây, chỉ bị gỡ khỏi
+> `shared/contracts/mvp-surface.json`. Xoá hẳn để lại cho một dọn dẹp sau.
 
 The future baseline retains:
 
@@ -481,7 +487,7 @@ engagement/outreach, TT58 reporting, payment request/allocation, accounting-book
 confirmation, legal applicability and AI-compliance routes after import and
 route inventory show no retained caller.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ~~~bash
 cd services/company && encore test commercial/tests/founder-trial-crm.contract.test.ts \
@@ -511,7 +517,7 @@ git commit -m "feat(company): reduce commercial and finance to founder trial"
 - Each live manifest entry has non-empty requiredCapabilities.
 - Only PLANNED surface has null contractEndpoint.
 
-- [ ] **Step 1: Write failing policy tests**
+- [x] **Step 1: Write failing policy tests**
 
 ~~~ts
 it("rejects an AVAILABLE surface with no enabled contract capability", () => {
@@ -526,14 +532,14 @@ it("reports cash configuration required only when entitlement or CAS is absent",
 });
 ~~~
 
-- [ ] **Step 2: Implement validated static policy**
+- [x] **Step 2: Implement validated static policy**
 
 Import generated contract metadata through the new adapter. Map every AVAILABLE
 and PILOT spec surface to its explicit capability IDs. Validate once at service
 start and in unit tests, not by reading JSON on each HTTP request. Preserve
 operator downgrade only; an operator cannot force AVAILABLE.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ~~~bash
 cd services/cosa && encore test tests/workspace-capability-contract.test.ts \
@@ -565,7 +571,7 @@ git commit -m "feat(cosa): bind capability manifest to mvp contract"
   call, approval/idempotency, exact-hash registry and model provider policy.
 - The agent runtime has no Company database credential or Company source import.
 
-- [ ] **Step 1: Write failing API/import allowlist tests**
+- [x] **Step 1: Write failing API/import allowlist tests**
 
 ~~~python
 def test_agent_routes_exclude_out_of_scope_surfaces():
@@ -582,12 +588,18 @@ def test_agent_runtime_has_no_company_database_dependency():
 
 - [ ] **Step 2: Remove out-of-scope registration and persistence callers**
 
+> Trạng thái 2026-09-10: wiring out-of-scope đã gỡ khỏi `apps/cosa/api/routes.py`
+> và boundary "no Company DB" đã có test (commit `57ed48b6`). Nhưng các file module
+> mồ côi (`vault_routes.py`, `workforce_routes.py`, `schedule_routes.py`,
+> `skill_registry_routes.py`, `autopilot_metrics_routes.py`, …) chưa `git rm` —
+> chúng chỉ không còn được import.
+
 Keep exact-hash AgentSpec resolution and governance approval rules. Remove
 Vault, knowledge, workforce, schedule, skill mutation, evaluation promotion,
 autopilot, voice and external automation registration plus their direct callers.
 Do not introduce an in-memory fallback for a configured production runtime.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ~~~bash
 .venv/bin/python -m pytest tests/agent/test_founder_trial_agent_baseline.py \
@@ -621,7 +633,7 @@ git commit -m "refactor(agent): retain founder trial runtime core only"
 - ManifestRouteGuardMiddleware replaces ModuleVisibility guard and old dashboard
   index decisions for all retained modules.
 
-- [ ] **Step 1: Write failing workspace-switch and route tests**
+- [x] **Step 1: Write failing workspace-switch and route tests**
 
 ~~~dart
 test("workspace switch clears old manifest before the next response", () async {
@@ -643,6 +655,12 @@ configuration-required state.
 
 - [ ] **Step 2: Implement one client authority**
 
+> Trạng thái 2026-09-10: manifest-owned navigation, workspace-switch clearing và
+> sidebar trim đã xong và có test (commits `6dc7f716`, `7ab5022c`, `8cd93a14`).
+> Nhưng `ModuleVisibility` controller/service/`ModuleVisibilitySettingsCard` chưa
+> bị xoá — vẫn còn wired vào `settings_view.dart` (nay chạy qua adapter đọc từ
+> manifest). Xoá hẳn để lại cho sau.
+
 Pass workspaceId into manifest fetch. During session commit reload the new
 workspace manifest after API runtime setup; on logout clear it. Ignore a
 response for a non-current workspace.
@@ -652,7 +670,7 @@ Routes render PLANNED, CONFIGURATION_REQUIRED or UNAVAILABLE state rather than
 opening old views. Delete ModuleVisibility controller/service/routes/tests and
 legacy dashboard index fallback after no caller remains.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ~~~bash
 cd frontend && flutter test test/core/services/workspace_capability_manifest_controller_test.dart \
@@ -690,7 +708,7 @@ user-owned and remains outside this commit.
   submitInterviewEvidence, reviewEvidence and createDecision.
 - FounderBrief contains five coverage axes and nextReviewFocus.
 
-- [ ] **Step 1: Write failing UI golden-path test**
+- [x] **Step 1: Write failing UI golden-path test**
 
 ~~~dart
 testWidgets("founder completes strict evidence loop and sees review focus", (t) async {
@@ -710,7 +728,7 @@ testWidgets("founder completes strict evidence loop and sees review focus", (t) 
 Add cases for no cycle, 412 resize conflict, no budget plus cash present, missing
 CAS, unlinked evidence, English locale and PLANNED analysis card.
 
-- [ ] **Step 2: Implement partial-truth Board and commands**
+- [x] **Step 2: Implement partial-truth Board and commands**
 
 Load Board, Brief, Budget and Liquidity through separate typed requests. A failed
 CAS request does not hide a valid Board. Replace draft operating setup PUT with
@@ -735,7 +753,7 @@ non-authoritative review context and retain an explicit DecisionRecord form.
 Replace legacy strategy tabs with the Board and a manifest-driven roadmap card.
 Use translation keys for all visible R1 strings in vi-VN and en-US.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ~~~bash
 cd frontend && flutter test test/modules/strategy/founder_trial_full_loop_test.dart \
@@ -776,7 +794,7 @@ git commit -m "feat(frontend): complete localized founder trial loop"
 - The initial ledger contains one 001 row for Agent, one for COSA and four for
   Company service groups.
 
-- [ ] **Step 1: Write failing reset and inventory tests**
+- [x] **Step 1: Write failing reset and inventory tests**
 
 ~~~python
 def test_reset_has_only_curated_001_ledger_rows():
@@ -798,7 +816,7 @@ Agent schemas are agent, agent_governance, agent_registry, agent_conversation an
 models. Assert academy, legal, validation, engagement, vault, knowledge and
 agent_evals do not exist.
 
-- [ ] **Step 2: Author exact baseline allowlists**
+- [x] **Step 2: Author exact baseline allowlists**
 
 Company baseline tables:
 
@@ -828,7 +846,7 @@ Author DDL from the retained source files, with composite tenant foreign keys,
 constraints, indexes and role grants. A legacy full schema dump can be compared
 for constraints but must never be committed wholesale.
 
-- [ ] **Step 3: Replace histories and runner behavior**
+- [x] **Step 3: Replace histories and runner behavior**
 
 Use scoped git rm on only the migration directories listed in this task, then
 add the six baselines. Remove historical baseline parsing and behavior from all
@@ -840,7 +858,7 @@ migrations after 001 require paired down SQL and compatibility review. Align all
 retained Drizzle/Python source schemas with the new table allowlists. Remove
 unused ORM exports/imports in the same commit.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ~~~bash
 make test-db-reset
@@ -878,7 +896,7 @@ git commit -m "refactor(db): reset three planes to founder trial baseline"
   Task 10 fresh databases.
 - The new spec and this plan are the sole Founder Trial sources in CLAUDE.md.
 
-- [ ] **Step 1: Write real HTTP full-stack test**
+- [x] **Step 1: Write real HTTP full-stack test**
 
 ~~~python
 project = create_project(headers_a)
@@ -899,7 +917,7 @@ assert cross_workspace_read_or_mutate(headers_b, project).status_code in (403, 4
 Add stale-cycle-revision, missing CAS and stale manifest negative cases. Use
 real HTTP with no mock transport.
 
-- [ ] **Step 2: Run E2E before documentation deletion**
+- [x] **Step 2: Run E2E before documentation deletion**
 
 ~~~bash
 make test-db-reset
@@ -910,7 +928,7 @@ make e2e-cross-plane-smoke
 
 Expected: PASS. Collection alone is not evidence.
 
-- [ ] **Step 3: Perform document cutover and full release gates**
+- [x] **Step 3: Perform document cutover and full release gates**
 
 Use git rm for the six exact superseded documents. Update CLAUDE.md to cite only
 the new spec and this plan as Founder Trial sources. Do not remove ADRs or
@@ -934,7 +952,7 @@ git status --short
 Expected: all gates pass. The only pre-existing edit may be
 frontend/test/flutter_test_config.dart and must remain uncommitted.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ~~~bash
 git add CLAUDE.md docs shared/contracts scripts tests services packages apps \
@@ -965,3 +983,79 @@ user's working-tree edit.
 The plan uses the same reset names, confirmation phrase, capability IDs, route
 names and post-baseline migration rule throughout. Company intentionally has
 four baseline ledger rows; Agent and COSA have one each.
+
+---
+
+## Trạng thái reconcile (2026-09-10)
+
+Tất cả 11 task đều đã có commit landed trên `main` và deliverable + test tương ứng
+tồn tại trong cây:
+
+| Task | Commit chính | Ghi chú |
+|---|---|---|
+| 1 | `7626bf43` | xong |
+| 2 | `e37b2c9f` | xong — `mvp-surface.json` version `2026-09-09-founder-trial-r1` |
+| 3 | `b3bf6744` | xong |
+| 4 | `117c9f5a` | xong |
+| 5 | `fd682d47` | **một phần** — retained services + read model xong; xoá legacy source hoãn (xem Step 2) |
+| 6 | `bb47062c` | xong |
+| 7 | `57ed48b6` | **một phần** — route wiring + company-DB boundary xong; xoá file module mồ côi hoãn (xem Step 2) |
+| 8 | `6dc7f716`, `7ab5022c`, `8cd93a14` | **một phần** — manifest-owned nav xong; xoá `ModuleVisibility` hoãn (xem Step 2) |
+| 9 | `35910c51`, `daf5475a`, `a05e34d4` | xong |
+| 10 | `81461673`, `8bd8a8c8`, `766c4906`, `f1898952` | xong — nhưng squash `001` bắt hụt schema, xem mục dưới |
+| 11 | `766c4906`, `24a6908b` | xong |
+
+## Post-cutover baseline restore — kết quả epic SP-A (2026-09-10)
+
+Squash `pg_dump` của Task 10 (`001_founder_trial_mvp_baseline`) chỉ chụp được
+khoảng **25%** schema company đã khai báo và làm rơi nhiều object mà code R1 đang
+chạy vẫn cần. Epic SP-A
+(`docs/superpowers/plans/2026-09-10-baseline-completeness-harness-health.md`) khôi
+phục toàn bộ phần đó dưới dạng migration **expand-only** — không sửa `001`:
+
+- `services/company/identity/migrations/002_restore_business_policy_tables.up.sql`
+  — `core.workspace_policy_versions` + cutover markers; GENERATED IDENTITY trên
+  `integration.event_outbox` / `event_audit`. (commit `a9709b70`)
+- `packages/agent/migrations/004_restore_baseline_identity_columns.sql`
+  — GENERATED IDENTITY trên 3 cột sequence của agent (`a9709b70`); **được sửa lại
+  bởi** `packages/agent/migrations/005_fix_runtime_signal_outbox_sequence.sql` —
+  gỡ IDENTITY mà `004` gắn nhầm vào `agent.runtime_signal_outbox.sequence` (đây là
+  natural key do caller cung cấp); mọi `enqueue_runtime_signal` đều fail trên
+  baseline mới. (SP-A Task 5A, commit `0bd74844`)
+- `services/cosa/migrations/004_seed_canonical_cosa_roles.up.sql`
+  — `cosa.roles` thiếu `member`. (commit `a9709b70`)
+- `services/company/finance-legal/migrations/002_restore_baseline_gaps.up.sql`
+  — toàn bộ schema `legal` (~23 bảng, cấu trúc). (SP-A Task 1)
+- `services/cosa/migrations/005_restore_baseline_gaps.up.sql`
+  — `control_plane.document_ingestions` + `document_ingestion_audit_events`.
+  (SP-A Task 2)
+- `services/company/operations/migrations/004_restore_baseline_gaps.up.sql`
+  — bảng runtime operating/strategy (`task_projects`, `runtime_source_signals`,
+  `canvases`, …). (SP-A Task 5B)
+- `services/company/finance-legal/migrations/003_restore_finance_baseline_gaps.up.sql`
+  — 20 bảng `finance.*` bị thiếu. (SP-A Task 5C)
+- `services/company/commercial/migrations/002_restore_baseline_gaps.up.sql`
+  — 22 bảng `commercial.*` / `sales.*` bị thiếu. (SP-A Task 5C2)
+- `services/company/operations/migrations/005_restore_baseline_gaps.up.sql`
+  — 53 bảng `operating.*` / `strategy.*` bị thiếu. (SP-A Task 5C3)
+- `services/company/finance-legal/migrations/004_seed_ai_legal_applicability_corpus.up.sql`
+  — seed nội dung regulation (9 sources / 9 versions / 6 rules), giữ trạng thái
+  `PENDING_REVIEW`. (SP-A Task 5F)
+
+Kết quả: golden fingerprint nhóm `workspace` đi từ **70 → 171 bảng** sau SP-A.
+
+**Cố ý KHÔNG khôi phục** (PLANNED, không thuộc R1 — reset spec §7.3): các schema
+`vault`, `knowledge`, `agent_memory`, `agent_evals`, `agent_artifact` và
+`engagement`. Test suite cũ của chúng bị `skip` kèm tham chiếu spec (SP-A Task 5D),
+không re-enable.
+
+**Follow-up ngoài phạm vi SP-A** (ghi lại cho sau): `make e2e-test` chưa nằm trong
+CI; `apps/cosa/composition/kernel_factory.py` coi `model=` là tín hiệu "đây là
+test" và âm thầm dựng `CosaDataModelGate(client=None)` (production không ảnh hưởng —
+`model=None` → real client); schema `engagement.*` vẫn vắng (35 file vitest
+`services/company/*/tests/customer-engagement/*`, chỉ chạy trong `services-test`);
+DB `workspace` dev bị lệch checksum ở `identity/002` (operator: reset DB hoặc sửa
+dòng trong `schema_migrations`).
+
+**Regression guard:** `tests/quality/test_baseline_identity_columns.py` (theo dõi
+6 cột DB-generated).
