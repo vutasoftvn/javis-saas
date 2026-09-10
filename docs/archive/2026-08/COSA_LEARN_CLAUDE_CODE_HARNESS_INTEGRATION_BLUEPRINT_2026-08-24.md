@@ -624,12 +624,14 @@ Control Plane đã có/định hướng Mission/Task/Assignment/Lease. Harvest i
 
 **Đối chiếu 2026-08-24:** invariant atomic claim ở mục 9.1 bên dưới **đã tồn
 tại thật ở tầng schema**, không phải chỉ là đề xuất — xem
-[services/cosa/migrations/6_control_plane_missions_tasks.up.sql](../../../services/cosa/migrations/6_control_plane_missions_tasks.up.sql)
+`services/cosa/migrations/6_control_plane_missions_tasks.up.sql` (đã bị xoá bởi
+squash baseline `81461673`)
 (`control_plane.assignments` có unique partial index
 `idx_control_plane_assignments_task_active_lease`, 1 task chỉ có tối đa 1
 assignment `'leased'` tại 1 thời điểm — DB tự chặn double-checkout qua
 constraint, không cần `SELECT FOR UPDATE` riêng) và độc lập
-[packages/agent/migrations/005_idempotency_claims.sql](../../../packages/agent/migrations/005_idempotency_claims.sql)
+`packages/agent/migrations/005_idempotency_claims.sql` (nội dung nay đã gộp vào
+`packages/agent/migrations/001_founder_trial_mvp_baseline.sql`)
 
 (`agent_core.idempotency_claims`, CAS pattern chung cho CapabilityGateway).
 **Cái còn thiếu không phải redesign invariant** mà là: Encore endpoint
@@ -2365,7 +2367,7 @@ lập nhau (xem CLAUDE.md mục "Nguồn sự thật kiến trúc").
 ## Stale comments/docs đã sửa trong đợt reconciliation này
 
 - [CLAUDE.md](../../../CLAUDE.md) mục "Nguồn sự thật kiến trúc" — bỏ câu "còn chờ ADR supersede chính thức" (đã ACCEPTED), thêm phân biệt ACCEPTED/IMPLEMENTED/WIRED/VERIFIED/PRODUCTION.
-- [services/cosa/migrations/6_control_plane_missions_tasks.up.sql](../../../services/cosa/migrations/6_control_plane_missions_tasks.up.sql) dòng 1 — "DRAFT chưa review" → "ACCEPTED — implementation chưa bắt đầu".
+- `services/cosa/migrations/6_control_plane_missions_tasks.up.sql` dòng 1 — "DRAFT chưa review" → "ACCEPTED — implementation chưa bắt đầu".
 - [services/cosa/storage/control-plane-schema.ts](../../../services/cosa/storage/control-plane-schema.ts) dòng 3 — cùng nội dung.
 
 

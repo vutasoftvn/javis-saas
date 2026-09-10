@@ -4,7 +4,7 @@ Ngày kiểm tra: 2026-09-06. Baseline trước triển khai: `e4829b75`. Mốc 
 
 **Kết luận: chưa triển khai đúng và đủ để nghiệm thu plan tổng.** Có nhiều cấu phần mới hữu ích, nhưng còn đường public bỏ qua quyền, helper không có caller production, UI vẫn dùng stub và test không chứng minh luồng thật. F4/F5/F6 và H1 chưa có các đầu ra chính. Không thể dùng tên commit hoặc số test pass để đánh dấu các task đã xong.
 
-Nguồn yêu cầu: [plan tổng](/docs/superpowers/plans/2026-09-05-business-agents-master.md), [permissions](/docs/superpowers/plans/2026-09-05-business-agents-permissions.md), [strategy/operating](/docs/superpowers/plans/2026-09-05-business-agents-strategy-operating.md), [runtime](/docs/superpowers/plans/2026-09-05-business-agents-runtime.md), [legal](/docs/superpowers/plans/2026-09-05-business-agents-legal.md), [finance](/docs/superpowers/plans/2026-09-05-business-agents-finance.md).
+Nguồn yêu cầu (loạt plan `2026-09-05-business-agents-*` — master, permissions, strategy/operating, runtime, legal, finance — đã bị `git rm` bởi `11494e69` và được thay bằng [Founder Trial reset baseline design](/docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md)).
 
 ## 1. Ma trận 24 task
 
@@ -115,7 +115,7 @@ Worker có kiểm content hash khác ở [cas-inbox-worker.service.ts](/services
 
 ### IA12 — P1: Finance snapshot gắn nhãn pháp nhân nhưng cộng toàn workspace
 
-[calculateAndSaveSnapshotService](/services/company/finance-legal/services/financial-snapshot.service.ts:181) chỉ lọc bank transactions theo workspace/currency, không join connection/entity, sau đó gắn legalEntityId vào snapshot. Migration [35](/services/company/finance-legal/migrations/35_financial_integrity.up.sql:18) unique(workspace,date,currency) không gồm entity. Hai entity cùng ngày/currency không lưu riêng được; query không có entity còn có thể lấy snapshot một entity rồi đổi thành workspace aggregate.
+[calculateAndSaveSnapshotService](/services/company/finance-legal/services/financial-snapshot.service.ts:181) chỉ lọc bank transactions theo workspace/currency, không join connection/entity, sau đó gắn legalEntityId vào snapshot. Migration `35_financial_integrity.up.sql:18` (nay đã gộp vào squash baseline `001_founder_trial_mvp_baseline`) unique(workspace,date,currency) không gồm entity. Hai entity cùng ngày/currency không lưu riêng được; query không có entity còn có thể lấy snapshot một entity rồi đổi thành workspace aggregate.
 
 computeSnapshot vẫn parseFloat, missing opening balance mặc định 0; bank rows thực tế không mang classification được helper dùng để loại transfer/capital. Vì vậy test truyền category vào hàm thuần không chứng minh burn từ DB đã đúng. Đã tái hiện offline: không truyền opening balance, chỉ giao dịch IN=100 vẫn trả currentCash=100, không thể hiện coverage/unknown.
 
@@ -135,7 +135,7 @@ Không thể nghiệm thu yêu cầu founder duyệt/quét QR/đối soát hoặ
 
 ### IA15 — P1: Roles chưa được cấp phát; lưu permissions có thể xóa hạn mức
 
-[Migration permissions](/services/company/identity/migrations/8_business_permissions.up.sql) tạo bảng và seed permission definitions, nhưng không seed/backfill roles/assignments. Không tìm thấy production writer tạo coreWorkspaceRoles; tests tự insert. PUT chỉ chấp nhận role đã có tại [permissions.service.ts:284](/services/company/identity/services/permissions.service.ts:284). Workspace sạch mở Settings sẽ không có role để chỉnh/assign.
+Migration permissions `8_business_permissions.up.sql` (nay đã gộp vào squash baseline `001_founder_trial_mvp_baseline`) tạo bảng và seed permission definitions, nhưng không seed/backfill roles/assignments. Không tìm thấy production writer tạo coreWorkspaceRoles; tests tự insert. PUT chỉ chấp nhận role đã có tại [permissions.service.ts:284](/services/company/identity/services/permissions.service.ts:284). Workspace sạch mở Settings sẽ không có role để chỉnh/assign.
 
 [Flutter controller:84](/frontend/lib/modules/settings/controllers/permissions_controller.dart:84) gửi effect mà không giữ conditions; [backend:310](/services/company/identity/services/permissions.service.ts:310) thay conditions thiếu bằng `{}`. Đổi effect rồi Save có thể làm mất maxAmountMinor/currency đang áp dụng. Cần bootstrap/backfill có kiểm chứng và semantics patch bảo toàn fields không được chỉnh; thêm UI assignment/scope/expiry/limit.
 
@@ -159,7 +159,7 @@ Auditor có membership có thể đóng nghĩa vụ bằng các payload trên; k
 
 ### IA19 — P1: Legal predicate cũ chưa sửa; kết quả NEEDS_REVIEW bị giấu
 
-[Migration 32](/services/company/finance-legal/migrations/32_legal_predicate_versions.up.sql) chưa tạo corrected predicate version/supersedes/source cho literal entity_status=APPROVED. [Evaluator:67](/services/company/finance-legal/services/legal-predicate.ts:67) so literal trực tiếp nên entity VERIFIED vẫn không match rule cũ. Test tự seed VERIFIED không kiểm backfill này.
+Migration 32 `32_legal_predicate_versions.up.sql` (nay đã gộp vào squash baseline `001_founder_trial_mvp_baseline`) chưa tạo corrected predicate version/supersedes/source cho literal entity_status=APPROVED. [Evaluator:67](/services/company/finance-legal/services/legal-predicate.ts:67) so literal trực tiếp nên entity VERIFIED vẫn không match rule cũ. Test tự seed VERIFIED không kiểm backfill này.
 
 [Applicability:124](/services/company/finance-legal/services/legal-applicability.service.ts:124) đọc legalReviewConfirmed nhưng không dùng để chặn; version chưa review vẫn có thể APPLIES. [Dòng 189](/services/company/finance-legal/services/legal-applicability.service.ts:189) bỏ qua NEEDS_REVIEW khi trả API, khiến UI không phân biệt thiếu facts với không có nghĩa vụ.
 
