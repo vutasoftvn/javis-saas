@@ -17,7 +17,10 @@ def check_doc_links(repo_root: Path) -> int:
     exclude_dirs = {
         '.venv', '.venv_verify', 'venv', 'node_modules', 'build',
         '.git', '.worktrees', '.encore', '.dart_tool', '.gemini',
-        '.dart_server', 'dist', 'coverage'
+        '.dart_server', 'dist', 'coverage',
+        # `.superpowers/` là SDD scratch bị git-ignore, không phải tài liệu —
+        # ví dụ/nội dung nháp trong đó làm checker báo nhầm link hỏng.
+        '.superpowers',
     }
 
     
