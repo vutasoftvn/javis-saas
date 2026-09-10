@@ -569,6 +569,22 @@ export const projects = strategySchema.table("projects", {
   }).onDelete("set null"),
 }));
 
+// M4 §3 — lịch sử chuyển lifecycle stage của Project (append-only, do người
+// thực hiện). Không progression tự động bởi framework/agent/background job.
+export const projectLifecycleEvents = strategySchema.table("project_lifecycle_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  fromStage: varchar("from_stage", { length: 50 }).notNull(),
+  toStage: varchar("to_stage", { length: 50 }).notNull(),
+  fromStageVersion: integer("from_stage_version").notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  rationale: text("rationale"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixProjCreated: index("ix_project_lifecycle_events_proj").on(t.projectId, t.createdAt),
+}));
+
 export const portfolioProjects = strategySchema.table("portfolio_projects", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),

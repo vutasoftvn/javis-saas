@@ -17,3 +17,4 @@ export * from "./automation-outcome.handler";
 export * from "./automation-inspector.handler";
 export * from "./project-operating-loop.handler";
 export * from "../strategy/handlers";
+export * from "./project-lifecycle.handler";

@@ -33,6 +33,22 @@ CREATE TABLE IF NOT EXISTS strategy.projects (
 );
 CREATE INDEX IF NOT EXISTS idx_projects_workspace ON strategy.projects USING btree (workspace_id);
 
+-- 1b. strategy.project_lifecycle_events (append-only, human transitions only)
+CREATE TABLE IF NOT EXISTS strategy.project_lifecycle_events (
+    id bigint NOT NULL,
+    workspace_id bigint NOT NULL,
+    project_id bigint NOT NULL,
+    from_stage character varying(50) NOT NULL,
+    to_stage character varying(50) NOT NULL,
+    from_stage_version integer NOT NULL,
+    actor_member_id bigint,
+    rationale text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT project_lifecycle_events_pkey PRIMARY KEY (id),
+    CONSTRAINT fk_project_lifecycle_events_project FOREIGN KEY (project_id) REFERENCES strategy.projects (id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS ix_project_lifecycle_events_proj ON strategy.project_lifecycle_events USING btree (project_id, created_at);
+
 -- 2. strategy.okr_objectives
 CREATE TABLE IF NOT EXISTS strategy.okr_objectives (
     id bigint NOT NULL,

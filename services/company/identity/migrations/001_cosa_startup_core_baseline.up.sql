@@ -258,6 +258,22 @@ CREATE INDEX IF NOT EXISTS idx_workspace_memberships_user_id ON core.workspace_m
 CREATE INDEX IF NOT EXISTS idx_workspace_memberships_workspace_id ON core.workspace_memberships USING btree (workspace_id);
 
 
+CREATE TABLE IF NOT EXISTS core.workspace_lifecycle_events (
+    id bigint NOT NULL,
+    workspace_id bigint NOT NULL,
+    from_stage text NOT NULL,
+    to_stage text NOT NULL,
+    from_stage_version integer NOT NULL,
+    actor_member_id bigint,
+    rationale text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT workspace_lifecycle_events_pkey PRIMARY KEY (id),
+    CONSTRAINT fk_workspace_lifecycle_events_ws FOREIGN KEY (workspace_id) REFERENCES core.workspaces(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ix_workspace_lifecycle_events_ws ON core.workspace_lifecycle_events USING btree (workspace_id, created_at);
+
+
 CREATE TABLE IF NOT EXISTS core.workspace_slugs (
     id bigint NOT NULL,
     workspace_id bigint NOT NULL,

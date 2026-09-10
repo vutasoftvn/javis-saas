@@ -29,6 +29,23 @@ export const identityWorkspaces = coreSchema.table("workspaces", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
+// M4 §1 — lịch sử chuyển lifecycle stage của Workspace (append-only, do người
+// thực hiện). KHÔNG phải progression tự động; chỉ ghi nhận transition thủ công.
+export const identityWorkspaceLifecycleEvents = coreSchema.table("workspace_lifecycle_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" })
+    .notNull()
+    .references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  fromStage: text("from_stage").notNull(),
+  toStage: text("to_stage").notNull(),
+  fromStageVersion: integer("from_stage_version").notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  rationale: text("rationale"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixWsCreated: index("ix_workspace_lifecycle_events_ws").on(t.workspaceId, t.createdAt),
+}));
+
 // M2 §6 / ADR-SLUG-001 — lịch sử giữ chỗ + rename slug. workspace_id bất biến.
 export const identityWorkspaceSlugs = coreSchema.table("workspace_slugs", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
