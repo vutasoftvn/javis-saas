@@ -1156,7 +1156,13 @@ make check-docs 2>&1 | grep -E "broken|->" > /tmp/broken-links.txt
 cat /tmp/broken-links.txt
 ```
 
-For each: the target was `git rm`'d by `81461673` or an earlier cleanup. Fix by (a) repointing to the surviving replacement doc if there is an obvious one, else (b) unlinking — convert `[text](dead-path)` to plain `text` — and, if the sentence only exists to point at the dead file, delete the sentence. Do **not** recreate deleted files. Re-run `make check-docs` → green. Keep these edits in their own commit, separate from the reset-plan reconcile.
+`scripts/check_doc_links.py` walks the whole repo and its `exclude_dirs` set (`.venv`, `node_modules`, `.git`, …) does **not** include `.superpowers`. So it scans git-ignored SDD scratch reports and trips on their example text.
+
+Fix in two parts:
+1. **`scripts/check_doc_links.py` `exclude_dirs`** — add `'.superpowers'` (git-ignored scratch, not documentation; this also stops future SDD reports from tripping `check-docs`). That clears the `.superpowers/sdd/2026-08-30-…/task-1-report.md` link and the self-referential scratch hits.
+2. **The committed-doc dead links** (`docs/archive/2026-08/COSA_LEARN_*.md` ×3, `docs/architecture/overview/07-*.md` ×2, `09-*.md` ×8, and one in THIS plan file): the target was `git rm`'d by `81461673` or an earlier cleanup. Fix each by (a) repointing to the surviving replacement doc if one obviously exists, else (b) unlinking — replace the link with its visible text alone (remove the bracket wrapper and the dead target); if the sentence exists only to point at the dead file, delete the sentence. Do **not** recreate deleted files. For the hit in this plan file, rephrase the Step 0 instruction so it contains no literal markdown-link syntax.
+
+Re-run `make check-docs` → green. Keep these edits in their own commit, separate from the reset-plan reconcile.
 
 - [ ] **Step 1: Establish real status per task**
 
