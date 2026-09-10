@@ -47,14 +47,13 @@ def test_tranche_c_scale_governance_human_boundaries():
 
 # Task 6 (Tranche C) — 9 P6 scale/governance skillpacks phát hiện thiếu qua audit
 # (skillpacks/people/ hoàn toàn chưa tồn tại trước lần triển khai này).
+# Startup Core clean-slate (`8b5ea05a`) removed the framework `strategy.*`
+# expansion packs (segment / geo / partnerships).
 TRANCHE_C_SCALE_SKILLS = [
     "operations.sop-builder",
     "operations.automation-design",
     "growth.channel-expansion",
     "growth.expansion-revenue",
-    "strategy.segment-expansion",
-    "strategy.geo-expansion",
-    "strategy.partnerships",
     "people.hiring-copilot",
     "people.culture-operating-principles",
 ]
@@ -65,8 +64,6 @@ _SAFETY_PHRASE_KEYWORDS: dict[str, list[str]] = {
     "operations.automation-design": ["process_owner", "exception_path", "rollback"],
     "growth.channel-expansion": ["maturity", "G5", "insufficient evidence"],
     "growth.expansion-revenue": ["churn-risk", "loại trừ"],
-    "strategy.geo-expansion": ["pháp lý", "luật sư"],
-    "strategy.partnerships": ["không", "ký kết"],
     "people.hiring-copilot": ["không", "chủng tộc"],
 }
 
@@ -98,13 +95,6 @@ def test_tranche_c_scale_new_packs_inventory_and_safety():
     assert "không" in hiring_text
     assert "chủng tộc" in hiring_text or "giới tính" in hiring_text or "tuổi" in hiring_text
     assert "quyết định tuyển dụng cuối cùng" in hiring_text
-
-    # strategy.partnerships: khẳng định không ký/đại diện thẩm quyền ký hợp đồng.
-    partnerships_text = (
-        SKILLPACKS_DIR / "strategy" / "partnerships" / "SKILL.md"
-    ).read_text(encoding="utf-8").lower()
-    assert "không" in partnerships_text
-    assert "ký" in partnerships_text and "hợp đồng" in partnerships_text
 
     # growth.channel-expansion: bắt buộc tham chiếu bằng chứng maturity G5.
     channel_text = (

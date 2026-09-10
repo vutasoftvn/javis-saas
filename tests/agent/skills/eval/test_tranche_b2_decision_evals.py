@@ -27,10 +27,10 @@ from apps.cosa.api.skillpack_mapper import parse_skillpack_spec
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SKILLPACKS_DIR = REPO_ROOT / "skillpacks"
 
+# Startup Core clean-slate (`8b5ea05a`) removed `strategy.pivot-persevere` and
+# `product.outcome-roadmap`.
 DECISION_SKILLS = [
     "discovery.affinity-synthesis",
-    "strategy.pivot-persevere",
-    "product.outcome-roadmap",
     "product.backlog-prioritization",
 ]
 
@@ -41,8 +41,8 @@ def _load(skill_id: str):
 
 
 def test_tranche_b2_decision_inventory_complete():
-    """Cả 4 skillpack quyết định P4 tồn tại, parse được và chỉ ở mức tự động thấp (advisory)."""
-    assert len(DECISION_SKILLS) == 4
+    """Các skillpack quyết định P4 còn lại tồn tại, parse được và chỉ ở mức tự động thấp (advisory)."""
+    assert len(DECISION_SKILLS) == 2
 
     for skill_id in DECISION_SKILLS:
         domain, name = skill_id.split(".", 1)
@@ -71,34 +71,6 @@ def test_discovery_affinity_synthesis_flags_sample_bias_risk():
     assert "bias" in lowered or "thiên lệch" in lowered or "lệch mẫu" in lowered, (
         "SKILL.md của discovery.affinity-synthesis phải nêu rủi ro thiên lệch mẫu/phản hồi"
     )
-
-
-def test_strategy_pivot_persevere_requires_human_founder_decision():
-    """pivot-persevere phải yêu cầu Founder (con người) ra quyết định cuối, không tự thực thi pivot."""
-    skill_md = (SKILLPACKS_DIR / "strategy" / "pivot-persevere" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
-    lowered = skill_md.lower()
-    # Quyết định thuộc về con người/Founder.
-    assert "founder" in lowered
-    assert "con người" in lowered or "human authorization" in lowered
-    # Không có cơ chế tự động pivot.
-    assert "auto-pivot" in lowered or ("không" in lowered and "tự" in lowered and "pivot" in lowered)
-
-    spec = _load("strategy.pivot-persevere")
-    assert "strategy.pivot.execute" not in spec.required_capabilities
-    assert "strategy.gate.pass" not in spec.required_capabilities
-
-
-def test_product_outcome_roadmap_requires_metric_evidence_not_fabrication():
-    """outcome-roadmap không được chấp nhận chỉ số không có nguồn/metric contract đi kèm."""
-    skill_md = (SKILLPACKS_DIR / "product" / "outcome-roadmap" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
-    lowered = skill_md.lower()
-    assert "metric contract" in lowered
-    # Mỗi mục tiêu phải gắn với chỉ số đo lường cụ thể, không phải mô tả suông.
-    assert "đo lường" in lowered or "measurable" in lowered
 
 
 def test_product_backlog_prioritization_requires_evidence_backed_confidence():

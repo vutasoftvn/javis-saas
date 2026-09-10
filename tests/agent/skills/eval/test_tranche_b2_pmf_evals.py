@@ -8,13 +8,11 @@ from apps.cosa.api.skillpack_mapper import parse_skillpack_spec
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SKILLPACKS_DIR = REPO_ROOT / "skillpacks"
 
+# Startup Core clean-slate (`8b5ea05a`) removed the PMF / pivot-persevere /
+# outcome-roadmap framework packs. This inventory tracks the retained set.
 TRANCHE_B2_SKILLS = [
-    # Task 5: 6 Decision packs
+    # Task 5: retained decision packs
     "discovery.affinity-synthesis",
-    "strategy.pivot-persevere",
-    "analytics.pmf-survey",
-    "analytics.pmf-scoreboard",
-    "product.outcome-roadmap",
     "product.backlog-prioritization",
     # Task 6: 4 Learning/health packs
     "product.continuous-discovery",
@@ -25,8 +23,8 @@ TRANCHE_B2_SKILLS = [
 
 
 def test_tranche_b2_pmf_inventory_complete():
-    """Verify all 10 P4 PMF & maturity skillpacks exist and are validly parsable."""
-    assert len(TRANCHE_B2_SKILLS) == 10
+    """Verify all retained P4 decision/health skillpacks exist and are validly parsable."""
+    assert len(TRANCHE_B2_SKILLS) == 6
 
     specs = {}
     for skill_id in TRANCHE_B2_SKILLS:
@@ -47,14 +45,12 @@ def test_tranche_b2_pmf_inventory_complete():
 
 
 def test_tranche_b2_pmf_governance_rules():
-    """Verify advisory-only boundary on PMF scoreboard & pivot-persevere packs (no auto-pivot or auto-gate)."""
-    # PMF Scoreboard and Pivot-Persevere have no auto-transition capabilities
-    for skill_id in ["strategy.pivot-persevere", "analytics.pmf-scoreboard"]:
+    """Verify advisory-only boundary on retained P4 packs (no auto-transition, budget or deploy)."""
+    for skill_id in TRANCHE_B2_SKILLS:
         domain, name = skill_id.split(".", 1)
         spec = parse_skillpack_spec(SKILLPACKS_DIR / domain / name)
         assert "strategy.pivot.execute" not in spec.required_capabilities
         assert "strategy.gate.pass" not in spec.required_capabilities
-        assert "analytics.metric_snapshot.ingest" not in spec.required_capabilities
 
     # Growth experimentation cannot autonomously allocate budget or deploy
     growth_spec = parse_skillpack_spec(SKILLPACKS_DIR / "growth" / "experimentation-system")

@@ -9,8 +9,8 @@ from apps.cosa.api.skillpack_mapper import parse_skillpack_spec
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SKILLPACKS_DIR = REPO_ROOT / "skillpacks"
 
+# Startup Core clean-slate (`8b5ea05a`) removed `analytics.product-usage-analysis`.
 QUALITY_SKILLS = [
-    "analytics.product-usage-analysis",
     "engineering.observability-readiness",
     "engineering.release-management",
     "ai.evaluation-design",
@@ -20,8 +20,8 @@ QUALITY_SKILLS = [
 
 
 def test_tranche_b1_quality_inventory_complete():
-    """Verify all 6 P3 quality/support skillpacks exist and are validly parsable."""
-    assert len(QUALITY_SKILLS) == 6
+    """Verify all retained P3 quality/support skillpacks exist and are validly parsable."""
+    assert len(QUALITY_SKILLS) == 5
 
     specs = {}
     for skill_id in QUALITY_SKILLS:

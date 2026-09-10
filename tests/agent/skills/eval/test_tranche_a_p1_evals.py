@@ -9,11 +9,11 @@ from apps.cosa.api.skillpack_mapper import parse_skillpack_spec
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SKILLPACKS_DIR = REPO_ROOT / "skillpacks"
 
+# Startup Core clean-slate (`8b5ea05a`) removed the framework strategy analysis
+# packs (Porter, ICP definition, ...). This inventory tracks the retained P1 set.
 P1_SKILL_IDS = [
     "research.market-sizing",
-    "strategy.porters-five-forces",
     "strategy.competitor-profiling",
-    "strategy.icp-definition",
     "discovery.interview-script",
     "discovery.interview-prep",
     "discovery.interview-summary",
@@ -26,8 +26,8 @@ P1_SKILL_IDS = [
 
 
 def test_p1_inventory_complete():
-    """Verify all 12 P1 problem validation skillpacks exist and are validly parsable."""
-    assert len(P1_SKILL_IDS) == 12
+    """Verify all retained P1 problem validation skillpacks exist and are validly parsable."""
+    assert len(P1_SKILL_IDS) == 10
 
     specs = {}
     for item in SKILLPACKS_DIR.rglob("manifest.yaml"):
