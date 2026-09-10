@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-10T22:43:05.608Z",
+  "generated_at": "2026-09-10T22:49:30.039Z",
   "groups": {
     "agent": {
       "fingerprint": "6a707e6e137c7c140b28f0356f0f3d62854c525e110e076baae091f48b9b5056",
@@ -7043,7 +7043,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "8a682b67f09200defd71df0181136ae4431c2d037fa33307196fa2cd7f54da6e",
+      "fingerprint": "9efb2d9cba5ca95fd08f675ea0305614513dc7f2874e13d647a3745a52e80f78",
       "schemas": [
         "commercial",
         "core",
@@ -28108,9 +28108,27 @@
           ],
           "primary_key": null,
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "fk_execution_plans_project",
+              "columns": [
+                "project_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [],
-          "indexes": []
+          "indexes": [
+            {
+              "name": "uix_execution_plans_one_draft_per_weekly_plan",
+              "definition": "CREATE UNIQUE INDEX uix_execution_plans_one_draft_per_weekly_plan ON operating.execution_plans USING btree (weekly_plan_id) WHERE ((status = 'draft'::text) AND (deleted_at IS NULL))"
+            }
+          ]
         },
         "operating.kr_contribution_assessments": {
           "schema": "operating",
