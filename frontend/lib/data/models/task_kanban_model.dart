@@ -94,6 +94,8 @@ class TaskKanbanModel {
   final String? dueDate;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? projectId;
+  final String? weeklyCommitmentId;
   final Map<String, dynamic> metadata;
 
   const TaskKanbanModel({
@@ -107,6 +109,8 @@ class TaskKanbanModel {
     this.dueDate,
     this.createdAt,
     this.updatedAt,
+    this.projectId,
+    this.weeklyCommitmentId,
     this.metadata = const {},
   });
 
@@ -126,6 +130,8 @@ class TaskKanbanModel {
       updatedAt: json['updated_at'] != null
           ? DateTime.tryParse(json['updated_at'].toString())
           : (json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) : null),
+      projectId: json['project_id']?.toString() ?? json['projectId']?.toString(),
+      weeklyCommitmentId: json['weekly_commitment_id']?.toString() ?? json['weeklyCommitmentId']?.toString(),
       metadata: json['metadata'] is Map<String, dynamic> ? json['metadata'] as Map<String, dynamic> : {},
     );
   }
@@ -141,6 +147,8 @@ class TaskKanbanModel {
     String? dueDate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? projectId,
+    String? weeklyCommitmentId,
     Map<String, dynamic>? metadata,
   }) {
     return TaskKanbanModel(
@@ -154,6 +162,8 @@ class TaskKanbanModel {
       dueDate: dueDate ?? this.dueDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      projectId: projectId ?? this.projectId,
+      weeklyCommitmentId: weeklyCommitmentId ?? this.weeklyCommitmentId,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -170,6 +180,8 @@ class TaskKanbanModel {
       'due_date': dueDate,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+      if (projectId != null) 'project_id': projectId,
+      if (weeklyCommitmentId != null) 'weekly_commitment_id': weeklyCommitmentId,
       'metadata': metadata,
     };
   }

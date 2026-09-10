@@ -28,9 +28,9 @@ STARTUP_CORE_IDS = {
     "finance.snapshot.latest",
 }
 
-# Test files that later plan tasks introduce.
+# Test files that later plan tasks introduce / replace.
 PENDING_EVIDENCE: set[str] = {
-    "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+    "frontend/test/modules/strategy/founder_trial_full_loop_test.dart",
 }
 
 

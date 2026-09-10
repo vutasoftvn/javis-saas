@@ -18,7 +18,9 @@ import '../../modules/workspace_picker/bindings/workspace_picker_binding.dart';
 import '../../modules/strategy/views/project_setup_view.dart';
 import '../../modules/strategy/controllers/project_setup_controller.dart';
 import '../../modules/hologram_hub/controllers/founder_command_center_controller.dart';
+import '../shell/app_shell.dart';
 import '../shell/app_shell_controller.dart';
+import '../../modules/projects/views/project_operating_loop_view.dart';
 
 /// Task 9-6 — `/dashboard` và `/hub` từng trỏ tới 2 view khác (lặp vai trò).
 /// Nay `/hub` render `HologramHubView` trực tiếp (không `AppShell`/sidebar);
@@ -108,6 +110,17 @@ class AppPages {
       page: () => const ProfileView(),
       binding: ProfileBinding(),
       middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.projectLoop,
+      page: () {
+        final projectId = Get.parameters['projectId'] ?? '';
+        return AppShell(
+          activeModule: WorkspaceModule.strategy,
+          child: ProjectOperatingLoopView(projectId: projectId),
+        );
+      },
+      middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
     ),
 
     // Task 9 — 10 route flat cũ bên dưới (approvals/agents/tasks/vault/

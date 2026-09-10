@@ -52,6 +52,8 @@ class FakeVisibilityApi implements ModuleVisibilityApi {
       case OptionalModule.legal:
         legalEnabled = enabled;
         break;
+      default:
+        break;
     }
     return true;
   }
@@ -67,6 +69,8 @@ class FakeVisibilityApi implements ModuleVisibilityApi {
         break;
       case OptionalModule.legal:
         legalVisible = visible;
+        break;
+      default:
         break;
     }
     return true;

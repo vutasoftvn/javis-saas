@@ -1,34 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_result.dart';
-import 'package:frontend/core/network/mvp_endpoints.g.dart';
-import 'package:frontend/core/network/mvp_request_client.dart';
 import 'package:frontend/modules/automation/models/automation_models.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
+import 'package:frontend/modules/automation/services/automation_service.dart';
+
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('a disabled automation capability short-circuits to unavailable with no HTTP', () async {
-    // approval.decide ships disabled (no Company handler; no MVP blueprint
-    // routes an approval yet) — the client must never make a request for it.
-    var httpCalls = 0;
-    final mock = MockClient((_) async {
-      httpCalls++;
-      return http.Response('{}', 200);
-    });
-    final client = MvpRequestClient(httpClient: mock);
-
-    final res = await client.request<void>(
-      MvpEndpoint.automationApprovalDecide,
-      pathParams: const {'approvalId': 'a1'},
-      body: const {},
-      decode: (_) {},
-    );
+  test('automation service returns unavailable in Startup Core', () async {
+    final service = AutomationService();
+    final res = await service.listDefinitions();
     expect(res.isFailure, isTrue);
     expect(res.failureOrNull!.code, ApiFailureCode.unavailable);
-    expect(res.failureOrNull!.endpointId, 'automation.approval.decide');
-    expect(httpCalls, 0, reason: 'a disabled endpoint must not make a request');
   });
 
   test('AutomationDefinitionView.fromJson parses the library shape', () {

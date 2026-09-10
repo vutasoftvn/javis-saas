@@ -1,122 +1,62 @@
-// COSA Automation MVP — Flutter service (Task 7 / 8).
-// Calls generated endpoints only. When a capability is disabled the
-// MvpRequestClient short-circuits with ApiFailureCode.unavailable and no HTTP
-// request is made — the module never hand-rolls a route string.
+// COSA Automation MVP — Flutter service.
+// In Startup Core, automation capabilities are disabled.
+// Methods return ApiFailureDetail with ApiFailureCode.unavailable cleanly.
 
 import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_result.dart';
-import '../../../core/network/mvp_endpoints.g.dart';
 import '../../../core/network/mvp_request_client.dart';
 import '../models/automation_models.dart';
 
 class AutomationService {
-  AutomationService({MvpRequestClient? client, http.Client? httpClient})
-      : _client = client ?? MvpRequestClient(httpClient: httpClient);
+  AutomationService({MvpRequestClient? client, http.Client? httpClient});
 
-  final MvpRequestClient _client;
+  static ApiResult<T> _unavailable<T>(String endpoint) => ApiFailure<T>(
+        ApiFailureDetail(
+          code: ApiFailureCode.unavailable,
+          message: 'Automation capability disabled in Startup Core',
+          endpointId: endpoint,
+        ),
+      );
 
-  Future<ApiResult<List<AutomationDefinitionView>>> listDefinitions() {
-    return _client.request<List<AutomationDefinitionView>>(
-      MvpEndpoint.automationDefinitionList,
-      decode: (json) => (json as List<dynamic>)
-          .map((e) => AutomationDefinitionView.fromJson(e as Map<String, dynamic>))
-          .toList(),
-    );
-  }
+  Future<ApiResult<List<AutomationDefinitionView>>> listDefinitions() async =>
+      _unavailable('automation.definition.list');
 
-  Future<ApiResult<AutomationDefinitionView>> getDefinition(String definitionId) {
-    return _client.request<AutomationDefinitionView>(
-      MvpEndpoint.automationDefinitionGet,
-      pathParams: {'definitionId': definitionId},
-      decode: (json) => AutomationDefinitionView.fromJson(json as Map<String, dynamic>),
-    );
-  }
+  Future<ApiResult<AutomationDefinitionView>> getDefinition(String definitionId) async =>
+      _unavailable('automation.definition.get');
 
   Future<ApiResult<AutomationDefinitionView>> configure({
     required String definitionId,
     required String automationKey,
     required Map<String, dynamic> configuration,
     required Map<String, dynamic> triggerContract,
-  }) {
-    return _client.request<AutomationDefinitionView>(
-      MvpEndpoint.automationDefinitionConfigure,
-      pathParams: {'definitionId': definitionId},
-      body: {
-        'automationKey': automationKey,
-        'configuration': configuration,
-        'triggerContract': triggerContract,
-      },
-      decode: (json) => AutomationDefinitionView.fromJson(json as Map<String, dynamic>),
-    );
-  }
+  }) async =>
+      _unavailable('automation.definition.configure');
 
-  Future<ApiResult<AutomationDefinitionView>> publish(String definitionId) {
-    return _client.request<AutomationDefinitionView>(
-      MvpEndpoint.automationDefinitionPublish,
-      pathParams: {'definitionId': definitionId},
-      body: const {},
-      decode: (json) => AutomationDefinitionView.fromJson(json as Map<String, dynamic>),
-    );
-  }
+  Future<ApiResult<AutomationDefinitionView>> publish(String definitionId) async =>
+      _unavailable('automation.definition.publish');
 
-  Future<ApiResult<AutomationDefinitionView>> suspend(String definitionId) {
-    return _client.request<AutomationDefinitionView>(
-      MvpEndpoint.automationDefinitionSuspend,
-      pathParams: {'definitionId': definitionId},
-      body: const {},
-      decode: (json) => AutomationDefinitionView.fromJson(json as Map<String, dynamic>),
-    );
-  }
+  Future<ApiResult<AutomationDefinitionView>> suspend(String definitionId) async =>
+      _unavailable('automation.definition.suspend');
 
   Future<ApiResult<AutomationInvocationView>> runNow({
     required String definitionId,
     required String clientRequestId,
-  }) {
-    return _client.request<AutomationInvocationView>(
-      MvpEndpoint.automationInvocationCreate,
-      pathParams: {'definitionId': definitionId},
-      body: {
-        'command': {'triggerKind': 'manual', 'clientRequestId': clientRequestId},
-      },
-      decode: (json) => AutomationInvocationView.fromJson(json as Map<String, dynamic>),
-    );
-  }
+  }) async =>
+      _unavailable('automation.invocation.create');
 
-  Future<ApiResult<AutomationInvocationView>> getInvocation(String invocationId) {
-    return _client.request<AutomationInvocationView>(
-      MvpEndpoint.automationInvocationGet,
-      pathParams: {'invocationId': invocationId},
-      decode: (json) => AutomationInvocationView.fromJson(json as Map<String, dynamic>),
-    );
-  }
+  Future<ApiResult<AutomationInvocationView>> getInvocation(String invocationId) async =>
+      _unavailable('automation.invocation.get');
 
   Future<ApiResult<AutomationInvocationView>> cancel({
     required String invocationId,
     required int expectedVersion,
-  }) {
-    return _client.request<AutomationInvocationView>(
-      MvpEndpoint.automationInvocationCancel,
-      pathParams: {'invocationId': invocationId},
-      body: {'expectedVersion': expectedVersion},
-      decode: (json) => AutomationInvocationView.fromJson(json as Map<String, dynamic>),
-    );
-  }
+  }) async =>
+      _unavailable('automation.invocation.cancel');
 
-  Future<ApiResult<AutomationRunInspector>> runInspector(String invocationId) {
-    return _client.request<AutomationRunInspector>(
-      MvpEndpoint.automationRunInspectorRead,
-      pathParams: {'invocationId': invocationId},
-      decode: (json) => AutomationRunInspector.fromJson(json as Map<String, dynamic>),
-    );
-  }
+  Future<ApiResult<AutomationRunInspector>> runInspector(String invocationId) async =>
+      _unavailable('automation.run.inspector.read');
 
-  Future<ApiResult<List<NeedsYouItem>>> needsYou() {
-    return _client.request<List<NeedsYouItem>>(
-      MvpEndpoint.automationNeedsYouList,
-      decode: (json) => (json as List<dynamic>)
-          .map((e) => NeedsYouItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
-    );
-  }
+  Future<ApiResult<List<NeedsYouItem>>> needsYou() async =>
+      _unavailable('automation.needs_you.list');
 }

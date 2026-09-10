@@ -38,6 +38,38 @@ class KanbanTaskCard extends StatelessWidget {
             task.title,
             style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: Colors.white),
           ),
+          if (task.projectId != null || task.weeklyCommitmentId != null) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              children: [
+                if (task.projectId != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'P: ${task.projectId}',
+                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF38BDF8)),
+                    ),
+                  ),
+                if (task.weeklyCommitmentId != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'Commitment: ${task.weeklyCommitmentId}',
+                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF10B981)),
+                    ),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

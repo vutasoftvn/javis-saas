@@ -61,11 +61,15 @@ class TaskService extends WorkspaceService {
     dynamic assigneeMemberId,
     String? executionMode,
     String? function,
+    String? projectId,
+    String? weeklyCommitmentId,
   }) async {
     final wId = await _requireWorkspaceId();
     final body = <String, dynamic>{
       'workspaceId': wId,
       'title': title,
+      'projectId': ?projectId,
+      'weeklyCommitmentId': ?weeklyCommitmentId,
       'priority': priority ?? 'medium',
       'dueAt': ?dueAt,
       'assigneeMemberId': ?assigneeMemberId?.toString(),

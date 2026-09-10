@@ -36,7 +36,12 @@ class TasksController extends GetxController {
     }
   }
 
-  Future<void> addTask(String title, String statusStr) async {
+  Future<void> addTask(
+    String title,
+    String statusStr, {
+    String? projectId,
+    String? weeklyCommitmentId,
+  }) async {
     if (title.trim().isEmpty) return;
 
     final targetStatus = TaskKanbanStatus.fromString(statusStr);
@@ -45,13 +50,20 @@ class TasksController extends GetxController {
       title: title.trim(),
       status: targetStatus,
       createdAt: DateTime.now(),
+      projectId: projectId,
+      weeklyCommitmentId: weeklyCommitmentId,
     );
 
     // Optimistic UI update
     tasks.insert(0, tempTask);
 
     try {
-      final result = await _taskService.createTypedTask(title.trim(), status: targetStatus);
+      final result = await _taskService.createTypedTask(
+        title.trim(),
+        status: targetStatus,
+        projectId: projectId,
+        weeklyCommitmentId: weeklyCommitmentId,
+      );
       final index = tasks.indexWhere((t) => t.id == tempTask.id);
       if (index != -1) {
         tasks[index] = result;

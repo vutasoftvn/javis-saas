@@ -154,6 +154,7 @@ class _ModuleVisibilitySettingsCardState extends State<ModuleVisibilitySettingsC
                   OptionalModule.finance => (Icons.account_balance_wallet_outlined, L10nKey.moduleFinance),
                   OptionalModule.legal => (Icons.gavel_outlined, L10nKey.moduleLegal),
                   OptionalModule.crm => (Icons.point_of_sale_rounded, L10nKey.moduleCrm),
+                  _ => (Icons.extension_outlined, L10nKey.moduleCrm),
                 };
 
                 return Container(
