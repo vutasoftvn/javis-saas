@@ -51,6 +51,7 @@ from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
 from fastapi.testclient import TestClient
 
 from apps.cosa.agents.seed import seed_cosa_runtime_specs
+from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.capabilities.client import CompanyServiceClient
@@ -63,6 +64,7 @@ from apps.cosa.compliance.data_access_claim import DataAccessClaim
 from apps.cosa.compliance.data_model_gate import CosaDataModelGate
 from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
 from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
 from tests.e2e.conftest import CompanyServiceHandle
@@ -75,7 +77,16 @@ from tests.e2e.conftest import CompanyServiceHandle
 # spec cố định này, không phải 1 systemKey random do test tự đặt (khác các
 # test phía trên vốn tự dựng `AgentSpec(id=seeded["systemKey"], ...)`).
 _PRODUCTION_OPERATIONS_SYSTEM_KEY = "cosa.agents.operations"
-_PRODUCTION_OPERATIONS_EXTRA_CAPABILITIES = ["operations.task.read"]
+# Seed E2E tự bind sẵn `operations.task.list` + capability model-input
+# (`ai-compliance-e2e-seed.service.ts::requiredCapabilityIds`); phần còn lại
+# phải bind thêm, nếu không `resolve-snapshot` trả 404 → `NOT_READY`.
+# Đọc THẲNG từ spec sản xuất thay vì chép tay: danh sách chép tay (chỉ
+# `operations.task.read`, viết 2026-08-30) đã mục khi spec lên 1.3.0 và thêm
+# `strategy.*` / `analytics.*` / `knowledge.profile.read` / `workspace.context.read`,
+# khiến 2 test round-trip HTTP âm thầm dừng ở NOT_READY thay vì chạy hết pipeline.
+_PRODUCTION_OPERATIONS_EXTRA_CAPABILITIES = [
+    ref for ref in COSA_OPERATIONS_AGENT_SPEC.capability_refs if ref != "operations.task.list"
+]
 
 # Cùng dev-default secret với
 # `apps/cosa/auth/jwt.py::_COMPANY_DELEGATION_DEV_DEFAULT_SECRET` /
@@ -153,9 +164,32 @@ async def _build_real_pipeline_plane(base_url: str, fake_model: FakeSDKModel) ->
         lease_client=RunLeaseManager(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
         artifact_repository=InMemoryArtifactRepository(),
+        # `POST /agent/conversations/{id}/messages` phân giải response locale
+        # TRƯỚC mọi side effect (`conversation_routes.py`, thêm bởi 6cbc0813
+        # "propagate resolved locale across chat, worker, voice"), gọi COSA
+        # Control Plane thật `GET /platform/auth/me/locale-snapshot`. Suite
+        # `tests/e2e` KHÔNG có fixture boot services/cosa (chỉ có
+        # `real_company_service`), nên nếu để client thật thì route trả 503
+        # "Profile locale unavailable" và 2 test dưới không bao giờ chạm tới
+        # phần compliance mà chúng kiểm chứng. Dùng đúng test double sẵn có của
+        # repo (`tests/apps/cosa/locale_test_helpers.py`, chính 6cbc0813 tạo và
+        # đã dùng cho mọi suite apps/cosa khác) — locale là phụ thuộc TRỰC GIAO,
+        # còn Company + compliance gate + model vẫn THẬT.
+        profile_locale_client=FakeProfileLocaleClient(),
         model=fake_model,
     )
     plane.compliance_resolver = ComplianceResolver(AiComplianceClient(base_url=base_url))
+    # `build_execution_kernel()` coi `model=` là tín hiệu test và dựng
+    # `CosaDataModelGate(client=None)` (kernel_factory.py: `is_mock_compliance`
+    # → gate không có client) — nghĩa là gate egress bị VÔ HIỆU trong plane này.
+    # Docstring cũ ở trên khẳng định ngược lại ("model_input_guard không bị ảnh
+    # hưởng bởi nhánh mock đó"); khẳng định đó KHÔNG còn đúng với code hiện tại,
+    # nên test âm `withdrawn_personal_authorization` không thực sự kiểm chứng
+    # được gate (run chạy tới COMPLETED). Ghi đè guard bằng bản THẬT trỏ vào
+    # `real_company_service`, đối xứng với `compliance_resolver` ngay trên.
+    # Production KHÔNG đi nhánh này (model=None → client thật), nên đây là lỗi
+    # wiring của test harness, không phải fail-open sản xuất.
+    plane.kernel._model_input_guard = CosaDataModelGate(client=AiComplianceClient(base_url=base_url))
     await seed_cosa_runtime_specs(
         spec_registry=plane.spec_registry,
         capability_registry=plane.capability_registry,
