@@ -8,6 +8,15 @@ from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
 from agent.knowledge.retrieval import KnowledgeRetrievalConfig, retrieve
 from agent.knowledge.store import InMemoryKnowledgeStore
 
+# Chỉ test pgvector semantic search đụng schema `knowledge.*` đã bị drop khỏi
+# baseline Founder Trial R1; test embedding thuần toán + retrieve in-memory vẫn chạy.
+_R1_DESCOPED_SKIP = pytest.mark.skip(
+    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
+    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
+    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
+    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
+)
+
 
 def test_hashing_embedding_is_deterministic_and_unit_norm():
     p = HashingEmbeddingProvider(dimensions=32)
@@ -44,6 +53,7 @@ def _pg_dsn():
     return raw
 
 
+@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_postgres_semantic_search_orders_by_cosine():
     dsn = _pg_dsn()

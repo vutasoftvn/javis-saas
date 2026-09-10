@@ -22,6 +22,15 @@ pytestmark = pytest.mark.skipif(
     reason="AGENT_TEST_DATABASE_URL not set",
 )
 
+# Các test I/O đụng schema `agent_memory.*` đã bị drop khỏi baseline Founder
+# Trial R1; test config-error thuần (`requires_session_factory`) vẫn chạy.
+_R1_DESCOPED_SKIP = pytest.mark.skip(
+    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
+    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
+    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
+    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
+)
+
 
 @pytest_asyncio.fixture
 async def session_factory():
@@ -41,6 +50,7 @@ def test_postgres_memory_store_requires_session_factory():
         PostgresMemoryStore(db_session_factory=None)
 
 
+@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_put_and_search_roundtrip_scoped_by_workspace(session_factory):
     from agent.memory.models import MemoryItem, MemoryKind
@@ -70,6 +80,7 @@ async def test_put_and_search_roundtrip_scoped_by_workspace(session_factory):
 
 
 
+@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_search_does_not_leak_across_workspaces(session_factory):
     from agent.memory.models import MemoryItem, MemoryKind
@@ -88,6 +99,7 @@ async def test_search_does_not_leak_across_workspaces(session_factory):
     assert results_a[0].content == "secret A"
 
 
+@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_delete_removes_item(session_factory):
     from agent.memory.models import MemoryItem, MemoryKind
@@ -104,6 +116,7 @@ async def test_delete_removes_item(session_factory):
     assert results == []
 
 
+@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_delete_unknown_item_raises_not_found(session_factory):
     from agent.memory.base import MemoryNotFoundError
@@ -115,6 +128,7 @@ async def test_delete_unknown_item_raises_not_found(session_factory):
         await store.delete("unknown-id", "ws-unknown")
 
 
+@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_delete_respects_workspace_boundary(session_factory):
     """Verifies that delete() rejects items from other workspaces."""

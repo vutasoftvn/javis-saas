@@ -7,6 +7,16 @@ import pytest_asyncio
 
 __all__ = []
 
+# Chỉ 2 test DB-backed đụng schema `knowledge.*` đã bị drop khỏi baseline
+# Founder Trial R1; các test dataclass `KnowledgeDocument` thuần + service
+# in-memory + static signature test vẫn chạy.
+_R1_DESCOPED_SKIP = pytest.mark.skip(
+    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
+    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
+    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
+    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
+)
+
 
 class TestKnowledgeDocumentCandidateStatus:
     """Test new ingest_status literals for candidates."""
@@ -294,6 +304,7 @@ class TestPostgresKnowledgeStoreProvenance:
         yield factory
         await engine.dispose()
 
+    @_R1_DESCOPED_SKIP
     @pytest.mark.asyncio
     async def test_postgres_store_persists_parser_metadata(self, session_factory):
         """Test that parser metadata is written to source_versions columns."""
@@ -359,6 +370,7 @@ class TestPostgresKnowledgeStoreProvenance:
             assert row["parser_name"] == "markitdown"
             assert row["parser_version"] == "0.1.7"
 
+    @_R1_DESCOPED_SKIP
     @pytest.mark.asyncio
     async def test_full_normalize_and_persist_chain_with_postgres(self, session_factory):
         """Integration test: normalize_conversion → ingest_normalized_document → postgres.

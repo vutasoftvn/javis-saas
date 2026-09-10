@@ -20,6 +20,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from apps.cosa.knowledge_ingestion.authorization import KnowledgeAuthorization
 
+# Chỉ nhánh `[postgres]` (`PostgresVaultRepository`) đụng schema `vault.*` đã bị
+# drop khỏi baseline Founder Trial R1; nhánh `[in_memory]` vẫn chạy.
+_R1_DESCOPED_SKIP = pytest.mark.skip(
+    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
+    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
+    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
+    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
+)
+_KIND_PARAMS = ["in_memory", pytest.param("postgres", marks=_R1_DESCOPED_SKIP)]
+
 _RAW_DB_URL = os.environ.get("AGENT_TEST_DATABASE_URL")
 if _RAW_DB_URL and "postgresql+asyncpg://" not in _RAW_DB_URL and "postgresql://" in _RAW_DB_URL:
     TEST_DATABASE_URL = _RAW_DB_URL.replace("postgresql://", "postgresql+asyncpg://")
@@ -42,7 +52,7 @@ def _identity(role: str, principal_id: str = "founder-1", workspace_id: str = "w
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 @pytest.mark.parametrize(("role", "expected"), [("founder", True), ("member", False)])
 async def test_restricted_document_read(kind: str, role: str, expected: bool):
     repo = _make_repo(kind)
@@ -64,7 +74,7 @@ async def test_restricted_document_read(kind: str, role: str, expected: bool):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_member_can_read_only_directly_granted_document(kind: str):
     repo = _make_repo(kind)
     auth = KnowledgeAuthorization(repo)
@@ -93,7 +103,7 @@ async def test_member_can_read_only_directly_granted_document(kind: str):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_unauthorized_document_id_gets_not_found_denial(kind: str):
     import uuid
 
@@ -106,7 +116,7 @@ async def test_unauthorized_document_id_gets_not_found_denial(kind: str):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_review_and_publish_require_their_own_explicit_grant(kind: str):
     repo = _make_repo(kind)
     auth = KnowledgeAuthorization(repo)
@@ -135,7 +145,7 @@ async def test_review_and_publish_require_their_own_explicit_grant(kind: str):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_document_creator_always_has_read_and_manage(kind: str):
     repo = _make_repo(kind)
     auth = KnowledgeAuthorization(repo)

@@ -21,6 +21,16 @@ from agent.vault.models import (
 from agent.vault.repository import InMemoryVaultRepository, PostgresVaultRepository, VaultRepository
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+# Chỉ nhánh `[postgres]` (`PostgresVaultRepository` + RLS) đụng schema `vault.*`
+# đã bị drop khỏi baseline Founder Trial R1; nhánh `[in_memory]` vẫn chạy.
+_R1_DESCOPED_SKIP = pytest.mark.skip(
+    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
+    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
+    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
+    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
+)
+_KIND_PARAMS = ["in_memory", pytest.param("postgres", marks=_R1_DESCOPED_SKIP)]
+
 _RAW_DB_URL = os.environ.get("AGENT_TEST_DATABASE_URL")
 if _RAW_DB_URL and "postgresql+asyncpg://" not in _RAW_DB_URL and "postgresql://" in _RAW_DB_URL:
     TEST_DATABASE_URL = _RAW_DB_URL.replace("postgresql://", "postgresql+asyncpg://")
@@ -39,7 +49,7 @@ def _make_repo(kind: str) -> VaultRepository:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_member_without_grant_cannot_list_document(kind: str):
     repo = _make_repo(kind)
     workspace_id = f"ws-a-{uuid.uuid4().hex[:8]}"
@@ -52,7 +62,7 @@ async def test_member_without_grant_cannot_list_document(kind: str):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_member_can_read_only_directly_granted_document(kind: str):
     repo = _make_repo(kind)
     workspace_id = f"ws-a-{uuid.uuid4().hex[:8]}"
@@ -78,7 +88,7 @@ async def test_member_can_read_only_directly_granted_document(kind: str):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_role_grant_extends_access_to_every_holder_of_that_role(kind: str):
     repo = _make_repo(kind)
     workspace_id = f"ws-a-{uuid.uuid4().hex[:8]}"
@@ -107,7 +117,7 @@ async def test_role_grant_extends_access_to_every_holder_of_that_role(kind: str)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_workspace_visibility_document_readable_by_any_workspace_member(kind: str):
     repo = _make_repo(kind)
     workspace_id = f"ws-a-{uuid.uuid4().hex[:8]}"
@@ -123,7 +133,7 @@ async def test_workspace_visibility_document_readable_by_any_workspace_member(ki
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_restricted_workspace_visibility_document_not_readable_by_member(kind: str):
     """Bug tìm thấy trong lúc làm Task 8 (retrieval): `visibility=WORKSPACE`
     KHÔNG được cấp read workspace-wide nếu `classification=RESTRICTED` — trước
@@ -153,7 +163,7 @@ async def test_restricted_workspace_visibility_document_not_readable_by_member(k
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize("kind", _KIND_PARAMS)
 async def test_update_document_state_preserves_classification_and_visibility(kind: str):
     """Bug tìm thấy trong lúc làm Task 8 (retrieval): `InMemoryVaultRepository.
     update_document_state()` từng dựng lại `VaultDocumentRecord` không copy
@@ -180,6 +190,7 @@ async def test_update_document_state_preserves_classification_and_visibility(kin
     assert updated.visibility == VaultVisibility.WORKSPACE
 
 
+@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_postgres_rls_fails_closed_when_workspace_context_missing():
     """Fail-closed thật (không nhánh bypass): 1 query trên `vault.documents` KHÔNG

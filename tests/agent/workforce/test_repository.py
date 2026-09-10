@@ -73,7 +73,25 @@ async def test_retire_assignment_updates_status(kind: str) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "in_memory",
+        # `agent.workforce_schedules` bị drop khỏi baseline Founder Trial R1
+        # (reset spec §7.3 — schedule-driven workforce là PLANNED). Chỉ nhánh
+        # Postgres cần bảng này; nhánh in_memory vẫn chạy. Re-enable khi
+        # subsystem được promote lên R1.
+        pytest.param(
+            "postgres",
+            marks=pytest.mark.skip(
+                reason="agent.workforce_schedules dropped from Founder Trial R1 baseline "
+                "(reset spec docs/superpowers/specs/"
+                "2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3); "
+                "re-enable when schedule-driven workforce is promoted to R1."
+            ),
+        ),
+    ],
+)
 async def test_schedule_is_scoped_and_persists(kind: str) -> None:
     """P0.2 — trước fix, /agent/workforce/schedules* không hề ghi DB (response
     in-memory giả). Test này chạy cả với PostgresWorkforceRepository thật

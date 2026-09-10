@@ -31,6 +31,16 @@ from agent.vault.models import (
 from agent.vault.repository import InMemoryVaultRepository, PostgresVaultRepository
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+# Chỉ nhánh `[postgres]` (join SQL thật với `knowledge.*` + `vault.*`) đụng
+# schema đã bị drop khỏi baseline Founder Trial R1; nhánh compose in-memory
+# (`_InMemoryHarness`) vẫn chạy.
+_R1_DESCOPED_SKIP = pytest.mark.skip(
+    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
+    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
+    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
+    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
+)
+
 _RAW_DB_URL = os.environ.get("AGENT_TEST_DATABASE_URL")
 if _RAW_DB_URL and "postgresql+asyncpg://" not in _RAW_DB_URL and "postgresql://" in _RAW_DB_URL:
     TEST_DATABASE_URL = _RAW_DB_URL.replace("postgresql://", "postgresql+asyncpg://")
@@ -226,7 +236,12 @@ class _PostgresHarness(_RetrievalHarness):
         return doc
 
 
-@pytest.fixture(params=["in_memory", "postgres"])
+@pytest.fixture(
+    params=[
+        "in_memory",
+        pytest.param("postgres", marks=_R1_DESCOPED_SKIP),
+    ]
+)
 def store(request):
     if request.param == "postgres":
         if not TEST_DATABASE_URL:

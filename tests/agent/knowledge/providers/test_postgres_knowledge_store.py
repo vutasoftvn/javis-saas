@@ -12,6 +12,16 @@ import os
 import pytest
 import pytest_asyncio
 
+# Chỉ test I/O Postgres đụng schema `knowledge.*` đã bị drop khỏi baseline
+# Founder Trial R1; các test logic thuần (content hash, config error, default
+# authority_class) vẫn chạy.
+_R1_DESCOPED_SKIP = pytest.mark.skip(
+    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
+    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
+    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
+    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
+)
+
 pytest.importorskip("asyncpg")
 
 _RAW_DB_URL = os.environ.get("AGENT_TEST_DATABASE_URL")
@@ -70,6 +80,7 @@ async def session_factory():
     await engine.dispose()
 
 
+@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_save_and_get_document_roundtrip_with_source_versioning(session_factory):
     from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
