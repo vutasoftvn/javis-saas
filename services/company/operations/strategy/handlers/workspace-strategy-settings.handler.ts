@@ -4,9 +4,6 @@ import {
   getWorkspaceStrategySettings,
   updateWorkspaceStrategySettings,
   WorkspaceStrategySettings,
-  StrategyMethod,
-  BscMode,
-  BscPerspective,
   MidCycleReviewPolicy,
   ApprovalPolicy,
 } from "../services/workspace-strategy-settings.service";
@@ -29,10 +26,6 @@ export interface WorkspaceStrategySettingsResponse {
 export interface UpdateWorkspaceStrategySettingsParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;
-  strategyMethod?: StrategyMethod;
-  bscMode?: BscMode;
-  enabledBscPerspectives?: BscPerspective[];
-  towsSelectionLimit?: number;
   weeklyReviewEnabled?: boolean;
   midCycleReviewPolicy?: MidCycleReviewPolicy;
   endCycleReviewEnabled?: boolean;
@@ -82,10 +75,6 @@ export const updateStrategySettings = api(
 
     const updated = await updateWorkspaceStrategySettings(ctx, {
       workspaceId: wsIdStr,
-      strategyMethod: params.strategyMethod,
-      bscMode: params.bscMode,
-      enabledBscPerspectives: params.enabledBscPerspectives,
-      towsSelectionLimit: params.towsSelectionLimit,
       weeklyReviewEnabled: params.weeklyReviewEnabled,
       midCycleReviewPolicy: params.midCycleReviewPolicy,
       endCycleReviewEnabled: params.endCycleReviewEnabled,
