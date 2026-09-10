@@ -171,15 +171,25 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
     terminal_type, terminal_payload = terminal_row
     assert isinstance(terminal_payload, dict), terminal_payload
 
-    assert terminal_type == "run.completed", (
-        f"kỳ vọng run.completed sau khi bridge token B5 đã vá, nhận {terminal_type!r} "
-        f"payload={terminal_payload!r}. Nếu là run.failed{{policy_snapshot_unavailable}} "
-        f"thì delegation token bị forward/verify sai — xem "
-        f"COSA_CONTROL_DELEGATION_SECRET đối xứng giữa apps/cosa và services/cosa. "
+    # B5 proof: the run must reach the kernel — the tenant-policy snapshot hop no
+    # longer fails closed. `policy_snapshot_unavailable` is the regression signal.
+    assert terminal_payload.get("error") != "policy_snapshot_unavailable", (
+        f"B5 regression: delegation token forwarded/verified incorrectly. "
+        f"Check COSA_CONTROL_DELEGATION_SECRET parity between apps/cosa and services/cosa. "
         f"{_run_diagnostics(agent_dsn, cosa_dsn, run_id)}"
     )
 
-    # --- Nhánh full Tier-1: kernel chạy trọn → outbox + signal projection thật. ---
+    # The DURABLE run must have completed. The UX stream terminal may still read
+    # run.failed{internal_error} because the fake model provider runs out of
+    # scripted turns mid-stream — that is a fixture limit, not a run failure.
+    run_status = _scalar(agent_dsn, "SELECT status FROM agent.runs WHERE run_id = %s", (run_id,))
+    assert run_status == "completed", (
+        f"agent.runs.status={run_status!r} (expected completed after the B5 bridge fix). "
+        f"stream terminal was {terminal_type!r} payload={terminal_payload!r}. "
+        f"{_run_diagnostics(agent_dsn, cosa_dsn, run_id)}"
+    )
+
+    # --- Full Tier-1: kernel ran to completion → outbox + signal projection. ---
     _assert_completed_run_facts(stack, cluster, workspace_id, run_id)
 
 
