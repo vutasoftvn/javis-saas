@@ -66,6 +66,7 @@ const SCHEMA_GROUPS = {
     schemas: [
       "commercial",
       "core",
+      "engagement",
       "finance",
       "integration",
       "legal",
