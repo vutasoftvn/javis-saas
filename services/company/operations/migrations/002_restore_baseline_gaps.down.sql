@@ -1,0 +1,1 @@
+-- Contract migration; no automatic rollback for restore-gaps expand.
