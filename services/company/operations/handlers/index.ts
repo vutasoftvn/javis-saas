@@ -1,4 +1,3 @@
-export * from "./canvas.handler";
 export * from "./executive-context.handler";
 export * from "./initiative.handler";
 export * from "./okr.handler";
