@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-10T22:36:37.962Z",
+  "generated_at": "2026-09-10T22:43:05.608Z",
   "groups": {
     "agent": {
       "fingerprint": "6a707e6e137c7c140b28f0356f0f3d62854c525e110e076baae091f48b9b5056",
@@ -7043,7 +7043,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "032e84a7017b3a05ba3c142c76bd4c30b0394102da606bd53cf79e7d12a99bb6",
+      "fingerprint": "8a682b67f09200defd71df0181136ae4431c2d037fa33307196fa2cd7f54da6e",
       "schemas": [
         "commercial",
         "core",
@@ -31465,6 +31465,10 @@
               "definition": "CREATE INDEX idx_weekly_plans_workspace ON operating.weekly_plans USING btree (workspace_id)"
             },
             {
+              "name": "uix_weekly_plan_cycle_week",
+              "definition": "CREATE UNIQUE INDEX uix_weekly_plan_cycle_week ON operating.weekly_plans USING btree (cycle_id, week_no)"
+            },
+            {
               "name": "uix_weekly_plans_cycle_week",
               "definition": "CREATE UNIQUE INDEX uix_weekly_plans_cycle_week ON operating.weekly_plans USING btree (workspace_id, project_id, cycle_id, week_no) WHERE (deleted_at IS NULL)"
             },
@@ -32037,11 +32041,22 @@
               "scale": null
             }
           ],
-          "primary_key": null,
+          "primary_key": {
+            "name": "workspace_capability_policy_pkey",
+            "columns": [
+              "workspace_id",
+              "capability_id"
+            ]
+          },
           "unique_constraints": [],
           "foreign_keys": [],
           "check_constraints": [],
-          "indexes": []
+          "indexes": [
+            {
+              "name": "workspace_capability_policy_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_capability_policy_pkey ON operating.workspace_capability_policy USING btree (workspace_id, capability_id)"
+            }
+          ]
         },
         "operating.workspace_execution_settings": {
           "schema": "operating",
@@ -32089,11 +32104,21 @@
               "scale": null
             }
           ],
-          "primary_key": null,
+          "primary_key": {
+            "name": "workspace_execution_settings_pkey",
+            "columns": [
+              "workspace_id"
+            ]
+          },
           "unique_constraints": [],
           "foreign_keys": [],
           "check_constraints": [],
-          "indexes": []
+          "indexes": [
+            {
+              "name": "workspace_execution_settings_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_execution_settings_pkey ON operating.workspace_execution_settings USING btree (workspace_id)"
+            }
+          ]
         },
         "sales.accounts": {
           "schema": "sales",
