@@ -41,7 +41,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.definition.configure",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "PATCH",
@@ -56,7 +56,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.definition.get",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "GET",
@@ -71,7 +71,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.definition.list",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "GET",
@@ -86,7 +86,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.definition.publish",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "POST",
@@ -101,7 +101,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.definition.suspend",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "POST",
@@ -116,7 +116,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.invocation.cancel",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "POST",
@@ -131,7 +131,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.invocation.create",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "POST",
@@ -146,7 +146,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.invocation.get",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "GET",
@@ -161,7 +161,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.needs_you.list",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "GET",
@@ -176,7 +176,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
   },
   {
     id: "automation.run.inspector.read",
-    enabled: false,
+    enabled: true,
     owner: "company-operations",
     plane: "company",
     method: "GET",

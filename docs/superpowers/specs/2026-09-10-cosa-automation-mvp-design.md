@@ -1,6 +1,11 @@
 # COSA Automation MVP — Design Specification
 
-**Status:** Approved design
+**Status:** IMPLEMENTED (2026-09-10) — Tasks 0–10 landed on `main`. WIRED across
+Company / Control Plane / Agent Platform / Flutter; cross-plane E2E authored
+(`make automation-mvp-e2e`). Not yet VERIFIED: the disposable-Postgres 3-plane
+run is pending a healthy `real_cosa_stack` harness (the shared fixture 500s at
+`/platform/auth/register` on the current dev machine, independent of this
+work). Not PRODUCTION — rollout ships disabled per workspace.
 **Date:** 2026-09-10
 **Scope:** Automation definitions, invocation/run lifecycle, governance, blueprint library and Run Inspector.
 **Out of scope:** Generic workflow platform, free-form YAML/DAG authoring, dynamic plugins, and a gRPC worker controller.

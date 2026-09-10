@@ -89,15 +89,29 @@ def test_automation_routes_are_unique_within_surface():
         seen.add(key)
 
 
-def test_automation_capabilities_ship_disabled_until_their_task_lands():
-    # Rollout is expand-only and one blueprint/surface at a time (spec §9). A
-    # capability flips to enabled only in the task that adds its real handler +
-    # authorization test + Flutter contract test.
+# approval.decide has no Company handler in the MVP — no shipped blueprint
+# routes an approval (commercial.outbound-draft is draft_only). It stays
+# disabled until a separate send capability + approval E2E are accepted
+# (spec §9.1 / §11).
+_APPROVAL_DECIDE = "automation.approval.decide"
+
+
+def test_approval_decide_stays_disabled_until_a_blueprint_routes_an_approval():
+    row = next(r for r in _automation_rows() if r["id"] == _APPROVAL_DECIDE)
+    assert row["enabled"] is False
+
+
+def test_every_enabled_automation_capability_has_a_real_backend_handler_test():
+    # An enabled capability must name a backend test file that exists on disk.
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
     for row in _automation_rows():
-        assert row["enabled"] is False, (
-            f"{row['id']} is enabled — its evidence paths must all exist "
-            "(see tests/contracts/test_founder_trial_mvp_surface.py)"
-        )
+        if not row["enabled"]:
+            continue
+        assert (root / row["backend_test"]).exists(), f"{row['id']} -> {row['backend_test']}"
+        assert (root / row["flutter_test"]).exists(), f"{row['id']} -> {row['flutter_test']}"
+        assert (root / row["integration_test"]).exists(), f"{row['id']} -> {row['integration_test']}"
 
 
 def test_dispatch_envelope_is_strict_and_reference_only():

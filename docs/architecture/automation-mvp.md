@@ -69,3 +69,23 @@ regenerate the client contracts + set `requiredCapabilities` / `contractEndpoint
 | `AUTOMATION_MVP_WORKSPACE_ALLOWLIST` | CSV of workspace ids that see the Library CTA |
 
 No credential or endpoint secret belongs here.
+
+## Acceptance status (Task 10)
+
+Implemented and committed on `main` (14 commits, `6fe78575`..HEAD):
+
+| Concern | Where | Status |
+|---|---|---|
+| Cross-plane contract + durable storage | migration 002/003, `automation-envelope.v1.json`, 11 `automation.*` caps | ✅ landed; contract + migration tests green |
+| Company definitions / immutable revisions / lifecycle auth | `operations/services/automation-definition.service.ts` | ✅ 12 vitest |
+| Idempotent invocations + outbox handoff | `automation-invocation.service.ts` + relay | ✅ 10 vitest |
+| Control-plane opaque dispatch + fencing | `apps/cosa/events/router.py`, `services/cosa/services/automation-dispatch.service.ts` | ✅ 6 pytest + 4 vitest |
+| Pinned Agent manifests + curated blueprints | `packages/agent/workflows/automation_{manifest,blueprints}.py`, worker `automation_run` | ✅ 11 pytest |
+| Governed lifecycle reconciliation + exact approvals | `automation-outcome.service.ts`, `automation_outcome_client.py`, approval `manifest_hash` | ✅ 10 pytest/vitest |
+| Flutter Library + guided config + Run Inspector + Needs You | `frontend/lib/modules/automation`, `automation-inspector.service.ts` | ✅ 13 flutter + 5 vitest |
+| Curated-blueprint rollout gate | `automation-blueprint.service.ts`, `surface-policy.ts` (PILOT), `.env.example` | ✅ 8 vitest |
+| Cross-plane E2E | `tests/e2e/test_automation_mvp_*.py`, `make automation-mvp-e2e` | ⏳ authored; needs a healthy `real_cosa_stack` (register 500 on current dev host) |
+
+Release gate before a PRODUCTION claim: run `make automation-mvp-e2e` green on
+CI or a clean host, then record command output + migration revisions + state
+assertions here, and only then change the spec status to VERIFIED.

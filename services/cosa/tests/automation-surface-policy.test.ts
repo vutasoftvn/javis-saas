@@ -9,17 +9,15 @@ describe("automation surface policy", () => {
     expect(lib).toBeDefined();
   });
 
-  it("keeps the automation library PLANNED until the capabilities are enabled", () => {
+  it("promotes the automation library to PILOT with enabled capabilities", () => {
     const lib = automation.find((e) => e.surfaceKey === "automation.library")!;
-    // The startup validator (mvp-contract-policy) requires PLANNED surfaces to
-    // carry no live capability and a null contract endpoint — a live surface
-    // referencing a still-disabled automation.* capability would fail cosa boot.
-    expect(lib.defaultStatus).toBe("PLANNED");
-    expect(lib.contractEndpoint).toBeNull();
-    expect(lib.requiredCapabilities).toEqual([]);
+    expect(lib.defaultStatus).toBe("PILOT");
+    expect(lib.contractEndpoint).toBe("automation.definition.list");
+    expect(lib.requiredCapabilities).toContain("automation.definition.list");
+    expect(lib.requiredCapabilities).toContain("automation.run.inspector.read");
   });
 
   it("the surface policy version was bumped for the automation change", () => {
-    expect(SURFACE_POLICY_VERSION >= "2026-09-10.2").toBe(true);
+    expect(SURFACE_POLICY_VERSION >= "2026-09-10.3").toBe(true);
   });
 });

@@ -288,7 +288,7 @@
     },
     {
       "id": "automation.definition.list",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "GET",
@@ -303,7 +303,7 @@
     },
     {
       "id": "automation.definition.get",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "GET",
@@ -318,7 +318,7 @@
     },
     {
       "id": "automation.definition.configure",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "PATCH",
@@ -333,7 +333,7 @@
     },
     {
       "id": "automation.definition.publish",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "POST",
@@ -348,7 +348,7 @@
     },
     {
       "id": "automation.definition.suspend",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "POST",
@@ -363,7 +363,7 @@
     },
     {
       "id": "automation.invocation.create",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "POST",
@@ -378,7 +378,7 @@
     },
     {
       "id": "automation.invocation.get",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "GET",
@@ -393,7 +393,7 @@
     },
     {
       "id": "automation.invocation.cancel",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "POST",
@@ -408,7 +408,7 @@
     },
     {
       "id": "automation.run.inspector.read",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "GET",
@@ -438,7 +438,7 @@
     },
     {
       "id": "automation.needs_you.list",
-      "enabled": false,
+      "enabled": true,
       "owner": "company-operations",
       "plane": "company",
       "method": "GET",

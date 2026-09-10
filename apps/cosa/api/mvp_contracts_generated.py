@@ -50,7 +50,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.definition.configure",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="PATCH",
@@ -65,7 +65,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.definition.get",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="GET",
@@ -80,7 +80,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.definition.list",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="GET",
@@ -95,7 +95,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.definition.publish",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="POST",
@@ -110,7 +110,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.definition.suspend",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="POST",
@@ -125,7 +125,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.invocation.cancel",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="POST",
@@ -140,7 +140,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.invocation.create",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="POST",
@@ -155,7 +155,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.invocation.get",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="GET",
@@ -170,7 +170,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.needs_you.list",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="GET",
@@ -185,7 +185,7 @@ MVP_CAPABILITIES: Final[tuple[MvpCapabilityMetadata, ...]] = (
     ),
     MvpCapabilityMetadata(
         id="automation.run.inspector.read",
-        enabled=False,
+        enabled=True,
         owner="company-operations",
         plane="company",
         method="GET",

@@ -38,7 +38,7 @@ export interface SurfacePolicyEntry {
   readonly releaseNote: string | null;
 }
 
-export const SURFACE_POLICY_VERSION = "2026-09-10.2";
+export const SURFACE_POLICY_VERSION = "2026-09-10.3";
 
 export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
   // ── R1 Founder Trial: AVAILABLE ──
@@ -169,6 +169,27 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     contractEndpoint: "finance.snapshot.latest",
     releaseNote: "Workspace liquidity từ CAS. Không trình bày là 'tiền của project'. Cần kết nối CAS.",
   },
+  {
+    surfaceKey: "automation.library",
+    moduleKey: "automation",
+    featureKey: "library",
+    // PILOT: curated blueprint library + Run Inspector. Default rollout is
+    // disabled per workspace (AUTOMATION_MVP_WORKSPACE_ALLOWLIST) — report /
+    // draft-only. commercial.outbound-draft stays draft-only.
+    defaultStatus: "PILOT",
+    requiredCapabilities: [
+      "automation.definition.list",
+      "automation.definition.configure",
+      "automation.definition.publish",
+      "automation.invocation.create",
+      "automation.run.inspector.read",
+      "automation.needs_you.list",
+    ],
+    requiredConnectorKeys: [],
+    contractEndpoint: "automation.definition.list",
+    releaseNote:
+      "COSA Automation MVP — curated business playbooks with pinned execution, governed effects and a truthful Run Inspector.",
+  },
   // ── PLANNED (post-R1) ──
   ...planned([
     ["strategy.vision_mission_value", "strategy", "vision_mission_value", "Vision/Mission/Value — R1.1 sau khi founder trial cho thấy vòng evidence được hiểu."],
@@ -177,7 +198,6 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     ["strategy.bsc", "strategy", "bsc", "Balanced Scorecard — R1.2."],
     ["knowledge.vault_rag", "knowledge", "vault_rag", "Vault/RAG retrieval — R3, cần retrieval authorization."],
     ["automation.workflow_builder", "automation", "workflow_builder", "Free workflow builder — R3, cần workflow governance."],
-    ["automation.library", "automation", "library", "COSA Automation MVP — curated blueprint library + Run Inspector. Promoted to PILOT when the automation.* capabilities are enabled and the cross-plane E2E is accepted (Task 10)."],
     ["experience.voice_agent", "experience", "voice_agent", "Voice agent — R3 enterprise."],
     ["agents.domain_orchestration", "agents", "domain_orchestration", "Project Orchestrator + domain agents — sau khi persistent workforce đạt Task 9."],
   ]),

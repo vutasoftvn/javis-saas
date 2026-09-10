@@ -9,7 +9,7 @@ PYTEST ?= $(PYTHON) -m pytest
 # PYTHONPATH này để apps.cosa.api.main / apps.cosa.worker.main import được.
 RUNTIME_PYTHONPATH := $(CURDIR):$(CURDIR)/packages:$(CURDIR)/apps
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze frontend-coverage-check boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-stack-no-infra dev-status db-bootstrap migrate-all deploy-preflight test-db-reset python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test e2e-cross-plane-smoke local-knowledge-e2e workspace-model-routing-e2e schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check encore-handler-boundary-check ts-suppression-check route-auth-allowlist-check encore-type-safety-check mvp-e2e-purity-check frontend-api-contract-check lease-integration-test
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze frontend-coverage-check boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-stack-no-infra dev-status db-bootstrap migrate-all deploy-preflight test-db-reset python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test e2e-cross-plane-smoke local-knowledge-e2e workspace-model-routing-e2e schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check encore-handler-boundary-check ts-suppression-check route-auth-allowlist-check encore-type-safety-check mvp-e2e-purity-check frontend-api-contract-check lease-integration-test automation-mvp-e2e
 
 # Task 10 (audit fix, 2026-08-30) — trước đây `tests/e2e/test_ai_compliance_company_http.py`
 # dùng `httpx.MockTransport` tự viết giả lập response Company (fake snapshot
@@ -185,6 +185,10 @@ e2e-test:        ## Run full-stack E2E golden path test suite
 e2e-cross-plane-smoke: ## Tier-1 cross-plane smoke: 4 real planes + disposable PG, model=fake — transport/auth/fail-closed; NOT kernel/capability-governance (see docs/testing/cross-plane-e2e.md)
 	mkdir -p test-results
 	PYTHONPATH=. $(PYTEST) tests/e2e/test_cross_plane_smoke.py -m cross_plane -q --junitxml=test-results/e2e-smoke.xml
+
+automation-mvp-e2e: ## COSA Automation MVP (Task 10): real Company outbox -> apps/cosa intake -> control-plane scheduler/lease -> agent worker -> signed Company outcome, on a disposable 3-plane PostgreSQL/process stack. Never targets dev/prod URLs. No mocks/skips.
+	mkdir -p test-results
+	PYTHONPATH=. $(PYTEST) tests/e2e/test_automation_mvp_cross_plane.py tests/e2e/test_automation_mvp_tenant_isolation.py tests/e2e/test_automation_mvp_recovery.py -m cross_plane -q --junitxml=test-results/automation-mvp-e2e.xml
 
 local-knowledge-e2e: ## Task 13 (plan local-first-enterprise-knowledge): restart durability + workspace isolation for Vault/knowledge ingestion — 4 real planes + disposable PG, needs Encore CLI + PGPASSWORD (see docs/operations/local-knowledge-runbook.md)
 	mkdir -p test-results

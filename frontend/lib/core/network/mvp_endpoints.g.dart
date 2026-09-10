@@ -15,7 +15,7 @@ enum MvpEndpoint {
   ),
   automationDefinitionConfigure(
     id: 'automation.definition.configure',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'PATCH',
     path: '/operations/automation/definitions/:definitionId/configuration',
@@ -23,7 +23,7 @@ enum MvpEndpoint {
   ),
   automationDefinitionGet(
     id: 'automation.definition.get',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/automation/definitions/:definitionId',
@@ -31,7 +31,7 @@ enum MvpEndpoint {
   ),
   automationDefinitionList(
     id: 'automation.definition.list',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/automation/definitions',
@@ -39,7 +39,7 @@ enum MvpEndpoint {
   ),
   automationDefinitionPublish(
     id: 'automation.definition.publish',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/automation/definitions/:definitionId/revisions',
@@ -47,7 +47,7 @@ enum MvpEndpoint {
   ),
   automationDefinitionSuspend(
     id: 'automation.definition.suspend',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/automation/definitions/:definitionId/suspension',
@@ -55,7 +55,7 @@ enum MvpEndpoint {
   ),
   automationInvocationCancel(
     id: 'automation.invocation.cancel',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/automation/invocations/:invocationId/cancellation',
@@ -63,7 +63,7 @@ enum MvpEndpoint {
   ),
   automationInvocationCreate(
     id: 'automation.invocation.create',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/automation/definitions/:definitionId/invocations',
@@ -71,7 +71,7 @@ enum MvpEndpoint {
   ),
   automationInvocationGet(
     id: 'automation.invocation.get',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/automation/invocations/:invocationId',
@@ -79,7 +79,7 @@ enum MvpEndpoint {
   ),
   automationNeedsYouList(
     id: 'automation.needs_you.list',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/automation/needs-you',
@@ -87,7 +87,7 @@ enum MvpEndpoint {
   ),
   automationRunInspectorRead(
     id: 'automation.run.inspector.read',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
     path: '/operations/automation/invocations/:invocationId/inspector',
