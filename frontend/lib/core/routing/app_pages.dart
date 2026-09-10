@@ -15,8 +15,7 @@ import '../../modules/profile/views/profile_view.dart';
 import '../../modules/profile/bindings/profile_binding.dart';
 import '../../modules/workspace_picker/views/workspace_picker_view.dart';
 import '../../modules/workspace_picker/bindings/workspace_picker_binding.dart';
-import '../../modules/strategy/views/project_setup_view.dart';
-import '../../modules/strategy/controllers/project_setup_controller.dart';
+import '../../modules/projects/views/create_first_project_view.dart';
 import '../../modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import '../shell/app_shell.dart';
 import '../shell/app_shell_controller.dart';
@@ -56,7 +55,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.projectsNew,
-      page: () => const ProjectSetupView(),
+      page: () => const CreateFirstProjectView(),
       binding: BindingsBuilder(() {
         // FCC do shell sở hữu; route này có thể vào thẳng qua guard trước khi
         // AppShell mount, nên tự đảm bảo nó tồn tại.
@@ -70,7 +69,6 @@ class AppPages {
             ? Get.find<FounderCommandCenterController>()
             : FounderCommandCenterController();
         Get.put<FounderCommandCenterController>(fcc, permanent: true);
-        Get.lazyPut<ProjectSetupController>(() => ProjectSetupController());
       }),
       middlewares: [AuthMiddleware()],
     ),

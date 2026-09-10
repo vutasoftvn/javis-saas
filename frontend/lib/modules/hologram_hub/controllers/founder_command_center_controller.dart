@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/localization/app_translations.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
@@ -16,12 +15,8 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../data/models/execution_plan_model.dart';
-import '../../../data/models/project_operating_setup_model.dart';
-import '../../../data/models/task_kanban_model.dart';
 import '../../../modules/strategy/services/execution_plan_service.dart';
-import '../../../modules/strategy/services/project_operating_setup_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
-import '../../../modules/tasks/services/task_service.dart';
 import '../../../modules/workforce/models/workforce_mvp_models.dart';
 import '../../../modules/workforce/services/workforce_mvp_service.dart';
 
@@ -102,9 +97,6 @@ class FounderCommandCenterController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool hasProjects = true.obs;
   final RxList<dynamic> projectsList = <dynamic>[].obs;
-  final Rxn<ProjectOperatingSetup> activeProjectSetup =
-      Rxn<ProjectOperatingSetup>();
-
   /// Lỗi tải danh sách dự án (401/403/409/5xx, mất mạng...) — trước đây bị
   /// nuốt thành `[]`, khiến `hasProjects` hiểu nhầm "chưa có dự án nào" và
   /// đẩy Founder vào lại flow onboarding dù họ đã có dự án. Field này expose
@@ -164,11 +156,7 @@ class FounderCommandCenterController extends GetxController {
   /// Nhiều hơn một project ⇒ không can thiệp (workspace đã vận hành).
   bool get needsProjectSetup {
     if (projectsError.value != null) return false;
-    if (projectsList.isEmpty) return true;
-    if (projectsList.length == 1) {
-      return activeProjectSetup.value?.status != OperatingSetupStatus.active;
-    }
-    return false;
+    return projectsList.isEmpty;
   }
 
   @override
@@ -233,7 +221,6 @@ class FounderCommandCenterController extends GetxController {
     isLoading.value = false;
     hasProjects.value = true;
     projectsList.clear();
-    activeProjectSetup.value = null;
     projectsError.value = null;
     // Fix race (2026-09-03, Task 5) — workspace vừa đổi, danh sách project của
     // tenant CŨ đã bị clear và `loadDashboardData()` sắp chạy lại; hạ cờ để
@@ -310,17 +297,9 @@ class FounderCommandCenterController extends GetxController {
       this.activeProjectId.value = activeProjectId;
 
       if (activeProjectId != null) {
-        try {
-          final setupService = ProjectOperatingSetupService();
-          activeProjectSetup.value = await setupService.get(activeProjectId);
-        } catch (e) {
-          debugPrint('[FounderCommandCenter] get setup error: $e');
-          activeProjectSetup.value = null;
-        }
         unawaited(loadDraftPlans());
         unawaited(loadFounderInbox());
       } else {
-        activeProjectSetup.value = null;
         draftPlans.clear();
         founderInboxTasks.clear();
       }
@@ -538,80 +517,6 @@ class FounderCommandCenterController extends GetxController {
         'Bật/tắt gói mở rộng hiện chưa khả dụng trên phiên bản này.',
         title: 'Chưa khả dụng',
       );
-    }
-  }
-
-  /// Cập nhật `firstWeekActions` của `activeProjectSetup` tại chỗ (optimistic
-  /// update) trước khi có phản hồi thật từ server — spec (2026-09-04, §2) yêu
-  /// cầu tick/untick phản ánh ngay trên UI, không đợi round-trip mạng.
-  void _applyFirstWeekActionOptimistically(
-    String actionId,
-    FirstWeekActionDraft Function(FirstWeekActionDraft) update,
-  ) {
-    final current = activeProjectSetup.value;
-    if (current == null) return;
-    final updatedActions = current.firstWeekActions
-        .map((a) => a.id == actionId ? update(a) : a)
-        .toList();
-    activeProjectSetup.value = current.copyWith(firstWeekActions: updatedActions);
-  }
-
-  /// Đánh dấu hoàn thành / chưa hoàn thành 1 "Hành động tuần đầu" — `action.id`
-  /// chính là id của `operating.tasks` (đã materialize 1-1 khi lưu/activate
-  /// operating setup, xem
-  /// docs/superpowers/specs/2026-09-04-command-center-dashboard-redesign-design.md).
-  Future<void> toggleFirstWeekActionStatus(FirstWeekActionDraft action) async {
-    final actionId = action.id;
-    if (actionId == null) return;
-    final newStatus = action.status == TaskKanbanStatus.done
-        ? TaskKanbanStatus.todo
-        : TaskKanbanStatus.done;
-    _applyFirstWeekActionOptimistically(actionId, (a) => a.copyWith(status: newStatus));
-    try {
-      await TaskService().updateTaskStatus(actionId, newStatus.value);
-      await _refreshActiveProjectSetup();
-    } catch (e) {
-      debugPrint('[FounderCommandCenter] toggleFirstWeekActionStatus error: $e');
-      // Không hiện raw exception ($e) cho founder — có thể lộ nội dung HTTP
-      // response body của backend. Chi tiết đầy đủ chỉ nằm ở debugPrint trên.
-      AppToast.error(L10nKey.hubUpdateFailedToast.tr);
-      // Optimistic guess có thể sai (request thất bại) — refresh lại để
-      // reconcile về đúng server truth thay vì để giá trị sai âm thầm đứng yên.
-      await _refreshActiveProjectSetup();
-    }
-  }
-
-  /// Đặt/xoá giờ dự kiến thực hiện cho 1 "Hành động tuần đầu".
-  Future<void> updateFirstWeekActionSchedule(
-    FirstWeekActionDraft action,
-    DateTime? plannedStartAt,
-  ) async {
-    final actionId = action.id;
-    if (actionId == null) return;
-    _applyFirstWeekActionOptimistically(
-      actionId,
-      (a) => a.copyWith(plannedStartAt: plannedStartAt, clearPlannedStartAt: plannedStartAt == null),
-    );
-    try {
-      await TaskService().updateTaskSchedule(actionId, plannedStartAt);
-      await _refreshActiveProjectSetup();
-    } catch (e) {
-      debugPrint('[FounderCommandCenter] updateFirstWeekActionSchedule error: $e');
-      AppToast.error(L10nKey.hubUpdateFailedToast.tr);
-      await _refreshActiveProjectSetup();
-    }
-  }
-
-  Future<void> _refreshActiveProjectSetup() async {
-    final activeProjectId = projectsList.isNotEmpty
-        ? projectsList.first['id']?.toString()
-        : null;
-    if (activeProjectId == null) return;
-    try {
-      activeProjectSetup.value =
-          await ProjectOperatingSetupService().get(activeProjectId);
-    } catch (e) {
-      debugPrint('[FounderCommandCenter] refresh setup error: $e');
     }
   }
 

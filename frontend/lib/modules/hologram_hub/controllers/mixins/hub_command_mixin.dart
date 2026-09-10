@@ -32,7 +32,6 @@ mixin HubCommandMixin on GetxController {
   final commandCenterData = Rxn<Map<String, dynamic>>();
 
   // CEO Next Best Actions
-  final ceoNextActions = <dynamic>[].obs;
 
   /// Lỗi tải dữ liệu list (CEO next actions, danh sách dự án...) — trước đây
   /// mọi thất bại (401/403/409/5xx, mất mạng) bị nuốt thành `[]` khiến UI
@@ -106,26 +105,6 @@ mixin HubCommandMixin on GetxController {
       debugPrint('Error loading command center data: $e');
     } finally {
       if (showLoading) isLoading.value = false;
-    }
-  }
-
-  Future<void> loadCeoNextActions() async {
-    final generation = _workspaceGeneration;
-    try {
-      final result = await strategyService.getCeoNextActions(limit: 3);
-      if (_workspaceGeneration != generation) return;
-      ceoNextActions.value = result.items;
-      if (result.errorMessage != null) {
-        dataLoadError.value = result.errorMessage;
-      } else {
-        // Tải thành công — xoá lỗi cũ (nếu có) để không kẹt trạng thái lỗi
-        // vĩnh viễn sau một lần retry thành công.
-        dataLoadError.value = null;
-      }
-    } catch (e) {
-      debugPrint('[HologramHub] Error loading CEO next actions: $e');
-      if (_workspaceGeneration != generation) return;
-      dataLoadError.value = 'Không thể tải Next Best Actions: $e';
     }
   }
 

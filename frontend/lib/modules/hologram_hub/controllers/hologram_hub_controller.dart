@@ -13,21 +13,13 @@ import '../../../modules/hologram_hub/services/chat_service.dart';
 import '../../../modules/workspace_runtime/services/workspace_runtime_service.dart';
 import '../../../modules/workforce/services/workforce_mvp_service.dart';
 import '../../../modules/agents/services/agent_platform_service.dart';
-import '../../../modules/strategy/services/stage_service.dart';
 import '../../../modules/vault/services/evidence_service.dart';
-import '../../../modules/strategy/services/strategy_lens_service.dart';
-import '../../../modules/strategy/services/stage_gate_service.dart';
-import '../../../modules/strategy/services/twelve_wy_service.dart';
 import '../domain/hologram_runtime_state.dart';
 import 'mixins/hub_auth_mixin.dart';
 import 'mixins/hub_command_mixin.dart';
 import 'mixins/hub_chat_mixin.dart';
 import 'mixins/hub_voice_mixin.dart';
-import 'mixins/hub_stage_mixin.dart';
 import 'mixins/hub_evidence_mixin.dart';
-import 'mixins/hub_lenses_mixin.dart';
-import 'mixins/hub_gate_mixin.dart';
-import 'mixins/hub_twelve_wy_mixin.dart';
 import 'mixins/hub_control_plane_mixin.dart';
 
 export '../domain/hologram_runtime_state.dart';
@@ -38,21 +30,13 @@ class HologramHubController extends GetxController
         HubCommandMixin,
         HubChatMixin,
         HubVoiceMixin,
-        HubStageMixin,
         HubEvidenceMixin,
-        HubLensesMixin,
-        HubGateMixin,
-        HubTwelveWyMixin,
         HubControlPlaneMixin {
   // ── Services (injected) ──────────────────────────────────────────────────
   final AuthService _authService;
   final HubService _hubService;
   final StrategyService _strategyService;
-  final StageService _stageService;
   final EvidenceService _evidenceService;
-  final StrategyLensService _lensService;
-  final StageGateService _stageGateService;
-  final TwelveWyService _twelveWyService;
   final WorkspaceRuntimeService _runtimeService;
   final RealtimeService _realtimeService;
   final VoiceService _voiceService;
@@ -68,11 +52,7 @@ class HologramHubController extends GetxController
     AuthService? authService,
     HubService? hubService,
     StrategyService? strategyService,
-    StageService? stageService,
     EvidenceService? evidenceService,
-    StrategyLensService? lensService,
-    StageGateService? stageGateService,
-    TwelveWyService? twelveWyService,
     WorkspaceRuntimeService? runtimeService,
     RealtimeService? realtimeService,
     VoiceService? voiceService,
@@ -84,11 +64,7 @@ class HologramHubController extends GetxController
   })  : _authService = authService ?? AuthService(),
         _hubService = hubService ?? HubService(),
         _strategyService = strategyService ?? StrategyService(),
-        _stageService = stageService ?? StageService(),
         _evidenceService = evidenceService ?? EvidenceService(),
-        _lensService = lensService ?? StrategyLensService(),
-        _stageGateService = stageGateService ?? StageGateService(),
-        _twelveWyService = twelveWyService ?? TwelveWyService(),
         _runtimeService = runtimeService ?? WorkspaceRuntimeService(),
         _realtimeService = realtimeService ?? RealtimeService(),
         _voiceService = voiceService ?? VoiceService(),
@@ -101,11 +77,7 @@ class HologramHubController extends GetxController
   @override AuthService get authService => _authService;
   @override HubService get hubService => _hubService;
   @override StrategyService get strategyService => _strategyService;
-  @override StageService get stageService => _stageService;
   @override EvidenceService get evidenceService => _evidenceService;
-  @override StrategyLensService get lensService => _lensService;
-  @override StageGateService get stageGateService => _stageGateService;
-  @override TwelveWyService get twelveWyService => _twelveWyService;
   @override WorkspaceRuntimeService get runtimeService => _runtimeService;
   @override VoiceService get voiceService => _voiceService;
   @override ChatService get chatService => _chatService;
@@ -113,7 +85,10 @@ class HologramHubController extends GetxController
   @override AgentPlatformService get agentPlatformService => _agentPlatformService;
   @override IWakeWordService get wakeWordService => _wakeWordService;
 
-  /// Convenience getter used by evidence & lenses mixins
+  /// Project hiện chọn cho evidence context (trước ở HubStageMixin).
+  final selectedProjectId = RxnInt();
+
+  /// Convenience getter used by the evidence mixin
   @override
   int? get selectedProjectIdValue => selectedProjectId.value;
 
@@ -167,10 +142,8 @@ class HologramHubController extends GetxController
     });
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       refreshTickCountForTest++;
-      loadStageContext(projectId: selectedProjectId.value);
       loadHubSummary(showLoading: false);
       loadCommandCenterData();
-      loadCeoNextActions();
       loadActiveCycleTimeline();
       loadPendingApprovals();
       loadAgentRuns();
@@ -204,11 +177,8 @@ class HologramHubController extends GetxController
   /// tạo.
   void _loadInitialHubData() {
     ensureAuthenticated().then((_) {
-      loadStageContext();
-      loadProjectsList();
       loadHubSummary();
       loadCommandCenterData();
-      loadCeoNextActions();
       loadActiveCycleTimeline();
       loadPendingApprovals();
       loadAgentRuns();
@@ -255,7 +225,6 @@ class HologramHubController extends GetxController
     // Command center / hub summary (HubCommandMixin).
     hubSummary.value = null;
     commandCenterData.value = null;
-    ceoNextActions.clear();
     dataLoadError.value = null;
     needsYouItems.clear();
     resolvedProposalIds.clear();
@@ -269,8 +238,6 @@ class HologramHubController extends GetxController
     resetChatSessionForWorkspace();
 
     // Strategy stage context (HubStageMixin).
-    stageContext.value = null;
-    projectsList.clear();
     selectedProjectId.value = null;
 
     // Evidence/lenses/gate/12WY — tải theo-yêu-cầu khi mở tab tương ứng
@@ -281,10 +248,6 @@ class HologramHubController extends GetxController
     evidencesList.clear();
     assumptionMatrix.value = null;
     decisionsList.clear();
-    latestStageAudit.value = null;
-    prematureAlerts.clear();
-    twelveWyDashboard.value = null;
-    stageLensSummary.value = null;
 
     // Realtime cue tức thời — không phải state nghiệp vụ nhưng vẫn thuộc về
     // phiên cũ, reset về idle cho tới khi có event mới của workspace mới.
@@ -349,7 +312,6 @@ class HologramHubController extends GetxController
     _realtimeDebounce = Timer(const Duration(milliseconds: 400), () {
       loadHubSummary(showLoading: false);
       loadCommandCenterData(showLoading: false);
-      loadCeoNextActions();
       loadNeedsYou();
       if (eventType.startsWith('agent.')) {
         loadPendingApprovals();

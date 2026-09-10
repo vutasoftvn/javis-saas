@@ -20,8 +20,6 @@ import '../../modules/finance/bindings/finance_binding.dart';
 import '../../modules/finance/views/finance_view.dart';
 import '../../modules/settings/bindings/settings_binding.dart';
 import '../../modules/settings/views/settings_view.dart';
-import '../../modules/strategy/bindings/strategy_binding.dart';
-import '../../modules/strategy/views/strategy_view.dart';
 import '../../modules/tasks/bindings/tasks_binding.dart';
 import '../../modules/tasks/views/tasks_view.dart';
 
@@ -187,12 +185,7 @@ final List<GetPage> moduleRoutes = [
     binding: TasksBinding(),
     middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
   ),
-  GetPage(
-    name: WorkspaceModule.strategy.path,
-    page: () => const AppShell(activeModule: WorkspaceModule.strategy, child: StrategyView()),
-    binding: StrategyBinding(),
-    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
-  ),
+  _plannedRoute(WorkspaceModule.strategy),
   GetPage(
     name: WorkspaceModule.finance.path,
     page: () => const AppShell(activeModule: WorkspaceModule.finance, child: FinanceView()),

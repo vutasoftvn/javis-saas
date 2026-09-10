@@ -13,9 +13,7 @@ import '../widgets/top3_focus_widget.dart';
 import '../widgets/waiting_for_you_widget.dart';
 import '../widgets/decision_modal_sheet.dart';
 import '../widgets/ai_workforce_tab.dart';
-import '../../../core/contracts/enums.generated.dart';
 import '../../../core/routing/app_routes.dart';
-import '../../../data/models/project_operating_setup_model.dart';
 import '../../../data/models/stage_model.dart';
 import '../../../shared/widgets/company_scope_switcher.dart';
 import '../../../shared/widgets/stage_badge.dart';
@@ -437,22 +435,6 @@ class HologramHubView extends StatelessWidget {
             // A1/A2. WGA — "Kế hoạch đề xuất" + "Việc của bạn" (poll 20s qua wrapper)
             _WgaSurfaces(controller: controller),
 
-            Obx(() {
-              final setup = controller.activeProjectSetup.value;
-              final activeProjectId = controller.projectsList.isNotEmpty
-                  ? controller.projectsList.first['id']?.toString()
-                  : null;
-              if (activeProjectId != null &&
-                  (setup == null ||
-                      setup.status != OperatingSetupStatus.active)) {
-                return _buildSetupIncompleteCard(context, activeProjectId);
-              }
-              if (setup != null && setup.status == OperatingSetupStatus.active) {
-                return _buildActiveOperatingSetupCard(context, setup);
-              }
-              return const SizedBox.shrink();
-            }),
-
             // B & C: Responsive Grid (Side-by-Side on Desktop, Stacked on Mobile)
             if (isWide)
               Row(
@@ -480,19 +462,6 @@ class HologramHubView extends StatelessWidget {
                         actions: controller.top3Actions.toList(),
                         onActionTap: (action) =>
                             _handleActionTap(context, controller, action),
-                        firstWeekActions:
-                            controller
-                                .activeProjectSetup
-                                .value
-                                ?.firstWeekActions ??
-                            const [],
-                        onToggleActionStatus: (action) =>
-                            controller.toggleFirstWeekActionStatus(action),
-                        onScheduleAction: (action, plannedStartAt) =>
-                            controller.updateFirstWeekActionSchedule(
-                              action,
-                              plannedStartAt,
-                            ),
                       ),
                     ),
                   ),
@@ -525,13 +494,6 @@ class HologramHubView extends StatelessWidget {
                   actions: controller.top3Actions.toList(),
                   onActionTap: (action) =>
                       _handleActionTap(context, controller, action),
-                  firstWeekActions:
-                      controller.activeProjectSetup.value?.firstWeekActions ??
-                      const [],
-                  onToggleActionStatus: (action) =>
-                      controller.toggleFirstWeekActionStatus(action),
-                  onScheduleAction: (action, plannedStartAt) => controller
-                      .updateFirstWeekActionSchedule(action, plannedStartAt),
                 ),
               ),
               const SizedBox(height: 24),
@@ -557,255 +519,6 @@ class HologramHubView extends StatelessWidget {
     });
   }
 
-  Widget _buildSetupIncompleteCard(BuildContext context, String projectId) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: 0.5),
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 620;
-          final action = ElevatedButton.icon(
-            onPressed: () {
-              if (Get.isRegistered<DashboardController>()) {
-                Get.find<DashboardController>().openProjectKickoff(projectId);
-              }
-            },
-            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF59E0B),
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            label: Text(
-              L10nKey.hubContinueSetup.tr,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          );
-          final message = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                L10nKey.hubSetupIncompleteTitle.tr,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                L10nKey.hubSetupIncompleteDesc.tr,
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-              ),
-            ],
-          );
-          final icon = Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.flag_circle_outlined,
-              color: Color(0xFFF59E0B),
-              size: 28,
-            ),
-          );
-
-          if (compact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    icon,
-                    const SizedBox(width: 16),
-                    Expanded(child: message),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Align(alignment: Alignment.centerRight, child: action),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              icon,
-              const SizedBox(width: 16),
-              Expanded(child: message),
-              const SizedBox(width: 16),
-              action,
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  String _getWeekdayLabel(int? weekday) {
-    switch (weekday) {
-      case 1:
-        return L10nKey.weekdayMonday.tr;
-      case 2:
-        return L10nKey.weekdayTuesday.tr;
-      case 3:
-        return L10nKey.weekdayWednesday.tr;
-      case 4:
-        return L10nKey.weekdayThursday.tr;
-      case 5:
-        return L10nKey.weekdayFriday.tr;
-      case 6:
-        return L10nKey.weekdaySaturday.tr;
-      case 7:
-        return L10nKey.weekdaySunday.tr;
-      default:
-        return L10nKey.weekdayFriday.tr;
-    }
-  }
-
-  Widget _buildActiveOperatingSetupCard(
-    BuildContext context,
-    ProjectOperatingSetup setup,
-  ) {
-    final stageLabel =
-        setup.selectedStage == ProjectLifecycleStage.p1ProblemValidation
-        ? L10nKey.projectKickoffStageP1Title.tr
-        : L10nKey.projectKickoffStageP0Title.tr;
-    final duration =
-        setup.stageDurationWeeks ??
-        (setup.selectedStage == ProjectLifecycleStage.p1ProblemValidation
-            ? 4
-            : 2);
-    final reviewDay = _getWeekdayLabel(setup.weeklyReviewWeekday);
-    final reviewTime = setup.weeklyReviewTime ?? '16:00';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF10B981).withValues(alpha: 0.4),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stage = Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Text(
-                  L10nKey.hubCurrentCycleBadge.trParams({
-                    'stage': stageLabel,
-                    'count': '$duration',
-                  }),
-                  style: const TextStyle(
-                    color: Color(0xFF10B981),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-              );
-              final review = Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.schedule_rounded,
-                    size: 15,
-                    color: Color(0xFF94A3B8),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    L10nKey.hubReviewScheduleBadge.trParams({
-                      'day': reviewDay,
-                      'time': reviewTime,
-                    }),
-                    style: const TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ],
-              );
-              if (constraints.maxWidth < 760) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [stage, const SizedBox(height: 10), review],
-                );
-              }
-              return Row(children: [stage, const Spacer(), review]);
-            },
-          ),
-          if (setup.firstWeekOutcome != null &&
-              setup.firstWeekOutcome!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    L10nKey.hubFirstWeekOutcomePrefix.trParams({
-                      'outcome': setup.firstWeekOutcome!,
-                    }),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Obx(
-                  () => TextButton.icon(
-                    onPressed: _cc.isDecomposing.value
-                        ? null
-                        : () => _cc
-                            .requestDecomposition(setup.firstWeekOutcome!),
-                    icon: const Icon(Icons.auto_awesome, size: 14),
-                    label: Text(
-                      _cc.isDecomposing.value
-                          ? L10nKey.hubPlanningInProgress.tr
-                          : L10nKey.hubAskAiPlan.tr,
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF818CF8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  FounderCommandCenterController get _cc =>
-      Get.find<FounderCommandCenterController>();
-
-  // Giữ lại cho spec follow-up (tạo dự án đầu tiên) — first-project banner đã
-  // gỡ nên tạm thời không còn call-site trong file này.
   // ignore: unused_element
   void _showCreateProjectDialog(
     BuildContext context,

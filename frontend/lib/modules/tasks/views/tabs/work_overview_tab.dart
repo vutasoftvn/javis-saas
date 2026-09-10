@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../core/routing/module_routes.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/task_kanban_model.dart';
-import '../../../hologram_hub/controllers/founder_command_center_controller.dart';
 import '../../controllers/work_overview_controller.dart';
 
 class WorkOverviewTab extends StatefulWidget {
@@ -20,7 +18,7 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.loadOkrAndTwelveWySummary();
+      controller.loadOkrSummary();
     });
   }
 
@@ -42,9 +40,7 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
         children: [
           _buildStatusCounts(),
           const SizedBox(height: 20),
-          _buildOkrTwelveWySummary(),
-          const SizedBox(height: 20),
-          _buildProjectAdminInfo(),
+          _buildOkrSummary(),
           const SizedBox(height: 20),
           _buildTodayTasks(),
         ],
@@ -93,113 +89,24 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
     });
   }
 
-  /// Khối rút gọn "OKR chu kỳ hiện tại" + "Điểm thực thi tuần (12WY)", bấm
-  /// vào điều hướng sang tab Chiến lược (`WorkspaceModule.strategy.path`).
-  Widget _buildOkrTwelveWySummary() {
+  /// Khối rút gọn "OKR chu kỳ hiện tại" (tỉ lệ hoàn thành key result).
+  Widget _buildOkrSummary() {
     return Obx(() {
       final isLoading = controller.isOkrSummaryLoading.value;
       final error = controller.okrSummaryError.value;
       final okr = controller.okrCompletionRatio.value;
-      final wy = controller.twelveWyExecutionScore.value;
-
       final isEn = Get.locale?.languageCode == 'en';
       if (isLoading) {
         return const Center(child: CircularProgressIndicator());
       }
       if (error != null) {
         return Text(
-          isEn ? 'Failed to load OKR/12WY: $error' : 'Không tải được OKR/12WY: $error',
+          isEn ? 'Failed to load OKR summary: $error' : 'Không tải được OKR: $error',
           style: const TextStyle(color: AppTheme.error, fontSize: 13),
         );
       }
-
-      return Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: () => Get.toNamed(WorkspaceModule.strategy.path),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceDark,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderDark),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(isEn ? 'Current Cycle OKRs' : 'OKR chu kỳ hiện tại', style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
-                    const SizedBox(height: 6),
-                    Text(
-                      okr != null ? '${(okr * 100).round()}%' : '—',
-                      style: const TextStyle(color: AppTheme.primary, fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: InkWell(
-              onTap: () => Get.toNamed(WorkspaceModule.strategy.path),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceDark,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderDark),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(isEn ? 'Weekly Execution Score (12WY)' : 'Điểm thực thi tuần (12WY)', style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
-                    const SizedBox(height: 6),
-                    Text(
-                      wy != null ? '${(wy * 100).round()}%' : '—',
-                      style: const TextStyle(color: AppTheme.primary, fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    });
-  }
-
-  /// Dropdown chọn project (nguồn `FounderCommandCenterController.projectsList`)
-  /// + khối hiển thị `ProjectOperatingSetup` (giai đoạn, trạng thái setup) của
-  /// project đang chọn.
-  Widget _buildProjectAdminInfo() {
-    final fcc = Get.find<FounderCommandCenterController>();
-    return Obx(() {
-      final projects = fcc.projectsList;
-      if (projects.isEmpty) return const SizedBox.shrink();
-
-      // Guard: `selectedProjectId` có thể trỏ tới 1 project không còn nằm
-      // trong `projectsList` hiện tại (vd `projectsList` bị `assignAll` lại
-      // ở nơi khác trong lúc đang chọn project đó) — `DropdownButton.value`
-      // bắt buộc phải khớp 1 `item.value` trong `items`, nếu không sẽ
-      // assert/throw. Khi lệch, coi như chưa chọn gì và rơi về project đầu.
-      final projectIds = projects.map((p) => p['id']?.toString()).toSet();
-      final currentSelection = controller.selectedProjectId.value;
-      final selectedId = (currentSelection != null && projectIds.contains(currentSelection))
-          ? currentSelection
-          : projects.first['id']?.toString();
-
-      // Chỉ gọi lại selectProject khi thật sự cần (chưa chọn gì, hoặc lựa
-      // chọn hiện tại đã lệch khỏi danh sách) — tránh gọi lại API mỗi lần
-      // Obx rebuild dù project đang chọn vẫn hợp lệ.
-      if (selectedId != null && selectedId != currentSelection) {
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => controller.selectProject(selectedId));
-      }
-
-      final isEn = Get.locale?.languageCode == 'en';
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppTheme.surfaceDark,
           borderRadius: BorderRadius.circular(12),
@@ -208,78 +115,18 @@ class _WorkOverviewTabState extends State<WorkOverviewTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  isEn ? 'Project Governance Info' : 'Thông tin quản trị project',
-                  style: const TextStyle(
-                    color: AppTheme.textDark,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                DropdownButton<String>(
-                  value: selectedId,
-                  dropdownColor: AppTheme.surfaceDark,
-                  items: projects.map((p) {
-                    final id = p['id']?.toString() ?? '';
-                    final title = p['title']?.toString() ?? id;
-                    return DropdownMenuItem(
-                      value: id,
-                      child: Text(
-                        title,
-                        style: const TextStyle(color: AppTheme.textDark),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (id) {
-                    if (id != null) controller.selectProject(id);
-                  },
-                ),
-              ],
+            Text(isEn ? 'Current Cycle OKRs' : 'OKR chu kỳ hiện tại',
+                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+            const SizedBox(height: 6),
+            Text(
+              okr != null ? '${(okr * 100).round()}%' : '—',
+              style: const TextStyle(color: AppTheme.primary, fontSize: 22, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
-            if (controller.isProjectInfoLoading.value)
-              const Center(child: CircularProgressIndicator())
-            else if (controller.projectInfoError.value != null)
-              Text(
-                isEn ? 'Failed to load project info: ${controller.projectInfoError.value}' : 'Không tải được thông tin project: ${controller.projectInfoError.value}',
-                style: const TextStyle(color: AppTheme.error, fontSize: 13),
-              )
-            else if (controller.projectSetup.value != null) ...[
-              _infoRow(
-                isEn ? 'Stage' : 'Giai đoạn',
-                controller.projectSetup.value!.selectedStage?.name ?? (isEn ? 'Not selected' : 'Chưa chọn'),
-              ),
-              _infoRow(isEn ? 'Setup Status' : 'Trạng thái setup', controller.projectSetup.value!.status.name),
-            ],
           ],
         ),
       );
     });
   }
-
-  Widget _infoRow(String label, String value) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 140,
-              child: Text(
-                label,
-                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                value,
-                style: const TextStyle(color: AppTheme.textDark, fontSize: 13),
-              ),
-            ),
-          ],
-        ),
-      );
 
   Widget _buildTodayTasks() {
     final isEn = Get.locale?.languageCode == 'en';

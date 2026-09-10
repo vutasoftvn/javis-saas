@@ -1,73 +1,25 @@
 import 'package:get/get.dart';
 import '../../../data/models/task_kanban_model.dart';
-import '../../../data/models/project_operating_setup_model.dart';
 import '../../strategy/services/okr_service.dart';
-import '../../strategy/services/project_operating_setup_service.dart';
-import '../../strategy/services/twelve_wy_service.dart';
 import 'tasks_controller.dart';
 
 /// Đọc lại `TasksController.tasks` đã tải sẵn (không fetch riêng) để tổng
 /// hợp 2 khối "Việc hôm nay" và "Thống kê task theo trạng thái" cho tab
-/// Tổng quan. Task 3 mở rộng thêm phần chọn project + thông tin quản trị
-/// project (`ProjectOperatingSetup`). Task 4 mở rộng thêm khối OKR/12WY
-/// rút gọn.
+/// Tổng quan, kèm khối OKR rút gọn (tỉ lệ hoàn thành key result).
 class WorkOverviewController extends GetxController {
   WorkOverviewController({
     required this.tasksController,
-    ProjectOperatingSetupService? projectOperatingSetupService,
     OkrService? okrService,
-    TwelveWyService? twelveWyService,
-  })  : _projectOperatingSetupService =
-            projectOperatingSetupService ?? ProjectOperatingSetupService(),
-        _okrService = okrService ?? OkrService(),
-        _twelveWyService = twelveWyService ?? TwelveWyService();
+  }) : _okrService = okrService ?? OkrService();
 
   final TasksController tasksController;
-  final ProjectOperatingSetupService _projectOperatingSetupService;
   final OkrService _okrService;
-  final TwelveWyService _twelveWyService;
 
   /// Tỉ lệ hoàn thành trung bình các Key Result (0.0-1.0), null khi chưa tải
   /// hoặc không có key result nào.
   final okrCompletionRatio = RxnDouble();
-
-  /// Điểm thực thi tuần hiện tại của chu kỳ 12WY, null khi chưa tải hoặc
-  /// chưa có chu kỳ active.
-  final twelveWyExecutionScore = RxnDouble();
   final isOkrSummaryLoading = false.obs;
   final okrSummaryError = RxnString();
-
-  /// Project đang được chọn trong dropdown "Thông tin quản trị project".
-  final selectedProjectId = RxnString();
-
-  /// Kết quả `ProjectOperatingSetupService.get()` cho project đang chọn.
-  final projectSetup = Rxn<ProjectOperatingSetup>();
-  final isProjectInfoLoading = false.obs;
-  final projectInfoError = RxnString();
-
-  /// Chọn 1 project và tải thông tin quản trị (operating setup) tương ứng.
-  ///
-  /// Guard theo `selectedProjectId.value != projectId` sau mỗi `await`: nếu
-  /// Founder đổi project A → B nhanh và response của A (chậm) về SAU response
-  /// của B, response cũ (A) không được phép ghi đè state của B — chỉ request
-  /// khớp với project đang chọn tại thời điểm HIỆN TẠI mới được áp dụng.
-  Future<void> selectProject(String projectId) async {
-    selectedProjectId.value = projectId;
-    isProjectInfoLoading.value = true;
-    projectInfoError.value = null;
-    try {
-      final setup = await _projectOperatingSetupService.get(projectId);
-      if (selectedProjectId.value != projectId) return;
-      projectSetup.value = setup;
-    } catch (e) {
-      if (selectedProjectId.value != projectId) return;
-      projectInfoError.value = e.toString();
-    } finally {
-      if (selectedProjectId.value == projectId) {
-        isProjectInfoLoading.value = false;
-      }
-    }
-  }
 
   /// Các task chưa xong (không tính done/cancelled) đã quá hạn hoặc đến hạn
   /// hôm nay, sắp theo hạn tăng dần.
@@ -95,8 +47,8 @@ class WorkOverviewController extends GetxController {
   }
 
   /// Tính tỉ lệ hoàn thành OKR trung bình từ các key result (current/target,
-  /// clamp 0-1) và đọc điểm thực thi tuần 12WY của project đang chọn.
-  Future<void> loadOkrAndTwelveWySummary() async {
+  /// clamp 0-1).
+  Future<void> loadOkrSummary() async {
     isOkrSummaryLoading.value = true;
     okrSummaryError.value = null;
     try {
@@ -110,9 +62,6 @@ class WorkOverviewController extends GetxController {
         });
         okrCompletionRatio.value = ratios.reduce((a, b) => a + b) / ratios.length;
       }
-
-      final dashboard = await _twelveWyService.getDashboard(selectedProjectId.value);
-      twelveWyExecutionScore.value = dashboard?.currentWeekExecutionScore;
     } catch (e) {
       okrSummaryError.value = e.toString();
     } finally {

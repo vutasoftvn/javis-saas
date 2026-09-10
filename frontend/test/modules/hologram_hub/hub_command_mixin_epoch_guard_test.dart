@@ -29,8 +29,6 @@ import 'package:frontend/core/session/session_snapshot.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/modules/dashboard/services/hub_service.dart';
 import 'package:frontend/modules/hologram_hub/controllers/hologram_hub_controller.dart';
-import 'package:frontend/modules/strategy/models/strategy_list_result.dart';
-import 'package:frontend/modules/strategy/services/strategy_service.dart';
 
 import '../../core/services/fakes/fake_secret_store.dart';
 
@@ -64,20 +62,6 @@ class _DelayedHubService extends HubService {
 
   @override
   Future<Map<String, dynamic>?> getHubSummary() => _pending.future;
-}
-
-/// Fake `StrategyService` cho phép test giữ `getCeoNextActions()` "in-flight"
-/// tuỳ ý qua một `Completer` bên ngoài.
-class _DelayedCeoNextActionsService extends StrategyService {
-  _DelayedCeoNextActionsService(this._pending);
-
-  final Completer<StrategyListResult<Map<String, dynamic>>> _pending;
-
-  @override
-  Future<StrategyListResult<Map<String, dynamic>>> getCeoNextActions({
-    int limit = 5,
-  }) =>
-      _pending.future;
 }
 
 void main() {
@@ -168,73 +152,5 @@ void main() {
 
     expect(hub.hubSummary.value, isNotNull);
     expect(hub.hubSummary.value!['fresh'], 'workspace-a hub summary');
-  });
-
-  test(
-      'loadCeoNextActions() discards a stale in-flight response after workspace switch (generation guard)',
-      () async {
-    final session = Get.put<SessionController>(
-      SessionController(contextService: _SucceedingContextService()),
-    );
-
-    final pendingOld =
-        Completer<StrategyListResult<Map<String, dynamic>>>();
-    final hub = HologramHubController(
-      strategyService: _DelayedCeoNextActionsService(pendingOld),
-    );
-
-    final staleLoad = hub.loadCeoNextActions();
-
-    await Future<void>.delayed(Duration.zero);
-    expect(hub.ceoNextActions, isEmpty,
-        reason: 'chưa có response nào trả về, state phải còn rỗng');
-
-    final generationBeforeSwitch = session.workspaceGeneration;
-    final activation = await session.activateWorkspace('workspace-b');
-    expect(activation.isSuccess, isTrue);
-    expect(session.workspaceGeneration, greaterThan(generationBeforeSwitch));
-
-    pendingOld.complete(
-      const StrategyListResult.success([
-        {'id': 'stale-action', 'title': 'workspace-a stale CEO action'},
-      ]),
-    );
-    await staleLoad;
-
-    expect(
-      hub.ceoNextActions,
-      isEmpty,
-      reason:
-          'response trả về SAU khi workspace đã chuyển phải bị bỏ qua, không được ghi đè Rx state',
-    );
-  });
-
-  test(
-      'loadCeoNextActions() still writes the response when the generation has NOT changed (guard is not overly aggressive)',
-      () async {
-    Get.put<SessionController>(
-      SessionController(contextService: _SucceedingContextService()),
-    );
-
-    final pending = Completer<StrategyListResult<Map<String, dynamic>>>();
-    final hub = HologramHubController(
-      strategyService: _DelayedCeoNextActionsService(pending),
-    );
-
-    final load = hub.loadCeoNextActions();
-    await Future<void>.delayed(Duration.zero);
-
-    pending.complete(
-      const StrategyListResult.success([
-        {'id': 'fresh-action', 'title': 'workspace-a fresh CEO action'},
-      ]),
-    );
-    await load;
-
-    expect(hub.ceoNextActions, hasLength(1));
-    expect(
-      (hub.ceoNextActions.first as Map)['title'],
-      'workspace-a fresh CEO action',
-    );
   });
 }
