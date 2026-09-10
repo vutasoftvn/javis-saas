@@ -38,7 +38,7 @@ export interface SurfacePolicyEntry {
   readonly releaseNote: string | null;
 }
 
-export const SURFACE_POLICY_VERSION = "2026-09-10.1";
+export const SURFACE_POLICY_VERSION = "2026-09-10.2";
 
 export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
   // ── R1 Founder Trial: AVAILABLE ──
@@ -177,6 +177,7 @@ export const FOUNDER_TRIAL_SURFACE_POLICY: readonly SurfacePolicyEntry[] = [
     ["strategy.bsc", "strategy", "bsc", "Balanced Scorecard — R1.2."],
     ["knowledge.vault_rag", "knowledge", "vault_rag", "Vault/RAG retrieval — R3, cần retrieval authorization."],
     ["automation.workflow_builder", "automation", "workflow_builder", "Free workflow builder — R3, cần workflow governance."],
+    ["automation.library", "automation", "library", "COSA Automation MVP — curated blueprint library + Run Inspector. Promoted to PILOT when the automation.* capabilities are enabled and the cross-plane E2E is accepted (Task 10)."],
     ["experience.voice_agent", "experience", "voice_agent", "Voice agent — R3 enterprise."],
     ["agents.domain_orchestration", "agents", "domain_orchestration", "Project Orchestrator + domain agents — sau khi persistent workforce đạt Task 9."],
   ]),

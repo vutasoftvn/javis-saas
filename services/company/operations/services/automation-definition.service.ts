@@ -20,6 +20,7 @@ import {
   type CuratedBlueprint,
   type TriggerKind,
 } from "./automation-blueprint-registry";
+import { assertBlueprintConfigWithinBounds } from "./automation-blueprint.service";
 
 const { automationDefinitions, automationRevisions } = schema;
 
@@ -347,6 +348,7 @@ export async function configureAutomationDefinition(
   if (!blueprint) {
     throw APIError.invalidArgument(`unknown automation blueprint '${params.automationKey}'`);
   }
+  assertBlueprintConfigWithinBounds(params.automationKey, params.configuration);
   validateConfiguration(blueprint, params.configuration);
   validateTriggerContract(blueprint, params.triggerContract);
 

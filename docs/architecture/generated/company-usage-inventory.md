@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 105 | 22 |
 | VALID_KEEP (giữ nguyên) | 110 | 32 |
-| REVIEW (chưa phân loại) | 845 | 200 |
+| REVIEW (chưa phân loại) | 846 | 201 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -224,6 +224,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/domain/runtime-observation.ts | 1 |
 | services/company/operations/handlers/execution-plan.handler.ts | 1 |
 | services/company/operations/handlers/task.handler.ts | 1 |
+| services/company/operations/services/automation-blueprint.service.ts | 1 |
 | services/company/operations/services/workforce-delegation.client.ts | 1 |
 | services/company/operations/services/workforce-eligibility.client.ts | 1 |
 | services/company/operations/strategy/handlers/experiment.handler.ts | 1 |
