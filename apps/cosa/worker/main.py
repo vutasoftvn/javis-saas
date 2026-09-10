@@ -235,7 +235,6 @@ async def _dispatch_wga_task(plane: CosaAgentPlane, task, payload: dict, task_ty
         )
 
 
-
 async def _run_with_heartbeats(
     plane: CosaAgentPlane, run_id: str, lease_token: str, task_id: str, claim_token: str, coro
 ) -> None:

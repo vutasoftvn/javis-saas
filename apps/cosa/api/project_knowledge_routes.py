@@ -113,13 +113,15 @@ async def search_project_knowledge(
             v_doc_id = str(c.document_id)
             v_ver_id = str(c.vault_version_id or "1")
 
-        citations_list.append({
-            "documentId": v_doc_id,
-            "versionId": v_ver_id,
-            "chunkId": str(c.chunk_id),
-            "title": str(c.document_title),
-            "excerpt": str(c.snippet),
-        })
+        citations_list.append(
+            {
+                "documentId": v_doc_id,
+                "versionId": v_ver_id,
+                "chunkId": str(c.chunk_id),
+                "title": str(c.document_title),
+                "excerpt": str(c.snippet),
+            }
+        )
 
     items = [
         {
