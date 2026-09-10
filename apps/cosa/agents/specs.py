@@ -73,7 +73,6 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "strategy.next_best_action.get",
         "strategy.evidence.list",
         "analytics.metric_contract.get",
-        "analytics.pmf_scoreboard.get",
         "knowledge.profile.read",
         "workspace.context.read",
     ],

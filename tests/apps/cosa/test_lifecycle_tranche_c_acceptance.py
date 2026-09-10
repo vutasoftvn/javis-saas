@@ -22,8 +22,8 @@ pytestmark = pytest.mark.integration
 # (Task 4/5/6: marketing, sales, finance, customer-success, operations, growth,
 # strategy, people domains) - 3 duplicate legacy packs retired 2026-08-31
 # (strategy.assumption-discovery, strategy.gate-evaluation, marketing.positioning
-# — content merged into their governed canonical successors) = 114.
-TRANCHE_C_CANONICAL_COUNT = 114
+# — content merged into their governed canonical successors), minus product/outcome-roadmap (framework roadmap surface removed) = 113.
+TRANCHE_C_CANONICAL_COUNT = 113
 
 
 @pytest.fixture

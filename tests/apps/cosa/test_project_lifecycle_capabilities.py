@@ -7,12 +7,10 @@ from apps.cosa.capabilities.project_lifecycle import (
     STRATEGY_PROJECT_GET_SPEC,
     STRATEGY_EVIDENCE_LIST_SPEC,
     STRATEGY_EVIDENCE_CREATE_SPEC,
-    STRATEGY_GATE_EVALUATION_CREATE_SPEC,
     STRATEGY_NEXT_BEST_ACTION_GET_SPEC,
     create_strategy_project_get_handler,
     create_strategy_evidence_list_handler,
     create_strategy_evidence_create_handler,
-    create_strategy_gate_evaluation_create_handler,
     create_strategy_next_best_action_get_handler,
     create_strategy_pilot_create_draft_handler,
     create_strategy_pilot_get_handler,
@@ -101,38 +99,6 @@ async def test_strategy_evidence_create_handler_always_candidate():
     )
     assert res["evidence"]["status"] == "candidate"
     assert res["advisory"]["label"] == "proposal"
-
-
-@pytest.mark.asyncio
-async def test_strategy_gate_evaluation_create_handler():
-    client = AsyncMock()
-    client.post.return_value = {
-        "id": "gate-1",
-        "result": "passed",
-        "requirementsMet": True,
-    }
-
-    handler = create_strategy_gate_evaluation_create_handler(client)
-    res = await handler(
-        {
-            "project_id": "100",
-            "stage_policy_id": "policy-1",
-            "workspace_id": "ws-123",
-        },
-        context=None,
-    )
-
-    client.post.assert_awaited_once_with(
-        "/operations/strategy/gate-evaluations",
-        json={
-            "projectId": "100",
-            "stagePolicyId": "policy-1",
-            "blockingRisks": [],
-        },
-        headers={"X-Workspace-Id": "ws-123"},
-    )
-    assert res["evaluation"]["result"] == "passed"
-    assert res["advisory"]["label"] == "insight"
 
 
 @pytest.mark.asyncio

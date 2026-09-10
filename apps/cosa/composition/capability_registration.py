@@ -90,21 +90,15 @@ from apps.cosa.capabilities.operations_write import (
 )
 from apps.cosa.capabilities.project_lifecycle import (
     ANALYTICS_METRIC_CONTRACT_GET_SPEC,
-    ANALYTICS_PMF_SCOREBOARD_GET_SPEC,
-    ANALYTICS_PMF_SCOREBOARD_PROPOSE_SPEC,
     STRATEGY_EVIDENCE_CREATE_SPEC,
     STRATEGY_EVIDENCE_LIST_SPEC,
-    STRATEGY_GATE_EVALUATION_CREATE_SPEC,
     STRATEGY_NEXT_BEST_ACTION_GET_SPEC,
     STRATEGY_PILOT_CREATE_DRAFT_SPEC,
     STRATEGY_PILOT_GET_SPEC,
     STRATEGY_PROJECT_GET_SPEC,
     create_analytics_metric_contract_get_handler,
-    create_analytics_pmf_scoreboard_get_handler,
-    create_analytics_pmf_scoreboard_propose_handler,
     create_strategy_evidence_create_handler,
     create_strategy_evidence_list_handler,
-    create_strategy_gate_evaluation_create_handler,
     create_strategy_next_best_action_get_handler,
     create_strategy_pilot_create_draft_handler,
     create_strategy_pilot_get_handler,
@@ -116,10 +110,6 @@ from apps.cosa.capabilities.venture_profile import (
     VENTURE_PROFILE_READ_SPEC,
     create_venture_profile_propose_update_handler,
     create_venture_profile_read_handler,
-)
-from apps.cosa.capabilities.venture_stage import (
-    VENTURE_STAGE_ASSESS_SPEC,
-    create_venture_stage_assess_handler,
 )
 from apps.cosa.capabilities.web_search import (
     WEB_SEARCH_SPEC,
@@ -244,10 +234,6 @@ def register_cosa_capabilities(
     cap_registry.register(
         VENTURE_PROFILE_PROPOSE_UPDATE_SPEC, create_venture_profile_propose_update_handler(client)
     )
-    cap_registry.register(
-        VENTURE_STAGE_ASSESS_SPEC,
-        create_venture_stage_assess_handler(client),
-    )
 
     # Strategy
     cap_registry.register(
@@ -261,10 +247,6 @@ def register_cosa_capabilities(
     cap_registry.register(
         STRATEGY_EVIDENCE_CREATE_SPEC,
         create_strategy_evidence_create_handler(client),
-    )
-    cap_registry.register(
-        STRATEGY_GATE_EVALUATION_CREATE_SPEC,
-        create_strategy_gate_evaluation_create_handler(client),
     )
     cap_registry.register(
         STRATEGY_NEXT_BEST_ACTION_GET_SPEC,
@@ -283,14 +265,6 @@ def register_cosa_capabilities(
     cap_registry.register(
         ANALYTICS_METRIC_CONTRACT_GET_SPEC,
         create_analytics_metric_contract_get_handler(client),
-    )
-    cap_registry.register(
-        ANALYTICS_PMF_SCOREBOARD_GET_SPEC,
-        create_analytics_pmf_scoreboard_get_handler(client),
-    )
-    cap_registry.register(
-        ANALYTICS_PMF_SCOREBOARD_PROPOSE_SPEC,
-        create_analytics_pmf_scoreboard_propose_handler(client),
     )
 
     # Web Search

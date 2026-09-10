@@ -117,7 +117,7 @@ class WorkspaceContextOperation:
 
     `business` hiện CHỈ gồm `tasks` (từ `operations.task.list`, workspace-
     scoped). Các capability strategy/analytics khác (`strategy.next_best_
-    action.get`, `strategy.project.get`, `analytics.pmf_scoreboard.get`...)
+    action.get`, `strategy.project.get`...)
     ĐỀU yêu cầu `project_id` cụ thể — `workspaceContext` chỉ nhận `question`+
     workspace, không có project nào được chọn sẵn, và tự đoán "project đầu
     tiên/chính" sẽ suy diễn sai khi workspace có nhiều project. Cố tình KHÔNG

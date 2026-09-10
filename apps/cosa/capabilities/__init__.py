@@ -36,12 +36,10 @@ from apps.cosa.capabilities.operations_write import (
 from apps.cosa.capabilities.project_lifecycle import (
     STRATEGY_EVIDENCE_CREATE_SPEC,
     STRATEGY_EVIDENCE_LIST_SPEC,
-    STRATEGY_GATE_EVALUATION_CREATE_SPEC,
     STRATEGY_NEXT_BEST_ACTION_GET_SPEC,
     STRATEGY_PROJECT_GET_SPEC,
     create_strategy_evidence_create_handler,
     create_strategy_evidence_list_handler,
-    create_strategy_gate_evaluation_create_handler,
     create_strategy_next_best_action_get_handler,
     create_strategy_project_get_handler,
 )
@@ -50,10 +48,6 @@ from apps.cosa.capabilities.venture_profile import (
     VENTURE_PROFILE_READ_SPEC,
     create_venture_profile_propose_update_handler,
     create_venture_profile_read_handler,
-)
-from apps.cosa.capabilities.venture_stage import (
-    VENTURE_STAGE_ASSESS_SPEC,
-    create_venture_stage_assess_handler,
 )
 
 __all__ = [
@@ -68,12 +62,10 @@ __all__ = [
     "OPERATIONS_TASK_READ_SPEC",
     "STRATEGY_EVIDENCE_CREATE_SPEC",
     "STRATEGY_EVIDENCE_LIST_SPEC",
-    "STRATEGY_GATE_EVALUATION_CREATE_SPEC",
     "STRATEGY_NEXT_BEST_ACTION_GET_SPEC",
     "STRATEGY_PROJECT_GET_SPEC",
     "VENTURE_PROFILE_PROPOSE_UPDATE_SPEC",
     "VENTURE_PROFILE_READ_SPEC",
-    "VENTURE_STAGE_ASSESS_SPEC",
     "CompanyServiceClient",
     "CompanyServiceError",
     "create_engagement_assignment_write_handler",
@@ -87,10 +79,8 @@ __all__ = [
     "create_operations_task_read_handler",
     "create_strategy_evidence_create_handler",
     "create_strategy_evidence_list_handler",
-    "create_strategy_gate_evaluation_create_handler",
     "create_strategy_next_best_action_get_handler",
     "create_strategy_project_get_handler",
     "create_venture_profile_propose_update_handler",
     "create_venture_profile_read_handler",
-    "create_venture_stage_assess_handler",
 ]

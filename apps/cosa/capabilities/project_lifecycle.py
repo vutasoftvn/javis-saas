@@ -10,21 +10,15 @@ from apps.cosa.capabilities.client import CompanyServiceClient
 
 __all__ = [
     "ANALYTICS_METRIC_CONTRACT_GET_SPEC",
-    "ANALYTICS_PMF_SCOREBOARD_GET_SPEC",
-    "ANALYTICS_PMF_SCOREBOARD_PROPOSE_SPEC",
     "STRATEGY_EVIDENCE_CREATE_SPEC",
     "STRATEGY_EVIDENCE_LIST_SPEC",
-    "STRATEGY_GATE_EVALUATION_CREATE_SPEC",
     "STRATEGY_NEXT_BEST_ACTION_GET_SPEC",
     "STRATEGY_PILOT_CREATE_DRAFT_SPEC",
     "STRATEGY_PILOT_GET_SPEC",
     "STRATEGY_PROJECT_GET_SPEC",
     "create_analytics_metric_contract_get_handler",
-    "create_analytics_pmf_scoreboard_get_handler",
-    "create_analytics_pmf_scoreboard_propose_handler",
     "create_strategy_evidence_create_handler",
     "create_strategy_evidence_list_handler",
-    "create_strategy_gate_evaluation_create_handler",
     "create_strategy_next_best_action_get_handler",
     "create_strategy_pilot_create_draft_handler",
     "create_strategy_pilot_get_handler",
@@ -120,29 +114,6 @@ STRATEGY_EVIDENCE_CREATE_SPEC = CapabilitySpec(
         "type": "object",
         "properties": {
             "evidence": {"type": "object"},
-            "advisory": {"type": "object"},
-        },
-    },
-)
-
-STRATEGY_GATE_EVALUATION_CREATE_SPEC = CapabilitySpec(
-    id="strategy.gate_evaluation.create",
-    description="Thực hiện đánh giá gate khuyến nghị (recommendation-only) theo stage policy của dự án.",
-    risk=CapabilityRisk.LOW,
-    input_schema={
-        "type": "object",
-        "required": ["project_id", "stage_policy_id"],
-        "properties": {
-            "workspace_id": {"type": ["string", "integer"]},
-            "project_id": {"type": ["string", "integer"]},
-            "stage_policy_id": {"type": ["string", "integer"]},
-            "blocking_risks": {"type": "array"},
-        },
-    },
-    output_schema={
-        "type": "object",
-        "properties": {
-            "evaluation": {"type": "object"},
             "advisory": {"type": "object"},
         },
     },
@@ -326,44 +297,6 @@ def create_strategy_evidence_create_handler(client: CompanyServiceClient):
     return handler
 
 
-def create_strategy_gate_evaluation_create_handler(client: CompanyServiceClient):
-    async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
-        ws_id = _extract_workspace_id(payload, context)
-        headers = {"X-Workspace-Id": ws_id}
-
-        post_body = {
-            "projectId": str(payload["project_id"]),
-            "stagePolicyId": str(payload["stage_policy_id"]),
-            "blockingRisks": payload.get("blocking_risks", []),
-        }
-
-        res = await client.post(
-            "/operations/strategy/gate-evaluations",
-            json=post_body,
-            headers=headers,
-        )
-
-        result_status = res.get("result", "pending")
-        req_met = res.get("requirementsMet", False)
-
-        advisory = wrap_advisory(
-            layer="CURRENT_LAW",
-            label="insight",
-            content=(
-                f"Đánh giá gate khuyến nghị cho project {payload['project_id']}: "
-                f"Kết quả: {result_status}, Yêu cầu đạt: {req_met}. "
-                "Lưu ý: Đánh giá gate chỉ mang tính khuyến nghị, không tự động chuyển giai đoạn."
-            ),
-            sources=[{"source": f"gate_eval:{res.get('id', '')}"}],
-            confidence=1.0,
-            next_actions=["Chuyển giai đoạn chính thức qua endpoint transition nếu đạt điều kiện"],
-        )
-
-        return {"evaluation": res, "advisory": advisory}
-
-    return handler
-
-
 def create_strategy_next_best_action_get_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         ws_id = _extract_workspace_id(payload, context)
@@ -492,50 +425,6 @@ ANALYTICS_METRIC_CONTRACT_GET_SPEC = CapabilitySpec(
     },
 )
 
-ANALYTICS_PMF_SCOREBOARD_GET_SPEC = CapabilitySpec(
-    id="analytics.pmf_scoreboard.get",
-    description="Lấy kết quả tính toán PMF scoreboard và các thành phần dữ liệu của dự án.",
-    risk=CapabilityRisk.LOW,
-    input_schema={
-        "type": "object",
-        "properties": {
-            "workspace_id": {"type": ["string", "integer"]},
-            "project_id": {"type": ["string", "integer"]},
-            "run_id": {"type": ["string", "integer"]},
-        },
-    },
-    output_schema={
-        "type": "object",
-        "properties": {
-            "runs": {"type": "array"},
-            "run": {"type": "object"},
-            "advisory": {"type": "object"},
-        },
-    },
-)
-
-ANALYTICS_PMF_SCOREBOARD_PROPOSE_SPEC = CapabilitySpec(
-    id="analytics.pmf_scoreboard.propose",
-    description="Đề xuất bản ghi tổng hợp PMF advisory memo (ACTION / DECISION / LEARN) dựa trên các run đã tính toán trong Company Services.",
-    risk=CapabilityRisk.LOW,
-    input_schema={
-        "type": "object",
-        "required": ["project_id"],
-        "properties": {
-            "workspace_id": {"type": ["string", "integer"]},
-            "project_id": {"type": ["string", "integer"]},
-        },
-    },
-    output_schema={
-        "type": "object",
-        "properties": {
-            "classification": {"type": "string"},
-            "memo": {"type": "object"},
-            "advisory": {"type": "object"},
-        },
-    },
-)
-
 
 def create_analytics_metric_contract_get_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
@@ -576,125 +465,5 @@ def create_analytics_metric_contract_get_handler(client: CompanyServiceClient):
         )
 
         return {"contracts": items, "items": items, "advisory": advisory}
-
-    return handler
-
-
-def create_analytics_pmf_scoreboard_get_handler(client: CompanyServiceClient):
-    async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
-        ws_id = _extract_workspace_id(payload, context)
-        headers = {"X-Workspace-Id": ws_id}
-
-        if payload.get("run_id"):
-            run_id = str(payload["run_id"])
-            res = await client.get(
-                f"/operations/strategy/pmf-scoreboards/{run_id}", headers=headers
-            )
-            advisory = wrap_advisory(
-                layer="CURRENT_LAW",
-                label="insight",
-                content=f"PMF Scoreboard Run {run_id} (Kết quả: {res.get('result', 'unknown')}).",
-                sources=[{"source": f"pmf_run:{run_id}"}],
-                confidence=1.0,
-                next_actions=[],
-            )
-            return {"run": res, "advisory": advisory}
-
-        params: dict[str, Any] = {}
-        if payload.get("project_id"):
-            params["projectId"] = str(payload["project_id"])
-
-        res = await client.get(
-            "/operations/strategy/pmf-scoreboards", params=params, headers=headers
-        )
-        items = res.get("items", []) if isinstance(res, dict) else []
-
-        advisory = wrap_advisory(
-            layer="CURRENT_LAW",
-            label="insight",
-            content=f"Tìm thấy {len(items)} PMF scoreboard runs.",
-            sources=[{"source": "pmf_scoreboards_list"}],
-            confidence=1.0,
-            next_actions=[],
-        )
-
-        return {"runs": items, "items": items, "advisory": advisory}
-
-    return handler
-
-
-def create_analytics_pmf_scoreboard_propose_handler(client: CompanyServiceClient):
-    async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
-        ws_id = _extract_workspace_id(payload, context)
-        headers = {"X-Workspace-Id": ws_id}
-        project_id = str(payload["project_id"])
-
-        res = await client.get(
-            "/operations/strategy/pmf-scoreboards",
-            params={"projectId": project_id},
-            headers=headers,
-        )
-        items = res.get("items", []) if isinstance(res, dict) else []
-
-        memo: dict[str, Any]
-        if not items:
-            classification = "INSUFFICIENT_DATA"
-            memo = {
-                "action": "Thu thập thêm dữ liệu telemetry từ pilot và chuẩn bị metric contract",
-                "decision": "Chưa đủ dữ liệu để đánh giá PMF",
-                "learn": "Dự án chưa có PMF scoreboard run nào được tính toán từ dữ liệu thực tế",
-                "source_ids": [],
-                "human_owner": "Founder / Product DRI",
-            }
-        else:
-            latest_run = items[0]
-            classification = latest_run.get("result", "MIXED")
-            missing = latest_run.get("missingDataFlags", [])
-            reliability = latest_run.get("reliabilityFlags", [])
-
-            if classification == "PROMISING":
-                action = "Chuẩn bị tài liệu G4 Gate Review và tổng hợp feedback định tính"
-                decision = (
-                    "Tín hiệu PMF khả quan (PROMISING) — đề xuất tiếp tục mở rộng cohort thử nghiệm"
-                )
-            elif classification == "CONCERNING":
-                action = "Tổ chức phiên họp Pivot/Persevere để rà soát lại ICP và bài toán cốt lõi"
-                decision = (
-                    "Tín hiệu PMF có rủi ro (CONCERNING) — không khuyến nghị mở rộng chi tiêu GTM"
-                )
-            elif classification == "INSUFFICIENT_DATA":
-                action = "Bổ sung các snapshot telemetry còn thiếu để hoàn thiện bảng điểm"
-                decision = "Dữ liệu chưa hoàn thiện"
-            else:
-                action = "Phân tích sâu các chỉ số trái chiều giữa retention và phản hồi khách hàng"
-                decision = "Kết quả hỗn hợp (MIXED) — cần thêm chu kỳ thử nghiệm"
-
-            memo = {
-                "action": action,
-                "decision": decision,
-                "learn": f"Phân tích từ run ID {latest_run.get('id', '')} (Hash: {latest_run.get('calculationHash', '')[:12]}...). Missing: {missing}, Reliability flags: {reliability}",
-                "source_ids": latest_run.get("inputSnapshotIds", []),
-                "human_owner": "Founder / Product DRI",
-            }
-
-        advisory = wrap_advisory(
-            layer="CURRENT_LAW",
-            label="proposal",
-            content=f"Đề xuất PMF Advisory Memo cho project {project_id}: Phân loại [{classification}].",
-            sources=[{"source": f"pmf_proposal:{project_id}"}],
-            confidence=0.95,
-            next_actions=[memo["action"]],
-        )
-
-        return {
-            "status": "completed",
-            "output_payload": {
-                "classification": classification,
-                "memo": memo,
-            },
-            "classification": classification,
-            "memo": memo,
-            "advisory": advisory,
-        }
 
     return handler
