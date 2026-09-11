@@ -836,3 +836,58 @@ export const projectAgentAssignmentEvents = operatingSchema.table("project_agent
   idxAssignmentOccurred: index("idx_project_agent_assignment_events_assignment").on(t.assignmentId, t.occurredAt),
 }));
 
+export const projectExecutiveBoardSettings = operatingSchema.table("project_executive_board_settings", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  presetKey: varchar("preset_key", { length: 64 }).notNull(),
+  version: integer("version").default(1).notNull(),
+  selectedBy: bigint("selected_by", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pkWsProj: primaryKey({ columns: [t.workspaceId, t.projectId] }),
+  fkProject: foreignKey({
+    columns: [t.projectId, t.workspaceId],
+    foreignColumns: [projects.id, projects.workspaceId],
+    name: "fk_project_executive_board_settings_proj_ws",
+  }).onDelete("cascade"),
+}));
+
+export const projectExecutiveRoleActivations = operatingSchema.table("project_executive_role_activations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  roleKey: varchar("role_key", { length: 64 }).notNull(),
+  state: varchar("state", { length: 32 }).notNull(), // 'ACTIVE' | 'DISABLED'
+  activationSource: varchar("activation_source", { length: 64 }).notNull(), // 'STARTUP_CORE_PRESET' | 'FOUNDER'
+  version: integer("version").default(1).notNull(),
+  actorId: bigint("actor_id", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixWsProjRole: uniqueIndex("uix_project_executive_role_activations_ws_proj_role").on(t.workspaceId, t.projectId, t.roleKey),
+  fkProject: foreignKey({
+    columns: [t.projectId, t.workspaceId],
+    foreignColumns: [projects.id, projects.workspaceId],
+    name: "fk_project_executive_role_activations_proj_ws",
+  }).onDelete("cascade"),
+  idxWsProj: index("idx_project_executive_role_activations_proj").on(t.workspaceId, t.projectId),
+}));
+
+export const projectExecutiveRoleActivationEvents = operatingSchema.table("project_executive_role_activation_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  roleKey: varchar("role_key", { length: 64 }).notNull(),
+  activationId: bigint("activation_id", { mode: "bigint" }).notNull().references(() => projectExecutiveRoleActivations.id, { onDelete: "cascade" }),
+  fromState: varchar("from_state", { length: 32 }),
+  toState: varchar("to_state", { length: 32 }).notNull(),
+  actorId: bigint("actor_id", { mode: "bigint" }).notNull(),
+  version: integer("version").notNull(),
+  payload: jsonb("payload").default({}).notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  idxActivationOccurred: index("idx_project_exec_role_act_events_act").on(t.activationId, t.occurredAt),
+}));
+
+
