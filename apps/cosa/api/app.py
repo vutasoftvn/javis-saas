@@ -19,6 +19,7 @@ from apps.cosa.api.graphql_routes import router as graphql_router
 from apps.cosa.api.kickoff_suggestion_routes import create_kickoff_suggestion_router
 from apps.cosa.api.knowledge_routes import create_knowledge_router
 from apps.cosa.api.model_policy_routes import create_model_policy_router
+from apps.cosa.api.project_activity_routes import create_project_activity_router
 from apps.cosa.api.project_knowledge_routes import create_project_knowledge_router
 from apps.cosa.api.routes import router
 from apps.cosa.api.schedule_routes import create_schedule_router
@@ -208,6 +209,7 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     app.include_router(create_conversation_router())
     app.include_router(create_knowledge_router())
     app.include_router(create_project_knowledge_router())
+    app.include_router(create_project_activity_router())
     app.include_router(create_connector_router())
     app.include_router(create_schedule_router())
     app.include_router(workforce_router)

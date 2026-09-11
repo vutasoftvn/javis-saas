@@ -16,6 +16,7 @@ from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent.artifacts import InMemoryArtifactRepository
 from agent.workforce.repository import InMemoryWorkforceRepository
 from agent.vault.repository import InMemoryVaultRepository
+from agent.project_activity.repository import InMemoryProjectActivityRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 
 
@@ -33,6 +34,7 @@ def test_all_expected_routes_are_registered():
         artifact_repository=InMemoryArtifactRepository(),
         workforce_repository=InMemoryWorkforceRepository(),
         vault_repository=InMemoryVaultRepository(),
+        project_activity_repository=InMemoryProjectActivityRepository(),
         model=FakeSDKModel(),
     )
     app = create_cosa_app(plane)
@@ -45,3 +47,6 @@ def test_all_expected_routes_are_registered():
     assert "/agent/vault/documents" in routes
     assert "/agent/workforce/runs" in routes
     assert "/agent/settings/skills" in routes
+    assert "/agent/projects/{project_id}/activity" in routes
+    assert "/agent/projects/{project_id}/activity/{event_id}" in routes
+    assert "/agent/projects/{project_id}/activity/stream" in routes

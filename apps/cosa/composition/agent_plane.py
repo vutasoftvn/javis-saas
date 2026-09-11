@@ -98,6 +98,7 @@ class CosaAgentPlane:
         model_provider_factory: Any | None = None,
         model_routing_session_factory: Any | None = None,
         model_routing_repository: Any | None = None,
+        project_activity_repository: ProjectActivityRepository | None = None,
         project_activity_service: ProjectActivityService | None = None,
     ) -> None:
         self.repository = repository
@@ -164,6 +165,12 @@ class CosaAgentPlane:
         self.model_provider_factory = model_provider_factory
         self.model_routing_session_factory = model_routing_session_factory
         self.model_routing_repository = model_routing_repository
+
+        # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — durable
+        # Project Activity repository, dùng bởi project_activity_routes.py
+        # (list/detail/stream endpoints) để query durable activity events.
+        # Cũng được inject vào ProjectActivityService — None-safe.
+        self.project_activity_repository = project_activity_repository
 
         # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — durable
         # Project Activity projection service, dùng bởi conversation_routes.py
@@ -450,5 +457,6 @@ def build_cosa_agent_plane(
         model_route_resolver=resolved_model_route_resolver,
         model_routing_session_factory=storage.model_routing_session_factory,
         model_routing_repository=storage.model_routing_repository,
+        project_activity_repository=storage.project_activity_repository,
         project_activity_service=resolved_project_activity_service,
     )

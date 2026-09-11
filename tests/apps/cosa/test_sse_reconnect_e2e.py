@@ -150,3 +150,106 @@ def test_sse_reconnect_survives_process_restart(postgres_dsn, run_id_with_events
     # Verify no duplicates — resumed_ids should not contain any IDs we already saw
     overlap = set(first_events) & set(resumed_ids)
     assert len(overlap) == 0, f"Resumed stream should not duplicate events: overlap={overlap}"
+
+
+@pytest.mark.integration
+def test_project_activity_stream_reconnect_survives_process_restart(postgres_dsn, project_id_with_activity):
+    """E2E test: Project Activity SSE reconnect via Last-Event-ID after API process restart.
+
+    Proves Project Activity stream (not per-run stream):
+    1. Can stream project activity events from durable repository
+    2. Survives API process restart
+    3. Reconnects with Last-Event-ID and resumes exactly, no duplicates/gaps
+    """
+    env = {**os.environ}
+    if postgres_dsn:
+        env["AGENT_DATABASE_URL"] = postgres_dsn
+    else:
+        pytest.skip("postgres_dsn fixture failed")
+
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    pythonpath = f"{repo_root}:{repo_root}/packages:{repo_root}/apps"
+    if "PYTHONPATH" in env:
+        pythonpath = f"{pythonpath}:{env['PYTHONPATH']}"
+    env["PYTHONPATH"] = pythonpath
+
+    # --- Phase 1: Start first uvicorn process and read initial activity ---
+    proc1 = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "apps.cosa.api.test_main:app", "--port", "8092"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    pid1 = proc1.pid
+    _wait_for_uvicorn_ready(8092)
+
+    first_sequences = []
+    last_seq_after_phase1 = None
+
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            with client.stream(
+                "GET",
+                f"http://127.0.0.1:8092/agent/projects/{project_id_with_activity}/activity/stream",
+            ) as r:
+                for line in r.iter_lines():
+                    if line.startswith("id:"):
+                        seq = line.split(":", 1)[1].strip()
+                        first_sequences.append(seq)
+                        last_seq_after_phase1 = seq
+                    # Collect at least 2 events before closing
+                    if len(first_sequences) >= 2:
+                        break
+    finally:
+        proc1.send_signal(signal.SIGKILL)
+        proc1.wait(timeout=5)
+
+    assert len(first_sequences) >= 2, f"Expected at least 2 project activity events, got {len(first_sequences)}"
+    assert last_seq_after_phase1 is not None, "Should have collected at least one sequence ID"
+
+    # --- Phase 2: Restart and reconnect with Last-Event-ID ---
+    proc2 = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "apps.cosa.api.test_main:app", "--port", "8092"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    pid2 = proc2.pid
+    _wait_for_uvicorn_ready(8092)
+
+    resumed_sequences = []
+
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            headers = {"Last-Event-ID": last_seq_after_phase1}
+            with client.stream(
+                "GET",
+                f"http://127.0.0.1:8092/agent/projects/{project_id_with_activity}/activity/stream",
+                headers=headers,
+            ) as r:
+                for line in r.iter_lines():
+                    if line.startswith("id:"):
+                        seq = line.split(":", 1)[1].strip()
+                        resumed_sequences.append(seq)
+                    # Collect at least 1 resumed event
+                    if len(resumed_sequences) >= 1:
+                        break
+    finally:
+        proc2.send_signal(signal.SIGKILL)
+        proc2.wait(timeout=5)
+
+    # --- Verification ---
+    assert pid1 != pid2, f"Process PIDs should differ: pid1={pid1}, pid2={pid2}"
+    assert len(resumed_sequences) >= 1, f"Expected at least 1 resumed event, got {len(resumed_sequences)}"
+
+    # Resumed stream should continue after last_seq_after_phase1
+    last_seen = int(last_seq_after_phase1)
+    resumed_first = int(resumed_sequences[0])
+    assert resumed_first > last_seen, (
+        f"Resumed project activity stream should continue after last seen: "
+        f"last_seen={last_seen}, resumed={resumed_first}"
+    )
+
+    # No duplicates
+    overlap = set(first_sequences) & set(resumed_sequences)
+    assert len(overlap) == 0, f"Resumed stream should not duplicate: overlap={overlap}"

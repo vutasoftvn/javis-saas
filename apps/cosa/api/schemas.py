@@ -26,6 +26,9 @@ __all__ = [
     "MessageCreate",
     "MessageDataAccess",
     "MessageResponse",
+    "ProjectActivityEventDTO",
+    "ProjectActivityDetailDTO",
+    "ProjectActivityListResponse",
     "ReviewKnowledgeIngestionRequest",
     "ReviewKnowledgeIngestionResponse",
     "RevokeGrantRequest",
@@ -376,3 +379,65 @@ class ReviewKnowledgeIngestionResponse(BaseModel):
     state: str
     decision: Literal["publish_reference", "reject"]
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ProjectActivityEventDTO(BaseModel):
+    """Activity Feed list item — durable, redacted, safe để hiển thị timeline.
+
+    Mỗi row tương ứng 1 ProjectActivityEventRecord từ repository.
+    """
+    event_id: str
+    workspace_id: str
+    project_id: str
+    project_sequence: int
+    kind: str  # "run.queued", "chat.accepted", "approval.resolved", v.v.
+    phase: str  # "runtime", "business_decision", v.v.
+    status: str  # "accepted", "pending", "completed", v.v.
+    actor_kind: str  # "human", "ai", "system"
+    actor_id: str
+    correlation_id: str | None = None
+    source_type: str  # "run", "conversation", "task", "decision", v.v.
+    source_id: str
+    source_version: str  # version hash để audit
+    summary: dict[str, Any] = Field(default_factory=dict)  # Redacted, allowlisted
+    classification: str  # "internal", "restricted", v.v.
+    payload_hash: str  # SHA256 tham chiếu, không payload thô
+    integrity_hash: str | None = None  # Audit trail
+    occurred_at: datetime
+    recorded_at: datetime
+
+
+class ProjectActivityDetailDTO(BaseModel):
+    """Activity Feed detail — khi click 1 row, inspector bỏ tương ứng.
+
+    Rechecks source visibility, trả only redacted metadata khi source bị restrict
+    hoặc không tồn tại. KHÔNG bao giờ trả raw source object.
+    """
+    event_id: str
+    workspace_id: str
+    project_id: str
+    project_sequence: int
+    kind: str
+    phase: str
+    status: str
+    actor_kind: str
+    actor_id: str
+    correlation_id: str | None = None
+    source_type: str  # "run", "task", "decision", v.v.
+    source_id: str
+    source_version: str
+    source_reference: dict[str, Any] | None = None  # Typed ref, not raw object
+    source_visibility: str = "full"  # "full", "redacted", "unavailable"
+    summary: dict[str, Any] = Field(default_factory=dict)
+    classification: str
+    payload_hash: str
+    integrity_hash: str | None = None
+    occurred_at: datetime
+    recorded_at: datetime
+
+
+class ProjectActivityListResponse(BaseModel):
+    """Response to list project activity — paginated, filtered by sequence."""
+    items: list[ProjectActivityEventDTO] = Field(default_factory=list)
+    total: int = 0
+    next_cursor: int | None = None  # after_project_sequence để continue
