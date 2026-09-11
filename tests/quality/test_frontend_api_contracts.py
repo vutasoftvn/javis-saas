@@ -169,3 +169,43 @@ def test_wildcard_allowlist_entry_still_covers_its_real_scoped_file(tmp_path: Pa
     source.write_text("await ApiClient.get('$path${separator}workspace_id=$id');")
     result = run_checker(tmp_path)
     assert result.returncode == 0
+
+
+def test_hub_endpoint_literals_carry_project_id() -> None:
+    """Release guard: Verify Founder Hub endpoints in Flutter explicitly carry project_id.
+
+    This prevents Project-wide mode confusion and ensures typed contracts pass
+    project_id down to every Hub command.
+    """
+    manifest = json.loads(MANIFEST.read_text())
+    capabilities = manifest.get("capabilities", [])
+
+    # Hub capabilities that create/read conversation/message/project_activity
+    hub_capabilities = [
+        cap for cap in capabilities
+        if any(
+            topic in cap.get("id", "")
+            for topic in ("conversation", "project_activity")
+        )
+    ]
+
+    assert hub_capabilities, "Should have Hub capabilities (conversation, project_activity) to check"
+
+    for cap in hub_capabilities:
+        cap_id = cap.get("id", "")
+        # Every Hub capability must require project
+        assert cap.get("requires_project") is True, (
+            f"Hub capability {cap_id} must require project; it creates/manages "
+            "scoped artifacts"
+        )
+        # Every Hub capability must require workspace
+        assert cap.get("requires_workspace") is True, (
+            f"Hub capability {cap_id} must require workspace for tenancy"
+        )
+        # Every Hub path must have :projectId or :project_id or /projects/
+        path = cap.get("path", "")
+        assert (
+            ":projectId" in path or ":project_id" in path or "/projects/" in path
+        ), (
+            f"Hub capability {cap_id} path must include project context: {path}"
+        )

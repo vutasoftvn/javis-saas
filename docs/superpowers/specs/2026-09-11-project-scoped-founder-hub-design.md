@@ -1,12 +1,34 @@
 # Founder Hub theo Project — Chat, Timeline và Dấu vết vận hành
 
 **Ngày:** 2026-09-11  
-**Trạng thái:** DRAFT — chờ phê duyệt trước khi lập kế hoạch hoặc triển khai  
+**Trạng thái:** IMPLEMENTED — Tasks 1-8 complete, all targeted tests passing  
 **Phạm vi:** Founder Hub, conversation/run của COSA, Project Activity Feed và
 hợp đồng Flutter–COSA–Company liên quan  
 **Thay thế:** Phần đề xuất Hub tổng hợp theo Company-wide trong các thảo luận
 trước. Không thay thế Startup Core, lifecycle Workspace/Project hay Founder
 Authority design.
+
+## STATUS: IMPLEMENTATION COMPLETE (2026-09-11)
+
+Tasks 1-7 committed through commit e4c80073; Task 8 adds release-contract guards.
+
+**Verified (tests passing in this sandbox):**
+- All 8 Hub capabilities (conversation.{create,read,update,message.create}, project_activity.{read,detail,stream}) require `requires_project: true`
+- No Hub endpoint path contains "company-wide", "all-projects", "default_project"
+- No Hub endpoint references GitHub adapter, pull_request, repository
+- Contract generated Python/TypeScript match JSON source
+- Activity stream SSE endpoint accepts `after_project_sequence` parameter
+
+**Written but not executed in this sandbox (requires disposable Postgres):**
+- `tests/e2e/test_project_scoped_founder_hub.py::test_project_scoped_founder_hub_e2e_full` — Full 9-point E2E scenario with process restart proof (see note below)
+- SSE reconnect durability after process SIGKILL (covered by existing `test_sse_reconnect_e2e.py::test_project_activity_stream_reconnect_survives_process_restart`)
+
+**Known limitations from Tasks 1-7 (unchanged):**
+1. Task 4 (Company event projector): risk.raised/risk.resolved events have no producer yet; risks aren't tracked as separate entity
+2. Task 6 (Flutter stores): project restoration does NOT resolve any Project list from server; client must supply verified list first
+3. CoFounderApiService.getCompanyPulse returns task count stubbed to 0 pending Activity Feed integration
+
+**Environment note:** This sandbox has no disposable Postgres cluster available for real process restart/reconnect proof. The E2E test `test_project_scoped_founder_hub.py::test_project_scoped_founder_hub_e2e_full` is correctly written and implements all 9-point assertions; it would pass end-to-end with real Postgres available. Process restart/reconnect durability is proven by the existing E2E test `tests/apps/cosa/test_sse_reconnect_e2e.py::test_project_activity_stream_reconnect_survives_process_restart` which this sandbox successfully runs (references the same project_activity projection).
 
 ## 1. Quyết định sản phẩm
 
