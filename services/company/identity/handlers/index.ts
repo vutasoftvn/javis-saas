@@ -8,3 +8,4 @@ export * from "./tenant-context.handler";
 export * from "./e2e-session.handler";
 export * from "./business-policy.handler";
 export * from "./permissions.handler";
+export * from "./agent-authorization.handler";
