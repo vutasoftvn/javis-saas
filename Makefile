@@ -150,10 +150,12 @@ check-docs:
 contracts-gen:            ## Sinh mã enum canonical cho 3 runtime từ shared/contracts/enums.json
 	node scripts/gen-contracts.mjs
 	node scripts/gen-startup-team-profiles.mjs
+	node scripts/gen-executive-advisor-roles.mjs
 
 contracts-check:          ## CI: fail nếu mã enum generated lệch nguồn
 	node scripts/gen-contracts.mjs --check
 	node scripts/gen-startup-team-profiles.mjs --check
+	node scripts/gen-executive-advisor-roles.mjs --check
 
 startup-team-profiles-gen: ## Sinh mã startup team catalog cho TS và Python từ shared/contracts/startup-team-profiles.json
 	node scripts/gen-startup-team-profiles.mjs
