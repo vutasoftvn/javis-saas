@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { createTestWorkspaceWithMember } from "../../operations/tests/_helpers";
 import { db } from "../models/db";
 import {
@@ -15,7 +15,11 @@ import { randomUUID } from "node:crypto";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
 import { updatePermissionsService, getPermissionsService } from "../services/permissions.service";
-import { requireFounderAuthorization } from "../services/authorization.service";
+import {
+  requireFounderAuthorization,
+  transitionWorkspaceAuthorizationMode,
+  validateWorkspaceAuthorizationPreflight,
+} from "../services/authorization.service";
 
 async function seedEnforcedAuthorityWorkspace() {
   const ws = await createTestWorkspaceWithMember({ role: "founder" });
@@ -217,4 +221,60 @@ describe("founder-only authority guard and audit lifecycle", () => {
       .where(eq(coreWorkspaceAuthorizationStates.workspaceId, wsId));
     expect(state.authorizationEpoch).toBe(2);
   });
+
+  it("validateWorkspaceAuthorizationPreflight returns clean for preflight-clean workspace", async () => {
+    const { workspaceId } = await seedEnforcedAuthorityWorkspace();
+    const result = await validateWorkspaceAuthorizationPreflight(workspaceId);
+    expect(result.clean).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it("transitionWorkspaceAuthorizationMode moves workspace to ENFORCED, advances epoch and logs event", async () => {
+    const { founderCtx, cofounderCtx, workspaceId } = await seedEnforcedAuthorityWorkspace();
+    const wsId = BigInt(workspaceId);
+
+    // Set to SHADOW first
+    await db
+      .update(coreWorkspaceAuthorizationStates)
+      .set({ enforcementMode: "SHADOW" })
+      .where(eq(coreWorkspaceAuthorizationStates.workspaceId, wsId));
+
+    // Non-founder / cofounder is rejected
+    await expect(
+      transitionWorkspaceAuthorizationMode(cofounderCtx, {
+        targetMode: "ENFORCED",
+        reason: "Cutover to enforced mode",
+      })
+    ).rejects.toThrow(/FOUNDER_AUTHORITY_REQUIRED/);
+
+    // Founder succeeds
+    const transition = await transitionWorkspaceAuthorizationMode(founderCtx, {
+      targetMode: "ENFORCED",
+      reason: "Founder confirmed cutover",
+    });
+
+    expect(transition.mode).toBe("ENFORCED");
+    expect(transition.epoch).toBeGreaterThanOrEqual(2);
+
+    // Check state updated
+    const [state] = await db
+      .select()
+      .from(coreWorkspaceAuthorizationStates)
+      .where(eq(coreWorkspaceAuthorizationStates.workspaceId, wsId));
+    expect(state.enforcementMode).toBe("ENFORCED");
+
+    // Check audit event
+    const events = await db
+      .select()
+      .from(coreAuthorizationEvents)
+      .where(
+        and(
+          eq(coreAuthorizationEvents.workspaceId, wsId),
+          eq(coreAuthorizationEvents.eventType, "AUTHORIZATION_MODE_TRANSITIONED")
+        )
+      );
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0].reason).toBe("Founder confirmed cutover");
+  });
 });
+

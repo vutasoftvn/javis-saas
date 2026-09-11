@@ -48,9 +48,34 @@ export const getAuthorizationOverviewEndpoint = api(
   }
 );
 
+export interface GrantAgentCapabilityResponse {
+  grantId: string;
+  workspaceId: string;
+  agentWorkforceMemberId: string;
+  capabilityId: string;
+  status: string;
+  authorizationEpoch: number;
+}
+
+export interface RevokeAgentCapabilityResponse {
+  grantId: string;
+  status: string;
+  revokedAt: string | Date;
+  authorizationEpoch: number;
+}
+
+export interface SimulateAgentAuthorizationResponse {
+  decision: string;
+  effect: string;
+  reasonCodes: string[];
+  riskClass: string;
+  grantId?: string;
+  approvalRequired: boolean;
+}
+
 export const createAgentCapabilityGrantEndpoint = api(
   { method: "POST", path: "/identity/agent-capability-grants", expose: true },
-  async (req: GrantAgentCapabilityApiRequest) => {
+  async (req: GrantAgentCapabilityApiRequest): Promise<GrantAgentCapabilityResponse> => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return grantAgentCapability(ctx, {
       workspaceId: ctx.workspaceId,
@@ -66,7 +91,7 @@ export const createAgentCapabilityGrantEndpoint = api(
 
 export const revokeAgentCapabilityGrantEndpoint = api(
   { method: "POST", path: "/identity/agent-capability-grants/:grantId/revoke", expose: true },
-  async (req: RevokeAgentCapabilityApiRequest) => {
+  async (req: RevokeAgentCapabilityApiRequest): Promise<RevokeAgentCapabilityResponse> => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return revokeAgentCapability(ctx, {
       grantId: req.grantId,
@@ -77,9 +102,9 @@ export const revokeAgentCapabilityGrantEndpoint = api(
 
 export const simulateAgentAuthorizationEndpoint = api(
   { method: "POST", path: "/identity/authorization/simulate", expose: true },
-  async (req: SimulateAgentAuthorizationApiRequest) => {
+  async (req: SimulateAgentAuthorizationApiRequest): Promise<SimulateAgentAuthorizationResponse> => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
-    return evaluateAgentCapabilityAuthority({
+    const res = await evaluateAgentCapabilityAuthority({
       workspaceId: ctx.workspaceId,
       agentWorkforceMemberId: req.agentWorkforceMemberId,
       capabilityId: req.capabilityId,
@@ -90,6 +115,14 @@ export const simulateAgentAuthorizationEndpoint = api(
       },
       facts: req.facts || {},
     });
+    return {
+      decision: res.effect,
+      effect: res.effect,
+      reasonCodes: res.reasonCodes,
+      riskClass: res.riskClass,
+      grantId: res.grantId,
+      approvalRequired: res.approvalRequired,
+    };
   }
 );
 
@@ -106,9 +139,11 @@ export interface IssueAgentAuthorizationTicketApiRequest {
 }
 
 
+import type { AuthorizationTicket } from "../services/agent-authorization-ticket.service";
+
 export const issueAgentAuthorizationTicketEndpoint = api(
   { method: "POST", path: "/identity/agent-authorization/tickets", expose: true },
-  async (req: IssueAgentAuthorizationTicketApiRequest) => {
+  async (req: IssueAgentAuthorizationTicketApiRequest): Promise<AuthorizationTicket> => {
     const rawToken = (req.authorization || "").replace(/^Bearer\s+/i, "");
     if (!rawToken) {
       throw APIError.unauthenticated("missing authorization delegation token");
@@ -145,4 +180,32 @@ export const issueAgentAuthorizationTicketEndpoint = api(
     });
   }
 );
+
+export interface TransitionAuthorizationModeApiRequest {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  targetMode: "SHADOW" | "ENFORCED";
+  reason: string;
+}
+
+export interface TransitionAuthorizationModeResponse {
+  workspaceId: string;
+  mode: string;
+  epoch: number;
+}
+
+export const transitionAuthorizationModeEndpoint = api(
+  { method: "POST", path: "/identity/authorization/mode", expose: true },
+  async (
+    req: TransitionAuthorizationModeApiRequest
+  ): Promise<TransitionAuthorizationModeResponse> => {
+    const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+    const { transitionWorkspaceAuthorizationMode } = await import("../services/authorization.service");
+    return transitionWorkspaceAuthorizationMode(ctx, {
+      targetMode: req.targetMode,
+      reason: req.reason,
+    });
+  }
+);
+
 

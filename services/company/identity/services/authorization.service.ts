@@ -7,6 +7,7 @@ import {
   coreWorkspaceRoles,
   coreMemberRoleAssignments,
   identityWorkforceMembers,
+  coreAgentCapabilityGrants,
   AuthorizationEnforcementMode,
 } from "../../shared/db/schema/identity";
 import type { TenantContext } from "../../shared/types/tenant_context";
@@ -250,3 +251,210 @@ export async function requireFounderAuthorization(ctx: TenantContext): Promise<F
     authorizationEpoch: state.authorizationEpoch,
   };
 }
+
+export interface PreflightViolation {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface WorkspacePreflightResult {
+  clean: boolean;
+  violations: PreflightViolation[];
+}
+
+export async function validateWorkspaceAuthorizationPreflight(
+  workspaceIdStr: string
+): Promise<WorkspacePreflightResult> {
+  const wsId = BigInt(workspaceIdStr);
+  const violations: PreflightViolation[] = [];
+
+  // 1. Missing state
+  const [state] = await db
+    .select()
+    .from(coreWorkspaceAuthorizationStates)
+    .where(eq(coreWorkspaceAuthorizationStates.workspaceId, wsId))
+    .limit(1);
+
+  if (!state) {
+    violations.push({
+      code: "MISSING_AUTHORIZATION_STATE",
+      message: "Workspace missing row in core.workspace_authorization_states",
+    });
+  }
+
+  // 2. Active human founder check
+  const now = new Date();
+  const founderAssignments = await db
+    .select({
+      memberId: identityWorkforceMembers.id,
+      memberType: identityWorkforceMembers.memberType,
+      status: identityWorkforceMembers.status,
+      validFrom: coreMemberRoleAssignments.validFrom,
+      validUntil: coreMemberRoleAssignments.validUntil,
+    })
+    .from(coreMemberRoleAssignments)
+    .innerJoin(
+      coreWorkspaceRoles,
+      eq(coreMemberRoleAssignments.roleId, coreWorkspaceRoles.id)
+    )
+    .innerJoin(
+      identityWorkforceMembers,
+      eq(coreMemberRoleAssignments.workforceMemberId, identityWorkforceMembers.id)
+    )
+    .where(
+      and(
+        eq(coreMemberRoleAssignments.workspaceId, wsId),
+        eq(coreWorkspaceRoles.roleKey, "founder")
+      )
+    );
+
+  const activeHumanFounders = founderAssignments.filter((a) => {
+    if (a.memberType !== "HUMAN" || a.status !== "active") return false;
+    if (a.validFrom && a.validFrom > now) return false;
+    if (a.validUntil && a.validUntil <= now) return false;
+    return true;
+  });
+
+  if (activeHumanFounders.length === 0) {
+    violations.push({
+      code: "ZERO_HUMAN_FOUNDER_ASSIGNMENT",
+      message: "Workspace has zero active HUMAN workforce members with active founder role",
+    });
+  }
+
+  // 3. Invalid founder subjects (AI agent or inactive in founder role)
+  const invalidFounders = founderAssignments.filter(
+    (a) => a.memberType !== "HUMAN" || a.status !== "active"
+  );
+  for (const f of invalidFounders) {
+    violations.push({
+      code: "INVALID_FOUNDER_SUBJECT",
+      message: `Founder role assigned to invalid subject ${f.memberId} (memberType=${f.memberType}, status=${f.status})`,
+    });
+  }
+
+  // 4. AI in human-only roles
+  const aiRoleAssignments = await db
+    .select({
+      memberId: identityWorkforceMembers.id,
+      roleKey: coreWorkspaceRoles.roleKey,
+      allowedMemberTypes: coreWorkspaceRoles.allowedMemberTypes,
+    })
+    .from(coreMemberRoleAssignments)
+    .innerJoin(
+      coreWorkspaceRoles,
+      eq(coreMemberRoleAssignments.roleId, coreWorkspaceRoles.id)
+    )
+    .innerJoin(
+      identityWorkforceMembers,
+      eq(coreMemberRoleAssignments.workforceMemberId, identityWorkforceMembers.id)
+    )
+    .where(
+      and(
+        eq(coreMemberRoleAssignments.workspaceId, wsId),
+        eq(identityWorkforceMembers.memberType, "AI_AGENT")
+      )
+    );
+
+  for (const a of aiRoleAssignments) {
+    if (!a.allowedMemberTypes || !a.allowedMemberTypes.includes("AI_AGENT")) {
+      violations.push({
+        code: "AI_IN_HUMAN_ONLY_ROLE",
+        message: `AI workforce member ${a.memberId} assigned to human-only role ${a.roleKey}`,
+      });
+    }
+  }
+
+  // 5. Expired active grants
+  const activeGrants = await db
+    .select({
+      id: coreAgentCapabilityGrants.id,
+      capabilityId: coreAgentCapabilityGrants.capabilityId,
+      validUntil: coreAgentCapabilityGrants.validUntil,
+    })
+    .from(coreAgentCapabilityGrants)
+    .where(
+      and(
+        eq(coreAgentCapabilityGrants.workspaceId, wsId),
+        eq(coreAgentCapabilityGrants.status, "ACTIVE")
+      )
+    );
+
+  for (const g of activeGrants) {
+    if (g.validUntil && g.validUntil <= now) {
+      violations.push({
+        code: "EXPIRED_ACTIVE_GRANT",
+        message: `Grant ${g.id} for ${g.capabilityId} is ACTIVE but expired at ${g.validUntil.toISOString()}`,
+      });
+    }
+  }
+
+  return {
+    clean: violations.length === 0,
+    violations,
+  };
+}
+
+export interface TransitionAuthorizationModeInput {
+  targetMode: AuthorizationEnforcementMode;
+  reason: string;
+}
+
+export async function transitionWorkspaceAuthorizationMode(
+  ctx: TenantContext,
+  input: TransitionAuthorizationModeInput
+): Promise<{ workspaceId: string; mode: AuthorizationEnforcementMode; epoch: number }> {
+  const founderAuth = await requireFounderAuthorization(ctx);
+
+  if (!founderAuth.hasActiveFounderRole) {
+    throw APIError.permissionDenied("FOUNDER_AUTHORITY_REQUIRED: Only active human founder can transition authorization mode");
+  }
+
+  if (input.targetMode === "ENFORCED") {
+    const preflight = await validateWorkspaceAuthorizationPreflight(ctx.workspaceId);
+    if (!preflight.clean) {
+      throw APIError.failedPrecondition(
+        `AUTHORIZATION_PREFLIGHT_FAILED: Workspace ${ctx.workspaceId} failed preflight check: ${preflight.violations.map((v) => v.message).join("; ")}`
+      );
+    }
+  }
+
+  const wsId = BigInt(ctx.workspaceId);
+
+  return await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(coreWorkspaceAuthorizationStates)
+      .set({
+        enforcementMode: input.targetMode,
+        authorizationEpoch: sql`${coreWorkspaceAuthorizationStates.authorizationEpoch} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(coreWorkspaceAuthorizationStates.workspaceId, wsId))
+      .returning({
+        epoch: coreWorkspaceAuthorizationStates.authorizationEpoch,
+        mode: coreWorkspaceAuthorizationStates.enforcementMode,
+      });
+
+    const nextEpoch = updated ? updated.epoch : founderAuth.authorizationEpoch + 1;
+
+    await appendAuthorizationEvent(tx, {
+      workspaceId: ctx.workspaceId,
+      eventType: "AUTHORIZATION_MODE_TRANSITIONED",
+      actorMemberId: ctx.workforceMemberId,
+      authorizationEpoch: nextEpoch,
+      reason: input.reason,
+      details: {
+        previousMode: founderAuth.enforcementMode,
+        targetMode: input.targetMode,
+      },
+    });
+
+    return {
+      workspaceId: ctx.workspaceId,
+      mode: input.targetMode,
+      epoch: nextEpoch,
+    };
+  });
+}
+

@@ -49,6 +49,10 @@ else
     echo "⚠️ No .env file found at repo root or services/.env" >&2
 fi
 
+if [ -n "$POSTGRES_PASSWORD" ] && [ -z "$PGPASSWORD" ]; then
+    export PGPASSWORD="$POSTGRES_PASSWORD"
+fi
+
 # Check required database URLs
 check_database_urls() {
     local has_error=0

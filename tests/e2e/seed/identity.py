@@ -151,7 +151,9 @@ def add_member(
     return member_user_id, member_token
 
 
-def _link_platform_user(cluster: DisposableCluster, local_user_id: str, platform_user_id: str) -> None:
+def _link_platform_user(
+    cluster: DisposableCluster, local_user_id: str, platform_user_id: str
+) -> None:
     """B5 fix — `_e2e/session` tạo user company-local KHÔNG đi qua platform
     (docstring module: 2 plane danh tính tách biệt), nên `platform_user_id`
     (cột `core.user_projections.platform_user_id`) mặc định rỗng. apps/cosa
@@ -173,30 +175,175 @@ def _link_platform_user(cluster: DisposableCluster, local_user_id: str, platform
         conn.close()
 
 
+def seed_workforce_founder(cluster: DisposableCluster, workspace_id: str, user_id: str) -> str:
+    """Seed workforce_member row and founder role assignment in core schema."""
+    import uuid
+
+    import psycopg2
+
+    conn = psycopg2.connect(cluster.workspace_app_url, connect_timeout=10)
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM core.workforce_members WHERE workspace_id = %s AND human_user_id = %s",
+                (int(workspace_id), int(user_id)),
+            )
+            row = cur.fetchone()
+            if row:
+                wf_id = row[0]
+            else:
+                wf_id = _snowflake()
+                cur.execute(
+                    """
+                    INSERT INTO core.workforce_members (id, workspace_id, member_type, human_user_id, role_title, status)
+                    VALUES (%s, %s, 'HUMAN', %s, 'Founder', 'active')
+                    """,
+                    (wf_id, int(workspace_id), int(user_id)),
+                )
+
+            cur.execute(
+                "SELECT id FROM core.workspace_roles WHERE workspace_id = %s AND role_key = 'founder'",
+                (int(workspace_id),),
+            )
+            role_row = cur.fetchone()
+            if role_row:
+                role_id = role_row[0]
+            else:
+                role_id = str(uuid.uuid4())
+                cur.execute(
+                    """
+                    INSERT INTO core.workspace_roles (id, workspace_id, role_key, name, is_system, allowed_member_types)
+                    VALUES (%s, %s, 'founder', 'Founder', true, ARRAY['HUMAN']::text[])
+                    """,
+                    (role_id, int(workspace_id)),
+                )
+
+            cur.execute(
+                """
+                INSERT INTO core.member_role_assignments (workspace_id, workforce_member_id, role_id)
+                VALUES (%s, %s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (int(workspace_id), wf_id, role_id),
+            )
+
+            cur.execute(
+                """
+                INSERT INTO core.workspace_authorization_states (workspace_id, enforcement_mode, authorization_epoch)
+                VALUES (%s, 'SHADOW', 1)
+                ON CONFLICT (workspace_id) DO NOTHING
+                """,
+                (int(workspace_id),),
+            )
+        return str(wf_id)
+    finally:
+        conn.close()
+
+
+def seed_workforce_agent(
+    cluster: DisposableCluster,
+    workspace_id: str,
+    *,
+    agent_spec_id: str = "operations",
+    role_title: str = "Operations AI",
+) -> str:
+    """Seed AI_AGENT workforce_member row in core schema."""
+    import psycopg2
+
+    conn = psycopg2.connect(cluster.workspace_app_url, connect_timeout=10)
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM core.workforce_members WHERE workspace_id = %s AND agent_spec_id = %s",
+                (int(workspace_id), agent_spec_id),
+            )
+            row = cur.fetchone()
+            if row:
+                agent_wf_id = row[0]
+            else:
+                agent_wf_id = _snowflake()
+                cur.execute(
+                    """
+                    INSERT INTO core.workforce_members (id, workspace_id, member_type, agent_spec_id, agent_spec_version, role_title, status)
+                    VALUES (%s, %s, 'AI_AGENT', %s, '1.0.0', %s, 'active')
+                    """,
+                    (agent_wf_id, int(workspace_id), agent_spec_id, role_title),
+                )
+
+            # Ensure agent has an operations role with operations.task.read permission
+            cur.execute(
+                "SELECT id FROM core.workspace_roles WHERE workspace_id = %s AND role_key = 'agent_operations'",
+                (int(workspace_id),),
+            )
+            role_row = cur.fetchone()
+            if role_row:
+                agent_role_id = role_row[0]
+            else:
+                import uuid
+                agent_role_id = str(uuid.uuid4())
+                cur.execute(
+                    """
+                    INSERT INTO core.workspace_roles (id, workspace_id, role_key, name, is_system, allowed_member_types)
+                    VALUES (%s, %s, 'agent_operations', 'Operations Agent Role', false, ARRAY['HUMAN', 'AI_AGENT']::text[])
+                    """,
+                    (agent_role_id, int(workspace_id)),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO core.role_permissions (role_id, permission_key, effect)
+                    VALUES (%s, 'operations.task.read', 'ALLOW')
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (agent_role_id,),
+                )
+
+            cur.execute(
+                """
+                INSERT INTO core.member_role_assignments (workspace_id, workforce_member_id, role_id)
+                VALUES (%s, %s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (int(workspace_id), agent_wf_id, agent_role_id),
+            )
+
+            return str(agent_wf_id)
+    finally:
+        conn.close()
+
+
+def seed_default_project(cluster: DisposableCluster, workspace_id: str) -> int:
+    """Seed default project in strategy.projects for operational tasks."""
+    import psycopg2
+
+    proj_id = _snowflake()
+    conn = psycopg2.connect(cluster.workspace_app_url, connect_timeout=10)
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO strategy.projects (id, workspace_id, title, status)
+                VALUES (%s, %s, 'Default E2E Project', 'ACTIVE')
+                ON CONFLICT DO NOTHING
+                """,
+                (proj_id, int(workspace_id)),
+            )
+        return proj_id
+    finally:
+        conn.close()
+
+
 def seed_workspace(
     stack, cluster: DisposableCluster, *, with_member: bool = False
 ) -> SeededWorkspace:
-    """Orchestrator: owner (founder) + tuỳ chọn 1 member cùng workspace.
-
-    Deviation so với brief: chữ ký là `seed_workspace(stack, cluster, *, with_member)`
-    (thêm `cluster` để INSERT hàng membership) và toàn bộ đi qua
-    `POST /identity/_e2e/session` thay vì `provision_workspace` trên cosa — vì
-    tenant-context của business API là company-local, không tra cosa (xem
-    docstring module).
-
-    B5 fix (2026-09-04) — owner (và member nếu có) được LINK thêm sang 1
-    platform user thật (`register_user` trên `services/cosa`) rồi ghi
-    `platform_user_id` — nếu không, mọi seeded identity đều rơi vào đúng
-    trường hợp "chưa sync qua platform" và apps/cosa sẽ từ chối mint
-    control-plane delegation (đúng — nhưng làm scenario cross-plane thật
-    (S2/S3) không thể verify được nhánh đã fix).
-    """
+    """Orchestrator: owner (founder) + tuỳ chọn 1 member cùng workspace."""
     company_url = stack.company.base_url
     owner_user_id, workspace_id, owner_token = create_company_session(
         company_url, display_name="E2E Owner"
     )
     owner_platform_user_id, _owner_email, _owner_pw = register_user(stack.platform.base_url)
     _link_platform_user(cluster, owner_user_id, owner_platform_user_id)
+    seed_workforce_founder(cluster, workspace_id, owner_user_id)
+    seed_default_project(cluster, workspace_id)
 
     member_user_id: str | None = None
     member_token: str | None = None
@@ -212,3 +359,4 @@ def seed_workspace(
         member_user_id=member_user_id,
         member_token=member_token,
     )
+

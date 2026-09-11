@@ -388,9 +388,18 @@ export async function grantAgentCapability(
       details: { constraints: input.constraints, validUntil: input.validUntil },
     });
 
-    await advanceAuthorizationEpoch(tx, ctx.workspaceId, ctx.workforceMemberId, "Grant agent capability");
+    const nextEpoch = await advanceAuthorizationEpoch(tx, ctx.workspaceId, ctx.workforceMemberId, "Grant agent capability");
 
-    return grant;
+    return {
+      grantId: grant.id,
+      id: grant.id,
+      workspaceId: ctx.workspaceId,
+      agentWorkforceMemberId: input.agentWorkforceMemberId,
+      capabilityId: input.capabilityId,
+      status: grant.status,
+      validUntil: grant.validUntil ? grant.validUntil.toISOString() : null,
+      authorizationEpoch: nextEpoch,
+    };
   });
 }
 
@@ -439,9 +448,16 @@ export async function revokeAgentCapability(
       correlationId: ctx.correlationId,
     });
 
-    await advanceAuthorizationEpoch(tx, ctx.workspaceId, ctx.workforceMemberId, input.reason);
+    const nextEpoch = await advanceAuthorizationEpoch(tx, ctx.workspaceId, ctx.workforceMemberId, input.reason);
 
-    return revoked;
+    return {
+      grantId: revoked.id,
+      id: revoked.id,
+      workspaceId: ctx.workspaceId,
+      status: revoked.status,
+      revokedAt: revoked.revokedAt ? revoked.revokedAt.toISOString() : new Date().toISOString(),
+      authorizationEpoch: nextEpoch,
+    };
   });
 }
 

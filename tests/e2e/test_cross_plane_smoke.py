@@ -14,6 +14,7 @@ from tests.e2e.scenarios import (
     auth_tenant_isolation,
     capability_governance,
     dispatch_worker_result,
+    founder_authorization,
     outbox_relay,
     policy_snapshot_tenant,
 )
@@ -84,3 +85,12 @@ def test_s7_policy_snapshot_tenant(real_cosa_stack, disposable_cluster) -> None:
         seeded_fin,
         seeded_bare,
     )
+
+
+def test_s9_founder_authorization(real_cosa_stack, disposable_cluster) -> None:
+    seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster, with_member=True)
+    scenario = founder_authorization.run(real_cosa_stack, seeded, disposable_cluster)
+    assert scenario["agent_without_grant"] == "denied"
+    assert scenario["revoked_after_dispatch"] == "denied_before_effect"
+    assert scenario["approval_bound_to_checkpoint"] is True
+    assert scenario["cross_tenant"] == "denied"
