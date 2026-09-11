@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-11T00:26:36.902Z",
+  "generated_at": "2026-09-11T12:18:18.850Z",
   "groups": {
     "agent": {
-      "fingerprint": "8b223b3f7ae2879f6488f85b4240acaaaf4a927b9e54e236740dc372df7d1b37",
+      "fingerprint": "8ac4060c0749bc0ea5793f0a8c3d443fca95fbeb1ff0486af231b97c1f99a87d",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -13,7 +13,7 @@
         "knowledge",
         "models"
       ],
-      "tables_count": 28,
+      "tables_count": 33,
       "enums": [],
       "tables": {
         "agent.agent_web_search_budget": {
@@ -285,6 +285,16 @@
               "nullable": true,
               "default": null,
               "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
               "precision": null,
               "scale": null
             }
@@ -634,6 +644,352 @@
             }
           ]
         },
+        "agent.project_activity_events": {
+          "schema": "agent",
+          "name": "project_activity_events",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "event_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_sequence",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "kind",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "phase",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "actor_kind",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "actor_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "correlation_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_type",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "summary",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "classification",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'internal'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "payload_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "occurred_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "recorded_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_activity_events_pkey",
+            "columns": [
+              "event_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "project_activity_events_workspace_id_project_id_project_seq_key",
+              "columns": [
+                "workspace_id",
+                "project_id",
+                "project_sequence"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_project_activity_events_project",
+              "definition": "CREATE INDEX idx_project_activity_events_project ON agent.project_activity_events USING btree (workspace_id, project_id, project_sequence)"
+            },
+            {
+              "name": "project_activity_events_pkey",
+              "definition": "CREATE UNIQUE INDEX project_activity_events_pkey ON agent.project_activity_events USING btree (event_id)"
+            },
+            {
+              "name": "project_activity_events_workspace_id_project_id_project_seq_key",
+              "definition": "CREATE UNIQUE INDEX project_activity_events_workspace_id_project_id_project_seq_key ON agent.project_activity_events USING btree (workspace_id, project_id, project_sequence)"
+            }
+          ]
+        },
+        "agent.project_activity_idempotency": {
+          "schema": "agent",
+          "name": "project_activity_idempotency",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "idempotency_key",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 256,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "event_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_activity_idempotency_pkey",
+            "columns": [
+              "workspace_id",
+              "project_id",
+              "idempotency_key"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "project_activity_idempotency_pkey",
+              "definition": "CREATE UNIQUE INDEX project_activity_idempotency_pkey ON agent.project_activity_idempotency USING btree (workspace_id, project_id, idempotency_key)"
+            }
+          ]
+        },
+        "agent.project_activity_sequences": {
+          "schema": "agent",
+          "name": "project_activity_sequences",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "last_sequence",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            }
+          ],
+          "primary_key": {
+            "name": "project_activity_sequences_pkey",
+            "columns": [
+              "workspace_id",
+              "project_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "project_activity_sequences_pkey",
+              "definition": "CREATE UNIQUE INDEX project_activity_sequences_pkey ON agent.project_activity_sequences USING btree (workspace_id, project_id)"
+            }
+          ]
+        },
         "agent.run_checkpoints": {
           "schema": "agent",
           "name": "run_checkpoints",
@@ -726,6 +1082,16 @@
               "nullable": false,
               "default": "now()",
               "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
               "precision": null,
               "scale": null
             }
@@ -1003,6 +1369,16 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -1194,6 +1570,16 @@
               "nullable": true,
               "default": null,
               "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
               "precision": null,
               "scale": null
             }
@@ -1505,6 +1891,16 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -1524,6 +1920,10 @@
             {
               "name": "idx_agent_runs_idempotency",
               "definition": "CREATE INDEX idx_agent_runs_idempotency ON agent.runs USING btree (idempotency_key)"
+            },
+            {
+              "name": "idx_agent_runs_project",
+              "definition": "CREATE INDEX idx_agent_runs_project ON agent.runs USING btree (workspace_id, project_id, status, created_at DESC)"
             },
             {
               "name": "idx_agent_runs_wf_attempt",
@@ -1715,6 +2115,302 @@
             {
               "name": "runtime_signal_outbox_workspace_id_source_kind_source_id_se_key",
               "definition": "CREATE UNIQUE INDEX runtime_signal_outbox_workspace_id_source_kind_source_id_se_key ON agent.runtime_signal_outbox USING btree (workspace_id, source_kind, source_id, sequence)"
+            }
+          ]
+        },
+        "agent.workforce_assignments": {
+          "schema": "agent",
+          "name": "workforce_assignments",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "assignment_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "functional_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "spec_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "spec_version",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reports_to_assignment_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "configured_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "retired_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "agent_instance_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "company_workforce_member_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workforce_assignments_pkey",
+            "columns": [
+              "assignment_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "workforce_assignments_workspace_id_functional_key_spec_id_s_key",
+              "columns": [
+                "workspace_id",
+                "functional_key",
+                "spec_id",
+                "spec_version",
+                "definition_hash"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "workforce_assignments_pkey",
+              "definition": "CREATE UNIQUE INDEX workforce_assignments_pkey ON agent.workforce_assignments USING btree (assignment_id)"
+            },
+            {
+              "name": "workforce_assignments_workspace_id_functional_key_spec_id_s_key",
+              "definition": "CREATE UNIQUE INDEX workforce_assignments_workspace_id_functional_key_spec_id_s_key ON agent.workforce_assignments USING btree (workspace_id, functional_key, spec_id, spec_version, definition_hash)"
+            }
+          ]
+        },
+        "agent.workforce_employees": {
+          "schema": "agent",
+          "name": "workforce_employees",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "agent_instance_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "employee_code",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "display_name",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "suspended_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "retired_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workforce_employees_pkey",
+            "columns": [
+              "agent_instance_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "workforce_employees_workspace_id_employee_code_key",
+              "columns": [
+                "workspace_id",
+                "employee_code"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "workforce_employees_status_check",
+              "clause": "((status = ANY (ARRAY['ACTIVE'::text, 'SUSPENDED'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "workforce_employees_pkey",
+              "definition": "CREATE UNIQUE INDEX workforce_employees_pkey ON agent.workforce_employees USING btree (agent_instance_id)"
+            },
+            {
+              "name": "workforce_employees_workspace_id_employee_code_key",
+              "definition": "CREATE UNIQUE INDEX workforce_employees_workspace_id_employee_code_key ON agent.workforce_employees USING btree (workspace_id, employee_code)"
             }
           ]
         },
@@ -2001,6 +2697,26 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "scope_state",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'LEGACY_UNSCOPED'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -2011,11 +2727,24 @@
           },
           "unique_constraints": [],
           "foreign_keys": [],
-          "check_constraints": [],
+          "check_constraints": [
+            {
+              "name": "chk_agent_conversation_conversations_project_scope",
+              "clause": "(((((scope_state)::text = 'PROJECT_SCOPED'::text) AND (project_id IS NOT NULL)) OR (((scope_state)::text = 'LEGACY_UNSCOPED'::text) AND (project_id IS NULL))))"
+            },
+            {
+              "name": "chk_agent_conversation_conversations_scope_state",
+              "clause": "(((scope_state)::text = ANY ((ARRAY['PROJECT_SCOPED'::character varying, 'LEGACY_UNSCOPED'::character varying])::text[])))"
+            }
+          ],
           "indexes": [
             {
               "name": "conversations_pkey",
               "definition": "CREATE UNIQUE INDEX conversations_pkey ON agent_conversation.conversations USING btree (conversation_id)"
+            },
+            {
+              "name": "idx_agent_conversation_conversations_project",
+              "definition": "CREATE INDEX idx_agent_conversation_conversations_project ON agent_conversation.conversations USING btree (workspace_id, project_id, archived_at)"
             },
             {
               "name": "idx_agent_conversation_conversations_workspace",
@@ -2246,6 +2975,16 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -2381,6 +3120,26 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -2396,6 +3155,10 @@
             {
               "name": "idx_run_stream_events_conversation",
               "definition": "CREATE INDEX idx_run_stream_events_conversation ON agent_conversation.run_stream_events USING btree (conversation_id)"
+            },
+            {
+              "name": "idx_run_stream_events_project",
+              "definition": "CREATE INDEX idx_run_stream_events_project ON agent_conversation.run_stream_events USING btree (workspace_id, project_id, sequence)"
             },
             {
               "name": "idx_run_stream_events_run_seq",
@@ -9478,7 +10241,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "9efb2d9cba5ca95fd08f675ea0305614513dc7f2874e13d647a3745a52e80f78",
+      "fingerprint": "63ff9b7bd2e0e3931b806ad4415613ceea240b00e95eec8b2a60e45c91960425",
       "schemas": [
         "commercial",
         "core",
@@ -9490,8 +10253,19 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 181,
-      "enums": [],
+      "tables_count": 195,
+      "enums": [
+        {
+          "schema": "operating",
+          "name": "project_agent_assignment_state",
+          "values": [
+            "TEMPLATE",
+            "ACTIVE",
+            "PAUSED",
+            "RETIRED"
+          ]
+        }
+      ],
       "tables": {
         "commercial.campaign_assets": {
           "schema": "commercial",
@@ -12642,6 +13416,612 @@
             }
           ]
         },
+        "core.agent_authorization_tickets": {
+          "schema": "core",
+          "name": "agent_authorization_tickets",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": "gen_random_uuid()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "ticket_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "tool_call_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "checkpoint_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "capability_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "agent_workforce_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "authorization_epoch",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'ISSUED'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "expires_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "consumed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "agent_authorization_tickets_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "agent_authorization_tickets_ticket_id_key",
+              "columns": [
+                "ticket_id"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "agent_authorization_tickets_agent_workforce_member_id_fkey",
+              "columns": [
+                "agent_workforce_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "agent_authorization_tickets_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "core.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "agent_authorization_tickets_pkey",
+              "definition": "CREATE UNIQUE INDEX agent_authorization_tickets_pkey ON core.agent_authorization_tickets USING btree (id)"
+            },
+            {
+              "name": "agent_authorization_tickets_ticket_id_key",
+              "definition": "CREATE UNIQUE INDEX agent_authorization_tickets_ticket_id_key ON core.agent_authorization_tickets USING btree (ticket_id)"
+            },
+            {
+              "name": "ix_agent_auth_tickets_lookup",
+              "definition": "CREATE INDEX ix_agent_auth_tickets_lookup ON core.agent_authorization_tickets USING btree (workspace_id, run_id, capability_id)"
+            }
+          ]
+        },
+        "core.agent_capability_grants": {
+          "schema": "core",
+          "name": "agent_capability_grants",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": "gen_random_uuid()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "agent_workforce_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "capability_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "legal_entity_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "constraints",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "valid_from",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "valid_until",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'ACTIVE'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "granted_by_founder_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "revoked_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revoke_reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "agent_capability_grants_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "agent_capability_grants_agent_workforce_member_id_fkey",
+              "columns": [
+                "agent_workforce_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "agent_capability_grants_capability_id_fkey",
+              "columns": [
+                "capability_id"
+              ],
+              "foreign_table": "core.capability_permission_bindings",
+              "foreign_columns": [
+                "capability_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "agent_capability_grants_granted_by_founder_member_id_fkey",
+              "columns": [
+                "granted_by_founder_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "agent_capability_grants_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "core.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "agent_capability_grants_pkey",
+              "definition": "CREATE UNIQUE INDEX agent_capability_grants_pkey ON core.agent_capability_grants USING btree (id)"
+            },
+            {
+              "name": "idx_agent_capability_grants_lookup",
+              "definition": "CREATE INDEX idx_agent_capability_grants_lookup ON core.agent_capability_grants USING btree (workspace_id, agent_workforce_member_id, capability_id)"
+            }
+          ]
+        },
+        "core.authorization_events": {
+          "schema": "core",
+          "name": "authorization_events",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": "gen_random_uuid()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "event_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "actor_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "target_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "capability_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "role_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "grant_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "policy_version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "authorization_epoch",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "before_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "after_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "correlation_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "details",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "authorization_events_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "authorization_events_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "core.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "authorization_events_pkey",
+              "definition": "CREATE UNIQUE INDEX authorization_events_pkey ON core.authorization_events USING btree (id)"
+            },
+            {
+              "name": "ix_authorization_events_ws_created",
+              "definition": "CREATE INDEX ix_authorization_events_ws_created ON core.authorization_events USING btree (workspace_id, created_at)"
+            }
+          ]
+        },
         "core.business_policy_cutover_markers": {
           "schema": "core",
           "name": "business_policy_cutover_markers",
@@ -12734,6 +14114,101 @@
             {
               "name": "business_policy_cutover_markers_pkey",
               "definition": "CREATE UNIQUE INDEX business_policy_cutover_markers_pkey ON core.business_policy_cutover_markers USING btree (workspace_id)"
+            }
+          ]
+        },
+        "core.capability_permission_bindings": {
+          "schema": "core",
+          "name": "capability_permission_bindings",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "capability_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "permission_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "risk_class",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "capability_permission_bindings_pkey",
+            "columns": [
+              "capability_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "capability_permission_bindings_permission_key_fkey",
+              "columns": [
+                "permission_key"
+              ],
+              "foreign_table": "core.permission_definitions",
+              "foreign_columns": [
+                "permission_key"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "capability_permission_bindings_pkey",
+              "definition": "CREATE UNIQUE INDEX capability_permission_bindings_pkey ON core.capability_permission_bindings USING btree (capability_id)"
             }
           ]
         },
@@ -13491,6 +14966,81 @@
             }
           ]
         },
+        "core.workspace_authorization_states": {
+          "schema": "core",
+          "name": "workspace_authorization_states",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "enforcement_mode",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'SHADOW'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "authorization_epoch",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_authorization_states_pkey",
+            "columns": [
+              "workspace_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_authorization_states_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "core.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "workspace_authorization_states_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_authorization_states_pkey ON core.workspace_authorization_states USING btree (workspace_id)"
+            }
+          ]
+        },
         "core.workspace_lifecycle_events": {
           "schema": "core",
           "name": "workspace_lifecycle_events",
@@ -13964,6 +15514,16 @@
               "udt": "timestamptz",
               "nullable": false,
               "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "allowed_member_types",
+              "type": "ARRAY",
+              "udt": "_text",
+              "nullable": true,
+              "default": null,
               "max_length": null,
               "precision": null,
               "scale": null
@@ -31272,6 +32832,1453 @@
           "foreign_keys": [],
           "check_constraints": [],
           "indexes": []
+        },
+        "operating.project_agent_assignment_events": {
+          "schema": "operating",
+          "name": "project_agent_assignment_events",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "assignment_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "event_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "from_state",
+              "type": "USER-DEFINED",
+              "udt": "project_agent_assignment_state",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "to_state",
+              "type": "USER-DEFINED",
+              "udt": "project_agent_assignment_state",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "assignment_version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "actor_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "occurred_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "event_payload",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_agent_assignment_events_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "project_agent_assignment_events_assignment_id_fkey",
+              "columns": [
+                "assignment_id"
+              ],
+              "foreign_table": "operating.project_agent_assignments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_project_agent_assignment_events_assignment",
+              "definition": "CREATE INDEX idx_project_agent_assignment_events_assignment ON operating.project_agent_assignment_events USING btree (assignment_id, occurred_at DESC)"
+            },
+            {
+              "name": "project_agent_assignment_events_pkey",
+              "definition": "CREATE UNIQUE INDEX project_agent_assignment_events_pkey ON operating.project_agent_assignment_events USING btree (id)"
+            }
+          ]
+        },
+        "operating.project_agent_assignments": {
+          "schema": "operating",
+          "name": "project_agent_assignments",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "profile_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "USER-DEFINED",
+              "udt": "project_agent_assignment_state",
+              "nullable": false,
+              "default": "'TEMPLATE'::operating.project_agent_assignment_state",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "agent_workforce_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "spec_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "spec_version",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "spec_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "activation_policy_snapshot",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "disabled_reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_by",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "activated_by",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "paused_by",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "activated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "paused_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_agent_assignments_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_project_agent_assignments_ws_proj_key",
+              "columns": [
+                "workspace_id",
+                "project_id",
+                "profile_key"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "fk_project_agent_assignments_proj_ws",
+              "columns": [
+                "project_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_project_agent_assignments_ws_proj",
+              "definition": "CREATE INDEX idx_project_agent_assignments_ws_proj ON operating.project_agent_assignments USING btree (workspace_id, project_id)"
+            },
+            {
+              "name": "project_agent_assignments_pkey",
+              "definition": "CREATE UNIQUE INDEX project_agent_assignments_pkey ON operating.project_agent_assignments USING btree (id)"
+            },
+            {
+              "name": "uix_project_agent_assignments_ws_proj_key",
+              "definition": "CREATE UNIQUE INDEX uix_project_agent_assignments_ws_proj_key ON operating.project_agent_assignments USING btree (workspace_id, project_id, profile_key)"
+            }
+          ]
+        },
+        "operating.project_executive_board_settings": {
+          "schema": "operating",
+          "name": "project_executive_board_settings",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "preset_key",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "selected_by",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "pk_project_executive_board_settings",
+            "columns": [
+              "workspace_id",
+              "project_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "fk_project_executive_board_settings_proj_ws",
+              "columns": [
+                "project_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "pk_project_executive_board_settings",
+              "definition": "CREATE UNIQUE INDEX pk_project_executive_board_settings ON operating.project_executive_board_settings USING btree (workspace_id, project_id)"
+            }
+          ]
+        },
+        "operating.project_executive_deliberation_analyses": {
+          "schema": "operating",
+          "name": "project_executive_deliberation_analyses",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "deliberation_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "frame_version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "role_key",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "descriptor",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": true,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_executive_deliberation_analyses_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_proj_exec_delib_analyses_role",
+              "columns": [
+                "deliberation_id",
+                "frame_version",
+                "role_key"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "project_executive_deliberation_analyses_deliberation_id_fkey",
+              "columns": [
+                "deliberation_id"
+              ],
+              "foreign_table": "operating.project_executive_deliberations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "project_executive_deliberation_analyses_pkey",
+              "definition": "CREATE UNIQUE INDEX project_executive_deliberation_analyses_pkey ON operating.project_executive_deliberation_analyses USING btree (id)"
+            },
+            {
+              "name": "uix_proj_exec_delib_analyses_role",
+              "definition": "CREATE UNIQUE INDEX uix_proj_exec_delib_analyses_role ON operating.project_executive_deliberation_analyses USING btree (deliberation_id, frame_version, role_key)"
+            }
+          ]
+        },
+        "operating.project_executive_deliberation_decisions": {
+          "schema": "operating",
+          "name": "project_executive_deliberation_decisions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "deliberation_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "decision_type",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decision_version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "actor_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "notes",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "modifications",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": true,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decided_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_executive_deliberation_decisions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_proj_exec_delib_decisions_ver",
+              "columns": [
+                "deliberation_id",
+                "decision_version"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "project_executive_deliberation_decisions_deliberation_id_fkey",
+              "columns": [
+                "deliberation_id"
+              ],
+              "foreign_table": "operating.project_executive_deliberations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "project_executive_deliberation_decisions_pkey",
+              "definition": "CREATE UNIQUE INDEX project_executive_deliberation_decisions_pkey ON operating.project_executive_deliberation_decisions USING btree (id)"
+            },
+            {
+              "name": "uix_proj_exec_delib_decisions_ver",
+              "definition": "CREATE UNIQUE INDEX uix_proj_exec_delib_decisions_ver ON operating.project_executive_deliberation_decisions USING btree (deliberation_id, decision_version)"
+            }
+          ]
+        },
+        "operating.project_executive_deliberation_frames": {
+          "schema": "operating",
+          "name": "project_executive_deliberation_frames",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "deliberation_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "frame_version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "question",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deliberation_type",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'STRATEGY'::character varying",
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deadline",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decision_owner_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "selected_roles",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "evidence_sources",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "critic_required",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "false",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "redacted_context_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "framed_by",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "framed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_executive_deliberation_frames_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_proj_exec_delib_frames_ver",
+              "columns": [
+                "deliberation_id",
+                "frame_version"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "project_executive_deliberation_frames_deliberation_id_fkey",
+              "columns": [
+                "deliberation_id"
+              ],
+              "foreign_table": "operating.project_executive_deliberations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "project_executive_deliberation_frames_pkey",
+              "definition": "CREATE UNIQUE INDEX project_executive_deliberation_frames_pkey ON operating.project_executive_deliberation_frames USING btree (id)"
+            },
+            {
+              "name": "uix_proj_exec_delib_frames_ver",
+              "definition": "CREATE UNIQUE INDEX uix_proj_exec_delib_frames_ver ON operating.project_executive_deliberation_frames USING btree (deliberation_id, frame_version)"
+            }
+          ]
+        },
+        "operating.project_executive_deliberations": {
+          "schema": "operating",
+          "name": "project_executive_deliberations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "title",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 255,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'DRAFT'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "active_frame_version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "created_by",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_executive_deliberations_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "fk_project_executive_deliberations_proj_ws",
+              "columns": [
+                "project_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_project_exec_deliberations_proj",
+              "definition": "CREATE INDEX idx_project_exec_deliberations_proj ON operating.project_executive_deliberations USING btree (workspace_id, project_id)"
+            },
+            {
+              "name": "project_executive_deliberations_pkey",
+              "definition": "CREATE UNIQUE INDEX project_executive_deliberations_pkey ON operating.project_executive_deliberations USING btree (id)"
+            }
+          ]
+        },
+        "operating.project_executive_role_activation_events": {
+          "schema": "operating",
+          "name": "project_executive_role_activation_events",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "role_key",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "activation_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "from_state",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "to_state",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "actor_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "payload",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "occurred_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_executive_role_activation_events_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "project_executive_role_activation_events_activation_id_fkey",
+              "columns": [
+                "activation_id"
+              ],
+              "foreign_table": "operating.project_executive_role_activations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_project_exec_role_act_events_act",
+              "definition": "CREATE INDEX idx_project_exec_role_act_events_act ON operating.project_executive_role_activation_events USING btree (activation_id, occurred_at)"
+            },
+            {
+              "name": "project_executive_role_activation_events_pkey",
+              "definition": "CREATE UNIQUE INDEX project_executive_role_activation_events_pkey ON operating.project_executive_role_activation_events USING btree (id)"
+            }
+          ]
+        },
+        "operating.project_executive_role_activations": {
+          "schema": "operating",
+          "name": "project_executive_role_activations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "role_key",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "activation_source",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "actor_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "project_executive_role_activations_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_project_executive_role_activations_ws_proj_role",
+              "columns": [
+                "workspace_id",
+                "project_id",
+                "role_key"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "fk_project_executive_role_activations_proj_ws",
+              "columns": [
+                "project_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_project_executive_role_activations_proj",
+              "definition": "CREATE INDEX idx_project_executive_role_activations_proj ON operating.project_executive_role_activations USING btree (workspace_id, project_id)"
+            },
+            {
+              "name": "project_executive_role_activations_pkey",
+              "definition": "CREATE UNIQUE INDEX project_executive_role_activations_pkey ON operating.project_executive_role_activations USING btree (id)"
+            },
+            {
+              "name": "uix_project_executive_role_activations_ws_proj_role",
+              "definition": "CREATE UNIQUE INDEX uix_project_executive_role_activations_ws_proj_role ON operating.project_executive_role_activations USING btree (workspace_id, project_id, role_key)"
+            }
+          ]
         },
         "operating.runtime_snoozes": {
           "schema": "operating",
