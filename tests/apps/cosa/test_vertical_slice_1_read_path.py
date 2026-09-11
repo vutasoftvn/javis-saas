@@ -37,6 +37,8 @@ def test_app():
     mock_client.get.return_value = {
         "tasks": [{"id": 1, "title": "Launch Q4 Strategy", "status": "in_progress"}],
         "total": 1,
+        # Startup Core: run operations resolve project của workspace qua Company.
+        "projects": [{"id": "proj_test_1"}],
     }
     plane = build_cosa_agent_plane(
         company_client=mock_client,

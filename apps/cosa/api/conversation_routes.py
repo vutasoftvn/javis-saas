@@ -43,6 +43,39 @@ __all__ = ["create_conversation_router"]
 
 logger = logging.getLogger("cosa.api.conversation_routes")
 
+
+async def _resolve_workspace_project_id(
+    plane: CosaAgentPlane, identity: AuthenticatedIdentity
+) -> str | None:
+    """Resolve project của workspace cho run `operations` chưa chỉ định project.
+
+    Gọi `GET /operations/projects` (services/company, scope theo X-Workspace-Id)
+    và lấy project đầu tiên (handler trả về theo id giảm dần — project gần nhất).
+    Trả None nếu workspace chưa có project hoặc Company service không sẵn sàng —
+    guard `project_context_required` ở worker sẽ fail-closed đúng nghĩa.
+    """
+    company_client = getattr(plane, "company_client", None)
+    if company_client is None:
+        return None
+    try:
+        resp = await company_client.get(
+            "/operations/projects",
+            headers={
+                "Authorization": f"Bearer {identity.mint_delegation()}",
+                "X-Workspace-Id": identity.workspace_id,
+            },
+        )
+    except Exception:
+        logger.warning("resolve workspace project_id failed", exc_info=True)
+        return None
+    projects = (resp or {}).get("projects") if isinstance(resp, dict) else None
+    if not projects:
+        return None
+    first = projects[0]
+    pid = first.get("id") if isinstance(first, dict) else None
+    return str(pid) if pid is not None else None
+
+
 router = APIRouter(prefix="/agent", tags=["agent-chat"])
 
 
@@ -297,6 +330,15 @@ async def create_message(
 
     agent_profile = conv.active_agent_profile or "operations"
 
+    # Startup Core: một run `operations` sống bên trong một project. Client có thể
+    # chỉ định `project_id` tường minh; nếu không, resolve project của workspace
+    # (endpoint `GET /operations/projects` trả về theo id giảm dần — lấy project
+    # gần nhất). Nếu workspace chưa có project nào thì để None — worker guard
+    # `project_context_required` sẽ fail-closed đúng nghĩa.
+    resolved_project_id: str | None = req.project_id
+    if agent_profile == "operations" and not resolved_project_id:
+        resolved_project_id = await _resolve_workspace_project_id(plane, identity)
+
     # Durable dispatch — schedule task
     await plane.scheduler.schedule(
         target_spec_id=f"cosa.{agent_profile}",
@@ -306,6 +348,7 @@ async def create_message(
             "conversation_id": conversation_id,
             "user_prompt": req.content,
             "agent_profile": agent_profile,
+            "project_id": resolved_project_id,
             "principal": identity.principal_id,
             # Task 10 (plan local-first-enterprise-knowledge) — cần role_id
             # tới capability workspace.context.read (qua run context.metadata,

@@ -55,6 +55,7 @@ def _payload(**overrides) -> dict:
         "agent_profile": "operations",
         "principal": "user_1",
         "workspace_id": "ws_1",
+        "project_id": "proj_1",
         "company_id": "test_company_1",
         "delegation_token": "fake-token",
     }

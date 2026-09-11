@@ -51,6 +51,33 @@ logger = logging.getLogger(__name__)
 _AGENT_PROFILE_SPECS = AGENT_PROFILE_SPECS
 
 
+async def _resolve_workspace_project_id(
+    plane: CosaAgentPlane, workspace_id: str | None, delegation_token: str | None
+) -> str | None:
+    """Startup Core: resolve project của workspace cho run `operations` chưa chỉ
+    định project. Gọi `GET /operations/projects` (services/company) và lấy
+    project đầu tiên (handler trả về id giảm dần). None nếu workspace chưa có
+    project / Company không sẵn sàng — guard `project_context_required` fail-closed.
+    """
+    company_client = getattr(plane, "company_client", None)
+    if company_client is None or not workspace_id:
+        return None
+    headers = {"X-Workspace-Id": workspace_id}
+    if delegation_token:
+        headers["Authorization"] = f"Bearer {delegation_token}"
+    try:
+        resp = await company_client.get("/operations/projects", headers=headers)
+    except Exception:
+        logger.warning("resolve workspace project_id failed", exc_info=True)
+        return None
+    projects = (resp or {}).get("projects") if isinstance(resp, dict) else None
+    if not projects:
+        return None
+    first = projects[0]
+    pid = first.get("id") if isinstance(first, dict) else None
+    return str(pid) if pid is not None else None
+
+
 __all__ = [
     "RunTaskResult",
     "execute_automation_run_task",
@@ -791,6 +818,14 @@ async def execute_scheduled_session_task(
     )
     await plane.conversation_repository.add_message(user_msg)
 
+    # Startup Core: run `operations` phải gắn project. Ưu tiên project_id trên
+    # payload schedule; nếu thiếu, resolve project của workspace qua Company.
+    scheduled_project_id = payload.get("project_id")
+    if agent_profile == "operations" and not scheduled_project_id:
+        scheduled_project_id = await _resolve_workspace_project_id(
+            plane, workspace_id, payload.get("delegation_token")
+        )
+
     run_payload = {
         "run_id": run_id,
         "conversation_id": conversation_id,
@@ -799,6 +834,7 @@ async def execute_scheduled_session_task(
         "workspace_id": workspace_id,
         "agent_name": agent_profile,
         "agent_profile": agent_profile,
+        "project_id": scheduled_project_id,
         "delegation_token": payload.get("delegation_token") or "scheduled_worker_service_token",
     }
 

@@ -93,6 +93,9 @@ class MessageCreate(BaseModel):
     role: str = "user"
     parent_message_id: str | None = None
     attachments: list[MessageAttachmentCreate] | None = None
+    # Startup Core: một run `operations` phải gắn một project. Client có thể chỉ
+    # định tường minh; nếu bỏ trống, server resolve project của workspace.
+    project_id: str | None = None
     # Bắt buộc — không optional/default. Mọi tin nhắn trực tiếp đi vào model
     # input đều phải khai báo phân loại dữ liệu TRƯỚC KHI lưu/schedule run
     # (Task 5 — đóng gap DATA_ACCESS_CLAIM_MISSING cho luồng chat thật, khác

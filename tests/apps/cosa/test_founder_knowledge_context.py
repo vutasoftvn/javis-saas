@@ -45,6 +45,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
+    # Startup Core: run operations resolve project của workspace qua Company.
+    mock_client.get.return_value = {"projects": [{"id": "proj_test_1"}], "tasks": [], "total": 0, "items": []}
     vault_repository = InMemoryVaultRepository()
     plane = build_cosa_agent_plane(
         company_client=mock_client,
