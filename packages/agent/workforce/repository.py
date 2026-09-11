@@ -95,6 +95,7 @@ class WorkforceRepository(Protocol):
         reports_to_assignment_id: UUID | str | None = None,
         assignment_id: UUID | str | None = None,
         agent_instance_id: UUID | str | None = None,
+        company_workforce_member_id: str | None = None,
     ) -> WorkforceAssignmentRecord: ...
 
     async def get_assignment(
@@ -398,6 +399,7 @@ class PostgresWorkforceRepository:
         reports_to_assignment_id: UUID | str | None = None,
         assignment_id: UUID | str | None = None,
         agent_instance_id: UUID | str | None = None,
+        company_workforce_member_id: str | None = None,
     ) -> WorkforceAssignmentRecord:
         aid = UUID(str(assignment_id)) if assignment_id else uuid4()
         rid = UUID(str(reports_to_assignment_id)) if reports_to_assignment_id else None
@@ -419,11 +421,11 @@ class PostgresWorkforceRepository:
                     INSERT INTO agent.workforce_assignments (
                         assignment_id, workspace_id, functional_key, spec_id, spec_version,
                         definition_hash, reports_to_assignment_id, configured_by, status,
-                        created_at, retired_at, agent_instance_id
+                        created_at, retired_at, agent_instance_id, company_workforce_member_id
                     ) VALUES (
                         :assignment_id, :workspace_id, :functional_key, :spec_id, :spec_version,
                         :definition_hash, :reports_to_assignment_id, :configured_by, 'ACTIVE',
-                        :created_at, NULL, :agent_instance_id
+                        :created_at, NULL, :agent_instance_id, :company_workforce_member_id
                     )
                     ON CONFLICT (workspace_id, functional_key, spec_id, spec_version, definition_hash)
                     DO UPDATE SET
@@ -433,6 +435,9 @@ class PostgresWorkforceRepository:
                         configured_by = EXCLUDED.configured_by,
                         agent_instance_id = COALESCE(
                             EXCLUDED.agent_instance_id, agent.workforce_assignments.agent_instance_id
+                        ),
+                        company_workforce_member_id = COALESCE(
+                            EXCLUDED.company_workforce_member_id, agent.workforce_assignments.company_workforce_member_id
                         )
                     """
                 ),
@@ -447,6 +452,7 @@ class PostgresWorkforceRepository:
                     "configured_by": configured_by,
                     "created_at": now,
                     "agent_instance_id": str(eid) if eid else None,
+                    "company_workforce_member_id": str(company_workforce_member_id) if company_workforce_member_id else None,
                 },
             )
             await session.commit()
@@ -457,7 +463,7 @@ class PostgresWorkforceRepository:
                     """
                     SELECT assignment_id, workspace_id, functional_key, spec_id, spec_version,
                            definition_hash, reports_to_assignment_id, configured_by, status,
-                           created_at, retired_at, agent_instance_id
+                           created_at, retired_at, agent_instance_id, company_workforce_member_id
                     FROM agent.workforce_assignments
                     WHERE workspace_id = :workspace_id
                       AND functional_key = :functional_key
@@ -488,7 +494,7 @@ class PostgresWorkforceRepository:
                     """
                     SELECT assignment_id, workspace_id, functional_key, spec_id, spec_version,
                            definition_hash, reports_to_assignment_id, configured_by, status,
-                           created_at, retired_at, agent_instance_id
+                           created_at, retired_at, agent_instance_id, company_workforce_member_id
                     FROM agent.workforce_assignments
                     WHERE workspace_id = :workspace_id AND assignment_id = :assignment_id
                     """
@@ -508,7 +514,7 @@ class PostgresWorkforceRepository:
                         """
                         SELECT assignment_id, workspace_id, functional_key, spec_id, spec_version,
                                definition_hash, reports_to_assignment_id, configured_by, status,
-                               created_at, retired_at
+                               created_at, retired_at, agent_instance_id, company_workforce_member_id
                         FROM agent.workforce_assignments
                         WHERE workspace_id = :workspace_id AND status = :status
                         ORDER BY created_at ASC
@@ -522,7 +528,7 @@ class PostgresWorkforceRepository:
                         """
                         SELECT assignment_id, workspace_id, functional_key, spec_id, spec_version,
                                definition_hash, reports_to_assignment_id, configured_by, status,
-                               created_at, retired_at
+                               created_at, retired_at, agent_instance_id, company_workforce_member_id
                         FROM agent.workforce_assignments
                         WHERE workspace_id = :workspace_id
                         ORDER BY created_at ASC
@@ -546,7 +552,7 @@ class PostgresWorkforceRepository:
                     WHERE workspace_id = :workspace_id AND assignment_id = :assignment_id
                     RETURNING assignment_id, workspace_id, functional_key, spec_id, spec_version,
                               definition_hash, reports_to_assignment_id, configured_by, status,
-                              created_at, retired_at, agent_instance_id
+                              created_at, retired_at, agent_instance_id, company_workforce_member_id
                     """
                 ),
                 {"workspace_id": workspace_id, "assignment_id": str(aid), "now": now},
@@ -915,6 +921,11 @@ class PostgresWorkforceRepository:
     @staticmethod
     def _row_to_assignment(row: Any) -> WorkforceAssignmentRecord:
         emp = row.get("agent_instance_id") if hasattr(row, "get") else row["agent_instance_id"]
+        c_id = (
+            row.get("company_workforce_member_id")
+            if hasattr(row, "get")
+            else (row["company_workforce_member_id"] if "company_workforce_member_id" in row else None)
+        )
         return WorkforceAssignmentRecord(
             assignment_id=UUID(str(row["assignment_id"])),
             workspace_id=row["workspace_id"],
@@ -930,6 +941,7 @@ class PostgresWorkforceRepository:
             created_at=row["created_at"],
             retired_at=row["retired_at"],
             agent_instance_id=UUID(str(emp)) if emp else None,
+            company_workforce_member_id=str(c_id) if c_id else None,
         )
 
     @staticmethod
@@ -1192,6 +1204,7 @@ class InMemoryWorkforceRepository:
         reports_to_assignment_id: UUID | str | None = None,
         assignment_id: UUID | str | None = None,
         agent_instance_id: UUID | str | None = None,
+        company_workforce_member_id: str | None = None,
     ) -> WorkforceAssignmentRecord:
         rid = UUID(str(reports_to_assignment_id)) if reports_to_assignment_id else None
 
@@ -1227,6 +1240,7 @@ class InMemoryWorkforceRepository:
                     created_at=existing.created_at,
                     retired_at=None,
                     agent_instance_id=eid or existing.agent_instance_id,
+                    company_workforce_member_id=company_workforce_member_id or existing.company_workforce_member_id,
                 )
                 self.assignments[existing.assignment_id] = updated
                 return updated
@@ -1245,6 +1259,7 @@ class InMemoryWorkforceRepository:
             created_at=datetime.now(UTC),
             retired_at=None,
             agent_instance_id=eid,
+            company_workforce_member_id=company_workforce_member_id,
         )
         self.assignments[aid] = record
         return record
@@ -1285,6 +1300,8 @@ class InMemoryWorkforceRepository:
                 status="RETIRED",
                 created_at=rec.created_at,
                 retired_at=datetime.now(UTC),
+                agent_instance_id=rec.agent_instance_id,
+                company_workforce_member_id=rec.company_workforce_member_id,
             )
             self.assignments[aid] = retired
             return retired

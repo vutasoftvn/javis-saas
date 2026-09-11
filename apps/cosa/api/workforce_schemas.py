@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 class CreateAssignmentRequest(BaseModel):
     functional_key: str
     reports_to_assignment_id: UUID | None = None
+    company_workforce_member_id: str | None = None
 
 
 class WorkforceAssignmentOut(BaseModel):
@@ -25,6 +26,7 @@ class WorkforceAssignmentOut(BaseModel):
     status: str
     created_at: str
     retired_at: str | None = None
+    company_workforce_member_id: str | None = None
 
 
 class WorkforceCompositionEntry(BaseModel):

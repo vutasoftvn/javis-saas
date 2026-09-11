@@ -42,6 +42,7 @@ class WorkforceAssignmentRecord:
     retired_at: datetime | None = None
     # Nullable — assignment lịch sử (trước migration 033) chưa nối employee.
     agent_instance_id: UUID | None = None
+    company_workforce_member_id: str | None = None
 
 
 @dataclass(frozen=True)

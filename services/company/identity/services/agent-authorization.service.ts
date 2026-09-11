@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, isNull } from "drizzle-orm";
 import { db } from "../models/db";
 import {
   coreCapabilityPermissionBindings,
@@ -544,7 +544,38 @@ export async function getAuthorizationOverview(ctx: TenantContext) {
     version: b.version,
   }));
 
-  // 5. Recent audit events
+  // 5. Workforce members
+  const members = await db
+    .select({
+      id: identityWorkforceMembers.id,
+      memberType: identityWorkforceMembers.memberType,
+      status: identityWorkforceMembers.status,
+      roleTitle: identityWorkforceMembers.roleTitle,
+      agentSpecId: identityWorkforceMembers.agentSpecId,
+      agentSpecVersion: identityWorkforceMembers.agentSpecVersion,
+      humanUserId: identityWorkforceMembers.humanUserId,
+      createdAt: identityWorkforceMembers.createdAt,
+    })
+    .from(identityWorkforceMembers)
+    .where(
+      and(
+        eq(identityWorkforceMembers.workspaceId, wsId),
+        isNull(identityWorkforceMembers.deletedAt)
+      )
+    );
+
+  const memberItems = members.map((m) => ({
+    id: String(m.id),
+    memberType: m.memberType,
+    status: m.status,
+    roleTitle: m.roleTitle,
+    agentSpecId: m.agentSpecId,
+    agentSpecVersion: m.agentSpecVersion,
+    humanUserId: m.humanUserId ? String(m.humanUserId) : null,
+    createdAt: m.createdAt.toISOString(),
+  }));
+
+  // 6. Recent audit events
   const events = await db
     .select()
     .from(coreAuthorizationEvents)
@@ -571,6 +602,7 @@ export async function getAuthorizationOverview(ctx: TenantContext) {
     enforcementMode: authState.enforcementMode,
     authorizationEpoch: authState.authorizationEpoch,
     policyVersion: latestPolicyVersion,
+    members: memberItems,
     roles: roleItems,
     assignments: assignmentItems,
     grants: grantItems,

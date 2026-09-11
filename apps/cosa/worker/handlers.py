@@ -27,6 +27,7 @@ from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
 from apps.cosa.observability.otel import inject_trace_carrier, trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
+from apps.cosa.policies.snapshot import AgentAuthorizationSnapshot
 from apps.cosa.worker.autopilot_run import (
     resume_customer_support_autopilot,
     run_customer_support_autopilot,
@@ -261,11 +262,49 @@ async def _execute_run_task_inner(
         )
         return
 
+    assignment_id = payload.get("assignment_id")
+    company_workforce_member_id = payload.get("company_workforce_member_id")
+
+    if assignment_id and plane.workforce_repository is not None:
+        assignment = await plane.workforce_repository.get_assignment(workspace_id, assignment_id)
+        if assignment is None or assignment.status != "ACTIVE":
+            logger.error("assignment %r not found or retired for run_id=%s", assignment_id, run_id)
+            await _append_message(
+                plane,
+                conversation_id=conversation_id,
+                role="assistant",
+                content="Workforce assignment retired or not found — run rejected",
+                run_id=run_id,
+                status_="failed",
+            )
+            await stream_mgr.emit(
+                stream_repo,
+                run_id=run_id,
+                conversation_id=conversation_id,
+                event_type="run.failed",
+                payload={"error": "workforce_assignment_retired"},
+            )
+            return
+        if not company_workforce_member_id and assignment.company_workforce_member_id:
+            company_workforce_member_id = assignment.company_workforce_member_id
+
     # Resolve PolicySnapshot TRƯỚC khi tạo run — §10.5 freshness invariant:
     # không xác nhận được current gate/tenant policy thật KHÔNG được coi là
     # ALLOW ngầm.
     try:
         snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, workspace_id)
+        if company_workforce_member_id:
+            delegation_token = payload.get("company_delegation_token") or bearer_token
+            business_rules = await plane.tenant_policy_client.get_business_policy_rules(
+                delegation_token=delegation_token,
+                workspace_id=workspace_id,
+                workforce_member_id=str(company_workforce_member_id),
+            )
+            snapshot.business_policy_rules = business_rules
+            snapshot.agent_authority = AgentAuthorizationSnapshot(
+                authorization_epoch=business_rules.authorization_epoch,
+                grants=business_rules.agent_capabilities,
+            )
     except CosaTenantPolicyError:
         # Task 6 — không interpolate exception thô (có thể lộ chi tiết nội bộ
         # từ Company tenant-policy service) vào message/event client-facing.
@@ -340,6 +379,11 @@ async def _execute_run_task_inner(
     # ComplianceResolver.resolve_for_run dựng DataAccessClaim thật. Chỉ chứa
     # context đã hash, không có nội dung message thô.
     extra_md: dict[str, Any] = {}
+    if company_workforce_member_id:
+        extra_md["agent_workforce_member_id"] = str(company_workforce_member_id)
+        extra_md["company_workforce_member_id"] = str(company_workforce_member_id)
+    if assignment_id:
+        extra_md["assignment_id"] = str(assignment_id)
     direct_message_data_access = payload.get("direct_message_data_access")
     if direct_message_data_access is not None:
         extra_md["direct_message_data_access"] = direct_message_data_access

@@ -199,9 +199,11 @@ class CosaTenantPolicyClient:
 
         try:
             data = resp.json()
+            if "policyVersion" not in data or "ruleGroups" not in data:
+                raise KeyError("missing required fields policyVersion or ruleGroups")
             return BusinessPolicyRuleSet(
                 is_founder=data.get("isFounder", False),
-                policy_version=data.get("policyVersion", 1),
+                policy_version=data["policyVersion"],
                 authorization_epoch=data.get("authorizationEpoch", 1),
                 rule_groups=[
                     [
@@ -212,7 +214,7 @@ class CosaTenantPolicyClient:
                         )
                         for r in group.get("rules", [])
                     ]
-                    for group in data.get("ruleGroups", [])
+                    for group in data["ruleGroups"]
                 ],
                 agent_capabilities=[
                     AgentCapabilityAuthority(

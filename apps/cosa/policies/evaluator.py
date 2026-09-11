@@ -195,14 +195,22 @@ class CosaPolicyEngine:
                             or f"Tenant policy REQUIRE_APPROVAL for {matched.tool_pattern}",
                         ),
                     )
-                # ALLOW falls through; Control Plane cannot broaden Company authority
-
         if has_active_grant:
             # Verified by Company authority grant and passed Control Plane overlay
             return PolicyDecision(
                 outcome=PolicyOutcome.ALLOW,
                 reasons=("Allowed by Company agent capability grant",),
             )
+
+        if snapshot is not None:
+            matched = snapshot.match(capability_id)
+            if matched is not None and matched.decision == "ALLOW":
+                return PolicyDecision(
+                    outcome=PolicyOutcome.ALLOW,
+                    reasons=(
+                        matched.reason or f"Tenant policy ALLOW for {matched.tool_pattern}",
+                    ),
+                )
 
         # 3. Rule hardcode — fallback explicitly versioned.
         # 3a. Risk check theo action và payload

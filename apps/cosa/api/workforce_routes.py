@@ -129,6 +129,7 @@ async def list_assignments(
             status=r.status,
             created_at=r.created_at.isoformat(),
             retired_at=r.retired_at.isoformat() if r.retired_at else None,
+            company_workforce_member_id=r.company_workforce_member_id,
         )
         for r in records
     ]
@@ -141,7 +142,54 @@ async def create_assignment(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ) -> MvpSuccess[WorkforceAssignmentOut]:
-    require_workspace_operator(identity)
+    if identity.role_id not in ("founder", "co-founder"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="founder authority required",
+        )
+
+    if not req.company_workforce_member_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="active AI workforce member is required",
+        )
+
+    plane = _get_plane(request)
+    if plane.company_client is not None:
+        try:
+            overview = await plane.company_client.get(
+                "/identity/authorization/overview",
+                headers={
+                    "Authorization": f"Bearer {identity.bearer_token}",
+                    "X-Workspace-Id": identity.workspace_id,
+                },
+            )
+        except Exception as exc:
+            logger.warning("failed to verify company workforce member: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="active AI workforce member is required",
+            )
+
+        members = overview.get("members", [])
+        target = next(
+            (
+                m
+                for m in members
+                if str(m.get("id")) == str(req.company_workforce_member_id)
+            ),
+            None,
+        )
+        if (
+            target is None
+            or target.get("memberType") != "AI_AGENT"
+            or target.get("status") != "active"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="active AI workforce member is required",
+            )
+
     repo = _get_workforce_repo(request)
 
     cat_entry = FUNCTIONAL_AGENT_CATALOG.get(req.functional_key)
@@ -163,6 +211,7 @@ async def create_assignment(
         definition_hash=spec_with_hash.definition_hash or "",
         reports_to_assignment_id=req.reports_to_assignment_id,
         configured_by=identity.principal_id,
+        company_workforce_member_id=req.company_workforce_member_id,
     )
 
     out = WorkforceAssignmentOut(
@@ -179,6 +228,7 @@ async def create_assignment(
         status=rec.status,
         created_at=rec.created_at.isoformat(),
         retired_at=rec.retired_at.isoformat() if rec.retired_at else None,
+        company_workforce_member_id=rec.company_workforce_member_id,
     )
     return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.workforce_assignments")])
 
@@ -216,6 +266,7 @@ async def retire_assignment(
         status=rec.status,
         created_at=rec.created_at.isoformat(),
         retired_at=rec.retired_at.isoformat() if rec.retired_at else None,
+        company_workforce_member_id=rec.company_workforce_member_id,
     )
     return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.workforce_assignments")])
 

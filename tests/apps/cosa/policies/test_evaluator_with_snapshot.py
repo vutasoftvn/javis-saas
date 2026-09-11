@@ -192,9 +192,9 @@ def test_business_policy_allow_falls_through_to_hardcoded_require_approval():
     assert decision.outcome == PolicyOutcome.REQUIRE_APPROVAL
 
 
-def test_tenant_snapshot_override_still_wins_over_business_policy():
-    """Step 2 (cosa.company_agent_policy override cũ) vẫn chạy TRƯỚC step 2b
-    — nếu step 2 đã match, business_policy_rules không được xét tới."""
+def test_business_policy_deny_beats_tenant_snapshot_allow_overlay():
+    """Spec §4.2 — ALLOW của Control Plane không được phép nới lỏng DENY của
+    Business plane. DENY từ Company Business plane luôn thắng."""
     engine = CosaPolicyEngine()
     snapshot = PolicySnapshot(
         workspace_id="c1",
@@ -215,8 +215,7 @@ def test_tenant_snapshot_override_still_wins_over_business_policy():
         ),
     )
     decision = engine.evaluate("finance.payout.execute", {"amount": 500}, _ctx(snapshot))
-    assert decision.outcome == PolicyOutcome.ALLOW
-    assert decision.reasons[0] == "pre-approved vendor"
+    assert decision.outcome == PolicyOutcome.DENY
 
 
 def test_no_business_policy_rules_fetched_is_a_pure_no_op():
