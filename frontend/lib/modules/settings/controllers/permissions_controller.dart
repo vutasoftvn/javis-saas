@@ -12,13 +12,17 @@ class PermissionsController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isSaving = false.obs;
   final RxBool isSimulating = false.obs;
+  final RxBool isFounder = true.obs;
+
+  final RxInt activeTab = 0.obs;
 
   final Rxn<PermissionsDataModel> permissionsData = Rxn<PermissionsDataModel>();
+  final Rxn<WorkspaceAuthorityOverviewModel> overviewData = Rxn<WorkspaceAuthorityOverviewModel>();
   final RxString conflictMessage = ''.obs;
   final RxString successMessage = ''.obs;
+  final RxMap<String, String> validationErrors = <String, String>{}.obs;
 
   // Local draft changes (roleId -> (permissionKey -> effect))
-  // Chỉnh dropdown chưa save KHÔNG thay đổi effectivePermissions của permissionsData!
   final RxMap<String, Map<String, String>> draftRolePermissions =
       <String, Map<String, String>>{}.obs;
 
@@ -33,19 +37,47 @@ class PermissionsController extends GetxController {
     loadPermissions();
   }
 
+  Future<void> loadOverview() async {
+    final result = await _service.fetchOverview();
+    if (result is ApiSuccess<WorkspaceAuthorityOverviewModel>) {
+      overviewData.value = result.data;
+      isFounder.value = true;
+    } else if (result is ApiFailure<WorkspaceAuthorityOverviewModel>) {
+      if (result.failure.code == ApiFailureCode.forbidden) {
+        isFounder.value = false;
+        conflictMessage.value = 'Chỉ Founder mới có quyền quản lý phân quyền và lực lượng lao động.';
+      } else if (result.failure.code == ApiFailureCode.conflict) {
+        conflictMessage.value = 'Xung đột trạng thái: Vui lòng tải lại trang để kiểm tra.';
+      } else {
+        conflictMessage.value = result.failure.message;
+      }
+    }
+  }
+
   Future<void> loadPermissions() async {
     isLoading.value = true;
     conflictMessage.value = '';
     successMessage.value = '';
+    validationErrors.clear();
+
+    await loadOverview();
 
     final result = await _service.getPermissions();
     if (result is ApiSuccess<PermissionsDataModel>) {
       permissionsData.value = result.data;
+      isFounder.value = true;
       if (result.data.catalog.isNotEmpty && selectedSimulationAction.value.isEmpty) {
         selectedSimulationAction.value = result.data.catalog.first.permissionKey;
       }
     } else if (result is ApiFailure<PermissionsDataModel>) {
-      conflictMessage.value = result.failure.message;
+      if (result.failure.code == ApiFailureCode.forbidden) {
+        isFounder.value = false;
+        conflictMessage.value = 'Chỉ Founder mới có quyền quản lý phân quyền và lực lượng lao động.';
+      } else if (result.failure.code == ApiFailureCode.conflict) {
+        conflictMessage.value = 'Xung đột phiên bản: Vui lòng tải lại và kiểm tra.';
+      } else {
+        conflictMessage.value = result.failure.message;
+      }
     }
     isLoading.value = false;
   }
@@ -71,11 +103,12 @@ class PermissionsController extends GetxController {
 
   Future<void> savePermissions() async {
     final data = permissionsData.value;
-    if (data == null) return;
+    if (data == null || isSaving.value) return;
 
     isSaving.value = true;
     conflictMessage.value = '';
     successMessage.value = '';
+    validationErrors.clear();
 
     final mutations = <Map<String, dynamic>>[];
 
@@ -106,11 +139,85 @@ class PermissionsController extends GetxController {
       successMessage.value = 'Đã lưu quyền';
       await loadPermissions();
     } else if (result is ApiFailure<Map<String, dynamic>>) {
-      // Giữ form và hiển thị lỗi inline / conflict
+      if (result.failure.code == ApiFailureCode.forbidden) {
+        isFounder.value = false;
+      }
       conflictMessage.value = result.failure.message;
     }
 
+
     isSaving.value = false;
+  }
+
+  Future<bool> createGrant({
+    required String agentWorkforceMemberId,
+    required String capabilityId,
+    String? projectId,
+    String? legalEntityId,
+    Map<String, dynamic>? constraints,
+  }) async {
+    if (isSaving.value) return false;
+    isSaving.value = true;
+    conflictMessage.value = '';
+    validationErrors.clear();
+
+    final result = await _service.createAgentCapabilityGrant(
+      agentWorkforceMemberId: agentWorkforceMemberId,
+      capabilityId: capabilityId,
+      projectId: projectId,
+      legalEntityId: legalEntityId,
+      constraints: constraints,
+    );
+
+    isSaving.value = false;
+
+    if (result is ApiSuccess<AgentCapabilityGrantModel>) {
+      successMessage.value = 'Đã cấp quyền capability cho AI Agent';
+      await loadPermissions();
+      return true;
+    } else if (result is ApiFailure<AgentCapabilityGrantModel>) {
+      if (result.failure.code == ApiFailureCode.forbidden) {
+        conflictMessage.value = 'Chỉ Founder mới có quyền cấp capability grant.';
+      } else if (result.failure.code == ApiFailureCode.conflict) {
+        conflictMessage.value = 'Xung đột quyền: Vui lòng tải lại danh sách.';
+      } else if (result.failure.code == ApiFailureCode.invalidRequest) {
+        validationErrors['capabilityId'] = result.failure.message;
+      } else {
+        conflictMessage.value = result.failure.message;
+      }
+      return false;
+    }
+    return false;
+  }
+
+  Future<bool> revokeGrant({
+    required String grantId,
+    required String reason,
+  }) async {
+    if (isSaving.value) return false;
+    isSaving.value = true;
+    conflictMessage.value = '';
+
+    final result = await _service.revokeAgentCapabilityGrant(
+      grantId: grantId,
+      reason: reason,
+    );
+
+    isSaving.value = false;
+
+    if (result is ApiSuccess<Map<String, dynamic>>) {
+      successMessage.value = 'Đã thu hồi quyền capability';
+      await loadPermissions();
+      return true;
+    } else if (result is ApiFailure<Map<String, dynamic>>) {
+      if (result.failure.code == ApiFailureCode.forbidden) {
+        conflictMessage.value = 'Chỉ Founder mới có quyền thu hồi capability grant.';
+      } else {
+        conflictMessage.value = result.failure.message;
+      }
+      return false;
+    }
+    return false;
   }
 
   Future<void> simulateAction(String action, {String? memberId}) async {

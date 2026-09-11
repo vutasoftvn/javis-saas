@@ -63,9 +63,27 @@ class MockPermissionsService extends PermissionsService {
   );
 
   @override
+  Future<ApiResult<WorkspaceAuthorityOverviewModel>> fetchOverview() async {
+    return ApiSuccess(
+      data: const WorkspaceAuthorityOverviewModel(
+        roles: [],
+        assignments: [],
+        grants: [],
+        bindings: [],
+        events: [],
+        members: [],
+        authorizationEpoch: 1,
+        policyVersion: 1,
+      ),
+      meta: testMeta,
+    );
+  }
+
+  @override
   Future<ApiResult<PermissionsDataModel>> getPermissions() async {
     return ApiSuccess(data: testData, meta: testMeta);
   }
+
 
   @override
   Future<ApiResult<Map<String, dynamic>>> updatePermissions({
@@ -163,8 +181,10 @@ void main() {
 
       // 4. Test simulation panel
       final simButton = find.text('Mô phỏng');
+      await tester.ensureVisible(simButton);
       await tester.tap(simButton);
       await tester.pumpAndSettle();
+
 
       expect(find.textContaining('Kết quả phân tích quyết định:'), findsOneWidget);
       expect(find.textContaining('Rule requires approval from founder'), findsOneWidget);
