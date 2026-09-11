@@ -23,6 +23,7 @@ from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
+    configure_mock_client_project_access,
     fake_active_tenant_policy_client,
 )
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
@@ -34,6 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
+    configure_mock_client_project_access(mock_client)
     mock_client.post.return_value = {
         "payout_id": "po_slice2_777",
         "status": "committed",
@@ -90,7 +92,14 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Tạo Conversation
-        res_conv = await ac.post("/agent/conversations", json={"title": "Finance Transaction Record", "active_agent_profile": "finance"})
+        res_conv = await ac.post(
+            "/agent/conversations",
+            json={
+                "title": "Finance Transaction Record",
+                "active_agent_profile": "finance",
+                "project_id": "proj_slice2_1",
+            },
+        )
         assert res_conv.status_code == 201
         conv_id = res_conv.json()["id"]
 
@@ -99,6 +108,7 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "Record high-value transaction of $60,000 for server purchase",
+                "project_id": "proj_slice2_1",
                 "data_access": {"categories": ["BUSINESS_CONFIDENTIAL"]},
             },
         )
@@ -153,6 +163,7 @@ def test_app_for_payload_shape():
     drain_worker_queue() của main flow test."""
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
+    configure_mock_client_project_access(mock_client)
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),
@@ -185,12 +196,20 @@ async def test_scheduled_task_payload_never_contains_raw_bearer_token(test_app_f
     app, plane = test_app_for_payload_shape
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
-        res_conv = await ac.post("/agent/conversations", json={"title": "Payload Shape Check", "active_agent_profile": "finance"})
+        res_conv = await ac.post(
+            "/agent/conversations",
+            json={
+                "title": "Payload Shape Check",
+                "active_agent_profile": "finance",
+                "project_id": "proj_slice2_2",
+            },
+        )
         conv_id = res_conv.json()["id"]
         await ac.post(
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "Execute wire payout $500 to Vendor X",
+                "project_id": "proj_slice2_2",
                 "data_access": {"categories": ["BUSINESS_CONFIDENTIAL"]},
             },
         )

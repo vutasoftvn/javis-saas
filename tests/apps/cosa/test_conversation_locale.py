@@ -98,7 +98,11 @@ async def test_message_uses_profile_en_us_when_content_is_vietnamese(test_setup)
         # Create conversation c1
         conv_res = await client.post(
             "/agent/conversations",
-            json={"title": "Test Locale", "active_agent_profile": "operations"},
+            json={
+                "title": "Test Locale",
+                "active_agent_profile": "operations",
+                "project_id": "proj_locale_1",
+            },
         )
         c1 = conv_res.json()["id"]
 
@@ -107,6 +111,7 @@ async def test_message_uses_profile_en_us_when_content_is_vietnamese(test_setup)
             json={
                 "content": "Hãy tóm tắt",
                 "role": "user",
+                "project_id": "proj_locale_1",
                 "data_access": valid_access(),
             },
         )
@@ -127,7 +132,11 @@ async def test_structured_turn_override_does_not_change_profile(test_setup):
     ) as client:
         conv_res = await client.post(
             "/agent/conversations",
-            json={"title": "Test Override", "active_agent_profile": "operations"},
+            json={
+                "title": "Test Override",
+                "active_agent_profile": "operations",
+                "project_id": "proj_locale_2",
+            },
         )
         c1 = conv_res.json()["id"]
 
@@ -137,6 +146,7 @@ async def test_structured_turn_override_does_not_change_profile(test_setup):
                 "content": "xin chào",
                 "response_locale_override": "vi-VN",
                 "role": "user",
+                "project_id": "proj_locale_2",
                 "data_access": valid_access(),
             },
         )
@@ -190,7 +200,11 @@ async def test_profile_locale_snapshot_failure_is_side_effect_free(test_setup):
     ) as client:
         conv_res = await client.post(
             "/agent/conversations",
-            json={"title": "Test 503", "active_agent_profile": "operations"},
+            json={
+                "title": "Test 503",
+                "active_agent_profile": "operations",
+                "project_id": "proj_locale_3",
+            },
         )
         c1 = conv_res.json()["id"]
 
@@ -199,6 +213,7 @@ async def test_profile_locale_snapshot_failure_is_side_effect_free(test_setup):
             json={
                 "content": "hello",
                 "role": "user",
+                "project_id": "proj_locale_3",
                 "data_access": valid_access(),
             },
         )

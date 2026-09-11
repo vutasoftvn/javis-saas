@@ -34,6 +34,7 @@ from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
+    configure_mock_client_project_access,
     fake_active_tenant_policy_client,
 )
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
@@ -45,6 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
+    configure_mock_client_project_access(mock_client)
     # Startup Core: run operations resolve project của workspace qua Company.
     mock_client.get.return_value = {"projects": [{"id": "proj_test_1"}], "tasks": [], "total": 0, "items": []}
     vault_repository = InMemoryVaultRepository()
@@ -147,7 +149,10 @@ async def test_founder_assistant_can_request_workspace_knowledge_via_gateway(tes
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        res_conv = await ac.post("/agent/conversations", json={"title": "Kế hoạch quý"})
+        res_conv = await ac.post(
+            "/agent/conversations",
+            json={"title": "Kế hoạch quý", "project_id": "proj_knowledge_1"},
+        )
         assert res_conv.status_code == 201
         conv_id = res_conv.json()["id"]
 
@@ -155,6 +160,7 @@ async def test_founder_assistant_can_request_workspace_knowledge_via_gateway(tes
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "Tóm tắt kế hoạch quý",
+                "project_id": "proj_knowledge_1",
                 "data_access": {"categories": ["NON_PERSONAL"]},
             },
         )
@@ -186,7 +192,10 @@ async def test_member_run_context_excludes_denied_citation(test_app):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        res_conv = await ac.post("/agent/conversations", json={"title": "Lương ban điều hành"})
+        res_conv = await ac.post(
+            "/agent/conversations",
+            json={"title": "Lương ban điều hành", "project_id": "proj_knowledge_2"},
+        )
         assert res_conv.status_code == 201
         conv_id = res_conv.json()["id"]
 
@@ -194,6 +203,7 @@ async def test_member_run_context_excludes_denied_citation(test_app):
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "Lương ban điều hành",
+                "project_id": "proj_knowledge_2",
                 "data_access": {"categories": ["NON_PERSONAL"]},
             },
         )

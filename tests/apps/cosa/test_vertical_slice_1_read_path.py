@@ -34,12 +34,22 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
-    mock_client.get.return_value = {
-        "tasks": [{"id": 1, "title": "Launch Q4 Strategy", "status": "in_progress"}],
-        "total": 1,
-        # Startup Core: run operations resolve project của workspace qua Company.
-        "projects": [{"id": "proj_test_1"}],
-    }
+
+    # Custom get handler that supports both project access and task list
+    async def _get_handler(path: str, *args, **kwargs):
+        if path.startswith("/operations/projects/"):
+            # Project context verification
+            project_id = path.rsplit("/", 1)[-1]
+            return {"id": project_id, "workspaceId": "test_ws_1", "title": f"Project {project_id}"}
+        # Default response for other requests
+        return {
+            "tasks": [{"id": 1, "title": "Launch Q4 Strategy", "status": "in_progress"}],
+            "total": 1,
+            # Startup Core: run operations resolve project của workspace qua Company.
+            "projects": [{"id": "proj_test_1"}],
+        }
+
+    mock_client.get.side_effect = _get_handler
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),
@@ -84,7 +94,14 @@ async def test_vertical_slice_1_read_path(test_app):
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Tạo Conversation
-        res_conv = await ac.post("/agent/conversations", json={"title": "Operations Inquiry", "active_agent_profile": "operations"})
+        res_conv = await ac.post(
+            "/agent/conversations",
+            json={
+                "title": "Operations Inquiry",
+                "active_agent_profile": "operations",
+                "project_id": "proj_slice_1",
+            },
+        )
         assert res_conv.status_code == 201
         conv_data = res_conv.json()
         conv_id = conv_data["id"]
@@ -95,6 +112,7 @@ async def test_vertical_slice_1_read_path(test_app):
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "Please list all in_progress operations tasks",
+                "project_id": "proj_slice_1",
                 "data_access": {"categories": ["NON_PERSONAL"]},
             },
         )
@@ -109,7 +127,7 @@ async def test_vertical_slice_1_read_path(test_app):
         assert dispatched == 1
 
         # 3. Lấy lại Conversation chi tiết
-        res_detail = await ac.get(f"/agent/conversations/{conv_id}")
+        res_detail = await ac.get(f"/agent/conversations/{conv_id}?project_id=proj_slice_1")
         assert res_detail.status_code == 200
         detail_data = res_detail.json()
         assert len(detail_data["messages"]) >= 2
