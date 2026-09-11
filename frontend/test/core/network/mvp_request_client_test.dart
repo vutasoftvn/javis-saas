@@ -259,6 +259,30 @@ void main() {
       expect((result as ApiFailure<List<String>>).failure.code, ApiFailureCode.malformedResponse);
     });
 
+    test('unwrapped json response gracefully returns ApiSuccess with default meta', () async {
+      final mockHttp = MockClient((request) async {
+        return http.Response(
+          jsonEncode({'items': ['item-1', 'item-2']}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = MvpRequestClient(
+        httpClient: mockHttp,
+        authResolver: _FakeAuthResolver(token: 'valid_tok', wsId: '1001'),
+      );
+      final result = await client.request<List<String>>(
+        MvpEndpoint.financeBudgetSummaryRead,
+        decode: (json) => ((json as Map<String, dynamic>)['items'] as List<dynamic>).cast<String>(),
+      );
+
+      expect(result, isA<ApiSuccess<List<String>>>());
+      final success = result as ApiSuccess<List<String>>;
+      expect(success.data, ['item-1', 'item-2']);
+      expect(success.meta.dataState, ApiDataState.populated);
+    });
+
     test('network exception returns ApiFailureCode.unavailable', () async {
       final mockHttp = MockClient((request) async {
         throw const SocketException('Connection refused');

@@ -224,21 +224,26 @@ class MvpRequestClient {
           );
         }
 
-        if (!decoded.containsKey('data') || !decoded.containsKey('meta')) {
-          return ApiFailure(
-            ApiFailureDetail(
-              code: ApiFailureCode.malformedResponse,
-              statusCode: status,
-              message: 'Missing "data" or "meta" in success envelope',
-              endpointId: endpoint.id,
-            ),
+        final dynamic rawData;
+        final ApiResponseMeta meta;
+
+        if (decoded.containsKey('data') &&
+            decoded.containsKey('meta') &&
+            decoded['meta'] is Map<String, dynamic>) {
+          meta = ApiResponseMeta.fromJson(
+            decoded['meta'] as Map<String, dynamic>,
           );
+          rawData = decoded['data'];
+        } else {
+          meta = ApiResponseMeta(
+            dataState: ApiDataState.populated,
+            observedAt: DateTime.now().toUtc(),
+            sources: const [],
+          );
+          rawData = decoded;
         }
 
-        final meta = ApiResponseMeta.fromJson(
-          decoded['meta'] as Map<String, dynamic>,
-        );
-        final data = decode(decoded['data']);
+        final data = decode(rawData);
         return ApiSuccess(data: data, meta: meta);
       } catch (e) {
         return ApiFailure(
