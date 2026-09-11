@@ -890,4 +890,76 @@ export const projectExecutiveRoleActivationEvents = operatingSchema.table("proje
   idxActivationOccurred: index("idx_project_exec_role_act_events_act").on(t.activationId, t.occurredAt),
 }));
 
+export const projectExecutiveDeliberations = operatingSchema.table("project_executive_deliberations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  state: varchar("state", { length: 32 }).default("DRAFT").notNull(),
+  activeFrameVersion: integer("active_frame_version").default(0).notNull(),
+  version: integer("version").default(1).notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  fkProject: foreignKey({
+    columns: [t.projectId, t.workspaceId],
+    foreignColumns: [projects.id, projects.workspaceId],
+    name: "fk_project_executive_deliberations_proj_ws",
+  }).onDelete("cascade"),
+  idxWsProj: index("idx_project_exec_deliberations_proj").on(t.workspaceId, t.projectId),
+}));
+
+export const projectExecutiveDeliberationFrames = operatingSchema.table("project_executive_deliberation_frames", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  deliberationId: bigint("deliberation_id", { mode: "bigint" }).notNull().references(() => projectExecutiveDeliberations.id, { onDelete: "cascade" }),
+  frameVersion: integer("frame_version").notNull(),
+  question: text("question").notNull(),
+  deliberationType: varchar("deliberation_type", { length: 64 }).default("STRATEGY").notNull(),
+  deadline: timestamp("deadline", { withTimezone: true }),
+  decisionOwnerId: bigint("decision_owner_id", { mode: "bigint" }).notNull(),
+  selectedRoles: jsonb("selected_roles").default([]).notNull(),
+  evidenceSources: jsonb("evidence_sources").default([]).notNull(),
+  criticRequired: boolean("critic_required").default(false).notNull(),
+  redactedContextRef: text("redacted_context_ref"),
+  framedBy: bigint("framed_by", { mode: "bigint" }).notNull(),
+  framedAt: timestamp("framed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixDelibFrameVer: uniqueIndex("uix_proj_exec_delib_frames_ver").on(t.deliberationId, t.frameVersion),
+}));
+
+export const projectExecutiveDeliberationDecisions = operatingSchema.table("project_executive_deliberation_decisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  deliberationId: bigint("deliberation_id", { mode: "bigint" }).notNull().references(() => projectExecutiveDeliberations.id, { onDelete: "cascade" }),
+  decisionType: varchar("decision_type", { length: 32 }).notNull(),
+  decisionVersion: integer("decision_version").default(1).notNull(),
+  actorId: bigint("actor_id", { mode: "bigint" }).notNull(),
+  notes: text("notes"),
+  modifications: jsonb("modifications").default({}),
+  decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixDelibDecisionVer: uniqueIndex("uix_proj_exec_delib_decisions_ver").on(t.deliberationId, t.decisionVersion),
+}));
+
+export const projectExecutiveDeliberationAnalyses = operatingSchema.table("project_executive_deliberation_analyses", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  deliberationId: bigint("deliberation_id", { mode: "bigint" }).notNull().references(() => projectExecutiveDeliberations.id, { onDelete: "cascade" }),
+  frameVersion: integer("frame_version").notNull(),
+  roleKey: varchar("role_key", { length: 64 }).notNull(),
+  runId: text("run_id").notNull(),
+  status: varchar("status", { length: 32 }).notNull(),
+  descriptor: jsonb("descriptor").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixDelibAnalysesRole: uniqueIndex("uix_proj_exec_delib_analyses_role").on(t.deliberationId, t.frameVersion, t.roleKey),
+}));
+
+
 

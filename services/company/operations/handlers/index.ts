@@ -20,3 +20,4 @@ export * from "../strategy/handlers";
 export * from "./project-lifecycle.handler";
 export * from "./project-startup-team.handler";
 export * from "./executive-role-activation.handler";
+export * from "./executive-deliberation.handler";
