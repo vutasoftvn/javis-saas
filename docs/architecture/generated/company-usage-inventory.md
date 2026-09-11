@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 108 | 23 |
 | VALID_KEEP (giữ nguyên) | 110 | 31 |
-| REVIEW (chưa phân loại) | 789 | 187 |
+| REVIEW (chưa phân loại) | 800 | 188 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -60,6 +60,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/client.py | 11 |
 | frontend/lib/core/localization/app_translations.dart | 10 |
 | packages/agent/capabilities/readiness.py | 10 |
+| apps/cosa/worker/handlers.py | 9 |
 | frontend/lib/core/localization/locales/en/en_strategy.dart | 9 |
 | services/company/identity/handlers/workspace.handler.ts | 9 |
 | apps/cosa/capabilities/project_lifecycle.py | 8 |
@@ -77,6 +78,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/composition/kernel_factory.py | 6 |
 | frontend/lib/core/localization/locales/en/en_auth.dart | 6 |
 | packages/agent/workforce/scorecard.py | 6 |
+| apps/cosa/api/conversation_routes.py | 5 |
 | apps/cosa/capabilities/engagement_message_send.py | 5 |
 | apps/cosa/capabilities/marketing_write.py | 5 |
 | apps/cosa/capabilities/workspace_context_read.py | 5 |
@@ -119,7 +121,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/events/workforce_employee_contract.py | 3 |
 | apps/cosa/knowledge_ingestion/publish.py | 3 |
 | apps/cosa/policies/evaluator.py | 3 |
-| apps/cosa/worker/handlers.py | 3 |
 | frontend/lib/core/localization/locales/vi/vi_auth.dart | 3 |
 | frontend/lib/core/manifest/test_capability_manifest.dart | 3 |
 | frontend/lib/core/runtime/mutation_gate.dart | 3 |
