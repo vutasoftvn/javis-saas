@@ -14,6 +14,10 @@ export const OPERATIONS_DECISION_RECORDED_V1 = "operations.decision.recorded.v1"
 export const OPERATIONS_EVIDENCE_LINKED_V1 = "operations.evidence.linked.v1";
 export const OPERATIONS_RISK_RAISED_V1 = "operations.risk.raised.v1";
 export const OPERATIONS_RISK_RESOLVED_V1 = "operations.risk.resolved.v1";
+export const OPERATIONS_PROJECT_AGENT_ASSIGNMENT_ACTIVATED_V1 =
+  "operations.project_agent_assignment.activated.v1";
+export const OPERATIONS_PROJECT_AGENT_ASSIGNMENT_PAUSED_V1 =
+  "operations.project_agent_assignment.paused.v1";
 
 export type CanonicalEventType =
   | typeof OPERATIONS_TASK_CREATED_V1
@@ -24,7 +28,9 @@ export type CanonicalEventType =
   | typeof OPERATIONS_DECISION_RECORDED_V1
   | typeof OPERATIONS_EVIDENCE_LINKED_V1
   | typeof OPERATIONS_RISK_RAISED_V1
-  | typeof OPERATIONS_RISK_RESOLVED_V1;
+  | typeof OPERATIONS_RISK_RESOLVED_V1
+  | typeof OPERATIONS_PROJECT_AGENT_ASSIGNMENT_ACTIVATED_V1
+  | typeof OPERATIONS_PROJECT_AGENT_ASSIGNMENT_PAUSED_V1;
 
 export interface WorkPackageQueuedPayloadV1 {
   workspaceId: string;

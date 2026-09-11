@@ -7,7 +7,8 @@ export type OwnerAgentProfile =
   | "finance"
   | "marketing"
   | "research_intelligence"
-  | "strategy";
+  | "strategy"
+  | "customer_support";
 
 // AgentSpec id theo apps/cosa/agents/specs.py (COSA_*_AGENT_SPEC.id).
 export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
@@ -16,17 +17,28 @@ export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
   marketing: "cosa.agents.marketing",
   research_intelligence: "cosa.agents.research_intelligence",
   strategy: "cosa.agents.strategy",
+  customer_support: "cosa.agents.customer_support",
 };
 
 // Metadata mô tả (constraint workforce_members yêu cầu agent_spec_version NOT NULL
-// cho AI_AGENT). Runtime dispatch KHÔNG dùng giá trị này — worker resolve exact
-// hash qua registry theo ADR-AGENT-REG-001; đây chỉ là nhãn cho UI/audit.
+// cho AI_AGENT).
 export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
-  operations: "1.2.0",
+  operations: "1.3.0",
   finance: "1.1.0",
   marketing: "1.1.0",
   research_intelligence: "1.0.0",
   strategy: "1.0.0",
+  customer_support: "1.2.0",
+};
+
+// Pinned definition_hash theo specs.py AgentSpec.compute_hash().
+export const AGENT_PROFILE_SPEC_HASH: Record<OwnerAgentProfile, string> = {
+  operations: "0c838f93ddc700984b9acdfead50ce45eb7f6ad867453edaf7c6793562dc33b2",
+  finance: "21bacc10efd681f204e62e827111853a468436fa2413857bdc1b1e7e0c38be96",
+  marketing: "4666a8f2958a656edbcb17f520826da84db8d871797baca18b22bd1438d9838a",
+  research_intelligence: "2a3e445f343954dbad137100816be11226b9651a39ba91088adcbbbce1a9e705",
+  strategy: "9e73d25f9399303e78556c7f3b881f2fe1ef738b9e95c978f7106f5e55343dd0",
+  customer_support: "71fbf6cfccd3299367ad88e68866e53fd488d406c7d74bd0fbaef472731e15aa",
 };
 
 // Drizzle transaction type — cùng cách project-kickoff-materialize.service.ts đặt tên.

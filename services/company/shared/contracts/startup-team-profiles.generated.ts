@@ -13,6 +13,17 @@ export type RuntimeReadiness =
   | 'PENDING_PROJECT_KNOWLEDGE'
   | 'DEFERRED_CODING';
 
+export type StartupTeamProfileKey =
+  | "founder_assistant"
+  | "research_intelligence"
+  | "strategy"
+  | "marketing"
+  | "finance"
+  | "crm"
+  | "sales"
+  | "coding"
+  | "customer_support";
+
 export const STARTUP_TEAM_PROFILE_KEYS = [
   "founder_assistant",
   "research_intelligence",
@@ -24,8 +35,6 @@ export const STARTUP_TEAM_PROFILE_KEYS = [
   "coding",
   "customer_support",
 ] as const;
-
-export type StartupTeamProfileKey = (typeof STARTUP_TEAM_PROFILE_KEYS)[number];
 
 export interface StartupTeamProfileDef {
   key: StartupTeamProfileKey;
