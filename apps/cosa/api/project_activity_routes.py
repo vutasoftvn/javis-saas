@@ -103,7 +103,7 @@ async def _fetch_and_verify_source_visibility(
     # Business facts: không query trực tiếp Company DB từ apps/cosa —
     # chỉ trust Project Activity data đã ghi sẵn, KHÔNG rehydrate source.
     # Nếu cần chi tiết task/decision/evidence, Flutter gọi Company API riêng.
-    elif source_type in ("task", "decision", "evidence"):
+    elif source_type in ("task", "decision", "evidence", "deliberation", "deliberation_analysis"):
         # Đơn giản: nếu activity record tồn tại với source này, assume nó
         # được xác thực lúc ghi. Không re-auth Business facts từ Agent Platform.
         return True, {"type": source_type, "id": source_id}

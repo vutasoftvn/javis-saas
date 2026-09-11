@@ -6,7 +6,11 @@ import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { makeBusinessEvent } from "../../shared/events/envelope";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
-import { EXECUTIVE_DELIBERATION_FRAMED_V1 } from "../../shared/events/event-types";
+import {
+  EXECUTIVE_DELIBERATION_FRAMED_V1,
+  EXECUTIVE_ANALYSIS_COMPLETED_V1,
+  EXECUTIVE_ANALYSIS_FAILED_V1,
+} from "../../shared/events/event-types";
 import {
   EXECUTIVE_ROLE_CATALOG,
   isExecutiveRoleKey,
@@ -20,6 +24,7 @@ const {
   projectExecutiveDeliberations,
   projectExecutiveDeliberationFrames,
   projectExecutiveDeliberationDecisions,
+  projectExecutiveDeliberationAnalyses,
 } = schema;
 
 export type DeliberationState =
@@ -116,6 +121,15 @@ export interface DeliberationDetails {
     modifications?: Record<string, any>;
     decidedAt: string;
   };
+  analyses?: Array<{
+    id: string;
+    frameVersion: number;
+    roleKey: string;
+    runId: string;
+    status: string;
+    descriptor: Record<string, any>;
+    createdAt: string;
+  }>;
 }
 
 /**
@@ -583,6 +597,26 @@ export async function getDeliberation(
     };
   }
 
+  const analysisRows = await db
+    .select()
+    .from(projectExecutiveDeliberationAnalyses)
+    .where(
+      and(
+        eq(projectExecutiveDeliberationAnalyses.deliberationId, delibId),
+        eq(projectExecutiveDeliberationAnalyses.frameVersion, delib.activeFrameVersion)
+      )
+    );
+
+  const analyses = analysisRows.map((r) => ({
+    id: r.id.toString(),
+    frameVersion: r.frameVersion,
+    roleKey: r.roleKey,
+    runId: r.runId,
+    status: r.status,
+    descriptor: (r.descriptor as Record<string, any>) ?? {},
+    createdAt: r.createdAt.toISOString(),
+  }));
+
   return {
     id: delib.id.toString(),
     workspaceId: delib.workspaceId.toString(),
@@ -596,5 +630,276 @@ export async function getDeliberation(
     updatedAt: delib.updatedAt.toISOString(),
     activeFrame,
     decision,
+    analyses,
+  };
+}
+
+export interface ExecutiveAnalysisCallbackInput {
+  kind: "executive.analysis.completed.v1" | "executive.analysis.failed.v1" | string;
+  deliberation_id: string;
+  frame_version: number;
+  role_key: string;
+  descriptor?: Record<string, any>;
+  error_detail?: string;
+}
+
+export interface AnalysisRecordResult {
+  id: string;
+  deliberationId: string;
+  roleKey: string;
+  status: string;
+  state: DeliberationState;
+}
+
+/**
+ * Ghi nhận callback từ Agent Platform cho 1 role analysis (Idempotent, append-only, state transition).
+ */
+export async function recordExecutiveAnalysisCallback(
+  workspaceId: string,
+  projectId: string,
+  deliberationId: string,
+  callback: ExecutiveAnalysisCallbackInput
+): Promise<AnalysisRecordResult> {
+  const wsId = BigInt(workspaceId);
+  const projId = BigInt(projectId);
+  const delibId = BigInt(deliberationId);
+
+  return await db.transaction(async (tx) => {
+    const [delib] = await tx
+      .select()
+      .from(projectExecutiveDeliberations)
+      .where(
+        and(
+          eq(projectExecutiveDeliberations.id, delibId),
+          eq(projectExecutiveDeliberations.workspaceId, wsId),
+          eq(projectExecutiveDeliberations.projectId, projId)
+        )
+      )
+      .limit(1);
+
+    if (!delib) {
+      throw APIError.notFound("Deliberation not found or project mismatch");
+    }
+
+    // Terminal states check
+    if (["CANCELLED", "EXPIRED", "DECIDED"].includes(delib.state)) {
+      throw APIError.failedPrecondition(
+        `Deliberation is in terminal state '${delib.state}', ignoring callback`
+      );
+    }
+
+    if (delib.activeFrameVersion !== callback.frame_version) {
+      throw APIError.failedPrecondition(
+        `Frame version mismatch: active is ${delib.activeFrameVersion}, callback is ${callback.frame_version}`
+      );
+    }
+
+    // Check if role is in active frame
+    const [frame] = await tx
+      .select()
+      .from(projectExecutiveDeliberationFrames)
+      .where(
+        and(
+          eq(projectExecutiveDeliberationFrames.deliberationId, delibId),
+          eq(projectExecutiveDeliberationFrames.frameVersion, delib.activeFrameVersion)
+        )
+      )
+      .limit(1);
+
+    if (!frame) {
+      throw APIError.notFound("Deliberation frame not found");
+    }
+
+    const selectedRoles = (frame.selectedRoles as SelectedRolePin[]) || [];
+    const isRolePinned = selectedRoles.some((r) => r.roleKey === callback.role_key);
+    if (!isRolePinned) {
+      throw APIError.failedPrecondition(
+        `Role '${callback.role_key}' was not selected in frame version ${callback.frame_version}`
+      );
+    }
+
+    // Check idempotency: already exists?
+    const [existing] = await tx
+      .select()
+      .from(projectExecutiveDeliberationAnalyses)
+      .where(
+        and(
+          eq(projectExecutiveDeliberationAnalyses.deliberationId, delibId),
+          eq(projectExecutiveDeliberationAnalyses.frameVersion, callback.frame_version),
+          eq(projectExecutiveDeliberationAnalyses.roleKey, callback.role_key)
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      return {
+        id: existing.id.toString(),
+        deliberationId,
+        roleKey: existing.roleKey,
+        status: existing.status,
+        state: delib.state as DeliberationState,
+      };
+    }
+
+    // Insert analysis record
+    const analysisId = generateSnowflake();
+    const isSuccess = callback.kind === "executive.analysis.completed.v1";
+    const status = isSuccess ? "COMPLETED" : "FAILED";
+    const runId =
+      callback.descriptor?.run_id ?? `run_${callback.role_key}_${deliberationId}`;
+    const descriptor = callback.descriptor ?? { error: callback.error_detail };
+
+    await tx.insert(projectExecutiveDeliberationAnalyses).values({
+      id: analysisId,
+      workspaceId: wsId,
+      projectId: projId,
+      deliberationId: delibId,
+      frameVersion: callback.frame_version,
+      roleKey: callback.role_key,
+      runId,
+      status,
+      descriptor,
+    });
+
+    // Outbox event (compact summary, no raw prompt or raw CoT)
+    const eventType = isSuccess
+      ? EXECUTIVE_ANALYSIS_COMPLETED_V1
+      : EXECUTIVE_ANALYSIS_FAILED_V1;
+
+    const event = makeBusinessEvent({
+      workspaceId,
+      projectId,
+      eventType,
+      aggregateType: "deliberation",
+      aggregateId: deliberationId,
+      correlationId: runId,
+      actor: { kind: "agent", id: `agent_exec_${callback.role_key}` },
+      classification: "internal",
+      payload: {
+        workspaceId,
+        projectId,
+        deliberationId,
+        frameVersion: callback.frame_version,
+        roleKey: callback.role_key,
+        status,
+        summary: descriptor.conclusion || callback.error_detail || "",
+        confidence: descriptor.confidence || "UNKNOWN",
+      },
+    });
+    await appendOutboxEvent(tx, event);
+
+    // Count all analyses for this frame
+    const allAnalyses = await tx
+      .select()
+      .from(projectExecutiveDeliberationAnalyses)
+      .where(
+        and(
+          eq(projectExecutiveDeliberationAnalyses.deliberationId, delibId),
+          eq(projectExecutiveDeliberationAnalyses.frameVersion, callback.frame_version)
+        )
+      );
+
+    let nextState: DeliberationState = delib.state as DeliberationState;
+    if (delib.state === "ANALYSIS_QUEUED" || delib.state === "FRAMED") {
+      nextState = "ANALYZING";
+    }
+    if (allAnalyses.length >= selectedRoles.length) {
+      // All roles completed analysis!
+      nextState = frame.criticRequired ? "CRITIC_REVIEW" : "AWAITING_FOUNDER";
+    }
+
+    if (nextState !== delib.state) {
+      await tx
+        .update(projectExecutiveDeliberations)
+        .set({
+          state: nextState,
+          version: delib.version + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(projectExecutiveDeliberations.id, delibId));
+    }
+
+    return {
+      id: analysisId.toString(),
+      deliberationId,
+      roleKey: callback.role_key,
+      status,
+      state: nextState,
+    };
+  });
+}
+
+/**
+ * Lấy authority context cho deliberation role analysis (worker verify).
+ */
+export async function getDeliberationAuthority(
+  workspaceId: string,
+  projectId: string,
+  deliberationId: string,
+  roleKey: string
+): Promise<{
+  deliberationId: string;
+  frameVersion: number;
+  roleKey: string;
+  state: DeliberationState;
+  rolePin: SelectedRolePin;
+  question: string;
+  evidenceSources: EvidenceSourceInput[];
+}> {
+  const wsId = BigInt(workspaceId);
+  const projId = BigInt(projectId);
+  const delibId = BigInt(deliberationId);
+
+  const [delib] = await db
+    .select()
+    .from(projectExecutiveDeliberations)
+    .where(
+      and(
+        eq(projectExecutiveDeliberations.id, delibId),
+        eq(projectExecutiveDeliberations.workspaceId, wsId),
+        eq(projectExecutiveDeliberations.projectId, projId)
+      )
+    )
+    .limit(1);
+
+  if (!delib) {
+    throw APIError.notFound("Deliberation not found");
+  }
+
+  if (["CANCELLED", "EXPIRED", "DECIDED"].includes(delib.state)) {
+    throw APIError.failedPrecondition(`Deliberation is in state '${delib.state}'`);
+  }
+
+  const [frame] = await db
+    .select()
+    .from(projectExecutiveDeliberationFrames)
+    .where(
+      and(
+        eq(projectExecutiveDeliberationFrames.deliberationId, delibId),
+        eq(projectExecutiveDeliberationFrames.frameVersion, delib.activeFrameVersion)
+      )
+    )
+    .limit(1);
+
+  if (!frame) {
+    throw APIError.notFound("Frame not found");
+  }
+
+  const selectedRoles = (frame.selectedRoles as SelectedRolePin[]) || [];
+  const rolePin = selectedRoles.find((r) => r.roleKey === roleKey);
+  if (!rolePin) {
+    throw APIError.failedPrecondition(
+      `Role '${roleKey}' is not pinned in deliberation active frame`
+    );
+  }
+
+  return {
+    deliberationId,
+    frameVersion: frame.frameVersion,
+    roleKey,
+    state: delib.state as DeliberationState,
+    rolePin,
+    question: frame.question,
+    evidenceSources: (frame.evidenceSources as EvidenceSourceInput[]) || [],
   };
 }

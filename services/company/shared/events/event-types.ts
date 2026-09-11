@@ -20,6 +20,10 @@ export const OPERATIONS_PROJECT_AGENT_ASSIGNMENT_PAUSED_V1 =
   "operations.project_agent_assignment.paused.v1";
 export const EXECUTIVE_DELIBERATION_FRAMED_V1 =
   "executive.deliberation.framed.v1";
+export const EXECUTIVE_ANALYSIS_COMPLETED_V1 =
+  "executive.analysis.completed.v1";
+export const EXECUTIVE_ANALYSIS_FAILED_V1 =
+  "executive.analysis.failed.v1";
 
 export type CanonicalEventType =
   | typeof OPERATIONS_TASK_CREATED_V1
@@ -33,7 +37,9 @@ export type CanonicalEventType =
   | typeof OPERATIONS_RISK_RESOLVED_V1
   | typeof OPERATIONS_PROJECT_AGENT_ASSIGNMENT_ACTIVATED_V1
   | typeof OPERATIONS_PROJECT_AGENT_ASSIGNMENT_PAUSED_V1
-  | typeof EXECUTIVE_DELIBERATION_FRAMED_V1;
+  | typeof EXECUTIVE_DELIBERATION_FRAMED_V1
+  | typeof EXECUTIVE_ANALYSIS_COMPLETED_V1
+  | typeof EXECUTIVE_ANALYSIS_FAILED_V1;
 
 export interface WorkPackageQueuedPayloadV1 {
   workspaceId: string;
