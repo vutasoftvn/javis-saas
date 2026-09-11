@@ -109,6 +109,9 @@ async def cancel_run(
             conversation_id=owned_run.conversation_id or "unknown",
             event_type="run.cancelled",
             payload={"run_id": run_id},
+            activity_service=plane.project_activity_service,
+            workspace_id=identity.workspace_id,
+            project_id=owned_run.project_id,
         )
 
     return CancelRunResponse(run_id=run_id, status=result_status)

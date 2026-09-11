@@ -17,6 +17,7 @@ from agent.conversations.repository import ConversationRepository
 from agent.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
 from agent.governance.store import GovernanceStateStore
 from agent.knowledge.snapshot_repository import KnowledgeSnapshotRepository
+from agent.project_activity.repository import ProjectActivityRepository
 from agent.registry.repository import SpecRegistryRepository
 from agent.runs.control_plane_client import HttpControlPlaneLeaseClient
 from agent.runs.repository import RunRepository
@@ -47,6 +48,7 @@ from apps.cosa.knowledge_ingestion.dependencies import KnowledgeIngestionDepende
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine
 from apps.cosa.policies.profile_locale_client import ProfileLocaleClient
+from apps.cosa.project_activity.service import ProjectActivityService
 from apps.cosa.workflows.specs import COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC
 
 __all__ = ["CosaAgentPlane", "build_cosa_agent_plane", "close_cosa_agent_plane"]
@@ -96,6 +98,7 @@ class CosaAgentPlane:
         model_provider_factory: Any | None = None,
         model_routing_session_factory: Any | None = None,
         model_routing_repository: Any | None = None,
+        project_activity_service: ProjectActivityService | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -161,6 +164,16 @@ class CosaAgentPlane:
         self.model_provider_factory = model_provider_factory
         self.model_routing_session_factory = model_routing_session_factory
         self.model_routing_repository = model_routing_repository
+
+        # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — durable
+        # Project Activity projection service, dùng bởi conversation_routes.py
+        # (chat.accepted/run.queued sau khi canonical record đã persist) và
+        # CosaEventStreamManager.emit() (mọi durable runtime stream event
+        # khác). None-safe: caller phải tự guard `if plane.project_activity_service`
+        # trước khi gọi — build_cosa_agent_plane() luôn dựng 1 instance thật
+        # (InMemory hoặc Postgres tuỳ AGENT_DATABASE_URL), None chỉ xảy ra khi
+        # CosaAgentPlane được dựng thủ công (test) không truyền tham số này.
+        self.project_activity_service = project_activity_service
 
         # SQLAlchemy AsyncEngine đã tạo trong build_cosa_agent_plane() (nếu
         # dùng Postgres*Repository mặc định) — đóng qua close_cosa_agent_plane()
@@ -245,6 +258,7 @@ def build_cosa_agent_plane(
     knowledge_ingestion_deps: KnowledgeIngestionDependencies | None = None,
     model_routing_repository: Any | None = None,
     model_route_resolver: Any | None = None,
+    project_activity_repository: ProjectActivityRepository | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -273,7 +287,14 @@ def build_cosa_agent_plane(
         knowledge_snapshot_repo=knowledge_snapshot_repo,
         database_url=database_url,
         model_routing_repository=model_routing_repository,
+        project_activity_repository=project_activity_repository,
     )
+
+    # Task 3 — Project Activity projection service, luôn dựng 1 instance thật
+    # (không None) quanh repository đã resolve ở storage (InMemory hoặc
+    # Postgres tuỳ AGENT_DATABASE_URL) — cùng nguyên tắc "production không
+    # âm thầm rơi về no-op" áp dụng cho các thành phần khác trong module này.
+    resolved_project_activity_service = ProjectActivityService(storage.project_activity_repository)
 
     client = company_client or CompanyServiceClient()
     tenant_policy = tenant_policy_client or CosaTenantPolicyClient()
@@ -331,7 +352,6 @@ def build_cosa_agent_plane(
         connector_grant_resolver=_connector_grant_resolver,
         live_authorizer=live_authorizer,
     )
-
 
     # 5. Execution Kernel
     kernel, compliance_resolver = build_execution_kernel(
@@ -430,4 +450,5 @@ def build_cosa_agent_plane(
         model_route_resolver=resolved_model_route_resolver,
         model_routing_session_factory=storage.model_routing_session_factory,
         model_routing_repository=storage.model_routing_repository,
+        project_activity_service=resolved_project_activity_service,
     )

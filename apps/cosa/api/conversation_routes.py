@@ -345,6 +345,24 @@ async def create_message(
     ]
     stored_user_message = await plane.conversation_repository.add_message(user_message, attachments)
 
+    # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — chat.accepted CHỈ
+    # ghi SAU KHI canonical record (MessageRecord) đã persist ở trên, không
+    # trước (message có thể fail lưu — không được ghi activity cho 1 message
+    # chưa từng tồn tại thật).
+    if plane.project_activity_service is not None:
+        await plane.project_activity_service.record_runtime_event(
+            workspace_id=identity.workspace_id,
+            project_id=verified_project.project_id,
+            kind="chat.accepted",
+            source_type="message",
+            source_id=stored_user_message.message_id,
+            source_version=str(stored_user_message.sequence_no or 0),
+            actor_kind="principal",
+            actor_id=identity.principal_id,
+            correlation_id=run_id,
+            raw_context={"message_id": stored_user_message.message_id, "run_id": run_id},
+        )
+
     # Dựng context egress THẬT từ ID + nội dung ĐÃ LƯU
     direct_message_data_access = DirectMessageDataAccess.from_message(
         message_id=stored_user_message.message_id,
@@ -383,6 +401,23 @@ async def create_message(
             "locale_source": resolved_locale.source,
         },
     )
+
+    # Task 3 — run.queued CHỈ ghi SAU KHI schedule() thành công (canonical
+    # "run đã được dispatch durable" — trước đó chưa có gì để nói run đang
+    # queued).
+    if plane.project_activity_service is not None:
+        await plane.project_activity_service.record_runtime_event(
+            workspace_id=identity.workspace_id,
+            project_id=resolved_project_id,
+            kind="run.queued",
+            source_type="run",
+            source_id=run_id,
+            source_version="1",
+            actor_kind="principal",
+            actor_id=identity.principal_id,
+            correlation_id=run_id,
+            raw_context={"agent_profile": agent_profile, "run_id": run_id},
+        )
 
     return RunResponse(
         run_id=run_id,

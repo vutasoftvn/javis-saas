@@ -25,6 +25,11 @@ from agent.knowledge.snapshot_repository import (
     KnowledgeSnapshotRepository,
     PostgresKnowledgeSnapshotRepository,
 )
+from agent.project_activity.repository import (
+    InMemoryProjectActivityRepository,
+    PostgresProjectActivityRepository,
+    ProjectActivityRepository,
+)
 from agent.registry.repository import (
     PostgresSpecRegistryRepository,
     SpecRegistryRepository,
@@ -75,6 +80,11 @@ class PlaneStorageBundle:
     memory_service: Any
     knowledge_ingestion_service: Any
     knowledge_snapshot_repo: KnowledgeSnapshotRepository
+    # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — durable, sequence-
+    # numbered, idempotent Project Activity projection (migration 005). Soft-
+    # wired giống artifact/workforce/vault ở trên: không fail-fast nếu thiếu
+    # resolved_url, fallback InMemory cho test/dev.
+    project_activity_repository: ProjectActivityRepository
     # Task 3 (plan 2026-09-07-local-first-model-routing) — repository cho
     # `models.model_provider_profiles`/`models.workspace_model_policies`.
     # `model_routing_session_factory` = None khi InMemory fallback (không có
@@ -101,6 +111,7 @@ def init_plane_storage(
     knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     database_url: str | None = None,
     model_routing_repository: Any | None = None,
+    project_activity_repository: ProjectActivityRepository | None = None,
 ) -> PlaneStorageBundle:
     """Khởi tạo toàn bộ database sessions và repositories cho CosaAgentPlane.
 
@@ -273,6 +284,19 @@ def init_plane_storage(
     else:
         model_routing_repo = InMemoryModelRoutingRepository()
 
+    # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — Project Activity
+    # projection repository. Soft-wired (không raise nếu thiếu resolved_url)
+    # cùng lý do artifact/workforce/vault ở trên: chưa phải core path bắt
+    # buộc mọi run phải có ngay từ ngày build_cosa_agent_plane() đầu tiên.
+    if project_activity_repository is not None:
+        proj_activity_repo: ProjectActivityRepository = project_activity_repository
+    elif resolved_url:
+        pa_engine, pa_session_factory = build_postgres_session_factory(resolved_url)
+        created_engines.append(pa_engine)
+        proj_activity_repo = PostgresProjectActivityRepository(pa_session_factory)
+    else:
+        proj_activity_repo = InMemoryProjectActivityRepository()
+
     # Web search budget store
     if web_search_budget_store is not None:
         search_budget: WebSearchBudgetStore = web_search_budget_store
@@ -298,5 +322,6 @@ def init_plane_storage(
         knowledge_snapshot_repo=knowledge_snap_repo,
         model_routing_repository=model_routing_repo,
         model_routing_session_factory=model_routing_session_factory,
+        project_activity_repository=proj_activity_repo,
         created_engines=created_engines,
     )

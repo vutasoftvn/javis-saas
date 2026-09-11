@@ -23,6 +23,19 @@ logger = logging.getLogger(__name__)
 
 TERMINAL_EVENT_TYPES = {"run.completed", "run.failed", "run.cancelled"}
 
+# Task 3 (plan 2026-09-11-project-scoped-founder-hub) — map SSE stream
+# `event_type` sang Project Activity `kind` an toàn (SAFE_ACTIVITY_KINDS,
+# apps/cosa/project_activity/service.py). Không có trong bảng này -> giữ
+# nguyên event_type, ProjectActivityService tự fallback về "system.delivery"
+# nếu nó cũng không nằm trong vocabulary an toàn của nó — event_stream.py
+# không cần biết trước toàn bộ vocabulary, chỉ dịch những cái tên khác nhau
+# giữa 2 tầng (vd. "approval.required" ở stream vs "approval.requested" ở
+# Project Activity).
+ACTIVITY_KIND_MAP: dict[str, str] = {
+    "approval.required": "approval.requested",
+    "approval.decided": "approval.resolved",
+}
+
 UX_EVENT_TYPES = frozenset(
     {
         "run.started",
@@ -117,6 +130,15 @@ class CosaEventStreamManager:
         event_type: str,
         payload: dict[str, Any],
         correlation_id: str | None = None,
+        # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — khi cả 3 đều
+        # truyền vào, một Project Activity event idempotent cũng được ghi
+        # TRƯỚC khi fanout live (đúng yêu cầu brief). Mặc định None — không
+        # phá caller hiện có (test_event_stream.py gọi emit() không kèm 3
+        # tham số này) và tự động bỏ qua projection cho run LEGACY_UNSCOPED
+        # (project_id=None, trước Task 1/2).
+        activity_service: Any | None = None,
+        workspace_id: str | None = None,
+        project_id: str | None = None,
     ) -> EventEnvelopeDTO:
         if event_type in UX_EVENT_TYPES:
             safe_payload = redact_ux_event_payload(event_type, payload)
@@ -137,6 +159,22 @@ class CosaEventStreamManager:
             correlation_id=correlation_id,
         )
         persisted = await repository.append(record)
+
+        # Project Activity projection — ghi TRƯỚC live fanout (dưới), dùng
+        # sequence vừa persist ở run_stream_events làm source_version để mỗi
+        # stream event chỉ chiếu vào đúng 1 hàng Project Activity.
+        if activity_service is not None and workspace_id and project_id:
+            await activity_service.record_runtime_event(
+                workspace_id=workspace_id,
+                project_id=project_id,
+                kind=ACTIVITY_KIND_MAP.get(event_type, event_type),
+                source_type="run",
+                source_id=run_id,
+                source_version=str(persisted.sequence or 0),
+                correlation_id=correlation_id,
+                raw_context=payload,
+                occurred_at=persisted.created_at,
+            )
 
         envelope = EventEnvelopeDTO(
             run_id=persisted.run_id,

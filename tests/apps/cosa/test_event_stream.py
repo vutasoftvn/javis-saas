@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from agent.project_activity.repository import InMemoryProjectActivityRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 
 import apps.cosa.api.event_stream as event_stream_module
-from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from apps.cosa.api.event_stream import CosaEventStreamManager
+from apps.cosa.project_activity.service import ProjectActivityService
 
 
 @pytest.mark.asyncio
@@ -14,8 +16,12 @@ async def test_emit_persists_durably_and_assigns_sequence():
     repo = InMemoryRunStreamEventRepository()
     mgr = CosaEventStreamManager()
 
-    e1 = await mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="run.started", payload={})
-    e2 = await mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="run.completed", payload={"x": 1})
+    e1 = await mgr.emit(
+        repo, run_id="run_1", conversation_id="conv_1", event_type="run.started", payload={}
+    )
+    e2 = await mgr.emit(
+        repo, run_id="run_1", conversation_id="conv_1", event_type="run.completed", payload={"x": 1}
+    )
 
     assert e1.sequence == 1
     assert e2.sequence == 2
@@ -30,10 +36,20 @@ async def test_stream_events_replays_durable_history_survives_new_manager_instan
     repository, không phải RAM của instance cũ."""
     repo = InMemoryRunStreamEventRepository()
     old_mgr = CosaEventStreamManager()
-    await old_mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="run.started", payload={})
-    await old_mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="run.completed", payload={"out": "done"})
+    await old_mgr.emit(
+        repo, run_id="run_1", conversation_id="conv_1", event_type="run.started", payload={}
+    )
+    await old_mgr.emit(
+        repo,
+        run_id="run_1",
+        conversation_id="conv_1",
+        event_type="run.completed",
+        payload={"out": "done"},
+    )
 
-    new_mgr = CosaEventStreamManager()  # instance khác hẳn — _queues rỗng, không liên quan gì tới old_mgr
+    new_mgr = (
+        CosaEventStreamManager()
+    )  # instance khác hẳn — _queues rỗng, không liên quan gì tới old_mgr
     chunks = [c async for c in new_mgr.stream_events(repo, "run_1")]
     body = "".join(chunks)
     assert "event: run.started" in body
@@ -44,8 +60,16 @@ async def test_stream_events_replays_durable_history_survives_new_manager_instan
 async def test_stream_events_stops_after_terminal_event_in_history():
     repo = InMemoryRunStreamEventRepository()
     mgr = CosaEventStreamManager()
-    await mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="run.started", payload={})
-    await mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="run.failed", payload={"error": "boom"})
+    await mgr.emit(
+        repo, run_id="run_1", conversation_id="conv_1", event_type="run.started", payload={}
+    )
+    await mgr.emit(
+        repo,
+        run_id="run_1",
+        conversation_id="conv_1",
+        event_type="run.failed",
+        payload={"error": "boom"},
+    )
 
     # Generator phải tự kết thúc (không treo) vì đã thấy terminal event trong
     # lịch sử — có thể collect toàn bộ an toàn.
@@ -58,7 +82,9 @@ async def test_stream_events_since_sequence_only_replays_newer_events():
     repo = InMemoryRunStreamEventRepository()
     mgr = CosaEventStreamManager()
     e1 = await mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="a", payload={})
-    await mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="run.completed", payload={})
+    await mgr.emit(
+        repo, run_id="run_1", conversation_id="conv_1", event_type="run.completed", payload={}
+    )
 
     chunks = [c async for c in mgr.stream_events(repo, "run_1", since_sequence=e1.sequence)]
     body = "".join(chunks)
@@ -83,7 +109,9 @@ async def test_stream_events_does_not_close_on_quiet_period_sends_heartbeat(monk
 
     # Bây giờ emit 1 event live -> phải nhận được qua queue, không phải qua
     # replay (chứng minh live-fanout vẫn hoạt động song song với heartbeat).
-    await mgr.emit(repo, run_id="run_quiet", conversation_id="conv_1", event_type="run.completed", payload={})
+    await mgr.emit(
+        repo, run_id="run_quiet", conversation_id="conv_1", event_type="run.completed", payload={}
+    )
     second_chunk = await asyncio.wait_for(gen.__anext__(), timeout=2.0)
     assert "event: run.completed" in second_chunk
 
@@ -96,9 +124,86 @@ async def test_stream_events_does_not_close_on_quiet_period_sends_heartbeat(monk
 async def test_queue_removed_after_stream_ends():
     repo = InMemoryRunStreamEventRepository()
     mgr = CosaEventStreamManager()
-    await mgr.emit(repo, run_id="run_1", conversation_id="conv_1", event_type="run.completed", payload={})
+    await mgr.emit(
+        repo, run_id="run_1", conversation_id="conv_1", event_type="run.completed", payload={}
+    )
 
     async for _ in mgr.stream_events(repo, "run_1"):
         pass
 
     assert mgr._queues.get("run_1") == []  # không rò rỉ queue sau khi consumer rời đi
+
+
+@pytest.mark.asyncio
+async def test_emit_also_records_project_activity_when_scoped(monkeypatch):
+    """Task 3 — 1 durable runtime stream event (workspace/project đã biết)
+    cũng phải tạo ra đúng 1 Project Activity event idempotent TRƯỚC khi
+    fanout live."""
+    repo = InMemoryRunStreamEventRepository()
+    activity_repo = InMemoryProjectActivityRepository()
+    activity_service = ProjectActivityService(activity_repo)
+    mgr = CosaEventStreamManager()
+
+    await mgr.emit(
+        repo,
+        run_id="run_1",
+        conversation_id="conv_1",
+        event_type="run.started",
+        payload={"agent_profile": "operations"},
+        activity_service=activity_service,
+        workspace_id="ws_a",
+        project_id="proj_a",
+    )
+
+    activity_events = await activity_repo.list_since(workspace_id="ws_a", project_id="proj_a")
+    assert [e.kind for e in activity_events] == ["run.started"]
+    assert activity_events[0].project_sequence == 1
+
+
+@pytest.mark.asyncio
+async def test_emit_skips_project_activity_for_legacy_unscoped_run():
+    """Run legacy (project_id=None, trước Task 1/2) không có Project —
+    emit() phải bỏ qua projection thay vì raise (ProjectActivityEventRecord
+    yêu cầu project_id là str bắt buộc, không nullable)."""
+    repo = InMemoryRunStreamEventRepository()
+    activity_repo = InMemoryProjectActivityRepository()
+    activity_service = ProjectActivityService(activity_repo)
+    mgr = CosaEventStreamManager()
+
+    await mgr.emit(
+        repo,
+        run_id="run_1",
+        conversation_id="conv_1",
+        event_type="run.started",
+        payload={},
+        activity_service=activity_service,
+        workspace_id="ws_a",
+        project_id=None,
+    )
+
+    assert await activity_repo.list_since(workspace_id="ws_a", project_id="") == []
+
+
+@pytest.mark.asyncio
+async def test_emit_maps_approval_required_stream_event_to_activity_requested_kind():
+    """`approval.required` (vocabulary SSE cũ) chiếu vào `approval.requested`
+    (vocabulary Project Activity, task brief Step 4) — 2 tầng khác tên cho
+    cùng 1 fact."""
+    repo = InMemoryRunStreamEventRepository()
+    activity_repo = InMemoryProjectActivityRepository()
+    activity_service = ProjectActivityService(activity_repo)
+    mgr = CosaEventStreamManager()
+
+    await mgr.emit(
+        repo,
+        run_id="run_1",
+        conversation_id="conv_1",
+        event_type="approval.required",
+        payload={},
+        activity_service=activity_service,
+        workspace_id="ws_a",
+        project_id="proj_a",
+    )
+
+    activity_events = await activity_repo.list_since(workspace_id="ws_a", project_id="proj_a")
+    assert [e.kind for e in activity_events] == ["approval.requested"]
