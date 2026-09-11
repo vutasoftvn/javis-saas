@@ -83,6 +83,41 @@ class CompanyServiceClient:
     async def list_tasks(self, workspace_id: str) -> dict[str, Any]:
         return await self.get("/operations/tasks", params={"workspaceId": workspace_id})
 
+    async def issue_agent_authorization_ticket(
+        self,
+        workspace_id: str,
+        run_id: str,
+        tool_call_id: str,
+        checkpoint_ref: str,
+        capability_id: str,
+        agent_workforce_member_id: str,
+        delegation_token: str,
+        scope: dict[str, Any] | None = None,
+        facts: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Request a one-time live authorization ticket from Company (Task 6)."""
+        payload: dict[str, Any] = {
+            "runId": str(run_id),
+            "toolCallId": str(tool_call_id),
+            "checkpointRef": str(checkpoint_ref),
+            "capabilityId": str(capability_id),
+            "agentWorkforceMemberId": str(agent_workforce_member_id),
+        }
+        if scope is not None:
+            payload["scope"] = scope
+        if facts is not None:
+            payload["facts"] = facts
+
+        return await self.post(
+            "/identity/agent-authorization/tickets",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {delegation_token}",
+                "X-Workspace-Id": str(workspace_id),
+            },
+        )
+
+
     async def resolve_data_use(
         self,
         workspace_id: str,

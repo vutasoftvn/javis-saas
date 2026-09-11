@@ -153,6 +153,7 @@ class CapabilityGateway:
         ]
         | None = None,
         enablement_store: EnablementStore | None = None,
+        live_authorizer: Any | None = None,
     ) -> None:
         self._registry = registry
         self._repo = repository or InMemoryRunRepository()
@@ -168,6 +169,8 @@ class CapabilityGateway:
         self._idempotency = IdempotencyClaimService(self._repo)
         self._connector_grant_resolver = connector_grant_resolver
         self._enablement_store = enablement_store or InMemoryEnablementStore()
+        self._live_authorizer = live_authorizer
+
 
     async def execute(self, req: GatewayExecutionRequest) -> GatewayExecutionResult:
         from opentelemetry import trace
@@ -600,6 +603,52 @@ class CapabilityGateway:
                 error_message=f"Execution of '{req.capability_id}' denied: {ambient_reason}",
             )
 
+        # Bước 8.8: Live Authorization Ticket Check (Task 6)
+        auth_ticket_id: str | None = None
+        if self._live_authorizer is not None:
+            skip_ticket = False
+            if hasattr(self._live_authorizer, "is_ticket_required"):
+                skip_ticket = not self._live_authorizer.is_ticket_required(spec, req.context, req.capability_id)
+            else:
+                meta = getattr(spec, "metadata", {}) or {}
+                if meta.get("draft_only") is True or meta.get("risk_class") == "READ":
+                    skip_ticket = True
+                elif req.capability_id.endswith((".read", ".list", ".get", ".query")):
+                    skip_ticket = True
+
+            if not skip_ticket:
+                auth_res = await self._live_authorizer.authorize(req, spec)
+                if not auth_res.allowed:
+                    err_msg = auth_res.error_message or f"Execution of '{req.capability_id}' denied: live authorization rejected"
+                    tc_record.status = "denied"
+                    tc_record.error_message = err_msg
+                    await self._repo.save_tool_call(tc_record)
+                    await self._idempotency.fail(idem_claim.claim_id, error_message=err_msg)
+                    await self._repo.append_event(
+                        RunEventRecord(
+                            run_id=req.run_id,
+                            event_type="authorization.ticket_denied",
+                            payload={
+                                "tool_call_id": req.tool_call_id,
+                                "capability": req.capability_id,
+                                "error": err_msg,
+                            },
+                        )
+                    )
+                    return GatewayExecutionResult(
+                        tool_call_id=req.tool_call_id,
+                        status="denied",
+                        error_message=err_msg,
+                    )
+
+                if auth_res.ticket_id:
+                    auth_ticket_id = auth_res.ticket_id
+                    if isinstance(req.context, InvocationContext):
+                        req.context.metadata["authorization_ticket_id"] = auth_ticket_id
+                    elif isinstance(req.context, dict):
+                        req.context["authorization_ticket_id"] = auth_ticket_id
+
+
         # Bước 9 & 10: Execute Handler
         await self._repo.append_event(
             RunEventRecord(
@@ -614,10 +663,24 @@ class CapabilityGateway:
             handler_ctx = (
                 req.context.metadata if isinstance(req.context, InvocationContext) else req.context
             )
-            if asyncio.iscoroutinefunction(handler):
-                output = await handler(req.input_payload, handler_ctx)
-            else:
-                output = handler(req.input_payload, handler_ctx)
+            from agent.capabilities.outbound_headers import (
+                get_outbound_headers,
+                reset_outbound_headers,
+                set_outbound_headers,
+            )
+
+            outbound = dict(get_outbound_headers())
+            if auth_ticket_id:
+                outbound["X-Cosa-Authorization-Ticket"] = auth_ticket_id
+            header_token = set_outbound_headers(outbound)
+            try:
+                if asyncio.iscoroutinefunction(handler):
+                    output = await handler(req.input_payload, handler_ctx)
+                else:
+                    output = handler(req.input_payload, handler_ctx)
+            finally:
+                reset_outbound_headers(header_token)
+
 
             # Persist status completed & audit
             tc_record.status = "completed"

@@ -308,3 +308,9 @@ export async function consumeCosaDelegation(
     throw new Error("cosa delegation already consumed (replay rejected)");
   }
 }
+
+export {
+  consumeAgentAuthorizationTicket,
+  type ExpectedTicketConsumption,
+} from "../../identity/services/agent-authorization-ticket.service";
+

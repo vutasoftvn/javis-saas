@@ -319,13 +319,19 @@ def build_cosa_agent_plane(
             action=req.capability_id,
         )
 
+    from apps.cosa.authorization.live_authorizer import LiveAuthorizationAuthorizer
+
+    live_authorizer = LiveAuthorizationAuthorizer(company_client=client)
+
     gateway = CapabilityGateway(
         registry=cap_registry,
         repository=storage.run_repository,
         policy_evaluator=policy_engine.evaluate,
         governance_store=storage.governance_store,
         connector_grant_resolver=_connector_grant_resolver,
+        live_authorizer=live_authorizer,
     )
+
 
     # 5. Execution Kernel
     kernel, compliance_resolver = build_execution_kernel(
