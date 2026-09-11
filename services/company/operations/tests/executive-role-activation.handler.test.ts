@@ -13,6 +13,7 @@ import {
   disableProjectExecutiveRoleApi,
 } from "../handlers/executive-role-activation.handler";
 import { activateProjectStartupTeamMember } from "../services/project-startup-team.service";
+import { ProjectExecutiveRoleState } from "../services/executive-role-activation.service";
 
 describe("Executive Role Activation Handler", () => {
   let founderToken: string;
@@ -97,7 +98,7 @@ describe("Executive Role Activation Handler", () => {
       workspaceId,
       projectId,
     });
-    const cfoBefore = listBefore.roles.find((r) => r.roleKey === "cfo");
+    const cfoBefore = listBefore.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
     expect(cfoBefore?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
 
     // 3. Founder activates CFO via handler
@@ -140,7 +141,7 @@ describe("Executive Role Activation Handler", () => {
       workspaceId,
       projectId,
     });
-    const cfoAfter = listAfter.roles.find((r) => r.roleKey === "cfo");
+    const cfoAfter = listAfter.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
     expect(cfoAfter?.displayState).toBe("DISABLED");
   });
 
@@ -171,7 +172,7 @@ describe("Executive Role Activation Handler", () => {
       workspaceId,
       projectId,
     });
-    const cmo = listRes.roles.find((r) => r.roleKey === "cmo");
+    const cmo = listRes.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
     expect(cmo?.displayState).toBe("ACTIVE");
   });
 });

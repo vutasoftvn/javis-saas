@@ -12,6 +12,7 @@ import {
   selectStartupCorePreset,
   activateExecutiveRole,
   disableExecutiveRole,
+  ProjectExecutiveRoleState,
 } from "../services/executive-role-activation.service";
 import {
   activateProjectStartupTeamMember,
@@ -85,7 +86,7 @@ describe("Executive Role Activation Service", () => {
 
     // 2. Initial state: CFO should be AVAILABLE_NOT_ACTIVATED
     const statesBefore = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cfoBefore = statesBefore.roles.find((r) => r.roleKey === "cfo");
+    const cfoBefore = statesBefore.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
     expect(cfoBefore).toBeDefined();
     expect(cfoBefore?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
 
@@ -127,9 +128,9 @@ describe("Executive Role Activation Service", () => {
     // cfo is not eligible (finance is TEMPLATE) -> remains unavailable/not activated
     // chief_of_staff is PENDING_OPERATIONS_PROFILE -> unavailable
     const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cmo = states.roles.find((r) => r.roleKey === "cmo");
-    const cfo = states.roles.find((r) => r.roleKey === "cfo");
-    const cos = states.roles.find((r) => r.roleKey === "chief_of_staff");
+    const cmo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
+    const cfo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
+    const cos = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
 
     expect(cmo?.displayState).toBe("ACTIVE");
     expect(cfo?.displayState).toBe("UNAVAILABLE");
@@ -139,7 +140,7 @@ describe("Executive Role Activation Service", () => {
   it("disabling an active role retains history and sets state to DISABLED", async () => {
     await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
     const cmoBefore = (await getProjectExecutiveRoleStates(founderCtx, projectId)).roles.find(
-      (r) => r.roleKey === "cmo"
+      (r: ProjectExecutiveRoleState) => r.roleKey === "cmo"
     );
 
     const act = await activateExecutiveRole(founderCtx, projectId, "cmo", {
@@ -154,7 +155,7 @@ describe("Executive Role Activation Service", () => {
     expect(disabled.state).toBe("DISABLED");
 
     const statesAfter = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cmoAfter = statesAfter.roles.find((r) => r.roleKey === "cmo");
+    const cmoAfter = statesAfter.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
     expect(cmoAfter?.displayState).toBe("DISABLED");
   });
 });
