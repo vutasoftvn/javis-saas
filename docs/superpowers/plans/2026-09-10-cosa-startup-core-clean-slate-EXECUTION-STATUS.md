@@ -182,17 +182,34 @@ and `services-test` and `frontend-test` now passes.
 
 `pytest tests/agent tests/apps/cosa/test_tenant_isolation.py`: **952 passed**.
 
-**`make verify` now fails only at `apps-cosa-test`** — 19 pre-existing
-behavioural failures in the `apps/cosa` worker run path, confirmed present at
-`fe3226d3` before any of this session's agent work: `worker/test_handlers.py`
-(8 — the run is not persisted for the `operations` agent profile, no `failed`
-message on unseeded registry), `compliance/test_run_delegation.py` (5),
-`test_founder_knowledge_context.py` (2), `test_vertical_slice_1_read_path` /
-`test_workspace_execution_e2e` / `test_scheduled_session_worker` (3). Coverage
-is fine (84.6% > 78%). These are a distinct worker-runtime reconciliation, not
-schema/inventory drift — they need systematic-debugging of `execute_run_task`,
-not another restore migration. Still open before VERIFIED: fix those 19 +
-`make e2e-cross-plane-smoke`, then bump the design spec.
+### `apps-cosa-test` — operations run project scoping (root cause + fix)
+
+The 19 `apps-cosa-test` failures were **one root cause**: `8b5ea05a` added a
+fail-closed guard to `execute_run_task` requiring `payload["project_id"]` for the
+`operations` agent profile, but wired no source for it — `conversation_routes.
+create_message` (the message→run dispatch) and `execute_scheduled_session_task`
+never supplied one, so every operations chat / scheduled run failed
+`project_context_required`, in production and in the tests.
+
+| Commit | Fix |
+|---|---|
+| `962c1f74` | `MessageCreate` gains optional `project_id`; `conversation_routes` + `execute_scheduled_session_task` resolve it (client value → else `GET /operations/projects`, newest project) into the dispatch payload; guard still fires for a genuinely project-less workspace. Test `_payload()` helpers carry `project_id`; API/e2e mock company clients return a `projects` list. |
+| `17ecac9c` (earlier) | `test_lifecycle_tranche_c_acceptance` canonical skillpack count 113 → 90 |
+| `9d…` | `docs/architecture/generated/company-usage-inventory.md` regen (new `/operations/projects` calls) |
+
+`pytest --cov=apps/cosa tests/apps/cosa`: **1049 passed**, coverage 85%.
+
+### `make verify` — GREEN
+
+All gates pass: lint, typecheck-py, boundary-check, skillpacks-validate,
+tenancy-check (company vitest 1281/1281 + `pytest tests/agent
+tests/apps/cosa/test_tenant_isolation` 952), contract-freeze-check, agent-test
+(943), apps-cosa-test (1049), services-test, frontend-test, frontend-analyze,
+check-docs. Golden fingerprint agent 28 / cosa 29 / workspace 181, Gate D green.
+
+**Remaining before VERIFIED:** `make e2e-cross-plane-smoke`, then bump the design
+spec `2026-09-10-cosa-startup-core-clean-slate-design.md` from
+`ACCEPTED (implementation IN PROGRESS)` to `VERIFIED`.
 
 ## Phased execution (each phase = its own green commit + checkpoint)
 
