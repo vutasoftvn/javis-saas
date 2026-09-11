@@ -236,3 +236,90 @@ async def test_get_conversation_requires_and_verifies_project_id(test_app) -> No
 
         ok = await ac.get(f"/agent/conversations/{conv_id}", params={"project_id": "proj_a"})
         assert ok.status_code == 200
+
+
+async def _create_run(plane, *, run_id: str = "run_project_ctx_1") -> str:
+    """Tạo trực tiếp 1 RunRecord thật gắn `project_id="proj_a"` trong
+    `plane.repository` — bỏ qua toàn bộ kernel/skill resolution (không liên
+    quan tới điều đang test: route cancel/events có enforce đúng
+    project_id hay không), cùng pattern với
+    `test_tenant_b_cannot_decide_approval_of_tenant_a_run` trong
+    test_tenant_isolation.py.
+
+    Cũng append sẵn 1 `run.completed` stream event — GET /runs/{id}/events
+    replay từ durable store trước khi live-stream; không có event terminal
+    nào sẽ khiến generator treo chờ mãi (chỉ nhả heartbeat) vì run này không
+    thực sự chạy qua kernel để tự phát ra run.completed/failed."""
+    from agent.runs.models import RunRecord
+    from agent.runs.stream_events import RunStreamEventRecord
+
+    conversation_id = "conv_project_ctx_1"
+    run = RunRecord(
+        run_id=run_id,
+        workspace_id=WORKSPACE_A,
+        project_id="proj_a",
+        conversation_id=conversation_id,
+        principal="user:test",
+        root_executable_id="test-spec",
+    )
+    await plane.repository.create_run(run)
+    await plane.stream_event_repository.append(
+        RunStreamEventRecord(
+            run_id=run_id,
+            event_type="run.completed",
+            payload={"status": "COMPLETED"},
+            conversation_id=conversation_id,
+            workspace_id=WORKSPACE_A,
+            project_id="proj_a",
+        )
+    )
+    return run_id
+
+
+@pytest.mark.asyncio
+async def test_cancel_run_rejects_mismatched_project_id(test_app) -> None:
+    """Review Finding 1 — caller khai project_id tường minh trên cancel phải
+    được enforce khớp với Project thật của run, không chỉ âm thầm cancel bất
+    kể request project_id là gì."""
+    app, plane, _ = test_app
+    run_id = await _create_run(plane)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        mismatched = await ac.post(f"/agent/runs/{run_id}/cancel", params={"project_id": "proj_b"})
+        assert mismatched.status_code == 422
+        assert mismatched.json()["detail"]["code"] == "PROJECT_CONTEXT_MISMATCH"
+
+        # Run KHÔNG bị cancel bởi request mismatch ở trên.
+        still_running = await plane.repository.get_run(run_id)
+        assert still_running is not None
+        assert still_running.status.value != "cancelled"
+
+        # project_id khớp thật -> cancel thành công.
+        matched = await ac.post(f"/agent/runs/{run_id}/cancel", params={"project_id": "proj_a"})
+        assert matched.status_code == 200
+
+        # Không khai project_id vẫn giữ hành vi cũ (idempotent cancel).
+        no_project = await ac.post(f"/agent/runs/{run_id}/cancel")
+        assert no_project.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_get_run_events_rejects_mismatched_project_id(test_app) -> None:
+    """Review Finding 1 — tương tự cancel_run cho GET /runs/{id}/events."""
+    app, plane, _ = test_app
+    run_id = await _create_run(plane)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        mismatched = await ac.get(f"/agent/runs/{run_id}/events", params={"project_id": "proj_b"})
+        assert mismatched.status_code == 422
+        assert mismatched.json()["detail"]["code"] == "PROJECT_CONTEXT_MISMATCH"
+
+        matched = await ac.get(f"/agent/runs/{run_id}/events", params={"project_id": "proj_a"})
+        assert matched.status_code == 200
+
+        no_project = await ac.get(f"/agent/runs/{run_id}/events")
+        assert no_project.status_code == 200

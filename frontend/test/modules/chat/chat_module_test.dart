@@ -100,11 +100,14 @@ void main() {
   });
 
   group('AgentChatService Test', () {
-    test('getConversations does NOT send X-Company-Id header', () async {
+    test('getConversations does NOT send X-Company-Id header and sends project_id', () async {
       final mockClient = MockClient((request) async {
         // Verify that X-Company-Id header is NOT present
         expect(request.headers.containsKey('X-Company-Id'), isFalse);
         if (request.url.path.contains('/agent/conversations')) {
+          // Task 2 (2026-09-11 Project-scoped Founder Hub, review Finding 2)
+          // — list requires project_id on the wire.
+          expect(request.url.queryParameters['project_id'], 'proj-1');
           return http.Response(
             jsonEncode({
               'items': [
@@ -128,10 +131,64 @@ void main() {
 
       ApiClient.client = mockClient;
       final service = AgentChatService();
-      final list = await service.getConversations();
+      final list = await service.getConversations(projectId: 'proj-1');
       expect(list.length, 1);
       expect(list[0].id, 'conv-1');
       expect(list[0].title, 'Strategy Session');
+    });
+
+    test('getConversation sends project_id on the wire', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/agent/conversations/conv-1');
+        expect(request.url.queryParameters['project_id'], 'proj-1');
+        return http.Response(
+          jsonEncode({
+            'id': 'conv-1',
+            'workspace_id': 'ws-1',
+            'created_by_principal': 'user:1',
+            'title': 'Strategy Session',
+            'created_at': '2026-08-22T12:00:00Z',
+            'updated_at': '2026-08-22T12:00:00Z',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
+      final conv = await service.getConversation('conv-1', projectId: 'proj-1');
+      expect(conv?.id, 'conv-1');
+    });
+
+    test('updateConversation sends project_id on the wire', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, '/agent/conversations/conv-1');
+        expect(request.url.queryParameters['project_id'], 'proj-1');
+        expect(request.method, 'PATCH');
+        return http.Response(
+          jsonEncode({
+            'id': 'conv-1',
+            'workspace_id': 'ws-1',
+            'created_by_principal': 'user:1',
+            'title': 'Archived',
+            'created_at': '2026-08-22T12:00:00Z',
+            'updated_at': '2026-08-22T12:00:00Z',
+            'archived_at': '2026-08-22T12:05:00Z',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
+      final conv = await service.updateConversation(
+        'conv-1',
+        projectId: 'proj-1',
+        archived: true,
+      );
+      expect(conv?.id, 'conv-1');
     });
 
     test('sendMessage posts to conversation messages endpoint', () async {
@@ -427,8 +484,12 @@ void main() {
       final service = AgentChatService();
       final controller = ChatController(service: service);
       Get.put<ChatController>(controller);
-      // Task 2 — sendMessage() giờ bắt buộc có Project đang hoạt động.
-      controller.activeProjectId.value = 'proj-1';
+      // Task 2 — sendMessage() giờ bắt buộc có Project đang hoạt động. Dùng
+      // setActiveProjectId() (không gán thẳng .value) để nó tự trigger
+      // loadConversations() ngay — đúng như luồng cũ tự auto-select
+      // conversation đầu tiên trước khi test gọi sendMessage().
+      controller.setActiveProjectId('proj-1');
+      await tester.pump();
 
       await tester.binding.setSurfaceSize(const Size(800, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -568,6 +629,35 @@ void main() {
       expect(serviceCalled, isFalse);
       expect(controller.messages, isEmpty);
       expect(controller.sendBlockedReason.value, contains('project'));
+    });
+
+    test(
+        'onInit()/loadConversations() does not call the API without an active project, '
+        'and setActiveProjectId() triggers a load once one is set (Task 2, review Finding 2)',
+        () async {
+      var callCount = 0;
+      String? lastProjectIdSent;
+      final mockClient = MockClient((request) async {
+        callCount += 1;
+        lastProjectIdSent = request.url.queryParameters['project_id'];
+        return http.Response(jsonEncode({'items': [], 'total': 0}), 200);
+      });
+
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
+      final controller = ChatController(service: service);
+      Get.put<ChatController>(controller);
+      await Future<void>.delayed(Duration.zero);
+
+      // No project selected yet — onInit()'s loadConversations() must not
+      // hit the API (it now requires project_id server-side).
+      expect(callCount, 0);
+
+      controller.setActiveProjectId('proj-1');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(callCount, 1);
+      expect(lastProjectIdSent, 'proj-1');
     });
   });
 }

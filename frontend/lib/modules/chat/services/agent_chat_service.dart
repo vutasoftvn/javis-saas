@@ -35,13 +35,19 @@ class AgentChatService {
     ).toString();
   }
 
+  /// Task 2 (2026-09-11 Project-scoped Founder Hub, review Finding 2) —
+  /// `projectId` bắt buộc: server (`apps/cosa/api/conversation_routes.py::
+  /// list_conversations`) giờ verify Project qua Company trước khi liệt kê,
+  /// fail-closed (422 PROJECT_CONTEXT_REQUIRED) nếu thiếu.
   Future<List<ChatConversation>> getConversations({
+    required String projectId,
     bool includeArchived = false,
     int limit = 50,
     int offset = 0,
   }) async {
     try {
       final url = _endpoint('/agent/conversations', {
+        'project_id': projectId,
         'include_archived': includeArchived,
         'limit': limit,
         'offset': offset,
@@ -62,9 +68,17 @@ class AgentChatService {
     }
   }
 
-  Future<ChatConversation?> getConversation(String conversationId) async {
+  /// Task 2 (review Finding 2) — `projectId` bắt buộc, cùng lý do với
+  /// `getConversations`.
+  Future<ChatConversation?> getConversation(
+    String conversationId, {
+    required String projectId,
+  }) async {
     try {
-      final url = _endpoint('/agent/conversations/$conversationId');
+      final url = _endpoint(
+        '/agent/conversations/$conversationId',
+        {'project_id': projectId},
+      );
       final res = await ApiClient.get(url);
       if (res.statusCode == 200) {
         return ChatConversation.fromJson(
@@ -112,14 +126,20 @@ class AgentChatService {
     }
   }
 
+  /// Task 2 (review Finding 2) — `projectId` bắt buộc, cùng lý do với
+  /// `getConversations`.
   Future<ChatConversation?> updateConversation(
     String conversationId, {
+    required String projectId,
     String? title,
     String? activeAgentProfile,
     bool? archived,
   }) async {
     try {
-      final url = _endpoint('/agent/conversations/$conversationId');
+      final url = _endpoint(
+        '/agent/conversations/$conversationId',
+        {'project_id': projectId},
+      );
       final body = <String, dynamic>{};
       if (title != null) body['title'] = title;
       if (activeAgentProfile != null) {

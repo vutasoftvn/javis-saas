@@ -34,8 +34,15 @@ class ChatController extends GetxController {
   /// Project" cục bộ) thay vì gọi API thiếu project_id rồi nhận 422 từ server.
   final RxnString activeProjectId = RxnString();
 
+  /// Đặt Project đang hoạt động cho module chat chung này. `onInit()` gọi
+  /// `loadConversations()` sớm hơn khi chưa có Project nào (no-op, xem
+  /// docstring `loadConversations()`) — set project ở đây rồi tự động nạp
+  /// lại danh sách conversation của đúng Project đó.
   void setActiveProjectId(String? projectId) {
     activeProjectId.value = projectId;
+    if (projectId != null && projectId.isNotEmpty) {
+      loadConversations();
+    }
   }
 
   /// Khai báo phân loại dữ liệu (data access) người dùng chọn cho tin nhắn
@@ -83,10 +90,21 @@ class ChatController extends GetxController {
     super.onClose();
   }
 
+  /// Task 2 (2026-09-11 Project-scoped Founder Hub, review Finding 2) —
+  /// list/get/update giờ cũng bắt buộc Project qua server
+  /// (`apps/cosa/api/conversation_routes.py`). Không có Project đang hoạt
+  /// động (mặc định lúc `onInit()` chạy, trước khi bất kỳ ai chọn Project)
+  /// thì KHÔNG được gọi API thiếu project_id — chỉ bỏ qua fetch, giữ
+  /// `conversations` rỗng, giống pattern "surface trạng thái cục bộ, không
+  /// dispatch" đã dùng cho `createNewConversation()`/`sendMessage()`.
   Future<void> loadConversations() async {
+    final projectId = activeProjectId.value;
+    if (projectId == null || projectId.isEmpty) {
+      return;
+    }
     isLoading.value = true;
     try {
-      final list = await _service.getConversations();
+      final list = await _service.getConversations(projectId: projectId);
       conversations.assignAll(list);
       if (activeConversation.value == null && conversations.isNotEmpty) {
         selectConversation(conversations.first);
@@ -104,10 +122,20 @@ class ChatController extends GetxController {
     runStatus.value = 'idle';
     reasoningStatus.value = '';
 
+    final projectId = activeProjectId.value;
+    if (projectId == null || projectId.isEmpty) {
+      // Không có Project đang hoạt động — giữ conv tối thiểu đã có (từ
+      // danh sách/kết quả tạo mới) thay vì gọi API thiếu project_id.
+      return;
+    }
+
     // Fetch full conversation detail
     isLoading.value = true;
     try {
-      final fullConv = await _service.getConversation(conv.id);
+      final fullConv = await _service.getConversation(
+        conv.id,
+        projectId: projectId,
+      );
       if (fullConv != null) {
         activeConversation.value = fullConv;
         messages.assignAll(fullConv.messages);
@@ -143,7 +171,15 @@ class ChatController extends GetxController {
   }
 
   Future<void> archiveConversation(String convId) async {
-    final success = await _service.updateConversation(convId, archived: true);
+    final projectId = activeProjectId.value;
+    if (projectId == null || projectId.isEmpty) {
+      return;
+    }
+    final success = await _service.updateConversation(
+      convId,
+      projectId: projectId,
+      archived: true,
+    );
     if (success != null) {
       conversations.removeWhere((c) => c.id == convId);
       if (activeConversation.value?.id == convId) {

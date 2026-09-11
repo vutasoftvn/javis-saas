@@ -95,7 +95,10 @@ void main() {
       });
 
       final service = AgentChatService();
-      await expectLater(service.getConversations(), throwsA(isA<AgentChatApiException>()));
+      await expectLater(
+        service.getConversations(projectId: 'proj-1'),
+        throwsA(isA<AgentChatApiException>()),
+      );
 
       expect(logs.join('\n'), contains('500'));
       expect(logs.join('\n'), isNot(contains('secret customer data')));
