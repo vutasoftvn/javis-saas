@@ -29,12 +29,13 @@ class ConversationRepository(Protocol):
     async def create_conversation(self, conversation: ConversationRecord) -> ConversationRecord: ...
     async def get_conversation(self, conversation_id: str) -> ConversationRecord | None: ...
     async def get_scoped_conversation(
-        self, workspace_id: str, conversation_id: str
+        self, workspace_id: str, conversation_id: str, project_id: str
     ) -> ConversationRecord | None: ...
     async def list_conversations(
         self,
         *,
         workspace_id: str,
+        project_id: str,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
@@ -74,10 +75,10 @@ class InMemoryConversationRepository:
         return conv.model_copy(deep=True) if conv else None
 
     async def get_scoped_conversation(
-        self, workspace_id: str, conversation_id: str
+        self, workspace_id: str, conversation_id: str, project_id: str
     ) -> ConversationRecord | None:
         conv = self._conversations.get(conversation_id)
-        if conv and conv.workspace_id == workspace_id:
+        if conv and conv.workspace_id == workspace_id and conv.project_id == project_id:
             return conv.model_copy(deep=True)
         return None
 
@@ -85,6 +86,7 @@ class InMemoryConversationRepository:
         self,
         *,
         workspace_id: str,
+        project_id: str,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
@@ -92,7 +94,9 @@ class InMemoryConversationRepository:
         items = [
             c
             for c in self._conversations.values()
-            if (include_archived or c.archived_at is None) and (c.workspace_id == workspace_id)
+            if (include_archived or c.archived_at is None)
+            and (c.workspace_id == workspace_id)
+            and (c.project_id == project_id)
         ]
         items.sort(key=lambda c: c.created_at, reverse=True)
         total = len(items)
@@ -149,10 +153,10 @@ class PostgresConversationRepository(BasePostgresRepository):
                 text(
                     """
                     INSERT INTO agent_conversation.conversations (
-                        conversation_id, workspace_id, created_by_principal,
+                        conversation_id, workspace_id, project_id, scope_state, created_by_principal,
                         title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     ) VALUES (
-                        :conversation_id, :workspace_id, :created_by_principal,
+                        :conversation_id, :workspace_id, :project_id, :scope_state, :created_by_principal,
                         :title, :active_agent_profile, :metadata, :created_at, :updated_at, :archived_at
                     )
                     """
@@ -160,6 +164,8 @@ class PostgresConversationRepository(BasePostgresRepository):
                 {
                     "conversation_id": conversation.conversation_id,
                     "workspace_id": conversation.workspace_id,
+                    "project_id": conversation.project_id,
+                    "scope_state": conversation.scope_state,
                     "created_by_principal": conversation.created_by_principal,
                     "title": conversation.title,
                     "active_agent_profile": conversation.active_agent_profile,
@@ -178,7 +184,7 @@ class PostgresConversationRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT conversation_id, workspace_id, created_by_principal,
+                    SELECT conversation_id, workspace_id, project_id, scope_state, created_by_principal,
                            title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     FROM agent_conversation.conversations
                     WHERE conversation_id = :conversation_id
@@ -190,23 +196,25 @@ class PostgresConversationRepository(BasePostgresRepository):
             return self._row_to_conversation(row) if row else None
 
     async def get_scoped_conversation(
-        self, workspace_id: str, conversation_id: str
+        self, workspace_id: str, conversation_id: str, project_id: str
     ) -> ConversationRecord | None:
         async with self._session_factory() as session:
             res = await self._execute(
                 session,
                 text(
                     """
-                    SELECT conversation_id, workspace_id, created_by_principal,
+                    SELECT conversation_id, workspace_id, project_id, scope_state, created_by_principal,
                            title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     FROM agent_conversation.conversations
                     WHERE conversation_id = :conversation_id
                       AND workspace_id = :workspace_id
+                      AND project_id = :project_id
                     """
                 ),
                 {
                     "conversation_id": conversation_id,
                     "workspace_id": workspace_id,
+                    "project_id": project_id,
                 },
             )
             row = res.mappings().first()
@@ -216,14 +224,20 @@ class PostgresConversationRepository(BasePostgresRepository):
         self,
         *,
         workspace_id: str,
+        project_id: str,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[ConversationRecord], int]:
-        clauses = ["workspace_id = :workspace_id"]
+        clauses = ["workspace_id = :workspace_id", "project_id = :project_id"]
         if not include_archived:
             clauses.append("archived_at IS NULL")
-        params: dict[str, Any] = {"workspace_id": workspace_id, "limit": limit, "offset": offset}
+        params: dict[str, Any] = {
+            "workspace_id": workspace_id,
+            "project_id": project_id,
+            "limit": limit,
+            "offset": offset,
+        }
         where_clause = f"WHERE {' AND '.join(clauses)}"
 
         async with self._session_factory() as session:
@@ -241,7 +255,7 @@ class PostgresConversationRepository(BasePostgresRepository):
                 session,
                 text(
                     f"""
-                    SELECT conversation_id, workspace_id, created_by_principal,
+                    SELECT conversation_id, workspace_id, project_id, scope_state, created_by_principal,
                            title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     FROM agent_conversation.conversations
                     {where_clause}
@@ -301,10 +315,10 @@ class PostgresConversationRepository(BasePostgresRepository):
                 text(
                     """
                     INSERT INTO agent_conversation.messages (
-                        message_id, conversation_id, role, content, run_id, parent_message_id,
+                        message_id, conversation_id, project_id, role, content, run_id, parent_message_id,
                         status, created_at
                     ) VALUES (
-                        :message_id, :conversation_id, :role, :content, :run_id, :parent_message_id,
+                        :message_id, :conversation_id, :project_id, :role, :content, :run_id, :parent_message_id,
                         :status, :created_at
                     )
                     RETURNING sequence_no
@@ -313,6 +327,7 @@ class PostgresConversationRepository(BasePostgresRepository):
                 {
                     "message_id": message.message_id,
                     "conversation_id": message.conversation_id,
+                    "project_id": message.project_id,
                     "role": message.role,
                     "content": message.content,
                     "run_id": message.run_id,
@@ -363,7 +378,7 @@ class PostgresConversationRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT message_id, conversation_id, sequence_no, role, content, run_id,
+                    SELECT message_id, conversation_id, project_id, sequence_no, role, content, run_id,
                            parent_message_id, status, created_at
                     FROM agent_conversation.messages
                     WHERE conversation_id = :conversation_id
@@ -408,6 +423,7 @@ class PostgresConversationRepository(BasePostgresRepository):
             MessageRecord(
                 message_id=r["message_id"],
                 conversation_id=r["conversation_id"],
+                project_id=r["project_id"],
                 sequence_no=r["sequence_no"],
                 role=r["role"],
                 content=r["content"],
@@ -438,6 +454,8 @@ class PostgresConversationRepository(BasePostgresRepository):
         return ConversationRecord(
             conversation_id=row["conversation_id"],
             workspace_id=row["workspace_id"],
+            project_id=row["project_id"],
+            scope_state=row["scope_state"],
             created_by_principal=row["created_by_principal"],
             title=row["title"],
             active_agent_profile=row["active_agent_profile"],

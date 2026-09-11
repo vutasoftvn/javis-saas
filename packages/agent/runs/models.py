@@ -67,6 +67,10 @@ class RunRecord(BaseModel):
 
     run_id: str = Field(default_factory=lambda: f"run_{uuid7().hex}")
     workspace_id: str | None = None
+    # Project-scoped Founder Hub (2026-09-11) — nullable; None = pre-existing
+    # LEGACY_UNSCOPED run. Không suy diễn từ conversation/workspace, chỉ ghi
+    # tường minh khi caller khai báo.
+    project_id: str | None = None
     conversation_id: str | None = None
     session_ref: str | None = None
     principal: str
@@ -96,6 +100,7 @@ class RunCheckpointRecord(BaseModel):
 
     checkpoint_ref: str = Field(default_factory=lambda: f"ckpt_{uuid.uuid4().hex[:16]}")
     run_id: str
+    project_id: str | None = None
     sequence_no: int
     step_name: str | None = None
     state_kind: str = "workflow"
@@ -110,6 +115,7 @@ class RunEventRecord(BaseModel):
 
     event_id: str = Field(default_factory=lambda: f"evt_{uuid.uuid4().hex[:16]}")
     run_id: str
+    project_id: str | None = None
     sequence_no: int | None = None
     event_type: str
     payload: dict[str, Any] = Field(default_factory=dict)
@@ -122,6 +128,7 @@ class RunToolCallRecord(BaseModel):
 
     tool_call_id: str = Field(default_factory=lambda: f"call_{uuid.uuid4().hex[:16]}")
     run_id: str
+    project_id: str | None = None
     checkpoint_ref: str | None = None
     capability_id: str
     payload_hash: str
@@ -145,6 +152,7 @@ class RunApprovalRecord(BaseModel):
 
     approval_id: str = Field(default_factory=lambda: f"appr_{uuid.uuid4().hex[:16]}")
     run_id: str
+    project_id: str | None = None
     tool_call_id: str
     checkpoint_ref: str
     status: str = "pending"

@@ -27,6 +27,11 @@ class RunStreamEventRecord(BaseModel):
     event_type: str
     payload: dict[str, Any] = Field(default_factory=dict)
     conversation_id: str
+    # Project-scoped Founder Hub (2026-09-11) — nullable, LEGACY_UNSCOPED khi
+    # None. workspace_id mới thêm ở migration 004 để scoped fanout query
+    # không cần join ngược về conversations.
+    workspace_id: str | None = None
+    project_id: str | None = None
     correlation_id: str | None = None
     schema_version: int = 1
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -108,11 +113,11 @@ class PostgresRunStreamEventRepository:
                 text(
                     """
                     INSERT INTO agent_conversation.run_stream_events (
-                        run_id, event_type, payload, conversation_id, correlation_id,
-                        schema_version, created_at
+                        run_id, event_type, payload, conversation_id, workspace_id, project_id,
+                        correlation_id, schema_version, created_at
                     ) VALUES (
-                        :run_id, :event_type, :payload, :conversation_id, :correlation_id,
-                        :schema_version, :created_at
+                        :run_id, :event_type, :payload, :conversation_id, :workspace_id, :project_id,
+                        :correlation_id, :schema_version, :created_at
                     )
                     RETURNING sequence
                     """
@@ -122,6 +127,8 @@ class PostgresRunStreamEventRepository:
                     "event_type": event.event_type,
                     "payload": json.dumps(event.payload),
                     "conversation_id": event.conversation_id,
+                    "workspace_id": event.workspace_id,
+                    "project_id": event.project_id,
                     "correlation_id": event.correlation_id,
                     "schema_version": event.schema_version,
                     "created_at": event.created_at,
@@ -137,8 +144,8 @@ class PostgresRunStreamEventRepository:
         self, run_id: str, after_sequence: int | None = None
     ) -> list[RunStreamEventRecord]:
         query = """
-            SELECT sequence, run_id, event_type, payload, conversation_id, correlation_id,
-                   schema_version, created_at
+            SELECT sequence, run_id, event_type, payload, conversation_id, workspace_id,
+                   project_id, correlation_id, schema_version, created_at
             FROM agent_conversation.run_stream_events
             WHERE run_id = :run_id
         """
@@ -158,6 +165,8 @@ class PostgresRunStreamEventRepository:
                 event_type=r["event_type"],
                 payload=self._parse_json(r["payload"]),
                 conversation_id=r["conversation_id"],
+                workspace_id=r["workspace_id"],
+                project_id=r["project_id"],
                 correlation_id=r["correlation_id"],
                 schema_version=r["schema_version"],
                 created_at=r["created_at"],
@@ -172,8 +181,8 @@ class PostgresRunStreamEventRepository:
         limit: int | None = None,
     ) -> list[RunStreamEventRecord]:
         query = """
-            SELECT sequence, run_id, event_type, payload, conversation_id, correlation_id,
-                   schema_version, created_at
+            SELECT sequence, run_id, event_type, payload, conversation_id, workspace_id,
+                   project_id, correlation_id, schema_version, created_at
             FROM agent_conversation.run_stream_events
             WHERE conversation_id = :conversation_id
         """
@@ -195,6 +204,8 @@ class PostgresRunStreamEventRepository:
                 event_type=r["event_type"],
                 payload=self._parse_json(r["payload"]),
                 conversation_id=r["conversation_id"],
+                workspace_id=r["workspace_id"],
+                project_id=r["project_id"],
                 correlation_id=r["correlation_id"],
                 schema_version=r["schema_version"],
                 created_at=r["created_at"],

@@ -44,6 +44,10 @@ class ConversationCreate(BaseModel):
     title: str | None = "New Conversation"
     active_agent_profile: str | None = None
     agent_profile_id: str | None = None
+    # Project-scoped Founder Hub (2026-09-11) — tường minh, không auto-select/
+    # company-wide. Route wiring (bắt buộc + verify) là Task 2, ở đây field
+    # chỉ khai báo shape của contract.
+    project_id: str | None = None
 
 
 class ConversationUpdate(BaseModel):
@@ -126,6 +130,8 @@ class MessageResponse(BaseModel):
 class ConversationResponse(BaseModel):
     id: str
     workspace_id: str
+    project_id: str | None = None
+    scope_state: str = "LEGACY_UNSCOPED"
     created_by_principal: str
     title: str
     active_agent_profile: str | None = None

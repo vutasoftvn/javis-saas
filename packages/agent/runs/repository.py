@@ -456,13 +456,13 @@ class PostgresRunRepository(BasePostgresRepository):
                 text(
                     """
                     INSERT INTO agent.runs (
-                        run_id, workspace_id, conversation_id, session_ref,
+                        run_id, workspace_id, project_id, conversation_id, session_ref,
                         principal, root_executable_id, root_executable_kind, root_executable_version,
                         root_definition_hash, status, execution_mode, correlation_id, idempotency_key,
                         input_payload, model_policy, final_output, usage, error_details, created_at, updated_at,
                         wf_agent_instance_id, wf_assignment_id, wf_work_package_id, wf_work_attempt_id
                     ) VALUES (
-                        :run_id, :workspace_id, :conversation_id, :session_ref,
+                        :run_id, :workspace_id, :project_id, :conversation_id, :session_ref,
                         :principal, :root_executable_id, :root_executable_kind, :root_executable_version,
                         :root_definition_hash, :status, :execution_mode, :correlation_id, :idempotency_key,
                         :input_payload, :model_policy, :final_output, :usage, :error_details, :created_at, :updated_at,
@@ -488,6 +488,7 @@ class PostgresRunRepository(BasePostgresRepository):
                     else None,
                     "run_id": run.run_id,
                     "workspace_id": run.workspace_id,
+                    "project_id": run.project_id,
                     "conversation_id": run.conversation_id,
                     "session_ref": run.session_ref,
                     "principal": run.principal,
@@ -523,7 +524,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT run_id, workspace_id, conversation_id, session_ref,
+                    SELECT run_id, workspace_id, project_id, conversation_id, session_ref,
                            principal, root_executable_id, root_executable_kind, root_executable_version,
                            root_definition_hash, status, execution_mode, correlation_id, idempotency_key,
                            input_payload, model_policy, final_output, usage, error_details, created_at, updated_at, completed_at,
@@ -546,7 +547,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT run_id, workspace_id, conversation_id, session_ref,
+                    SELECT run_id, workspace_id, project_id, conversation_id, session_ref,
                            principal, root_executable_id, root_executable_kind, root_executable_version,
                            root_definition_hash, status, execution_mode, correlation_id, idempotency_key,
                            input_payload, model_policy, final_output, usage, error_details, created_at, updated_at, completed_at,
@@ -743,10 +744,10 @@ class PostgresRunRepository(BasePostgresRepository):
                 text(
                     """
                     INSERT INTO agent.run_checkpoints (
-                        checkpoint_ref, run_id, sequence_no, step_name, state_kind,
+                        checkpoint_ref, run_id, project_id, sequence_no, step_name, state_kind,
                         serialized_state, manifest_snapshot, resume_metadata, created_at
                     ) VALUES (
-                        :checkpoint_ref, :run_id, :sequence_no, :step_name, :state_kind,
+                        :checkpoint_ref, :run_id, :project_id, :sequence_no, :step_name, :state_kind,
                         :serialized_state, :manifest_snapshot, :resume_metadata, :created_at
                     )
                     ON CONFLICT (checkpoint_ref) DO NOTHING;
@@ -755,6 +756,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 {
                     "checkpoint_ref": checkpoint.checkpoint_ref,
                     "run_id": checkpoint.run_id,
+                    "project_id": checkpoint.project_id,
                     "sequence_no": checkpoint.sequence_no,
                     "step_name": checkpoint.step_name,
                     "state_kind": checkpoint.state_kind,
@@ -825,7 +827,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT checkpoint_ref, run_id, sequence_no, step_name, state_kind,
+                    SELECT checkpoint_ref, run_id, project_id, sequence_no, step_name, state_kind,
                            serialized_state, manifest_snapshot, resume_metadata, created_at
                     FROM agent.run_checkpoints
                     WHERE run_id = :run_id
@@ -846,7 +848,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT checkpoint_ref, run_id, sequence_no, step_name, state_kind,
+                    SELECT checkpoint_ref, run_id, project_id, sequence_no, step_name, state_kind,
                            serialized_state, manifest_snapshot, resume_metadata, created_at
                     FROM agent.run_checkpoints
                     WHERE checkpoint_ref = :checkpoint_ref
@@ -865,7 +867,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT checkpoint_ref, run_id, sequence_no, step_name, state_kind,
+                    SELECT checkpoint_ref, run_id, project_id, sequence_no, step_name, state_kind,
                            serialized_state, manifest_snapshot, resume_metadata, created_at
                     FROM agent.run_checkpoints
                     WHERE run_id = :run_id
@@ -884,9 +886,9 @@ class PostgresRunRepository(BasePostgresRepository):
                 text(
                     """
                     INSERT INTO agent.run_events (
-                        event_id, run_id, event_type, payload, correlation_id, created_at
+                        event_id, run_id, project_id, event_type, payload, correlation_id, created_at
                     ) VALUES (
-                        :event_id, :run_id, :event_type, :payload, :correlation_id, :created_at
+                        :event_id, :run_id, :project_id, :event_type, :payload, :correlation_id, :created_at
                     )
                     RETURNING sequence_no;
                     """
@@ -894,6 +896,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 {
                     "event_id": event.event_id,
                     "run_id": event.run_id,
+                    "project_id": event.project_id,
                     "event_type": event.event_type,
                     "payload": json.dumps(event.payload),
                     "correlation_id": event.correlation_id,
@@ -907,7 +910,7 @@ class PostgresRunRepository(BasePostgresRepository):
 
     async def list_events(self, run_id: str, after_seq: int | None = None) -> list[RunEventRecord]:
         query = """
-            SELECT event_id, run_id, sequence_no, event_type, payload, correlation_id, created_at
+            SELECT event_id, run_id, project_id, sequence_no, event_type, payload, correlation_id, created_at
             FROM agent.run_events
             WHERE run_id = :run_id
         """
@@ -929,11 +932,11 @@ class PostgresRunRepository(BasePostgresRepository):
                 text(
                     """
                     INSERT INTO agent.run_tool_calls (
-                        tool_call_id, run_id, checkpoint_ref, capability_id, payload_hash,
+                        tool_call_id, run_id, project_id, checkpoint_ref, capability_id, payload_hash,
                         input_payload, status, idempotency_key, result_hash, output_payload,
                         error_message, execution_target_snapshot, governance_state, created_at, completed_at
                     ) VALUES (
-                        :tool_call_id, :run_id, :checkpoint_ref, :capability_id, :payload_hash,
+                        :tool_call_id, :run_id, :project_id, :checkpoint_ref, :capability_id, :payload_hash,
                         :input_payload, :status, :idempotency_key, :result_hash, :output_payload,
                         :error_message, :execution_target_snapshot, :governance_state, :created_at, :completed_at
                     )
@@ -949,6 +952,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 {
                     "tool_call_id": tool_call.tool_call_id,
                     "run_id": tool_call.run_id,
+                    "project_id": tool_call.project_id,
                     "checkpoint_ref": tool_call.checkpoint_ref,
                     "capability_id": tool_call.capability_id,
                     "payload_hash": tool_call.payload_hash,
@@ -975,7 +979,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT tool_call_id, run_id, checkpoint_ref, capability_id, payload_hash,
+                    SELECT tool_call_id, run_id, project_id, checkpoint_ref, capability_id, payload_hash,
                            input_payload, status, idempotency_key, result_hash, output_payload,
                            error_message, execution_target_snapshot, governance_state, created_at, completed_at
                     FROM agent.run_tool_calls
@@ -997,7 +1001,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT tool_call_id, run_id, checkpoint_ref, capability_id, payload_hash,
+                    SELECT tool_call_id, run_id, project_id, checkpoint_ref, capability_id, payload_hash,
                            input_payload, status, idempotency_key, result_hash, output_payload,
                            error_message, execution_target_snapshot, governance_state, created_at, completed_at
                     FROM agent.run_tool_calls
@@ -1017,7 +1021,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT tool_call_id, run_id, checkpoint_ref, capability_id, payload_hash,
+                    SELECT tool_call_id, run_id, project_id, checkpoint_ref, capability_id, payload_hash,
                            input_payload, status, idempotency_key, result_hash, output_payload,
                            error_message, execution_target_snapshot, governance_state, created_at, completed_at
                     FROM agent.run_tool_calls
@@ -1037,11 +1041,11 @@ class PostgresRunRepository(BasePostgresRepository):
                 text(
                     """
                     INSERT INTO agent.approvals (
-                        approval_id, run_id, tool_call_id, checkpoint_ref, status,
+                        approval_id, run_id, project_id, tool_call_id, checkpoint_ref, status,
                         requirement, requester, action, subject, reviewer, reason, evidence,
                         manifest_hash, created_at, decided_at, expires_at
                     ) VALUES (
-                        :approval_id, :run_id, :tool_call_id, :checkpoint_ref, :status,
+                        :approval_id, :run_id, :project_id, :tool_call_id, :checkpoint_ref, :status,
                         :requirement, :requester, :action, :subject, :reviewer, :reason, :evidence,
                         :manifest_hash, :created_at, :decided_at, :expires_at
                     )
@@ -1051,6 +1055,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 {
                     "approval_id": approval.approval_id,
                     "run_id": approval.run_id,
+                    "project_id": approval.project_id,
                     "tool_call_id": approval.tool_call_id,
                     "checkpoint_ref": approval.checkpoint_ref,
                     "status": approval.status,
@@ -1078,7 +1083,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
+                    SELECT approval_id, run_id, project_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
                            manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
@@ -1101,7 +1106,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT a.approval_id, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
+                    SELECT a.approval_id, a.run_id, a.project_id, a.tool_call_id, a.checkpoint_ref, a.status,
                            a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
                            a.manifest_hash, a.decision_version, a.created_at, a.decided_at, a.expires_at
                     FROM agent.approvals a
@@ -1123,7 +1128,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
+                    SELECT approval_id, run_id, project_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
                            manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
@@ -1143,7 +1148,7 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
+                    SELECT approval_id, run_id, project_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
                            manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
@@ -1212,7 +1217,7 @@ class PostgresRunRepository(BasePostgresRepository):
         """List pending approvals. If workspace_id is provided, filter by that workspace.
         If workspace_id is None, return all pending approvals (system operation)."""
         query = """
-            SELECT a.approval_id, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
+            SELECT a.approval_id, a.run_id, a.project_id, a.tool_call_id, a.checkpoint_ref, a.status,
                     a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
                     a.decision_version, a.created_at, a.decided_at, a.expires_at
             FROM agent.approvals a
@@ -1417,6 +1422,7 @@ class PostgresRunRepository(BasePostgresRepository):
         return RunRecord(
             run_id=row["run_id"],
             workspace_id=row["workspace_id"],
+            project_id=row["project_id"],
             conversation_id=row["conversation_id"],
             session_ref=row["session_ref"],
             principal=row["principal"],
@@ -1457,6 +1463,7 @@ class PostgresRunRepository(BasePostgresRepository):
         return RunCheckpointRecord(
             checkpoint_ref=row["checkpoint_ref"],
             run_id=row["run_id"],
+            project_id=row["project_id"],
             sequence_no=row["sequence_no"],
             step_name=row["step_name"],
             state_kind=row["state_kind"],
@@ -1471,6 +1478,7 @@ class PostgresRunRepository(BasePostgresRepository):
         return RunEventRecord(
             event_id=row["event_id"],
             run_id=row["run_id"],
+            project_id=row["project_id"],
             sequence_no=row["sequence_no"],
             event_type=row["event_type"],
             payload=cls._parse_json(row["payload"]) or {},
@@ -1483,6 +1491,7 @@ class PostgresRunRepository(BasePostgresRepository):
         return RunToolCallRecord(
             tool_call_id=row["tool_call_id"],
             run_id=row["run_id"],
+            project_id=row["project_id"],
             checkpoint_ref=row["checkpoint_ref"],
             capability_id=row["capability_id"],
             payload_hash=row["payload_hash"],
@@ -1503,6 +1512,7 @@ class PostgresRunRepository(BasePostgresRepository):
         return RunApprovalRecord(
             approval_id=row["approval_id"],
             run_id=row["run_id"],
+            project_id=row["project_id"],
             tool_call_id=row["tool_call_id"],
             checkpoint_ref=row["checkpoint_ref"],
             status=row["status"],

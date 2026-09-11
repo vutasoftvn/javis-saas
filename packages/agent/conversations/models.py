@@ -2,23 +2,33 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from agent.ids import uuid7  # LeafId UUIDv7 cho conversation_id (M2 §3)
 
 __all__ = ["ConversationRecord", "MessageAttachmentRecord", "MessageRecord"]
+
+ConversationScopeState = Literal["PROJECT_SCOPED", "LEGACY_UNSCOPED"]
 
 
 class ConversationRecord(BaseModel):
     """Bản ghi hội thoại trong agent_conversation.conversations.
 
     workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
+
+    Project-scoped Founder Hub (2026-09-11): mọi Hub artifact mới phải khai
+    báo tường minh `project_id` + `scope_state="PROJECT_SCOPED"` — không có
+    "Company-wide"/auto-select Project. Bản ghi legacy trước migration 004
+    giữ `scope_state="LEGACY_UNSCOPED"` với `project_id=None`, KHÔNG suy diễn
+    Project từ title/timestamp/agent profile/workspace ordering.
     """
 
     conversation_id: str = Field(default_factory=lambda: f"conv_{uuid7().hex}")
     workspace_id: str | None = None
+    project_id: str | None = None
+    scope_state: ConversationScopeState = "LEGACY_UNSCOPED"
     created_by_principal: str
     title: str = "New Conversation"
     active_agent_profile: str | None = None
@@ -26,6 +36,14 @@ class ConversationRecord(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     archived_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _validate_project_scope(self) -> "ConversationRecord":
+        if self.scope_state == "PROJECT_SCOPED" and not self.project_id:
+            raise ValueError("PROJECT_SCOPED records require project_id")
+        if self.scope_state == "LEGACY_UNSCOPED" and self.project_id:
+            raise ValueError("LEGACY_UNSCOPED records must not carry project_id")
+        return self
 
 
 class MessageAttachmentRecord(BaseModel):
@@ -51,6 +69,7 @@ class MessageRecord(BaseModel):
 
     message_id: str = Field(default_factory=lambda: f"msg_{uuid.uuid4().hex[:12]}")
     conversation_id: str
+    project_id: str | None = None
     sequence_no: int | None = None
     role: str = "user"
     content: str
