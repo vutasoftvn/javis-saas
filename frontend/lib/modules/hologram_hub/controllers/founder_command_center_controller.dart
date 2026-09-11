@@ -14,6 +14,7 @@ import '../../../modules/chat/models/data_access_declaration.dart';
 import '../../../core/network/api_result.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/services/secure_storage_service.dart';
+import '../../../core/network/realtime_service.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../data/models/execution_plan_model.dart';
 import '../../../modules/strategy/services/execution_plan_service.dart';
@@ -260,6 +261,10 @@ class FounderCommandCenterController extends GetxController {
     chatInputController.clear();
     isChatLoading.value = false;
 
+    // Task 6 — reset project context + generation counter
+    _projectGeneration = 0;
+    RealtimeService().clearActiveProject();
+
     if (reload) {
       loadDashboardData();
     }
@@ -267,7 +272,8 @@ class FounderCommandCenterController extends GetxController {
 
   /// Task 6 — User chọn một Project khác. Hủy subscription cũ, increment
   /// generation counter để discard stale response, xoá UI state của Project cũ,
-  /// persist selection, rồi tải data Project mới.
+  /// persist selection, notify RealtimeService về project switch, rồi tải data
+  /// Project mới.
   Future<void> selectProject(String projectId) async {
     // Hủy SSE subscription của Project cũ
     _chatSseSubscription?.cancel();
@@ -285,6 +291,10 @@ class FounderCommandCenterController extends GetxController {
     founderInboxTasks.clear();
     pulse.value = null;
     top3Actions.clear();
+
+    // Task 6 — notify RealtimeService về project switch để filtering SSE events
+    final realtimeService = RealtimeService();
+    realtimeService.setActiveProject(projectId);
 
     // Persist selection trong local storage (per workspace)
     final wsId = await SecureStorageService.read('workspace_id');
@@ -428,6 +438,7 @@ class FounderCommandCenterController extends GetxController {
         // Chỉ tải KPI nếu có Project đang hoạt động
         CompanyPulseModel? pulseRes;
         List<NextBestActionModel> top3Res = [];
+        List<FounderDecisionModel> decisionsRes = [];
         if (activeProjectId != null) {
           pulseRes = await CoFounderApiService.getCompanyPulse(
             workspaceId: wsId,
@@ -438,11 +449,13 @@ class FounderCommandCenterController extends GetxController {
             workspaceId: wsId,
             projectId: activeProjectId,
           );
+          // Task 6 — listPendingDecisions giờ yêu cầu projectId. Chỉ fetch
+          // decisions cho project đang hoạt động.
+          decisionsRes = await CoFounderApiService.listPendingDecisions(
+            workspaceId: wsId,
+            projectId: activeProjectId,
+          );
         }
-
-        final decisionsRes = await CoFounderApiService.listPendingDecisions(
-          workspaceId: wsId,
-        );
         workforceState.value = WorkforceLoadState.loading;
         final packsResult = await CoFounderApiService.listWorkforcePacks();
 
@@ -535,13 +548,22 @@ class FounderCommandCenterController extends GetxController {
   }
 
   /// Chốt quyết định chiến lược của Founder
+  /// Task 6 — projectId là bắt buộc và phải match activeProjectId.
   Future<void> resolveDecision({
     required int decisionId,
     required String optionKey,
     String? founderNotes,
   }) async {
+    // Task 6 — projectId là bắt buộc. Nếu không có project đang hoạt động,
+    // không nên gọi hàm này.
+    if (activeProjectId.value == null || activeProjectId.value!.isEmpty) {
+      AppToast.error('Vui lòng chọn một dự án trước khi chốt quyết định.');
+      return;
+    }
+
     final success = await CoFounderApiService.resolveDecision(
       decisionId: decisionId,
+      projectId: activeProjectId.value!,
       decisionMade: optionKey,
       founderNotes: founderNotes,
     );

@@ -132,6 +132,14 @@ class RealtimeService {
   String? _activeWorkspaceId;
   String? _lastEventId;
 
+  // Task 6 — track active Project để filter workspace-level SSE events.
+  // Đổi Project trong cùng workspace ⇒ reset active project. Như vậy SSE
+  // event của Project cũ tới muộn sẽ bị discard (workspace match nhưng
+  // project không match). Checkpoint (Last-Event-ID) vẫn dùng workspace-level
+  // chung; project activity có stream riêng `/agent/projects/{id}/activity/stream`
+  // được quản lý bởi ProjectActivityService.
+  String? _activeProjectId;
+
   /// Được gọi khi server trả 401/403 cho request mở SSE — nghĩa là token
   /// hiện tại không còn hợp lệ, không phải một lỗi mạng tạm thời. Không tự ý
   /// biết cách refresh/logout ở tầng transport này — giao lại cho caller
@@ -174,16 +182,30 @@ class RealtimeService {
 
   /// Task 8 — điểm vào chính: kết nối SSE cho ĐÚNG MỘT workspace tường minh.
   /// Đổi workspace so với lần kết nối trước ⇒ xoá checkpoint cũ (không gửi
-  /// `Last-Event-ID` chéo workspace).
+  /// `Last-Event-ID` chéo workspace) + xoá Project context.
   Future<void> connectForWorkspace(String workspaceId) async {
     if (_activeWorkspaceId != workspaceId) {
       _lastEventId = null;
+      // Task 6 — workspace đổi ⇒ clear project context
+      _activeProjectId = null;
     }
     _activeWorkspaceId = workspaceId;
     _shouldReconnect = true;
     _retryDelaySeconds = 2;
     _reconnectTimer?.cancel();
     await _startSseStream();
+  }
+
+  /// Task 6 — khi Founder chọn một Project, set active project context.
+  /// Phải được gọi từ FounderCommandCenterController.selectProject().
+  /// Điều này sẽ filter workspace-level SSE events để chỉ pass event từ project này.
+  void setActiveProject(String projectId) {
+    _activeProjectId = projectId;
+  }
+
+  /// Task 6 — xoá active project context (logout, workspace switch).
+  void clearActiveProject() {
+    _activeProjectId = null;
   }
 
   /// [clearCheckpoint] — `true` khi đây là một lần dừng "dứt điểm" (logout,
@@ -305,6 +327,35 @@ class RealtimeService {
   }
 
   void _notifyListeners(String eventType, Map<String, dynamic> data) {
+    // Task 6 — discard event nếu workspace/project không match current subscription.
+    // Event có thể mang workspace_id/project_id nếu là dòng SSE từ Agent Platform.
+    final eventWorkspaceId = data['workspace_id'] as String?;
+    final eventProjectId = data['project_id'] as String?;
+
+    // Nếu event mang workspace_id nhưng không match ⇒ reject (fallback sau
+    // workspace switch, chưa kịp disconnect old connection)
+    if (eventWorkspaceId != null && eventWorkspaceId != _activeWorkspaceId) {
+      debugPrint(
+        '[Realtime] Discard workspace mismatch event: '
+        'event=$eventWorkspaceId, active=$_activeWorkspaceId',
+      );
+      return;
+    }
+
+    // Task 6 — nếu event mang project_id nhưng không match active project,
+    // hoặc active project set nhưng event không mang project_id ⇒ reject.
+    // Điều này ngăn data của Project cũ tới sau khi user chuyển sang Project mới.
+    if (_activeProjectId != null) {
+      // Nếu active project set và event không mang project_id hoặc project_id khác ⇒ reject
+      if (eventProjectId == null || eventProjectId != _activeProjectId) {
+        debugPrint(
+          '[Realtime] Discard project mismatch event: '
+          'event=$eventProjectId, active=$_activeProjectId',
+        );
+        return;
+      }
+    }
+
     for (final listener in List<RealtimeEventHandler>.from(_listeners)) {
       try {
         listener(eventType, data);

@@ -33,6 +33,60 @@ void main() {
   });
 
   group('RealtimeService Lifecycle & Disconnect Tests', () {
+    test('Project-switch discards events from previous project', () async {
+      final service = RealtimeService();
+      final receivedEvents = <Map<String, dynamic>>[];
+
+      ApiClient.client = MockClient.streaming((request, bodyStream) async {
+        final controller = StreamController<List<int>>();
+        // Simulate SSE stream with project_id in event data
+        controller.add('event: test\n'.codeUnits);
+        controller.add('id: 1\n'.codeUnits);
+        controller.add('data: {"project_id":"proj_a","message":"data from A"}\n'.codeUnits);
+        controller.add('\n'.codeUnits);
+        controller.close();
+        return http.StreamedResponse(controller.stream, 200);
+      });
+
+      // Add listener to capture events
+      service.addListener((eventType, data) {
+        receivedEvents.add(data);
+      });
+
+      // Connect and set active project A
+      await service.connectForWorkspace('ws-test-123');
+      service.setActiveProject('proj_a');
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      // Should receive event from proj_a
+      expect(receivedEvents.length, 1);
+      expect(receivedEvents[0]['message'], 'data from A');
+
+      // Switch to project B and trigger disconnect/reconnect
+      service.setActiveProject('proj_b');
+
+      // Clear received events for next test
+      receivedEvents.clear();
+
+      // Mock new SSE stream with proj_a event arriving late
+      ApiClient.client = MockClient.streaming((request, bodyStream) async {
+        final controller = StreamController<List<int>>();
+        controller.add('event: test\n'.codeUnits);
+        controller.add('id: 2\n'.codeUnits);
+        controller.add('data: {"project_id":"proj_a","message":"late data from A"}\n'.codeUnits);
+        controller.add('\n'.codeUnits);
+        controller.close();
+        return http.StreamedResponse(controller.stream, 200);
+      });
+
+      // Reconnect (simulating reconnect after project switch)
+      await service.reconnectForTest();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      // Should NOT receive event from proj_a since active is now proj_b
+      expect(receivedEvents.length, 0);
+    });
+
     test('disconnect cancels stream and prevents reconnection', () async {
       final service = RealtimeService();
       bool streamOpened = false;

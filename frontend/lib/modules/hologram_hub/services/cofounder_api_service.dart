@@ -9,8 +9,17 @@ import '../../../data/models/workforce_pack_model.dart';
 import '../../workforce/services/workforce_mvp_service.dart';
 
 class CoFounderApiService {
-  /// Lấy thông tin nhịp tim tổng thể của doanh nghiệp (Company Pulse) từ Backend
-  static Future<CompanyPulseModel> getCompanyPulse({dynamic workspaceId, dynamic projectId, String? stage}) async {
+  /// Lấy thông tin nhịp tim tổng thể của dự án (Company Pulse) từ Backend.
+  /// Task 6 — projectId là bắt buộc. Endpoint `/operations/strategy/projects/{projectId}/next-best-actions`
+  /// là project-scoped. Tuy nhiên `/operations/tasks` là workspace-only mà không có
+  /// project-scoped variant, nên tạm thời hiển thị metrics dựa trên Project activity.
+  /// TODO (Gap-TBD): Thay thế task count bằng Activity Feed projection khi
+  /// `/agent/projects/{project_id}/activity` được integrate hoàn chỉnh.
+  static Future<CompanyPulseModel> getCompanyPulse({
+    dynamic workspaceId,
+    required String projectId,
+    String? stage,
+  }) async {
     try {
       final wId = workspaceId?.toString() ?? await SecureStorageService.read('workspace_id');
       if (wId == null || wId.isEmpty) {
@@ -26,26 +35,28 @@ class CoFounderApiService {
           updatedAt: DateTime.now(),
         );
       }
-      final pId = projectId?.toString();
 
-      // 1. Fetch tasks
-      final tasksRes = await ApiClient.get('/operations/tasks?workspaceId=$wId');
+      // 1. Fetch tasks — workspace-wide. Backend /operations/tasks không filter
+      // theo project, chỉ trả tất cả task của workspace. Task6 spec yêu cầu
+      // không dùng workspace-wide fallback, nên tạm gán 0 tới khi có
+      // Activity Feed project-scoped.
       int activeGoals = 0;
       int goalsOnTrack = 0;
-      if (tasksRes.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(tasksRes.bodyBytes));
-        final tasksList = (data is Map ? data['tasks'] : data) as List? ?? [];
-        activeGoals = tasksList.length;
-        goalsOnTrack = tasksList.where((t) => t['status'] == 'completed' || t['status'] == 'in_progress').length;
-      }
+      // TODO (Gap-TBD): Replace with Activity Feed
+      // final tasksRes = await ApiClient.get('/operations/tasks?workspaceId=$wId');
+      // if (tasksRes.statusCode == 200) {...}
 
-      // 2. Fetch decisions
-      final decisions = await listPendingDecisions(workspaceId: wId);
+      // 2. Fetch decisions — backend accepts projectId parameter
+      final decisions = await listPendingDecisions(
+        workspaceId: wId,
+        projectId: projectId,
+      );
 
-      // 3. Fetch Next Best Actions
-      final top3 = (pId != null && pId.isNotEmpty)
-          ? await getTop3Focus(workspaceId: wId, projectId: pId)
-          : <NextBestActionModel>[];
+      // 3. Fetch Next Best Actions — project-scoped endpoint
+      final top3 = await getTop3Focus(
+        workspaceId: wId,
+        projectId: projectId,
+      );
 
       return CompanyPulseModel(
         goalsOnTrack: goalsOnTrack,
@@ -74,12 +85,16 @@ class CoFounderApiService {
     );
   }
 
-  /// Lấy Top 3 hành động tốt nhất hôm nay (Next Best Action) từ Backend
-  static Future<List<NextBestActionModel>> getTop3Focus({dynamic workspaceId, dynamic projectId}) async {
-    final pId = projectId?.toString();
-    if (pId == null || pId.isEmpty) return [];
+  /// Lấy Top 3 hành động tốt nhất hôm nay (Next Best Action) từ Backend.
+  /// Task 6 — projectId là bắt buộc, project-scoped endpoint đã có sẵn.
+  static Future<List<NextBestActionModel>> getTop3Focus({
+    dynamic workspaceId,
+    required String projectId,
+  }) async {
     try {
-      final response = await ApiClient.get('/operations/strategy/projects/$pId/next-best-actions');
+      final response = await ApiClient.get(
+        '/operations/strategy/projects/$projectId/next-best-actions',
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         final items = (data['items'] as List<dynamic>?) ?? [];
@@ -94,16 +109,31 @@ class CoFounderApiService {
     return [];
   }
 
-  /// Lấy danh sách các quyết định đang chờ Founder duyệt ('Waiting for You') từ Backend
-  static Future<List<FounderDecisionModel>> listPendingDecisions({dynamic workspaceId}) async {
+  /// Lấy danh sách các quyết định đang chờ Founder duyệt ('Waiting for You') từ Backend.
+  /// Task 6 — projectId là bắt buộc. Backend endpoint
+  /// `/operations/strategy/decision-records` chấp nhận `projectId` query parameter
+  /// để filter theo project.
+  static Future<List<FounderDecisionModel>> listPendingDecisions({
+    dynamic workspaceId,
+    required String projectId,
+  }) async {
     try {
       final wId = workspaceId?.toString() ?? await SecureStorageService.read('workspace_id');
       if (wId == null || wId.isEmpty) return [];
-      final response = await ApiClient.get('/operations/strategy/decision-records?workspaceId=$wId');
+      final response = await ApiClient.get(
+        '/operations/strategy/decision-records?projectId=$projectId',
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final List<dynamic> list = data is List ? data : (data['decisionRecords'] as List? ?? data['records'] as List? ?? []);
-        return list.map((e) => FounderDecisionModel.fromJson(e as Map<String, dynamic>)).toList();
+        final List<dynamic> list = data is List
+            ? data
+            : (data['decisionRecords'] as List? ??
+                data['items'] as List? ??
+                data['records'] as List? ??
+                []);
+        return list
+            .map((e) => FounderDecisionModel.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
       debugPrint('[CoFounderApiService] listPendingDecisions exception: $e');
@@ -111,9 +141,11 @@ class CoFounderApiService {
     return [];
   }
 
-  /// Chốt quyết định chiến lược
+  /// Chốt quyết định chiến lược.
+  /// Task 6 — projectId là bắt buộc để ensure project context khi resolve decision.
   static Future<bool> resolveDecision({
     required dynamic decisionId,
+    required String projectId,
     required String decisionMade,
     String? founderNotes,
   }) async {
@@ -121,6 +153,7 @@ class CoFounderApiService {
       final response = await ApiClient.patch(
         '/operations/strategy/decision-records/${decisionId.toString()}',
         body: {
+          'project_id': projectId,
           'decision': decisionMade,
           'rationale': founderNotes ?? 'Decided by founder',
         },
