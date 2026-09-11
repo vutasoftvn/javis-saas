@@ -91,10 +91,28 @@ export interface BusinessPolicyRuleView {
   conditions: Record<string, any>;
 }
 
+export interface CapabilityBindingView {
+  capabilityId: string;
+  permissionKey: string;
+  riskClass: string;
+  version: number;
+}
+
+export interface AgentCapabilityAuthorityView {
+  capabilityId: string;
+  permissionKey: string;
+  riskClass: string;
+  grantId: string;
+  constraints: Record<string, any>;
+}
+
 export interface GetBusinessPolicyRulesResponse {
   isFounder: boolean;
   policyVersion: number;
+  authorizationEpoch: number;
   ruleGroups: Array<{ rules: BusinessPolicyRuleView[] }>;
+  capabilityBindings: CapabilityBindingView[];
+  agentCapabilities: AgentCapabilityAuthorityView[];
 }
 
 /**
@@ -132,6 +150,7 @@ export const getBusinessPolicyRules = api(
     return {
       isFounder: ruleSet.isFounder,
       policyVersion: ruleSet.policyVersion,
+      authorizationEpoch: ruleSet.authorizationEpoch,
       ruleGroups: ruleSet.ruleGroups.map((g) => ({
         rules: g.rules.map((r) => ({
           id: r.id,
@@ -139,6 +158,19 @@ export const getBusinessPolicyRules = api(
           effect: r.effect,
           conditions: r.conditions ?? {},
         })),
+      })),
+      capabilityBindings: ruleSet.capabilityBindings.map((b) => ({
+        capabilityId: b.capabilityId,
+        permissionKey: b.permissionKey,
+        riskClass: b.riskClass,
+        version: b.version,
+      })),
+      agentCapabilities: ruleSet.agentCapabilities.map((a) => ({
+        capabilityId: a.capabilityId,
+        permissionKey: a.permissionKey,
+        riskClass: a.riskClass,
+        grantId: a.grantId,
+        constraints: a.constraints,
       })),
     };
   }

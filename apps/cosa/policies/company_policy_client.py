@@ -7,6 +7,7 @@ import httpx
 
 from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.policies.snapshot import (
+    AgentCapabilityAuthority,
     BusinessPermissionRule,
     BusinessPolicyRuleSet,
     PolicySnapshot,
@@ -199,8 +200,9 @@ class CosaTenantPolicyClient:
         try:
             data = resp.json()
             return BusinessPolicyRuleSet(
-                is_founder=data["isFounder"],
-                policy_version=data["policyVersion"],
+                is_founder=data.get("isFounder", False),
+                policy_version=data.get("policyVersion", 1),
+                authorization_epoch=data.get("authorizationEpoch", 1),
                 rule_groups=[
                     [
                         BusinessPermissionRule(
@@ -208,9 +210,19 @@ class CosaTenantPolicyClient:
                             effect=r["effect"],
                             conditions=r.get("conditions") or {},
                         )
-                        for r in group["rules"]
+                        for r in group.get("rules", [])
                     ]
-                    for group in data["ruleGroups"]
+                    for group in data.get("ruleGroups", [])
+                ],
+                agent_capabilities=[
+                    AgentCapabilityAuthority(
+                        capability_id=c["capabilityId"],
+                        permission_key=c["permissionKey"],
+                        risk_class=c["riskClass"],
+                        grant_id=c["grantId"],
+                        constraints=c.get("constraints") or {},
+                    )
+                    for c in data.get("agentCapabilities", [])
                 ],
             )
         except (KeyError, ValueError) as exc:

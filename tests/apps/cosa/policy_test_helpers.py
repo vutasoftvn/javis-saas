@@ -11,7 +11,43 @@ __all__ = [
     "compliance_snapshot",
     "fake_data_access_claim",
     "configure_mock_client_allows_data_use",
+    "agent_authority_snapshot",
+    "policy_snapshot_with",
 ]
+
+
+def agent_authority_snapshot(
+    *,
+    authorization_epoch: int = 1,
+    grants: list[Any] | None = None,
+) -> Any:
+    from apps.cosa.policies.snapshot import AgentAuthorizationSnapshot
+    return AgentAuthorizationSnapshot(
+        authorization_epoch=authorization_epoch,
+        grants=grants or [],
+    )
+
+
+def policy_snapshot_with(
+    *,
+    workspace_id: str = "test_ws_1",
+    workspace_status: str = "active",
+    principal_status: str = "active",
+    control_rule: tuple[str, str] | None = None,
+    agent_authority: Any | None = None,
+) -> PolicySnapshot:
+    rules = []
+    if control_rule is not None:
+        pattern, decision = control_rule
+        rules.append({"tool_pattern": pattern, "decision": decision})
+    return PolicySnapshot(
+        workspace_id=workspace_id,
+        workspace_status=workspace_status,
+        principal_status=principal_status,
+        rules=rules,
+        snapshot_hash="test-policy-snapshot-hash",
+        agent_authority=agent_authority,
+    )
 
 
 def allow_all_policy_snapshot() -> PolicySnapshot:

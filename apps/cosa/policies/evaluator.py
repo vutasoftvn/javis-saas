@@ -115,17 +115,70 @@ class CosaPolicyEngine:
                     reasons=floor_decision.reasons,
                 )
 
-        # 2. Tenant-configured override — trước rule hardcode.
+        # 2. Company Agent Capability Grant & Mapped Business Permission check
+        agent_auth = None
+        if snapshot is not None:
+            if snapshot.agent_authority is not None:
+                agent_auth = snapshot.agent_authority
+            elif (
+                snapshot.business_policy_rules is not None
+                and snapshot.business_policy_rules.agent_capabilities
+            ):
+                from apps.cosa.policies.snapshot import AgentAuthorizationSnapshot
+
+                agent_auth = AgentAuthorizationSnapshot(
+                    authorization_epoch=snapshot.business_policy_rules.authorization_epoch,
+                    grants=snapshot.business_policy_rules.agent_capabilities,
+                )
+
+        has_active_grant = False
+        if agent_auth is not None:
+            allowed, reason, grant = agent_auth.resolve(capability_id, payload)
+            if not allowed:
+                return PolicyDecision(
+                    outcome=PolicyOutcome.DENY,
+                    reasons=(reason,),
+                )
+            has_active_grant = True
+
+            # Evaluate mapped business permission
+            if snapshot is not None and snapshot.business_policy_rules is not None and grant is not None:
+                from apps.cosa.policies.business_permission_evaluator import (
+                    evaluate_business_policy_ruleset,
+                )
+
+                bp_effect, bp_reasons = evaluate_business_policy_ruleset(
+                    snapshot.business_policy_rules, grant.permission_key, facts=None
+                )
+                if bp_effect == "DENY":
+                    return PolicyDecision(outcome=PolicyOutcome.DENY, reasons=tuple(bp_reasons))
+                if bp_effect == "REQUIRE_APPROVAL":
+                    return PolicyDecision(
+                        outcome=PolicyOutcome.REQUIRE_APPROVAL,
+                        requirement=RoleApproval(role="admin"),
+                        reasons=tuple(bp_reasons),
+                    )
+        elif snapshot is not None and snapshot.business_policy_rules is not None:
+            from apps.cosa.policies.business_permission_evaluator import (
+                evaluate_business_policy_ruleset,
+            )
+
+            bp_effect, bp_reasons = evaluate_business_policy_ruleset(
+                snapshot.business_policy_rules, capability_id, facts=None
+            )
+            if bp_effect == "DENY":
+                return PolicyDecision(outcome=PolicyOutcome.DENY, reasons=tuple(bp_reasons))
+            if bp_effect == "REQUIRE_APPROVAL":
+                return PolicyDecision(
+                    outcome=PolicyOutcome.REQUIRE_APPROVAL,
+                    requirement=RoleApproval(role="admin"),
+                    reasons=tuple(bp_reasons),
+                )
+
+        # 2b. Control Plane tenant policy overlay (DENY / REQUIRE_APPROVAL only; ALLOW falls through)
         if snapshot is not None:
             matched = snapshot.match(capability_id)
             if matched is not None:
-                if matched.decision == "ALLOW":
-                    return PolicyDecision(
-                        outcome=PolicyOutcome.ALLOW,
-                        reasons=(
-                            matched.reason or f"Tenant policy ALLOW for {matched.tool_pattern}",
-                        ),
-                    )
                 if matched.decision == "DENY":
                     return PolicyDecision(
                         outcome=PolicyOutcome.DENY,
@@ -142,36 +195,14 @@ class CosaPolicyEngine:
                             or f"Tenant policy REQUIRE_APPROVAL for {matched.tool_pattern}",
                         ),
                     )
+                # ALLOW falls through; Control Plane cannot broaden Company authority
 
-        # 2b. IA02 phần 2 — business-policy rules mới (xem docstring class).
-        if snapshot is not None and snapshot.business_policy_rules is not None:
-            from apps.cosa.policies.business_permission_evaluator import (
-                evaluate_business_policy_ruleset,
+        if has_active_grant:
+            # Verified by Company authority grant and passed Control Plane overlay
+            return PolicyDecision(
+                outcome=PolicyOutcome.ALLOW,
+                reasons=("Allowed by Company agent capability grant",),
             )
-
-            # KHÔNG tự dựng facts["amount"] từ payload["amount"] — capability
-            # payload (vd. finance.transaction.record) chỉ có "amount" dạng
-            # number THUẦN, không kèm currency, trong khi maxAmountMinor
-            # condition cần Money {minor, currency} chuẩn (đơn vị minor, có
-            # currency — xem parseDecimalToMoney/IA13). Đoán currency mặc
-            # định (vd. VND) có thể sai lệch đơn vị 100x với ý định workspace
-            # cấu hình — nguy hiểm hơn là không check. Rule có điều kiện hạn
-            # mức vẫn tự fail-closed DENY khi facts=None (match_best_rule_in_role,
-            # cùng hành vi IA16) — chỉ rule KHÔNG điều kiện hạn mức mới evaluate
-            # được chính xác qua đường này hiện tại.
-            bp_effect, bp_reasons = evaluate_business_policy_ruleset(
-                snapshot.business_policy_rules, capability_id, facts=None
-            )
-            if bp_effect == "DENY":
-                return PolicyDecision(outcome=PolicyOutcome.DENY, reasons=tuple(bp_reasons))
-            if bp_effect == "REQUIRE_APPROVAL":
-                return PolicyDecision(
-                    outcome=PolicyOutcome.REQUIRE_APPROVAL,
-                    requirement=RoleApproval(role="admin"),
-                    reasons=tuple(bp_reasons),
-                )
-            # ALLOW (kể cả FOUNDER_DEFAULT_ALLOW) -> rơi xuống rule hardcode
-            # bên dưới, không short-circuit ALLOW ở đây.
 
         # 3. Rule hardcode — fallback explicitly versioned.
         # 3a. Risk check theo action và payload

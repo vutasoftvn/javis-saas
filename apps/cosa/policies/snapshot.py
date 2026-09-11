@@ -5,6 +5,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 __all__ = [
+    "AgentAuthorizationSnapshot",
+    "AgentCapabilityAuthority",
     "BusinessPermissionRule",
     "BusinessPolicyRuleSet",
     "PolicySnapshot",
@@ -32,6 +34,40 @@ class BusinessPermissionRule(BaseModel):
     conditions: dict[str, Any] = Field(default_factory=dict)
 
 
+class AgentCapabilityAuthority(BaseModel):
+    capability_id: str
+    permission_key: str
+    risk_class: str
+    grant_id: str
+    constraints: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentAuthorizationSnapshot(BaseModel):
+    authorization_epoch: int = 1
+    grants: list[AgentCapabilityAuthority] = Field(default_factory=list)
+
+    def resolve(
+        self, capability_id: str, payload: dict[str, Any] | None = None
+    ) -> tuple[bool, str, AgentCapabilityAuthority | None]:
+        matched = [g for g in self.grants if g.capability_id == capability_id]
+        if not matched:
+            return False, "MISSING_AGENT_CAPABILITY_GRANT", None
+        grant = matched[0]
+        constraints = grant.constraints or {}
+        if "maxAmountMinor" in constraints and payload:
+            facts_amount = payload.get("amount")
+            if facts_amount is None:
+                return False, "MISSING_REQUIRED_FACT_AMOUNT", grant
+            minor = facts_amount.get("minor") if isinstance(facts_amount, dict) else facts_amount
+            if minor is not None and int(minor) > int(constraints["maxAmountMinor"]):
+                return False, "CONSTRAINT_AMOUNT_EXCEEDED", grant
+        if "currency" in constraints and payload:
+            facts_amount = payload.get("amount")
+            if isinstance(facts_amount, dict) and facts_amount.get("currency") != constraints["currency"]:
+                return False, "CONSTRAINT_CURRENCY_MISMATCH", grant
+        return True, "ALLOWED", grant
+
+
 class BusinessPolicyRuleSet(BaseModel):
     """IA02 phần 2 — kết quả GET /identity/business-policy/rules. rule_groups
     nhóm theo TỪNG role assignment (không flatten) để tái tạo đúng thuật
@@ -39,7 +75,9 @@ class BusinessPolicyRuleSet(BaseModel):
 
     is_founder: bool = False
     policy_version: int = 1
+    authorization_epoch: int = 1
     rule_groups: list[list[BusinessPermissionRule]] = Field(default_factory=list)
+    agent_capabilities: list[AgentCapabilityAuthority] = Field(default_factory=list)
 
 
 class PolicySnapshot(BaseModel):
@@ -60,6 +98,7 @@ class PolicySnapshot(BaseModel):
     rules: list[TenantPolicyRule]
     snapshot_hash: str
     business_policy_ref: dict[str, Any] | None = None
+    agent_authority: AgentAuthorizationSnapshot | None = None
     # IA02 phần 2 — raw rule set từ services/company (GET
     # /identity/business-policy/rules), resolve CÙNG lúc với snapshot ở
     # boundary run-start/trước resume. None = chưa fetch được/không áp dụng

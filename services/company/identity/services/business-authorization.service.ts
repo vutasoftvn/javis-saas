@@ -7,6 +7,10 @@ import {
   coreMemberRoleAssignments,
   coreWorkspacePolicyVersions,
   identityWorkspaceMemberships,
+  coreWorkspaceAuthorizationStates,
+  coreCapabilityPermissionBindings,
+  coreAgentCapabilityGrants,
+  identityWorkforceMembers,
 } from "../../shared/db/schema/identity";
 import type { TenantContext } from "../../shared/types/tenant_context";
 import { isKnownPermission } from "./permission-catalog";
@@ -31,6 +35,34 @@ export interface RuleDecision {
   policyVersion: number;
   matchedRuleIds: string[];
   approvalRequired: boolean;
+}
+
+export interface AgentCapabilityGrantRule {
+  capabilityId: string;
+  permissionKey: string;
+  riskClass: string;
+  grantId: string;
+  constraints: Record<string, any>;
+}
+
+export interface CapabilityBindingRule {
+  capabilityId: string;
+  permissionKey: string;
+  riskClass: string;
+  version: number;
+}
+
+export interface BusinessPolicyRuleGroup {
+  rules: PermissionRule[];
+}
+
+export interface BusinessPolicyRuleSet {
+  isFounder: boolean;
+  policyVersion: number;
+  authorizationEpoch: number;
+  ruleGroups: BusinessPolicyRuleGroup[];
+  capabilityBindings: CapabilityBindingRule[];
+  agentCapabilities: AgentCapabilityGrantRule[];
 }
 
 export async function getLatestPolicyVersion(workspaceId: bigint): Promise<number> {
@@ -304,7 +336,58 @@ export async function getBusinessPolicyRulesForMemberService(p: {
     }
   }
 
-  return { isFounder, policyVersion, ruleGroups };
+  const [authState] = await db
+    .select({ authorizationEpoch: coreWorkspaceAuthorizationStates.authorizationEpoch })
+    .from(coreWorkspaceAuthorizationStates)
+    .where(eq(coreWorkspaceAuthorizationStates.workspaceId, p.workspaceId))
+    .limit(1);
+
+  const authorizationEpoch = authState?.authorizationEpoch ?? 1;
+
+  const bindings = await db.select().from(coreCapabilityPermissionBindings);
+  const capabilityBindings: CapabilityBindingRule[] = bindings.map((b) => ({
+    capabilityId: b.capabilityId,
+    permissionKey: b.permissionKey,
+    riskClass: b.riskClass,
+    version: b.version,
+  }));
+
+  const bindingMap = new Map<string, { permissionKey: string; riskClass: string }>();
+  for (const b of bindings) {
+    bindingMap.set(b.capabilityId, { permissionKey: b.permissionKey, riskClass: b.riskClass });
+  }
+
+  const agentCapabilities: AgentCapabilityGrantRule[] = [];
+  if (p.workforceMemberId) {
+    const now = new Date();
+    const grants = await db
+      .select()
+      .from(coreAgentCapabilityGrants)
+      .where(
+        and(
+          eq(coreAgentCapabilityGrants.workspaceId, p.workspaceId),
+          eq(coreAgentCapabilityGrants.agentWorkforceMemberId, p.workforceMemberId),
+          eq(coreAgentCapabilityGrants.status, "ACTIVE")
+        )
+      );
+
+    for (const g of grants) {
+      if (g.validUntil && g.validUntil <= now) continue;
+      if (g.validFrom && g.validFrom > now) continue;
+      const b = bindingMap.get(g.capabilityId);
+      if (b) {
+        agentCapabilities.push({
+          capabilityId: g.capabilityId,
+          permissionKey: b.permissionKey,
+          riskClass: b.riskClass,
+          grantId: g.id,
+          constraints: (g.constraints as Record<string, any>) || {},
+        });
+      }
+    }
+  }
+
+  return { isFounder, policyVersion, authorizationEpoch, ruleGroups, capabilityBindings, agentCapabilities };
 }
 
 export async function requireBusinessAction(
