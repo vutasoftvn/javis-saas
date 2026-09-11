@@ -87,9 +87,14 @@ async def _resolve_workspace_project_id(
     return str(pid) if pid is not None else None
 
 
+from apps.cosa.worker.executive_board_handler import (
+    execute_executive_deliberation_framed_task,
+)
+
 __all__ = [
     "RunTaskResult",
     "execute_automation_run_task",
+    "execute_executive_deliberation_framed_task",
     "execute_resume_task",
     "execute_run_task",
     "execute_scheduled_session_task",

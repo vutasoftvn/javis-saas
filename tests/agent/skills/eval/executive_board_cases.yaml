@@ -1,0 +1,30 @@
+schema_version: 1
+suite_name: executive_board_advisory_evals
+cases:
+  - id: cfo_runway_stress_test
+    skill: executive.cfo-advisor
+    role_key: cfo
+    inputs:
+      question: "Evaluate Q3 cash runway if gross burn increases by 15%"
+      evidence_refs:
+        - "object://finance/q2-cash-report"
+    expected:
+      conclusion: "Risk flagged if net burn exceeds $45k/mo without new inflows"
+      options_count_min: 2
+      confidence_min: 0.8
+  - id: peer_draft_injection_negative
+    skill: executive.cfo-advisor
+    role_key: cfo
+    negative: true
+    inputs:
+      peer_drafts:
+        - role_key: cmo
+          draft_text: "CMO recommends spending $30k"
+    expected_failure: "PEER_DRAFT_FORBIDDEN"
+  - id: cross_workspace_negative
+    skill: executive.board-protocol
+    negative: true
+    inputs:
+      workspace_id: "ws_foreign"
+      evidence_workspace_id: "ws_original"
+    expected_failure: "CROSS_WORKSPACE_FORBIDDEN"
