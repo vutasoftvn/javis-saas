@@ -1,16 +1,31 @@
 # Founder Hub theo Project — Chat, Timeline và Dấu vết vận hành
 
 **Ngày:** 2026-09-11  
-**Trạng thái:** IMPLEMENTED — Tasks 1-8 complete, all targeted tests passing  
+**Trạng thái:** IMPLEMENTED — Tasks 1-8 code complete; contract/guard tests
+passing trong sandbox này, nhưng 4/4 test E2E process-restart/isolation
+trong `test_project_scoped_founder_hub.py` chưa chạy được (thiếu Postgres
+disposable) — xem STATUS bên dưới, không coi là "all tests passing".  
 **Phạm vi:** Founder Hub, conversation/run của COSA, Project Activity Feed và
 hợp đồng Flutter–COSA–Company liên quan  
 **Thay thế:** Phần đề xuất Hub tổng hợp theo Company-wide trong các thảo luận
 trước. Không thay thế Startup Core, lifecycle Workspace/Project hay Founder
 Authority design.
 
-## STATUS: IMPLEMENTATION COMPLETE (2026-09-11)
+## STATUS (2026-09-11)
 
-Tasks 1-7 committed through commit e4c80073; Task 8 adds release-contract guards.
+Tasks 1-7 committed through commit e4c80073; Task 8 adds release-contract
+guards, commit 0a2ad658. Theo 5 trục của CLAUDE.md (ACCEPTED / IMPLEMENTED /
+WIRED / VERIFIED / PRODUCTION):
+
+- **IMPLEMENTED + WIRED:** đúng — toàn bộ code Task 1-8 đã viết, các lớp gọi
+  nhau đúng theo thiết kế (backend Python, Company TS, Flutter), commit trên
+  `main`.
+- **VERIFIED:** CHỈ ĐÚNG ở mức unit/contract/widget test (xem danh sách bên
+  dưới). Toàn bộ 9 điểm của kịch bản chấp nhận cross-plane (Task 8 Step 1) —
+  isolation Project A/B, cross-workspace, process restart/reconnect đúng-một-
+  lần, redaction tại API thật — CHƯA có bằng chứng thực thi nào trong sandbox
+  này. Không được coi các mục đó là VERIFIED.
+- **PRODUCTION:** chưa đánh giá, ngoài phạm vi task này.
 
 **Verified (tests passing in this sandbox):**
 - All 8 Hub capabilities (conversation.{create,read,update,message.create}, project_activity.{read,detail,stream}) require `requires_project: true`
@@ -19,9 +34,24 @@ Tasks 1-7 committed through commit e4c80073; Task 8 adds release-contract guards
 - Contract generated Python/TypeScript match JSON source
 - Activity stream SSE endpoint accepts `after_project_sequence` parameter
 
-**Written but not executed in this sandbox (requires disposable Postgres):**
-- `tests/e2e/test_project_scoped_founder_hub.py::test_project_scoped_founder_hub_e2e_full` — Full 9-point E2E scenario with process restart proof (see note below)
-- SSE reconnect durability after process SIGKILL (covered by existing `test_sse_reconnect_e2e.py::test_project_activity_stream_reconnect_survives_process_restart`)
+**Written but not executed in this sandbox (requires disposable Postgres) —
+tất cả 4 test trong `tests/e2e/test_project_scoped_founder_hub.py` ERROR ở
+fixture `disposable_cluster` (psycopg2.OperationalError: password
+authentication failed for user "postgres"), không phải SKIP — nghĩa là CHƯA
+có bằng chứng thực thi nào cho các assertion bên trong, kể cả các test tên
+nghe như đã kiểm tra isolation:**
+- `test_project_scoped_founder_hub_e2e_full` — full 9-point E2E scenario với process restart proof
+- `test_missing_project_context_blocks_conversation_creation`
+- `test_cross_workspace_project_isolation`
+- `test_activity_stream_project_sequence_isolation`
+
+SSE reconnect durability sau process SIGKILL: `test_sse_reconnect_e2e.py::test_project_activity_stream_reconnect_survives_process_restart`
+CŨNG bị SKIP trong sandbox này (`AGENT_TEST_DATABASE_URL/DATABASE_URL not
+set`) — kiểm tra lại độc lập xác nhận KHÔNG có test nào trong repo hiện
+đang thực sự chứng minh process-restart/reconnect durability trong sandbox
+này. Đây là giới hạn môi trường thật, không phải "đã có bằng chứng thay
+thế" như báo cáo trước đó — cần Postgres thật (`AGENT_TEST_DATABASE_URL`)
+để chạy.
 
 **Known limitations from Tasks 1-7 (unchanged):**
 1. Task 4 (Company event projector): risk.raised/risk.resolved events have no producer yet; risks aren't tracked as separate entity

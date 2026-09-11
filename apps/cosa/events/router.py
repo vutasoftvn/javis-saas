@@ -204,24 +204,16 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
 
         # Project Activity projection — consume Company business events (task, decision,
         # evidence, risk) and project into durable Founder Activity Feed (Task 4).
+        # Đây là side-effect BỔ SUNG (best-effort), KHÔNG được return sớm/thế
+        # chỗ pipeline dispatch gốc bên dưới (EventTriggerRule/self-trigger) —
+        # các event type như operations.task.created.v1 đã có consumer khác
+        # (schedule_reference_task) từ trước Task 4; return sớm ở đây từng
+        # khiến consumer đó không bao giờ chạy nữa (regression phát hiện qua
+        # test_local_event_intake.py).
         if env.eventType in PROJECT_ACTIVITY_EVENT_TYPES:
             project_activity_repo = getattr(deps, "project_activity_repository", None)
-            if project_activity_repo is None:
-                await inbox_store.set_outcome(
-                    conn, env.workspaceId, env.eventId, CONSUMER, "rejected"
-                )
-                return IntakeResult(
-                    outcome="rejected",
-                    reason="project activity repository not configured"
-                )
-
-            result = await consume_company_event(project_activity_repo, parsed)
-            outcome = result.get("outcome", "rejected")
-            reason = result.get("reason")
-            await inbox_store.set_outcome(
-                conn, env.workspaceId, env.eventId, CONSUMER, outcome
-            )
-            return IntakeResult(outcome=outcome, reason=reason)
+            if project_activity_repo is not None:
+                await consume_company_event(project_activity_repo, parsed)
 
         # COSA Automation MVP (Task 4) — curated automation dispatch. Validate
         # the envelope BEFORE scheduling; a malformed/leaky payload is
