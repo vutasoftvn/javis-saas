@@ -199,13 +199,34 @@ never supplied one, so every operations chat / scheduled run failed
 
 `pytest --cov=apps/cosa tests/apps/cosa`: **1049 passed**, coverage 85%.
 
+### `services-test-cosa` — control-plane tables dropped by the squash
+
+`make verify` reached `services-test-cosa` for the first time (earlier gates had
+always failed before it) — **86 failures**, all from `control_plane.*` tables
+the squashed `001` baseline dropped while the registered Encore endpoints /
+services + tests still use them. Fixed with three cosa migrations (`25e00b83`):
+
+- `002_restore_control_plane_dormant_tables` — replays pre-squash 6/8/9
+  (missions/tasks/assignments, watches/signal_observations/trigger_policies,
+  delivery_policies/delivery_attempts/cost_ledger) + `003_cosa_automation_mvp`
+  (`control_plane.automation_dispatches`).
+- `003_seed_admin_workspace_role` — `cosa.workspace_invitations.role_id` has
+  CHECK (member|admin) + FK → `cosa.roles`, but the 001 seed never inserts an
+  `admin` row.
+- `004_restore_fencing_and_execution_leases` — `control_plane.snowflake_fencing_seq`
+  + M6 §2 `workspace_execution_leases` (+ its sequence).
+
+`cd services/cosa && npx vitest run`: **434/434**. typecheck green. Golden
+fingerprint cosa 29 → **40** tables, Gate D green.
+
 ### `make verify` — GREEN
 
 All gates pass: lint, typecheck-py, boundary-check, skillpacks-validate,
 tenancy-check (company vitest 1281/1281 + `pytest tests/agent
 tests/apps/cosa/test_tenant_isolation` 952), contract-freeze-check, agent-test
-(943), apps-cosa-test (1049), services-test, frontend-test, frontend-analyze,
-check-docs. Golden fingerprint agent 28 / cosa 29 / workspace 181, Gate D green.
+(943), apps-cosa-test (1049), services-test (company + cosa 434/434),
+frontend-test, frontend-analyze, check-docs. Golden fingerprint agent 28 /
+cosa 40 / workspace 181, Gate D green.
 
 **Remaining before VERIFIED:** `make e2e-cross-plane-smoke`, then bump the design
 spec `2026-09-10-cosa-startup-core-clean-slate-design.md` from
