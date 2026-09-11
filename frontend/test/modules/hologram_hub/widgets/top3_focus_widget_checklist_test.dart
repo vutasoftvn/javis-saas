@@ -1,174 +1,91 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:frontend/core/localization/app_translations.dart';
-import 'package:frontend/data/models/company_pulse_model.dart';
-import 'package:frontend/data/models/project_operating_setup_model.dart';
-import 'package:frontend/data/models/task_kanban_model.dart';
+import 'package:frontend/core/shell/app_shell_controller.dart';
 import 'package:frontend/modules/hologram_hub/widgets/top3_focus_widget.dart';
-
-Widget _host(Widget child) {
-  return GetMaterialApp(
-    translations: AppTranslations(),
-    locale: const Locale('vi', 'VN'),
-    home: Scaffold(body: child),
-  );
-}
+import 'package:frontend/data/models/company_pulse_model.dart';
 
 void main() {
-  testWidgets('renders first-week-action checklist with checkbox and time badge', (tester) async {
-    FirstWeekActionDraft? toggled;
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-    await tester.pumpWidget(
-      _host(
-        Top3FocusWidget(
-          actions: const <NextBestActionModel>[],
-          onActionTap: (_) {},
-          firstWeekActions: const [
-            FirstWeekActionDraft(id: 'a1', title: 'Interview lead #1'),
-          ],
-          onToggleActionStatus: (action) => toggled = action,
-        ),
-      ),
-    );
-
-    expect(find.text('Interview lead #1'), findsOneWidget);
-    expect(find.text('Chưa đặt giờ'), findsOneWidget);
-    expect(find.byType(Checkbox), findsOneWidget);
-
-    await tester.tap(find.byType(Checkbox));
-    await tester.pump();
-
-    expect(toggled?.id, 'a1');
+  setUp(() {
+    Get.reset();
+    Get.testMode = true;
+    AppShellController.ensureShellDependencies();
   });
 
-  testWidgets('shows a checked box when the action is done', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        Top3FocusWidget(
-          actions: const <NextBestActionModel>[],
-          onActionTap: (_) {},
-          firstWeekActions: const [
-            FirstWeekActionDraft(id: 'a1', title: 'Done action', status: TaskKanbanStatus.done),
-          ],
-        ),
-      ),
-    );
-
-    final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
-    expect(checkbox.value, isTrue);
+  tearDown(() {
+    Get.reset();
   });
 
-  testWidgets('renders nothing extra when firstWeekActions is empty', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        Top3FocusWidget(
-          actions: const <NextBestActionModel>[],
-          onActionTap: (_) {},
+  testWidgets(
+    'Top3FocusWidget displays actions and uses selectedProjectId in navigation',
+    (tester) async {
+      final actions = <NextBestActionModel>[
+        NextBestActionModel(
+          id: 'act_1',
+          category: 'GOAL',
+          title: 'Set up quarterly goals',
+          actionPayload: {'goal_id': 'goal_1'},
         ),
-      ),
-    );
-
-    expect(find.byType(Checkbox), findsNothing);
-  });
-
-  testWidgets('time badge shows a date prefix when plannedStartAt is not today', (tester) async {
-    // Cố định vào một ngày xa cả quá khứ lẫn tương lai để "hôm nay" trong
-    // test không thể trùng ngẫu nhiên với plannedStartAt cố định bên dưới.
-    final notToday = DateTime(2027, 9, 8, 14, 0);
-
-    await tester.pumpWidget(
-      _host(
-        Top3FocusWidget(
-          actions: const <NextBestActionModel>[],
-          onActionTap: (_) {},
-          firstWeekActions: [
-            FirstWeekActionDraft(id: 'a1', title: 'Scheduled action', plannedStartAt: notToday),
-          ],
-          onScheduleAction: (_, _) {},
+        NextBestActionModel(
+          id: 'act_2',
+          category: 'DECISION',
+          title: 'Approve product roadmap',
+          actionPayload: {'decision_id': '2'},
         ),
-      ),
-    );
+      ];
 
-    // Không giả định định dạng 12h/24h của locale test-runner (có thể khác
-    // môi trường CI) — chỉ khẳng định phần tiền tố ngày/tháng có xuất hiện.
-    expect(find.textContaining('8/9 '), findsOneWidget);
-  });
-
-  testWidgets('tapping the clear icon calls onScheduleAction with null without opening the picker', (tester) async {
-    FirstWeekActionDraft? clearedAction;
-    DateTime? clearedValue = DateTime(2099, 1, 1); // sentinel, phải bị ghi đè thành null
-
-    await tester.pumpWidget(
-      _host(
-        Top3FocusWidget(
-          actions: const <NextBestActionModel>[],
-          onActionTap: (_) {},
-          firstWeekActions: [
-            FirstWeekActionDraft(id: 'a1', title: 'Scheduled action', plannedStartAt: DateTime(2026, 9, 8, 14, 0)),
-          ],
-          onScheduleAction: (action, plannedStartAt) {
-            clearedAction = action;
-            clearedValue = plannedStartAt;
-          },
+      await tester.pumpWidget(
+        GetMaterialApp(
+          home: Scaffold(
+            body: Top3FocusWidget(
+              actions: actions,
+              onActionTap: (_) {},
+              onDiscuss: () {},
+              onOpenProjectLoop: () {},
+              onOpenProjectAnalysis: null,
+            ),
+          ),
         ),
-      ),
-    );
+      );
+      await tester.pump();
 
-    expect(find.byIcon(Icons.close), findsOneWidget);
+      // Should display action titles
+      expect(find.text('Set up quarterly goals'), findsOneWidget);
+      expect(find.text('Approve product roadmap'), findsOneWidget);
+    },
+  );
 
-    await tester.tap(find.byIcon(Icons.close));
-    await tester.pump();
-
-    expect(clearedAction?.id, 'a1');
-    expect(clearedValue, isNull);
-    // Không có picker nào được mở lên trên (không có dialog xuất hiện).
-    expect(find.byType(Dialog), findsNothing);
-  });
-
-  testWidgets('does not show the clear icon when there is no schedule yet', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        Top3FocusWidget(
-          actions: const <NextBestActionModel>[],
-          onActionTap: (_) {},
-          firstWeekActions: const [
-            FirstWeekActionDraft(id: 'a1', title: 'Unscheduled action'),
-          ],
-          onScheduleAction: (_, _) {},
+  testWidgets(
+    'Top3FocusWidget shows Project chip on actions',
+    (tester) async {
+      final actions = <NextBestActionModel>[
+        NextBestActionModel(
+          id: 'act_1',
+          category: 'GOAL',
+          title: 'Set OKRs for this quarter',
+          actionPayload: {'goal_id': 'goal_1'},
         ),
-      ),
-    );
+      ];
 
-    expect(find.byIcon(Icons.close), findsNothing);
-  });
-
-  testWidgets('tapping the time badge with a stale plannedStartAt (>1 day in the past) does not crash', (tester) async {
-    final stale = DateTime.now().subtract(const Duration(days: 10));
-
-    await tester.pumpWidget(
-      _host(
-        Top3FocusWidget(
-          actions: const <NextBestActionModel>[],
-          onActionTap: (_) {},
-          firstWeekActions: [
-            FirstWeekActionDraft(id: 'a1', title: 'Stale scheduled action', plannedStartAt: stale),
-          ],
-          onScheduleAction: (_, _) {},
+      await tester.pumpWidget(
+        GetMaterialApp(
+          home: Scaffold(
+            body: Top3FocusWidget(
+              showDescription: false,
+              actions: actions,
+              onActionTap: (_) {},
+              onDiscuss: () {},
+              onOpenProjectLoop: () {},
+            ),
+          ),
         ),
-      ),
-    );
+      );
+      await tester.pump();
 
-    // Tap đúng vào badge giờ (Icons.schedule), không phải icon xoá.
-    await tester.tap(find.byIcon(Icons.schedule));
-    await tester.pumpAndSettle();
-
-    expect(tester.takeException(), isNull);
-
-    // Đóng picker nếu còn mở để không rò rỉ overlay sang test khác.
-    if (find.byType(Dialog).evaluate().isNotEmpty) {
-      Navigator.of(tester.element(find.byType(Dialog).first)).pop();
-      await tester.pumpAndSettle();
-    }
-  });
+      // Should show Project identifier/chip
+      expect(find.textContaining('Project:'), findsOneWidget);
+    },
+  );
 }

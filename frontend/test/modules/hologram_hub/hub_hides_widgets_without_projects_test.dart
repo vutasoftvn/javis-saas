@@ -96,4 +96,44 @@ void main() {
     expect(fcc.hasProjects.value, isTrue);
     expect(find.byType(CoFounderCardWidget), findsOneWidget);
   });
+
+  testWidgets('Hub has no Company-wide mode or All Projects option', (tester) async {
+    ApiClient.client = _mock(withProject: true);
+    Get.put(DashboardController());
+    final fcc = Get.put<FounderCommandCenterController>(
+      FounderCommandCenterController(),
+    );
+    await fcc.loadDashboardData();
+
+    await tester.pumpWidget(GetMaterialApp(home: const HologramHubView()));
+    await tester.pump();
+    tester.takeException();
+
+    // Task 7 — Should NOT find any Company-wide or All-projects text
+    expect(find.textContaining('Company-wide'), findsNothing);
+    expect(find.textContaining('All Project'), findsNothing);
+  });
+
+  testWidgets(
+    'Project-scoped Hub disables operational content when no Project selected',
+    (tester) async {
+      ApiClient.client = _mock(withProject: true);
+      Get.put(DashboardController());
+      final fcc = Get.put<FounderCommandCenterController>(
+        FounderCommandCenterController(),
+      );
+      await fcc.loadDashboardData();
+      // Task 7 — Force no selection to test disabled state
+      fcc.activeProjectId.value = null;
+      fcc.requiresProjectSelection.value = true;
+
+      await tester.pumpWidget(GetMaterialApp(home: const HologramHubView()));
+      await tester.pump();
+      tester.takeException();
+
+      // Operational content (Top3, WaitingForYou) should not render when no project
+      // selected, or should be visibly disabled
+      expect(find.text('Select a Project to proceed'), findsOneWidget);
+    },
+  );
 }

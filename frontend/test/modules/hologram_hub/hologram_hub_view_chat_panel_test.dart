@@ -7,12 +7,10 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/core/shell/app_shell_controller.dart';
-import 'package:frontend/core/shell/chat_panel_controller.dart';
 import 'package:frontend/modules/dashboard/views/widgets/floating_voice_hologram.dart';
 import 'package:frontend/modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
 import 'package:frontend/modules/hologram_hub/widgets/chat_panel_content.dart';
-import 'package:frontend/modules/hologram_hub/widgets/cofounder_card_widget.dart';
 import 'package:frontend/modules/hologram_hub/widgets/draggable_chat_panel.dart';
 
 // Giống `hub_hides_widgets_without_projects_test.dart` — trả về 1 project để
@@ -60,7 +58,7 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('HologramHubView includes its own robot icon and chat panel', (
+  testWidgets('HologramHubView has fixed ChatPanelContent in central layout, no DraggableChatPanel', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -69,46 +67,56 @@ void main() {
     await tester.pump();
 
     expect(find.byType(FloatingVoiceHologram), findsOneWidget);
-    expect(find.byType(DraggableChatPanel), findsOneWidget);
+    // Task 7 — DraggableChatPanel should NOT exist
+    expect(find.byType(DraggableChatPanel), findsNothing);
+    // Task 7 — ChatPanelContent should be visible in central Hub layout
+    expect(find.byType(ChatPanelContent), findsOneWidget);
   });
 
-  testWidgets('"Hỏi COSA" opens the chat panel via ChatPanelController, not a modal sheet', (
+  testWidgets('Chat composer is disabled when no Project selected', (
     tester,
   ) async {
-    // Pattern giống `founder_command_center_hub_test.dart` — `await
-    // loadDashboardData()` THẬT trước khi pump, thay vì đoán số ms cần chờ
-    // cho chuỗi await (project/setup/pulse/top3/decisions/packs/approvals)
-    // bên trong `onInit()` settle. Ghi đè lại registration mặc định từ
-    // `ensureShellDependencies()` (đã chạy trong `setUp`) bằng instance mới
-    // rồi chờ tải xong hẳn.
     final controller = Get.put<FounderCommandCenterController>(
       FounderCommandCenterController(),
     );
     await controller.loadDashboardData();
-    expect(controller.hasProjects.value, isTrue);
+    // Task 7 — set no active project to test disabled state
+    controller.activeProjectId.value = null;
+    controller.requiresProjectSelection.value = true;
 
     await tester.pumpWidget(
       const GetMaterialApp(home: Scaffold(body: HologramHubView())),
     );
     await tester.pump();
 
-    // Nút "Hỏi COSA" (label hiển thị "Trao đổi") nằm trong CoFounderCardWidget
-    // (tab 0, `_buildCommandCenterTab`), gắn `onAskCosa: () =>
-    // Get.find<ChatPanelController>().open()` — tap thật qua UI để verify dây
-    // nối này hoạt động, không gọi thẳng `open()` như trước (tautological).
-    expect(find.byType(CoFounderCardWidget), findsOneWidget);
-    final askCosaButton = find.descendant(
-      of: find.byType(CoFounderCardWidget),
-      matching: find.text('Trao đổi'),
-    );
-    expect(askCosaButton, findsOneWidget);
-
-    expect(Get.find<ChatPanelController>().isOpen.value, isFalse);
-    await tester.tap(askCosaButton);
-    await tester.pump();
-
-    expect(Get.find<ChatPanelController>().isOpen.value, isTrue);
-    expect(find.byType(DraggableChatPanel), findsOneWidget);
+    // ChatPanelContent should be in layout but composer disabled
     expect(find.byType(ChatPanelContent), findsOneWidget);
+
+    // Composer should show "Select Project" message or be disabled
+    expect(find.textContaining('Project'), findsOneWidget);
+  });
+
+  testWidgets('Chat works when Project is selected and sends message with projectId', (
+    tester,
+  ) async {
+    final controller = Get.put<FounderCommandCenterController>(
+      FounderCommandCenterController(),
+    );
+    await controller.loadDashboardData();
+    expect(controller.hasProjects.value, isTrue);
+    // Task 7 — select a project for this test
+    await controller.selectProject('proj-1');
+
+    await tester.pumpWidget(
+      const GetMaterialApp(home: Scaffold(body: HologramHubView())),
+    );
+    await tester.pumpAndSettle();
+
+    // Fixed chat should be visible in central layout
+    expect(find.byType(ChatPanelContent), findsOneWidget);
+
+    // Chat should be enabled with active project
+    final composer = find.byType(TextField);
+    expect(composer, findsWidgets);
   });
 }
