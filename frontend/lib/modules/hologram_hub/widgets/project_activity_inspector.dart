@@ -63,26 +63,30 @@ class ProjectActivityInspector extends StatelessWidget {
             ),
 
             // Correlation ID
-            _buildField(
-              label: 'Correlation ID',
-              value: event!.correlationId,
-            ),
+            if (event!.correlationId != null)
+              _buildField(
+                label: 'Correlation ID',
+                value: event!.correlationId!,
+              ),
 
             // Source Reference
-            _buildField(
-              label: 'Source Type',
-              value: event!.sourceType.toUpperCase(),
-            ),
-            _buildField(
-              label: 'Source ID',
-              value: event!.sourceId,
-            ),
+            if (event!.sourceType != null)
+              _buildField(
+                label: 'Source Type',
+                value: event!.sourceType!.toUpperCase(),
+              ),
+            if (event!.sourceId != null)
+              _buildField(
+                label: 'Source ID',
+                value: event!.sourceId!,
+              ),
 
             // Status
-            _buildField(
-              label: 'Status',
-              value: event!.status.toUpperCase(),
-            ),
+            if (event!.status != null)
+              _buildField(
+                label: 'Status',
+                value: event!.status!.toUpperCase(),
+              ),
 
             // Kind
             _buildField(
@@ -91,22 +95,24 @@ class ProjectActivityInspector extends StatelessWidget {
             ),
 
             // Phase
-            _buildField(
-              label: 'Phase',
-              value: event!.phase,
-            ),
+            if (event!.phase != null)
+              _buildField(
+                label: 'Phase',
+                value: event!.phase!,
+              ),
 
             // Actor
-            _buildField(
-              label: 'Actor',
-              value: '${event!.actorKind}: ${event!.actorId}',
-            ),
+            if (event!.actorKind != null || event!.actorId != null)
+              _buildField(
+                label: 'Actor',
+                value: '${event!.actorKind ?? '?'}: ${event!.actorId ?? '?'}',
+              ),
 
             // Safety Level
-            if (event!.classification.isNotEmpty)
+            if (event!.classification != null && event!.classification!.isNotEmpty)
               _buildField(
                 label: 'Classification',
-                value: event!.classification,
+                value: event!.classification!,
               ),
 
             // Summary (safe content)
@@ -142,9 +148,9 @@ class ProjectActivityInspector extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   children: [

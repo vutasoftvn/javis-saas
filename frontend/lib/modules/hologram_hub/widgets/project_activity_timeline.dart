@@ -76,8 +76,13 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
       );
     }
 
-    // Sort by occurred time (newest first)
-    filteredEvents.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    // Sort by occurred time (newest first), handling nulls
+    filteredEvents.sort((a, b) {
+      if (a.occurredAt == null && b.occurredAt == null) return 0;
+      if (a.occurredAt == null) return 1; // null goes to end
+      if (b.occurredAt == null) return -1;
+      return b.occurredAt!.compareTo(a.occurredAt!);
+    });
 
     // Group by category
     final grouped = <String, List<ProjectActivityEvent>>{};
@@ -160,7 +165,7 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        '${event.actorKind}: ${event.actorId}',
+                                        '${event.actorKind ?? '?'}: ${event.actorId ?? '?'}',
                                         style: TextStyle(
                                           color: Colors.white.withValues(
                                             alpha: 0.5,
@@ -169,7 +174,9 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
                                         ),
                                       ),
                                       Text(
-                                        _formatTime(event.occurredAt),
+                                        event.occurredAt != null
+                                            ? _formatTime(event.occurredAt!)
+                                            : '?',
                                         style: TextStyle(
                                           color: Colors.white.withValues(
                                             alpha: 0.5,

@@ -10,19 +10,18 @@ import '../widgets/your_tasks_widget.dart';
 import '../widgets/pulse_stat_bar_widget.dart';
 import '../widgets/top3_focus_widget.dart';
 import '../widgets/waiting_for_you_widget.dart';
-import '../widgets/hub_activity_timeline_card.dart';
+import '../widgets/project_context_bar.dart';
+import '../widgets/project_activity_timeline.dart';
+import '../widgets/chat_panel_content.dart';
 import '../widgets/decision_modal_sheet.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../data/models/stage_model.dart';
-import '../../../shared/widgets/company_scope_switcher.dart';
 import '../../../shared/widgets/stage_badge.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
 import '../controllers/hologram_hub_controller.dart';
 import '../presentation/widgets/cyber_circuit_background.dart';
 import '../../dashboard/models/dashboard_nav_config.dart';
 import '../../../core/routing/module_routes.dart';
-import '../../dashboard/views/widgets/floating_voice_hologram.dart';
-import '../widgets/draggable_chat_panel.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/shell/chat_panel_controller.dart';
@@ -103,8 +102,6 @@ class _HologramHubViewState extends State<HologramHubView> {
                 ),
               ),
             ),
-            const FloatingVoiceHologram(),
-            const DraggableChatPanel(),
 
             // Direct Agent Mission Chat Sheet (Slide Drawer từ bên phải)
             if (_selectedAgentForChat != null) ...[
@@ -252,18 +249,23 @@ class _HologramHubViewState extends State<HologramHubView> {
 
               const Spacer(),
 
-              // --- RIGHT: CompanyScopeSwitcher & Actions ---
+              // --- RIGHT: ProjectContextBar & Actions ---
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Company Scope Switcher (Bên phải)
-                      if (!isCompact) ...[
-                        const CompanyScopeSwitcher(),
-                        const SizedBox(width: 8),
-                      ],
+                      // Project Context Bar (Bên phải)
+                      if (!isCompact)
+                        Expanded(
+                          child: ProjectContextBar(
+                            projects: controller.projectsList.toList(),
+                            selectedProjectId: controller.activeProjectId,
+                            onSelected: (projectId) =>
+                                controller.selectProject(projectId),
+                          ),
+                        ),
 
                       // Module Switcher — thay cho sidebar không còn ở Hub
                       IconButton(
@@ -373,12 +375,14 @@ class _HologramHubViewState extends State<HologramHubView> {
               setState(() => _selectedAgentForChat = agent),
           onOpenTestRun: (agent) =>
               setState(() => _selectedAgentForTestRun = agent),
+          // customAgents: null — no real workforce data available yet in Founder Trial R1
+          // This will render the explicit "no agents assigned" state instead of fake agents
         );
 
     Widget statsColumn() => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (controller.hasProjects.value) ...[
+            if (controller.hasProjects.value && controller.activeProjectId.value != null) ...[
               PulseStatBarWidget(pulse: controller.pulse.value),
               const SizedBox(height: 16),
               WaitingForYouWidget(
@@ -395,13 +399,34 @@ class _HologramHubViewState extends State<HologramHubView> {
                     controller.rejectTask(appId, reason),
               ),
               const SizedBox(height: 16),
-              Obx(
-                () => HubActivityTimelineCard(
-                  chatMessages: controller.chatMessages.toList(),
-                  decisions: controller.pendingDecisions.toList(),
-                  approvals: controller.pendingApprovals.toList(),
-                  tasks: controller.founderInboxTasks.toList(),
-                  plans: controller.draftPlans.toList(),
+              // Project Activity Timeline (replaces HubActivityTimelineCard)
+              Expanded(
+                child: ProjectActivityTimeline(
+                  events: [], // Will be populated from service
+                  onSelectEvent: (event) {
+                    // Inspector details will be shown when selecting an event
+                  },
+                  filters: null,
+                  loading: false,
+                  unavailable: false,
+                ),
+              ),
+            ] else if (!controller.hasProjects.value) ...[
+              Center(
+                child: Text(
+                  'No projects available',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ] else ...[
+              Center(
+                child: Text(
+                  'Select a project to view activity',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
                 ),
               ),
             ],
@@ -430,15 +455,53 @@ class _HologramHubViewState extends State<HologramHubView> {
           ),
         );
 
-    Widget centerColumn() => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            top3Widget(),
-            const SizedBox(height: 16),
-            if (controller.hasProjects.value)
-              _WgaSurfaces(controller: controller),
-          ],
-        );
+    Widget centerColumn() {
+      final projectSelected = controller.activeProjectId.value != null;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Chat panel - fixed and Project-bound
+          if (projectSelected)
+            Container(
+              height: 400,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: ChatPanelContent(
+                controller: controller,
+                onClose: () {
+                  // Chat is fixed, not closable
+                },
+              ),
+            )
+          else
+            Container(
+              height: 400,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Center(
+                child: Text(
+                  'Select a project to start chatting with Co-Founder',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+          top3Widget(),
+          const SizedBox(height: 16),
+          if (controller.hasProjects.value && projectSelected)
+            _WgaSurfaces(controller: controller),
+        ],
+      );
+    }
 
     // ── DESKTOP (≥1100): 1 hàng 3 cột — AI Workforce 3/12 | Top3 Focus + WGA
     // 6/12 | Thống kê 3/12 ──

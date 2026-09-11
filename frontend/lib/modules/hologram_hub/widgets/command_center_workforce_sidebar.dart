@@ -39,85 +39,10 @@ class _CommandCenterWorkforceSidebarState
     'Legal',
   ];
 
-  static final List<Map<String, dynamic>> _fallbackAgents = [
-    {
-      'id': 'agent_ops_lead',
-      'key': 'founder_office_orchestrator',
-      'name': 'Chief of Staff / Ops Lead',
-      'role_title': 'Điều phối Vận hành & Phân rã OKR',
-      'department': 'Operations',
-      'agent_type': 'specialist',
-      'default_model_profile': 'reasoning',
-      'risk_level': 2,
-      'status': 'active',
-      'enabled': true,
-    },
-    {
-      'id': 'agent_mkt_lead',
-      'key': 'campaign_planner',
-      'name': 'Growth & Marketing Lead',
-      'role_title': 'Nghiên cứu Thị trường & Phễu Chuyển đổi',
-      'department': 'Marketing',
-      'agent_type': 'specialist',
-      'default_model_profile': 'creative',
-      'risk_level': 1,
-      'status': 'active',
-      'enabled': true,
-    },
-    {
-      'id': 'agent_sales_lead',
-      'key': 'market_research_specialist',
-      'name': 'Sales & Customer Pipeline Lead',
-      'role_title': 'Xác thực Nỗi đau & Chốt Hợp đồng B2B',
-      'department': 'Sales',
-      'agent_type': 'specialist',
-      'default_model_profile': 'conversational',
-      'risk_level': 2,
-      'status': 'active',
-      'enabled': true,
-    },
-    {
-      'id': 'agent_tech_lead',
-      'key': 'architecture_lead',
-      'name': 'Architecture & Tech Lead',
-      'role_title': 'Thiết kế Hệ thống & Kiểm soát Chất lượng Code',
-      'department': 'Engineering',
-      'agent_type': 'specialist',
-      'default_model_profile': 'code_intelligence',
-      'risk_level': 3,
-      'status': 'active',
-      'enabled': true,
-    },
-    {
-      'id': 'agent_fin_analyst',
-      'key': 'cashflow_planner',
-      'name': 'Finance & Budget Analyst',
-      'role_title': 'Kiểm soát Ngân sách, Dòng tiền & Runway',
-      'department': 'Finance',
-      'agent_type': 'specialist',
-      'default_model_profile': 'analytical',
-      'risk_level': 2,
-      'status': 'idle',
-      'enabled': true,
-    },
-    {
-      'id': 'agent_legal_officer',
-      'key': 'compliance_analyst',
-      'name': 'Legal & Compliance Officer',
-      'role_title': 'Rà soát Hợp đồng & Tuân thủ Pháp lý',
-      'department': 'Legal',
-      'agent_type': 'specialist',
-      'default_model_profile': 'reasoning',
-      'risk_level': 1,
-      'status': 'idle',
-      'enabled': true,
-    },
-  ];
-
   List<Map<String, dynamic>> get _agents {
     final list = (widget.customAgents != null && widget.customAgents!.isNotEmpty)
         ? widget.customAgents!
-        : _fallbackAgents;
+        : <Map<String, dynamic>>[]; // No fallback agents — empty list means unavailable state
 
     if (_selectedDept == 'All') return list;
     return list
@@ -392,6 +317,35 @@ class _CommandCenterWorkforceSidebarState
           // 3. Agent list: Đóng/Mở theo chiều dọc (Vertical Expandable Cards)
           Builder(
             builder: (context) {
+              if (_agents.isEmpty) {
+                // Explicit unavailable state — no fake agents
+                final emptyState = Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.groups_outlined,
+                        color: Colors.white.withValues(alpha: 0.3),
+                        size: 32,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No agents assigned to this project',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+
+                return widget.shrinkWrap
+                    ? SizedBox(height: 100, child: emptyState)
+                    : Expanded(child: emptyState);
+              }
+
               final agentList = ListView.separated(
                 shrinkWrap: widget.shrinkWrap,
                 physics: widget.shrinkWrap
