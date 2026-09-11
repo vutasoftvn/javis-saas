@@ -12,10 +12,22 @@ from apps.cosa.events.workforce_employee_contract import (
     adapt_work_package_dispatch,
     is_workforce_dispatch_event,
 )
+from apps.cosa.project_activity.company_event_projector import consume_company_event
 
 CONSUMER = "agentos.event_intake"
 
 TASK_RESULT_SUBMITTED_EVENT = "operating.task.result_submitted.v1"
+
+# Project Activity event types — Company events that project into Founder Activity Feed
+PROJECT_ACTIVITY_EVENT_TYPES = frozenset([
+    "operations.task.created.v1",
+    "operations.task.completed.v1",
+    "operations.work_package.created.v1",
+    "operations.decision.recorded.v1",
+    "operations.evidence.linked.v1",
+    "operations.risk.raised.v1",
+    "operations.risk.resolved.v1",
+])
 
 # COSA Automation MVP (Task 4) — Company outbox event carrying exactly
 # AutomationDispatchEnvelopeV1. Reference-only; anything else is quarantined.
@@ -189,6 +201,27 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
                 conn, env.workspaceId, env.eventId, CONSUMER, "accepted", task_id
             )
             return IntakeResult(outcome="accepted", scheduledTaskId=task_id)
+
+        # Project Activity projection — consume Company business events (task, decision,
+        # evidence, risk) and project into durable Founder Activity Feed (Task 4).
+        if env.eventType in PROJECT_ACTIVITY_EVENT_TYPES:
+            project_activity_repo = getattr(deps, "project_activity_repository", None)
+            if project_activity_repo is None:
+                await inbox_store.set_outcome(
+                    conn, env.workspaceId, env.eventId, CONSUMER, "rejected"
+                )
+                return IntakeResult(
+                    outcome="rejected",
+                    reason="project activity repository not configured"
+                )
+
+            result = await consume_company_event(project_activity_repo, parsed)
+            outcome = result.get("outcome", "rejected")
+            reason = result.get("reason")
+            await inbox_store.set_outcome(
+                conn, env.workspaceId, env.eventId, CONSUMER, outcome
+            )
+            return IntakeResult(outcome=outcome, reason=reason)
 
         # COSA Automation MVP (Task 4) — curated automation dispatch. Validate
         # the envelope BEFORE scheduling; a malformed/leaky payload is

@@ -11,6 +11,7 @@ const BACKOFF_CAP_SECONDS = 300;
 export interface OutboxRow {
   eventId: string;
   workspaceId: string;
+  projectId?: string;
   aggregateType: string;
   aggregateId: string;
   eventType: string;
