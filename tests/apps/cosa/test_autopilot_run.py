@@ -21,7 +21,24 @@ class MockEventStreamManager:
     def __init__(self):
         self.emitted = []
 
-    async def emit(self, repo, run_id, conversation_id, event_type, payload, correlation_id=""):
+    async def emit(
+        self,
+        repo,
+        run_id,
+        conversation_id,
+        event_type,
+        payload,
+        correlation_id="",
+        # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — real
+        # CosaEventStreamManager.emit() accepts these to also project the
+        # event into Project Activity; this double doesn't need to actually
+        # do that (autopilot_run.py's own project_activity wiring is
+        # exercised in tests/apps/cosa/project_activity/*), just accept them
+        # without blowing up.
+        activity_service=None,
+        workspace_id=None,
+        project_id=None,
+    ):
         self.emitted.append(
             {
                 "run_id": run_id,

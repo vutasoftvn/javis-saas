@@ -12,7 +12,19 @@ class _RecordingStreamMgr:
     def __init__(self):
         self.events = []
 
-    async def emit(self, repo, *, run_id, conversation_id, event_type, payload, correlation_id):
+    async def emit(
+        self,
+        repo,
+        *,
+        run_id,
+        conversation_id,
+        event_type,
+        payload,
+        correlation_id,
+        activity_service=None,
+        workspace_id=None,
+        project_id=None,
+    ):
         self.events.append({"event_type": event_type, "payload": payload})
 
 

@@ -46,6 +46,12 @@ async def run_customer_support_autopilot(
 ) -> dict[str, Any]:
     run_id = payload["run_id"]
     workspace_id = payload["workspace_id"]
+    # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — forwarded to every
+    # stream_mgr.emit() below so it also records an idempotent Project
+    # Activity row. Autopilot triggers don't currently carry a Project (no
+    # "project_id" key on this payload) — emit() no-ops the projection when
+    # falsy, so this is forward-compatible rather than a behavior change.
+    project_id = payload.get("project_id")
     trigger_rule_id = payload.get("trigger_rule_id")
     correlation_id = payload.get("correlation_id", "")
     stream_repo = getattr(plane, "run_stream_event_repository", None) or getattr(
@@ -69,6 +75,9 @@ async def run_customer_support_autopilot(
                     event_type="run.cancelled",
                     payload={"reason": "trigger_rule_disabled"},
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             return {"status": "cancelled", "reason": "trigger_rule_disabled"}
 
@@ -95,6 +104,9 @@ async def run_customer_support_autopilot(
                     event_type="run.failed",
                     payload={"reason_code": reason},
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             return {"status": "failed", "reason": reason}
         spec = fetched
@@ -110,6 +122,9 @@ async def run_customer_support_autopilot(
                     event_type="run.failed",
                     payload={"error": f"forbidden capability in autopilot spec: {cap}"},
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             return {"status": "failed", "reason": f"forbidden_capability_{cap}"}
 
@@ -141,6 +156,9 @@ async def run_customer_support_autopilot(
                         "error": "profile_locale_unavailable: missing delegation token or profile client"
                     },
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             return {"status": "failed", "reason": "profile_locale_unavailable"}
         try:
@@ -156,6 +174,9 @@ async def run_customer_support_autopilot(
                     event_type="run.failed",
                     payload={"error": f"profile_locale_unavailable: {exc}"},
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             return {"status": "failed", "reason": f"profile_locale_unavailable: {exc}"}
 
@@ -175,6 +196,9 @@ async def run_customer_support_autopilot(
                 event_type="run.failed",
                 payload={"error": f"unsupported locale: {locale_override}"},
                 correlation_id=correlation_id,
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
         return {"status": "failed", "reason": f"unsupported_locale_{locale_override}"}
     except ProfileLocaleUnavailable as exc:
@@ -187,6 +211,9 @@ async def run_customer_support_autopilot(
                 event_type="run.failed",
                 payload={"error": f"profile locale unavailable: {exc}"},
                 correlation_id=correlation_id,
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
         return {"status": "failed", "reason": "profile_locale_unavailable"}
 
@@ -235,6 +262,9 @@ async def resume_customer_support_autopilot(
 ) -> dict[str, Any]:
     run_id = payload["run_id"]
     workspace_id = payload["workspace_id"]
+    # Task 3 — xem comment ở run_customer_support_autopilot() phía trên cùng
+    # lý do.
+    project_id = payload.get("project_id")
     trigger_rule_id = payload.get("trigger_rule_id")
     thread_id = payload.get("thread_id")
     correlation_id = payload.get("correlation_id", "")
@@ -257,6 +287,9 @@ async def resume_customer_support_autopilot(
                     event_type="run.cancelled",
                     payload={"reason": "trigger_rule_disabled"},
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             return {"status": "cancelled", "reason": "trigger_rule_disabled"}
 
@@ -282,6 +315,9 @@ async def resume_customer_support_autopilot(
                         event_type="run.cancelled",
                         payload={"reason": "thread_taken_over"},
                         correlation_id=correlation_id,
+                        activity_service=getattr(plane, "project_activity_service", None),
+                        workspace_id=workspace_id,
+                        project_id=project_id,
                     )
                 return {"status": "cancelled", "reason": "thread_taken_over"}
         except Exception as exc:

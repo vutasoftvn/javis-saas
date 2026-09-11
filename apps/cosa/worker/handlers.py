@@ -151,6 +151,12 @@ async def execute_run_task(
     run_id = payload.get("run_id") or str(uuid.uuid4())
     agent_profile = payload.get("agent_profile") or "operations"
     workspace_id = payload.get("workspace_id")
+    # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — mọi stream_mgr.emit()
+    # trong module này forward 3 kwarg này để CosaEventStreamManager cũng ghi
+    # Project Activity projection (idempotent, TRƯỚC live fanout). project_id
+    # có thể None (run legacy/agent_profile khác operations) — emit() tự bỏ
+    # qua projection khi đó, không raise.
+    project_id = payload.get("project_id")
 
     if agent_profile == "operations" and not payload.get("project_id"):
         conversation_id = payload.get("conversation_id")
@@ -162,6 +168,9 @@ async def execute_run_task(
                 conversation_id=conversation_id,
                 event_type="run.failed",
                 payload={"error": "project_context_required"},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
         return RunTaskResult(status="failed", error="project_context_required", run_id=run_id)
 
@@ -195,6 +204,9 @@ async def execute_run_task(
                         conversation_id=conversation_id,
                         event_type="run.failed",
                         payload={"error": "project_context_mismatch"},
+                        activity_service=getattr(plane, "project_activity_service", None),
+                        workspace_id=workspace_id,
+                        project_id=project_id,
                     )
                 return RunTaskResult(
                     status="failed", error="project_context_mismatch", run_id=run_id
@@ -228,6 +240,8 @@ async def _execute_run_task_inner(
     agent_profile = payload.get("agent_profile") or "operations"
     principal = payload["principal"]
     workspace_id = payload["workspace_id"]
+    # Task 3 — xem comment ở execute_run_task() phía trên cùng lý do.
+    project_id = payload.get("project_id")
     stream_repo = plane.stream_event_repository
 
     # IA24: trước đây payload["user_prompt"] truy cập trực tiếp — một payload
@@ -251,6 +265,9 @@ async def _execute_run_task_inner(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={"error": "missing_user_prompt"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
         return
 
@@ -270,6 +287,9 @@ async def _execute_run_task_inner(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={"error": "missing_delegation_token"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
         return
 
@@ -294,6 +314,9 @@ async def _execute_run_task_inner(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={"error": f"unsupported_agent_profile_{agent_profile}"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
         return
 
@@ -318,6 +341,9 @@ async def _execute_run_task_inner(
                 conversation_id=conversation_id,
                 event_type="run.failed",
                 payload={"error": "workforce_assignment_retired"},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
             return
         if not company_workforce_member_id and assignment.company_workforce_member_id:
@@ -360,6 +386,9 @@ async def _execute_run_task_inner(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={"error": "policy_snapshot_unavailable"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
         return
 
@@ -385,6 +414,9 @@ async def _execute_run_task_inner(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={"error": "spec_resolution_unavailable"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
         return
 
@@ -394,6 +426,9 @@ async def _execute_run_task_inner(
         conversation_id=conversation_id,
         event_type="run.started",
         payload={"run_id": run_id, "conversation_id": conversation_id, "goal": user_prompt},
+        activity_service=getattr(plane, "project_activity_service", None),
+        workspace_id=workspace_id,
+        project_id=project_id,
     )
     await stream_mgr.emit(
         stream_repo,
@@ -401,6 +436,9 @@ async def _execute_run_task_inner(
         conversation_id=conversation_id,
         event_type="reasoning.status",
         payload={"status": "thinking"},
+        activity_service=getattr(plane, "project_activity_service", None),
+        workspace_id=workspace_id,
+        project_id=project_id,
     )
     await stream_mgr.emit(
         stream_repo,
@@ -408,6 +446,9 @@ async def _execute_run_task_inner(
         conversation_id=conversation_id,
         event_type="message.started",
         payload={"role": "assistant"},
+        activity_service=getattr(plane, "project_activity_service", None),
+        workspace_id=workspace_id,
+        project_id=project_id,
     )
 
     # Task 5 — forward context egress đã hash vào metadata để
@@ -467,6 +508,9 @@ async def _execute_run_task_inner(
                 conversation_id=conversation_id,
                 event_type="run.failed",
                 payload={"error": "compliance_resolver_unavailable"},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
             return
         # compliance_denied — chỉ emit reason code, không leak str(exc).
@@ -486,6 +530,9 @@ async def _execute_run_task_inner(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={"error": "compliance_denied", "reason_code": code},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
         return
 
@@ -517,6 +564,9 @@ async def _execute_run_task_inner(
                 conversation_id=conversation_id,
                 event_type="message.delta",
                 payload={"delta": output_text},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
 
             assistant_msg = await _append_message(
@@ -560,6 +610,9 @@ async def _execute_run_task_inner(
                 conversation_id=conversation_id,
                 event_type="run.completed",
                 payload={"output": output_text, "status": "COMPLETED"},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
 
             # WGA — nếu tin nhắn founder trông như phát biểu mục tiêu tuần,
@@ -613,7 +666,33 @@ async def _execute_run_task_inner(
                     "checkpoint_ref": ckpt_ref,
                     "reason": wait_desc.reason if wait_desc else "Approval required",
                 },
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
+            # Task 3 — "run.waiting_approval" là 1 fact riêng về Run (Run
+            # chuyển sang trạng thái WAITING_APPROVAL), khác "approval.requested"
+            # ở trên (fact về chính cái Approval vừa được tạo). Không có
+            # event_type SSE tương ứng trong UX_EVENT_TYPES cho fact này (client
+            # chỉ cần biết qua approval.required) nên ghi trực tiếp qua
+            # ProjectActivityService, cùng pattern với chat.accepted/run.queued
+            # ở conversation_routes.py — record SAU KHI canonical fact (run
+            # status đã WAITING_APPROVAL, kernel.run() đã return) xác nhận.
+            waiting_approval_activity_service = getattr(plane, "project_activity_service", None)
+            if waiting_approval_activity_service is not None and project_id:
+                await waiting_approval_activity_service.record_runtime_event(
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                    kind="run.waiting_approval",
+                    source_type="run",
+                    source_id=run_id,
+                    source_version=str(ckpt_ref or appr_id or "1"),
+                    correlation_id=run_id,
+                    raw_context={
+                        "approval_id": appr_id,
+                        "checkpoint_ref": ckpt_ref,
+                    },
+                )
 
         else:
             record_run_outcome("failed", duration_sec=_run_duration)
@@ -642,6 +721,9 @@ async def _execute_run_task_inner(
                 conversation_id=conversation_id,
                 event_type="run.failed",
                 payload={"error": err_msg},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
 
     except Exception:
@@ -667,6 +749,9 @@ async def _execute_run_task_inner(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={"error": "internal_error"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
 
 
@@ -690,6 +775,8 @@ async def execute_resume_task(
     checkpoint_ref = payload["checkpoint_ref"]
     conversation_id = payload.get("conversation_id") or "unknown"
     workspace_id = payload.get("workspace_id")
+    # Task 3 — xem comment ở execute_run_task() phía trên cùng lý do.
+    project_id = payload.get("project_id")
     bearer_token = payload["delegation_token"]
     stream_repo = plane.stream_event_repository
 
@@ -707,6 +794,9 @@ async def execute_resume_task(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={"error": "missing_tool_call_id_on_resume"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
         return
     resume_updates: dict[str, Any] = {"approved_tool_calls": {tool_call_id: True}}
@@ -729,6 +819,9 @@ async def execute_resume_task(
                 conversation_id=conversation_id,
                 event_type="run.failed",
                 payload={"error": "policy_snapshot_unavailable_on_resume"},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
             return
 
@@ -764,6 +857,9 @@ async def execute_resume_task(
                 conversation_id=conversation_id,
                 event_type="run.failed",
                 payload={"error": "resume_verification_failed", "reason": verify_result.reason},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
             return
 
@@ -814,6 +910,9 @@ async def execute_resume_task(
             conversation_id=conversation_id,
             event_type="message.delta",
             payload={"delta": output_text},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
 
         await stream_mgr.emit(
@@ -822,6 +921,9 @@ async def execute_resume_task(
             conversation_id=conversation_id,
             event_type="run.completed",
             payload={"output": output_text, "status": "COMPLETED"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
 
         # WGA #1 — nếu đây là resume của 1 task-execution run trong sweep,
@@ -987,6 +1089,11 @@ async def execute_automation_run_task(
 
     run_id = str(payload["run_id"])
     workspace_id = str(payload.get("workspace_id", ""))
+    # Task 3 — curated automation runs don't currently carry a Project
+    # (payload has no "project_id" key yet); kept for forward-compat and
+    # consistency with every other stream_mgr.emit() call site in this
+    # module — emit() itself no-ops the projection when falsy.
+    project_id = payload.get("project_id")
     invocation_id = str(payload.get("invocation_id", ""))
     automation_key = str(payload.get("automation_key", ""))
     correlation_id = str(payload.get("correlation_id", "")) or None
@@ -1011,6 +1118,9 @@ async def execute_automation_run_task(
                     event_type=event_type,
                     payload=body,
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
 
     _mh = {"v": ""}  # manifest hash, set once resolved

@@ -42,6 +42,7 @@ async def _execute_via_gateway(
     correlation_id: str,
     stream_repo: Any,
     stream_mgr: CosaEventStreamManager,
+    project_id: str | None = None,
 ) -> Any:
     """Thực thi 1 capability qua CapabilityGateway thật (idempotency/
     governance/audit/connector-grant verify) — IA25 phần 2: trước đây
@@ -90,6 +91,9 @@ async def _execute_via_gateway(
                 "capability": capability_id,
             },
             correlation_id=correlation_id,
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
     await callback_company_result(run_id, "failed", reason_code=reason_code)
     return None
@@ -142,6 +146,12 @@ async def run_customer_support_copilot(
 ) -> dict[str, Any] | None:
     run_id = payload["run_id"]
     workspace_id = payload["workspace_id"]
+    # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — forwarded to every
+    # stream_mgr.emit() below (directly and via _execute_via_gateway) so it
+    # also records an idempotent Project Activity row. Copilot invocations
+    # don't currently carry a Project — emit() no-ops the projection when
+    # falsy.
+    project_id = payload.get("project_id")
     correlation_id = payload.get("correlation_id", "")
     stream_repo = getattr(plane, "run_stream_event_repository", None)
 
@@ -171,6 +181,9 @@ async def run_customer_support_copilot(
                         "reason_code": reason,
                     },
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             await callback_company_result(run_id, "failed", reason_code=reason)
             return None
@@ -187,6 +200,9 @@ async def run_customer_support_copilot(
                     event_type="run.failed",
                     payload={"error": f"forbidden capability in copilot spec: {cap}"},
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             await callback_company_result(run_id, "failed", reason_code="forbidden_capability")
             return None
@@ -215,6 +231,9 @@ async def run_customer_support_copilot(
                 event_type="run.failed",
                 payload={"error": "missing_delegation_token"},
                 correlation_id=correlation_id,
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
         await callback_company_result(run_id, "failed", reason_code="missing_delegation_token")
         return None
@@ -249,6 +268,7 @@ async def run_customer_support_copilot(
                 correlation_id=correlation_id,
                 stream_repo=stream_repo,
                 stream_mgr=stream_mgr,
+                project_id=project_id,
             )
             if thread_context is None:
                 return None
@@ -266,6 +286,7 @@ async def run_customer_support_copilot(
                 correlation_id=correlation_id,
                 stream_repo=stream_repo,
                 stream_mgr=stream_mgr,
+                project_id=project_id,
             )
             if customer_360 is None:
                 return None
@@ -283,6 +304,7 @@ async def run_customer_support_copilot(
                 correlation_id=correlation_id,
                 stream_repo=stream_repo,
                 stream_mgr=stream_mgr,
+                project_id=project_id,
             )
             if knowledge_profile is None:
                 return None
@@ -321,6 +343,9 @@ async def run_customer_support_copilot(
                             "error": "profile_locale_unavailable: missing delegation token or client"
                         },
                         correlation_id=correlation_id,
+                        activity_service=getattr(plane, "project_activity_service", None),
+                        workspace_id=workspace_id,
+                        project_id=project_id,
                     )
                 return {"status": "failed", "reason": "profile_locale_unavailable"}
             try:
@@ -336,6 +361,9 @@ async def run_customer_support_copilot(
                         event_type="run.failed",
                         payload={"error": f"profile_locale_unavailable: {exc}"},
                         correlation_id=correlation_id,
+                        activity_service=getattr(plane, "project_activity_service", None),
+                        workspace_id=workspace_id,
+                        project_id=project_id,
                     )
                 return {"status": "failed", "reason": f"profile_locale_unavailable: {exc}"}
 
@@ -355,6 +383,9 @@ async def run_customer_support_copilot(
                     event_type="run.failed",
                     payload={"error": f"locale resolution failed: {exc}"},
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             return {"status": "failed", "reason": f"locale_resolution_failed: {exc}"}
 
@@ -431,6 +462,7 @@ async def run_customer_support_copilot(
                 correlation_id=correlation_id,
                 stream_repo=stream_repo,
                 stream_mgr=stream_mgr,
+                project_id=project_id,
             )
             if draft_result is None:
                 return None
@@ -516,6 +548,9 @@ async def run_customer_support_copilot(
                     event_type="run.completed",
                     payload=redacted,
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             await callback_company_result(
                 run_id,
@@ -542,6 +577,9 @@ async def run_customer_support_copilot(
                     event_type=f"run.{outcome}",
                     payload={"error": f"run_{outcome}", "reason_code": reason},
                     correlation_id=correlation_id,
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
             await callback_company_result(
                 run_id,
@@ -559,6 +597,9 @@ async def run_customer_support_copilot(
                 event_type="run.failed",
                 payload={"error": "internal_error", "reason_code": "copilot_unhandled_exception"},
                 correlation_id=correlation_id,
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
             )
         await callback_company_result(run_id, "failed", reason_code="copilot_unhandled_exception")
         return None

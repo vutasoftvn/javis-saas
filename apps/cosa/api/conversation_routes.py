@@ -349,8 +349,9 @@ async def create_message(
     # ghi SAU KHI canonical record (MessageRecord) đã persist ở trên, không
     # trước (message có thể fail lưu — không được ghi activity cho 1 message
     # chưa từng tồn tại thật).
-    if plane.project_activity_service is not None:
-        await plane.project_activity_service.record_runtime_event(
+    project_activity_service = getattr(plane, "project_activity_service", None)
+    if project_activity_service is not None:
+        await project_activity_service.record_runtime_event(
             workspace_id=identity.workspace_id,
             project_id=verified_project.project_id,
             kind="chat.accepted",
@@ -405,8 +406,9 @@ async def create_message(
     # Task 3 — run.queued CHỈ ghi SAU KHI schedule() thành công (canonical
     # "run đã được dispatch durable" — trước đó chưa có gì để nói run đang
     # queued).
-    if plane.project_activity_service is not None:
-        await plane.project_activity_service.record_runtime_event(
+    project_activity_service = getattr(plane, "project_activity_service", None)
+    if project_activity_service is not None:
+        await project_activity_service.record_runtime_event(
             workspace_id=identity.workspace_id,
             project_id=resolved_project_id,
             kind="run.queued",

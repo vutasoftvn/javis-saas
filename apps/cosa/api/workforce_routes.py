@@ -1025,6 +1025,15 @@ async def decide_approval(
             "reviewer": decided.reviewer,
             "reason": decided.reason,
         },
+        # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — mirrors the
+        # wiring pattern established at apps/cosa/api/routes.py::cancel_run:
+        # a durable runtime stream event also records an idempotent Project
+        # Activity row (before live fanout). project_id comes from the run's
+        # own persisted record (None for LEGACY_UNSCOPED runs — emit() skips
+        # the projection in that case, no error).
+        activity_service=getattr(plane, "project_activity_service", None),
+        workspace_id=identity.workspace_id,
+        project_id=run_record.project_id if run_record else None,
     )
 
     # Resume kernel if approved. Quyết định approval ĐÃ được ghi nhận hợp lệ ở
@@ -1048,6 +1057,12 @@ async def decide_approval(
                     "checkpoint_ref": decided.checkpoint_ref,
                     "conversation_id": resume_conversation_id,
                     "workspace_id": run_record.workspace_id if run_record else None,
+                    # Task 3 — forward the run's own Project so
+                    # execute_resume_task() (apps/cosa/worker/handlers.py)
+                    # can also project resume-path stream events
+                    # (message.delta/run.completed/run.failed) into Project
+                    # Activity.
+                    "project_id": run_record.project_id if run_record else None,
                     "delegation_token": control_plane_delegation_token,
                     # Bug 1.2 fix — scope resume đúng 1 tool_call_id, không
                     # blanket "approved": True (approve nhầm mọi tool call
