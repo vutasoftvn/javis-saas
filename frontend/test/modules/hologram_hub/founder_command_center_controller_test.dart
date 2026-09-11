@@ -175,7 +175,7 @@ void main() {
   );
 
   test(
-    'loadDashboardData with no stored ID does not auto-select projects.first',
+    'loadDashboardData with no stored ID selects min(createdAt, id) and persists it',
     () async {
       SharedPreferences.setMockInitialValues({'workspace_id': 'ws_1'});
       ApiClient.client = MockClient((request) async {
@@ -185,13 +185,21 @@ void main() {
             jsonEncode({
               'projects': [
                 {
-                  'id': 'proj-a',
-                  'title': 'Project A',
+                  'id': 'proj-2',
+                  'title': 'Project Later',
+                  'createdAt': '2026-08-15T10:00:00.000Z',
                   'lifecycleStage': 'P0_DISCOVERY',
                 },
                 {
-                  'id': 'proj-b',
-                  'title': 'Project B',
+                  'id': 'proj-1',
+                  'title': 'Project Earliest',
+                  'createdAt': '2026-08-01T10:00:00.000Z',
+                  'lifecycleStage': 'P0_DISCOVERY',
+                },
+                {
+                  'id': 'proj-3',
+                  'title': 'Project Same Time B',
+                  'createdAt': '2026-08-01T10:00:00.000Z',
                   'lifecycleStage': 'P0_DISCOVERY',
                 },
               ],
@@ -205,14 +213,62 @@ void main() {
       final controller = FounderCommandCenterController();
       await controller.loadDashboardData();
 
-      // Should NOT auto-select first project
-      expect(controller.activeProjectId.value, isNull);
-      expect(controller.requiresProjectSelection.value, isTrue);
+      // Oldest is proj-1 (same createdAt as proj-3, but id 'proj-1' < 'proj-3')
+      expect(controller.selectedProjectId, 'proj-1');
+      expect(controller.activeProjectId.value, 'proj-1');
+      expect(controller.requiresProjectSelection.value, isFalse);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('active_project_id:ws_1'), 'proj-1');
     },
   );
 
   test(
-    'loadDashboardData with stale stored ID clears it and requires selection',
+    'loadDashboardData with valid stored ID retains stored project without re-writing or deleting',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'workspace_id': 'ws_1',
+        'active_project_id:ws_1': 'proj-2',
+      });
+      ApiClient.client = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path == '/operations/projects') {
+          return http.Response(
+            jsonEncode({
+              'projects': [
+                {
+                  'id': 'proj-1',
+                  'title': 'Project Earliest',
+                  'createdAt': '2026-08-01T10:00:00.000Z',
+                  'lifecycleStage': 'P0_DISCOVERY',
+                },
+                {
+                  'id': 'proj-2',
+                  'title': 'Project Stored',
+                  'createdAt': '2026-08-15T10:00:00.000Z',
+                  'lifecycleStage': 'P0_DISCOVERY',
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final controller = FounderCommandCenterController();
+      await controller.loadDashboardData();
+
+      expect(controller.selectedProjectId, 'proj-2');
+      expect(controller.requiresProjectSelection.value, isFalse);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('active_project_id:ws_1'), 'proj-2');
+    },
+  );
+
+  test(
+    'loadDashboardData with stale stored ID clears it and leaves selectedProjectId null',
     () async {
       SharedPreferences.setMockInitialValues({
         'workspace_id': 'ws_1',
@@ -221,13 +277,13 @@ void main() {
       ApiClient.client = MockClient((request) async {
         if (request.method == 'GET' &&
             request.url.path == '/operations/projects') {
-          // Server returns different projects (proj_stale not authorized)
           return http.Response(
             jsonEncode({
               'projects': [
                 {
                   'id': 'proj-a',
                   'title': 'Project A',
+                  'createdAt': '2026-08-01T10:00:00.000Z',
                   'lifecycleStage': 'P0_DISCOVERY',
                 },
               ],
@@ -241,8 +297,60 @@ void main() {
       final controller = FounderCommandCenterController();
       await controller.loadDashboardData();
 
-      expect(controller.activeProjectId.value, isNull);
+      expect(controller.selectedProjectId, isNull);
       expect(controller.requiresProjectSelection.value, isTrue);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('active_project_id:ws_1'), isNull);
+    },
+  );
+
+  test(
+    'loadDashboardData with empty project list leaves selectedProjectId null and does not persist',
+    () async {
+      SharedPreferences.setMockInitialValues({'workspace_id': 'ws_1'});
+      ApiClient.client = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path == '/operations/projects') {
+          return http.Response(
+            jsonEncode({'projects': []}),
+            200,
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final controller = FounderCommandCenterController();
+      await controller.loadDashboardData();
+
+      expect(controller.selectedProjectId, isNull);
+      expect(controller.requiresProjectSelection.value, isTrue);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('active_project_id:ws_1'), isNull);
+    },
+  );
+
+  test(
+    'loadDashboardData with list read failure leaves selectedProjectId null and does not persist',
+    () async {
+      SharedPreferences.setMockInitialValues({'workspace_id': 'ws_1'});
+      ApiClient.client = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path == '/operations/projects') {
+          return http.Response('Internal Server Error', 500);
+        }
+        return http.Response('{}', 200);
+      });
+
+      final controller = FounderCommandCenterController();
+      await controller.loadDashboardData();
+
+      expect(controller.selectedProjectId, isNull);
+      expect(controller.requiresProjectSelection.value, isTrue);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('active_project_id:ws_1'), isNull);
     },
   );
 }

@@ -16,6 +16,7 @@ import '../models/project_activity_models.dart';
 import '../services/project_activity_service.dart';
 import '../widgets/chat_panel_content.dart';
 import '../widgets/decision_modal_sheet.dart';
+import '../widgets/project_operating_week_card.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../data/models/stage_model.dart';
 import '../../../shared/widgets/stage_badge.dart';
@@ -477,7 +478,20 @@ class _HologramHubViewState extends State<HologramHubView> {
               },
             ),
           ),
-          const SizedBox(height: 16),
+          if (controller.selectedProjectId != null) ...[
+            Obx(() => ProjectOperatingWeekCard(
+              operatingLoop: controller.currentOperatingLoop.value,
+              isLoading: controller.isOperatingLoopLoading.value,
+              errorMessage: controller.operatingLoopError.value,
+              onRetry: () {
+                final pid = controller.selectedProjectId;
+                if (pid != null) {
+                  controller.loadOperatingLoop(pid);
+                }
+              },
+            )),
+            const SizedBox(height: 16),
+          ],
           if (controller.hasProjects.value) ...[
             top3Widget(),
             const SizedBox(height: 16),
@@ -556,7 +570,20 @@ class _HologramHubViewState extends State<HologramHubView> {
           ),
           const SizedBox(height: 20),
           statsColumn(),
-          const SizedBox(height: 20),
+          if (controller.selectedProjectId != null) ...[
+            Obx(() => ProjectOperatingWeekCard(
+              operatingLoop: controller.currentOperatingLoop.value,
+              isLoading: controller.isOperatingLoopLoading.value,
+              errorMessage: controller.operatingLoopError.value,
+              onRetry: () {
+                final pid = controller.selectedProjectId;
+                if (pid != null) {
+                  controller.loadOperatingLoop(pid);
+                }
+              },
+            )),
+            const SizedBox(height: 20),
+          ],
           if (controller.hasProjects.value) ...[
             top3Widget(),
             const SizedBox(height: 20),

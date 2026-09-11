@@ -8,6 +8,8 @@ import '../../../data/models/founder_decision_model.dart';
 import '../../../data/models/workforce_pack_model.dart';
 import '../../../modules/hologram_hub/services/cofounder_api_service.dart';
 import '../../../modules/hologram_hub/services/active_project_store.dart';
+import '../../../modules/projects/models/project_operating_loop.dart';
+import '../../../modules/projects/services/project_operating_loop_service.dart';
 import '../../../modules/chat/services/agent_chat_service.dart';
 import '../../../modules/chat/models/data_access_declaration.dart';
 
@@ -121,8 +123,43 @@ class FounderCommandCenterController extends GetxController {
   /// restoration hoặc user picker. Generation counter để detect Project switch
   /// race.
   final RxnString activeProjectId = RxnString();
+  String? get selectedProjectId => activeProjectId.value;
   final RxString activeProjectTitle = ''.obs;
   final RxBool requiresProjectSelection = false.obs;
+
+  /// Operating Loop của Project đã chọn (Cycle, Tuần hiện tại, Cam kết/Tasks)
+  final Rxn<ProjectOperatingLoop> currentOperatingLoop = Rxn<ProjectOperatingLoop>();
+  final RxBool isOperatingLoopLoading = false.obs;
+  final RxnString operatingLoopError = RxnString();
+  int _operatingLoopToken = 0;
+
+  Future<void> loadOperatingLoop(String projectId) async {
+    final token = ++_operatingLoopToken;
+    isOperatingLoopLoading.value = true;
+    operatingLoopError.value = null;
+
+    try {
+      final service = ProjectOperatingLoopService();
+      final result = await service.get(projectId);
+      if (token != _operatingLoopToken) return;
+
+      if (result.isSuccess && result.dataOrNull != null) {
+        currentOperatingLoop.value = result.dataOrNull;
+        operatingLoopError.value = null;
+      } else {
+        currentOperatingLoop.value = null;
+        operatingLoopError.value = result.failureOrNull?.message ?? 'Không thể tải chu kỳ hoạt động của dự án';
+      }
+    } catch (e) {
+      if (token != _operatingLoopToken) return;
+      currentOperatingLoop.value = null;
+      operatingLoopError.value = 'Lỗi kết nối chu kỳ hoạt động: $e';
+    } finally {
+      if (token == _operatingLoopToken) {
+        isOperatingLoopLoading.value = false;
+      }
+    }
+  }
 
   /// Task 6 — generation counter độc lập với workspace generation, dùng để
   /// discard stale Project A response khi user đã switch sang Project B.
@@ -321,8 +358,11 @@ class FounderCommandCenterController extends GetxController {
     requiresProjectSelection.value = false;
 
     // Tải data Project mới
+    currentOperatingLoop.value = null;
+    operatingLoopError.value = null;
     unawaited(loadDraftPlans());
     unawaited(loadFounderInbox());
+    unawaited(loadOperatingLoop(projectId));
 
     try {
       final projectStage = projectData?['lifecycleStage'] ??
@@ -378,57 +418,53 @@ class FounderCommandCenterController extends GetxController {
       // bộ quyết định.
       projectsLoadedOnce.value = true;
 
-      // Task 6 — Project restoration without auto-select:
-      // 1. Tải danh sách Project authorized từ server.
-      // 2. Đọc local stored ID per workspace.
-      // 3. Chỉ select nếu nó còn trong authorized list.
-      // 4. Nếu không, clear local key và set requiresProjectSelection.
+      // Deterministic Project context resolution:
+      // 1. Nếu có stored valid -> giữ nguyên
+      // 2. Nếu có stored nhưng stale/unauthorized -> clear store, selectedProjectId = null
+      // 3. Nếu chưa có stored -> default min(createdAt, id), persist store
+      // 4. Nếu projects rỗng hoặc request lỗi -> selectedProjectId = null, không persist
       String? activeProjectId;
       String? activeProjectTitle;
       dynamic activeProjectStage;
 
-      if (projects.isNotEmpty && wsId != null) {
-        final storedProjectId = await ActiveProjectStore.read(wsId);
-        if (storedProjectId != null) {
-          // Kiểm tra stored ID còn trong authorized list không
-          dynamic foundProject;
-          try {
-            foundProject = projects.firstWhere(
-              (p) => p['id']?.toString() == storedProjectId,
-            );
-          } catch (e) {
-            foundProject = null;
-          }
+      if (projects.isNotEmpty && wsId != null && projectsError.value == null) {
+        final resolution = await ActiveProjectStore.resolve(
+          workspaceId: wsId,
+          projects: projects,
+        );
 
-          if (foundProject != null) {
-            // Stored ID hợp lệ, dùng nó
-            activeProjectId = storedProjectId;
-            activeProjectTitle = foundProject['title']?.toString() ??
-                'Dự án chính';
-            activeProjectStage = foundProject['lifecycleStage'] ??
-                foundProject['project_stage'] ??
-                foundProject['lifecycle_stage'];
-            requiresProjectSelection.value = false;
-          } else {
-            // Stored ID không trong authorized list → stale, clear nó
-            await ActiveProjectStore.delete(wsId);
-            requiresProjectSelection.value = true;
-          }
+        if (resolution.project != null) {
+          final foundProject = resolution.project;
+          activeProjectId = foundProject is Map
+              ? foundProject['id']?.toString()
+              : (foundProject as dynamic).id?.toString();
+          activeProjectTitle = (foundProject is Map
+                  ? foundProject['title']?.toString()
+                  : (foundProject as dynamic).title?.toString()) ??
+              'Dự án chính';
+          activeProjectStage = foundProject is Map
+              ? (foundProject['lifecycleStage'] ??
+                  foundProject['project_stage'] ??
+                  foundProject['lifecycle_stage'])
+              : (foundProject as dynamic).lifecycleStage;
+          requiresProjectSelection.value = false;
         } else {
-          // Không có stored ID → user chưa chọn Project
           requiresProjectSelection.value = true;
         }
       } else {
-        // Không có project hoặc không có workspace ID
-        requiresProjectSelection.value = projects.isEmpty;
+        requiresProjectSelection.value = true;
       }
 
       this.activeProjectId.value = activeProjectId;
       this.activeProjectTitle.value = activeProjectTitle ?? '';
 
+      currentOperatingLoop.value = null;
+      operatingLoopError.value = null;
+
       if (activeProjectId != null) {
         unawaited(loadDraftPlans());
         unawaited(loadFounderInbox());
+        unawaited(loadOperatingLoop(activeProjectId));
       } else {
         draftPlans.clear();
         founderInboxTasks.clear();
