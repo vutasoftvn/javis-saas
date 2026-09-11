@@ -19,6 +19,11 @@ import {
   RuleDecision,
 } from "./business-authorization.service";
 import { requireFounderCommand } from "./command-authority.service";
+import {
+  requireFounderAuthorization,
+  appendAuthorizationEvent,
+  advanceAuthorizationEpoch,
+} from "./authorization.service";
 
 export type MutationKind = "ASSIGN_ROLE" | "REVOKE_ROLE" | "SET_ROLE_PERMISSION";
 
@@ -262,8 +267,8 @@ export async function updatePermissionsService(
   ctx: TenantContext,
   req: UpdatePermissionsRequest
 ): Promise<{ success: boolean; version: number }> {
-  // Chỉ founder/co-founder được manage permissions
-  requireFounderCommand(ctx, "permissions.manage");
+  // Founder authority required (HUMAN only, active founder role in ENFORCED mode)
+  await requireFounderAuthorization(ctx);
 
   const wsId = BigInt(ctx.workspaceId);
   const currentVersion = await getLatestPolicyVersion(wsId);
@@ -319,6 +324,16 @@ export async function updatePermissionsService(
                 m.conditions !== undefined ? m.conditions : sql`${coreRolePermissions.conditions}`,
             },
           });
+
+        await appendAuthorizationEvent(tx, {
+          workspaceId: ctx.workspaceId,
+          eventType: "ROLE_PERMISSION_UPDATED",
+          actorMemberId: ctx.workforceMemberId,
+          roleId: m.roleId,
+          reason: req.reason,
+          correlationId: ctx.correlationId,
+          details: { permissionKey: m.permissionKey, effect: m.effect, conditions: m.conditions },
+        });
       } else if (m.kind === "ASSIGN_ROLE") {
         // Verify role
         const [role] = await tx
@@ -369,11 +384,23 @@ export async function updatePermissionsService(
           legalEntityId: m.scope?.legalEntityId ? BigInt(m.scope.legalEntityId) : null,
           validUntil: m.validUntil ? new Date(m.validUntil) : null,
         });
+
+        await appendAuthorizationEvent(tx, {
+          workspaceId: ctx.workspaceId,
+          eventType: "ROLE_ASSIGNED",
+          actorMemberId: ctx.workforceMemberId,
+          targetMemberId: m.memberId,
+          roleId: m.roleId,
+          reason: req.reason,
+          correlationId: ctx.correlationId,
+          details: { scope: m.scope, validUntil: m.validUntil },
+        });
       } else if (m.kind === "REVOKE_ROLE") {
         // Find existing assignment
         const [assignment] = await tx
           .select({
             id: coreMemberRoleAssignments.id,
+            workforceMemberId: coreMemberRoleAssignments.workforceMemberId,
             roleId: coreMemberRoleAssignments.roleId,
             roleKey: coreWorkspaceRoles.roleKey,
           })
@@ -420,8 +447,21 @@ export async function updatePermissionsService(
         await tx
           .delete(coreMemberRoleAssignments)
           .where(eq(coreMemberRoleAssignments.id, m.assignmentId));
+
+        await appendAuthorizationEvent(tx, {
+          workspaceId: ctx.workspaceId,
+          eventType: "ROLE_REVOKED",
+          actorMemberId: ctx.workforceMemberId,
+          targetMemberId: String(assignment.workforceMemberId),
+          roleId: assignment.roleId,
+          reason: req.reason,
+          correlationId: ctx.correlationId,
+          details: { assignmentId: m.assignmentId },
+        });
       }
     }
+
+    const nextEpoch = await advanceAuthorizationEpoch(tx, ctx.workspaceId, ctx.workforceMemberId, req.reason);
 
     const nextVersion = currentVersion + 1;
     const policyHash = createHash("sha256")
@@ -429,6 +469,7 @@ export async function updatePermissionsService(
         JSON.stringify({
           wsId: wsId.toString(),
           nextVersion,
+          nextEpoch,
           mutations: req.mutations,
           reason: req.reason,
         })
@@ -441,6 +482,17 @@ export async function updatePermissionsService(
       policyHash,
       actorMemberId: ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null,
       reason: req.reason,
+    });
+
+    await appendAuthorizationEvent(tx, {
+      workspaceId: ctx.workspaceId,
+      eventType: "POLICY_VERSION_ADVANCED",
+      actorMemberId: ctx.workforceMemberId,
+      policyVersion: nextVersion,
+      authorizationEpoch: nextEpoch,
+      afterHash: policyHash,
+      reason: req.reason,
+      correlationId: ctx.correlationId,
     });
 
     return { success: true, version: nextVersion };

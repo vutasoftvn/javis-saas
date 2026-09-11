@@ -17,6 +17,7 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = [
   { permissionKey: "agent.policy.manage", domain: "agent", description: "Quản lý chính sách và giới hạn của agent" },
   { permissionKey: "agent.sweep.manage", domain: "agent", description: "Bật tắt và cấu hình task sweep của agent" },
   { permissionKey: "execution.plan.approve", domain: "operations", description: "Duyệt execution plan thành task" },
+  { permissionKey: "operations.task.read", domain: "operations", description: "Xem thông tin và danh sách nhiệm vụ" },
   { permissionKey: "strategy.read", domain: "operations", description: "Xem thông tin chiến lược và OKR" },
   { permissionKey: "strategy.write", domain: "operations", description: "Tạo và cập nhật sáng kiến chiến lược" },
   { permissionKey: "strategy.target.manage", domain: "operations", description: "Quản lý chỉ tiêu mục tiêu tuần và quý" },
