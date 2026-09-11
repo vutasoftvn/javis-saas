@@ -132,12 +132,16 @@ export const corePermissionDefinitions = coreSchema.table("permission_definition
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export type RoleMemberType = "HUMAN" | "AI_AGENT";
+export type AuthorizationEnforcementMode = "SHADOW" | "ENFORCED";
+
 export const coreWorkspaceRoles = coreSchema.table("workspace_roles", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
   roleKey: text("role_key").notNull(),
   name: text("name").notNull(),
   isSystem: boolean("is_system").default(false).notNull(),
+  allowedMemberTypes: text("allowed_member_types").array(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
@@ -177,5 +181,79 @@ export const coreWorkspacePolicyVersions = coreSchema.table("workspace_policy_ve
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   pk: primaryKey({ columns: [t.workspaceId, t.version] }),
+}));
+
+export const coreWorkspaceAuthorizationStates = coreSchema.table("workspace_authorization_states", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).primaryKey().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  enforcementMode: text("enforcement_mode").default("SHADOW").notNull(),
+  authorizationEpoch: integer("authorization_epoch").default(1).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const coreCapabilityPermissionBindings = coreSchema.table("capability_permission_bindings", {
+  capabilityId: text("capability_id").primaryKey(),
+  permissionKey: text("permission_key").notNull().references(() => corePermissionDefinitions.permissionKey, { onDelete: "cascade" }),
+  riskClass: text("risk_class").notNull(), // READ | INTERNAL_WRITE | EXTERNAL_WRITE | FINANCIAL | LEGAL | AUTHORITY
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const coreAgentCapabilityGrants = coreSchema.table("agent_capability_grants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  agentWorkforceMemberId: bigint("agent_workforce_member_id", { mode: "bigint" }).notNull().references(() => identityWorkforceMembers.id, { onDelete: "cascade" }),
+  capabilityId: text("capability_id").notNull().references(() => coreCapabilityPermissionBindings.capabilityId, { onDelete: "cascade" }),
+  projectId: bigint("project_id", { mode: "bigint" }),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }),
+  constraints: jsonb("constraints").default({}).notNull(),
+  validFrom: timestamp("valid_from", { withTimezone: true }).defaultNow().notNull(),
+  validUntil: timestamp("valid_until", { withTimezone: true }),
+  status: text("status").default("ACTIVE").notNull(),
+  grantedByFounderMemberId: bigint("granted_by_founder_member_id", { mode: "bigint" }).notNull().references(() => identityWorkforceMembers.id, { onDelete: "cascade" }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokeReason: text("revoke_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  lookupIdx: index("idx_agent_capability_grants_lookup").on(t.workspaceId, t.agentWorkforceMemberId, t.capabilityId),
+}));
+
+export const coreAuthorizationEvents = coreSchema.table("authorization_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  targetMemberId: bigint("target_member_id", { mode: "bigint" }),
+  capabilityId: text("capability_id"),
+  roleId: uuid("role_id"),
+  grantId: uuid("grant_id"),
+  policyVersion: integer("policy_version"),
+  authorizationEpoch: integer("authorization_epoch"),
+  beforeHash: text("before_hash"),
+  afterHash: text("after_hash"),
+  reason: text("reason"),
+  correlationId: text("correlation_id"),
+  details: jsonb("details").default({}).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixWsCreated: index("ix_authorization_events_ws_created").on(t.workspaceId, t.createdAt),
+}));
+
+export const coreAgentAuthorizationTickets = coreSchema.table("agent_authorization_tickets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ticketId: text("ticket_id").notNull().unique(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  runId: text("run_id").notNull(),
+  toolCallId: text("tool_call_id").notNull(),
+  checkpointRef: text("checkpoint_ref").notNull(),
+  capabilityId: text("capability_id").notNull(),
+  agentWorkforceMemberId: bigint("agent_workforce_member_id", { mode: "bigint" }).notNull().references(() => identityWorkforceMembers.id, { onDelete: "cascade" }),
+  authorizationEpoch: integer("authorization_epoch").notNull(),
+  status: text("status").default("ISSUED").notNull(), // ISSUED | CONSUMED | EXPIRED
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixTicketLookup: index("ix_agent_auth_tickets_lookup").on(t.workspaceId, t.runId, t.capabilityId),
 }));
 

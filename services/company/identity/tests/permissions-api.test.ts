@@ -328,4 +328,65 @@ describe("permissions-api service", () => {
     expect(row.effect).toBe("REQUIRE_APPROVAL");
     expect(row.conditions).toEqual({ maxAmountMinor: "1000000", currency: "VND" });
   });
+
+  it("rejects assigning a HUMAN-only role to an AI_AGENT workforce member", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const wsId = BigInt(ws.workspaceId);
+    const humanMemberId = generateSnowflake();
+    const aiMemberId = generateSnowflake();
+
+    await db.insert(identityWorkforceMembers).values({
+      id: humanMemberId,
+      workspaceId: wsId,
+      memberType: "HUMAN",
+      humanUserId: BigInt(ws.userId),
+      roleTitle: "Founder",
+      status: "active",
+    });
+
+    await db.insert(identityWorkforceMembers).values({
+      id: aiMemberId,
+      workspaceId: wsId,
+      memberType: "AI_AGENT",
+      agentSpecId: "agent-ops-v1",
+      agentSpecVersion: "1.0.0",
+      roleTitle: "Operations AI",
+      status: "active",
+    });
+
+    const humanOnlyRoleId = randomUUID();
+    await db.insert(coreWorkspaceRoles).values({
+      id: humanOnlyRoleId,
+      workspaceId: wsId,
+      roleKey: "human_manager",
+      name: "Human Manager",
+      isSystem: false,
+      allowedMemberTypes: ["HUMAN"],
+    });
+
+    const founderCtx: TenantContext = {
+      workspaceId: ws.workspaceId,
+      userId: ws.userId,
+      workforceMemberId: String(humanMemberId),
+      membershipRole: "founder",
+      permissions: ["*"],
+      correlationId: "founder-member-type-test",
+    };
+
+    const initial = await getPermissionsService(founderCtx);
+
+    await expect(
+      updatePermissionsService(founderCtx, {
+        expectedVersion: initial.version,
+        reason: "Invalid assignment to AI agent",
+        mutations: [
+          {
+            kind: "ASSIGN_ROLE",
+            memberId: String(aiMemberId),
+            roleId: humanOnlyRoleId,
+          },
+        ],
+      })
+    ).rejects.toThrow(/ROLE_MEMBER_TYPE_MISMATCH/);
+  });
 });

@@ -212,6 +212,29 @@ async function main() {
       return;
     }
 
+    const CHECK_PENDING_MODE = process.argv.includes("--check-pending");
+    if (CHECK_PENDING_MODE) {
+      const pending = [];
+      for (const { service, dir } of MIGRATION_DIRS) {
+        const files = sortByNumericPrefix(readdirSync(dir).filter((f) => f.endsWith(".up.sql")));
+        for (const file of files) {
+          const { rows } = await client.query(
+            "SELECT filename FROM public.schema_migrations WHERE service = $1 AND filename = $2",
+            [service, file]
+          );
+          if (rows.length === 0) {
+            pending.push(`${service}/${file}`);
+          }
+        }
+      }
+      if (pending.length > 0) {
+        console.error(`[migrate:company] ❌ Pending migrations detected:\n${pending.join("\n")}`);
+        process.exit(1);
+      }
+      console.log("[migrate:company] ✓ No pending migrations");
+      return;
+    }
+
     let appliedCount = 0;
 
     for (const { service, dir } of MIGRATION_DIRS) {

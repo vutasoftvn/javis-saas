@@ -353,6 +353,14 @@ export async function updatePermissionsService(
           throw APIError.notFound(`Member ${m.memberId} not found in workspace`);
         }
 
+        if (role.allowedMemberTypes && role.allowedMemberTypes.length > 0) {
+          if (!role.allowedMemberTypes.includes(member.memberType)) {
+            throw APIError.invalidArgument(
+              `ROLE_MEMBER_TYPE_MISMATCH: Member type ${member.memberType} is not allowed for role ${role.name}`
+            );
+          }
+        }
+
         await tx.insert(coreMemberRoleAssignments).values({
           workspaceId: wsId,
           workforceMemberId: memberId,
