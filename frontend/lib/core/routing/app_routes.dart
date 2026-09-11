@@ -16,6 +16,8 @@ abstract class AppRoutes {
   static const profile = '/profile';
   static const projectLoop = '/work/projects/:projectId';
   static String projectLoopFor(String projectId) => '/work/projects/$projectId';
+  static const projectAnalysis = '/projects/:projectId/analysis';
+  static String projectAnalysisFor(String projectId) => '/projects/$projectId/analysis';
 
   // Feature Modules Routes
   // Task 9 — các hằng số path bên dưới (approvals/agents/tasks/vault/

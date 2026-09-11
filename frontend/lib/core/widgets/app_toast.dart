@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../theme/app_theme.dart';
@@ -84,7 +86,10 @@ class AppToast {
     VoidCallback? onTap,
   }) {
     // Safety check if Get overlay context is not available (e.g. unit tests without UI)
-    if (Get.testMode || (Get.context == null && Get.overlayContext == null)) {
+    final isTestEnv = Get.testMode ||
+        (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) ||
+        (Get.context == null && Get.overlayContext == null);
+    if (isTestEnv) {
       debugPrint('[AppToast] [${type.name.toUpperCase()}] $title: $message');
       return;
     }

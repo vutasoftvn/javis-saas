@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/localization/app_translations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../data/models/founder_decision_model.dart';
 import 'decision_modal_sheet.dart';
 
@@ -23,26 +24,7 @@ class WaitingForYouWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (decisions.isEmpty && approvals.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B).withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF334155)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                L10nKey.hubWaitingEmpty.tr,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
-              ),
-            ),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     return Column(
@@ -50,7 +32,7 @@ class WaitingForYouWidget extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.inbox_outlined, color: Color(0xFF6366F1), size: 20),
+            const Icon(Icons.inbox_outlined, color: AppTheme.primary, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

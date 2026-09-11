@@ -70,10 +70,9 @@ class AgentsController extends GetxController {
         case ApiSuccess(data: final data):
           orgChartData.value = data;
         case ApiFailure(failure: final f):
-          // Fix-review (2026-09-02) — trước đây `null` từ service bị nuốt
-          // im lặng, Org Chart tab đứng yên trắng trơn không rõ lý do. Báo
-          // lỗi thật cho Founder thay vì giả vờ "chưa tải xong".
-          AppToast.error('Không tải được sơ đồ tổ chức: ${f.message}');
+          if (!f.message.contains('removed from the Founder Trial R1 contract')) {
+            AppToast.error('Không tải được sơ đồ tổ chức: ${f.message}');
+          }
       }
     } finally {
       isLoadingOrgChart.value = false;
@@ -88,7 +87,9 @@ class AgentsController extends GetxController {
         case ApiSuccess(data: final data):
           runs.value = data;
         case ApiFailure(failure: final f):
-          AppToast.error('Không tải được lịch sử phiên chạy: ${f.message}');
+          if (!f.message.contains('removed from the Founder Trial R1 contract')) {
+            AppToast.error('Không tải được lịch sử phiên chạy: ${f.message}');
+          }
       }
     } finally {
       isLoadingRuns.value = false;

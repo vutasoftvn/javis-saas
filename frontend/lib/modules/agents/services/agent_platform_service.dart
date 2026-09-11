@@ -41,7 +41,9 @@ class AgentPlatformService {
         'work_products_total': data.workProductsTotal,
       },
       failure: (failure) {
-        debugPrint('[AgentPlatformService] getDashboardSummary failed: ${failure.message}');
+        if (!failure.message.contains('removed from the Founder Trial R1 contract')) {
+          debugPrint('[AgentPlatformService] getDashboardSummary failed: ${failure.message}');
+        }
         return null;
       },
     );
@@ -558,7 +560,9 @@ class AgentPlatformService {
             .toList(),
       },
       failure: (failure) {
-        debugPrint('[AgentPlatformService] listEscalations failed: ${failure.message}');
+        if (!failure.message.contains('removed from the Founder Trial R1 contract')) {
+          debugPrint('[AgentPlatformService] listEscalations failed: ${failure.message}');
+        }
         return {
           'total': 0, 'founder_gate_count': 0, 'lead_notify_count': 0,
           'has_critical': false, 'escalations': [],

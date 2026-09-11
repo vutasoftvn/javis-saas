@@ -241,6 +241,14 @@ class RealtimeService {
         return;
       }
 
+      if (response.statusCode == 404) {
+        // SSE endpoint không được triển khai trên backend này — không retry lặp vô hạn
+        debugPrint('[Realtime] SSE endpoint not available (404) — stop reconnect for current session');
+        _shouldReconnect = false;
+        _isConnected = false;
+        return;
+      }
+
       if (response.statusCode != 200) {
         debugPrint('[Realtime] SSE connection failed: ${response.statusCode}');
         _isConnected = false;

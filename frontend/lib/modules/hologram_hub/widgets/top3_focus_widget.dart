@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/localization/app_translations.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/project_operating_setup_model.dart';
 
@@ -11,6 +12,10 @@ class Top3FocusWidget extends StatelessWidget {
   final ValueChanged<FirstWeekActionDraft>? onToggleActionStatus;
   final void Function(FirstWeekActionDraft action, DateTime? plannedStartAt)?
       onScheduleAction;
+  final VoidCallback? onDiscuss;
+  final VoidCallback? onOpenProjectLoop;
+  final VoidCallback? onOpenProjectAnalysis;
+  final bool showDescription;
 
   const Top3FocusWidget({
     super.key,
@@ -19,6 +24,10 @@ class Top3FocusWidget extends StatelessWidget {
     this.firstWeekActions = const [],
     this.onToggleActionStatus,
     this.onScheduleAction,
+    this.onDiscuss,
+    this.onOpenProjectLoop,
+    this.onOpenProjectAnalysis,
+    this.showDescription = false,
   });
 
   @override
@@ -61,12 +70,12 @@ class Top3FocusWidget extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                    color: AppTheme.info.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
                     'Next Best Actions',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF60A5FA), fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 11, color: AppTheme.info, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -79,15 +88,93 @@ class Top3FocusWidget extends StatelessWidget {
               final item = entry.value;
               return _buildActionCard(idx, item);
             })
-          else
-            Text(
-              L10nKey.hubTop3Empty.tr,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 13,
-                height: 1.4,
+          else ...[
+            if (showDescription) ...[
+              Text(
+                L10nKey.hubTop3Empty.tr,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+            ],
+            if (onOpenProjectAnalysis != null || onDiscuss != null || onOpenProjectLoop != null) ...[
+              Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  if (onOpenProjectAnalysis != null)
+                    ElevatedButton.icon(
+                      onPressed: onOpenProjectAnalysis,
+                      icon: const Icon(Icons.psychology_alt_rounded, size: 16),
+                      label: Text(
+                        Get.locale?.languageCode == 'vi'
+                            ? 'Phân tích & Lập Kế hoạch Tuần'
+                            : 'Analyze & Plan First Week',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.success,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  if (onDiscuss != null)
+                    ElevatedButton.icon(
+                      onPressed: onDiscuss,
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                      label: Text(
+                        Get.locale?.languageCode == 'vi'
+                            ? 'Trò chuyện cùng Co-Founder'
+                            : 'Chat with Co-Founder',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  if (onOpenProjectLoop != null)
+                    OutlinedButton.icon(
+                      onPressed: onOpenProjectLoop,
+                      icon: const Icon(Icons.all_inclusive_rounded, size: 16),
+                      label: Text(
+                        Get.locale?.languageCode == 'vi'
+                            ? 'Mở Vòng lặp Vận hành (Project Loop)'
+                            : 'Open Project Operating Loop',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primary,
+                        side: const BorderSide(color: AppTheme.primary),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
           if (hasFirstWeekActions) ...[
             const SizedBox(height: 20),
             const Divider(color: Color(0xFF334155), height: 1),

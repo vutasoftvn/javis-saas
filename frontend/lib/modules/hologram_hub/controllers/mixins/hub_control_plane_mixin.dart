@@ -63,8 +63,11 @@ mixin HubControlPlaneMixin on GetxController {
     if (_workspaceGeneration != generation) return;
     result.when(
       success: (data, _) => pendingApprovals.value = data,
-      failure: (failure) =>
-          debugPrint('[HologramHub] Error loading pending approvals: ${failure.message}'),
+      failure: (failure) {
+        if (!failure.message.contains('removed from the Founder Trial R1 contract')) {
+          debugPrint('[HologramHub] Error loading pending approvals: ${failure.message}');
+        }
+      },
     );
   }
 
@@ -74,8 +77,11 @@ mixin HubControlPlaneMixin on GetxController {
     if (_workspaceGeneration != generation) return;
     result.when(
       success: (data, _) => agentRuns.value = data,
-      failure: (failure) =>
-          debugPrint('[HologramHub] Error loading agent runs: ${failure.message}'),
+      failure: (failure) {
+        if (!failure.message.contains('removed from the Founder Trial R1 contract')) {
+          debugPrint('[HologramHub] Error loading agent runs: ${failure.message}');
+        }
+      },
     );
   }
 
@@ -121,8 +127,11 @@ mixin HubControlPlaneMixin on GetxController {
     if (_workspaceGeneration != generation) return;
     result.when(
       success: (data, _) => activeApprovals.assignAll(data),
-      failure: (failure) =>
-          debugPrint('[HologramHub] Error loading approvals: ${failure.message}'),
+      failure: (failure) {
+        if (!failure.message.contains('removed from the Founder Trial R1 contract')) {
+          debugPrint('[HologramHub] Error loading approvals: ${failure.message}');
+        }
+      },
     );
   }
 

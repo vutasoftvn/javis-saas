@@ -17,50 +17,36 @@ class PulseStatBarWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF334155)),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 550;
-          final stats = [
-            _buildPulseStat(
-              icon: Icons.check_circle_outline,
-              color: const Color(0xFF10B981),
-              value: '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
-              label: L10nKey.hubPulseGoalsOnTrack.tr,
-            ),
-            _buildPulseStat(
-              icon: Icons.rocket_launch_outlined,
-              color: const Color(0xFF3B82F6),
-              value: '${pulse?.activeMissions ?? 0}',
-              label: L10nKey.hubPulseActiveMissions.tr,
-            ),
-            _buildPulseStat(
-              icon: Icons.gavel_outlined,
-              color: const Color(0xFFF59E0B),
-              value: '${pulse?.needsDecisionCount ?? 0}',
-              label: L10nKey.hubPulseNeedsDecision.tr,
-            ),
-            _buildPulseStat(
-              icon: Icons.warning_amber_outlined,
-              color: const Color(0xFFEF4444),
-              value: '${pulse?.majorRisksCount ?? 0}',
-              label: L10nKey.hubPulseMajorRisks.tr,
-            ),
-          ];
-
-          if (isNarrow) {
-            return Wrap(
-              alignment: WrapAlignment.spaceAround,
-              spacing: 20,
-              runSpacing: 14,
-              children: stats,
-            );
-          }
-
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: stats.map((s) => Expanded(child: s)).toList(),
-          );
-        },
+      child: Column(
+        children: [
+          _buildPulseStat(
+            icon: Icons.check_circle_outline,
+            color: const Color(0xFF10B981),
+            value: '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
+            label: L10nKey.hubPulseGoalsOnTrack.tr,
+          ),
+          const Divider(color: Color(0xFF334155), height: 24),
+          _buildPulseStat(
+            icon: Icons.rocket_launch_outlined,
+            color: const Color(0xFF3B82F6),
+            value: '${pulse?.activeMissions ?? 0}',
+            label: L10nKey.hubPulseActiveMissions.tr,
+          ),
+          const Divider(color: Color(0xFF334155), height: 24),
+          _buildPulseStat(
+            icon: Icons.gavel_outlined,
+            color: const Color(0xFFF59E0B),
+            value: '${pulse?.needsDecisionCount ?? 0}',
+            label: L10nKey.hubPulseNeedsDecision.tr,
+          ),
+          const Divider(color: Color(0xFF334155), height: 24),
+          _buildPulseStat(
+            icon: Icons.warning_amber_outlined,
+            color: const Color(0xFFEF4444),
+            value: '${pulse?.majorRisksCount ?? 0}',
+            label: L10nKey.hubPulseMajorRisks.tr,
+          ),
+        ],
       ),
     );
   }
@@ -71,29 +57,39 @@ class PulseStatBarWidget extends StatelessWidget {
     required String value,
     required String label,
   }) {
-    return Column(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ],
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 20),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.white.withValues(alpha: 0.6),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Colors.white.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
           ),
         ),
       ],

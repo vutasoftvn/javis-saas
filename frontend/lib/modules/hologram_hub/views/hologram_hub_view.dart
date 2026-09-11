@@ -5,14 +5,13 @@ import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/runtime_app_chrome.dart';
 import '../controllers/founder_command_center_controller.dart';
-import '../widgets/cofounder_card_widget.dart';
 import '../widgets/execution_plan_card_widget.dart';
 import '../widgets/your_tasks_widget.dart';
 import '../widgets/pulse_stat_bar_widget.dart';
 import '../widgets/top3_focus_widget.dart';
 import '../widgets/waiting_for_you_widget.dart';
+import '../widgets/hub_activity_timeline_card.dart';
 import '../widgets/decision_modal_sheet.dart';
-import '../widgets/ai_workforce_tab.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../data/models/stage_model.dart';
 import '../../../shared/widgets/company_scope_switcher.dart';
@@ -28,8 +27,21 @@ import '../../../core/localization/app_translations.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/shell/chat_panel_controller.dart';
 
-class HologramHubView extends StatelessWidget {
+import '../widgets/agent_direct_chat_sheet.dart';
+import '../widgets/command_center_workforce_sidebar.dart';
+import '../../agents/views/widgets/agent_test_run_drawer.dart';
+
+class HologramHubView extends StatefulWidget {
   const HologramHubView({super.key});
+
+  @override
+  State<HologramHubView> createState() => _HologramHubViewState();
+}
+
+class _HologramHubViewState extends State<HologramHubView> {
+  bool _isMobileWorkforceExpanded = false;
+  Map<String, dynamic>? _selectedAgentForChat;
+  Map<String, dynamic>? _selectedAgentForTestRun;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +58,7 @@ class HologramHubView extends StatelessWidget {
     // dựng thêm một bề mặt chat song song. `addPostFrameCallback` vì mở
     // `showModalBottomSheet` cần build xong khung hình hiện tại trước.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       controller.maybeAutoOpenChatFromRoute(() => Get.find<ChatPanelController>().open());
     });
 
@@ -65,43 +77,27 @@ class HologramHubView extends StatelessWidget {
                     // 1. Top Header & Navigation Bar
                     _buildHeader(context, controller),
 
-                    // 2. Main Tab Content Area
+                    // 2. Main Content Area (Full Width, không bọc ConstrainedBox)
                     Expanded(
-                      child: Obx(() {
-                        if (controller.isLoading.value) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF6366F1),
-                            ),
-                          );
-                        }
-
-                        return LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isWide = constraints.maxWidth >= 950;
-
-                            return Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 1360),
-                                child: IndexedStack(
-                                  index: controller.selectedTabIndex.value,
-                                  children: [
-                                    // Tab 0: Founder Command Center (Co-Founder, Pulse, Top 3, Waiting for You)
-                                    _buildCommandCenterTab(
-                                      context,
-                                      controller,
-                                      isWide,
-                                    ),
-
-                                    // Tab 1: AI Workforce & Optional Packs Store
-                                    _buildWorkforceTab(context, controller, isWide),
-                                  ],
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Obx(() {
+                            if (controller.isLoading.value) {
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF6366F1),
                                 ),
-                              ),
+                              );
+                            }
+
+                            return _buildHubMainContent(
+                              context,
+                              controller,
+                              constraints,
                             );
-                          },
-                        );
-                      }),
+                          });
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -109,6 +105,52 @@ class HologramHubView extends StatelessWidget {
             ),
             const FloatingVoiceHologram(),
             const DraggableChatPanel(),
+
+            // Direct Agent Mission Chat Sheet (Slide Drawer từ bên phải)
+            if (_selectedAgentForChat != null) ...[
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedAgentForChat = null),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: AgentDirectChatSheet(
+                  agent: _selectedAgentForChat!,
+                  onClose: () => setState(() => _selectedAgentForChat = null),
+                  onTaskCreated: (title, desc) {
+                    AppToast.success('Đã lưu nhiệm vụ vào kế hoạch tuần!');
+                    setState(() => _selectedAgentForChat = null);
+                  },
+                ),
+              ),
+            ],
+
+            // Test Run Drawer (nếu bấm Test)
+            if (_selectedAgentForTestRun != null) ...[
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedAgentForTestRun = null),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: AgentTestRunDrawer(
+                  agent: _selectedAgentForTestRun!,
+                  isLoading: false,
+                  onClose: () => setState(() => _selectedAgentForTestRun = null),
+                  onExecute: (prompt, model, temp) {
+                    AppToast.success('Đang thực thi thử nghiệm với Agent...');
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -208,46 +250,7 @@ class HologramHubView extends StatelessWidget {
                 ),
               ),
 
-              // --- CENTER: 2 Navigation Tabs (Command Center & AI Workforce) ---
-              Obx(() {
-                if (Get.isRegistered<LocaleController>()) {
-                  Get.find<LocaleController>().current.value;
-                }
-                final activeTab = controller.selectedTabIndex.value;
-                return Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B).withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF334155)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildTabButton(
-                        label: isCompact ? L10nKey.hubTabCommandCenterShort.tr : L10nKey.hubTabCommandCenter.tr,
-                        icon: Icons.dashboard_outlined,
-                        isSelected: activeTab == 0,
-                        onTap: () => controller.selectedTabIndex.value = 0,
-                      ),
-                      const SizedBox(width: 4),
-                      _buildTabButton(
-                        label: isCompact ? L10nKey.hubTabWorkforceShort.tr : L10nKey.hubTabWorkforce.tr,
-                        icon: Icons.groups_outlined,
-                        isSelected: activeTab == 1,
-                        onTap: () => controller.selectedTabIndex.value = 1,
-                      ),
-                    ],
-                  ),
-                );
-              }),
+              const Spacer(),
 
               // --- RIGHT: CompanyScopeSwitcher & Actions ---
               Expanded(
@@ -340,183 +343,250 @@ class HologramHubView extends StatelessWidget {
     );
   }
 
-  Widget _buildTabButton({
-    required String label,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-      decoration: BoxDecoration(
-        gradient: isSelected
-            ? const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-        color: isSelected ? null : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: isSelected ? Colors.white : const Color(0xFF94A3B8),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? Colors.white : const Color(0xFF94A3B8),
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommandCenterTab(
+  // ────────────────────────────────────────────────────────────────────────────
+  // Hub Main Content: Full width, không tab, 3 cột responsive, bỏ CoFounderCard
+  // Desktop (≥1100): Left AI Workforce 4/12 | Center Top3+WGA 4/12 | Right Stats 4/12
+  // Tablet (850-1099): Left+Center 6/12 | Right Stats 6/12
+  // Mobile (<850): Stacked (Stats → Top3 → AI Workforce → WaitingForYou)
+  // ────────────────────────────────────────────────────────────────────────────
+  Widget _buildHubMainContent(
     BuildContext context,
     FounderCommandCenterController controller,
-    bool isWide,
+    BoxConstraints constraints,
   ) {
-    return Obx(() {
-      if (Get.isRegistered<LocaleController>()) {
-        Get.find<LocaleController>().current.value;
-      }
-      return SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
+    final width = constraints.maxWidth;
+    final isDesktop = width >= 1100;
+    final isTablet = width >= 850 && width < 1100;
+
+    if (Get.isRegistered<LocaleController>()) {
+      Get.find<LocaleController>().current.value;
+    }
+
+    // ── Widget builders (shared across breakpoints) ──
+
+    Widget workforceSidebar({bool shrinkWrap = false}) =>
+        CommandCenterWorkforceSidebar(
+          isCollapsed: false,
+          shrinkWrap: shrinkWrap,
+          onToggleCollapse: () {},
+          onOpenChat: (agent) =>
+              setState(() => _selectedAgentForChat = agent),
+          onOpenTestRun: (agent) =>
+              setState(() => _selectedAgentForTestRun = agent),
+        );
+
+    Widget statsColumn() => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Lưới an toàn: guard/backstop (Task 1-5) đảm bảo Hub không còn render
-            // ở trạng thái 0 project; nhưng nếu có race khiến nó render tạm thời,
-            // ẩn toàn bộ widget phụ thuộc project để không hiện số liệu giả.
             if (controller.hasProjects.value) ...[
-            // A0. Thống kê nhanh — đặt trên cùng theo feedback founder (2026-09-04)
-            // xem docs/superpowers/specs/2026-09-04-command-center-dashboard-redesign-design.md
-            PulseStatBarWidget(pulse: controller.pulse.value),
-            const SizedBox(height: 16),
-
-            // A. Hero Co-Founder Card
-            CoFounderCardWidget(
-              pulse: controller.pulse.value,
-              onAskCosa: () => Get.find<ChatPanelController>().open(),
-            ),
-            const SizedBox(height: 24),
-
-            // A1/A2. WGA — "Kế hoạch đề xuất" + "Việc của bạn" (poll 20s qua wrapper)
-            _WgaSurfaces(controller: controller),
-
-            // B & C: Responsive Grid (Side-by-Side on Desktop, Stacked on Mobile)
-            if (isWide)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // B. Top 3 Focus (12-Week Year) - Left Column
-                  //
-                  // Fix-review (2026-09-04, final review, Fix 1) — đọc
-                  // `activeProjectSetup.value` ở đây trước đây KHÔNG được
-                  // track bởi Obx nào: `Obx` bao ngoài ở dòng ~66 chỉ track
-                  // các Rx read xảy ra ĐỒNG BỘ trong chính builder của nó,
-                  // nhưng builder đó chỉ trả về `LayoutBuilder` — các đọc
-                  // Rx thật sự (trong `_buildCommandCenterTab`) chạy ở pass
-                  // build RIÊNG của `LayoutBuilder`, lúc đó GetX đã un-bind
-                  // proxy tracking. `_refreshActiveProjectSetup()` gán giá
-                  // trị mới nhưng không widget nào bị đánh dấu dirty ⇒
-                  // checklist không rebuild. Bọc riêng `Obx` tại đúng
-                  // call-site này (cùng pattern đã dùng cho banner ở dòng
-                  // ~424) để đọc `activeProjectSetup.value` NGAY TRONG
-                  // builder của chính `Obx` đó.
-                  Expanded(
-                    flex: 7,
-                    child: Obx(
-                      () => Top3FocusWidget(
-                        actions: controller.top3Actions.toList(),
-                        onActionTap: (action) =>
-                            _handleActionTap(context, controller, action),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-
-                  // C. Waiting for You (Decisions & Approvals) - Right Column
-                  Expanded(
-                    flex: 3,
-                    child: WaitingForYouWidget(
-                      decisions: controller.pendingDecisions.toList(),
-                      approvals: controller.pendingApprovals.toList(),
-                      onResolveDecision: (decId, optKey, notes) =>
-                          controller.resolveDecision(
-                            decisionId: decId,
-                            optionKey: optKey,
-                            founderNotes: notes,
-                          ),
-                      onApproveTask: (appId) => controller.approveTask(appId),
-                      onRejectTask: (appId, reason) =>
-                          controller.rejectTask(appId, reason),
-                    ),
-                  ),
-                ],
-              )
-            else ...[
-              // Mobile Stacked layout — cùng lý do Obx-wrap như nhánh desktop
-              // ở trên (Fix 1).
-              Obx(
-                () => Top3FocusWidget(
-                  actions: controller.top3Actions.toList(),
-                  onActionTap: (action) =>
-                      _handleActionTap(context, controller, action),
-                ),
-              ),
-              const SizedBox(height: 24),
+              PulseStatBarWidget(pulse: controller.pulse.value),
+              const SizedBox(height: 16),
               WaitingForYouWidget(
                 decisions: controller.pendingDecisions.toList(),
                 approvals: controller.pendingApprovals.toList(),
                 onResolveDecision: (decId, optKey, notes) =>
                     controller.resolveDecision(
-                      decisionId: decId,
-                      optionKey: optKey,
-                      founderNotes: notes,
-                    ),
+                  decisionId: decId,
+                  optionKey: optKey,
+                  founderNotes: notes,
+                ),
                 onApproveTask: (appId) => controller.approveTask(appId),
                 onRejectTask: (appId, reason) =>
                     controller.rejectTask(appId, reason),
               ),
+              const SizedBox(height: 16),
+              Obx(
+                () => HubActivityTimelineCard(
+                  chatMessages: controller.chatMessages.toList(),
+                  decisions: controller.pendingDecisions.toList(),
+                  approvals: controller.pendingApprovals.toList(),
+                  tasks: controller.founderInboxTasks.toList(),
+                  plans: controller.draftPlans.toList(),
+                ),
+              ),
             ],
-            const SizedBox(height: 24),
           ],
+        );
+
+    Widget top3Widget() => Obx(
+          () => Top3FocusWidget(
+            showDescription: false,
+            actions: controller.top3Actions.toList(),
+            onActionTap: (action) =>
+                _handleActionTap(context, controller, action),
+            onDiscuss: () => Get.find<ChatPanelController>().open(),
+            onOpenProjectLoop: controller.activeProjectId.value != null
+                ? () => Get.toNamed(
+                      AppRoutes.projectLoopFor(
+                        controller.activeProjectId.value!,
+                      ),
+                    )
+                : null,
+            onOpenProjectAnalysis: controller.activeProjectId.value != null
+                ? () => Get.toNamed(
+                      '${AppRoutes.projectAnalysisFor(controller.activeProjectId.value!)}?title=${Uri.encodeComponent(controller.activeProjectTitle.value)}&stage=${controller.pulse.value?.companyStage ?? 'P0_DISCOVERY'}',
+                    )
+                : null,
+          ),
+        );
+
+    Widget centerColumn() => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            top3Widget(),
+            const SizedBox(height: 16),
+            if (controller.hasProjects.value)
+              _WgaSurfaces(controller: controller),
+          ],
+        );
+
+    // ── DESKTOP (≥1100): 1 hàng 3 cột — AI Workforce 3/12 | Top3 Focus + WGA
+    // 6/12 | Thống kê 3/12 ──
+    if (isDesktop) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: workforceSidebar(shrinkWrap: true)),
+            const SizedBox(width: 24),
+            Expanded(flex: 6, child: centerColumn()),
+            const SizedBox(width: 24),
+            Expanded(flex: 3, child: statsColumn()),
+          ],
+        ),
+      );
+    }
+
+    // ── TABLET (850-1099): AI Workforce + Top3 gộp 6/12 (trái) | Thống kê
+    // 6/12 (phải) ──
+    if (isTablet) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  workforceSidebar(shrinkWrap: true),
+                  const SizedBox(height: 16),
+                  centerColumn(),
+                ],
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(child: statsColumn()),
+          ],
+        ),
+      );
+    }
+
+    // ── MOBILE (<850): cuộn dọc, full width ──
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          statsColumn(),
+          const SizedBox(height: 20),
+          top3Widget(),
+          const SizedBox(height: 20),
+          // AI Workforce accordion
+          Material(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0x336366F1)),
+                ),
+                child: Column(
+                  children: [
+                    InkWell(
+                      onTap: () => setState(
+                        () => _isMobileWorkforceExpanded =
+                            !_isMobileWorkforceExpanded,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF6366F1),
+                                    Color(0xFF8B5CF6),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.groups_outlined,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'AI WORKFORCE (Biệt đội chuyên viên)',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _isMobileWorkforceExpanded
+                                        ? 'Bấm để thu gọn'
+                                        : 'Bấm để mở danh sách giao việc',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              _isMobileWorkforceExpanded
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
+                              color: const Color(0xFF818CF8),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_isMobileWorkforceExpanded) ...[
+                      const Divider(color: Color(0x226366F1), height: 1),
+                      workforceSidebar(shrinkWrap: true),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          if (controller.hasProjects.value)
+            _WgaSurfaces(controller: controller),
+          const SizedBox(height: 24),
         ],
       ),
     );
-    });
   }
 
   // ignore: unused_element
@@ -715,25 +785,6 @@ class HologramHubView extends StatelessWidget {
     Get.find<ChatPanelController>().open();
   }
 
-  Widget _buildWorkforceTab(
-    BuildContext context,
-    FounderCommandCenterController controller,
-    bool isWide,
-  ) {
-    return Obx(() {
-      if (Get.isRegistered<LocaleController>()) {
-        Get.find<LocaleController>().current.value;
-      }
-      return SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: AiWorkforceTab(
-          packs: controller.workforcePacks.toList(),
-          onTogglePack: (key, val) => controller.togglePack(key, val),
-        ),
-      );
-    });
-  }
-
   // Task 4 (hub-no-sidebar) — Hub không còn sidebar riêng, icon menu ở header
   // mở overlay này thay thế vai trò điều hướng module cũ. Tái dùng
   // `DashboardNavConfig.coreNavGroups` (nguồn sự thật danh sách module) và
@@ -835,41 +886,6 @@ class _WgaSurfacesState extends State<_WgaSurfaces> {
     final c = widget.controller;
     return Column(
       children: [
-        Obx(
-          () => (c.activeProjectId.value?.isEmpty ?? true)
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        c.sweepEnabled.value
-                            ? Icons.smart_toy_outlined
-                            : Icons.pause_circle_outline,
-                        size: 16,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          c.sweepEnabled.value
-                              ? L10nKey.hubSweepEnabled.tr
-                              : L10nKey.hubSweepDisabled.tr,
-                          style: const TextStyle(
-                            color: Color(0xFF94A3B8),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      Switch(
-                        value: c.sweepEnabled.value,
-                        activeThumbColor: const Color(0xFF6366F1),
-                        onChanged: c.setSweepEnabled,
-                      ),
-                    ],
-                  ),
-                ),
-        ),
         Obx(
           () => Column(
             children: c.draftPlans

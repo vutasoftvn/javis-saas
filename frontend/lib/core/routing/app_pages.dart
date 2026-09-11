@@ -20,6 +20,7 @@ import '../../modules/hologram_hub/controllers/founder_command_center_controller
 import '../shell/app_shell.dart';
 import '../shell/app_shell_controller.dart';
 import '../../modules/projects/views/project_operating_loop_view.dart';
+import '../../modules/projects/views/project_analysis_flow_view.dart';
 
 /// Task 9-6 — `/dashboard` và `/hub` từng trỏ tới 2 view khác (lặp vai trò).
 /// Nay `/hub` render `HologramHubView` trực tiếp (không `AppShell`/sidebar);
@@ -116,6 +117,20 @@ class AppPages {
         return AppShell(
           activeModule: WorkspaceModule.strategy,
           child: ProjectOperatingLoopView(projectId: projectId),
+        );
+      },
+      middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.projectAnalysis,
+      page: () {
+        final projectId = Get.parameters['projectId'] ?? '';
+        final title = Get.parameters['title'] ?? 'Dự án mới';
+        final stage = Get.parameters['stage'];
+        return ProjectAnalysisFlowView(
+          projectId: projectId,
+          projectTitle: title,
+          initialStage: stage,
         );
       },
       middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],

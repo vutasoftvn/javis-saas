@@ -116,6 +116,7 @@ class FounderCommandCenterController extends GetxController {
 
   /// WGA — id dự án đang active (để gọi weekly-goal / execution-plans).
   final RxnString activeProjectId = RxnString();
+  final RxString activeProjectTitle = ''.obs;
 
   /// WGA — kế hoạch triển khai (draft) agent đề xuất từ mục tiêu tuần.
   final RxList<ExecutionPlan> draftPlans = <ExecutionPlan>[].obs;
@@ -288,6 +289,9 @@ class FounderCommandCenterController extends GetxController {
       final activeProjectId = projects.isNotEmpty
           ? projects.first['id']?.toString()
           : null;
+      final activeProjectTitle = projects.isNotEmpty
+          ? (projects.first['title']?.toString() ?? 'Dự án chính')
+          : '';
       final activeProjectStage = projects.isNotEmpty
           ? (projects.first['lifecycleStage'] ??
                 projects.first['project_stage'] ??
@@ -295,6 +299,7 @@ class FounderCommandCenterController extends GetxController {
           : null;
 
       this.activeProjectId.value = activeProjectId;
+      this.activeProjectTitle.value = activeProjectTitle;
 
       if (activeProjectId != null) {
         unawaited(loadDraftPlans());
@@ -304,57 +309,61 @@ class FounderCommandCenterController extends GetxController {
         founderInboxTasks.clear();
       }
 
-      final pulseRes = await CoFounderApiService.getCompanyPulse(
-        workspaceId: wsId,
-        projectId: activeProjectId,
-        stage: activeProjectStage?.toString(),
-      );
-      final top3Res = (activeProjectId != null)
-          ? await CoFounderApiService.getTop3Focus(
-              workspaceId: wsId,
-              projectId: activeProjectId,
-            )
-          : <NextBestActionModel>[];
-      final decisionsRes = await CoFounderApiService.listPendingDecisions(
-        workspaceId: wsId,
-      );
-      workforceState.value = WorkforceLoadState.loading;
-      final packsResult = await CoFounderApiService.listWorkforcePacks();
+      try {
+        final pulseRes = await CoFounderApiService.getCompanyPulse(
+          workspaceId: wsId,
+          projectId: activeProjectId,
+          stage: activeProjectStage?.toString(),
+        );
+        final top3Res = (activeProjectId != null)
+            ? await CoFounderApiService.getTop3Focus(
+                workspaceId: wsId,
+                projectId: activeProjectId,
+              )
+            : <NextBestActionModel>[];
+        final decisionsRes = await CoFounderApiService.listPendingDecisions(
+          workspaceId: wsId,
+        );
+        workforceState.value = WorkforceLoadState.loading;
+        final packsResult = await CoFounderApiService.listWorkforcePacks();
 
-      pulse.value = pulseRes;
-      top3Actions.assignAll(top3Res);
-      pendingDecisions.assignAll(decisionsRes);
-      // Fix-review (2026-09-01, Task 3) — chỉ ghi đè workforcePacks khi tải
-      // thành công thật sự; thất bại (404/5xx/mất mạng) chuyển sang trạng
-      // thái `unavailable` rõ ràng thay vì âm thầm coi như "rỗng".
-      packsResult.when(
-        success: (data, _) {
-          workforcePacks.assignAll(data);
-          workforceState.value = WorkforceLoadState.loaded;
-        },
-        failure: (failure) {
-          debugPrint('[FounderCommandCenter] listWorkforcePacks failure: ${failure.message}');
-          workforceState.value = WorkforceLoadState.unavailable;
-        },
-      );
+        pulse.value = pulseRes;
+        top3Actions.assignAll(top3Res);
+        pendingDecisions.assignAll(decisionsRes);
+        // Fix-review (2026-09-01, Task 3) — chỉ ghi đè workforcePacks khi tải
+        // thành công thật sự; thất bại (404/5xx/mất mạng) chuyển sang trạng
+        // thái `unavailable` rõ ràng thay vì âm thầm coi như "rỗng".
+        packsResult.when(
+          success: (data, _) {
+            workforcePacks.assignAll(data);
+            workforceState.value = WorkforceLoadState.loaded;
+          },
+          failure: (failure) {
+            debugPrint('[FounderCommandCenter] listWorkforcePacks failure: ${failure.message}');
+            workforceState.value = WorkforceLoadState.unavailable;
+          },
+        );
 
-      // Fix-review (2026-09-02, final review I-1) — load Approvals qua route
-      // canonical `/agent/workforce/approvals`; 404/5xx/mất mạng phản ánh
-      // thành `WorkforceLoadState.unavailable` thay vì âm thầm coi là rỗng.
-      approvalsState.value = WorkforceLoadState.loading;
-      final approvalsResult = await _workforceMvpService.listApprovals(
-        status: 'PENDING',
-      );
-      approvalsResult.when(
-        success: (data, _) {
-          pendingApprovals.assignAll(data.map(_approvalToLegacyMap).toList());
-          approvalsState.value = WorkforceLoadState.loaded;
-        },
-        failure: (failure) {
-          debugPrint('[FounderCommandCenter] listApprovals failure: ${failure.message}');
-          approvalsState.value = WorkforceLoadState.unavailable;
-        },
-      );
+        // Fix-review (2026-09-02, final review I-1) — load Approvals qua route
+        // canonical `/agent/workforce/approvals`; 404/5xx/mất mạng phản ánh
+        // thành `WorkforceLoadState.unavailable` thay vì âm thầm coi là rỗng.
+        approvalsState.value = WorkforceLoadState.loading;
+        final approvalsResult = await _workforceMvpService.listApprovals(
+          status: 'PENDING',
+        );
+        approvalsResult.when(
+          success: (data, _) {
+            pendingApprovals.assignAll(data.map(_approvalToLegacyMap).toList());
+            approvalsState.value = WorkforceLoadState.loaded;
+          },
+          failure: (failure) {
+            debugPrint('[FounderCommandCenter] listApprovals failure: ${failure.message}');
+            approvalsState.value = WorkforceLoadState.unavailable;
+          },
+        );
+      } catch (e) {
+        debugPrint('[FounderCommandCenter] Error loading secondary dashboard metrics: $e');
+      }
 
     } finally {
       isLoading.value = false;
