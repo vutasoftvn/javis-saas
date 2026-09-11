@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:frontend/core/shell/app_shell_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/modules/hologram_hub/widgets/project_activity_inspector.dart';
 import 'package:frontend/modules/hologram_hub/models/project_activity_models.dart';
 
@@ -9,9 +9,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    // `ProjectActivityInspector` là StatelessWidget thuần, không dùng
+    // `Get.find` — không cần `ensureShellDependencies()`. Gọi nó từng gây
+    // `DashboardController.onInit()` rơi vào nhánh logout →
+    // `SecureStorageService.delete()` (flutter_secure_storage chưa mock)
+    // ném MissingPluginException async, rò rỉ lỗi sang test chạy sau.
+    SharedPreferences.setMockInitialValues({});
     Get.reset();
     Get.testMode = true;
-    AppShellController.ensureShellDependencies();
   });
 
   tearDown(() {
@@ -103,9 +108,11 @@ void main() {
     // Should show safe summary
     expect(find.text('Run completed: setup project infrastructure'), findsOneWidget);
 
-    // Should show source reference (ID and type) but not raw content
+    // Should show source reference (ID và type) nhưng không raw content.
+    // `find.textContaining('run')` mơ hồ vì khớp cả "run_1" (sourceId) lẫn
+    // "run.completed" (kind) — assert đúng field sourceId thay vì substring
+    // rộng.
     expect(find.textContaining('run_1'), findsOneWidget);
-    expect(find.textContaining('run'), findsOneWidget);
   });
 
   testWidgets('ProjectActivityInspector redacts restricted source', (

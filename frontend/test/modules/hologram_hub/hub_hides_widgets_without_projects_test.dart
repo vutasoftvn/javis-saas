@@ -9,7 +9,6 @@ import 'package:frontend/core/shell/app_shell_controller.dart';
 import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:frontend/modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
-import 'package:frontend/modules/hologram_hub/widgets/cofounder_card_widget.dart';
 import 'package:frontend/modules/hologram_hub/widgets/top3_focus_widget.dart';
 import 'package:frontend/modules/hologram_hub/widgets/waiting_for_you_widget.dart';
 
@@ -59,7 +58,7 @@ void main() {
   });
 
   testWidgets(
-    'hasProjects == false -> KHÔNG render CoFounderCardWidget/Top3/WaitingForYou',
+    'hasProjects == false -> KHÔNG render Top3/WaitingForYou',
     (tester) async {
       ApiClient.client = _mock(withProject: false);
       Get.put(DashboardController());
@@ -74,28 +73,33 @@ void main() {
       tester.takeException(); // nuốt overflow viewport nhỏ (không liên quan)
 
       expect(fcc.hasProjects.value, isFalse);
-      expect(find.byType(CoFounderCardWidget), findsNothing);
       expect(find.byType(Top3FocusWidget), findsNothing);
       expect(find.byType(WaitingForYouWidget), findsNothing);
     },
   );
 
-  testWidgets('hasProjects == true -> vẫn render CoFounderCardWidget', (tester) async {
-    ApiClient.client = _mock(withProject: true);
-    Get.put(DashboardController());
-    final fcc = Get.put<FounderCommandCenterController>(
-      FounderCommandCenterController(),
-    );
-    await fcc.loadDashboardData();
+  testWidgets(
+    'hasProjects == true, chưa chọn Project -> vẫn render Top3 nhưng không tự chọn Project',
+    (tester) async {
+      ApiClient.client = _mock(withProject: true);
+      Get.put(DashboardController());
+      final fcc = Get.put<FounderCommandCenterController>(
+        FounderCommandCenterController(),
+      );
+      await fcc.loadDashboardData();
 
-    await tester.pumpWidget(GetMaterialApp(home: const HologramHubView()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    tester.takeException();
+      await tester.pumpWidget(GetMaterialApp(home: const HologramHubView()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      tester.takeException();
 
-    expect(fcc.hasProjects.value, isTrue);
-    expect(find.byType(CoFounderCardWidget), findsOneWidget);
-  });
+      expect(fcc.hasProjects.value, isTrue);
+      // Task 6 — controller không tự chọn Project đầu tiên (projects.first bị
+      // cấm tuyệt đối), Founder phải tự chọn qua ProjectContextBar.
+      expect(fcc.activeProjectId.value, isNull);
+      expect(find.byType(Top3FocusWidget), findsOneWidget);
+    },
+  );
 
   testWidgets('Hub has no Company-wide mode or All Projects option', (tester) async {
     ApiClient.client = _mock(withProject: true);

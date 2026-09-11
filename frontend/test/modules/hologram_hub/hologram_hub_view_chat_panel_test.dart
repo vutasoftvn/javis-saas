@@ -61,12 +61,25 @@ void main() {
   testWidgets('HologramHubView has fixed ChatPanelContent in central layout, no DraggableChatPanel', (
     tester,
   ) async {
+    // Giống test 2/3 — gọi `loadDashboardData()` tường minh và đợi xong
+    // trước khi pump, thay vì trông cậy vào `onInit()` fire-and-forget vốn
+    // có thể chưa resolve kịp trong 1-2 lần pump ngắn (không dùng
+    // `pumpAndSettle()` vì nền `CyberCircuitBackground` animation lặp vô hạn
+    // sẽ khiến nó timeout).
+    final controller = Get.put<FounderCommandCenterController>(
+      FounderCommandCenterController(),
+    );
+    await controller.loadDashboardData();
+
     await tester.pumpWidget(
       const GetMaterialApp(home: Scaffold(body: HologramHubView())),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byType(FloatingVoiceHologram), findsOneWidget);
+    // Task 7 — floating voice/chat primary action removed cùng
+    // DraggableChatPanel, thay bằng ChatPanelContent cố định giữa layout.
+    expect(find.byType(FloatingVoiceHologram), findsNothing);
     // Task 7 — DraggableChatPanel should NOT exist
     expect(find.byType(DraggableChatPanel), findsNothing);
     // Task 7 — ChatPanelContent should be visible in central Hub layout
@@ -110,7 +123,10 @@ void main() {
     await tester.pumpWidget(
       const GetMaterialApp(home: Scaffold(body: HologramHubView())),
     );
-    await tester.pumpAndSettle();
+    // Không dùng `pumpAndSettle()` — nền `CyberCircuitBackground` animation
+    // lặp vô hạn sẽ timeout.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Fixed chat should be visible in central layout
     expect(find.byType(ChatPanelContent), findsOneWidget);

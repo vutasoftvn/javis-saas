@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:frontend/core/shell/app_shell_controller.dart';
 import 'package:frontend/modules/hologram_hub/widgets/project_activity_timeline.dart';
 import 'package:frontend/modules/hologram_hub/models/project_activity_models.dart';
 
@@ -9,9 +8,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    // `ProjectActivityTimeline` không dùng `Get.find` — không cần
+    // `ensureShellDependencies()` (từng gây MissingPluginException async từ
+    // `DashboardController` rò rỉ sang test chạy sau, xem
+    // project_activity_inspector_test.dart).
     Get.reset();
     Get.testMode = true;
-    AppShellController.ensureShellDependencies();
   });
 
   tearDown(() {

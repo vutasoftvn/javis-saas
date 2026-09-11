@@ -10,13 +10,13 @@ class ProjectActivityTimeline extends StatefulWidget {
   final bool unavailable;
 
   const ProjectActivityTimeline({
-    Key? key,
+    super.key,
     required this.events,
     required this.onSelectEvent,
     this.filters,
     required this.loading,
     required this.unavailable,
-  }) : super(key: key);
+  });
 
   @override
   State<ProjectActivityTimeline> createState() => _ProjectActivityTimelineState();
@@ -121,8 +121,10 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
                   ),
                   ...categoryEvents.map((event) {
                     return GestureDetector(
-                      onTap: () =>
-                          setState(() => _selectedEvent = event),
+                      onTap: () {
+                        setState(() => _selectedEvent = event);
+                        widget.onSelectEvent(event);
+                      },
                       child: Container(
                         margin: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -193,7 +195,7 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               );
             }).toList(),

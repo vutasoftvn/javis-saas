@@ -7,11 +7,11 @@ class ProjectContextBar extends StatefulWidget {
   final Function(String projectId) onSelected;
 
   const ProjectContextBar({
-    Key? key,
+    super.key,
     required this.projects,
     required this.selectedProjectId,
     required this.onSelected,
-  }) : super(key: key);
+  });
 
   @override
   State<ProjectContextBar> createState() => _ProjectContextBarState();
@@ -137,7 +137,12 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
           color: Color(0xFF0F172A),
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        child: ListView.builder(
+        // ListTile vẽ background/ink splash lên Material ancestor gần nhất —
+        // Container ở trên có màu nền riêng nên phải có Material trung gian,
+        // nếu không ink splash/background của ListTile sẽ vô hình.
+        child: Material(
+          color: Colors.transparent,
+          child: ListView.builder(
           itemCount: widget.projects.length,
           itemBuilder: (_, i) {
             final project = widget.projects[i];
@@ -153,6 +158,7 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
               },
             );
           },
+          ),
         ),
       ),
     );

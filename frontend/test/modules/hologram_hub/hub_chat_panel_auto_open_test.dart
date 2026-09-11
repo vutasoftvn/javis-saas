@@ -1,11 +1,18 @@
-// Task 10 — decision Option 1: `/chat` redirects to `/hub?panel=chat`, and
-// Hub must actually open its existing chat sheet when it lands with that
-// query param — not just resolve the route. This proves the UI side of the
-// redirect, complementing `test/core/routing/chat_redirect_test.dart` (which
-// only proves the route itself resolves to `/hub?panel=chat`).
+// Task 10 — decision Option 1: `/chat` redirects to `/hub?panel=chat`.
+// Task 7 (Project Execution Console) sau đó bỏ khung chat nổi/kéo-thả
+// (`DraggableChatPanel`) và thay bằng `ChatPanelContent` CỐ ĐỊNH ngay trong
+// layout Hub, gắn với Project đang chọn — không còn trạng thái "mở/đóng"
+// dạng modal để `panel=chat` bật lên nữa. Vì vậy khung chat giờ hiển thị như
+// nhau bất kể có `panel=chat` hay không (miễn đã chọn Project); hai test
+// dưới đây được viết lại để phản ánh đúng hành vi hiện tại thay vì hành vi
+// modal đã bị bỏ, đồng thời vẫn giữ nguyên mục đích gốc: chứng minh
+// `/hub?panel=chat` thực sự dẫn người dùng tới một bề mặt chat dùng được —
+// bổ sung cho `test/core/routing/chat_redirect_test.dart` (chỉ chứng minh
+// route resolve, không chứng minh UI).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +24,22 @@ import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart
 import 'package:frontend/modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import 'package:frontend/modules/hologram_hub/views/hologram_hub_view.dart';
 
+MockClient _mockWithProject() {
+  return MockClient((request) async {
+    if (request.url.path == '/operations/projects') {
+      return http.Response(
+        jsonEncode({
+          'projects': [
+            {'id': 'proj-1', 'title': 'Có dự án', 'lifecycleStage': 'P0_DISCOVERY'},
+          ],
+        }),
+        200,
+      );
+    }
+    return http.Response('{}', 200);
+  });
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -26,10 +49,7 @@ void main() {
     SharedPreferences.setMockInitialValues({'workspace_id': 'ws_123'});
     Get.testMode = true;
     originalClient = ApiClient.client;
-    ApiClient.client = MockClient((request) async => http.Response('{}', 200));
-    // Task 6 (robot-icon-draggable-chat) — HologramHubView giờ tự vẽ
-    // FloatingVoiceHologram + DraggableChatPanel, cả 2 đều Get.find
-    // ChatPanelController ngay trong build() — phải đăng ký trước khi pump.
+    ApiClient.client = _mockWithProject();
     AppShellController.ensureShellDependencies();
   });
 
@@ -39,27 +59,38 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('Hub auto-opens the chat sheet when it lands with panel=chat', (tester) async {
+  testWidgets('Hub shows the fixed chat panel when it lands with panel=chat and a Project is selected', (
+    tester,
+  ) async {
     Get.parameters = {'panel': 'chat'};
     Get.lazyPut<DashboardController>(() => DashboardController());
-    Get.lazyPut<FounderCommandCenterController>(() => FounderCommandCenterController());
+    final controller = Get.put<FounderCommandCenterController>(
+      FounderCommandCenterController(),
+    );
+    await controller.loadDashboardData();
+    await controller.selectProject('proj-1');
 
     await tester.pumpWidget(
       const GetMaterialApp(home: Scaffold(body: HologramHubView())),
     );
     await tester.pump();
-    // addPostFrameCallback fires after this frame — one more pump for the
-    // bottom sheet's own entrance to settle.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text(AppCopy.hubChatPanelTitle), findsOneWidget);
   });
 
-  testWidgets('Hub does not open the chat sheet when panel is absent', (tester) async {
+  testWidgets('Hub disables the fixed chat panel when no Project is selected, regardless of panel param', (
+    tester,
+  ) async {
     Get.parameters = {};
     Get.lazyPut<DashboardController>(() => DashboardController());
-    Get.lazyPut<FounderCommandCenterController>(() => FounderCommandCenterController());
+    final controller = Get.put<FounderCommandCenterController>(
+      FounderCommandCenterController(),
+    );
+    await controller.loadDashboardData();
+    // Task 6 — không tự chọn Project đầu tiên; chat panel vẫn mount nhưng ở
+    // trạng thái disabled (xem ChatPanelContent.enabled), không hiện tiêu đề.
 
     await tester.pumpWidget(
       const GetMaterialApp(home: Scaffold(body: HologramHubView())),

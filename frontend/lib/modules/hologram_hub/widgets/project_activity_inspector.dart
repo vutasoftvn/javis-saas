@@ -8,12 +8,12 @@ class ProjectActivityInspector extends StatelessWidget {
   final VoidCallback? onClose;
 
   const ProjectActivityInspector({
-    Key? key,
+    super.key,
     required this.eventId,
     required this.projectId,
     this.event,
     this.onClose,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +158,7 @@ class ProjectActivityInspector extends StatelessWidget {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This content is restricted. Details are redacted for security.',
+                        'Restricted: nội dung đã được ẩn để bảo mật.',
                         style: TextStyle(
                           color: Colors.orange,
                           fontSize: 12,

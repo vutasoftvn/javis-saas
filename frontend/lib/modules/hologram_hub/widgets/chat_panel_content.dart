@@ -14,13 +14,35 @@ class ChatPanelContent extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onClose,
+    this.enabled = true,
   });
 
   final FounderCommandCenterController controller;
   final VoidCallback onClose;
 
+  /// Task 7 — `false` khi chưa chọn Project: composer không được render,
+  /// chỉ hiện thông báo yêu cầu chọn Project. Widget vẫn mount (không bị
+  /// swap ra ngoài) để layout Hub luôn có đúng 1 khung chat cố định.
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
+    if (!enabled) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.chat_bubble_outline, size: 40, color: Colors.white.withValues(alpha: 0.2)),
+            const SizedBox(height: 12),
+            Text(
+              'Select a Project to proceed',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
     return Column(
       children: [
         Row(

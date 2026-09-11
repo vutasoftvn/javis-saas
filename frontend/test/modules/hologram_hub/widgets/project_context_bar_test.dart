@@ -53,6 +53,9 @@ void main() {
       FounderCommandCenterController(),
     );
     await controller.loadDashboardData();
+    // Task 6 — controller không tự chọn Project đầu tiên, phải chọn tường
+    // minh để test đúng tên "selected Project name".
+    await controller.selectProject('proj-a');
 
     await tester.pumpWidget(
       GetMaterialApp(
@@ -70,9 +73,10 @@ void main() {
     // Should show selected Project title
     expect(find.textContaining('Project:'), findsOneWidget);
 
-    // Tap selector to open dropdown
+    // Tap selector to open dropdown — bottom sheet cần settle animation
+    // (~300ms) mới render xong ListTile bên trong.
     await tester.tap(find.byKey(const Key('project_context_selector')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     // Should list projects but NOT show Company-wide or All option
     expect(find.text('Project A'), findsOneWidget);
@@ -108,9 +112,9 @@ void main() {
 
     // Tap selector and select Project B
     await tester.tap(find.byKey(const Key('project_context_selector')));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Project B'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     // Should now show Project B
     expect(find.textContaining('Project: Project B'), findsOneWidget);

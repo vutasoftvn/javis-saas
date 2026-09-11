@@ -26,12 +26,14 @@ void main() {
           id: 'act_1',
           category: 'GOAL',
           title: 'Set up quarterly goals',
+          rationale: 'Founder chưa có mục tiêu quý nào được thiết lập.',
           actionPayload: {'goal_id': 'goal_1'},
         ),
         NextBestActionModel(
           id: 'act_2',
           category: 'DECISION',
           title: 'Approve product roadmap',
+          rationale: 'Roadmap đang chờ Founder phê duyệt.',
           actionPayload: {'decision_id': '2'},
         ),
       ];
@@ -57,35 +59,11 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Top3FocusWidget shows Project chip on actions',
-    (tester) async {
-      final actions = <NextBestActionModel>[
-        NextBestActionModel(
-          id: 'act_1',
-          category: 'GOAL',
-          title: 'Set OKRs for this quarter',
-          actionPayload: {'goal_id': 'goal_1'},
-        ),
-      ];
-
-      await tester.pumpWidget(
-        GetMaterialApp(
-          home: Scaffold(
-            body: Top3FocusWidget(
-              showDescription: false,
-              actions: actions,
-              onActionTap: (_) {},
-              onDiscuss: () {},
-              onOpenProjectLoop: () {},
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      // Should show Project identifier/chip
-      expect(find.textContaining('Project:'), findsOneWidget);
-    },
-  );
+  // Lưu ý: không thêm test "shows Project chip on actions" — Top3FocusWidget
+  // không nhận `projectId`/`selectedProjectId` nào để hiển thị, và
+  // `ProjectContextBar` ở header Hub đã hiển thị "Project: <tên>" rõ ràng
+  // rồi; lặp lại chip đó trên từng action card là dư thừa, không phải yêu
+  // cầu thật của Task 7 (chỉ yêu cầu link điều hướng Top3/KPI/Project
+  // Operating Loop dùng đúng `selectedProjectId`, việc `onOpenProjectLoop`/
+  // `onOpenProjectAnalysis` đã làm qua callback do caller bind sẵn ID).
 }

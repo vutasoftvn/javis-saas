@@ -12,6 +12,8 @@ import '../widgets/top3_focus_widget.dart';
 import '../widgets/waiting_for_you_widget.dart';
 import '../widgets/project_context_bar.dart';
 import '../widgets/project_activity_timeline.dart';
+import '../models/project_activity_models.dart';
+import '../services/project_activity_service.dart';
 import '../widgets/chat_panel_content.dart';
 import '../widgets/decision_modal_sheet.dart';
 import '../../../core/routing/app_routes.dart';
@@ -399,16 +401,13 @@ class _HologramHubViewState extends State<HologramHubView> {
                     controller.rejectTask(appId, reason),
               ),
               const SizedBox(height: 16),
-              // Project Activity Timeline (replaces HubActivityTimelineCard)
-              Expanded(
-                child: ProjectActivityTimeline(
-                  events: [], // Will be populated from service
-                  onSelectEvent: (event) {
-                    // Inspector details will be shown when selecting an event
-                  },
-                  filters: null,
-                  loading: false,
-                  unavailable: false,
+              // Project Activity Timeline (replaces HubActivityTimelineCard) —
+              // durable, fetch thật qua ProjectActivityService, không còn
+              // session-composed từ chatMessages/FounderInboxTask/ExecutionPlan.
+              SizedBox(
+                height: 420,
+                child: _ProjectActivityFeed(
+                  projectId: controller.activeProjectId.value!,
                 ),
               ),
             ] else if (!controller.hasProjects.value) ...[
@@ -461,42 +460,28 @@ class _HologramHubViewState extends State<HologramHubView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Chat panel - fixed and Project-bound
-          if (projectSelected)
-            Container(
-              height: 400,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF334155)),
-              ),
-              child: ChatPanelContent(
-                controller: controller,
-                onClose: () {
-                  // Chat is fixed, not closable
-                },
-              ),
-            )
-          else
-            Container(
-              height: 400,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF334155)),
-              ),
-              child: Center(
-                child: Text(
-                  'Select a project to start chatting with Co-Founder',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
+          // Chat panel - fixed and Project-bound, luôn mount, disable nội bộ
+          // khi chưa chọn Project (xem ChatPanelContent.enabled).
+          Container(
+            height: 400,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155)),
             ),
+            child: ChatPanelContent(
+              controller: controller,
+              enabled: projectSelected,
+              onClose: () {
+                // Chat is fixed, not closable
+              },
+            ),
+          ),
           const SizedBox(height: 16),
-          top3Widget(),
-          const SizedBox(height: 16),
+          if (controller.hasProjects.value) ...[
+            top3Widget(),
+            const SizedBox(height: 16),
+          ],
           if (controller.hasProjects.value && projectSelected)
             _WgaSurfaces(controller: controller),
         ],
@@ -547,15 +532,35 @@ class _HologramHubViewState extends State<HologramHubView> {
     }
 
     // ── MOBILE (<850): cuộn dọc, full width ──
+    final mobileProjectSelected = controller.activeProjectId.value != null;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Chat panel - fixed and Project-bound (xem centerColumn() ở
+          // desktop/tablet — mobile cũng cần khung chat cố định, không còn
+          // panel nổi kéo-thả).
+          Container(
+            height: 340,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: ChatPanelContent(
+              controller: controller,
+              enabled: mobileProjectSelected,
+              onClose: () {},
+            ),
+          ),
+          const SizedBox(height: 20),
           statsColumn(),
           const SizedBox(height: 20),
-          top3Widget(),
-          const SizedBox(height: 20),
+          if (controller.hasProjects.value) ...[
+            top3Widget(),
+            const SizedBox(height: 20),
+          ],
           // AI Workforce accordion
           Material(
               color: const Color(0xFF0F172A).withValues(alpha: 0.95),
@@ -968,6 +973,74 @@ class _WgaSurfacesState extends State<_WgaSurfaces> {
         ),
         Obx(() => YourTasksWidget(tasks: c.founderInboxTasks.toList())),
       ],
+    );
+  }
+}
+
+/// Task 7 — bọc `ProjectActivityTimeline` với fetch thật qua
+/// `ProjectActivityService`, thay `HubActivityTimelineCard` cũ (vốn tự dựng
+/// dòng thời gian từ `chatMessages`/`FounderInboxTask`/`ExecutionPlan` — state
+/// phiên làm việc, không bền vững). Fetch lại mỗi khi đổi Project.
+class _ProjectActivityFeed extends StatefulWidget {
+  final String projectId;
+
+  const _ProjectActivityFeed({required this.projectId});
+
+  @override
+  State<_ProjectActivityFeed> createState() => _ProjectActivityFeedState();
+}
+
+class _ProjectActivityFeedState extends State<_ProjectActivityFeed> {
+  final _service = ProjectActivityService();
+  late Future<List<ProjectActivityEvent>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _service.fetch(widget.projectId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProjectActivityFeed oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.projectId != widget.projectId) {
+      setState(() {
+        _future = _service.fetch(widget.projectId);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<ProjectActivityEvent>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return ProjectActivityTimeline(
+            events: const [],
+            onSelectEvent: (_) {},
+            loading: true,
+            unavailable: false,
+          );
+        }
+        if (snapshot.hasError) {
+          return ProjectActivityTimeline(
+            events: const [],
+            onSelectEvent: (_) {},
+            loading: false,
+            unavailable: true,
+          );
+        }
+        return ProjectActivityTimeline(
+          events: snapshot.data ?? const [],
+          loading: false,
+          unavailable: false,
+          // ProjectActivityTimeline tự hiển thị ProjectActivityInspector
+          // inline khi tap 1 event (xem widget) — không cần mở thêm dialog
+          // ở đây, tránh double inspector.
+          onSelectEvent: (_) {},
+        );
+      },
     );
   }
 }
