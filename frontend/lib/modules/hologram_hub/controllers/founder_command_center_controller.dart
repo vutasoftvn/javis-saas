@@ -23,6 +23,8 @@ import '../../../modules/strategy/services/execution_plan_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
 import '../../../modules/workforce/models/workforce_mvp_models.dart';
 import '../../../modules/workforce/services/workforce_mvp_service.dart';
+import '../models/project_startup_team.dart';
+import '../services/project_startup_team_service.dart';
 
 /// Fix-review (2026-09-01, Task 3) — trạng thái tải Workforce Packs cần phân
 /// biệt rõ "chưa tải xong"/"đã tải, hợp lệ (có thể rỗng)"/"tải thất bại,
@@ -40,13 +42,17 @@ class FounderCommandCenterController extends GetxController {
   // `WorkforceMvpService` (dùng chung với `MissionControlController`) trả về
   // `ApiResult` — tái dùng thẳng thay vì vá lại `ApprovalsService`.
   final WorkforceMvpService _workforceMvpService;
+  final ProjectStartupTeamService _startupTeamService;
   final AgentChatService _chatService = AgentChatService();
 
   // Fix-review (2026-09-02, final review I-1) — cho phép inject
   // `WorkforceMvpService` trong test (mirror DI pattern của
   // `MissionControlController`) thay vì luôn tạo instance thật gọi mạng.
-  FounderCommandCenterController({WorkforceMvpService? workforceMvpService})
-      : _workforceMvpService = workforceMvpService ?? WorkforceMvpService();
+  FounderCommandCenterController({
+    WorkforceMvpService? workforceMvpService,
+    ProjectStartupTeamService? startupTeamService,
+  })  : _workforceMvpService = workforceMvpService ?? WorkforceMvpService(),
+        _startupTeamService = startupTeamService ?? ProjectStartupTeamService();
 
   // Task 5 (`/agent/conversations/{id}/messages`) đòi hỏi phân loại
   // `data_access` không rỗng cho mọi tin nhắn — chat sheet này là kênh trao
@@ -158,6 +164,112 @@ class FounderCommandCenterController extends GetxController {
       if (token == _operatingLoopToken) {
         isOperatingLoopLoading.value = false;
       }
+    }
+  }
+
+  /// Đội ngũ khởi nghiệp của Project active (Task 5)
+  final RxList<ProjectStartupTeamMember> startupTeam = <ProjectStartupTeamMember>[].obs;
+  final RxBool isTeamLoading = false.obs;
+  final RxnString teamError = RxnString();
+  int _startupTeamToken = 0;
+
+  Future<void> loadStartupTeam(String? projectId) async {
+    if (projectId == null || projectId.isEmpty) {
+      startupTeam.clear();
+      isTeamLoading.value = false;
+      teamError.value = null;
+      return;
+    }
+
+    final token = ++_startupTeamToken;
+    isTeamLoading.value = true;
+    teamError.value = null;
+
+    try {
+      final result = await _startupTeamService.listTeam(projectId);
+      if (token != _startupTeamToken) return;
+
+      if (result.isSuccess && result.dataOrNull != null) {
+        startupTeam.assignAll(result.dataOrNull!);
+        teamError.value = null;
+      } else {
+        startupTeam.clear();
+        teamError.value =
+            result.failureOrNull?.message ?? 'Không thể tải đội ngũ dự án';
+      }
+    } catch (e) {
+      if (token != _startupTeamToken) return;
+      startupTeam.clear();
+      teamError.value = 'Lỗi kết nối đội ngũ dự án: $e';
+    } finally {
+      if (token == _startupTeamToken) {
+        isTeamLoading.value = false;
+      }
+    }
+  }
+
+  Future<bool> activateTeamMember(String profileKey, int expectedVersion) async {
+    final pid = activeProjectId.value;
+    if (pid == null || pid.isEmpty) {
+      AppToast.warning('Chưa chọn dự án active');
+      return false;
+    }
+    final result = await _startupTeamService.activateMember(
+      projectId: pid,
+      profileKey: profileKey,
+      expectedVersion: expectedVersion,
+    );
+    if (result.isSuccess && result.dataOrNull != null) {
+      final updated = result.dataOrNull!;
+      final idx = startupTeam.indexWhere((m) => m.profileKey == profileKey);
+      if (idx != -1) {
+        startupTeam[idx] = updated;
+      } else {
+        startupTeam.add(updated);
+      }
+      AppToast.success('Đã kích hoạt ${updated.label}');
+      return true;
+    } else {
+      final failure = result.failureOrNull;
+      final msg = failure?.message ?? 'Kích hoạt thất bại';
+      AppToast.error(msg);
+      await loadStartupTeam(pid);
+      return false;
+    }
+  }
+
+  Future<bool> pauseTeamMember(
+    String profileKey,
+    int expectedVersion, {
+    String? reason,
+  }) async {
+    final pid = activeProjectId.value;
+    if (pid == null || pid.isEmpty) {
+      AppToast.warning('Chưa chọn dự án active');
+      return false;
+    }
+    final result = await _startupTeamService.pauseMember(
+      projectId: pid,
+      profileKey: profileKey,
+      expectedVersion: expectedVersion,
+      reason: reason,
+    );
+    if (result.isSuccess && result.dataOrNull != null) {
+      final updated = result.dataOrNull!;
+      final idx = startupTeam.indexWhere((m) => m.profileKey == profileKey);
+      if (idx != -1) {
+        startupTeam[idx] = updated;
+      } else {
+        startupTeam.add(updated);
+      }
+      AppToast.info('Đã tạm dừng ${updated.label}');
+      return true;
+    } else {
+      final failure = result.failureOrNull;
+      final msg = failure?.message ?? 'Tạm dừng thất bại';
+      AppToast.error(msg);
+      await loadStartupTeam(pid);
+      return false;
     }
   }
 
@@ -287,6 +399,11 @@ class FounderCommandCenterController extends GetxController {
     workforcePacks.clear();
     workforceState.value = WorkforceLoadState.idle;
     approvalsState.value = WorkforceLoadState.idle;
+    startupTeam.clear();
+    isTeamLoading.value = false;
+    teamError.value = null;
+    currentOperatingLoop.value = null;
+    operatingLoopError.value = null;
 
     // Chat sheet: không được để tin nhắn/gõ dở của workspace cũ lẫn vào
     // workspace mới, và conversation id phải reset để lần gửi tiếp theo tạo
@@ -360,9 +477,12 @@ class FounderCommandCenterController extends GetxController {
     // Tải data Project mới
     currentOperatingLoop.value = null;
     operatingLoopError.value = null;
+    startupTeam.clear();
+    teamError.value = null;
     unawaited(loadDraftPlans());
     unawaited(loadFounderInbox());
     unawaited(loadOperatingLoop(projectId));
+    unawaited(loadStartupTeam(projectId));
 
     try {
       final projectStage = projectData?['lifecycleStage'] ??
@@ -465,9 +585,11 @@ class FounderCommandCenterController extends GetxController {
         unawaited(loadDraftPlans());
         unawaited(loadFounderInbox());
         unawaited(loadOperatingLoop(activeProjectId));
+        unawaited(loadStartupTeam(activeProjectId));
       } else {
         draftPlans.clear();
         founderInboxTasks.clear();
+        startupTeam.clear();
       }
 
       try {

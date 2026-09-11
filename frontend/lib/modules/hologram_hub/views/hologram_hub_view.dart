@@ -30,7 +30,7 @@ import '../../../core/localization/locale_controller.dart';
 import '../../../core/shell/chat_panel_controller.dart';
 
 import '../widgets/agent_direct_chat_sheet.dart';
-import '../widgets/command_center_workforce_sidebar.dart';
+import '../widgets/project_startup_team_sidebar.dart';
 import '../../agents/views/widgets/agent_test_run_drawer.dart';
 
 class HologramHubView extends StatefulWidget {
@@ -370,16 +370,14 @@ class _HologramHubViewState extends State<HologramHubView> {
     // ── Widget builders (shared across breakpoints) ──
 
     Widget workforceSidebar({bool shrinkWrap = false}) =>
-        CommandCenterWorkforceSidebar(
-          isCollapsed: false,
+        ProjectStartupTeamSidebar(
+          controller: controller,
           shrinkWrap: shrinkWrap,
-          onToggleCollapse: () {},
-          onOpenChat: (agent) =>
-              setState(() => _selectedAgentForChat = agent),
-          onOpenTestRun: (agent) =>
-              setState(() => _selectedAgentForTestRun = agent),
-          // customAgents: null — no real workforce data available yet in Founder Trial R1
-          // This will render the explicit "no agents assigned" state instead of fake agents
+          onOpenCofounderChat: () {
+            if (Get.isRegistered<ChatPanelController>()) {
+              Get.find<ChatPanelController>().open();
+            }
+          },
         );
 
     Widget statsColumn() => Column(

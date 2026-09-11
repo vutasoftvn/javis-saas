@@ -128,6 +128,7 @@ void main() {
     );
     // Don't select a project, just load projects
     await controller.loadDashboardData();
+    controller.activeProjectId.value = null;
     controller.requiresProjectSelection.value = true;
 
     await tester.pumpWidget(
