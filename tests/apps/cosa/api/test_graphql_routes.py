@@ -226,4 +226,8 @@ async def test_only_read_operations_are_registered(test_app):
     đều là read."""
     from apps.cosa.graphql.resolvers import PERSISTED_OPERATIONS
 
-    assert set(PERSISTED_OPERATIONS.keys()) == {"workspaceContext", "enterpriseKnowledgeSearch"}
+    assert set(PERSISTED_OPERATIONS.keys()) == {
+        "workspaceContext",
+        "enterpriseKnowledgeSearch",
+        "workspaceAuthorityOverview",
+    }

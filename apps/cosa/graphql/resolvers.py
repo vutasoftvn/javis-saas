@@ -19,8 +19,10 @@ __all__ = [
     "PERSISTED_OPERATIONS",
     "EnterpriseKnowledgeSearchOperation",
     "IdentityLike",
+    "WorkspaceAuthorityOverviewOperation",
     "WorkspaceContextOperation",
 ]
+
 
 _MAX_LIMIT = 20
 
@@ -141,7 +143,41 @@ class WorkspaceContextOperation:
         }
 
 
+class WorkspaceAuthorityOverviewOperation:
+    """Founder-only persisted read BFF returning authoritative workforce authorization overview (Task 7)."""
+
+    allowed_variables = frozenset()
+
+    async def execute(
+        self, variables: dict[str, Any], identity: IdentityLike, plane: Any
+    ) -> dict[str, Any]:
+        if identity.role_id not in ("founder", "co-founder"):
+            from fastapi import HTTPException, status
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="founder authority required to access workspace authority overview",
+            )
+
+        client = getattr(plane, "company_client", None)
+        if client is None:
+            from fastapi import HTTPException, status
+
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Company service client not configured",
+            )
+
+        res = await client.get(
+            "/identity/authorization/overview",
+            headers={"X-Workspace-Id": str(identity.workspace_id)},
+        )
+        return res
+
+
 PERSISTED_OPERATIONS: dict[str, PersistedOperation] = {
     "workspaceContext": WorkspaceContextOperation(),
     "enterpriseKnowledgeSearch": EnterpriseKnowledgeSearchOperation(),
+    "workspaceAuthorityOverview": WorkspaceAuthorityOverviewOperation(),
 }
+

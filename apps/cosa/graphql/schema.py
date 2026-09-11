@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = ["GraphQLRequest", "OperationId"]
 
-OperationId = Literal["workspaceContext", "enterpriseKnowledgeSearch"]
+OperationId = Literal["workspaceContext", "enterpriseKnowledgeSearch", "workspaceAuthorityOverview"]
 
 # Giá trị variable chỉ nhận scalar phẳng — dict/list lồng bị pydantic reject
 # thẳng ở validation (422), không cần tự viết depth-walker riêng.
