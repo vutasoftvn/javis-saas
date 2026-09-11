@@ -32,6 +32,7 @@ import '../../../core/shell/chat_panel_controller.dart';
 import '../widgets/agent_direct_chat_sheet.dart';
 import '../widgets/project_startup_team_sidebar.dart';
 import '../../agents/views/widgets/agent_test_run_drawer.dart';
+import 'executive_advisory_board_view.dart';
 
 class HologramHubView extends StatefulWidget {
   const HologramHubView({super.key});
@@ -370,14 +371,42 @@ class _HologramHubViewState extends State<HologramHubView> {
     // ── Widget builders (shared across breakpoints) ──
 
     Widget workforceSidebar({bool shrinkWrap = false}) =>
-        ProjectStartupTeamSidebar(
-          controller: controller,
-          shrinkWrap: shrinkWrap,
-          onOpenCofounderChat: () {
-            if (Get.isRegistered<ChatPanelController>()) {
-              Get.find<ChatPanelController>().open();
-            }
-          },
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ProjectStartupTeamSidebar(
+              controller: controller,
+              shrinkWrap: shrinkWrap,
+              onOpenCofounderChat: () {
+                if (Get.isRegistered<ChatPanelController>()) {
+                  Get.find<ChatPanelController>().open();
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            if (controller.activeProjectId.value != null)
+              OutlinedButton.icon(
+                key: const ValueKey('open_executive_board_button'),
+                onPressed: () {
+                  _showExecutiveAdvisoryBoardModal(
+                    context,
+                    controller.activeProjectId.value!,
+                  );
+                },
+                icon: const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF818CF8)),
+                label: const Text(
+                  'Hội đồng Cố vấn',
+                  style: TextStyle(color: Color(0xFF818CF8), fontSize: 13),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF3730A3)),
+                  backgroundColor: const Color(0xFF1E1B4B).withValues(alpha: 0.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+          ],
         );
 
     Widget statsColumn() => Column(
@@ -678,6 +707,24 @@ class _HologramHubViewState extends State<HologramHubView> {
             _WgaSurfaces(controller: controller),
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  void _showExecutiveAdvisoryBoardModal(BuildContext context, String projectId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            width: 1000,
+            height: 750,
+            child: ExecutiveAdvisoryBoardView(projectId: projectId),
+          ),
+        ),
       ),
     );
   }
