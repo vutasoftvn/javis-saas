@@ -1,0 +1,66 @@
+/**
+ * GENERATED FILE — DO NOT MODIFY DIRECTLY
+ * Source: shared/contracts/startup-team-profiles.json · Generator: scripts/gen-startup-team-profiles.mjs
+ * To update: edit shared/contracts/startup-team-profiles.json and run `node scripts/gen-startup-team-profiles.mjs`
+ */
+
+export type AssignmentState = 'TEMPLATE' | 'ACTIVE' | 'PAUSED' | 'RETIRED';
+export type TeamDisplayState = 'CHAT_READY' | AssignmentState;
+
+export type RuntimeReadiness =
+  | 'READY'
+  | 'PENDING_CRM_FOUNDATION'
+  | 'PENDING_PROJECT_KNOWLEDGE'
+  | 'DEFERRED_CODING';
+
+export const STARTUP_TEAM_PROFILE_KEYS = [
+  "founder_assistant",
+  "research_intelligence",
+  "strategy",
+  "marketing",
+  "finance",
+  "crm",
+  "sales",
+  "coding",
+  "customer_support",
+] as const;
+
+export type StartupTeamProfileKey = (typeof STARTUP_TEAM_PROFILE_KEYS)[number];
+
+export interface StartupTeamProfileDef {
+  key: StartupTeamProfileKey;
+  label: string;
+  defaultMode: string;
+  runtimeReadiness: RuntimeReadiness;
+}
+
+export const STARTUP_TEAM_PROFILES: readonly StartupTeamProfileDef[] = Object.freeze([
+  {"key":"founder_assistant","label":"Co-Founder","defaultMode":"CHAT_READY","runtimeReadiness":"READY"},
+  {"key":"research_intelligence","label":"Research & Intelligence","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+  {"key":"strategy","label":"Strategy","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+  {"key":"marketing","label":"Marketing","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+  {"key":"finance","label":"Finance","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+  {"key":"crm","label":"CRM","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
+  {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
+  {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"DEFERRED_CODING"},
+  {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_PROJECT_KNOWLEDGE"},
+]);
+
+export interface ProjectStartupTeamMember {
+  profileKey: StartupTeamProfileKey;
+  label: string;
+  displayState: TeamDisplayState;
+  runtimeReadiness: RuntimeReadiness;
+  disabledReason?: string;
+  assignmentVersion?: number;
+  activatedAt?: string;
+  activatedBy?: string;
+}
+
+export function isStartupTeamProfileKey(val: unknown): val is StartupTeamProfileKey {
+  return typeof val === 'string' && (STARTUP_TEAM_PROFILE_KEYS as readonly string[]).includes(val);
+}
+
+export const STARTUP_TEAM_PROFILES_MAP: Readonly<Record<StartupTeamProfileKey, StartupTeamProfileDef>> = Object.freeze(
+  Object.fromEntries(STARTUP_TEAM_PROFILES.map((p) => [p.key, p])) as Record<StartupTeamProfileKey, StartupTeamProfileDef>
+);

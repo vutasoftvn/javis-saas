@@ -782,3 +782,57 @@ export const automationInvocationEvents = operatingSchema.table("automation_invo
 }, (t) => ({
   uixSeq: uniqueIndex("uix_automation_invocation_events_seq").on(t.workspaceId, t.invocationId, t.seq),
 }));
+
+export const projectAgentAssignmentStateEnum = operatingSchema.enum("project_agent_assignment_state", [
+  "TEMPLATE",
+  "ACTIVE",
+  "PAUSED",
+  "RETIRED",
+]);
+
+export const projectAgentAssignments = operatingSchema.table("project_agent_assignments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  profileKey: text("profile_key").notNull(),
+  state: projectAgentAssignmentStateEnum("state").default("TEMPLATE").notNull(),
+  agentWorkforceMemberId: bigint("agent_workforce_member_id", { mode: "bigint" }),
+  specId: text("spec_id"),
+  specVersion: text("spec_version"),
+  specHash: text("spec_hash"),
+  activationPolicySnapshot: jsonb("activation_policy_snapshot"),
+  version: integer("version").default(1).notNull(),
+  disabledReason: text("disabled_reason"),
+  createdBy: bigint("created_by", { mode: "bigint" }),
+  activatedBy: bigint("activated_by", { mode: "bigint" }),
+  pausedBy: bigint("paused_by", { mode: "bigint" }),
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
+  pausedAt: timestamp("paused_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixWsProjKey: uniqueIndex("uix_project_agent_assignments_ws_proj_key").on(t.workspaceId, t.projectId, t.profileKey),
+  fkProject: foreignKey({
+    columns: [t.projectId, t.workspaceId],
+    foreignColumns: [projects.id, projects.workspaceId],
+    name: "fk_project_agent_assignments_proj_ws",
+  }).onDelete("cascade"),
+  idxWsProj: index("idx_project_agent_assignments_ws_proj").on(t.workspaceId, t.projectId),
+}));
+
+export const projectAgentAssignmentEvents = operatingSchema.table("project_agent_assignment_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  assignmentId: bigint("assignment_id", { mode: "bigint" }).notNull().references(() => projectAgentAssignments.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  fromState: projectAgentAssignmentStateEnum("from_state"),
+  toState: projectAgentAssignmentStateEnum("to_state").notNull(),
+  assignmentVersion: integer("assignment_version").notNull(),
+  actorId: bigint("actor_id", { mode: "bigint" }).notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+  eventPayload: jsonb("event_payload").default({}).notNull(),
+}, (t) => ({
+  idxAssignmentOccurred: index("idx_project_agent_assignment_events_assignment").on(t.assignmentId, t.occurredAt),
+}));
+

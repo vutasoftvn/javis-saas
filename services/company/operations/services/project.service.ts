@@ -54,6 +54,8 @@ function toProject(row: typeof projects.$inferSelect): Project {
   };
 }
 
+import { ensureProjectStartupTeam } from "./project-startup-team.service";
+
 export async function createProjectService(ctx: TenantContext, req: CreateProjectRequest): Promise<Project> {
   if (!req.title) {
     throw APIError.invalidArgument("title is required");
@@ -61,26 +63,37 @@ export async function createProjectService(ctx: TenantContext, req: CreateProjec
 
   const wsId = BigInt(ctx.workspaceId);
 
-  const [row] = await db
-    .insert(projects)
-    .values({
-      id: generateSnowflake(),
-      workspaceId: wsId,
-      title: req.title,
-      description: req.description || null,
-      // M4 §3 — default P0_DISCOVERY (không phải "PLANNING"); Project stage độc lập Workspace.
-      lifecycleStage: req.lifecycleStage || "P0_DISCOVERY",
-      stageEnteredAt: new Date(),
-      ownerMemberId: req.ownerMemberId ? BigInt(req.ownerMemberId) : null,
-      projectType: req.projectType || "STRATEGIC",
-      strategicPriority: req.strategicPriority || "P1",
-      portfolioId: req.portfolioId ? BigInt(req.portfolioId) : null,
-      startDate: req.startDate ? new Date(req.startDate) : null,
-      endDate: req.endDate ? new Date(req.endDate) : null,
-    })
-    .returning();
+  const row = await db.transaction(async (tx) => {
+    const [p] = await tx
+      .insert(projects)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: wsId,
+        title: req.title,
+        description: req.description || null,
+        // M4 §3 — default P0_DISCOVERY (không phải "PLANNING"); Project stage độc lập Workspace.
+        lifecycleStage: req.lifecycleStage || "P0_DISCOVERY",
+        stageEnteredAt: new Date(),
+        ownerMemberId: req.ownerMemberId ? BigInt(req.ownerMemberId) : null,
+        projectType: req.projectType || "STRATEGIC",
+        strategicPriority: req.strategicPriority || "P1",
+        portfolioId: req.portfolioId ? BigInt(req.portfolioId) : null,
+        startDate: req.startDate ? new Date(req.startDate) : null,
+        endDate: req.endDate ? new Date(req.endDate) : null,
+      })
+      .returning();
 
-  if (!row) throw APIError.internal("Failed to create project");
+    if (!p) throw APIError.internal("Failed to create project");
+
+    await ensureProjectStartupTeam(tx, {
+      workspaceId: ctx.workspaceId,
+      projectId: p.id.toString(),
+      actorId: ctx.userId ?? ctx.workspaceId,
+    });
+
+    return p;
+  });
+
   return toProject(row);
 }
 
