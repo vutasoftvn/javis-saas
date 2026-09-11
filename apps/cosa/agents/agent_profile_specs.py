@@ -18,9 +18,12 @@ from __future__ import annotations
 from agent.contracts.spec import AgentSpec
 
 from apps.cosa.agents.specs import (
+    COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
     COSA_FINANCE_AGENT_SPEC,
     COSA_MARKETING_AGENT_SPEC,
     COSA_OPERATIONS_AGENT_SPEC,
+    COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
+    COSA_STRATEGY_AGENT_SPEC,
 )
 
 __all__ = ["AGENT_PROFILE_SPECS"]
@@ -28,12 +31,13 @@ __all__ = ["AGENT_PROFILE_SPECS"]
 # "founder_assistant" là default thật đang được Flutter gửi cho MỌI
 # conversation mới (chat_controller.dart createNewConversation() không truyền
 # agentProfile) — alias sang Operations để giữ đúng hành vi hiện tại, không
-# phải bug cần sửa. Không bao gồm customer_support/customer_support_autopilot
-# — 2 profile đó rẽ nhánh riêng ở `execute_run_task` (handlers.py) trước khi
-# tới bảng này.
+# phải bug cần sửa.
 AGENT_PROFILE_SPECS: dict[str, AgentSpec] = {
     "operations": COSA_OPERATIONS_AGENT_SPEC,
     "founder_assistant": COSA_OPERATIONS_AGENT_SPEC,
     "finance": COSA_FINANCE_AGENT_SPEC,
     "marketing": COSA_MARKETING_AGENT_SPEC,
+    "research_intelligence": COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
+    "strategy": COSA_STRATEGY_AGENT_SPEC,
+    "customer_support": COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
 }

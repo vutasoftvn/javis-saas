@@ -21,6 +21,10 @@ __all__ = [
     "COSA_MARKETING_PROMPT",
     "COSA_OPERATIONS_AGENT_SPEC",
     "COSA_OPERATIONS_PROMPT",
+    "COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC",
+    "COSA_RESEARCH_INTELLIGENCE_PROMPT",
+    "COSA_STRATEGY_AGENT_SPEC",
+    "COSA_STRATEGY_PROMPT",
 ]
 
 # ModelPolicySpec dùng chung cho mọi COSA agent — chỉ pin provenance/lineage
@@ -311,6 +315,53 @@ COSA_KICKOFF_SUGGESTION_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA Kickoff Suggestion Specialist Agent"},
 )
 
+COSA_RESEARCH_INTELLIGENCE_PROMPT = PromptSpec(
+    id="cosa.agents.research_intelligence.prompt",
+    version="1.0.0",
+    text="Chuyên viên nghiên cứu thị trường, thu thập dữ liệu và phân tích đối thủ cạnh tranh.",
+).with_hash()
+
+COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.research_intelligence",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L0_OBSERVE,
+    instructions=COSA_RESEARCH_INTELLIGENCE_PROMPT.text,
+    capability_refs=[
+        "strategy.evidence.list",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_RESEARCH_INTELLIGENCE_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Research & Intelligence Specialist Agent"},
+)
+
+COSA_STRATEGY_PROMPT = PromptSpec(
+    id="cosa.agents.strategy.prompt",
+    version="1.0.0",
+    text="Chuyên viên hoạch định chiến lược kinh doanh và theo dõi mục tiêu OKRs.",
+).with_hash()
+
+COSA_STRATEGY_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.strategy",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L0_OBSERVE,
+    instructions=COSA_STRATEGY_PROMPT.text,
+    capability_refs=[
+        "strategy.project.get",
+        "strategy.next_best_action.get",
+        "strategy.evidence.list",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_STRATEGY_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Strategy Specialist Agent"},
+)
+
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
 # runtime specs (skillpacks + prompts/model_policy/agent) và verify mọi
 # pinned_skills resolve được trước khi phục vụ traffic (Wave M2b).
@@ -318,6 +369,8 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_OPERATIONS_AGENT_SPEC,
     COSA_FINANCE_AGENT_SPEC,
     COSA_MARKETING_AGENT_SPEC,
+    COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
+    COSA_STRATEGY_AGENT_SPEC,
     COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
     COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
     COSA_KICKOFF_SUGGESTION_AGENT_SPEC,

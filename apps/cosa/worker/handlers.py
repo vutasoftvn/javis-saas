@@ -51,6 +51,14 @@ logger = logging.getLogger(__name__)
 # kéo theo toàn bộ import chain nặng của module này — xem docstring ở đó).
 _AGENT_PROFILE_SPECS = AGENT_PROFILE_SPECS
 
+from apps.cosa.agents.startup_team_profiles_generated import STARTUP_TEAM_PROFILE_KEYS
+from apps.cosa.company.project_team_client import (
+    ProjectTeamAuthorityError,
+    ProjectTeamClient,
+)
+
+PROJECT_TEAM_OPERATING_PROFILES = set(STARTUP_TEAM_PROFILE_KEYS) - {"founder_assistant"}
+
 
 async def _resolve_workspace_project_id(
     plane: CosaAgentPlane, workspace_id: str | None, delegation_token: str | None
@@ -211,6 +219,142 @@ async def execute_run_task(
                 return RunTaskResult(
                     status="failed", error="project_context_mismatch", run_id=run_id
                 )
+
+    if agent_profile in PROJECT_TEAM_OPERATING_PROFILES:
+        if not workspace_id or not project_id:
+            conversation_id = payload.get("conversation_id")
+            stream_repo = getattr(plane, "stream_event_repository", None)
+            if stream_repo and conversation_id and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type="run.failed",
+                    payload={"error": "project_context_required"},
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                )
+            return RunTaskResult(
+                status="failed", error="project_context_required", run_id=run_id
+            )
+
+        team_client = getattr(plane, "project_team_client", None) or ProjectTeamClient()
+        try:
+            authority = await team_client.get_run_authority(
+                workspace_id=str(workspace_id),
+                project_id=str(project_id),
+                profile_key=agent_profile,
+            )
+        except ProjectTeamAuthorityError as exc:
+            logger.warning(
+                "run_id=%s authority denied for %s in project=%s: %s",
+                run_id,
+                agent_profile,
+                project_id,
+                exc,
+            )
+            conversation_id = payload.get("conversation_id")
+            stream_repo = getattr(plane, "stream_event_repository", None)
+            if stream_repo and conversation_id and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type="run.failed",
+                    payload={"error": "project_team_authority_denied", "details": str(exc)},
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                )
+            return RunTaskResult(
+                status="failed", error="project_team_authority_denied", run_id=run_id
+            )
+
+        if (
+            str(authority.workspace_id) != str(workspace_id)
+            or str(authority.project_id) != str(project_id)
+            or authority.profile_key != agent_profile
+        ):
+            conversation_id = payload.get("conversation_id")
+            stream_repo = getattr(plane, "stream_event_repository", None)
+            if stream_repo and conversation_id and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type="run.failed",
+                    payload={"error": "project_context_mismatch"},
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                )
+            return RunTaskResult(
+                status="failed", error="project_context_mismatch", run_id=run_id
+            )
+
+        local_spec = _AGENT_PROFILE_SPECS.get(agent_profile)
+        if not local_spec:
+            return RunTaskResult(
+                status="failed", error="unknown_agent_profile", run_id=run_id
+            )
+
+        if (
+            local_spec.id != authority.spec.id
+            or local_spec.version != authority.spec.version
+            or local_spec.compute_hash() != authority.spec.hash
+        ):
+            logger.error(
+                "run_id=%s spec mismatch for %s: local=(%s, %s, %s) authority=(%s, %s, %s)",
+                run_id,
+                agent_profile,
+                local_spec.id,
+                local_spec.version,
+                local_spec.compute_hash(),
+                authority.spec.id,
+                authority.spec.version,
+                authority.spec.hash,
+            )
+            conversation_id = payload.get("conversation_id")
+            stream_repo = getattr(plane, "stream_event_repository", None)
+            if stream_repo and conversation_id and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type="run.failed",
+                    payload={"error": "spec_hash_mismatch"},
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                )
+            return RunTaskResult(
+                status="failed", error="spec_hash_mismatch", run_id=run_id
+            )
+
+        if agent_profile == "customer_support":
+            if not authority.policy_snapshot.get("knowledge_gate_passed", False):
+                conversation_id = payload.get("conversation_id")
+                stream_repo = getattr(plane, "stream_event_repository", None)
+                if stream_repo and conversation_id and stream_mgr:
+                    await stream_mgr.emit(
+                        stream_repo,
+                        run_id=run_id,
+                        conversation_id=conversation_id,
+                        event_type="run.failed",
+                        payload={"error": "support_knowledge_gate_required"},
+                        activity_service=getattr(plane, "project_activity_service", None),
+                        workspace_id=workspace_id,
+                        project_id=project_id,
+                    )
+                return RunTaskResult(
+                    status="failed",
+                    error="support_knowledge_gate_required",
+                    run_id=run_id,
+                )
+
+        payload["assignment_version"] = authority.assignment_version
+        payload["spec_hash"] = authority.spec.hash
 
     if agent_profile == "customer_support" or payload.get("copilot") is True:
         with log_context(run_id=run_id, workspace_id=workspace_id):

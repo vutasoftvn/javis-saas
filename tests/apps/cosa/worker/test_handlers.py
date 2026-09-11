@@ -23,6 +23,13 @@ from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
     fake_active_tenant_policy_client,
 )
+from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
+from apps.cosa.company.project_team_client import (
+    ProjectAgentRunAuthority,
+    ProjectTeamAuthorityError,
+    ProjectTeamClient,
+    SpecRef,
+)
 
 
 def _plane():
@@ -35,7 +42,7 @@ def _plane():
     # này không phụ thuộc 1 server Company thật đang chạy.
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
-    return build_cosa_agent_plane(
+    plane = build_cosa_agent_plane(
         company_client=mock_client,
         repository=InMemoryRunRepository(),
         conversation_repository=InMemoryConversationRepository(),
@@ -45,6 +52,30 @@ def _plane():
         stream_event_repository=InMemoryRunStreamEventRepository(),
         model=FakeSDKModel(),
     )
+
+    mock_team_client = AsyncMock(spec=ProjectTeamClient)
+
+    async def _mock_get_run_authority(*, workspace_id: str, project_id: str, profile_key: str):
+        spec = AGENT_PROFILE_SPECS.get(profile_key)
+        if not spec:
+            raise ProjectTeamAuthorityError("not found", status_code=404)
+        return ProjectAgentRunAuthority(
+            projectId=project_id,
+            workspaceId=workspace_id,
+            profileKey=profile_key,
+            assignmentVersion=1,
+            agentWorkforceMemberId="wm_mock_1",
+            spec=SpecRef(
+                id=spec.id,
+                version=spec.version,
+                hash=spec.compute_hash(),
+            ),
+            policySnapshot={"knowledge_gate_passed": True},
+        )
+
+    mock_team_client.get_run_authority.side_effect = _mock_get_run_authority
+    plane.project_team_client = mock_team_client
+    return plane
 
 
 def _payload(**overrides) -> dict:
