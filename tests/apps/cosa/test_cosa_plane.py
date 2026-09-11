@@ -93,6 +93,7 @@ async def test_cosa_write_capability_finance_payout_with_approval_flow(mock_comp
         checkpoint_ref=checkpoint_ref,
         workspace_id="ws_cosa_1",
         idempotency_key="idem_send_1",
+        context={"agent_workforce_member_id": "mem_send_1"},
     )
 
     # 1. Gọi execute lần đầu -> Policy HIGH chặn lại ở WAITING_APPROVAL
@@ -174,6 +175,7 @@ async def test_cosa_approval_of_tool_call_a_does_not_open_tool_call_b(mock_compa
         tool_call_id="call_A",
         checkpoint_ref="ckpt_A",
         workspace_id="ws_cosa_1",
+        context={"agent_workforce_member_id": "mem_tool_ab"},
     )
     req_b = GatewayExecutionRequest(
         run_id="run_tool_calls_ab",
@@ -182,6 +184,7 @@ async def test_cosa_approval_of_tool_call_a_does_not_open_tool_call_b(mock_compa
         tool_call_id="call_B",
         checkpoint_ref="ckpt_B",
         workspace_id="ws_cosa_1",
+        context={"agent_workforce_member_id": "mem_tool_ab"},
     )
 
     # 1. Cả 2 đều đợi approval

@@ -30,6 +30,17 @@ from tests.apps.cosa.policy_test_helpers import (
 @pytest.fixture
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
+    mock_client.get.return_value = {
+        "workspaceId": "ws_1001",
+        "members": [
+            {
+                "id": "mem_test",
+                "memberType": "AI_AGENT",
+                "status": "active",
+                "roleTitle": "Test AI Agent",
+            },
+        ],
+    }
     configure_mock_client_allows_data_use(mock_client)
     plane = build_cosa_agent_plane(
         company_client=mock_client,
@@ -72,7 +83,7 @@ async def test_create_assignment_and_list(test_app) -> None:
     ) as client:
         create_res = await client.post(
             "/agent/workforce/assignments",
-            json={"functional_key": "campaign_planner"},
+            json={"functional_key": "campaign_planner", "company_workforce_member_id": "mem_test"},
         )
         assert create_res.status_code == 200
         created = create_res.json()["data"]
@@ -97,7 +108,7 @@ async def test_tenant_isolation_cannot_see_or_retire_other_workspace_assignment(
     ) as client_a:
         res_a = await client_a.post(
             "/agent/workforce/assignments",
-            json={"functional_key": "compliance_analyst"},
+            json={"functional_key": "compliance_analyst", "company_workforce_member_id": "mem_test"},
         )
         assert res_a.status_code == 200
         assignment_id_a = res_a.json()["data"]["assignment_id"]
@@ -134,7 +145,7 @@ async def test_composition_shows_assigned_status_honestly(test_app) -> None:
         # Assign campaign_planner
         await client.post(
             "/agent/workforce/assignments",
-            json={"functional_key": "campaign_planner"},
+            json={"functional_key": "campaign_planner", "company_workforce_member_id": "mem_test"},
         )
 
         comp_after = await client.get("/agent/workforce/composition")
@@ -152,7 +163,7 @@ async def test_health_reports_not_observed_when_no_runs(test_app) -> None:
     ) as client:
         await client.post(
             "/agent/workforce/assignments",
-            json={"functional_key": "campaign_planner"},
+            json={"functional_key": "campaign_planner", "company_workforce_member_id": "mem_test"},
         )
         health_res = await client.get("/agent/workforce/health")
         assert health_res.status_code == 200
@@ -510,7 +521,7 @@ async def test_roster_marks_assigned_entries_active(test_app) -> None:
     ) as client:
         create_res = await client.post(
             "/agent/workforce/assignments",
-            json={"functional_key": "campaign_planner"},
+            json={"functional_key": "campaign_planner", "company_workforce_member_id": "mem_test"},
         )
         assert create_res.status_code == 200
 
@@ -712,7 +723,8 @@ async def test_dashboard_summary_aggregates_existing_counts(test_app) -> None:
         base_url="http://test",
     ) as client:
         await client.post(
-            "/agent/workforce/assignments", json={"functional_key": "campaign_planner"}
+            "/agent/workforce/assignments",
+            json={"functional_key": "campaign_planner", "company_workforce_member_id": "mem_test"},
         )
 
         res = await client.get("/agent/workforce/dashboard-summary")
