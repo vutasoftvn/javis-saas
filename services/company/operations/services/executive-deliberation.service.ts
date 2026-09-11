@@ -13,6 +13,7 @@ import {
 } from "../../shared/events/event-types";
 import {
   EXECUTIVE_ROLE_CATALOG,
+  ExecutiveRoleKey,
   isExecutiveRoleKey,
 } from "../../shared/contracts/executive-advisor-roles.generated";
 import { requireExecutiveBoardFounderAuthority } from "./executive-role-activation.service";
@@ -190,6 +191,30 @@ export async function frameDeliberation(
   const projId = BigInt(projectId);
   const delibId = BigInt(deliberationId);
   const actorId = BigInt(ctx.userId);
+
+  // Validate evidence sources for cross-tenant / cross-project isolation
+  if (input.evidenceSources) {
+    for (const src of input.evidenceSources) {
+      if (src.sourceRef && src.sourceRef.startsWith("project://")) {
+        const parts = src.sourceRef.replace("project://", "").split("/");
+        const refProjId = parts[0];
+        if (refProjId && refProjId !== projectId) {
+          throw APIError.permissionDenied(
+            `CROSS_PROJECT_EVIDENCE_FORBIDDEN: Evidence reference '${src.sourceRef}' belongs to another project`
+          );
+        }
+      }
+      if (src.sourceRef && src.sourceRef.startsWith("workspace://")) {
+        const parts = src.sourceRef.replace("workspace://", "").split("/");
+        const refWsId = parts[0];
+        if (refWsId && refWsId !== ctx.workspaceId) {
+          throw APIError.permissionDenied(
+            `CROSS_WORKSPACE_EVIDENCE_FORBIDDEN: Evidence reference '${src.sourceRef}' belongs to another workspace`
+          );
+        }
+      }
+    }
+  }
 
   // 1. Verify every role is ACTIVE and fetch underlying pins
   const rolePins: SelectedRolePin[] = [];
@@ -741,6 +766,25 @@ export async function recordExecutiveAnalysisCallback(
       };
     }
 
+    // Verify role is still active in project
+    const [roleAct] = await tx
+      .select({ state: projectExecutiveRoleActivations.state })
+      .from(projectExecutiveRoleActivations)
+      .where(
+        and(
+          eq(projectExecutiveRoleActivations.workspaceId, wsId),
+          eq(projectExecutiveRoleActivations.projectId, projId),
+          eq(projectExecutiveRoleActivations.roleKey, callback.role_key)
+        )
+      )
+      .limit(1);
+
+    if (!roleAct || roleAct.state !== "ACTIVE") {
+      throw APIError.failedPrecondition(
+        `Role '${callback.role_key}' has been disabled or revoked`
+      );
+    }
+
     // Insert analysis record
     const analysisId = generateSnowflake();
     const isSuccess = callback.kind === "executive.analysis.completed.v1";
@@ -836,7 +880,8 @@ export async function getDeliberationAuthority(
   workspaceId: string,
   projectId: string,
   deliberationId: string,
-  roleKey: string
+  roleKey: string,
+  expectedFrameVersion?: number
 ): Promise<{
   deliberationId: string;
   frameVersion: number;
@@ -870,6 +915,12 @@ export async function getDeliberationAuthority(
     throw APIError.failedPrecondition(`Deliberation is in state '${delib.state}'`);
   }
 
+  if (expectedFrameVersion !== undefined && delib.activeFrameVersion !== expectedFrameVersion) {
+    throw APIError.failedPrecondition(
+      `Frame version mismatch: active is ${delib.activeFrameVersion}, expected ${expectedFrameVersion}`
+    );
+  }
+
   const [frame] = await db
     .select()
     .from(projectExecutiveDeliberationFrames)
@@ -891,6 +942,49 @@ export async function getDeliberationAuthority(
     throw APIError.failedPrecondition(
       `Role '${roleKey}' is not pinned in deliberation active frame`
     );
+  }
+
+  // Verify role is still active in project
+  const [roleAct] = await db
+    .select({ state: projectExecutiveRoleActivations.state })
+    .from(projectExecutiveRoleActivations)
+    .where(
+      and(
+        eq(projectExecutiveRoleActivations.workspaceId, wsId),
+        eq(projectExecutiveRoleActivations.projectId, projId),
+        eq(projectExecutiveRoleActivations.roleKey, roleKey)
+      )
+    )
+    .limit(1);
+
+  if (!roleAct || roleAct.state !== "ACTIVE") {
+    throw APIError.failedPrecondition(
+      `Role '${roleKey}' is no longer ACTIVE or has been disabled`
+    );
+  }
+
+  // Verify underlying startup team assignment is still active
+  if (isExecutiveRoleKey(roleKey)) {
+    const roleDef = EXECUTIVE_ROLE_CATALOG[roleKey];
+    if (roleDef) {
+      const [assignment] = await db
+        .select({ state: projectAgentAssignments.state })
+        .from(projectAgentAssignments)
+        .where(
+          and(
+            eq(projectAgentAssignments.workspaceId, wsId),
+            eq(projectAgentAssignments.projectId, projId),
+            eq(projectAgentAssignments.profileKey, roleDef.requiredProfileKey)
+          )
+        )
+        .limit(1);
+
+      if (!assignment || assignment.state !== "ACTIVE") {
+        throw APIError.failedPrecondition(
+          `Underlying assignment for role '${roleKey}' is no longer ACTIVE`
+        );
+      }
+    }
   }
 
   return {

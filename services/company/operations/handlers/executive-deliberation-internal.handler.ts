@@ -91,6 +91,7 @@ interface DeliberationAuthorityParams {
   projectId: string;
   deliberationId: string;
   roleKey: string;
+  frameVersion?: number;
 }
 
 interface DeliberationAuthorityResult {
@@ -116,7 +117,8 @@ export const getDeliberationAuthorityApi = api(
       params.workspaceId,
       params.projectId,
       params.deliberationId,
-      params.roleKey
+      params.roleKey,
+      params.frameVersion
     );
   }
 );

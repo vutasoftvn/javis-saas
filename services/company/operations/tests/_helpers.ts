@@ -167,3 +167,23 @@ export async function seedObjectiveWithKeyResult(
   });
   return { objectiveId: objectiveId.toString(), keyResultId: keyResultId.toString() };
 }
+
+import { TenantContext } from "../../shared/types/tenant_context";
+
+export function makeTestTenantContext(params: {
+  workspaceId: string;
+  userId: string;
+  workforceMemberId?: string;
+  membershipRole?: string;
+  isAiAgent?: boolean;
+}): TenantContext {
+  return {
+    workspaceId: params.workspaceId,
+    userId: params.userId,
+    workforceMemberId: params.workforceMemberId,
+    membershipRole: params.membershipRole ?? "founder",
+    permissions: [],
+    correlationId: "test-corr-" + generateSnowflake().toString(),
+    isAiAgent: params.isAiAgent ?? false,
+  };
+}

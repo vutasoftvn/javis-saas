@@ -5,6 +5,7 @@ export interface TenantContext {
   readonly membershipRole: string;
   readonly permissions: readonly string[];
   readonly correlationId: string;
+  readonly isAiAgent?: boolean;
   // B5 fix — platform_user_id thật (identityUserProjections.platformUserId)
   // của local user này, nếu đã từng sync qua `sync-from-platform`. apps/cosa
   // dùng field này để mint control-plane delegation (services/cosa) khi

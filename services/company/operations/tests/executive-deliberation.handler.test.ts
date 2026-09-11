@@ -13,6 +13,7 @@ import {
 } from "../handlers/executive-deliberation.handler";
 import { activateProjectStartupTeamMember } from "../services/project-startup-team.service";
 import { activateExecutiveRole } from "../services/executive-role-activation.service";
+import { TenantContext } from "../../shared/types/tenant_context";
 
 describe("Executive Deliberation Handler", () => {
   let founderToken: string;
@@ -23,20 +24,22 @@ describe("Executive Deliberation Handler", () => {
 
   beforeEach(async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    founderToken = ws.bearerToken;
     workspaceId = ws.workspaceId;
     projectId = ws.projectId;
-    founderToken = ws.bearerToken;
-
-    const member = await addMemberToWorkspace(workspaceId, "member");
-    memberToken = member.bearerToken;
 
     const secondWs = await createSecondWorkspace();
     foreignProjectId = secondWs.projectId;
 
-    const founderCtx = {
+    const member = await addMemberToWorkspace(workspaceId, "member");
+    memberToken = member.bearerToken;
+
+    const founderCtx: TenantContext = {
       workspaceId,
       userId: ws.userId,
       membershipRole: "founder",
+      permissions: [],
+      correlationId: "corr-test",
       isAiAgent: false,
     };
 

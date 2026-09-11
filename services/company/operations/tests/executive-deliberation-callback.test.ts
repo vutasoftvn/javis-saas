@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   createTestWorkspaceWithMember,
   createSecondWorkspace,
+  makeTestTenantContext,
 } from "./_helpers";
-import { TenantContext } from "../../../shared/types/tenant_context";
+import { TenantContext } from "../../shared/types/tenant_context";
 import {
   createDraftDeliberation,
   frameDeliberation,
@@ -25,13 +26,13 @@ describe("Executive Deliberation Callback & Transitions", () => {
   beforeEach(async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
     projectId = ws.projectId;
-    founderCtx = {
+    founderCtx = makeTestTenantContext({
       workspaceId: ws.workspaceId,
       userId: ws.userId,
       workforceMemberId: ws.userId,
       membershipRole: "founder",
       isAiAgent: false,
-    };
+    });
 
     const secondWs = await createSecondWorkspace();
     foreignProjectId = secondWs.projectId;

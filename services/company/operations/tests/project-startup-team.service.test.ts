@@ -111,7 +111,7 @@ describe("Project Startup Team Service", () => {
       listProjectStartupTeam({
         workspaceId: wsB.workspaceId,
         projectId: projectA.id,
-        actorId: wsB.userId,
+        actorId: wsB.workspaceId,
       })
     ).rejects.toMatchObject({ code: "not_found" });
   });

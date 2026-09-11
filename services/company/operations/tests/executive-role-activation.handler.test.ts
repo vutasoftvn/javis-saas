@@ -4,6 +4,7 @@ import {
   createTestWorkspaceWithMember,
   addMemberToWorkspace,
   createSecondWorkspace,
+  makeTestTenantContext,
 } from "./_helpers";
 import {
   listProjectExecutiveRolesApi,
@@ -79,12 +80,12 @@ describe("Executive Role Activation Handler", () => {
   it("allows Founder to activate eligible role, handles CAS conflict, and allows disable", async () => {
     // 1. Activate finance profile in startup team
     await activateProjectStartupTeamMember(
-      {
+      makeTestTenantContext({
         workspaceId,
         userId: "test-user",
         membershipRole: "founder",
         isAiAgent: false,
-      },
+      }),
       projectId,
       "finance",
       { expectedVersion: 1 }
@@ -145,12 +146,12 @@ describe("Executive Role Activation Handler", () => {
 
   it("allows Founder to select preset via handler", async () => {
     await activateProjectStartupTeamMember(
-      {
+      makeTestTenantContext({
         workspaceId,
         userId: "test-user",
         membershipRole: "founder",
         isAiAgent: false,
-      },
+      }),
       projectId,
       "marketing",
       { expectedVersion: 1 }

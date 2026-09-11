@@ -4,8 +4,9 @@ import {
   createTestWorkspaceWithMember,
   addMemberToWorkspace,
   createSecondWorkspace,
+  makeTestTenantContext,
 } from "./_helpers";
-import { TenantContext } from "../../../shared/types/tenant_context";
+import { TenantContext } from "../../shared/types/tenant_context";
 import {
   getProjectExecutiveRoleStates,
   selectStartupCorePreset,
@@ -26,30 +27,30 @@ describe("Executive Role Activation Service", () => {
   beforeEach(async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
     projectId = ws.projectId;
-    founderCtx = {
+    founderCtx = makeTestTenantContext({
       workspaceId: ws.workspaceId,
       userId: ws.userId,
       workforceMemberId: ws.userId,
       membershipRole: "founder",
       isAiAgent: false,
-    };
+    });
 
     const member = await addMemberToWorkspace(ws.workspaceId, "member");
-    memberCtx = {
+    memberCtx = makeTestTenantContext({
       workspaceId: ws.workspaceId,
       userId: member.userId,
       workforceMemberId: member.userId,
       membershipRole: "member",
       isAiAgent: false,
-    };
+    });
 
-    aiCtx = {
+    aiCtx = makeTestTenantContext({
       workspaceId: ws.workspaceId,
       userId: "ai-agent-user",
       workforceMemberId: "ai-workforce-member",
       membershipRole: "member",
       isAiAgent: true,
-    };
+    });
 
     const secondWs = await createSecondWorkspace();
     foreignProjectId = secondWs.projectId;

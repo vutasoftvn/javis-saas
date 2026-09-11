@@ -5,9 +5,10 @@ import {
   createTestWorkspaceWithMember,
   addMemberToWorkspace,
   createSecondWorkspace,
+  makeTestTenantContext,
 } from "./_helpers";
 import { db, schema } from "../models/db";
-import { TenantContext } from "../../../shared/types/tenant_context";
+import { TenantContext } from "../../shared/types/tenant_context";
 import {
   createDraftDeliberation,
   frameDeliberation,
@@ -33,22 +34,22 @@ describe("Executive Deliberation Service", () => {
   beforeEach(async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
     projectId = ws.projectId;
-    founderCtx = {
+    founderCtx = makeTestTenantContext({
       workspaceId: ws.workspaceId,
       userId: ws.userId,
       workforceMemberId: ws.userId,
       membershipRole: "founder",
       isAiAgent: false,
-    };
+    });
 
     const member = await addMemberToWorkspace(ws.workspaceId, "member");
-    memberCtx = {
+    memberCtx = makeTestTenantContext({
       workspaceId: ws.workspaceId,
       userId: member.userId,
       workforceMemberId: member.userId,
       membershipRole: "member",
       isAiAgent: false,
-    };
+    });
 
     const secondWs = await createSecondWorkspace();
     foreignProjectId = secondWs.projectId;
@@ -94,7 +95,7 @@ describe("Executive Deliberation Service", () => {
       .from(eventOutbox)
       .where(
         and(
-          eq(eventOutbox.workspaceId, BigInt(founderCtx.workspaceId)),
+          eq(eventOutbox.workspaceId, founderCtx.workspaceId),
           eq(eventOutbox.eventType, "executive.deliberation.framed.v1"),
           eq(eventOutbox.aggregateId, draft.id)
         )

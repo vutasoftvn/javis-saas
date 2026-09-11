@@ -9,7 +9,7 @@ PYTEST ?= $(PYTHON) -m pytest
 # PYTHONPATH này để apps.cosa.api.main / apps.cosa.worker.main import được.
 RUNTIME_PYTHONPATH := $(CURDIR):$(CURDIR)/packages:$(CURDIR)/apps
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze frontend-coverage-check boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-stack-no-infra dev-status db-bootstrap migrate-all deploy-preflight test-db-reset python-test-unit python-test-integration desktop-worker-test verify-local lint lint-fix typecheck-py e2e-test e2e-cross-plane-smoke local-knowledge-e2e workspace-model-routing-e2e schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check encore-handler-boundary-check ts-suppression-check route-auth-allowlist-check encore-type-safety-check mvp-e2e-purity-check frontend-api-contract-check lease-integration-test automation-mvp-e2e
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze frontend-coverage-check boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-stack-no-infra dev-status db-bootstrap migrate-all deploy-preflight test-db-reset python-test-unit python-test-integration desktop-worker-test verify-local lint lint-fix typecheck-py e2e-test e2e-cross-plane-smoke local-knowledge-e2e workspace-model-routing-e2e schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check mvp-contracts-gen mvp-contracts-check mvp-surface-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate frontend-boundary-check company-boundary-check encore-handler-boundary-check ts-suppression-check route-auth-allowlist-check encore-type-safety-check mvp-e2e-purity-check frontend-api-contract-check lease-integration-test automation-mvp-e2e executive-board-verify
 
 # Task 10 (audit fix, 2026-08-30) — trước đây `tests/e2e/test_ai_compliance_company_http.py`
 # dùng `httpx.MockTransport` tự viết giả lập response Company (fake snapshot
@@ -208,6 +208,13 @@ lease-integration-test: ## Task 7 (plan platform-authority-durability-hardening)
 workspace-model-routing-e2e: ## Task 5 (plan local-first-model-routing): fallback allowlist, compliance-deny, CLI cancellation, no-prompt-leak proof — in-process fixtures only (fake local HTTP provider + fake CLI scripts, real ModelRouteResolver/ModelProviderFactory/CliBridge), no Encore CLI/Postgres needed (see docs/operations/model-routing-runbook.md)
 	mkdir -p test-results
 	PYTHONPATH=. $(PYTEST) tests/e2e/test_workspace_model_routing.py -q --junitxml=test-results/e2e-workspace-model-routing.xml
+
+executive-board-verify: contracts-check mvp-contracts-check skillpacks-validate encore-handler-boundary-check ## Executive Advisory Board release gate: contracts, skillpacks, Encore boundaries, Company, Agent, Flutter, and E2E recovery
+	cd services/company && npm test -- operations/tests/executive-role-activation.service.test.ts operations/tests/executive-role-activation.handler.test.ts operations/tests/executive-deliberation.service.test.ts operations/tests/executive-deliberation.handler.test.ts operations/tests/executive-deliberation-callback.test.ts
+	PYTHONPATH=packages:. $(PYTEST) tests/contracts/test_executive_advisor_role_catalog.py tests/agent/executive_board/ tests/e2e/test_executive_advisory_board.py tests/e2e/test_executive_advisory_board_recovery.py -v
+	cd frontend && flutter test test/modules/hologram_hub/services/executive_advisory_board_service_test.dart test/modules/hologram_hub/views/executive_advisory_board_view_test.dart
+	cd frontend && flutter analyze --no-pub
+	node scripts/check_frontend_api_contracts.mjs
 
 verify-local: lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs contract-freeze-check e2e-test e2e-cross-plane-smoke
 
