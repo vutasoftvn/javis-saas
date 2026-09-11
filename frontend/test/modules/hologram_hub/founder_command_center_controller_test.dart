@@ -128,4 +128,121 @@ void main() {
       expect(dashboardCtrl.activeKickoffProjectId.value, isNull);
     },
   );
+
+  test(
+    'loadDashboardData with stored active_project_id restores that project if authorized',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'workspace_id': 'ws_1',
+        'active_project_id:ws_1': 'proj_b',
+      });
+
+      late http.Client clientForThisTest;
+      clientForThisTest = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path == '/operations/projects') {
+          return http.Response(
+            jsonEncode({
+              'projects': [
+                {
+                  'id': 'proj-a',
+                  'title': 'Project A',
+                  'lifecycleStage': 'P0_DISCOVERY',
+                },
+                {
+                  'id': 'proj_b',
+                  'title': 'Project B',
+                  'lifecycleStage': 'P0_DISCOVERY',
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final previousClient = ApiClient.client;
+      ApiClient.client = clientForThisTest;
+
+      final controller = FounderCommandCenterController();
+      await controller.loadDashboardData();
+
+      expect(controller.activeProjectId.value, 'proj_b');
+
+      ApiClient.client = previousClient;
+    },
+  );
+
+  test(
+    'loadDashboardData with no stored ID does not auto-select projects.first',
+    () async {
+      SharedPreferences.setMockInitialValues({'workspace_id': 'ws_1'});
+      ApiClient.client = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path == '/operations/projects') {
+          return http.Response(
+            jsonEncode({
+              'projects': [
+                {
+                  'id': 'proj-a',
+                  'title': 'Project A',
+                  'lifecycleStage': 'P0_DISCOVERY',
+                },
+                {
+                  'id': 'proj-b',
+                  'title': 'Project B',
+                  'lifecycleStage': 'P0_DISCOVERY',
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final controller = FounderCommandCenterController();
+      await controller.loadDashboardData();
+
+      // Should NOT auto-select first project
+      expect(controller.activeProjectId.value, isNull);
+      expect(controller.requiresProjectSelection.value, isTrue);
+    },
+  );
+
+  test(
+    'loadDashboardData with stale stored ID clears it and requires selection',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'workspace_id': 'ws_1',
+        'active_project_id:ws_1': 'proj_stale',
+      });
+      ApiClient.client = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path == '/operations/projects') {
+          // Server returns different projects (proj_stale not authorized)
+          return http.Response(
+            jsonEncode({
+              'projects': [
+                {
+                  'id': 'proj-a',
+                  'title': 'Project A',
+                  'lifecycleStage': 'P0_DISCOVERY',
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 200);
+      });
+
+      final controller = FounderCommandCenterController();
+      await controller.loadDashboardData();
+
+      expect(controller.activeProjectId.value, isNull);
+      expect(controller.requiresProjectSelection.value, isTrue);
+    },
+  );
 }

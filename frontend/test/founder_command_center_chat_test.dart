@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
@@ -82,5 +84,67 @@ void main() {
     expect(controller.chatMessages[0]['role'], 'user');
     expect(controller.chatMessages[1]['role'], 'error');
     expect(controller.isChatLoading.value, false);
+  });
+
+  test('Project-switch race: late Project A response discarded after switching to Project B', () async {
+    late Completer<http.Response> projACompleter;
+
+    ApiClient.client = MockClient((request) async {
+      final path = request.url.path;
+
+      // Project A conversation creation — we'll delay this completion
+      if (path == '/agent/conversations' && request.method == 'POST') {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        if (body['project_id'] == 'proj_a') {
+          projACompleter = Completer<http.Response>();
+          return projACompleter.future;
+        }
+        // Project B conversation creation completes immediately
+        return http.Response(
+          '{"id":"conv_b","workspace_id":"ws1","created_by_principal":"p1",'
+          '"title":"Founder Command Center","project_id":"proj_b",'
+          '"created_at":"2026-08-31T00:00:00Z",'
+          '"updated_at":"2026-08-31T00:00:00Z"}',
+          201,
+        );
+      }
+
+      return http.Response('not found', 404);
+    });
+
+    final controller = Get.put(FounderCommandCenterController());
+
+    // Setup projects list so selectProject can work
+    controller.projectsList.assignAll([
+      {'id': 'proj_a', 'title': 'Project A', 'lifecycleStage': 'P0_DISCOVERY'},
+      {'id': 'proj_b', 'title': 'Project B', 'lifecycleStage': 'P0_DISCOVERY'},
+    ]);
+
+    // Start sending message with Project A
+    controller.activeProjectId.value = 'proj_a';
+    unawaited(controller.sendChatMessage('message for A'));
+
+    // Give the request time to start
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    // Switch to Project B using selectProject (increments generation counter)
+    await controller.selectProject('proj_b');
+    await controller.sendChatMessage('message for B');
+
+    // Now complete the Project A response late
+    projACompleter.complete(
+      http.Response(
+        '{"id":"conv_a","workspace_id":"ws1","created_by_principal":"p1",'
+        '"title":"Founder Command Center","project_id":"proj_a",'
+        '"created_at":"2026-08-31T00:00:00Z",'
+        '"updated_at":"2026-08-31T00:00:00Z"}',
+        201,
+      ),
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    // Verify only Project B conversation was stored
+    expect(controller.cofounderConversationIdForTest, 'conv_b');
   });
 }

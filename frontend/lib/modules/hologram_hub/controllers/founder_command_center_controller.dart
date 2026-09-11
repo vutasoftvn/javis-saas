@@ -7,6 +7,7 @@ import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
 import '../../../data/models/workforce_pack_model.dart';
 import '../../../modules/hologram_hub/services/cofounder_api_service.dart';
+import '../../../modules/hologram_hub/services/active_project_store.dart';
 import '../../../modules/chat/services/agent_chat_service.dart';
 import '../../../modules/chat/models/data_access_declaration.dart';
 
@@ -115,8 +116,17 @@ class FounderCommandCenterController extends GetxController {
   final RxList<NextBestActionModel> top3Actions = <NextBestActionModel>[].obs;
 
   /// WGA — id dự án đang active (để gọi weekly-goal / execution-plans).
+  /// Task 6 — không tự auto-select projects.first, phụ thuộc vào local
+  /// restoration hoặc user picker. Generation counter để detect Project switch
+  /// race.
   final RxnString activeProjectId = RxnString();
   final RxString activeProjectTitle = ''.obs;
+  final RxBool requiresProjectSelection = false.obs;
+
+  /// Task 6 — generation counter độc lập với workspace generation, dùng để
+  /// discard stale Project A response khi user đã switch sang Project B.
+  int _projectGeneration = 0;
+  int get projectGeneration => _projectGeneration;
 
   /// WGA — kế hoạch triển khai (draft) agent đề xuất từ mục tiêu tuần.
   final RxList<ExecutionPlan> draftPlans = <ExecutionPlan>[].obs;
@@ -233,6 +243,7 @@ class FounderCommandCenterController extends GetxController {
     draftPlans.clear();
     founderInboxTasks.clear();
     activeProjectId.value = null;
+    requiresProjectSelection.value = false;
     pendingDecisions.clear();
     pendingApprovals.clear();
     workforcePacks.clear();
@@ -251,6 +262,77 @@ class FounderCommandCenterController extends GetxController {
 
     if (reload) {
       loadDashboardData();
+    }
+  }
+
+  /// Task 6 — User chọn một Project khác. Hủy subscription cũ, increment
+  /// generation counter để discard stale response, xoá UI state của Project cũ,
+  /// persist selection, rồi tải data Project mới.
+  Future<void> selectProject(String projectId) async {
+    // Hủy SSE subscription của Project cũ
+    _chatSseSubscription?.cancel();
+    _chatSseSubscription = null;
+
+    // Increment generation để discard stale response từ Project cũ
+    _projectGeneration++;
+
+    // Xoá state UI của Project cũ (chat, plans, inbox, pulse, etc.)
+    _cofounderConversationId = null;
+    chatMessages.clear();
+    chatInputController.clear();
+    isChatLoading.value = false;
+    draftPlans.clear();
+    founderInboxTasks.clear();
+    pulse.value = null;
+    top3Actions.clear();
+
+    // Persist selection trong local storage (per workspace)
+    final wsId = await SecureStorageService.read('workspace_id');
+    if (wsId != null) {
+      await ActiveProjectStore.write(wsId, projectId);
+    }
+
+    // Set active Project và reload data
+    activeProjectId.value = projectId;
+
+    // Tìm title từ projectsList
+    dynamic projectData;
+    try {
+      projectData = projectsList.firstWhere(
+        (p) => p['id']?.toString() == projectId,
+      );
+    } catch (e) {
+      projectData = null;
+    }
+
+    activeProjectTitle.value =
+        projectData?['title']?.toString() ?? 'Dự án';
+
+    requiresProjectSelection.value = false;
+
+    // Tải data Project mới
+    unawaited(loadDraftPlans());
+    unawaited(loadFounderInbox());
+
+    try {
+      final projectStage = projectData?['lifecycleStage'] ??
+          projectData?['project_stage'] ??
+          projectData?['lifecycle_stage'];
+
+      final pulseRes = await CoFounderApiService.getCompanyPulse(
+        workspaceId: wsId,
+        projectId: projectId,
+        stage: projectStage?.toString(),
+      );
+      final top3Res = await CoFounderApiService.getTop3Focus(
+        workspaceId: wsId,
+        projectId: projectId,
+      );
+
+      pulse.value = pulseRes;
+      top3Actions.assignAll(top3Res);
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] selectProject error: $e');
     }
   }
 
@@ -286,20 +368,53 @@ class FounderCommandCenterController extends GetxController {
       // bộ quyết định.
       projectsLoadedOnce.value = true;
 
-      final activeProjectId = projects.isNotEmpty
-          ? projects.first['id']?.toString()
-          : null;
-      final activeProjectTitle = projects.isNotEmpty
-          ? (projects.first['title']?.toString() ?? 'Dự án chính')
-          : '';
-      final activeProjectStage = projects.isNotEmpty
-          ? (projects.first['lifecycleStage'] ??
-                projects.first['project_stage'] ??
-                projects.first['lifecycle_stage'])
-          : null;
+      // Task 6 — Project restoration without auto-select:
+      // 1. Tải danh sách Project authorized từ server.
+      // 2. Đọc local stored ID per workspace.
+      // 3. Chỉ select nếu nó còn trong authorized list.
+      // 4. Nếu không, clear local key và set requiresProjectSelection.
+      String? activeProjectId;
+      String? activeProjectTitle;
+      dynamic activeProjectStage;
+
+      if (projects.isNotEmpty && wsId != null) {
+        final storedProjectId = await ActiveProjectStore.read(wsId);
+        if (storedProjectId != null) {
+          // Kiểm tra stored ID còn trong authorized list không
+          dynamic foundProject;
+          try {
+            foundProject = projects.firstWhere(
+              (p) => p['id']?.toString() == storedProjectId,
+            );
+          } catch (e) {
+            foundProject = null;
+          }
+
+          if (foundProject != null) {
+            // Stored ID hợp lệ, dùng nó
+            activeProjectId = storedProjectId;
+            activeProjectTitle = foundProject['title']?.toString() ??
+                'Dự án chính';
+            activeProjectStage = foundProject['lifecycleStage'] ??
+                foundProject['project_stage'] ??
+                foundProject['lifecycle_stage'];
+            requiresProjectSelection.value = false;
+          } else {
+            // Stored ID không trong authorized list → stale, clear nó
+            await ActiveProjectStore.delete(wsId);
+            requiresProjectSelection.value = true;
+          }
+        } else {
+          // Không có stored ID → user chưa chọn Project
+          requiresProjectSelection.value = true;
+        }
+      } else {
+        // Không có project hoặc không có workspace ID
+        requiresProjectSelection.value = projects.isEmpty;
+      }
 
       this.activeProjectId.value = activeProjectId;
-      this.activeProjectTitle.value = activeProjectTitle;
+      this.activeProjectTitle.value = activeProjectTitle ?? '';
 
       if (activeProjectId != null) {
         unawaited(loadDraftPlans());
@@ -310,17 +425,21 @@ class FounderCommandCenterController extends GetxController {
       }
 
       try {
-        final pulseRes = await CoFounderApiService.getCompanyPulse(
-          workspaceId: wsId,
-          projectId: activeProjectId,
-          stage: activeProjectStage?.toString(),
-        );
-        final top3Res = (activeProjectId != null)
-            ? await CoFounderApiService.getTop3Focus(
-                workspaceId: wsId,
-                projectId: activeProjectId,
-              )
-            : <NextBestActionModel>[];
+        // Chỉ tải KPI nếu có Project đang hoạt động
+        CompanyPulseModel? pulseRes;
+        List<NextBestActionModel> top3Res = [];
+        if (activeProjectId != null) {
+          pulseRes = await CoFounderApiService.getCompanyPulse(
+            workspaceId: wsId,
+            projectId: activeProjectId,
+            stage: activeProjectStage?.toString(),
+          );
+          top3Res = await CoFounderApiService.getTop3Focus(
+            workspaceId: wsId,
+            projectId: activeProjectId,
+          );
+        }
+
         final decisionsRes = await CoFounderApiService.listPendingDecisions(
           workspaceId: wsId,
         );
@@ -684,7 +803,8 @@ class FounderCommandCenterController extends GetxController {
       return;
     }
 
-    final generationAtSend = _workspaceGeneration;
+    final workspaceGenerationAtSend = _workspaceGeneration;
+    final projectGenerationAtSend = _projectGeneration;
     chatMessages.add({'role': 'user', 'content': trimmed});
     chatInputController.clear();
     isChatLoading.value = true;
@@ -696,10 +816,11 @@ class FounderCommandCenterController extends GetxController {
           title: 'Founder Command Center',
           activeAgentProfile: 'operations',
         );
-        if (_workspaceGeneration != generationAtSend) {
-          // Workspace đã đổi (switch/logout) trong lúc chờ tạo conversation —
-          // `resetForWorkspace()` đã dọn state cho workspace MỚI rồi, không
-          // được gán conversation-id của workspace CŨ đè lên đây.
+        // Task 6 — Kiểm tra cả workspace generation và project generation.
+        // Nếu user đã switch Project giữa lúc chờ, discard response.
+        if (_workspaceGeneration != workspaceGenerationAtSend ||
+            _projectGeneration != projectGenerationAtSend) {
+          // Workspace hoặc Project đã đổi — không được gán conversation-id
           return;
         }
         _cofounderConversationId = created?.id;
@@ -715,9 +836,10 @@ class FounderCommandCenterController extends GetxController {
         content: trimmed,
         dataAccess: _chatDataAccess,
       );
-      if (_workspaceGeneration != generationAtSend) {
+      if (_workspaceGeneration != workspaceGenerationAtSend ||
+          _projectGeneration != projectGenerationAtSend) {
         // Cùng lý do — không được thêm tin nhắn assistant/subscribe SSE của
-        // request thuộc workspace CŨ vào state workspace MỚI.
+        // request thuộc Project CŨ vào state Project MỚI.
         return;
       }
       final runId = response?['run_id']?.toString();
@@ -729,7 +851,10 @@ class FounderCommandCenterController extends GetxController {
       chatMessages.add(assistantMsg);
       _subscribeChatSse(runId, assistantMsg);
     } catch (e) {
-      if (_workspaceGeneration != generationAtSend) return;
+      if (_workspaceGeneration != workspaceGenerationAtSend ||
+          _projectGeneration != projectGenerationAtSend) {
+        return;
+      }
       chatMessages.add({
         'role': 'error',
         'content':

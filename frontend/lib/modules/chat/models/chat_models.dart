@@ -43,6 +43,7 @@ class ChatAttachment {
 class ChatMessage {
   final String id;
   final String conversationId;
+  final String? projectId; // Task 6 — matches conversation.projectId
   final String role; // user, assistant, system, tool
   String content;
   final String? runId;
@@ -54,6 +55,7 @@ class ChatMessage {
   ChatMessage({
     required this.id,
     required this.conversationId,
+    this.projectId,
     required this.role,
     required this.content,
     this.runId,
@@ -67,6 +69,7 @@ class ChatMessage {
     return ChatMessage(
       id: json['id']?.toString() ?? '',
       conversationId: json['conversation_id']?.toString() ?? '',
+      projectId: json['project_id']?.toString(),
       role: json['role']?.toString() ?? 'user',
       content: json['content']?.toString() ?? '',
       runId: json['run_id']?.toString(),
@@ -85,6 +88,7 @@ class ChatMessage {
   Map<String, dynamic> toJson() => {
         'id': id,
         'conversation_id': conversationId,
+        if (projectId != null) 'project_id': projectId,
         'role': role,
         'content': content,
         'run_id': runId,
@@ -98,6 +102,7 @@ class ChatMessage {
 class ChatConversation {
   final String id;
   final String workspaceId;
+  final String? projectId; // Task 6 — immutable, set at creation
   final String createdByPrincipal;
   String title;
   String? activeAgentProfile;
@@ -109,6 +114,7 @@ class ChatConversation {
   ChatConversation({
     required this.id,
     required this.workspaceId,
+    this.projectId,
     required this.createdByPrincipal,
     required this.title,
     this.activeAgentProfile,
@@ -124,6 +130,7 @@ class ChatConversation {
     return ChatConversation(
       id: json['id']?.toString() ?? '',
       workspaceId: json['workspace_id']?.toString() ?? '',
+      projectId: json['project_id']?.toString(),
       createdByPrincipal: json['created_by_principal']?.toString() ?? '',
       title: json['title']?.toString() ?? 'New Conversation',
       activeAgentProfile: json['active_agent_profile']?.toString(),
