@@ -8,11 +8,23 @@ export const OPERATING_WORK_PACKAGE_QUEUED_V1 = "operating.work_package.queued.v
 export const OPERATING_WORK_PACKAGE_REASSIGN_REQUESTED_V1 =
   "operating.work_package.reassign_requested.v1";
 
+// Project-scoped business events (Founder Activity Feed, Task 4)
+export const OPERATIONS_WORK_PACKAGE_CREATED_V1 = "operations.work_package.created.v1";
+export const OPERATIONS_DECISION_RECORDED_V1 = "operations.decision.recorded.v1";
+export const OPERATIONS_EVIDENCE_LINKED_V1 = "operations.evidence.linked.v1";
+export const OPERATIONS_RISK_RAISED_V1 = "operations.risk.raised.v1";
+export const OPERATIONS_RISK_RESOLVED_V1 = "operations.risk.resolved.v1";
+
 export type CanonicalEventType =
   | typeof OPERATIONS_TASK_CREATED_V1
   | typeof OPERATIONS_TASK_COMPLETED_V1
   | typeof OPERATING_WORK_PACKAGE_QUEUED_V1
-  | typeof OPERATING_WORK_PACKAGE_REASSIGN_REQUESTED_V1;
+  | typeof OPERATING_WORK_PACKAGE_REASSIGN_REQUESTED_V1
+  | typeof OPERATIONS_WORK_PACKAGE_CREATED_V1
+  | typeof OPERATIONS_DECISION_RECORDED_V1
+  | typeof OPERATIONS_EVIDENCE_LINKED_V1
+  | typeof OPERATIONS_RISK_RAISED_V1
+  | typeof OPERATIONS_RISK_RESOLVED_V1;
 
 export interface WorkPackageQueuedPayloadV1 {
   workspaceId: string;
@@ -29,6 +41,7 @@ export interface WorkPackageQueuedPayloadV1 {
 export interface TaskCreatedPayloadV1 {
   taskId: string;
   workspaceId: string;
+  project_id?: string;
   title: string;
   status: string;
 }
@@ -36,5 +49,42 @@ export interface TaskCreatedPayloadV1 {
 export interface TaskCompletedPayloadV1 {
   taskId: string;
   workspaceId: string;
+  project_id?: string;
   completedAt: string;
+}
+
+// Project-scoped event payloads (Founder Activity Feed)
+export interface WorkPackageCreatedPayloadV1 {
+  workPackageId: string;
+  taskId: string;
+  project_id?: string;
+  status: string;
+}
+
+export interface DecisionRecordedPayloadV1 {
+  decision_id?: string;
+  project_id?: string;
+  decision: string;
+  status: string;
+}
+
+export interface EvidenceLinkedPayloadV1 {
+  evidence_ref?: string;
+  project_id?: string;
+  sourceType: string;
+  status: string;
+}
+
+export interface RiskRaisedPayloadV1 {
+  risk_id?: string;
+  project_id?: string;
+  title?: string;
+  status: string;
+}
+
+export interface RiskResolvedPayloadV1 {
+  risk_id?: string;
+  project_id?: string;
+  title?: string;
+  status: string;
 }

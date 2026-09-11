@@ -19,6 +19,7 @@ import {
   assertTaskCanEnterQueue,
   insertContractRevision,
 } from "./task-outcome-contract.service";
+import { buildWorkPackageCreatedEvent, EventContext } from "./task-events.service";
 
 const { taskWorkPackages, workPackageAttempts, workPackageEvents, tasks, taskOutcomeContracts, projects } =
   schema;
@@ -271,6 +272,14 @@ async function insertQueuedPackage(
     correlationId?: string;
   }
 ): Promise<{ wp: WorkPackageView; attempt: AttemptView }> {
+  // Fetch task to get projectId for project-scoped events
+  const [taskRow] = await tx
+    .select({ projectId: tasks.projectId })
+    .from(tasks)
+    .where(and(eq(tasks.id, BigInt(input.taskId)), eq(tasks.workspaceId, BigInt(input.workspaceId))))
+    .limit(1);
+  if (!taskRow) throw APIError.notFound(`task ${input.taskId} not found`);
+
   const [row] = await tx
     .insert(taskWorkPackages)
     .values({
@@ -323,6 +332,25 @@ async function insertQueuedPackage(
     after: { attemptId: attempt.attemptId, sequenceNo: 1 },
     correlationId: input.correlationId,
   });
+
+  // Project-scoped event for Founder Activity Feed (Task 4)
+  const eventCtx: EventContext = {
+    correlationId: input.correlationId,
+    actor: { kind: input.actor.kind as "user" | "agent" | "system", id: input.actor.id || "system" },
+  };
+  await appendOutboxEvent(
+    tx,
+    buildWorkPackageCreatedEvent(
+      {
+        workPackageId: wp.workPackageId,
+        taskId: wp.taskId,
+        projectId: taskRow.projectId.toString(),
+        workspaceId: input.workspaceId,
+        status: wp.status,
+      },
+      eventCtx
+    )
+  );
 
   // Signed outbox dispatch → Agent Platform (Task 3). Chỉ opaque IDs.
   const correlationId = input.correlationId || generateSnowflake().toString();

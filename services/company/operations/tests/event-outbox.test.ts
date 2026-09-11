@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
-import { db } from "../db";
+import { sql, eq } from "drizzle-orm";
+import { db, schema } from "../db";
 import {
   appendOutboxEvent, claimDueOutboxEvents, completeOutboxEvent, failOutboxEvent,
 } from "../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../shared/events/envelope";
-import { OPERATIONS_TASK_CREATED_V1 } from "../../shared/events/event-types";
+import {
+  OPERATIONS_TASK_CREATED_V1,
+  OPERATIONS_WORK_PACKAGE_CREATED_V1,
+  OPERATIONS_DECISION_RECORDED_V1,
+} from "../../shared/events/event-types";
 import { createTask } from "../handlers/task.handler";
 import { makeAuthedWorkspace } from "./helpers/workspace";
 import { readOutbox } from "./helpers/outbox";
@@ -113,5 +117,23 @@ describe("event outbox", () => {
     ]);
     const ids = new Set([...a, ...b].map((r) => r.eventId));
     expect(ids.size).toBe(a.length + b.length);
+  });
+
+  // Project-scoped event tests (Task 4)
+  it("task.created includes projectId in envelope and payload", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Task Project Scope Inc");
+    const task = await createTask({ workspaceId, title: "P1 Task", authorization });
+
+    const outboxRows = await readOutbox(workspaceId, "task", task.id);
+    expect(outboxRows).toHaveLength(1);
+
+    const row = outboxRows[0];
+    const envelope = row.envelope;
+
+    // Validate envelope structure for project-scoped event
+    expect(envelope.eventType).toBe(OPERATIONS_TASK_CREATED_V1);
+    expect(envelope.projectId).toBe(task.projectId);
+    expect(envelope.payload.project_id).toBe(task.projectId);
+    expect(envelope.payload.taskId).toBe(task.id);
   });
 });

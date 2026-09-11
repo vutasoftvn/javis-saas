@@ -5,6 +5,8 @@ import { TenantContext } from "../../../shared/types/tenant_context";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 import { JsonObject, toJsonObject } from "./strategy-json";
+import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
+import { buildDecisionRecordedEvent, EventContext } from "../../services/task-events.service";
 
 const { decisionRecords, evidence } = schema;
 
@@ -132,20 +134,21 @@ export async function createDecisionRecordInWorkspace(
   if (!params.projectId || !params.decision) {
     throw APIError.invalidArgument("projectId and decision are required");
   }
+  const projectId = params.projectId; // Type assertion after guard
   const wsId = BigInt(ctx.workspaceId);
 
   // Verify project belongs to workspace
-  await getProjectInWorkspace(params.projectId, ctx);
+  await getProjectInWorkspace(projectId, ctx);
 
   // Fetch current project evidence for snapshot
   const evidenceRows = await db
     .select()
     .from(evidence)
-    .where(and(eq(evidence.projectId, BigInt(params.projectId)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)));
+    .where(and(eq(evidence.projectId, BigInt(projectId)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)));
 
   // Build snapshot deterministically
   const built = buildDecisionRecord({
-    projectId: params.projectId,
+    projectId,
     decision: params.decision,
     actorMemberId: params.actorMemberId,
     evidenceList: evidenceRows.map((e) => ({
@@ -158,21 +161,45 @@ export async function createDecisionRecordInWorkspace(
     notes: params.notes,
   });
 
-  // Save record
-  const [row] = await db
-    .insert(decisionRecords)
-    .values({
-      id: generateSnowflake(),
-      workspaceId: wsId,
-      projectId: BigInt(params.projectId),
-      decision: params.decision,
-      actorMemberId: params.actorMemberId ? BigInt(params.actorMemberId) : null,
-      evidenceSnapshot: built.evidenceSnapshot,
-    })
-    .returning();
+  // Save record in transaction with project-scoped event for Founder Activity Feed (Task 4)
+  const record = await db.transaction(async (tx) => {
+    const decisionId = generateSnowflake();
+    const [row] = await tx
+      .insert(decisionRecords)
+      .values({
+        id: decisionId,
+        workspaceId: wsId,
+        projectId: BigInt(projectId),
+        decision: params.decision,
+        actorMemberId: params.actorMemberId ? BigInt(params.actorMemberId) : null,
+        evidenceSnapshot: built.evidenceSnapshot,
+      })
+      .returning();
 
-  if (!row) throw APIError.internal("failed to create decision record");
-  return toDecisionRecord(row);
+    if (!row) throw APIError.internal("failed to create decision record");
+
+    // Emit project-scoped event for Founder Activity Feed
+    const eventCtx: EventContext = {
+      correlationId: ctx.correlationId,
+      actor: ctx.userId ? { kind: "user", id: ctx.userId } : { kind: "system", id: "operations" },
+    };
+    await appendOutboxEvent(
+      tx,
+      buildDecisionRecordedEvent(
+        {
+          decisionId: decisionId.toString(),
+          projectId: String(projectId),
+          workspaceId: ctx.workspaceId,
+          decision: params.decision,
+        },
+        eventCtx
+      )
+    );
+
+    return toDecisionRecord(row);
+  });
+
+  return record;
 }
 
 export async function getDecisionRecordInWorkspace(

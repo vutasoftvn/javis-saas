@@ -6,6 +6,8 @@ import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { scoreEvidence, EvidenceSourceType } from "./evidence-scoring.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 import { TenantContext } from "../../../shared/types/tenant_context";
+import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
+import { buildEvidenceLinkedEvent, EventContext } from "../../services/task-events.service";
 
 export type SourceSystem = "interview" | "crm" | "telemetry" | "payment";
 export const ALLOWED_SOURCE_SYSTEMS: SourceSystem[] = ["interview", "crm", "telemetry", "payment"];
@@ -138,6 +140,11 @@ export async function ingestEvidenceSource(
 
     // 3. Create candidate evidence rows for each claim
     const claims = Array.isArray(input.claims) ? input.claims : [];
+    const eventCtx: EventContext = {
+      correlationId: ctx.correlationId,
+      actor: ctx.userId ? { kind: "user", id: ctx.userId } : { kind: "system", id: "operations" },
+    };
+
     for (const c of claims) {
       if (!c.claim || !c.claim.trim()) continue;
 
@@ -155,8 +162,9 @@ export async function ingestEvidenceSource(
 
       const freshUntilDate = c.freshUntil ? new Date(c.freshUntil) : null;
 
-      await tx.insert(evidence).values({
-        id: generateSnowflake(),
+      const evidenceId = generateSnowflake();
+      const [evidenceRow] = await tx.insert(evidence).values({
+        id: evidenceId,
         workspaceId: wsId,
         projectId: pId,
         evidenceIngestionId: receiptId,
@@ -172,7 +180,23 @@ export async function ingestEvidenceSource(
         sourceSystem: input.sourceSystem,
         observedAt: observedDate,
         freshUntil: freshUntilDate && !isNaN(freshUntilDate.getTime()) ? freshUntilDate : null,
-      });
+      }).returning();
+
+      // Project-scoped event for Founder Activity Feed (Task 4)
+      if (evidenceRow) {
+        await appendOutboxEvent(
+          tx,
+          buildEvidenceLinkedEvent(
+            {
+              evidenceId: evidenceId.toString(),
+              projectId: input.projectId.toString(),
+              workspaceId: ctx.workspaceId,
+              sourceType: mappedSourceType,
+            },
+            eventCtx
+          )
+        );
+      }
     }
 
     return {
