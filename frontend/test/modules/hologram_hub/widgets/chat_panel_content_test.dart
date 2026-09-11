@@ -24,6 +24,7 @@ void main() {
         home: Scaffold(
           body: ChatPanelContent(
             controller: controller,
+            showCloseButton: true,
             onClose: () => closed = true,
           ),
         ),

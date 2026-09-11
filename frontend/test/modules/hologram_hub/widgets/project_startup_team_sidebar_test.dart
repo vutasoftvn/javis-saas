@@ -190,16 +190,20 @@ void main() {
     // Verify truthful badges
     expect(find.text('Co-Founder chat ready'), findsOneWidget);
     expect(find.text('Active'), findsOneWidget);
-    expect(find.text('Tạm dừng'), findsNWidgets(2)); // 1 badge for Finance, 1 button for Marketing
+    expect(find.text('Tạm dừng'), findsOneWidget); // Badge for Finance (Marketing button is collapsed)
     expect(find.text('Coming later'), findsWidgets);
     expect(find.text('Cần tích hợp CRM'), findsWidgets);
     expect(find.text('Cần tri thức dự án'), findsWidgets);
     expect(find.text('Sẵn sàng'), findsNWidgets(2)); // Research & Intelligence, Strategy
   });
 
-  testWidgets('activate button triggers controller action with expected version',
+  testWidgets('activate button triggers controller action with expected version after expanding card',
       (tester) async {
     await tester.pumpWidget(buildTestWidget());
+    await tester.pumpAndSettle();
+
+    // Expand Research & Intelligence card first
+    await tester.tap(find.byKey(const Key('startup_team_card_inkwell_research_intelligence')));
     await tester.pumpAndSettle();
 
     final activateResearchBtn = find.byKey(const Key('btn_activate_research_intelligence'));
@@ -216,8 +220,17 @@ void main() {
     await tester.pumpWidget(buildTestWidget());
     await tester.pumpAndSettle();
 
+    // Expand Coding card first
+    final codingCard = find.byKey(const Key('startup_team_card_inkwell_coding'));
+    await tester.ensureVisible(codingCard);
+    await tester.pumpAndSettle();
+    await tester.tap(codingCard);
+    await tester.pumpAndSettle();
+
     // The coding button must be disabled
     final codingBtnFinder = find.byKey(const Key('btn_disabled_coding'));
+    await tester.ensureVisible(codingBtnFinder);
+    await tester.pumpAndSettle();
     expect(codingBtnFinder, findsOneWidget);
 
     final buttonWidget = tester.widget<OutlinedButton>(codingBtnFinder);
@@ -227,6 +240,10 @@ void main() {
 
   testWidgets('CRM shows Cần tích hợp CRM and cannot be activated', (tester) async {
     await tester.pumpWidget(buildTestWidget());
+    await tester.pumpAndSettle();
+
+    // Expand CRM card first
+    await tester.tap(find.byKey(const Key('startup_team_card_inkwell_crm')));
     await tester.pumpAndSettle();
 
     // The CRM button must be disabled
@@ -247,6 +264,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // Co-founder is expanded by default
     final chatBtn = find.byKey(const Key('btn_chat_cofounder'));
     expect(chatBtn, findsOneWidget);
 
@@ -254,5 +272,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(chatOpened, isTrue);
+  });
+
+  testWidgets('accordion expands one profile and automatically closes all others', (tester) async {
+    await tester.pumpWidget(buildTestWidget());
+    await tester.pumpAndSettle();
+
+    // Co-founder button is visible initially
+    expect(find.byKey(const Key('btn_chat_cofounder')), findsOneWidget);
+    expect(find.byKey(const Key('btn_activate_research_intelligence')), findsNothing);
+
+    // Tap Research & Intelligence to expand it
+    await tester.tap(find.byKey(const Key('startup_team_card_inkwell_research_intelligence')));
+    await tester.pumpAndSettle();
+
+    // Research is now expanded, Co-founder is collapsed!
+    expect(find.byKey(const Key('btn_activate_research_intelligence')), findsOneWidget);
+    expect(find.byKey(const Key('btn_chat_cofounder')), findsNothing);
+
+    // Tap Marketing to expand it
+    await tester.tap(find.byKey(const Key('startup_team_card_inkwell_marketing')));
+    await tester.pumpAndSettle();
+
+    // Marketing is expanded, Research is collapsed
+    expect(find.byKey(const Key('btn_pause_marketing')), findsOneWidget);
+    expect(find.byKey(const Key('btn_activate_research_intelligence')), findsNothing);
+
+    // Tap Marketing again to collapse it
+    await tester.tap(find.byKey(const Key('startup_team_card_inkwell_marketing')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('btn_pause_marketing')), findsNothing);
   });
 }

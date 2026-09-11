@@ -100,77 +100,32 @@ class Top3FocusWidget extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
-            if (onOpenProjectAnalysis != null || onDiscuss != null || onOpenProjectLoop != null) ...[
+            if (onOpenProjectAnalysis != null) ...[
               Wrap(
                 spacing: 12,
                 runSpacing: 10,
                 children: [
-                  if (onOpenProjectAnalysis != null)
-                    ElevatedButton.icon(
-                      onPressed: onOpenProjectAnalysis,
-                      icon: const Icon(Icons.psychology_alt_rounded, size: 16),
-                      label: Text(
-                        Get.locale?.languageCode == 'vi'
-                            ? 'Phân tích & Lập Kế hoạch Tuần'
-                            : 'Analyze & Plan First Week',
+                  ElevatedButton.icon(
+                    onPressed: onOpenProjectAnalysis,
+                    icon: const Icon(Icons.psychology_alt_rounded, size: 16),
+                    label: Text(
+                      Get.locale?.languageCode == 'vi'
+                          ? 'Phân tích & Lập Kế hoạch Tuần'
+                          : 'Analyze & Plan First Week',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      textStyle: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  if (onDiscuss != null)
-                    ElevatedButton.icon(
-                      onPressed: onDiscuss,
-                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
-                      label: Text(
-                        Get.locale?.languageCode == 'vi'
-                            ? 'Trò chuyện cùng Co-Founder'
-                            : 'Chat with Co-Founder',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  if (onOpenProjectLoop != null)
-                    OutlinedButton.icon(
-                      onPressed: onOpenProjectLoop,
-                      icon: const Icon(Icons.all_inclusive_rounded, size: 16),
-                      label: Text(
-                        Get.locale?.languageCode == 'vi'
-                            ? 'Mở Vòng lặp Vận hành (Project Loop)'
-                            : 'Open Project Operating Loop',
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.primary,
-                        side: const BorderSide(color: AppTheme.primary),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                  ),
                 ],
               ),
             ],

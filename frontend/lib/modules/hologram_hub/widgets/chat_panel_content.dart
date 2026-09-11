@@ -13,12 +13,14 @@ class ChatPanelContent extends StatelessWidget {
   const ChatPanelContent({
     super.key,
     required this.controller,
-    required this.onClose,
+    this.onClose,
+    this.showCloseButton = false,
     this.enabled = true,
   });
 
   final FounderCommandCenterController controller;
-  final VoidCallback onClose;
+  final VoidCallback? onClose;
+  final bool showCloseButton;
 
   /// Task 7 — `false` khi chưa chọn Project: composer không được render,
   /// chỉ hiện thông báo yêu cầu chọn Project. Widget vẫn mount (không bị
@@ -29,43 +31,51 @@ class ChatPanelContent extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!enabled) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.chat_bubble_outline, size: 40, color: Colors.white.withValues(alpha: 0.2)),
-            const SizedBox(height: 12),
-            Text(
-              'Select a Project to proceed',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.chat_bubble_outline, size: 40, color: Colors.white.withValues(alpha: 0.2)),
+              const SizedBox(height: 12),
+              Text(
+                'Select a Project to proceed',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
     }
-    return Column(
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.psychology, color: Color(0xFF8B5CF6), size: 24),
-            const SizedBox(width: 10),
-            // Expanded + ellipsis: panel nổi (`DraggableChatPanel`) hẹp hơn
-            // nhiều so với bottom sheet cũ, tránh RenderFlex overflow khi tiêu
-            // đề dài hơn bề rộng khả dụng.
-            Expanded(
-              child: Text(
-                AppCopy.hubChatPanelTitle,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.psychology, color: Color(0xFF8B5CF6), size: 24),
+              const SizedBox(width: 10),
+              // Expanded + ellipsis: panel nổi (`DraggableChatPanel`) hẹp hơn
+              // nhiều so với bottom sheet cũ, tránh RenderFlex overflow khi tiêu
+              // đề dài hơn bề rộng khả dụng.
+              Expanded(
+                child: Text(
+                  AppCopy.hubChatPanelTitle,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            IconButton(
-              onPressed: onClose,
-              icon: const Icon(Icons.close, color: Colors.white70),
-            ),
-          ],
-        ),
-        const Divider(color: Color(0x336366F1)),
+              if (showCloseButton && onClose != null)
+                IconButton(
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close, color: Colors.white70),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Divider(color: Color(0x336366F1), height: 1),
+          const SizedBox(height: 8),
         Expanded(
           child: Obx(() {
             if (controller.chatMessages.isEmpty) {
@@ -166,7 +176,8 @@ class ChatPanelContent extends StatelessWidget {
           ],
         ),
       ],
-    );
+    ),
+  );
   }
 }
 

@@ -177,81 +177,74 @@ class _HologramHubViewState extends State<HologramHubView> {
           return Row(
             children: [
               // --- LEFT: Brand Logo & Subtitle & Stage ---
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Row(
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF6366F1,
+                          ).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.rocket_launch,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF6366F1,
-                              ).withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.rocket_launch,
+                      const Text(
+                        'COSA',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          size: 18,
+                          letterSpacing: 0.5,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'COSA',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 0.5,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (!isCompact)
-                              Text(
-                                L10nKey.hubSubtitle.tr,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
-                        ),
-                      ),
-                      // StageBadge
-                      Obx(() {
-                        final stage = controller.pulse.value?.companyStage;
-                        if (stage == null) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 12),
-                          child: StageBadge(
-                            stage: ProjectStage.fromString(stage),
-                            isCompact: true,
+                      if (!isCompact)
+                        Text(
+                          L10nKey.hubSubtitle.tr,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.5),
                           ),
-                        );
-                      }),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
-                ),
+                  // StageBadge
+                  Obx(() {
+                    final stage = controller.pulse.value?.companyStage;
+                    if (stage == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: StageBadge(
+                        stage: ProjectStage.fromString(stage),
+                        isCompact: true,
+                      ),
+                    );
+                  }),
+                ],
               ),
 
-              const Spacer(),
+              const SizedBox(width: 16),
 
               // --- RIGHT: ProjectContextBar & Actions ---
               Expanded(
@@ -270,6 +263,31 @@ class _HologramHubViewState extends State<HologramHubView> {
                                 controller.selectProject(projectId),
                           ),
                         ),
+
+                      // Project Operating Loop Icon Button (chuyển từ Top3 Focus lên AppBar)
+                      Obx(() {
+                        final pid = controller.activeProjectId.value;
+                        return IconButton(
+                          key: const Key('appbar_project_loop_button'),
+                          onPressed: pid != null
+                              ? () => Get.toNamed(AppRoutes.projectLoopFor(pid))
+                              : null,
+                          icon: const Icon(
+                            Icons.all_inclusive_rounded,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          tooltip: Get.locale?.languageCode == 'vi'
+                              ? 'Vòng lặp Vận hành (Project Loop)'
+                              : 'Open Project Operating Loop',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                        );
+                      }),
+                      const SizedBox(width: 4),
 
                       // Module Switcher — thay cho sidebar không còn ở Hub
                       IconButton(
@@ -409,11 +427,35 @@ class _HologramHubViewState extends State<HologramHubView> {
           ],
         );
 
+    Widget top3Widget() => Obx(
+          () => Top3FocusWidget(
+            showDescription: false,
+            actions: controller.top3Actions.toList(),
+            onActionTap: (action) =>
+                _handleActionTap(context, controller, action),
+            onDiscuss: () => Get.find<ChatPanelController>().open(),
+            onOpenProjectLoop: controller.activeProjectId.value != null
+                ? () => Get.toNamed(
+                      AppRoutes.projectLoopFor(
+                        controller.activeProjectId.value!,
+                      ),
+                    )
+                : null,
+            onOpenProjectAnalysis: controller.activeProjectId.value != null
+                ? () => Get.toNamed(
+                      '${AppRoutes.projectAnalysisFor(controller.activeProjectId.value!)}?title=${Uri.encodeComponent(controller.activeProjectTitle.value)}&stage=${controller.pulse.value?.companyStage ?? 'P0_DISCOVERY'}',
+                    )
+                : null,
+          ),
+        );
+
     Widget statsColumn() => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (controller.hasProjects.value && controller.activeProjectId.value != null) ...[
               PulseStatBarWidget(pulse: controller.pulse.value),
+              const SizedBox(height: 16),
+              top3Widget(),
               const SizedBox(height: 16),
               WaitingForYouWidget(
                 decisions: controller.pendingDecisions.toList(),
@@ -448,6 +490,8 @@ class _HologramHubViewState extends State<HologramHubView> {
                 ),
               ),
             ] else ...[
+              top3Widget(),
+              const SizedBox(height: 16),
               Center(
                 child: Text(
                   'Select a project to view activity',
@@ -458,28 +502,6 @@ class _HologramHubViewState extends State<HologramHubView> {
               ),
             ],
           ],
-        );
-
-    Widget top3Widget() => Obx(
-          () => Top3FocusWidget(
-            showDescription: false,
-            actions: controller.top3Actions.toList(),
-            onActionTap: (action) =>
-                _handleActionTap(context, controller, action),
-            onDiscuss: () => Get.find<ChatPanelController>().open(),
-            onOpenProjectLoop: controller.activeProjectId.value != null
-                ? () => Get.toNamed(
-                      AppRoutes.projectLoopFor(
-                        controller.activeProjectId.value!,
-                      ),
-                    )
-                : null,
-            onOpenProjectAnalysis: controller.activeProjectId.value != null
-                ? () => Get.toNamed(
-                      '${AppRoutes.projectAnalysisFor(controller.activeProjectId.value!)}?title=${Uri.encodeComponent(controller.activeProjectTitle.value)}&stage=${controller.pulse.value?.companyStage ?? 'P0_DISCOVERY'}',
-                    )
-                : null,
-          ),
         );
 
     Widget centerColumn() {
@@ -500,12 +522,11 @@ class _HologramHubViewState extends State<HologramHubView> {
             child: ChatPanelContent(
               controller: controller,
               enabled: projectSelected,
-              onClose: () {
-                // Chat is fixed, not closable
-              },
+              showCloseButton: false,
             ),
           ),
           if (controller.selectedProjectId != null) ...[
+            const SizedBox(height: 16),
             Obx(() => ProjectOperatingWeekCard(
               operatingLoop: controller.currentOperatingLoop.value,
               isLoading: controller.isOperatingLoopLoading.value,
@@ -517,14 +538,11 @@ class _HologramHubViewState extends State<HologramHubView> {
                 }
               },
             )),
-            const SizedBox(height: 16),
           ],
-          if (controller.hasProjects.value) ...[
-            top3Widget(),
+          if (controller.hasProjects.value && projectSelected) ...[
             const SizedBox(height: 16),
-          ],
-          if (controller.hasProjects.value && projectSelected)
             _WgaSurfaces(controller: controller),
+          ],
         ],
       );
     }
@@ -592,7 +610,7 @@ class _HologramHubViewState extends State<HologramHubView> {
             child: ChatPanelContent(
               controller: controller,
               enabled: mobileProjectSelected,
-              onClose: () {},
+              showCloseButton: false,
             ),
           ),
           const SizedBox(height: 20),
@@ -609,10 +627,6 @@ class _HologramHubViewState extends State<HologramHubView> {
                 }
               },
             )),
-            const SizedBox(height: 20),
-          ],
-          if (controller.hasProjects.value) ...[
-            top3Widget(),
             const SizedBox(height: 20),
           ],
           // AI Workforce accordion

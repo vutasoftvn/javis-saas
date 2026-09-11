@@ -10,6 +10,7 @@ class ProjectStartupTeamSidebar extends StatefulWidget {
   final bool shrinkWrap;
   final bool isCollapsed;
   final VoidCallback? onToggleCollapse;
+  final String? initialExpandedProfileKey;
 
   const ProjectStartupTeamSidebar({
     super.key,
@@ -18,6 +19,7 @@ class ProjectStartupTeamSidebar extends StatefulWidget {
     this.shrinkWrap = false,
     this.isCollapsed = false,
     this.onToggleCollapse,
+    this.initialExpandedProfileKey,
   });
 
   @override
@@ -27,6 +29,23 @@ class ProjectStartupTeamSidebar extends StatefulWidget {
 
 class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
   final Set<String> _actionInProgressKeys = <String>{};
+  String? _expandedProfileKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _expandedProfileKey = widget.initialExpandedProfileKey ?? 'founder_assistant';
+  }
+
+  void _toggleExpand(String profileKey) {
+    setState(() {
+      if (_expandedProfileKey == profileKey) {
+        _expandedProfileKey = null;
+      } else {
+        _expandedProfileKey = profileKey;
+      }
+    });
+  }
 
   static const Map<String, IconData> _profileIcons = {
     'founder_assistant': Icons.psychology_outlined,
@@ -377,6 +396,7 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
   }
 
   Widget _buildMemberCard(ProjectStartupTeamMember member) {
+    final isExpanded = _expandedProfileKey == member.profileKey;
     final isActionInProgress = _actionInProgressKeys.contains(member.profileKey);
     final badge = _badgeText(member);
     final badgeColor = _badgeColor(member);
@@ -400,213 +420,227 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
               : const Color(0xFF334155),
         ),
       ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isActive || isChatReady
-                      ? AppTheme.primary.withValues(alpha: 0.2)
-                      : const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isActive || isChatReady
-                        ? AppTheme.primaryLight.withValues(alpha: 0.5)
-                        : const Color(0xFF475569),
-                  ),
-                ),
-                child: Icon(
-                  _getIcon(member.profileKey),
-                  color: isActive || isChatReady ? Colors.white : const Color(0xFF94A3B8),
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: Key('startup_team_card_inkwell_${member.profileKey}'),
+          onTap: () => _toggleExpand(member.profileKey),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            member.label,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: isActive || isChatReady
+                            ? AppTheme.primary.withValues(alpha: 0.2)
+                            : const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isActive || isChatReady
+                              ? AppTheme.primaryLight.withValues(alpha: 0.5)
+                              : const Color(0xFF475569),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: badgeColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
-                          ),
-                          child: Text(
-                            badge,
-                            style: TextStyle(
-                              color: badgeColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _getDescription(member.profileKey),
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 11,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      child: Icon(
+                        _getIcon(member.profileKey),
+                        color: isActive || isChatReady ? Colors.white : const Color(0xFF94A3B8),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              member.label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: badgeColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              badge,
+                              style: TextStyle(
+                                color: badgeColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      color: const Color(0xFF94A3B8),
+                      size: 18,
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
 
-          // Activation metadata
-          if (isActive && member.activatedAt != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.verified_outlined, color: Color(0xFF10B981), size: 12),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      'Kích hoạt: ${_formatDate(member.activatedAt!)}${member.activatedBy != null ? ' bởi ${member.activatedBy}' : ''}',
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10),
-                      overflow: TextOverflow.ellipsis,
+                if (isExpanded) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _getDescription(member.profileKey),
+                    style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 11,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+
+                  // Activation metadata
+                  if (isActive && member.activatedAt != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.verified_outlined, color: Color(0xFF10B981), size: 12),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Kích hoạt: ${_formatDate(member.activatedAt!)}${member.activatedBy != null ? ' bởi ${member.activatedBy}' : ''}',
+                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Action buttons
+                  const SizedBox(height: 10),
+                  if (isChatReady) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 32,
+                      child: ElevatedButton.icon(
+                        key: const Key('btn_chat_cofounder'),
+                        onPressed: widget.onOpenCofounderChat,
+                        icon: const Icon(Icons.chat_bubble_outline, size: 14),
+                        label: const Text('Mở Chat Co-Founder', style: TextStyle(fontSize: 11)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ] else if (isActive) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 32,
+                      child: OutlinedButton.icon(
+                        key: Key('btn_pause_${member.profileKey}'),
+                        onPressed: isActionInProgress ? null : () => _handlePause(member),
+                        icon: isActionInProgress
+                            ? const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 1.5),
+                              )
+                            : const Icon(Icons.pause_circle_outline, size: 14),
+                        label: const Text('Tạm dừng', style: TextStyle(fontSize: 11)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFF59E0B),
+                          side: const BorderSide(color: Color(0xFFF59E0B)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ] else if (canActivate || canResume) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 32,
+                      child: ElevatedButton.icon(
+                        key: Key('btn_activate_${member.profileKey}'),
+                        onPressed: isActionInProgress ? null : () => _handleActivate(member),
+                        icon: isActionInProgress
+                            ? const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
+                              )
+                            : const Icon(Icons.play_circle_outline, size: 14),
+                        label: Text(
+                          canResume ? 'Kích hoạt lại' : 'Kích hoạt',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    // Disabled action button for deferred or pending dependencies
+                    SizedBox(
+                      width: double.infinity,
+                      height: 32,
+                      child: Tooltip(
+                        message: _disabledExplanation(member),
+                        child: OutlinedButton.icon(
+                          key: Key('btn_disabled_${member.profileKey}'),
+                          onPressed: null,
+                          icon: const Icon(Icons.lock_outline, size: 14),
+                          label: Text(
+                            _disabledButtonLabel(member),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF64748B),
+                            disabledForegroundColor: const Color(0xFF64748B),
+                            side: const BorderSide(color: Color(0xFF334155)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ),
+              ],
             ),
-          ],
-
-          // Action buttons
-          const SizedBox(height: 10),
-          if (isChatReady) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 32,
-              child: ElevatedButton.icon(
-                key: const Key('btn_chat_cofounder'),
-                onPressed: widget.onOpenCofounderChat,
-                icon: const Icon(Icons.chat_bubble_outline, size: 14),
-                label: const Text('Mở Chat Co-Founder', style: TextStyle(fontSize: 11)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ),
-          ] else if (isActive) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 32,
-              child: OutlinedButton.icon(
-                key: Key('btn_pause_${member.profileKey}'),
-                onPressed: isActionInProgress ? null : () => _handlePause(member),
-                icon: isActionInProgress
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
-                      )
-                    : const Icon(Icons.pause_circle_outline, size: 14),
-                label: const Text('Tạm dừng', style: TextStyle(fontSize: 11)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFF59E0B),
-                  side: const BorderSide(color: Color(0xFFF59E0B)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ),
-          ] else if (canActivate || canResume) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 32,
-              child: ElevatedButton.icon(
-                key: Key('btn_activate_${member.profileKey}'),
-                onPressed: isActionInProgress ? null : () => _handleActivate(member),
-                icon: isActionInProgress
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
-                      )
-                    : const Icon(Icons.play_circle_outline, size: 14),
-                label: Text(
-                  canResume ? 'Kích hoạt lại' : 'Kích hoạt',
-                  style: const TextStyle(fontSize: 11),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ),
-          ] else ...[
-            // Disabled action button for deferred or pending dependencies
-            SizedBox(
-              width: double.infinity,
-              height: 32,
-              child: Tooltip(
-                message: _disabledExplanation(member),
-                child: OutlinedButton.icon(
-                  key: Key('btn_disabled_${member.profileKey}'),
-                  onPressed: null,
-                  icon: const Icon(Icons.lock_outline, size: 14),
-                  label: Text(
-                    _disabledButtonLabel(member),
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF64748B),
-                    disabledForegroundColor: const Color(0xFF64748B),
-                    side: const BorderSide(color: Color(0xFF334155)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
