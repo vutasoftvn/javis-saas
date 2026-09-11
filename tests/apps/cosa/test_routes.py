@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
@@ -28,6 +27,7 @@ from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
+    configure_mock_client_project_access,
     fake_active_tenant_policy_client,
 )
 
@@ -36,6 +36,7 @@ from tests.apps.cosa.policy_test_helpers import (
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
+    configure_mock_client_project_access(mock_client)
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),
@@ -58,7 +59,7 @@ def test_app():
 async def _create_conversation(ac: httpx.AsyncClient) -> str:
     res = await ac.post(
         "/agent/conversations",
-        json={"title": "T", "active_agent_profile": "operations"},
+        json={"title": "T", "active_agent_profile": "operations", "project_id": "proj_1"},
     )
     assert res.status_code == 201
     return res.json()["id"]
@@ -101,6 +102,7 @@ async def test_message_from_identity_without_platform_link_is_rejected_cleanly(t
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "plan next quarter",
+                "project_id": "proj_1",
                 "data_access": {"categories": ["NON_PERSONAL"]},
             },
         )
@@ -122,7 +124,11 @@ async def test_message_with_empty_categories_is_rejected(test_app) -> None:
         conv_id = await _create_conversation(ac)
         response = await ac.post(
             f"/agent/conversations/{conv_id}/messages",
-            json={"content": "plan next quarter", "data_access": {"categories": []}},
+            json={
+                "content": "plan next quarter",
+                "project_id": "proj_1",
+                "data_access": {"categories": []},
+            },
         )
         assert response.status_code == 422
 
@@ -140,6 +146,7 @@ async def test_message_with_personal_category_missing_subject_reference_is_rejec
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "customer phone is 0900000000",
+                "project_id": "proj_1",
                 "data_access": {"categories": ["PERSONAL"]},
             },
         )
@@ -157,6 +164,7 @@ async def test_valid_message_is_saved_and_scheduled_with_hashed_context(test_app
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "plan next quarter",
+                "project_id": "proj_1",
                 "data_access": {"categories": ["NON_PERSONAL"]},
             },
         )

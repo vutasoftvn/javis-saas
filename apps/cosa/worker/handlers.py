@@ -165,6 +165,41 @@ async def execute_run_task(
             )
         return RunTaskResult(status="failed", error="project_context_required", run_id=run_id)
 
+    # Project-scoped Founder Hub — defense-in-depth: dù conversation_routes.py
+    # đã verify request project_id == conversation.project_id TRƯỚC khi
+    # schedule, worker KHÔNG tin payload đã schedule là nguồn sự thật cuối
+    # cùng (payload có thể trôi/stale giữa lúc schedule và lúc dispatch thật
+    # — rolling deploy, retry, hoặc caller khác của scheduler ngoài HTTP
+    # route). Re-check với ConversationRecord ĐÃ LƯU TRƯỚC khi chạm kernel.
+    if agent_profile == "operations":
+        conversation_id = payload.get("conversation_id")
+        conv_repo = getattr(plane, "conversation_repository", None)
+        if conversation_id and conv_repo is not None:
+            persisted_conv = await conv_repo.get_conversation(conversation_id)
+            if (
+                persisted_conv is not None
+                and persisted_conv.project_id
+                and persisted_conv.project_id != payload.get("project_id")
+            ):
+                logger.error(
+                    "run_id=%s project_id mismatch: payload=%r conversation=%r, failing closed",
+                    run_id,
+                    payload.get("project_id"),
+                    persisted_conv.project_id,
+                )
+                stream_repo = getattr(plane, "stream_event_repository", None)
+                if stream_repo and stream_mgr:
+                    await stream_mgr.emit(
+                        stream_repo,
+                        run_id=run_id,
+                        conversation_id=conversation_id,
+                        event_type="run.failed",
+                        payload={"error": "project_context_mismatch"},
+                    )
+                return RunTaskResult(
+                    status="failed", error="project_context_mismatch", run_id=run_id
+                )
+
     if agent_profile == "customer_support" or payload.get("copilot") is True:
         with log_context(run_id=run_id, workspace_id=workspace_id):
             await run_customer_support_copilot(plane, stream_mgr, payload)

@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+from datetime import UTC
+from typing import Any
 from unittest.mock import AsyncMock
 
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.snapshot import PolicySnapshot
 
 __all__ = [
-    "fake_active_tenant_policy_client",
+    "agent_authority_snapshot",
     "allow_all_policy_snapshot",
     "compliance_snapshot",
-    "fake_data_access_claim",
     "configure_mock_client_allows_data_use",
-    "agent_authority_snapshot",
+    "configure_mock_client_project_access",
+    "fake_active_tenant_policy_client",
+    "fake_data_access_claim",
     "policy_snapshot_with",
 ]
 
@@ -22,6 +25,7 @@ def agent_authority_snapshot(
     grants: list[Any] | None = None,
 ) -> Any:
     from apps.cosa.policies.snapshot import AgentAuthorizationSnapshot
+
     return AgentAuthorizationSnapshot(
         authorization_epoch=authorization_epoch,
         grants=grants or [],
@@ -72,7 +76,8 @@ def compliance_snapshot(
     mode: str = "ADVISORY_ONLY",
     status: str = "APPROVED_FOR_USE",
 ) -> dict:
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     return {
         "workspace_id": "test_ws_1",
         "deployment_id": "dep_1",
@@ -83,7 +88,7 @@ def compliance_snapshot(
         "provider_profile_version": "v1",
         "data_profile_version": "v1",
         "snapshot_hash": "sha256:test",
-        "expires_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": datetime.now(UTC).isoformat(),
         "prohibited_purpose": prohibited_purpose,
     }
 
@@ -144,9 +149,44 @@ def configure_mock_client_allows_data_use(mock_client: AsyncMock) -> AsyncMock:
     return mock_client
 
 
+def configure_mock_client_project_access(
+    mock_client: AsyncMock,
+    *,
+    workspace_id: str = "test_ws_1",
+    denied_project_ids: set[str] | None = None,
+) -> AsyncMock:
+    """Cấu hình `mock_client.get` để trả lời `GET /operations/projects/:id`
+    (Company Project read boundary — `apps/cosa/api/project_context.py`)
+    một cách xác định: authorize bất kỳ project_id nào KHÔNG nằm trong
+    `denied_project_ids` (echo lại đúng id đó, giả lập Company đã xác nhận
+    project thuộc workspace này), và raise `CompanyServiceError(404)` cho
+    project bị từ chối (giả lập không tồn tại / không thuộc workspace).
+
+    KHÔNG dùng `mock_client.get.return_value` đơn giản ở đây — response phải
+    khớp CHÍNH project_id trong URL request (test khác nhau dùng project_id
+    khác nhau trong cùng 1 fixture), và test cross-tenant cần phân biệt được
+    project bị từ chối với project được phép.
+    """
+    from apps.cosa.capabilities.client import CompanyServiceError
+
+    denied = denied_project_ids or set()
+
+    async def _get(path: str, *args, **kwargs):
+        if path.startswith("/operations/projects/"):
+            project_id = path.rsplit("/", 1)[-1]
+            if project_id in denied:
+                raise CompanyServiceError("Project not found", status_code=404)
+            return {"id": project_id, "workspaceId": workspace_id, "title": f"Project {project_id}"}
+        return {}
+
+    mock_client.get.side_effect = _get
+    return mock_client
+
+
 class StubCompanyServiceClient:
     async def resolve_data_use(self, *args, **kwargs):
         from types import SimpleNamespace
+
         return SimpleNamespace(
             allowed=True,
             denial_code=None,
@@ -194,4 +234,3 @@ def fake_active_tenant_policy_client(
         snapshot_hash="test-snapshot-hash",
     )
     return client
-

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, s
 from fastapi.responses import StreamingResponse
 
 from apps.cosa.api.event_stream import get_cosa_event_stream_manager
+from apps.cosa.api.project_context import verify_project_context
 from apps.cosa.api.schemas import CancelRunResponse
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
 from apps.cosa.composition.agent_plane import CosaAgentPlane
@@ -43,6 +44,15 @@ async def cancel_run(
     )
     if owned_run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+
+    # Project-scoped Founder Hub — resolve Project TỪ CHÍNH run đã lưu (không
+    # bắt client tự khai lại project_id trên mỗi request cancel/events — run
+    # đã gắn cố định 1 project từ lúc tạo) rồi verify qua Company, thay vì chỉ
+    # tin workspace_id như trước Task 2. Run legacy (project_id=None, trước
+    # Task 2) vẫn cancel được bằng workspace scope như cũ — không hồi tố yêu
+    # cầu Project lên dữ liệu lịch sử.
+    if owned_run.project_id:
+        await verify_project_context(plane, identity, owned_run.project_id)
 
     # Authority thật cho việc "run có thực sự bị cancel không" là repository
     # (CAS atomic transition_run_status), KHÔNG phải plane.kernel.cancel() —
@@ -106,6 +116,11 @@ async def get_run_events(
     )
     if owned_run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+
+    # Project-scoped Founder Hub — resolve Project từ run đã lưu rồi verify
+    # qua Company (cùng lý do với cancel_run ở trên).
+    if owned_run.project_id:
+        await verify_project_context(plane, identity, owned_run.project_id)
 
     stream_mgr = get_cosa_event_stream_manager()
     effective_sequence = since_sequence if since_sequence is not None else last_event_id

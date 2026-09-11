@@ -18,7 +18,10 @@ from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
-from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+from tests.apps.cosa.policy_test_helpers import (
+    configure_mock_client_project_access,
+    fake_active_tenant_policy_client,
+)
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
 
 TENANT_A = dict(principal_id="user:alice", workspace_id="ws_a")
@@ -28,6 +31,12 @@ TENANT_B = dict(principal_id="user:bob", workspace_id="ws_b")
 @pytest.fixture
 def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
+    # Project-scoped Founder Hub (Task 2) — mọi conversation route cần Company
+    # xác nhận Project. File này test tenant isolation ở lớp workspace, không
+    # test Company authorization, nên cho phép mọi project_id (ứng với mọi
+    # workspace) qua — isolation thật ở đây vẫn đến từ workspace_id filter
+    # trong repository, không phải từ mock này.
+    configure_mock_client_project_access(mock_client)
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),
@@ -50,7 +59,9 @@ async def test_no_bearer_token_rejected(test_app):
     """Không có Authorization header -> 401, không rơi về identity mặc định
     nào (đúng COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §4.1:
     cấm production default company_1/ws_1/user:default)."""
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
         res = await ac.post("/agent/conversations", json={"title": "x"})
         assert res.status_code == 401
 
@@ -58,42 +69,60 @@ async def test_no_bearer_token_rejected(test_app):
 @pytest.mark.asyncio
 async def test_tenant_b_cannot_read_tenant_a_conversation(test_app):
     override_authenticated_identity(test_app, **TENANT_A)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
-        res_create = await ac.post("/agent/conversations", json={"title": "Tenant A secret"})
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
+        res_create = await ac.post(
+            "/agent/conversations", json={"title": "Tenant A secret", "project_id": "proj_a"}
+        )
         assert res_create.status_code == 201
         conv_id = res_create.json()["id"]
 
         # Chuyển sang tenant B (khác company_id) trên cùng app instance.
         override_authenticated_identity(test_app, **TENANT_B)
 
-        res_get = await ac.get(f"/agent/conversations/{conv_id}")
+        # Tenant B khai đúng project_id thật của conversation A (attacker đã
+        # biết id) — vẫn 404 vì repository lọc theo workspace_id thật, không
+        # chỉ project_id.
+        res_get = await ac.get(f"/agent/conversations/{conv_id}", params={"project_id": "proj_a"})
         assert res_get.status_code == 404
 
         res_msg = await ac.post(
             f"/agent/conversations/{conv_id}/messages",
             json={
                 "content": "trying to inject into tenant A's conversation",
+                "project_id": "proj_a",
                 "data_access": {"categories": ["NON_PERSONAL"]},
             },
         )
         assert res_msg.status_code == 404
 
-        res_patch = await ac.patch(f"/agent/conversations/{conv_id}", json={"title": "hijacked"})
+        res_patch = await ac.patch(
+            f"/agent/conversations/{conv_id}",
+            json={"title": "hijacked"},
+            params={"project_id": "proj_a"},
+        )
         assert res_patch.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_list_conversations_scoped_to_own_tenant(test_app):
     override_authenticated_identity(test_app, **TENANT_A)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
-        res = await ac.post("/agent/conversations", json={"title": "A's conversation"})
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
+        res = await ac.post(
+            "/agent/conversations", json={"title": "A's conversation", "project_id": "proj_a"}
+        )
         assert res.status_code == 201
 
         override_authenticated_identity(test_app, **TENANT_B)
-        res_b_create = await ac.post("/agent/conversations", json={"title": "B's conversation"})
+        res_b_create = await ac.post(
+            "/agent/conversations", json={"title": "B's conversation", "project_id": "proj_b"}
+        )
         assert res_b_create.status_code == 201
 
-        res_b_list = await ac.get("/agent/conversations")
+        res_b_list = await ac.get("/agent/conversations", params={"project_id": "proj_b"})
         assert res_b_list.status_code == 200
         titles = [c["title"] for c in res_b_list.json()["items"]]
         assert "B's conversation" in titles
@@ -104,12 +133,20 @@ async def test_list_conversations_scoped_to_own_tenant(test_app):
 async def test_tenant_b_cannot_cancel_or_read_events_of_tenant_a_run(test_app):
     plane = test_app.state.plane
     override_authenticated_identity(test_app, **TENANT_A)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
-        res_conv = await ac.post("/agent/conversations", json={"title": "A's run holder"})
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
+        res_conv = await ac.post(
+            "/agent/conversations", json={"title": "A's run holder", "project_id": "proj_a"}
+        )
         conv_id = res_conv.json()["id"]
         res_msg = await ac.post(
             f"/agent/conversations/{conv_id}/messages",
-            json={"content": "list tasks", "data_access": {"categories": ["NON_PERSONAL"]}},
+            json={
+                "content": "list tasks",
+                "project_id": "proj_a",
+                "data_access": {"categories": ["NON_PERSONAL"]},
+            },
         )
         run_id = res_msg.json()["run_id"]
 
@@ -134,7 +171,9 @@ async def test_decide_approval_dispatches_resume_scoped_to_tool_call_id(test_app
     trong cùng checkpoint. Payload dispatch phải mang đúng tool_call_id của
     approval vừa quyết định."""
     override_authenticated_identity(test_app, workspace_id="ws_a")
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
         plane = test_app.state.plane
         from agent.runs.models import RunRecord
 
@@ -174,7 +213,9 @@ async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
     """approval_id không tự mang tenant scope — phải tra run liên kết trước
     khi cho quyết định (xem _get_owned_run_or_404 trong routes.py)."""
     override_authenticated_identity(test_app, **TENANT_A)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
         # Tạo approval trực tiếp qua approval_service (bỏ qua toàn bộ kernel
         # run thật — chỉ cần 1 RunApprovalRecord + RunRecord cùng company_a để
         # test tenant check ở API layer).
@@ -225,13 +266,13 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
     from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
 
     SECRET = (
-        os.environ.get("PLATFORM_JWT_SECRET")
-        or "cosa-super-secret-platform-jwt-key-change-in-prod"
+        os.environ.get("PLATFORM_JWT_SECRET") or "cosa-super-secret-platform-jwt-key-change-in-prod"
     )
 
-
     def _token(sub: str) -> str:
-        return pyjwt.encode({"sub": sub, "aud": "cosa", "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256")
+        return pyjwt.encode(
+            {"sub": sub, "aud": "cosa", "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256"
+        )
 
     def _workspace_client_for(workspace_id: str) -> WorkspaceTenantContextClient:
         def handler(request: httpx.Request) -> httpx.Response:
@@ -246,18 +287,22 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
                 },
             )
 
-        return WorkspaceTenantContextClient(base_url="http://test", transport=httpx.MockTransport(handler))
+        return WorkspaceTenantContextClient(
+            base_url="http://test", transport=httpx.MockTransport(handler)
+        )
 
     # Đảm bảo dependency THẬT chạy (không override) cho test này.
     test_app.dependency_overrides.pop(get_authenticated_identity, None)
 
     try:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+        ) as ac:
             # Alice creates conversation in ws_alice
             set_workspace_tenant_context_client(_workspace_client_for("ws_alice"))
             res_a = await ac.post(
                 "/agent/conversations",
-                json={"title": "Alice's conversation"},
+                json={"title": "Alice's conversation", "project_id": "proj_alice"},
                 headers={
                     "Authorization": f"Bearer {_token('alice')}",
                     "X-Workspace-Id": "ws_alice",
@@ -270,6 +315,7 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
             set_workspace_tenant_context_client(_workspace_client_for("ws_bob"))
             res_get = await ac.get(
                 f"/agent/conversations/{conv_id}",
+                params={"project_id": "proj_alice"},
                 headers={
                     "Authorization": f"Bearer {_token('bob')}",
                     "X-Workspace-Id": "ws_bob",
@@ -328,7 +374,9 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
     # Tenant A should only see approval A
     tenant_a_identity = dict(principal_id="user:alice", workspace_id="ws_a")
     override_authenticated_identity(test_app, **tenant_a_identity)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
         res_a = await ac.get("/agent/workforce/approvals")
         assert res_a.status_code == 200
         # Task 3: route giờ trả đúng MVP envelope {data, meta} thay vì
@@ -354,8 +402,12 @@ async def test_tenant_b_cannot_read_tenant_a_session_timeline(test_app):
     """Test tenant isolation on GET /agent/sessions/{conversation_id}: tenant B
     cannot read tenant A's session view even with scoped conversation lookup."""
     override_authenticated_identity(test_app, **TENANT_A)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
-        res_conv = await ac.post("/agent/conversations", json={"title": "A's session"})
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
+        res_conv = await ac.post(
+            "/agent/conversations", json={"title": "A's session", "project_id": "proj_a"}
+        )
         assert res_conv.status_code == 201
         conv_id = res_conv.json()["id"]
 

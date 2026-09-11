@@ -78,7 +78,15 @@ class AgentChatService {
     }
   }
 
+  /// Task 2 (2026-09-11 Project-scoped Founder Hub) — `projectId` bắt buộc,
+  /// không optional/auto-select. Mọi conversation mới PHẢI khai báo tường
+  /// minh Project — server (`apps/cosa/api/conversation_routes.py::
+  /// create_conversation`) verify qua Company boundary thật và fail-closed
+  /// (422/404) nếu thiếu/không hợp lệ. Caller (ChatController /
+  /// FounderCommandCenterController) chịu trách nhiệm biết Project đang hoạt
+  /// động trước khi gọi hàm này — không tự tiện chọn hộ.
   Future<ChatConversation?> createConversation({
+    required String projectId,
     String? title,
     String? activeAgentProfile,
   }) async {
@@ -89,6 +97,7 @@ class AgentChatService {
         body: {
           'title': title ?? 'New Conversation',
           'active_agent_profile': activeAgentProfile,
+          'project_id': projectId,
         },
       );
       if (res.statusCode == 201 || res.statusCode == 200) {
@@ -131,8 +140,13 @@ class AgentChatService {
     }
   }
 
+  /// Task 2 — `projectId` bắt buộc và LUÔN đi trên request body, kể cả khi
+  /// path đã định danh conversation — server enforce đúng chuỗi bất biến
+  /// request.project_id == conversation.project_id == verified Project
+  /// (`create_message`), không suy diễn từ path/DB.
   Future<Map<String, dynamic>?> sendMessage(
     String conversationId, {
+    required String projectId,
     required String content,
     required DataAccessDeclaration dataAccess,
     List<Map<String, dynamic>>? attachments,
@@ -143,6 +157,7 @@ class AgentChatService {
       final body = <String, dynamic>{
         'content': content,
         'role': 'user',
+        'project_id': projectId,
         'attachments': ?attachments,
         'data_access': dataAccess.toJson(),
       };

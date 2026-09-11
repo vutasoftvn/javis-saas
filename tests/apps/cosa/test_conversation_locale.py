@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-
 from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
@@ -28,6 +27,7 @@ from apps.cosa.policies.profile_locale_client import (
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
+    configure_mock_client_project_access,
     fake_active_tenant_policy_client,
 )
 
@@ -59,6 +59,7 @@ def valid_access() -> dict[str, Any]:
 def test_setup():
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
+    configure_mock_client_project_access(mock_client)
     locale_client = FakeProfileLocaleClient(preferred_locale="en-US")
     plane = build_cosa_agent_plane(
         company_client=mock_client,
@@ -91,7 +92,9 @@ async def test_message_uses_profile_en_us_when_content_is_vietnamese(test_setup)
     app, plane, locale_client = test_setup
     locale_client.preferred_locale = "en-US"
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         # Create conversation c1
         conv_res = await client.post(
             "/agent/conversations",
@@ -119,7 +122,9 @@ async def test_structured_turn_override_does_not_change_profile(test_setup):
     app, plane, locale_client = test_setup
     locale_client.preferred_locale = "en-US"
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         conv_res = await client.post(
             "/agent/conversations",
             json={"title": "Test Override", "active_agent_profile": "operations"},
@@ -147,10 +152,16 @@ async def test_structured_turn_override_does_not_change_profile(test_setup):
 async def test_unknown_override_is_rejected_before_message_persistence(test_setup):
     app, plane, _ = test_setup
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         conv_res = await client.post(
             "/agent/conversations",
-            json={"title": "Test Reject", "active_agent_profile": "operations"},
+            json={
+                "title": "Test Reject",
+                "active_agent_profile": "operations",
+                "project_id": "proj_locale_1",
+            },
         )
         c1 = conv_res.json()["id"]
 
@@ -158,6 +169,7 @@ async def test_unknown_override_is_rejected_before_message_persistence(test_setu
             f"/agent/conversations/{c1}/messages",
             json={
                 "content": "hello",
+                "project_id": "proj_locale_1",
                 "response_locale_override": "fr-FR",
                 "role": "user",
                 "data_access": valid_access(),
@@ -173,7 +185,9 @@ async def test_profile_locale_snapshot_failure_is_side_effect_free(test_setup):
     app, plane, locale_client = test_setup
     locale_client.should_fail = True
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         conv_res = await client.post(
             "/agent/conversations",
             json={"title": "Test 503", "active_agent_profile": "operations"},

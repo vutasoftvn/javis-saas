@@ -156,6 +156,9 @@ void main() {
 
     final fcc = FounderCommandCenterController();
     await Future<void>.delayed(const Duration(milliseconds: 10));
+    // Task 2 (2026-09-11 Project-scoped Founder Hub) — sendChatMessage() giờ
+    // bắt buộc có Project đang hoạt động trước khi dispatch.
+    fcc.activeProjectId.value = 'proj_epoch_guard';
 
     final sendFuture = fcc.sendChatMessage('hello, no switch happens');
     await Future<void>.delayed(Duration.zero);

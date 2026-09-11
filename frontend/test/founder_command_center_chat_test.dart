@@ -52,6 +52,11 @@ void main() {
     });
 
     final controller = Get.put(FounderCommandCenterController());
+    // Task 2 (2026-09-11 Project-scoped Founder Hub) — sendChatMessage giờ
+    // bắt buộc có Project đang hoạt động; set tường minh thay vì chờ
+    // `_loadWorkspaceSnapshot()` (async, không được mock ở test này) tự
+    // resolve.
+    controller.activeProjectId.value = 'proj_1';
     await controller.sendChatMessage('chào bạn');
     // Cho SSE stream chạy hết (nội dung tới trong 1 chunk, nhưng vẫn cần một
     // vòng event-loop để listener xử lý).
@@ -70,6 +75,7 @@ void main() {
     });
 
     final controller = Get.put(FounderCommandCenterController());
+    controller.activeProjectId.value = 'proj_1';
     await controller.sendChatMessage('chào bạn');
 
     expect(controller.chatMessages.length, 2);

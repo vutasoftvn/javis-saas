@@ -669,6 +669,21 @@ class FounderCommandCenterController extends GetxController {
     final trimmed = message.trim();
     if (trimmed.isEmpty) return;
 
+    // Task 2 (2026-09-11 Project-scoped Founder Hub) — Project là bắt buộc,
+    // không auto-select/company-wide. Chưa có Project đang hoạt động thì
+    // không được tạo conversation/gửi message nào — chỉ hiện lỗi cục bộ,
+    // giống hành vi lỗi thật khác của hàm này (không hiện thành công giả).
+    final projectId = activeProjectId.value;
+    if (projectId == null || projectId.isEmpty) {
+      chatMessages.add({'role': 'user', 'content': trimmed});
+      chatInputController.clear();
+      chatMessages.add({
+        'role': 'error',
+        'content': 'Chưa chọn Project — vui lòng chọn một Project trước khi trò chuyện.',
+      });
+      return;
+    }
+
     final generationAtSend = _workspaceGeneration;
     chatMessages.add({'role': 'user', 'content': trimmed});
     chatInputController.clear();
@@ -677,6 +692,7 @@ class FounderCommandCenterController extends GetxController {
     try {
       if (_cofounderConversationId == null) {
         final created = await _chatService.createConversation(
+          projectId: projectId,
           title: 'Founder Command Center',
           activeAgentProfile: 'operations',
         );
@@ -695,6 +711,7 @@ class FounderCommandCenterController extends GetxController {
 
       final response = await _chatService.sendMessage(
         conversationId,
+        projectId: projectId,
         content: trimmed,
         dataAccess: _chatDataAccess,
       );

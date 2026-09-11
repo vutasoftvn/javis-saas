@@ -14,6 +14,7 @@ from apps.cosa.api.event_stream import (
     get_cosa_event_stream_manager,
     redact_ux_event_payload,
 )
+from apps.cosa.api.project_context import require_project_context_match, verify_project_context
 from apps.cosa.api.schemas import (
     ConversationCreate,
     ConversationListResponse,
@@ -44,38 +45,6 @@ __all__ = ["create_conversation_router"]
 logger = logging.getLogger("cosa.api.conversation_routes")
 
 
-async def _resolve_workspace_project_id(
-    plane: CosaAgentPlane, identity: AuthenticatedIdentity
-) -> str | None:
-    """Resolve project của workspace cho run `operations` chưa chỉ định project.
-
-    Gọi `GET /operations/projects` (services/company, scope theo X-Workspace-Id)
-    và lấy project đầu tiên (handler trả về theo id giảm dần — project gần nhất).
-    Trả None nếu workspace chưa có project hoặc Company service không sẵn sàng —
-    guard `project_context_required` ở worker sẽ fail-closed đúng nghĩa.
-    """
-    company_client = getattr(plane, "company_client", None)
-    if company_client is None:
-        return None
-    try:
-        resp = await company_client.get(
-            "/operations/projects",
-            headers={
-                "Authorization": f"Bearer {identity.mint_delegation()}",
-                "X-Workspace-Id": identity.workspace_id,
-            },
-        )
-    except Exception:
-        logger.warning("resolve workspace project_id failed", exc_info=True)
-        return None
-    projects = (resp or {}).get("projects") if isinstance(resp, dict) else None
-    if not projects:
-        return None
-    first = projects[0]
-    pid = first.get("id") if isinstance(first, dict) else None
-    return str(pid) if pid is not None else None
-
-
 router = APIRouter(prefix="/agent", tags=["agent-chat"])
 
 
@@ -85,6 +54,27 @@ def get_cosa_plane(request: Request) -> CosaAgentPlane:
     if plane is None:
         raise RuntimeError("CosaAgentPlane chưa sẵn sàng — app.state.plane rỗng.")
     return plane
+
+
+async def _get_workspace_conversation_or_404(
+    plane: CosaAgentPlane, identity: AuthenticatedIdentity, conversation_id: str
+) -> ConversationRecord:
+    """Tra conversation theo workspace-only scope, KHÔNG bắt buộc Project.
+
+    Dùng cho các route đọc thuần tuý (session view/timeline, artifacts) —
+    nằm NGOÀI phạm vi Project-context enforcement của Task 2 (interfaces chỉ
+    liệt kê create/list/get/update/message + run cancel/events). Giữ nguyên
+    hành vi tenant-isolation cũ (404 nếu khác workspace hoặc không tồn tại)
+    kể cả với conversation LEGACY_UNSCOPED (project_id=None) — không được
+    chặn nhầm các bản ghi legacy chưa gắn Project.
+    """
+    conv = await plane.conversation_repository.get_conversation(conversation_id)
+    if conv is None or conv.workspace_id != identity.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session/Conversation {conversation_id} not found in current workspace.",
+        )
+    return conv
 
 
 async def _conv_to_response(
@@ -122,6 +112,8 @@ async def _conv_to_response(
     return ConversationResponse(
         id=conv.conversation_id,
         workspace_id=conv.workspace_id or "",
+        project_id=conv.project_id,
+        scope_state=conv.scope_state,
         created_by_principal=conv.created_by_principal,
         title=conv.title,
         active_agent_profile=conv.active_agent_profile or "operations",
@@ -144,9 +136,17 @@ async def create_conversation(
     plane = get_cosa_plane(request)
     active_profile = req.agent_profile_id or req.active_agent_profile or "operations"
 
+    # Project-scoped Founder Hub — mọi conversation mới BẮT BUỘC gắn 1 Project
+    # đã được Company xác nhận thuộc đúng workspace. Không auto-select/
+    # company-wide/suy diễn — verify_project_context() raise 422/404 fail-
+    # closed TRƯỚC khi tạo bất kỳ side effect nào bên dưới.
+    verified_project = await verify_project_context(plane, identity, req.project_id)
+
     conv = ConversationRecord(
         conversation_id=f"conv_{uuid.uuid4().hex[:12]}",
         workspace_id=identity.workspace_id,
+        project_id=verified_project.project_id,
+        scope_state="PROJECT_SCOPED",
         created_by_principal=identity.principal_id,
         title=req.title or "New Conversation",
         active_agent_profile=active_profile,
@@ -160,13 +160,17 @@ async def create_conversation(
 async def list_conversations(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+    project_id: str | None = Query(None),
     include_archived: bool = Query(False),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
     plane = get_cosa_plane(request)
+    verified_project = await verify_project_context(plane, identity, project_id)
+
     conversations, total = await plane.conversation_repository.list_conversations(
         workspace_id=identity.workspace_id,
+        project_id=verified_project.project_id,
         include_archived=include_archived,
         limit=limit,
         offset=offset,
@@ -181,11 +185,15 @@ async def get_conversation(
     request: Request,
     conversation_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+    project_id: str | None = Query(None),
 ):
     plane = get_cosa_plane(request)
+    verified_project = await verify_project_context(plane, identity, project_id)
+
     conv = await plane.conversation_repository.get_scoped_conversation(
         workspace_id=identity.workspace_id,
         conversation_id=conversation_id,
+        project_id=verified_project.project_id,
     )
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -199,11 +207,15 @@ async def update_conversation(
     conversation_id: str,
     req: ConversationUpdate,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+    project_id: str | None = Query(None),
 ):
     plane = get_cosa_plane(request)
+    verified_project = await verify_project_context(plane, identity, project_id)
+
     existing = await plane.conversation_repository.get_scoped_conversation(
         workspace_id=identity.workspace_id,
         conversation_id=conversation_id,
+        project_id=verified_project.project_id,
     )
     if existing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -232,12 +244,25 @@ async def create_message(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
-    )
-    if conv is None:
+
+    # Fetch bằng conversation_id + kiểm tra workspace thủ công (KHÔNG dùng
+    # get_scoped_conversation ở đây) — cần phân biệt "conversation không tồn
+    # tại/khác tenant" (404 chung, giữ nguyên hành vi tenant-isolation cũ)
+    # với "conversation có thật nhưng client khai project_id SAI so với
+    # project ĐÃ LƯU của chính conversation này" (422 PROJECT_CONTEXT_MISMATCH
+    # — tín hiệu khác, client biết để sửa request thay vì tưởng nhầm resource).
+    conv = await plane.conversation_repository.get_conversation(conversation_id)
+    if conv is None or conv.workspace_id != identity.workspace_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    # Project-scoped Founder Hub — bắt buộc + verify Project qua Company
+    # TRƯỚC bất kỳ side effect nào, rồi enforce đúng chuỗi bất biến: request
+    # project_id == conversation.project_id == verified Project.
+    verified_project = await verify_project_context(plane, identity, req.project_id)
+    require_project_context_match(
+        request_project_id=verified_project.project_id,
+        persisted_project_id=conv.project_id,
+    )
 
     # Mint delegation TRƯỚC side effect (cùng nguyên tắc với validate data
     # access ngay dưới đây) — principal chưa từng sync qua platform (thiếu
@@ -330,14 +355,10 @@ async def create_message(
 
     agent_profile = conv.active_agent_profile or "operations"
 
-    # Startup Core: một run `operations` sống bên trong một project. Client có thể
-    # chỉ định `project_id` tường minh; nếu không, resolve project của workspace
-    # (endpoint `GET /operations/projects` trả về theo id giảm dần — lấy project
-    # gần nhất). Nếu workspace chưa có project nào thì để None — worker guard
-    # `project_context_required` sẽ fail-closed đúng nghĩa.
-    resolved_project_id: str | None = req.project_id
-    if agent_profile == "operations" and not resolved_project_id:
-        resolved_project_id = await _resolve_workspace_project_id(plane, identity)
+    # Project-scoped Founder Hub — mọi run (không chỉ `operations`) mang theo
+    # đúng project_id đã verify ở trên. Không còn fallback tự resolve project
+    # của workspace (Task 2 xoá `_resolve_workspace_project_id`).
+    resolved_project_id = verified_project.project_id
 
     # Durable dispatch — schedule task
     await plane.scheduler.schedule(
@@ -379,15 +400,7 @@ async def get_session_view(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
-    )
-    if not conv:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session/Conversation {conversation_id} not found in current workspace.",
-        )
+    conv = await _get_workspace_conversation_or_404(plane, identity, conversation_id)
 
     messages = await plane.conversation_repository.list_messages(conv.conversation_id)
     msg_responses = [
@@ -559,15 +572,7 @@ async def get_session_timeline(
     limit: int = Query(100, ge=1, le=100),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
-    )
-    if not conv:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session/Conversation {conversation_id} not found in current workspace.",
-        )
+    conv = await _get_workspace_conversation_or_404(plane, identity, conversation_id)
 
     events = await plane.stream_event_repository.list_since_for_conversation(
         conversation_id=conv.conversation_id,
@@ -602,15 +607,7 @@ async def list_conversation_artifacts(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
-    )
-    if not conv:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Conversation {conversation_id} not found in current workspace.",
-        )
+    conv = await _get_workspace_conversation_or_404(plane, identity, conversation_id)
 
     if not hasattr(plane, "artifact_repository") or plane.artifact_repository is None:
         return []

@@ -43,7 +43,12 @@ async def e2e_setup():
 
     configure_mock_client_allows_data_use(mock_client)
     # Startup Core: run operations resolve project của workspace qua Company.
-    mock_client.get.return_value = {"projects": [{"id": "proj_test_1"}], "tasks": [], "total": 0, "items": []}
+    mock_client.get.return_value = {
+        "projects": [{"id": "proj_test_1"}],
+        "tasks": [],
+        "total": 0,
+        "items": [],
+    }
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),
@@ -68,7 +73,6 @@ async def e2e_setup():
         app,
         principal_id="user:alice",
         platform_user_id="alice",
-        
         workspace_id="ws_E2E",
     )
     client = TestClient(app)
@@ -113,9 +117,7 @@ async def test_end_to_end_workspace_execution_flow(e2e_setup):
     await dispatch_one_task(plane, due[0])
 
     # 2. Get created conversation
-    convs, total = await conv_repo.list_conversations(
-        workspace_id="ws_E2E",
-    )
+    convs, total = await conv_repo.list_conversations(workspace_id="ws_E2E", project_id=None)
     assert total == 1
     conversation = convs[0]
     conv_id = conversation.conversation_id
@@ -167,7 +169,6 @@ async def test_end_to_end_workspace_execution_flow(e2e_setup):
         app,
         principal_id="user:bob",
         platform_user_id="bob",
-        
         workspace_id="ws_Other",
     )
     denied = client.get(f"/agent/sessions/{conv_id}")

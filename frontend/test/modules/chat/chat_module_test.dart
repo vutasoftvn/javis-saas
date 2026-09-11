@@ -158,6 +158,7 @@ void main() {
       final service = AgentChatService();
       final res = await service.sendMessage(
         'conv-1',
+        projectId: 'proj-1',
         content: 'Hello test',
         dataAccess: const DataAccessDeclaration(
           categories: {DataAccessCategory.nonPersonal},
@@ -190,11 +191,13 @@ void main() {
       );
       await service.sendMessage(
         'conv_1',
+        projectId: 'proj-1',
         content: 'Kế hoạch quý',
         dataAccess: declaration,
       );
       expect(sentJson, isNotNull);
       expect(sentJson!['data_access']['categories'], ['BUSINESS_CONFIDENTIAL']);
+      expect(sentJson!['project_id'], 'proj-1');
     });
 
     test('decideApproval posts decision', () async {
@@ -424,6 +427,8 @@ void main() {
       final service = AgentChatService();
       final controller = ChatController(service: service);
       Get.put<ChatController>(controller);
+      // Task 2 — sendMessage() giờ bắt buộc có Project đang hoạt động.
+      controller.activeProjectId.value = 'proj-1';
 
       await tester.binding.setSurfaceSize(const Size(800, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -492,6 +497,7 @@ void main() {
       );
       controller.textController.text = 'Please retry this message';
       controller.toggleDataAccessCategory(DataAccessCategory.nonPersonal);
+      controller.activeProjectId.value = 'proj-1';
 
       await controller.sendMessage();
 
@@ -535,6 +541,33 @@ void main() {
       expect(serviceCalled, isFalse);
       expect(controller.messages, isEmpty);
       expect(controller.sendBlockedReason.value, contains('Attachments'));
+    });
+
+    test('sendMessage blocks dispatch when no project is selected (Task 2)', () async {
+      var serviceCalled = false;
+      final mockClient = MockClient((request) async {
+        serviceCalled = true;
+        return http.Response('{}', 200);
+      });
+
+      ApiClient.client = mockClient;
+      final service = AgentChatService();
+      final controller = ChatController(service: service);
+      Get.put<ChatController>(controller);
+
+      // Valid text + valid classification, but NO active project — the
+      // generic chat transport must refuse to dispatch createConversation/
+      // sendMessage without one, per Task 2 (Project-scoped Founder Hub).
+      controller.textController.text = 'Hello without project';
+      controller.toggleDataAccessCategory(DataAccessCategory.nonPersonal);
+      expect(controller.canSendMessage, isTrue);
+      expect(controller.activeProjectId.value, isNull);
+
+      await controller.sendMessage();
+
+      expect(serviceCalled, isFalse);
+      expect(controller.messages, isEmpty);
+      expect(controller.sendBlockedReason.value, contains('project'));
     });
   });
 }

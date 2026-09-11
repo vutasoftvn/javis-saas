@@ -27,6 +27,17 @@ class ChatController extends GetxController {
   final toolActivities = <ChatToolActivity>[].obs;
   final pendingApprovals = <ChatApproval>[].obs;
 
+  /// Task 2 (2026-09-11 Project-scoped Founder Hub) — Project đang hoạt động
+  /// cho module chat chung này. KHÔNG auto-select/company-wide: `null` nghĩa
+  /// là chưa có Project nào được chọn, và `createNewConversation()`/
+  /// `sendMessage()` PHẢI từ chối dispatch (surface trạng thái "cần chọn
+  /// Project" cục bộ) thay vì gọi API thiếu project_id rồi nhận 422 từ server.
+  final RxnString activeProjectId = RxnString();
+
+  void setActiveProjectId(String? projectId) {
+    activeProjectId.value = projectId;
+  }
+
   /// Khai báo phân loại dữ liệu (data access) người dùng chọn cho tin nhắn
   /// SẮP gửi — bắt buộc khớp field `data_access` của API (Task 5). Reset về
   /// rỗng sau mỗi lần gửi thành công để tránh rò rỉ classification cũ sang
@@ -108,9 +119,17 @@ class ChatController extends GetxController {
   }
 
   Future<void> createNewConversation({String? agentProfile}) async {
+    final projectId = activeProjectId.value;
+    if (projectId == null || projectId.isEmpty) {
+      // Task 2 — không dispatch khi chưa có Project; chỉ surface trạng thái
+      // cục bộ để UI hiển thị, KHÔNG âm thầm bỏ qua hoặc tự chọn hộ.
+      sendBlockedReason.value = 'Select a project before creating a conversation.';
+      return;
+    }
     isLoading.value = true;
     try {
       final newConv = await _service.createConversation(
+        projectId: projectId,
         title: 'New Conversation',
         activeAgentProfile: agentProfile ?? 'founder_assistant',
       );
@@ -164,6 +183,14 @@ class ChatController extends GetxController {
           : 'Add a subject reference before sending personal data.';
       return;
     }
+
+    final projectId = activeProjectId.value;
+    if (projectId == null || projectId.isEmpty) {
+      // Task 2 — surface trạng thái "cần Project" cục bộ, không dispatch bất
+      // kỳ side effect nào (không tạo conversation, không gửi message).
+      sendBlockedReason.value = 'Select a project before sending.';
+      return;
+    }
     sendBlockedReason.value = '';
 
     final dataAccessForRequest = dataAccess.value;
@@ -209,6 +236,7 @@ class ChatController extends GetxController {
       // 3. Send message to backend
       final response = await _service.sendMessage(
         conv.id,
+        projectId: projectId,
         content: content,
         dataAccess: dataAccessForRequest,
         attachments: attachments?.map((a) => a.toJson()).toList(),

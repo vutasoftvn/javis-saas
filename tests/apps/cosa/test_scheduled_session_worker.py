@@ -39,7 +39,12 @@ async def worker_setup():
 
     configure_mock_client_allows_data_use(mock_client)
     # Startup Core: run operations resolve project của workspace qua Company.
-    mock_client.get.return_value = {"projects": [{"id": "proj_test_1"}], "tasks": [], "total": 0, "items": []}
+    mock_client.get.return_value = {
+        "projects": [{"id": "proj_test_1"}],
+        "tasks": [],
+        "total": 0,
+        "items": [],
+    }
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),
@@ -97,14 +102,14 @@ async def test_worker_dispatches_scheduled_session_task(worker_setup):
     await dispatch_one_task(plane, task_to_run)
 
     # 4. Verify conversation was created
-    conversations, total = await conv_repo.list_conversations(workspace_id="ws_sched",
+    conversations, total = await conv_repo.list_conversations(
+        workspace_id="ws_sched", project_id=None
     )
     assert total == 1
     assert len(conversations) == 1
     sched_conv = conversations[0]
     assert sched_conv.created_by_principal == "service:scheduler"
     assert "Scheduled execution:" in sched_conv.title
-
 
     # 5. Verify messages in conversation (user prompt + assistant output)
     messages = await conv_repo.list_messages(sched_conv.conversation_id)
@@ -116,7 +121,8 @@ async def test_worker_dispatches_scheduled_session_task(worker_setup):
     assert messages[1].status == "completed"
 
     # 6. Verify WorkspaceArtifact was created for this scheduled conversation
-    artifacts = await art_repo.list_for_conversation(workspace_id="ws_sched",
+    artifacts = await art_repo.list_for_conversation(
+        workspace_id="ws_sched",
         conversation_id=sched_conv.conversation_id,
     )
     assert len(artifacts) == 1
