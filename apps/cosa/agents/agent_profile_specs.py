@@ -23,6 +23,7 @@ from apps.cosa.agents.specs import (
     COSA_MARKETING_AGENT_SPEC,
     COSA_OPERATIONS_AGENT_SPEC,
     COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
+    COSA_SALES_AGENT_SPEC,
     COSA_STRATEGY_AGENT_SPEC,
 )
 
@@ -40,4 +41,5 @@ AGENT_PROFILE_SPECS: dict[str, AgentSpec] = {
     "research_intelligence": COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
     "strategy": COSA_STRATEGY_AGENT_SPEC,
     "customer_support": COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
+    "sales": COSA_SALES_AGENT_SPEC,
 }

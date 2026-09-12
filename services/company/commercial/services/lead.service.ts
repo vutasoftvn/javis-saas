@@ -28,6 +28,7 @@ export interface SalesLead {
   fitScore: number | null;
   intentScore: number | null;
   engagementScore: number | null;
+  qualificationStatus?: string | null;
   projectId?: string | null;
   leadSourceId?: string | null;
   provenanceEventId?: string | null;

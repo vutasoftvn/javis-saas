@@ -12,7 +12,7 @@ import {
 import { ingestLeadCapture } from "../handlers/lead-capture.handler";
 
 describe("lead-capture.handler (Ed25519 signed ingestion)", () => {
-  let keyPair: crypto.KeyPairSyncResult<string, string>;
+  let keyPair: { publicKey: string; privateKey: string };
   const KEY_ID = "landing-test-key-1";
 
   beforeAll(() => {

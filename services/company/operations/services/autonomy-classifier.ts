@@ -12,7 +12,8 @@ export type OwnerAgentProfile =
   | "finance"
   | "marketing"
   | "research_intelligence"
-  | "strategy";
+  | "strategy"
+  | "sales";
 
 // Outbound / finance-write / deploy / delete / workspace-settings — vĩnh viễn
 // KHÔNG bao giờ AUTO, không nới được kể cả founder ép.
@@ -75,6 +76,7 @@ const CAP_PREFIX_TO_PROFILE: ReadonlyArray<readonly [string, OwnerAgentProfile]>
   ["strategy.", "strategy"],
   ["marketing.", "marketing"],
   ["research.", "marketing"],
+  ["project.crm.", "sales"],
 ];
 
 const DOMAIN_KEYWORDS: Record<OwnerAgentProfile, RegExp> = {
@@ -83,6 +85,7 @@ const DOMAIN_KEYWORDS: Record<OwnerAgentProfile, RegExp> = {
   marketing: /(marketing|gtm|growth|positioning|campaign|content|brand|seo|launch)/i,
   research_intelligence: /(research[_\s-]?intelligence|evidence|source[_\s-]?discovery|resource[_\s-]?capability)/i,
   strategy: /(strategy|initiative[_\s-]?draft|ranking[_\s-]?explanation)/i,
+  sales: /(sales|crm|pipeline|deal|prospect|outreach|revenue)/i,
 };
 
 /**

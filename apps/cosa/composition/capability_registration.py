@@ -16,6 +16,10 @@ from apps.cosa.capabilities.commercial_customer_read import (
     COMMERCIAL_CUSTOMER_360_READ_SPEC,
     create_commercial_customer_360_read_handler,
 )
+from apps.cosa.capabilities.project_crm_read import (
+    PROJECT_CRM_READ_SPEC,
+    create_project_crm_read_handler,
+)
 from apps.cosa.capabilities.engagement_assignment_write import (
     ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,
     create_engagement_assignment_write_handler,
@@ -277,6 +281,12 @@ def register_cosa_capabilities(
             budget_store=search_budget,
             artifact_repository=artifact_repo,
         ),
+    )
+
+    # Project CRM
+    cap_registry.register(
+        PROJECT_CRM_READ_SPEC,
+        create_project_crm_read_handler(client),
     )
 
     # Sandbox MCP

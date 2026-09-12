@@ -23,6 +23,8 @@ __all__ = [
     "COSA_OPERATIONS_PROMPT",
     "COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC",
     "COSA_RESEARCH_INTELLIGENCE_PROMPT",
+    "COSA_SALES_AGENT_SPEC",
+    "COSA_SALES_PROMPT",
     "COSA_STRATEGY_AGENT_SPEC",
     "COSA_STRATEGY_PROMPT",
 ]
@@ -362,6 +364,34 @@ COSA_STRATEGY_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA Strategy Specialist Agent"},
 )
 
+COSA_SALES_PROMPT = PromptSpec(
+    id="cosa.agents.sales.prompt",
+    version="1.0.0",
+    text=(
+        "Chuyên viên phát triển kinh doanh và quản lý cơ hội bán hàng (B2B Sales Specialist). "
+        "Chỉ đọc dữ liệu pipeline và CRM được phân quyền của Project, phân tích nhu cầu khách hàng, "
+        "soạn thảo kế hoạch tiếp cận và đề xuất bước tiếp theo (L1_PROPOSE). Tuyệt đối không tự ý gửi tin nhắn, "
+        "thay đổi giá hay cam kết pháp lý/tài chính ngoài phạm vi."
+    ),
+).with_hash()
+
+COSA_SALES_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.sales",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_SALES_PROMPT.text,
+    capability_refs=[
+        "project.crm.read",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_SALES_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Sales Specialist Agent"},
+)
+
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
 # runtime specs (skillpacks + prompts/model_policy/agent) và verify mọi
 # pinned_skills resolve được trước khi phục vụ traffic (Wave M2b).
@@ -374,4 +404,6 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
     COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
     COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
+    COSA_SALES_AGENT_SPEC,
 )
+
