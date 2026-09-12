@@ -124,3 +124,25 @@ async def test_dag_parallel_execution_timing():
     assert workflow.state["step_b"] == {"result_b": 2}
     assert workflow.state["step_merge"] == {"merged": True}
     assert elapsed < 0.15
+
+
+def test_application_has_no_legacy_coordination_imports() -> None:
+    from pathlib import Path
+
+    forbidden = (
+        "agent.coordination.approval_gate",
+        "agent.coordination.delegate",
+        "agent.coordination.parallel",
+        "agent.coordination.quality_gate",
+        "agent.coordination.risk_classification",
+        "agent.coordination.supervisor",
+        "agent.coordination.synthesis",
+    )
+    text = "\n".join(
+        path.read_text()
+        for root in (Path("apps"), Path("packages"))
+        for path in root.rglob("*.py")
+        if "coordination" not in path.parts
+    )
+    assert not any(name in text for name in forbidden)
+
