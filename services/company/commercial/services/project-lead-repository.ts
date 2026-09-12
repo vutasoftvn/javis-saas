@@ -293,7 +293,8 @@ export class ProjectLeadRepository {
   static async createLead(
     workspaceId: string,
     projectId: string,
-    input: ProjectLeadInput
+    input: ProjectLeadInput,
+    existingTx?: any
   ): Promise<ProjectLeadView> {
     const wsId = BigInt(workspaceId);
     const projId = BigInt(projectId);
@@ -355,7 +356,7 @@ export class ProjectLeadRepository {
       identityHashes.push({ keyType: "phone", hash: computeIdentityHash(input.phone) });
     }
 
-    return await db.transaction(async (tx) => {
+    const executeInTransaction = async (tx: any) => {
       // 4. Kiểm tra duplicate candidate
       let isDuplicate = false;
       let existingLeadId: string | undefined;
@@ -504,7 +505,12 @@ export class ProjectLeadRepository {
         duplicateCandidate: isDuplicate,
         existingLeadId,
       };
-    });
+    };
+
+    if (existingTx) {
+      return await executeInTransaction(existingTx);
+    }
+    return await db.transaction(executeInTransaction);
   }
 
   /** Lấy danh sách leads thuộc project với pagination. */

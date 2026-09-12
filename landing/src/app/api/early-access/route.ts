@@ -5,6 +5,7 @@ import { isProductionEnvironment, parseEarlyAccessRegistration, verifyTurnstileT
 import { isEarlyAccessEmailSimulated, sendEarlyAccessEmails } from "@/lib/resend";
 import { earlyAccessStore } from "@/lib/early-access-store";
 import { earlyAccessRateLimiter } from "@/lib/early-access-rate-limit";
+import { createLeadCapturePayload, submitLeadToCompany } from "@/lib/cosa-company-lead-capture";
 
 // Giới hạn dung lượng body: chặn payload quá khổ trước khi JSON.parse (tránh
 // tốn CPU parse chuỗi lớn) — 16 KiB đủ rộng cho toàn bộ form đăng ký hợp lệ.
@@ -343,6 +344,43 @@ export async function POST(req: NextRequest) {
     // — đúng yêu cầu "chỉ markEmailQueued sau khi có provider message id".
     if (emailResult.providerMessageId) {
       await earlyAccessStore.markEmailQueued(registration.id, emailResult.providerMessageId);
+    }
+
+    // Ingest vào Company CRM nếu được cấu hình
+    const companyApiUrl = process.env.COMPANY_API_URL;
+    const privateKeyPem = process.env.LANDING_PRIVATE_KEY_PEM;
+    const formId = process.env.LANDING_FORM_ID;
+    if (companyApiUrl && privateKeyPem && formId) {
+      try {
+        const payload = createLeadCapturePayload({
+          formId,
+          eventId: registration.id,
+          consent: {
+            purpose: process.env.LANDING_CONSENT_PURPOSE || "early_access_followup",
+            lawfulBasis: "CONSENT",
+            policyVersion: "2026-09-11",
+            acceptedAt: registration.registeredAt.toISOString(),
+          },
+          fieldValues: {
+            name: registration.fullName,
+            email: registration.email,
+            phone: registration.phone || undefined,
+            company: registration.company || undefined,
+            projectName: registration.projectName || undefined,
+            role: registration.role || undefined,
+            userSegment: registration.userSegment || undefined,
+            teamSize: registration.teamSize || undefined,
+          },
+        });
+        await submitLeadToCompany({
+          companyApiUrl,
+          payload,
+          keyId: process.env.LANDING_KEY_ID || "landing-prod-2026",
+          privateKeyPem,
+        });
+      } catch (crmErr) {
+        console.error("[Early Access CRM Ingest Error]:", crmErr instanceof Error ? crmErr.message : "unknown error");
+      }
     }
 
     return successResponse(accessCode, {
