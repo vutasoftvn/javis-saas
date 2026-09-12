@@ -22,6 +22,7 @@ import {
 import {
   activateProjectStartupTeamMember,
 } from "../services/project-startup-team.service";
+import { AGENT_PROFILE_SPEC_HASH } from "../services/ai-member.service";
 
 const { eventOutbox } = schema;
 
@@ -215,5 +216,71 @@ describe("Executive Deliberation Service", () => {
         expectedVersion: delib.version,
       })
     ).rejects.toThrow(/EXECUTIVE_DECISION_ALREADY_RECORDED/);
+  });
+
+  it("frames chief_of_staff and coo with exact operations spec and role-specific pins", async () => {
+    // 1. Activate operations profile in startup team
+    await activateProjectStartupTeamMember(founderCtx, projectId, "operations", { expectedVersion: 1 });
+
+    // 2. Activate chief_of_staff and coo
+    await activateExecutiveRole(founderCtx, projectId, "chief_of_staff", { expectedVersion: 1 });
+    await activateExecutiveRole(founderCtx, projectId, "coo", { expectedVersion: 1 });
+
+    // 3. Create draft and frame with chief_of_staff and coo
+    const draft = await createDraftDeliberation(founderCtx, projectId, {
+      title: "Operations & Execution Cadence",
+    });
+
+    const framed = await frameDeliberation(founderCtx, projectId, draft.id, {
+      expectedVersion: 1,
+      roleKeys: ["chief_of_staff", "coo"],
+      question: "Làm sao để thiết lập nhịp vận hành hàng tuần giữa các team?",
+    });
+
+    expect(framed.state).toBe("ANALYSIS_QUEUED");
+
+    // 4. Verify outbox event carries exact operations spec, hash, and role-specific pins
+    const outboxRows = await db
+      .select()
+      .from(eventOutbox)
+      .where(
+        and(
+          eq(eventOutbox.workspaceId, founderCtx.workspaceId),
+          eq(eventOutbox.eventType, "executive.deliberation.framed.v1"),
+          eq(eventOutbox.aggregateId, draft.id)
+        )
+      );
+    expect(outboxRows).toHaveLength(1);
+
+    interface SelectedRolePinPayload {
+      roleKey: string;
+      assignmentId: string;
+      specId: string;
+      specVersion: string;
+      specHash: string;
+      skillPins: string[];
+    }
+    const envelope = outboxRows[0].envelope as { payload: { selectedRoles: SelectedRolePinPayload[] } };
+    const selectedRoles = envelope.payload.selectedRoles;
+    expect(selectedRoles).toHaveLength(2);
+
+    const cosRole = selectedRoles.find((r) => r.roleKey === "chief_of_staff");
+    expect(cosRole).toBeDefined();
+    expect(cosRole?.specId).toBe("cosa.agents.operations");
+    expect(cosRole?.specVersion).toBe("1.3.0");
+    expect(cosRole?.specHash).toBe(AGENT_PROFILE_SPEC_HASH.operations);
+    expect(cosRole?.skillPins).toEqual([
+      "skillpack:executive/board-protocol@1.0.0",
+      "skillpack:executive/chief-of-staff@1.0.0",
+    ]);
+
+    const cooRole = selectedRoles.find((r) => r.roleKey === "coo");
+    expect(cooRole).toBeDefined();
+    expect(cooRole?.specId).toBe("cosa.agents.operations");
+    expect(cooRole?.specVersion).toBe("1.3.0");
+    expect(cooRole?.specHash).toBe(AGENT_PROFILE_SPEC_HASH.operations);
+    expect(cooRole?.skillPins).toEqual([
+      "skillpack:executive/coo-advisor@1.0.0",
+    ]);
   });
 });

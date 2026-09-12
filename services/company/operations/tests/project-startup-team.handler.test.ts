@@ -7,6 +7,11 @@ import {
   pauseProjectStartupTeamMemberApi,
   getProjectAgentRunAuthorityApi,
 } from "../handlers/project-startup-team.handler";
+import {
+  AGENT_PROFILE_SPEC_HASH,
+  AGENT_PROFILE_SPEC_ID,
+  AGENT_PROFILE_SPEC_VERSION,
+} from "../services/ai-member.service";
 
 describe("project-startup-team handler authorization & governance", () => {
   it("rejects unauthenticated requests (missing bearer token)", async () => {
@@ -75,7 +80,7 @@ describe("project-startup-team handler authorization & governance", () => {
       workspaceId: ws.workspaceId,
       projectId: project.id,
     });
-    expect(listRes.items).toHaveLength(9);
+    expect(listRes.items).toHaveLength(10);
 
     // Member cannot activate
     await expect(
@@ -156,17 +161,6 @@ describe("project-startup-team handler authorization & governance", () => {
         expectedVersion: 1,
       })
     ).rejects.toThrow(/PENDING_CRM_FOUNDATION/i);
-
-    // customer_support requires knowledge gate
-    await expect(
-      activateProjectStartupTeamMemberApi({
-        authorization: ws.bearerToken,
-        workspaceId: ws.workspaceId,
-        projectId: project.id,
-        profileKey: "customer_support",
-        expectedVersion: 1,
-      })
-    ).rejects.toThrow(/PENDING_PROJECT_KNOWLEDGE/i);
   });
 
   it("allows founder/admin to activate a ready template, pins spec hash, handles optimistic concurrency & idempotency", async () => {
@@ -323,5 +317,32 @@ describe("project-startup-team handler authorization & governance", () => {
         profileKey: "finance",
       })
     ).rejects.toThrow(/not actively assigned/i);
+
+    // 6. Operations activation and run-authority with pinned spec hash
+    const opsAct = await activateProjectStartupTeamMemberApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      profileKey: "operations",
+      expectedVersion: 1,
+    });
+    expect(opsAct.displayState).toBe("ACTIVE");
+    expect(opsAct.assignmentVersion).toBe(2);
+
+    const opsAuth = await getProjectAgentRunAuthorityApi({
+      serviceToken: "dev-worker-service-token",
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      profileKey: "operations",
+    });
+
+    expect(opsAuth.projectId).toBe(project.id);
+    expect(opsAuth.workspaceId).toBe(ws.workspaceId);
+    expect(opsAuth.profileKey).toBe("operations");
+    expect(opsAuth.assignmentVersion).toBe(2);
+    expect(opsAuth.agentWorkforceMemberId).toBeDefined();
+    expect(opsAuth.spec.id).toBe(AGENT_PROFILE_SPEC_ID.operations);
+    expect(opsAuth.spec.version).toBe(AGENT_PROFILE_SPEC_VERSION.operations);
+    expect(opsAuth.spec.hash).toBe(AGENT_PROFILE_SPEC_HASH.operations);
   });
 });

@@ -6,6 +6,8 @@ import {
   createSecondWorkspace,
   makeTestTenantContext,
 } from "./_helpers";
+import { db, schema } from "../models/db";
+import { and, eq } from "drizzle-orm";
 import { TenantContext } from "../../shared/types/tenant_context";
 import {
   getProjectExecutiveRoleStates,
@@ -149,7 +151,7 @@ describe("Executive Role Activation Service", () => {
     expect(result.presetKey).toBe("startup-discovery");
     // cmo is eligible (marketing is ACTIVE) -> activated
     // cfo is not eligible (finance is TEMPLATE) -> remains unavailable/not activated
-    // chief_of_staff is PENDING_OPERATIONS_PROFILE -> unavailable
+    // chief_of_staff requires operations profile which is TEMPLATE -> unavailable
     const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
     const cmo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
     const cfo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
@@ -180,5 +182,91 @@ describe("Executive Role Activation Service", () => {
     const statesAfter = await getProjectExecutiveRoleStates(founderCtx, projectId);
     const cmoAfter = statesAfter.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
     expect(cmoAfter?.displayState).toBe("DISABLED");
+  });
+
+  it("proves operations lifecycle: UNAVAILABLE -> AVAILABLE_NOT_ACTIVATED (no auto-activation) -> ACTIVE with CAS", async () => {
+    // 1. Before operations active, both chief_of_staff and coo are UNAVAILABLE
+    const beforeStates = await getProjectExecutiveRoleStates(founderCtx, projectId);
+    const cosBefore = beforeStates.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
+    const cooBefore = beforeStates.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "coo");
+    expect(cosBefore?.displayState).toBe("UNAVAILABLE");
+    expect(cooBefore?.displayState).toBe("UNAVAILABLE");
+
+    // Attempting to activate coo or chief_of_staff before operations is active fails
+    await expect(
+      activateExecutiveRole(founderCtx, projectId, "coo", { expectedVersion: cooBefore!.version })
+    ).rejects.toThrow(/EXECUTIVE_ROLE_NOT_AVAILABLE/);
+
+    // 2. Activate ONLY operations profile in startup team
+    await activateProjectStartupTeamMember(founderCtx, projectId, "operations", { expectedVersion: 1 });
+
+    // 3. Both roles become AVAILABLE_NOT_ACTIVATED
+    const midStates = await getProjectExecutiveRoleStates(founderCtx, projectId);
+    const cosMid = midStates.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
+    const cooMid = midStates.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "coo");
+    expect(cosMid?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
+    expect(cooMid?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
+
+    // Profile activation MUST NOT insert any executive role activations into the DB
+    const existingActs = await db
+      .select()
+      .from(schema.projectExecutiveRoleActivations)
+      .where(
+        and(
+          eq(schema.projectExecutiveRoleActivations.workspaceId, BigInt(founderCtx.workspaceId)),
+          eq(schema.projectExecutiveRoleActivations.projectId, BigInt(projectId))
+        )
+      );
+    const opsRoleActs = existingActs.filter((a) => a.roleKey === "chief_of_staff" || a.roleKey === "coo");
+    expect(opsRoleActs).toHaveLength(0);
+
+    // 4. Direct Founder activation reaches ACTIVE with CAS
+    const cosAct = await activateExecutiveRole(founderCtx, projectId, "chief_of_staff", {
+      expectedVersion: cosMid!.version,
+      idempotencyKey: "act-cos-1",
+    });
+    expect(cosAct.state).toBe("ACTIVE");
+    expect(cosAct.roleKey).toBe("chief_of_staff");
+
+    const cooAct = await activateExecutiveRole(founderCtx, projectId, "coo", {
+      expectedVersion: cooMid!.version,
+      idempotencyKey: "act-coo-1",
+    });
+    expect(cooAct.state).toBe("ACTIVE");
+    expect(cooAct.roleKey).toBe("coo");
+
+    // Verify CAS conflict on stale version
+    await expect(
+      activateExecutiveRole(founderCtx, projectId, "coo", {
+        expectedVersion: 999,
+      })
+    ).rejects.toThrow(/CAS_CONFLICT|stale/i);
+  });
+
+  it("selectStartupCorePreset with startup-build-launch activates eligible defaults only upon explicit preset selection", async () => {
+    // Operations and Marketing are ACTIVE; Finance remains TEMPLATE
+    await activateProjectStartupTeamMember(founderCtx, projectId, "operations", { expectedVersion: 1 });
+    await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
+
+    const result = await selectStartupCorePreset(founderCtx, projectId, {
+      presetKey: "startup-build-launch",
+      expectedVersion: 1,
+      idempotencyKey: "preset-build-1",
+    });
+
+    expect(result.presetKey).toBe("startup-build-launch");
+
+    const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
+    const cmo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
+    const cos = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
+    const coo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "coo");
+    const cfo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
+
+    // Eligible defaults (operations & marketing active) are activated
+    expect(cmo?.displayState).toBe("ACTIVE");
+    expect(cos?.displayState).toBe("ACTIVE");
+    expect(coo?.displayState).toBe("ACTIVE");
+    // Ineligible default (finance not active) remains UNAVAILABLE
+    expect(cfo?.displayState).toBe("UNAVAILABLE");
   });
 });
