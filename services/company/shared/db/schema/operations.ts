@@ -1003,4 +1003,47 @@ export const productDecisionDossierRevisions = operatingSchema.table("product_de
   ixDossier: index("idx_product_decision_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
 }));
 
+// People Risk Dossier: bản ghi nghiệp vụ Founder-reviewed, append-only,
+// scoped theo workspace + project — mirror cấu trúc Product Decision Dossier
+// ở trên nhưng data model là People Risk (capacity_bands/risk_signals đã
+// classify, KHÔNG BAO GIỜ chứa CV, compensation, protected characteristics,
+// performance note, health data hay contact PII). Validation allowlist thực
+// hiện tại service layer (people-risk-dossier.service.ts).
+export const peopleRiskDossiers = operatingSchema.table("people_risk_dossiers", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  status: varchar("status", { length: 24 }).default("DRAFT").notNull(), // DRAFT | CONFIRMED | SUPERSEDED
+  currentVersion: integer("current_version").default(1).notNull(),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixProj: index("idx_people_risk_dossiers_proj").on(t.workspaceId, t.projectId, t.updatedAt),
+  // 1 dossier duy nhất mỗi Project (xem migration 012).
+  uixProject: uniqueIndex("uix_people_risk_dossiers_project").on(t.workspaceId, t.projectId),
+}));
+
+export const peopleRiskDossierRevisions = operatingSchema.table("people_risk_dossier_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  dossierId: bigint("dossier_id", { mode: "bigint" }).notNull().references(() => peopleRiskDossiers.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  status: varchar("status", { length: 24 }).notNull(), // DRAFT | CONFIRMED
+  capacityBands: jsonb("capacity_bands").default([]).notNull(),
+  riskSignals: jsonb("risk_signals").default([]).notNull(),
+  sourceRefs: jsonb("source_refs").default([]).notNull(),
+  reasonCode: text("reason_code"),
+  narrative: text("narrative"),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  supersedesRevisionId: bigint("supersedes_revision_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixVer: uniqueIndex("uix_people_risk_dossier_revisions_ver").on(t.dossierId, t.version),
+  ixDossier: index("idx_people_risk_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
+}));
+
 
