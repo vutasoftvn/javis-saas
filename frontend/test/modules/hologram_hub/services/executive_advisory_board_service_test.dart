@@ -99,6 +99,52 @@ void main() {
     expect(roles[2].disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
   });
 
+  test('CPO remains unavailable until Company reports active Product profile', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'roles': [
+              {
+                'roleKey': 'cpo',
+                'label': 'CPO Advisor',
+                'advisoryRemit': 'Định hướng sản phẩm và ưu tiên roadmap',
+                'displayState': 'UNAVAILABLE',
+                'runtimeReadiness': 'READY',
+                'requiredProfileKey': 'product',
+                'version': 1,
+                'disabledReason': 'UNDERLYING_PROFILE_UNAVAILABLE',
+              },
+            ],
+          },
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-09-11T12:00:00Z',
+            'sources': [
+              {'kind': 'company_db', 'ref': 'operating'}
+            ],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final service = ExecutiveAdvisoryBoardService(client: requestClient);
+
+    final result = await service.fetchRoles('proj-101');
+    expect(result, isA<ApiSuccess<List<ExecutiveAdvisorRole>>>());
+    final roles = (result as ApiSuccess<List<ExecutiveAdvisorRole>>).data;
+    expect(roles, hasLength(1));
+
+    final cpo = roles[0];
+    expect(cpo.roleKey, 'cpo');
+    expect(cpo.activationState, ExecutiveActivationState.unavailable);
+    expect(cpo.underlyingProfileKey, 'product');
+    expect(cpo.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
+  });
+
   test('activates an executive role and decodes mutation receipt truthfully', () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'POST');
