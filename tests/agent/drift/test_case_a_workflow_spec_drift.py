@@ -53,6 +53,7 @@ async def test_case_a_workflow_spec_drift():
     class _MockApproval:
         def __init__(self, id: str):
             self.id = id
+            self.approval_id = id
             self.status = "PENDING"
             self.reason = ""
 
@@ -60,12 +61,12 @@ async def test_case_a_workflow_spec_drift():
         def __init__(self):
             self._approvals = {}
 
-        def request_approval(self, **kw):
+        async def create_change_approval_request(self, **kw):
             appr = _MockApproval("appr-1")
             self._approvals["appr-1"] = appr
-            return appr
+            return appr, "token"
 
-        def get(self, approval_id: str):
+        async def get_approval(self, approval_id: str, **kw):
             return self._approvals.get(approval_id)
 
         def decide(self, approval_id: str, reviewer: str, approved: bool, reason: str = ""):
@@ -93,11 +94,10 @@ async def test_case_a_workflow_spec_drift():
         "step_2_v1": lambda s: DeterministicStep("step_2_v1", step2_v1_fn),
     }
 
-
     # 1. Khởi chạy v1 -> pause ở approval_gate
     wf = await engine.execute_spec(
         spec_v1,
-        initial_state={},
+        initial_state={"workspace_id": "ws-1", "subject": "financial_flow_step"},
         custom_step_builders=custom_builders_v1,
     )
     assert wf.status == WorkflowStatus.WAITING_APPROVAL

@@ -20,8 +20,8 @@ pytestmark = pytest.mark.integration
 
 # Startup Core clean-slate (`8b5ea05a`, "scope agents to startup projects")
 # removed the framework strategy-analysis / PMF / lifecycle-gate skillpack
-# family. The retained governed catalog now syncs to 90 packs.
-TRANCHE_C_CANONICAL_COUNT = 90
+# family. Along with executive-board advisor packs, the catalog now syncs to 96 packs.
+TRANCHE_C_CANONICAL_COUNT = 96
 
 
 @pytest.fixture

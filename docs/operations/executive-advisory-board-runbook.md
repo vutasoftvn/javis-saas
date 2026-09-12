@@ -131,3 +131,50 @@ Ngay sau khi tắt:
 - [ ] **Cross-Tenant Evidence Check**: Đảm bảo toàn bộ `evidenceSources` bắt đầu bằng `project://<CURRENT_PROJECT_ID>/` hoặc `workspace://<CURRENT_WORKSPACE_ID>/`. Tuyệt đối không chấp nhận tham chiếu tới project/workspace khác (được kiểm tra tự động và từ chối bằng HTTP 403).
 - [ ] **Internal Token Verification**: Endpoint nội bộ `/internal/operations/...` yêu cầu đúng `X-Service-Token` hoặc `Authorization: Bearer <service-token>`.
 - [ ] **UI Truthfulness**: Frontend Flutter không hiển thị nút "Kích hoạt" cho vai trò `UNAVAILABLE` (như `chief_of_staff`), không hiển thị thành công ảo khi API trả lỗi.
+
+---
+
+## 6. Sổ cái Phê duyệt Hợp nhất & Thăng hạng Custom Skill Candidate
+
+### 6.1 Mô hình Trạng thái Vận hành (Operator State Model)
+
+```text
+PENDING_APPROVAL -> APPROVED_DISPATCH_PENDING -> ACTION_RUNNING -> PUBLISHED
+PENDING_APPROVAL -> REJECTED
+APPROVED_DISPATCH_PENDING | ACTION_RUNNING -> FAILED_REQUIRES_ATTENTION
+```
+
+> **QUY TẮC BẤT DI BẤT DỊCH**: Trạng thái `APPROVED` **tuyệt đối không đồng nghĩa với `PUBLISHED`**.
+> Việc Founder duyệt mới chỉ đưa yêu cầu vào trạng thái sẵn sàng (`APPROVED_DISPATCH_PENDING`). Worker tiến hành xác minh an toàn qua CAS nguyên tử trước khi chuyển sang `PUBLISHED`.
+
+### 6.2 Truy vấn Kiểm toán & Giám sát An toàn (Safe Audit Queries)
+
+Khi kiểm tra và xử lý sự cố trong sổ cái phê duyệt, **chỉ truy vấn các trường định danh, người phê duyệt, trạng thái, hash và lý do an toàn**. Tuyệt đối không đọc hoặc xuất thô instructions, candidate code, hay bí mật hệ thống.
+
+1. **Kiểm tra các yêu cầu phê duyệt đang chờ hoặc mới quyết định**:
+   ```sql
+   SELECT approval_id, workspace_id, action, binding_kind, status, subject_kind, subject_ref, subject_hash, created_at
+   FROM agent.approvals
+   WHERE workspace_id = :workspace_id
+   ORDER BY created_at DESC
+   LIMIT 20;
+   ```
+
+2. **Kiểm tra hàng đợi Outbox của các hành động sau phê duyệt**:
+   ```sql
+   SELECT outbox_id, approval_id, action, subject_kind, subject_ref, state, attempt_count, next_attempt_at, delivered_at
+   FROM agent.approval_action_outbox
+   WHERE workspace_id = :workspace_id
+   ORDER BY created_at DESC;
+   ```
+
+3. **Kiểm tra trạng thái Candidate và bằng chứng thăng hạng**:
+   ```sql
+   SELECT candidate_id, skill_id, status, eval_score, definition_hash, promotion_approval_id, promotion_definition_hash, published_at
+   FROM agent.agent_skill_candidates
+   WHERE workspace_id = :workspace_id AND candidate_id = :candidate_id;
+   ```
+
+4. **Sự cố Stale Subject / Lỗi Thăng hạng**:
+   - Nếu worker ghi nhận lỗi `APPROVAL_SUBJECT_STALE`: Candidate đã bị chỉnh sửa nội dung sau khi Founder xem xét và tạo phê duyệt. Yêu cầu Founder kiểm tra lại và thực hiện quy trình đánh giá/phê duyệt mới.
+   - Nếu hàng đợi outbox bị kẹt ở `pending`/`claimed` quá hạn: Kiểm tra tiến trình `cosa-worker` có đang chạy hàm `relay_approved_actions` hay không.

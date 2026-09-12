@@ -26,6 +26,7 @@ __all__ = [
     "ApprovalAlreadyDecidedError",
     "ApprovalChangeExecutionResult",
     "ApprovalResumeResult",
+    "ApprovalService",
     "ApprovalSubject",
     "DurableApprovalService",
 ]
@@ -593,3 +594,6 @@ class DurableApprovalService:
             tool_call_record=tool_call,
             checkpoint_record=checkpoint,
         )
+
+
+ApprovalService = DurableApprovalService
