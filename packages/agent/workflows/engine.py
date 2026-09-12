@@ -12,7 +12,7 @@ from agent.workflows.approval_step import ApprovalGateStep
 from agent.workflows.models import StepOutcome, StepStatus, Workflow, WorkflowStatus
 from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 from agent.workflows.steps import CompensatingStep, DeterministicStep, WorkflowStep
-from agent.workflows.tool_step import GatewayToolCallStep, ToolCallStep
+from agent.workflows.tool_step import GatewayToolCallStep
 
 __all__ = ["WorkflowEngine"]
 
@@ -59,7 +59,7 @@ class WorkflowEngine:
             raise TypeError(
                 f"Cannot resume: step {step.name!r} at the paused index is not an ApprovalGateStep"
             )
-        outcome = step.check_pending(workflow.pending_approval_id or "")
+        outcome = await step.check_pending(workflow.pending_approval_id or "")
         if outcome.status == StepStatus.WAITING_APPROVAL:
             return workflow
         workflow.transition(WorkflowStatus.RUNNING)
@@ -135,40 +135,19 @@ class WorkflowEngine:
 
             if step_spec.type == StepType.TOOL_CALL:
                 tool_name = step_spec.tool or step_spec.id
-                if self._gateway:
-                    compiled_steps.append(
-                        GatewayToolCallStep(
-                            name=step_name,
-                            tool_name=tool_name,
-                            gateway=self._gateway,
-                            inputs=step_spec.inputs,
-                            output_key=step_spec.output_key,
-                        )
-                    )
-                elif self._tool_registry:
-                    autonomy = AutonomyLevel.L3_AUTONOMOUS
-                    if step_spec.autonomy_level:
-                        autonomy = AutonomyLevel(step_spec.autonomy_level)
-                    elif step_spec.permission_level:
-                        with contextlib.suppress(ValueError):
-                            autonomy = AutonomyLevel(step_spec.permission_level)
-                    compiled_steps.append(
-                        ToolCallStep(
-                            name=step_name,
-                            tool_name=tool_name,
-                            tool_registry=self._tool_registry,
-                            policy_engine=self._policy_engine,
-                            approval_service=self._approval_service,
-                            governance_store=self._governance_store,
-                            inputs=step_spec.inputs,
-                            output_key=step_spec.output_key,
-                            autonomy_level=autonomy,
-                        )
-                    )
-                else:
+                if self._gateway is None:
                     raise RuntimeError(
-                        f"WorkflowEngine cannot compile TOOL_CALL step '{step_name}': no gateway or tool_registry provided"
+                        f"WorkflowEngine cannot compile TOOL_CALL step '{step_name}': CapabilityGateway is required"
                     )
+                compiled_steps.append(
+                    GatewayToolCallStep(
+                        name=step_name,
+                        tool_name=tool_name,
+                        gateway=self._gateway,
+                        inputs=step_spec.inputs,
+                        output_key=step_spec.output_key,
+                    )
+                )
             elif step_spec.type == StepType.APPROVAL_GATE:
                 compiled_steps.append(
                     ApprovalGateStep(
@@ -207,6 +186,15 @@ class WorkflowEngine:
         elif workflow.status == WorkflowStatus.WAITING_APPROVAL:
             workflow.transition(WorkflowStatus.RUNNING)
             workflow.pending_approval_id = None
+
+        workflow.state["_workflow_instance_id"] = workflow.id
+        spec_hash = getattr(spec, "definition_hash", None)
+        if not spec_hash and hasattr(spec, "compute_hash"):
+            spec_hash = spec.compute_hash()
+        if not spec_hash:
+            spec_hash = getattr(spec, "version", None) or "v1"
+        workflow.state["_workflow_definition_hash"] = spec_hash
+
         return await self._execute_dag(workflow, spec, custom_step_builders)
 
     async def resume_spec(
@@ -215,9 +203,36 @@ class WorkflowEngine:
         spec: WorkflowSpec,
         custom_step_builders: dict[str, Callable[[WorkflowStepSpec], WorkflowStep]] | None = None,
     ) -> Workflow:
-        return await self.execute_spec(
-            spec, initial_state={}, custom_step_builders=custom_step_builders, workflow=workflow
-        )
+        if workflow.status != WorkflowStatus.WAITING_APPROVAL:
+            return workflow
+
+        built_steps = self.build_steps_from_spec(spec, custom_step_builders)
+        steps_map = {s.id: step for s, step in zip(spec.steps, built_steps, strict=False)}
+
+        paused_step_id = None
+        for sid, outcome in workflow.step_outcomes.items():
+            if outcome.status == StepStatus.WAITING_APPROVAL:
+                paused_step_id = sid
+                break
+
+        if paused_step_id and paused_step_id in steps_map:
+            step = steps_map[paused_step_id]
+            if isinstance(step, ApprovalGateStep):
+                outcome = await step.check_pending(workflow.pending_approval_id or "")
+                if outcome.status == StepStatus.WAITING_APPROVAL:
+                    return workflow
+                if outcome.status == StepStatus.FAILED:
+                    workflow.failed_step_name = paused_step_id
+                    workflow.error = outcome.error
+                    workflow.transition(WorkflowStatus.FAILED)
+                    return workflow
+                workflow.state.update(outcome.updates)
+                workflow.completed_steps.append(paused_step_id)
+                workflow.checkpoints[paused_step_id] = dict(workflow.state)
+
+        workflow.transition(WorkflowStatus.RUNNING)
+        workflow.pending_approval_id = None
+        return await self._execute_dag(workflow, spec, custom_step_builders)
 
     async def _execute_dag(
         self,
@@ -275,7 +290,9 @@ class WorkflowEngine:
 
             async def run_single_step(step_id: str) -> tuple[str, StepOutcome]:
                 step = steps_map[step_id]
-                outcome = await step.run(workflow.state)
+                step_state = dict(workflow.state)
+                step_state["_workflow_step_id"] = step_id
+                outcome = await step.run(step_state)
                 return step_id, outcome
 
             wave_results = await asyncio.gather(*(run_single_step(sid) for sid in ready_step_ids))

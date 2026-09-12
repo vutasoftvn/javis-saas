@@ -191,42 +191,24 @@ async def test_resume_completes_the_pinned_version_end_to_end_even_after_a_newer
         def get(self, name: str):
             return self._tools.get(name)
 
-    class MockApproval:
-        def __init__(self, id: str):
-            self.id = id
-            self.status = "PENDING"
-            self.reason = ""
+    from types import SimpleNamespace
 
-    class MockApprovalService:
+    class MockGateway:
         def __init__(self):
-            self._approvals = {}
+            self.approved = False
 
-        def request_approval(self, *args, **kw):
-            appr = MockApproval("appr-1")
-            self._approvals["appr-1"] = appr
-            return appr
-
-        def find_by_run_and_action(self, *args, **kw):
-            return self._approvals.get("appr-1")
-
-        def decide(self, approval_id: str, reviewer: str, approved: bool):
-            if approval_id in self._approvals:
-                self._approvals[approval_id].status = "APPROVED" if approved else "DENIED"
-
-
-    class MockPolicyEngine:
-        def evaluate_access(self, **kw):
-            return "REQUIRE_APPROVAL"
-
-    async def deploy_handler(args):
-        return {"deployed": True}
-
-    async def notify_handler(args):
-        return {"notified": True}
-
-    tool_registry = MockToolRegistry()
-    tool_registry.register(MockToolSpec("ops.deploy.prod", deploy_handler, CapabilityRisk.HIGH))
-    tool_registry.register(MockToolSpec("ops.notify", notify_handler, CapabilityRisk.LOW))
+        async def execute(self, request):
+            if not self.approved:
+                return SimpleNamespace(
+                    status="waiting_approval",
+                    wait_descriptor=SimpleNamespace(related_ref="appr-1"),
+                    tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+                )
+            return SimpleNamespace(
+                status="completed",
+                output_payload={"deployed": True},
+                tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+            )
 
     definitions = WorkflowDefinitionRegistry()
     spec_v1 = WorkflowSpec(
@@ -234,8 +216,8 @@ async def test_resume_completes_the_pinned_version_end_to_end_even_after_a_newer
     )
     definitions.register_version(spec_v1)
 
-    approval_svc = MockApprovalService()
-    engine = WorkflowEngine(tool_registry=tool_registry, policy_engine=MockPolicyEngine(), approval_service=approval_svc)
+    gateway = MockGateway()
+    engine = WorkflowEngine(gateway=gateway)
 
     workflow = await engine.execute_spec(spec_v1, initial_state={"workspace_id": "ws1", "run_id": "run-drift"})
     assert workflow.status == WorkflowStatus.WAITING_APPROVAL
@@ -250,7 +232,7 @@ async def test_resume_completes_the_pinned_version_end_to_end_even_after_a_newer
     )
     definitions.register_version(spec_v2)
 
-    approval_svc.decide(approval_id, reviewer="founder-1", approved=True)
+    gateway.approved = True
 
     resumed = await engine.execute_spec(spec_v1, initial_state={}, workflow=workflow)
 

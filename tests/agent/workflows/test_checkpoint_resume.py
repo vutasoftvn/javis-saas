@@ -7,24 +7,21 @@ from agent.workflows.models import WorkflowStatus
 from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 
 
-class MockToolSpec:
-    def __init__(self, name: str, handler):
-        self.name = name
-        self._handler = handler
-
-    async def execute(self, **kwargs):
-        return await self._handler(kwargs)
+from types import SimpleNamespace
 
 
-class MockToolRegistry:
-    def __init__(self):
-        self._tools = {}
+class MockGateway:
+    def __init__(self, handlers: dict):
+        self.handlers = handlers
 
-    def register(self, tool):
-        self._tools[tool.name] = tool
-
-    def get(self, name: str):
-        return self._tools.get(name)
+    async def execute(self, request):
+        h = self.handlers.get(request.capability_id)
+        res = await h(request.input_payload) if h else {}
+        return SimpleNamespace(
+            status="completed",
+            output_payload=res,
+            tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+        )
 
 
 @pytest.mark.asyncio
@@ -42,11 +39,13 @@ async def test_workflow_resumes_from_checkpoint_without_rerunning_completed_step
         step2_call_count += 1
         return {"order_status": "fulfilled"}
 
-    registry = MockToolRegistry()
-    registry.register(MockToolSpec(name="payment.charge", handler=step1_non_idempotent_charge))
-    registry.register(MockToolSpec(name="order.fulfill", handler=step2_fulfill_order))
-
-    engine = WorkflowEngine(tool_registry=registry)
+    gateway = MockGateway(
+        {
+            "payment.charge": step1_non_idempotent_charge,
+            "order.fulfill": step2_fulfill_order,
+        }
+    )
+    engine = WorkflowEngine(gateway=gateway)
 
     spec = WorkflowSpec(
         id="test.resume",

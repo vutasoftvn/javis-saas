@@ -24,6 +24,17 @@ class WorkflowOrchestration:
         self.workflow_registry = workflow_registry
         self.approval_service = approval_service
 
+    async def execute_spec(
+        self,
+        spec: Any,
+        *,
+        initial_state: dict[str, Any],
+        custom_step_builders: Any = None,
+    ) -> Any:
+        return await self.workflow_engine.execute_spec(
+            spec, initial_state=initial_state, custom_step_builders=custom_step_builders
+        )
+
 
 class IWorkflowOrchestration:
     """Public interface for consumers — type hint only."""
@@ -32,3 +43,12 @@ class IWorkflowOrchestration:
     workflow_engine: WorkflowEngine
     workflow_registry: WorkflowDefinitionRegistry
     approval_service: Any
+
+    async def execute_spec(
+        self,
+        spec: Any,
+        *,
+        initial_state: dict[str, Any],
+        custom_step_builders: Any = None,
+    ) -> Any:
+        ...

@@ -25,29 +25,8 @@ async def _failing_step(state: dict) -> dict:
     raise RuntimeError("should not run")
 
 
-class _MockApproval:
-    def __init__(self, id: str):
-        self.id = id
-        self.status = "PENDING"
-        self.reason = ""
-
-
-class _MockApprovalService:
-    def __init__(self):
-        self._approvals = {}
-
-    def request_approval(self, **kw):
-        appr = _MockApproval("appr-1")
-        self._approvals["appr-1"] = appr
-        return appr
-
-    def get(self, approval_id: str):
-        return self._approvals.get(approval_id)
-
-    def decide(self, approval_id: str, reviewer: str, approved: bool, reason: str = ""):
-        if approval_id in self._approvals:
-            self._approvals[approval_id].status = "APPROVED" if approved else "DENIED"
-            self._approvals[approval_id].reason = reason
+from agent.capabilities.approval_service import DurableApprovalService
+from agent.runs.repository import InMemoryRunRepository
 
 
 class _MockPolicyEngine:
@@ -70,7 +49,8 @@ async def test_workflow_completes_when_all_deterministic_steps_succeed():
 
 @pytest.mark.asyncio
 async def test_workflow_pauses_at_approval_gate_and_resumes_when_approved():
-    approval_service = _MockApprovalService()
+    repo = InMemoryRunRepository()
+    approval_service = DurableApprovalService(repo)
     engine = WorkflowEngine()
     gate = ApprovalGateStep(
         "approve-send",
@@ -82,12 +62,14 @@ async def test_workflow_pauses_at_approval_gate_and_resumes_when_approved():
     )
     steps = [DeterministicStep("write", _write_record), gate, DeterministicStep("notify", _notify)]
 
-    workflow = await engine.start("send-flow", steps, {"campaign_id": "camp-1"})
+    workflow = await engine.start("send-flow", steps, {"campaign_id": "camp-1", "workspace_id": "ws-1"})
     assert workflow.status == WorkflowStatus.WAITING_APPROVAL
     assert workflow.pending_approval_id is not None
     assert workflow.had_approval_gate is True
 
-    approval_service.decide(workflow.pending_approval_id, reviewer="founder", approved=True)
+    await approval_service.submit_decision(
+        approval_id=workflow.pending_approval_id, reviewer="founder", approved=True
+    )
     resumed = await engine.resume(workflow, steps)
 
     assert resumed.status == WorkflowStatus.COMPLETED
@@ -97,7 +79,8 @@ async def test_workflow_pauses_at_approval_gate_and_resumes_when_approved():
 
 @pytest.mark.asyncio
 async def test_workflow_fails_when_resumed_approval_is_denied():
-    approval_service = _MockApprovalService()
+    repo = InMemoryRunRepository()
+    approval_service = DurableApprovalService(repo)
     engine = WorkflowEngine()
     gate = ApprovalGateStep(
         "approve-send",
@@ -109,8 +92,10 @@ async def test_workflow_fails_when_resumed_approval_is_denied():
     )
     steps = [gate, DeterministicStep("notify", _failing_step)]
 
-    workflow = await engine.start("send-flow", steps, {"campaign_id": "camp-1"})
-    approval_service.decide(workflow.pending_approval_id, reviewer="founder", approved=False, reason="not ready")
+    workflow = await engine.start("send-flow", steps, {"campaign_id": "camp-1", "workspace_id": "ws-1"})
+    await approval_service.submit_decision(
+        approval_id=workflow.pending_approval_id, reviewer="founder", approved=False, reason="not ready"
+    )
     resumed = await engine.resume(workflow, steps)
 
     assert resumed.status == WorkflowStatus.FAILED
@@ -187,7 +172,8 @@ async def test_compensation_runs_when_a_resumed_approval_is_denied():
     async def _compensate_write(state: dict) -> None:
         order.append("compensate-write")
 
-    approval_service = _MockApprovalService()
+    repo = InMemoryRunRepository()
+    approval_service = DurableApprovalService(repo)
     engine = WorkflowEngine()
     gate = ApprovalGateStep(
         "approve-send",
@@ -199,8 +185,12 @@ async def test_compensation_runs_when_a_resumed_approval_is_denied():
     )
     steps = [CompensatingStep(DeterministicStep("write", _write_record), compensate=_compensate_write), gate]
 
-    workflow = await engine.start("send-flow-with-compensation", steps, {"campaign_id": "camp-1"})
-    approval_service.decide(workflow.pending_approval_id, reviewer="founder", approved=False, reason="not ready")
+    workflow = await engine.start(
+        "send-flow-with-compensation", steps, {"campaign_id": "camp-1", "workspace_id": "ws-1"}
+    )
+    await approval_service.submit_decision(
+        approval_id=workflow.pending_approval_id, reviewer="founder", approved=False, reason="not ready"
+    )
     resumed = await engine.resume(workflow, steps)
 
     assert resumed.status == WorkflowStatus.FAILED

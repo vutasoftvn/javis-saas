@@ -18,29 +18,8 @@ class _MockResearcherAgent:
         return _MockAgentResult(status="COMPLETED", output="Acme Corp is a mid-market SaaS company, 50 employees.")
 
 
-class _MockApproval:
-    def __init__(self, id: str):
-        self.id = id
-        self.status = "PENDING"
-        self.reason = ""
-
-
-class _MockApprovalService:
-    def __init__(self):
-        self._approvals = {}
-
-    def request_approval(self, **kw):
-        appr = _MockApproval("appr-1")
-        self._approvals["appr-1"] = appr
-        return appr
-
-    def get(self, approval_id: str):
-        return self._approvals.get(approval_id)
-
-    def decide(self, approval_id: str, reviewer: str, approved: bool, reason: str = ""):
-        if approval_id in self._approvals:
-            self._approvals[approval_id].status = "APPROVED" if approved else "DENIED"
-            self._approvals[approval_id].reason = reason
+from agent.capabilities.approval_service import DurableApprovalService
+from agent.runs.repository import InMemoryRunRepository
 
 
 class _MockPolicyEngine:
@@ -56,7 +35,7 @@ async def _notify(state: dict) -> dict:
     return {"notified": True}
 
 
-def _build_steps(approval_service: _MockApprovalService) -> list:
+def _build_steps(approval_service: DurableApprovalService) -> list:
     researcher = _MockResearcherAgent()
     return [
         AgentStep("research", researcher, goal_key="goal", output_key="research_notes", agent_key="researcher"),
@@ -75,7 +54,8 @@ def _build_steps(approval_service: _MockApprovalService) -> list:
 
 @pytest.mark.asyncio
 async def test_full_workflow_completes_end_to_end_when_approved():
-    approval_service = _MockApprovalService()
+    repo = InMemoryRunRepository()
+    approval_service = DurableApprovalService(repo)
     engine = WorkflowEngine()
     steps = _build_steps(approval_service)
 
@@ -85,7 +65,9 @@ async def test_full_workflow_completes_end_to_end_when_approved():
     assert workflow.status == WorkflowStatus.WAITING_APPROVAL
     assert workflow.state["research_notes"] == "Acme Corp is a mid-market SaaS company, 50 employees."
 
-    approval_service.decide(workflow.pending_approval_id, reviewer="founder", approved=True)
+    await approval_service.submit_decision(
+        approval_id=workflow.pending_approval_id, reviewer="founder", approved=True
+    )
     resumed = await engine.resume(workflow, steps)
 
     assert resumed.status == WorkflowStatus.COMPLETED
@@ -95,15 +77,16 @@ async def test_full_workflow_completes_end_to_end_when_approved():
 
 @pytest.mark.asyncio
 async def test_full_workflow_stops_before_business_write_when_denied():
-    approval_service = _MockApprovalService()
+    repo = InMemoryRunRepository()
+    approval_service = DurableApprovalService(repo)
     engine = WorkflowEngine()
     steps = _build_steps(approval_service)
 
     workflow = await engine.start(
         "prospect-research-flow", steps, {"goal": "research Acme Corp", "workspace_id": "ws1"}
     )
-    approval_service.decide(
-        workflow.pending_approval_id, reviewer="founder", approved=False, reason="need more info"
+    await approval_service.submit_decision(
+        approval_id=workflow.pending_approval_id, reviewer="founder", approved=False, reason="need more info"
     )
     resumed = await engine.resume(workflow, steps)
 

@@ -7,24 +7,34 @@ from agent.workflows.models import StepStatus, WorkflowStatus
 from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 
 
-class MockToolSpec:
-    def __init__(self, name: str, handler):
-        self.name = name
-        self._handler = handler
-
-    async def execute(self, **kwargs):
-        return await self._handler(kwargs)
+from types import SimpleNamespace
 
 
-class MockToolRegistry:
-    def __init__(self):
-        self._tools = {}
+class MockGateway:
+    def __init__(self, handlers: dict):
+        self.handlers = handlers
 
-    def register(self, tool):
-        self._tools[tool.name] = tool
-
-    def get(self, name: str):
-        return self._tools.get(name)
+    async def execute(self, request):
+        h = self.handlers.get(request.capability_id)
+        if not h:
+            return SimpleNamespace(
+                status="failed",
+                error_message=f"No handler for {request.capability_id}",
+                tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+            )
+        try:
+            res = await h(request.input_payload)
+            return SimpleNamespace(
+                status="completed",
+                output_payload=res,
+                tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+            )
+        except Exception as exc:
+            return SimpleNamespace(
+                status="failed",
+                error_message=str(exc),
+                tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+            )
 
 
 @pytest.mark.asyncio
@@ -41,12 +51,14 @@ async def test_workflow_step_on_failure_triggers_compensation():
         compensation_called.append(True)
         return {"compensated": True, "fallback_logged": True}
 
-    registry = MockToolRegistry()
-    registry.register(MockToolSpec(name="fetch.data", handler=step_fetch))
-    registry.register(MockToolSpec(name="dangerous.action", handler=step_failing_action))
-    registry.register(MockToolSpec(name="compensate.fallback", handler=step_compensate_handler))
-
-    engine = WorkflowEngine(tool_registry=registry)
+    gateway = MockGateway(
+        {
+            "fetch.data": step_fetch,
+            "dangerous.action": step_failing_action,
+            "compensate.fallback": step_compensate_handler,
+        }
+    )
+    engine = WorkflowEngine(gateway=gateway)
 
     spec = WorkflowSpec(
         id="test.compensation",

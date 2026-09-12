@@ -9,24 +9,21 @@ from agent.workflows.models import WorkflowStatus
 from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 
 
-class MockToolSpec:
-    def __init__(self, name: str, handler):
-        self.name = name
-        self._handler = handler
-
-    async def execute(self, **kwargs):
-        return await self._handler(kwargs)
+from types import SimpleNamespace
 
 
-class MockToolRegistry:
-    def __init__(self):
-        self._tools = {}
+class MockGateway:
+    def __init__(self, handlers: dict):
+        self.handlers = handlers
 
-    def register(self, tool):
-        self._tools[tool.name] = tool
-
-    def get(self, name: str):
-        return self._tools.get(name)
+    async def execute(self, request):
+        h = self.handlers.get(request.capability_id)
+        res = await h(request.input_payload) if h else {}
+        return SimpleNamespace(
+            status="completed",
+            output_payload=res,
+            tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+        )
 
 
 @pytest.mark.asyncio
@@ -45,12 +42,14 @@ async def test_dag_sequential_execution_order():
         execution_order.append("notify_founder")
         return {"status": "sent"}
 
-    registry = MockToolRegistry()
-    registry.register(MockToolSpec(name="strategy.evidence.list", handler=step1_handler))
-    registry.register(MockToolSpec(name="strategy.gate_evaluation.create", handler=step2_handler))
-    registry.register(MockToolSpec(name="notification.send", handler=step3_handler))
-
-    engine = WorkflowEngine(tool_registry=registry)
+    gateway = MockGateway(
+        {
+            "strategy.evidence.list": step1_handler,
+            "strategy.gate_evaluation.create": step2_handler,
+            "notification.send": step3_handler,
+        }
+    )
+    engine = WorkflowEngine(gateway=gateway)
 
     spec = WorkflowSpec(
         id="test.sequential",
@@ -93,12 +92,14 @@ async def test_dag_parallel_execution_timing():
     async def merge_handler(args):
         return {"merged": True}
 
-    registry = MockToolRegistry()
-    registry.register(MockToolSpec(name="task.a", handler=task_a_handler))
-    registry.register(MockToolSpec(name="task.b", handler=task_b_handler))
-    registry.register(MockToolSpec(name="task.merge", handler=merge_handler))
-
-    engine = WorkflowEngine(tool_registry=registry)
+    gateway = MockGateway(
+        {
+            "task.a": task_a_handler,
+            "task.b": task_b_handler,
+            "task.merge": merge_handler,
+        }
+    )
+    engine = WorkflowEngine(gateway=gateway)
 
     spec = WorkflowSpec(
         id="test.parallel",

@@ -1232,7 +1232,6 @@ async def execute_automation_run_task(
         AutomationManifestError,
         resolve_automation_manifest,
     )
-    from agent.workflows.engine import WorkflowEngine
     from agent.workflows.models import WorkflowStatus
     from agent.workflows.steps import DeterministicStep
 
@@ -1392,10 +1391,9 @@ async def execute_automation_run_task(
 
         return DeterministicStep(name=step_spec.id, fn=_run)
 
-    engine = WorkflowEngine(gateway=plane.gateway)
     custom_builders = {s.id: _builder for s in spec.steps}
     try:
-        workflow = await engine.execute_spec(
+        workflow = await plane.workflow_orchestration.execute_spec(
             spec, initial_state={"config": ctx.config}, custom_step_builders=custom_builders
         )
     except Exception as exc:

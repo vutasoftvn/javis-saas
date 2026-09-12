@@ -1,243 +1,151 @@
 from __future__ import annotations
 
-import pytest
+from types import SimpleNamespace
+from typing import Any
 
-from agent.governance.contracts import AutonomyLevel, CapabilityRisk, DataScope
-from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+import pytest
+from agent.capabilities.approval_service import DurableApprovalService
+from agent.runs.repository import InMemoryRunRepository
 from agent.workflows.engine import WorkflowEngine
 from agent.workflows.models import WorkflowStatus
 from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
-from agent.workflows.tool_step import ToolCallStep
+from agent.workflows.tool_step import GatewayToolCallStep
 
 
-class MockTool:
-    def __init__(self, name: str, handler, risk=CapabilityRisk.LOW, permission="scoped_write"):
-        self.name = name
-        self.risk_level = risk
-        self.permission = permission
-        self._handler = handler
+class MockGateway:
+    def __init__(self, outcome_status: str = "completed", output: Any = None) -> None:
+        self.outcome_status = outcome_status
+        self.output = output or {"result": "success"}
+        self.executed_requests: list[Any] = []
 
-    async def execute(self, **kwargs):
-        return await self._handler(kwargs)
-
-
-class MockToolRegistry:
-    def __init__(self):
-        self._tools = {}
-
-    def register(self, tool):
-        self._tools[tool.name] = tool
-
-    def get(self, name: str):
-        return self._tools.get(name)
-
-
-class MockApproval:
-    def __init__(self, id: str, action: str, run_id: str | None = None):
-        self.id = id
-        self.action = action
-        self.run_id = run_id
-        self.status = "PENDING"
-        self.reason = ""
-
-
-class MockApprovalService:
-    def __init__(self):
-        self._approvals = {}
-
-    def request_approval(self, action: str, subject: str = "", requester: str = "", run_id: str | None = None, workspace_id: str | None = None):
-        appr_id = f"appr-{len(self._approvals)+1}"
-        appr = MockApproval(appr_id, action, run_id)
-        self._approvals[appr_id] = appr
-        return appr
-
-    def get(self, approval_id: str):
-        return self._approvals.get(approval_id)
-
-    def find_by_run_and_action(self, run_id: str, action: str):
-        for appr in self._approvals.values():
-            if appr.run_id == run_id and appr.action == action:
-                return appr
-        return None
-
-    def decide(self, approval_id: str, reviewer: str, approved: bool, reason: str = ""):
-        if approval_id in self._approvals:
-            self._approvals[approval_id].status = "APPROVED" if approved else "DENIED"
-            self._approvals[approval_id].reason = reason
-
-
-class MockPolicyEngine:
-    def __init__(self, default_decision="ALLOW"):
-        self.default_decision = default_decision
-
-    def evaluate_access(self, role="founder", agent_permission_level=AutonomyLevel.L3_AUTONOMOUS, tool_risk_level=CapabilityRisk.LOW, tool_permission="scoped_write", **kwargs):
-        if role == "viewer" and "admin_write" in str(tool_permission):
-            return "DENY"
-        if kwargs.get("data_scope") == DataScope.READ_ONLY and "write" in str(tool_permission):
-            return "DENY"
-        return self.default_decision
+    async def execute(self, request: Any) -> Any:
+        self.executed_requests.append(request)
+        if self.outcome_status == "waiting_approval":
+            return SimpleNamespace(
+                status="waiting_approval",
+                wait_descriptor=SimpleNamespace(related_ref="appr-gw-123"),
+                tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+            )
+        if self.outcome_status in ("denied", "failed"):
+            return SimpleNamespace(
+                status=self.outcome_status,
+                error_message=f"Gateway execution {self.outcome_status}",
+                tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+            )
+        return SimpleNamespace(
+            status="completed",
+            output_payload=self.output,
+            tool_call_id=getattr(request, "tool_call_id", "tc-1"),
+        )
 
 
 @pytest.mark.asyncio
-async def test_tool_call_step_denied_by_policy():
-    async def restricted_handler(args):
-        return {"done": True}
-
-    registry = MockToolRegistry()
-    registry.register(
-        MockTool(
-            name="system.shutdown",
-            handler=restricted_handler,
-            risk=CapabilityRisk.CRITICAL,
-            permission="admin_write",
-        )
-    )
-
-    policy_engine = MockPolicyEngine()
-    step = ToolCallStep(
-        name="step_shutdown",
-        tool_name="system.shutdown",
-        tool_registry=registry,
-        policy_engine=policy_engine,
-        role="viewer",
-        autonomy_level=AutonomyLevel.L1,
-    )
-
-    outcome = await step.run({"workspace_id": "ws1"})
-    assert outcome.status.value == "FAILED"
-    assert "denied by policy" in outcome.error.lower()
-
-
-@pytest.mark.asyncio
-async def test_tool_call_step_denied_by_data_scope_read_only():
-    async def write_handler(args):
-        return {"written": True}
-
-    registry = MockToolRegistry()
-    registry.register(
-        MockTool(
-            name="strategy.gate_evaluation.create",
-            handler=write_handler,
-            risk=CapabilityRisk.LOW,
-            permission="scoped_write",
-        )
-    )
-
-    policy_engine = MockPolicyEngine()
-    step = ToolCallStep(
-        name="step_write",
-        tool_name="strategy.gate_evaluation.create",
-        tool_registry=registry,
-        policy_engine=policy_engine,
-        role="founder",
-        autonomy_level=AutonomyLevel.L3_AUTONOMOUS,
-    )
-
-    outcome = await step.run({"workspace_id": "ws1", "data_scope": DataScope.READ_ONLY})
-    assert outcome.status.value == "FAILED"
-    assert "denied by policy" in outcome.error.lower()
-
-
-@pytest.mark.asyncio
-async def test_tool_call_step_in_workflow_requires_approval():
-    async def deploy_handler(args):
-        return {"deployed": True}
-
-    registry = MockToolRegistry()
-    registry.register(
-        MockTool(
-            name="ops.deploy.prod",
-            handler=deploy_handler,
-            risk=CapabilityRisk.HIGH,
-            permission="admin_write",
-        )
-    )
-
-    policy_engine = MockPolicyEngine(default_decision="REQUIRE_APPROVAL")
-    approval_svc = MockApprovalService()
-    engine = WorkflowEngine(
-        tool_registry=registry, policy_engine=policy_engine, approval_service=approval_svc
-    )
-
+async def test_engine_refuses_tool_call_without_gateway() -> None:
+    engine = WorkflowEngine(tool_registry=object())
     spec = WorkflowSpec(
-        id="deploy-flow", steps=[WorkflowStepSpec(id="deploy", type=StepType.TOOL_CALL, tool="ops.deploy.prod")]
+        id="tool-flow",
+        steps=[WorkflowStepSpec(id="step1", type=StepType.TOOL_CALL, tool="ops.write")],
     )
-
-    workflow = await engine.execute_spec(spec, initial_state={"workspace_id": "ws1", "run_id": "run-test-appr"})
-    assert workflow.status == WorkflowStatus.WAITING_APPROVAL
-    assert workflow.pending_approval_id is not None
-
-    approval_svc.decide(workflow.pending_approval_id, reviewer="founder-1", approved=True)
-    resumed = await engine.resume_spec(workflow, spec)
-
-    assert resumed.status == WorkflowStatus.COMPLETED
-    assert resumed.state["deploy"] == {"deployed": True}
+    with pytest.raises(RuntimeError, match="CapabilityGateway is required"):
+        engine.build_steps_from_spec(spec)
 
 
 @pytest.mark.asyncio
-async def test_tool_call_step_does_not_silently_allow_after_policy_relaxes_mid_pause():
-    async def deploy_handler(args):
-        return {"deployed": True}
-
-    registry = MockToolRegistry()
-    registry.register(MockTool(name="ops.deploy.prod", handler=deploy_handler, risk=CapabilityRisk.HIGH, permission="admin_write"))
-
-    policy_engine = MockPolicyEngine(default_decision="REQUIRE_APPROVAL")
-    approval_svc = MockApprovalService()
-    gov_store = InMemoryGovernanceStateStore()
-
-    engine = WorkflowEngine(
-        tool_registry=registry,
-        policy_engine=policy_engine,
-        approval_service=approval_svc,
-        governance_store=gov_store,
-    )
-
+async def test_engine_compiles_tool_call_with_gateway() -> None:
+    gateway = MockGateway()
+    engine = WorkflowEngine(gateway=gateway)
     spec = WorkflowSpec(
-        id="deploy-flow", steps=[WorkflowStepSpec(id="deploy", type=StepType.TOOL_CALL, tool="ops.deploy.prod")]
+        id="tool-flow",
+        steps=[WorkflowStepSpec(id="step1", type=StepType.TOOL_CALL, tool="ops.write")],
     )
-
-    workflow = await engine.execute_spec(spec, initial_state={"workspace_id": "ws1", "run_id": "run-relax"})
-    assert workflow.status == WorkflowStatus.WAITING_APPROVAL
-
-    # Giả lập policy nới lỏng sang ALLOW
-    policy_engine.default_decision = "ALLOW"
-
-    # Resume mà CHƯA có approval -> phải tiếp tục WAITING_APPROVAL hoặc FAILED
-    resumed = await engine.resume_spec(workflow, spec)
-    assert resumed.status == WorkflowStatus.WAITING_APPROVAL
+    steps = engine.build_steps_from_spec(spec)
+    assert len(steps) == 1
+    assert isinstance(steps[0], GatewayToolCallStep)
+    assert steps[0].tool_name == "ops.write"
 
 
 @pytest.mark.asyncio
-async def test_tool_call_step_without_a_run_id_skips_accumulation_and_behaves_as_before():
-    async def echo_handler(args):
-        return {"out": "ok"}
-
-    registry = MockToolRegistry()
-    registry.register(MockTool(name="test.echo", handler=echo_handler))
-
-    step = ToolCallStep(name="echo", tool_name="test.echo", tool_registry=registry)
-    outcome = await step.run({"workspace_id": "ws1"})
-    assert outcome.status.value == "COMPLETED"
-    assert outcome.updates == {"echo": {"out": "ok"}}
-
-
-@pytest.mark.asyncio
-async def test_workflow_engine_shares_governance_state_across_execute_spec_calls_on_the_same_engine():
-    async def write_handler(args):
-        return {"w": 1}
-
-    registry = MockToolRegistry()
-    registry.register(MockTool(name="ops.write", handler=write_handler, permission="scoped_write"))
-
-    gov_store = InMemoryGovernanceStateStore()
-    engine = WorkflowEngine(tool_registry=registry, governance_store=gov_store)
-
-    spec = WorkflowSpec(id="w-flow", steps=[WorkflowStepSpec(id="step1", type=StepType.TOOL_CALL, tool="ops.write")])
-    wf = await engine.execute_spec(spec, initial_state={"run_id": "run-shared"})
+async def test_workflow_engine_executes_tool_call_via_gateway() -> None:
+    gateway = MockGateway(outcome_status="completed", output={"data": 42})
+    engine = WorkflowEngine(gateway=gateway)
+    spec = WorkflowSpec(
+        id="tool-flow",
+        steps=[WorkflowStepSpec(id="step1", type=StepType.TOOL_CALL, tool="ops.read")],
+    )
+    wf = await engine.execute_spec(spec, initial_state={"workspace_id": "ws-1"})
     assert wf.status == WorkflowStatus.COMPLETED
+    assert wf.state["step1"] == {"data": 42}
+    assert len(gateway.executed_requests) == 1
+    assert gateway.executed_requests[0].capability_id == "ops.read"
 
-    saved = await gov_store.load_governance_state("run-shared", "run-shared:ops.write")
-    assert saved is not None
-    assert saved.accumulated.outcome.value == "ALLOW"
 
+@pytest.mark.asyncio
+async def test_workflow_engine_pauses_when_gateway_returns_waiting_approval() -> None:
+    gateway = MockGateway(outcome_status="waiting_approval")
+    engine = WorkflowEngine(gateway=gateway)
+    spec = WorkflowSpec(
+        id="tool-flow",
+        steps=[WorkflowStepSpec(id="deploy", type=StepType.TOOL_CALL, tool="ops.deploy")],
+    )
+    wf = await engine.execute_spec(spec, initial_state={"workspace_id": "ws-1"})
+    assert wf.status == WorkflowStatus.WAITING_APPROVAL
+    assert wf.pending_approval_id == "appr-gw-123"
+
+
+@pytest.mark.asyncio
+async def test_workflow_engine_fails_when_gateway_fails() -> None:
+    gateway = MockGateway(outcome_status="denied")
+    engine = WorkflowEngine(gateway=gateway)
+    spec = WorkflowSpec(
+        id="tool-flow",
+        steps=[WorkflowStepSpec(id="del", type=StepType.TOOL_CALL, tool="ops.delete")],
+    )
+    wf = await engine.execute_spec(spec, initial_state={"workspace_id": "ws-1"})
+    assert wf.status == WorkflowStatus.FAILED
+    assert "denied" in wf.error.lower()
+
+
+@pytest.mark.asyncio
+async def test_workflow_engine_approval_gate_resumes_when_approved() -> None:
+    repo = InMemoryRunRepository()
+    approval_svc = DurableApprovalService(repo)
+    gateway = MockGateway()
+    engine = WorkflowEngine(gateway=gateway, approval_service=approval_svc)
+
+    spec = WorkflowSpec(
+        id="gate-flow",
+        steps=[
+            WorkflowStepSpec(
+                id="gate",
+                type=StepType.APPROVAL_GATE,
+                action="publish_report",
+                subject_key="report_ref",
+            ),
+            WorkflowStepSpec(
+                id="done",
+                type=StepType.DETERMINISTIC,
+                depends_on=["gate"],
+            ),
+        ],
+    )
+
+    wf = await engine.execute_spec(
+        spec,
+        initial_state={"workspace_id": "ws-1", "report_ref": "rep-99"},
+    )
+    assert wf.status == WorkflowStatus.WAITING_APPROVAL
+    assert wf.pending_approval_id is not None
+
+    # Resume while still pending -> should stay WAITING_APPROVAL
+    wf2 = await engine.resume_spec(wf, spec)
+    assert wf2.status == WorkflowStatus.WAITING_APPROVAL
+
+    # Approve
+    await approval_svc.submit_decision(
+        approval_id=wf.pending_approval_id,
+        reviewer="founder",
+        approved=True,
+    )
+
+    wf_resumed = await engine.resume_spec(wf, spec)
+    assert wf_resumed.status == WorkflowStatus.COMPLETED

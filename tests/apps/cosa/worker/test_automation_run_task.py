@@ -26,10 +26,20 @@ class RecordingGateway:
 
 
 def _plane(gateway: RecordingGateway | None = None):
+    gw = gateway or RecordingGateway()
+    from agent.workflows.engine import WorkflowEngine
+    from apps.cosa.composition.workflow_orchestration import WorkflowOrchestration
+
     return SimpleNamespace(
         run_repository=InMemoryRunRepository(),
-        gateway=gateway or RecordingGateway(),
+        gateway=gw,
         stream_event_repository=None,
+        workflow_orchestration=WorkflowOrchestration(
+            gateway=gw,
+            workflow_engine=WorkflowEngine(gateway=gw),
+            workflow_registry=None,
+            approval_service=None,
+        ),
     )
 
 

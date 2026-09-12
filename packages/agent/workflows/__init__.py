@@ -34,7 +34,7 @@ from agent.workflows.steps import (
     RetryStep,
     WorkflowStep,
 )
-from agent.workflows.tool_step import ToolCallStep
+from agent.workflows.tool_step import GatewayToolCallStep
 
 __all__ = [
     "AgentRunnerProtocol",
@@ -42,6 +42,7 @@ __all__ = [
     "ApprovalGateStep",
     "CompensatingStep",
     "DeterministicStep",
+    "GatewayToolCallStep",
     "InvalidWorkflowTransition",
     "ParallelBranch",
     "ParallelStep",
@@ -49,7 +50,6 @@ __all__ = [
     "StepOutcome",
     "StepStatus",
     "StepType",
-    "ToolCallStep",
     "Workflow",
     "WorkflowDefinition",
     "WorkflowDefinitionLoadError",
