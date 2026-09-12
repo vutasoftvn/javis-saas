@@ -174,3 +174,30 @@ là thay đổi kiến trúc nhiều bước, cần plan riêng theo đúng quy 
   bộ `expose: false` xác thực qua `resolveCosaTaskContext`
   (xem `services/company/shared/auth/cosa-task-delegation.ts`) trước khi
   capability này được coi là hoạt động được trong một agent run thật.
+
+- **Fix cross-project ctx-precedence (`product_decision_read.py`) đúng về logic
+  nhưng KHÔNG có hiệu lực trong pipeline thật hiện tại — cross-project read
+  vẫn có thể xảy ra qua `args`.** Đợt fix sau final review đã sửa
+  `_resolve_project_id` để ưu tiên `ctx.project_id` hơn `args["project_id"]`
+  và reject khi hai giá trị khác nhau, có test chứng minh bằng
+  `SimpleNamespace` giả lập ctx dạng object. Nhưng scoped re-review phát hiện:
+  trong pipeline thật, `ctx` mà `handler` nhận được luôn là `dict`
+  (`packages/agent/capabilities/gateway.py` truyền `req.context.metadata` hoặc
+  `req.context`, `apps/cosa/worker/copilot_run.py` khai báo `ctx: dict[str, Any]`),
+  và **không nơi nào trong `apps/cosa/worker/handlers.py`/`run_core.py` từng
+  đặt `project_id` vào run metadata/ctx** cho bất kỳ đường gọi capability nào.
+  `getattr(ctx, "project_id", None)` trên một `dict` luôn trả `None`, nên
+  `_resolve_project_id` luôn rơi về `args.get("project_id")` — đúng hành vi bug
+  ban đầu, không đổi. Đây KHÔNG phải lỗi riêng của plan này: `project_crm_read.py`
+  (từ plan `cro`/sales, đã ship) có cùng pattern `args.get("project_id") or
+  getattr(ctx, "project_id", None)` với cùng lỗ hổng lý thuyết. Fix triệt để đòi
+  hỏi thread `project_id` xuyên suốt worker/gateway/kernel cho MỌI capability
+  nhận `project_id` — một thay đổi kiến trúc cross-cutting ảnh hưởng cả các
+  profile đã ship (`sales`, `coding`), cần plan riêng, không thể làm trong một
+  fix wave của plan CPO. Cho tới khi fix đó tồn tại, coi cross-project isolation
+  của `product.decision.read` (và `project.crm.read`) là CHƯA được đảm bảo ở
+  tầng capability — chỉ có phía Company (`readProductDecisionSnapshot` kiểm
+  workspace) làm hàng rào cuối, và như limitation phía trên đã nêu, capability
+  này hiện còn chưa reachable được từ agent run thật nên rủi ro thực tế bị giới
+  hạn — nhưng khi limitation auth ở trên được vá, limitation ctx-precedence này
+  PHẢI được vá trước hoặc cùng lúc.
