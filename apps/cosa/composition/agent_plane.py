@@ -105,6 +105,7 @@ class CosaAgentPlane:
         skill_candidate_store: SkillCandidateStore | None = None,
         skill_improvement_repository: SkillImprovementRepository | None = None,
         skill_usage_observer: Any | None = None,
+        skill_improvement_service: Any | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -123,6 +124,7 @@ class CosaAgentPlane:
         self.skill_candidate_store = skill_candidate_store
         self.skill_improvement_repository = skill_improvement_repository
         self.skill_usage_observer = skill_usage_observer
+        self.skill_improvement_service = skill_improvement_service
         # COSA Automation MVP (Task 6) — worker -> Company outcome projection.
         # Lazily created so a plane built for unit tests without COMPANY_SERVICE_URL
         # simply reports nothing (the worker handler is None-safe).
@@ -277,6 +279,7 @@ def build_cosa_agent_plane(
     skill_candidate_store: SkillCandidateStore | None = None,
     skill_improvement_repository: SkillImprovementRepository | None = None,
     skill_usage_observer: Any | None = None,
+    skill_improvement_service: Any | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -440,6 +443,27 @@ def build_cosa_agent_plane(
                 database_url=database_url or os.environ.get("AGENT_DATABASE_URL")
             )
 
+    resolved_skill_improvement_service = skill_improvement_service
+    if (
+        resolved_skill_improvement_service is None
+        and storage.skill_improvement_repository is not None
+        and storage.spec_registry is not None
+        and storage.skill_candidate_store is not None
+        and kernel is not None
+    ):
+        from apps.cosa.skills.improvement_evaluators import SkillEvaluatorRegistry
+        from apps.cosa.skills.improvement_policy import EffectiveSkillImprovementPolicy
+        from apps.cosa.skills.improvement_service import SkillImprovementService
+
+        resolved_skill_improvement_service = SkillImprovementService(
+            repository=storage.skill_improvement_repository,
+            spec_registry=storage.spec_registry,
+            candidate_store=storage.skill_candidate_store,
+            kernel=kernel,
+            policy=EffectiveSkillImprovementPolicy(),
+            evaluator_registry=SkillEvaluatorRegistry(),
+        )
+
     return CosaAgentPlane(
         repository=storage.run_repository,
         conversation_repository=storage.conversation_repository,
@@ -477,4 +501,5 @@ def build_cosa_agent_plane(
         skill_candidate_store=storage.skill_candidate_store,
         skill_improvement_repository=storage.skill_improvement_repository,
         skill_usage_observer=storage.skill_usage_observer,
+        skill_improvement_service=resolved_skill_improvement_service,
     )

@@ -282,6 +282,44 @@ async def _dispatch_approval_action_task(plane: CosaAgentPlane, task, payload: d
         )
 
 
+async def _dispatch_skill_improvement_task(plane: CosaAgentPlane, task, payload: dict) -> None:
+    """Dispatch durable skill improvement task — no run lease needed."""
+    try:
+        from apps.cosa.worker.skill_improvement import execute_skill_improvement_task
+
+        outcome_holder = []
+
+        async def _execute_handler():
+            outcome = await execute_skill_improvement_task(plane, payload, worker_id=WORKER_ID)
+            outcome_holder.append(outcome)
+
+        await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
+        outcome = outcome_holder[0] if outcome_holder else None
+        is_success = outcome is not None and outcome.status not in ("STALE", "FAILED_REQUIRES_ATTENTION")
+        ok = await plane.scheduler.complete_task(
+            task.task_id,
+            worker_id=WORKER_ID,
+            claim_token=task.claim_token,
+            success=is_success,
+            error=outcome.safe_reason_code if (not is_success and outcome) else None,
+        )
+        if not ok:
+            logger.warning(
+                "worker=%s task=%s (skill_improvement) completed but scheduler fencing rejected",
+                WORKER_ID,
+                task.task_id,
+            )
+    except Exception as exc:
+        logger.exception("task=%s (skill_improvement) failed during execution", task.task_id)
+        await plane.scheduler.complete_task(
+            task.task_id,
+            worker_id=WORKER_ID,
+            claim_token=task.claim_token,
+            success=False,
+            error=str(exc),
+        )
+
+
 async def _run_with_heartbeats(
     plane: CosaAgentPlane, run_id: str, lease_token: str, task_id: str, claim_token: str, coro
 ) -> None:
@@ -395,6 +433,11 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
             # Branch: approval_action (Task 6) — durable worker promotion of approved custom skills
             if task_type == "approval_action":
                 await _dispatch_approval_action_task(plane, task, payload)
+                return
+
+            # Branch: skill_improvement (Task 6) — runless task with scheduler & repo claim fencing only (no run lease)
+            if task_type == "skill_improvement":
+                await _dispatch_skill_improvement_task(plane, task, payload)
                 return
 
             if not run_id:
@@ -529,6 +572,13 @@ async def run_worker_loop(
             await relay_approved_actions(plane, worker_id=WORKER_ID, limit=poll_limit)
         except Exception as exc:
             logger.warning("Failed to relay approved actions: %s", exc)
+
+        try:
+            from apps.cosa.worker.skill_improvement import relay_skill_improvement_outbox
+
+            await relay_skill_improvement_outbox(plane, worker_id=WORKER_ID, limit=poll_limit)
+        except Exception as exc:
+            logger.warning("Failed to relay skill improvement outbox: %s", exc)
 
         try:
             tasks = await plane.scheduler.poll_due_tasks(worker_id=WORKER_ID, limit=poll_limit)

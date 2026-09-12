@@ -165,6 +165,10 @@ class SkillImprovementRepository(Protocol):
         self, *, worker_id: str, limit: int, now: datetime
     ) -> list[ClaimedSkillImprovementRequest]: ...
 
+    async def claim_improvement_request(
+        self, *, request_id: str, worker_id: str, now: datetime
+    ) -> ClaimedSkillImprovementRequest | None: ...
+
     async def finish_improvement_request(
         self, *, request_id: str, claim_token: str, outcome: ImprovementOutcome
     ) -> bool: ...
@@ -175,6 +179,10 @@ class SkillImprovementRepository(Protocol):
 
     async def mark_outbox_delivered(
         self, *, outbox_id: str, claim_token: str, delivered_at: datetime
+    ) -> bool: ...
+
+    async def mark_outbox_failed(
+        self, *, outbox_id: str, claim_token: str, error: str | None = None
     ) -> bool: ...
 
     async def create_improvement_request(
@@ -445,6 +453,20 @@ class InMemorySkillImprovementRepository:
                     break
         return claimed
 
+    async def claim_improvement_request(
+        self, *, request_id: str, worker_id: str, now: datetime
+    ) -> ClaimedSkillImprovementRequest | None:
+        req = self._requests.get(request_id)
+        if not req or req.status != "PENDING":
+            return None
+        token = f"token_{uuid.uuid4().hex[:16]}"
+        req.status = "RUNNING"
+        req.claim_token = token
+        req.claimed_by = worker_id
+        req.claimed_at = now
+        req.attempt_count += 1
+        return ClaimedSkillImprovementRequest(request=req.model_copy(), claim_token=token)
+
     async def finish_improvement_request(
         self, *, request_id: str, claim_token: str, outcome: ImprovementOutcome
     ) -> bool:
@@ -482,6 +504,19 @@ class InMemorySkillImprovementRepository:
         ob.state = "DELIVERED"
         ob.delivered_at = delivered_at
         ob.claim_token = None
+        return True
+
+    async def mark_outbox_failed(
+        self, *, outbox_id: str, claim_token: str, error: str | None = None
+    ) -> bool:
+        ob = self._outbox.get(outbox_id)
+        if not ob or ob.claim_token != claim_token:
+            return False
+        ob.claim_token = None
+        if ob.attempt_count >= 5:
+            ob.state = "FAILED_REQUIRES_ATTENTION"
+        else:
+            ob.state = "RETRY"
         return True
 
     async def create_improvement_request(
@@ -985,6 +1020,57 @@ class PostgresSkillImprovementRepository:
                     claimed.append(ClaimedSkillImprovementRequest(request=req, claim_token=token))
                 return claimed
 
+    async def claim_improvement_request(
+        self, *, request_id: str, worker_id: str, now: datetime
+    ) -> ClaimedSkillImprovementRequest | None:
+        async with self._session_factory() as session:
+            async with session.begin():
+                stmt = text(
+                    """
+                    SELECT request_id, workspace_id, skill_id, skill_version, definition_hash,
+                           trigger, feedback_aggregate_revision, policy_hash, status, attempt_count,
+                           claim_token, claimed_by, claimed_at, safe_reason_code, created_at, updated_at
+                    FROM agent.skill_improvement_requests
+                    WHERE request_id = :req_id AND status = 'PENDING'
+                    FOR UPDATE SKIP LOCKED
+                    """
+                )
+                r = (await session.execute(stmt, {"req_id": request_id})).fetchone()
+                if not r:
+                    return None
+                token = f"token_{uuid.uuid4().hex[:16]}"
+                upd = text(
+                    """
+                    UPDATE agent.skill_improvement_requests
+                    SET status = 'RUNNING', claim_token = :token, claimed_by = :worker_id,
+                        claimed_at = :now, attempt_count = attempt_count + 1, updated_at = :now
+                    WHERE request_id = :req_id
+                    """
+                )
+                await session.execute(
+                    upd,
+                    {"token": token, "worker_id": worker_id, "now": now, "req_id": r.request_id}
+                )
+                req = SkillImprovementRequest(
+                    request_id=r.request_id,
+                    workspace_id=r.workspace_id,
+                    skill_id=r.skill_id,
+                    skill_version=r.skill_version,
+                    definition_hash=r.definition_hash,
+                    trigger=r.trigger,
+                    feedback_aggregate_revision=r.feedback_aggregate_revision,
+                    policy_hash=r.policy_hash,
+                    status="RUNNING",
+                    attempt_count=r.attempt_count + 1,
+                    claim_token=token,
+                    claimed_by=worker_id,
+                    claimed_at=now,
+                    safe_reason_code=r.safe_reason_code,
+                    created_at=r.created_at,
+                    updated_at=now,
+                )
+                return ClaimedSkillImprovementRequest(request=req, claim_token=token)
+
     async def finish_improvement_request(
         self, *, request_id: str, claim_token: str, outcome: ImprovementOutcome
     ) -> bool:
@@ -1069,6 +1155,23 @@ class PostgresSkillImprovementRepository:
                 res = await session.execute(
                     upd, {"delivered_at": delivered_at, "ob_id": outbox_id, "token": claim_token}
                 )
+                return res.rowcount > 0
+
+    async def mark_outbox_failed(
+        self, *, outbox_id: str, claim_token: str, error: str | None = None
+    ) -> bool:
+        async with self._session_factory() as session:
+            async with session.begin():
+                upd = text(
+                    """
+                    UPDATE agent.skill_improvement_outbox
+                    SET state = CASE WHEN attempt_count >= 5 THEN 'FAILED_REQUIRES_ATTENTION' ELSE 'RETRY' END,
+                        claim_token = NULL,
+                        next_attempt_at = NOW() + INTERVAL '1 minute'
+                    WHERE outbox_id = :ob_id AND claim_token = :token
+                    """
+                )
+                res = await session.execute(upd, {"ob_id": outbox_id, "token": claim_token})
                 return res.rowcount > 0
 
     async def create_improvement_request(
