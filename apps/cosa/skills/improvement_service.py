@@ -121,6 +121,7 @@ class SkillImprovementService:
         current_score = baseline_score
         candidate_id = f"cand_{uuid.uuid4().hex[:12]}"
         mutations_accepted = 0
+        mutation_records: list[SkillImprovementMutationRecord] = []
 
         # 5. Optimization rounds
         for round_no in range(1, self._policy.max_rounds + 1):
@@ -163,7 +164,7 @@ class SkillImprovementService:
             mutation_record = SkillImprovementMutationRecord(
                 workspace_id=ws_id,
                 request_id=request.request_id,
-                candidate_id=candidate_id,
+                candidate_id=None,
                 round_no=round_no,
                 mutator_name=getattr(self.mutator, "__name__", "custom_mutator"),
                 accepted=accepted,
@@ -172,7 +173,7 @@ class SkillImprovementService:
                 validation_passed=True,
                 safe_reason_code=None if accepted else "SCORE_DID_NOT_IMPROVE",
             )
-            await self._repository.record_mutation(mutation_record)
+            mutation_records.append(mutation_record)
 
             if accepted:
                 current_best_skill = mutated_skill
@@ -188,20 +189,6 @@ class SkillImprovementService:
         failed_cases = [cases[i].case_id for i, sc in enumerate(case_scores) if sc < 1.0]
 
         delta = final_score - baseline_score
-        eval_record = SkillImprovementEvaluationRecord(
-            workspace_id=ws_id,
-            request_id=request.request_id,
-            candidate_id=candidate_id if mutations_accepted > 0 else None,
-            suite_ref=evaluator.suite_ref,
-            suite_hash=evaluator.suite_hash,
-            baseline_score=baseline_score,
-            candidate_score=final_score,
-            delta=delta,
-            passed_cases=passed_cases,
-            failed_cases=failed_cases,
-            safe_reason_code="OK" if (mutations_accepted > 0 and delta > 0) else "NO_IMPROVEMENT",
-        )
-        await self._repository.record_evaluation(eval_record)
 
         # 7. Check if candidate qualifies
         if mutations_accepted > 0 and delta > 0 and final_score >= self._policy.low_score_threshold:
@@ -219,10 +206,45 @@ class SkillImprovementService:
                 status=SkillStatus.EVALUATED,
             )
             await self._candidate_store.save_candidate(ws_id, candidate)
+
+            eval_record = SkillImprovementEvaluationRecord(
+                workspace_id=ws_id,
+                request_id=request.request_id,
+                candidate_id=candidate_id,
+                suite_ref=evaluator.suite_ref,
+                suite_hash=evaluator.suite_hash,
+                baseline_score=baseline_score,
+                candidate_score=final_score,
+                delta=delta,
+                passed_cases=passed_cases,
+                failed_cases=failed_cases,
+                safe_reason_code="OK",
+            )
+            await self._repository.record_evaluation(eval_record)
+            for m in mutation_records:
+                await self._repository.record_mutation(m.model_copy(update={"candidate_id": candidate_id}))
+
             return ImprovementOutcome(
                 status="COMPLETED",
                 candidate_id=candidate_id,
             )
+
+        eval_record = SkillImprovementEvaluationRecord(
+            workspace_id=ws_id,
+            request_id=request.request_id,
+            candidate_id=None,
+            suite_ref=evaluator.suite_ref,
+            suite_hash=evaluator.suite_hash,
+            baseline_score=baseline_score,
+            candidate_score=final_score,
+            delta=delta,
+            passed_cases=passed_cases,
+            failed_cases=failed_cases,
+            safe_reason_code="NO_IMPROVEMENT",
+        )
+        await self._repository.record_evaluation(eval_record)
+        for m in mutation_records:
+            await self._repository.record_mutation(m.model_copy(update={"candidate_id": None}))
 
         return ImprovementOutcome(
             status="NO_IMPROVEMENT",

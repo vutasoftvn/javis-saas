@@ -178,3 +178,90 @@ Khi kiểm tra và xử lý sự cố trong sổ cái phê duyệt, **chỉ truy
 4. **Sự cố Stale Subject / Lỗi Thăng hạng**:
    - Nếu worker ghi nhận lỗi `APPROVAL_SUBJECT_STALE`: Candidate đã bị chỉnh sửa nội dung sau khi Founder xem xét và tạo phê duyệt. Yêu cầu Founder kiểm tra lại và thực hiện quy trình đánh giá/phê duyệt mới.
    - Nếu hàng đợi outbox bị kẹt ở `pending`/`claimed` quá hạn: Kiểm tra tiến trình `cosa-worker` có đang chạy hàm `relay_approved_actions` hay không.
+
+---
+
+## 7. Vòng lặp Cải tiến Skill từ Phản hồi (Feedback-Driven Skill Improvement Loop)
+
+### 7.1 Mô hình Trạng thái Vận hành (Operator State Model)
+
+```text
+Feedback Received:
+[ RECORDED / INSUFFICIENT_SAMPLES / STABLE ] ── (Chỉ lưu trữ quan sát & telemetry; không hứa hẹn công việc)
+     │ (nếu aggregate_score giảm >= delta & đủ mẫu tối thiểu)
+     ▼
+[ DEGRADING ] ──► Ghi nhận SkillImprovementRequest & Outbox Event
+
+Asynchronous Worker Cycle:
+[ QUEUED ] ── (Durable request & outbox sẵn sàng; chưa đánh giá, chưa tối ưu, chưa publish)
+     │ (Worker claim outbox & request claim fence)
+     ▼
+[ RUNNING ] ── (Worker nắm giữ claim fence; có thể retry nếu hết hạn claim lease)
+     ├─► [ CANDIDATE_CREATED ] ── (Đề xuất đã qua đánh giá nội bộ; BẮT BUỘC Founder duyệt mới publish)
+     ├─► [ NOT_ELIGIBLE ] ────── (Không thỏa mãn baseline score / budget / cooldown; không tạo candidate)
+     ├─► [ STALE ] ───────────── (Definition hash không còn khớp phiên bản ghim; hủy yêu cầu an toàn)
+     └─► [ FAILED_REQUIRES_ATTENTION ] ── (Lỗi ngoại lệ/crash; kiểm tra safe reason code để điều tra)
+```
+
+### 7.2 Nguyên tắc Diễn giải An toàn (Safe Interpretation Rules)
+
+1. **`aggregate_score` là Telemetry Sức khỏe, KHÔNG PHẢI `eval_score`**:
+   - Điểm đánh giá phản hồi (`aggregate_score`) chỉ là tín hiệu giám sát cửa sổ trượt (windowed telemetry) từ người dùng.
+   - Nó **tuyệt đối không bao giờ** được ghi đè trực tiếp vào `eval_score` hay làm thay đổi trực tiếp trạng thái của candidate.
+   - `eval_score` của một candidate chỉ được tạo ra sau khi bộ tối ưu hóa độc lập (capability-empty, prompt/description-only) thực hiện đánh giá benchmark.
+
+2. **`QUEUED`, `APPROVED`, `CANDIDATE_CREATED` KHÔNG BAO GIỜ có nghĩa là `PUBLISHED`**:
+   - `QUEUED`: Yêu cầu đã được lưu bền vững vào DB và outbox, chưa hề có code hay prompt nào được tạo.
+   - `CANDIDATE_CREATED`: Bộ tối ưu hóa đã đề xuất một candidate và vượt qua ngưỡng đánh giá nội bộ. Candidate này ở trạng thái `DRAFT` và **bắt buộc phải qua phê duyệt hợp nhất (Unified Approval / `CHANGE_REQUEST`) của Founder**.
+   - `APPROVED`: Founder đã chấp thuận đề xuất nhưng worker chưa chạy bước CAS chuyển đổi nguyên tử sang `PUBLISHED`.
+
+3. **Diễn giải Safe State & Safe Reason Codes**:
+   - `RECORDED`, `INSUFFICIENT_SAMPLES`, `STABLE`: Phản hồi được lưu trữ thành công; không có tác vụ cải tiến nào được xếp lịch.
+   - `DEGRADING`, `QUEUED`: Yêu cầu cải tiến bền vững đã tồn tại trong hàng đợi; chưa được đánh giá hay phát hành.
+   - `RUNNING`: Worker đang giữ rào chắn claim (`claim_token` + `claimed_until`); nếu worker chết giữa chừng, scheduler sẽ cấp phát lại sau khi claim hết hạn.
+   - `CANDIDATE_CREATED`: Đề xuất mới đã sẵn sàng cho Founder xem xét.
+   - `NOT_ELIGIBLE`: Request không đạt tiêu chuẩn (ví dụ: cải thiện không vượt ngưỡng baseline tối thiểu, hết ngân sách lần thử, hoặc trong thời gian cooldown). Không gây ảnh hưởng tới runtime.
+   - `STALE`: Hash định nghĩa skill hiện tại đã thay đổi so với khi tạo request; hệ thống hủy yêu cầu để tránh tối ưu hóa trên phiên bản cũ.
+   - `FAILED_REQUIRES_ATTENTION`: Gặp lỗi runtime bất ngờ trong quá trình xử lý; operator cần kiểm tra `error_reason` trong DB.
+
+### 7.3 Truy vấn Kiểm toán & Giám sát Vận hành (Audit Queries)
+
+Chỉ truy vấn các trường định danh, hash, trạng thái và telemetry:
+
+1. **Kiểm tra tình trạng phản hồi và điểm tích lũy theo Skill**:
+   ```sql
+   SELECT skill_id, skill_version, sample_count, positive_count, negative_count, aggregate_score, status, updated_at
+   FROM agent.skill_feedback_aggregates
+   WHERE workspace_id = :workspace_id
+   ORDER BY updated_at DESC;
+   ```
+
+2. **Kiểm tra các yêu cầu cải tiến Skill (Requests & Fencing)**:
+   ```sql
+   SELECT request_id, skill_id, skill_version, definition_hash, status, trigger_kind, claim_token, claimed_until, updated_at
+   FROM agent.skill_improvement_requests
+   WHERE workspace_id = :workspace_id
+   ORDER BY updated_at DESC
+   LIMIT 20;
+   ```
+
+3. **Kiểm tra Outbox Dispatcher cho Skill Improvement**:
+   ```sql
+   SELECT outbox_id, request_id, event_type, status, attempt_count, next_attempt_at, updated_at
+   FROM agent.skill_improvement_outbox
+   WHERE workspace_id = :workspace_id
+   ORDER BY created_at DESC;
+   ```
+
+4. **Kiểm tra lịch sử đánh giá đề xuất cải tiến (Evaluations & Mutations)**:
+   ```sql
+   SELECT evaluation_id, request_id, candidate_id, baseline_score, candidate_score, verdict, evaluation_hash, evaluated_at
+   FROM agent.skill_improvement_evaluations
+   WHERE workspace_id = :workspace_id
+   ORDER BY evaluated_at DESC
+   LIMIT 20;
+   ```
+
+5. **Xử lý sự cố Outbox bị kẹt hoặc Worker Crash**:
+   - Nếu outbox có trạng thái `FAILED` hoặc `PENDING` nhưng không được dispatch: Đảm bảo `cosa-worker` đang gọi hàm `relay_skill_improvement_outbox`.
+   - Nếu request ở trạng thái `RUNNING` nhưng worker đã chết: Sau khi `claimed_until` qua đi, worker loop kế tiếp hoặc task scheduler sẽ reclaim và thực thi lại an toàn nhờ tính lũy đẳng của request claim.

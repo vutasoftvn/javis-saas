@@ -531,11 +531,12 @@ async def test_outbox_claim_and_mark_delivered(repo_type: str) -> None:
         candidate_store = PostgresSkillCandidateStore(session_factory)
         repo = PostgresSkillImprovementRepository(session_factory, candidate_store=candidate_store)
 
+    ws_id = f"ws_ob_{uuid.uuid4().hex[:6]}"
     req_id = f"req_ob_{uuid.uuid4().hex[:8]}"
     await repo.create_improvement_request(
         SkillImprovementRequest(
             request_id=req_id,
-            workspace_id="ws-ob",
+            workspace_id=ws_id,
             skill_id="skill-1",
             skill_version="1.0.0",
             definition_hash="sha256:def",
@@ -552,7 +553,7 @@ async def test_outbox_claim_and_mark_delivered(repo_type: str) -> None:
         repo._outbox[outbox_id] = SkillImprovementOutbox(
             outbox_id=outbox_id,
             request_id=req_id,
-            workspace_id="ws-ob",
+            workspace_id=ws_id,
             state="PENDING",
             next_attempt_at=datetime.now(timezone.utc),
         )
@@ -563,13 +564,13 @@ async def test_outbox_claim_and_mark_delivered(repo_type: str) -> None:
                 text(
                     """
                     INSERT INTO agent.skill_improvement_outbox (
-                        outbox_id, request_id, workspace_id, state, next_attempt_at
+                        outbox_id, request_id, workspace_id, state, attempt_count, next_attempt_at, created_at
                     ) VALUES (
-                        :ob_id, :req_id, 'ws-ob', 'PENDING', now()
+                        :ob_id, :req_id, :ws_id, 'PENDING', 0, NOW(), NOW()
                     )
                     """
                 ),
-                {"ob_id": outbox_id, "req_id": req_id}
+                {"ob_id": outbox_id, "req_id": req_id, "ws_id": ws_id},
             )
             await session.commit()
 
