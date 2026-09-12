@@ -63,6 +63,7 @@ class DraggableChatPanel extends StatelessWidget {
                     child: ChatPanelContent(
                       controller: _hubController,
                       onClose: _panelController.close,
+                      showCloseButton: true,
                     ),
                   ),
                 ),

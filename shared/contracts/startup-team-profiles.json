@@ -53,7 +53,7 @@
       "key": "coding",
       "label": "Coding",
       "defaultMode": "TEMPLATE",
-      "runtimeReadiness": "DEFERRED_CODING"
+      "runtimeReadiness": "READY"
     },
     {
       "key": "customer_support",

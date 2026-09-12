@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/localization/app_translations.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/project_operating_setup_model.dart';
@@ -108,11 +110,7 @@ class Top3FocusWidget extends StatelessWidget {
                   ElevatedButton.icon(
                     onPressed: onOpenProjectAnalysis,
                     icon: const Icon(Icons.psychology_alt_rounded, size: 16),
-                    label: Text(
-                      Get.locale?.languageCode == 'vi'
-                          ? 'Phân tích & Lập Kế hoạch Tuần'
-                          : 'Analyze & Plan First Week',
-                    ),
+                    label: _buildAnalyzeButtonLabel(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.success,
                       foregroundColor: Colors.white,
@@ -357,6 +355,26 @@ class Top3FocusWidget extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAnalyzeButtonLabel() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Obx(() {
+        final isEn =
+            Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+        return Text(
+          isEn
+              ? 'Analyze & Plan First Week'
+              : 'Phân tích & Lập Kế hoạch Tuần',
+        );
+      });
+    }
+    final isEn = Get.locale?.languageCode == 'en';
+    return Text(
+      isEn
+          ? 'Analyze & Plan First Week'
+          : 'Phân tích & Lập Kế hoạch Tuần',
     );
   }
 }

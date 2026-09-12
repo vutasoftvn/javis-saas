@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
@@ -137,7 +138,13 @@ void main() {
 
       // Operational content (Top3, WaitingForYou) should not render when no project
       // selected, or should be visibly disabled
-      expect(find.text('Select a Project to proceed'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) =>
+            w is Text &&
+            (w.data == 'Select a Project to proceed' ||
+                w.data == 'Chọn một Project / Dự án để tiếp tục')),
+        findsOneWidget,
+      );
     },
   );
 }

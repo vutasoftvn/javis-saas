@@ -145,6 +145,11 @@ abstract final class L10nKey {
   // Settings UI
   static const settingsTitle = 'settings.title';
   static const settingsSubtitle = 'settings.subtitle';
+  static const settingsLanguageTitle = 'settings.language.title';
+  static const settingsLanguageSubtitle = 'settings.language.subtitle';
+  static const settingsLanguageVi = 'settings.language.vi';
+  static const settingsLanguageEn = 'settings.language.en';
+  static const settingsLanguageSaving = 'settings.language.saving';
   static const settingsModulesTitle = 'settings.modules.title';
   static const settingsModulesSubtitle = 'settings.modules.subtitle';
   static const settingsModuleUserVisible = 'settings.modules.userVisible';
@@ -676,6 +681,11 @@ abstract final class L10nKey {
     moduleTasks,
     settingsTitle,
     settingsSubtitle,
+    settingsLanguageTitle,
+    settingsLanguageSubtitle,
+    settingsLanguageVi,
+    settingsLanguageEn,
+    settingsLanguageSaving,
     settingsModulesTitle,
     settingsModulesSubtitle,
     settingsModuleUserVisible,

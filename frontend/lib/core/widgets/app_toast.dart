@@ -2,6 +2,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../localization/locale_controller.dart';
+import '../localization/supported_locale.dart';
 import '../theme/app_theme.dart';
 
 enum ToastType {
@@ -14,16 +16,25 @@ enum ToastType {
 /// Shared Toast Notification Component (COSA Design System)
 /// Displays a sleek glassmorphic toast notification at the Top-Right corner.
 class AppToast {
+  /// Test hook to allow verifying toast UI rendering in widget tests.
+  static bool allowInTest = false;
+
+  static bool get isEnglish {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
+
   static void success(
     String message, {
     String? title,
     Duration? duration = const Duration(seconds: 4),
     VoidCallback? onTap,
   }) {
-    final isEn = Get.locale?.languageCode == 'en';
     show(
       message: message,
-      title: title ?? (isEn ? 'Success' : 'Thành công'),
+      title: title ?? (isEnglish ? 'Success' : 'Thành công'),
       type: ToastType.success,
       duration: duration,
       onTap: onTap,
@@ -36,10 +47,9 @@ class AppToast {
     Duration? duration = const Duration(seconds: 5),
     VoidCallback? onTap,
   }) {
-    final isEn = Get.locale?.languageCode == 'en';
     show(
       message: message,
-      title: title ?? (isEn ? 'Error' : 'Đã có lỗi xảy ra'),
+      title: title ?? (isEnglish ? 'Error' : 'Đã có lỗi xảy ra'),
       type: ToastType.error,
       duration: duration,
       onTap: onTap,
@@ -52,10 +62,9 @@ class AppToast {
     Duration? duration = const Duration(seconds: 4),
     VoidCallback? onTap,
   }) {
-    final isEn = Get.locale?.languageCode == 'en';
     show(
       message: message,
-      title: title ?? (isEn ? 'Warning' : 'Cảnh báo'),
+      title: title ?? (isEnglish ? 'Warning' : 'Cảnh báo'),
       type: ToastType.warning,
       duration: duration,
       onTap: onTap,
@@ -68,10 +77,9 @@ class AppToast {
     Duration? duration = const Duration(seconds: 4),
     VoidCallback? onTap,
   }) {
-    final isEn = Get.locale?.languageCode == 'en';
     show(
       message: message,
-      title: title ?? (isEn ? 'Notice' : 'Thông báo'),
+      title: title ?? (isEnglish ? 'Notice' : 'Thông báo'),
       type: ToastType.info,
       duration: duration,
       onTap: onTap,
@@ -85,17 +93,18 @@ class AppToast {
     Duration? duration = const Duration(seconds: 4),
     VoidCallback? onTap,
   }) {
-    // Safety check if Get overlay context is not available (e.g. unit tests without UI)
-    final isTestEnv = Get.testMode ||
-        (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) ||
-        (Get.context == null && Get.overlayContext == null);
+    // Safety check if Get overlay context is not available (e.g. headless unit tests without UI)
+    final isTestEnv = !allowInTest &&
+        (Get.testMode ||
+            (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) ||
+            (Get.context == null && Get.overlayContext == null));
     if (isTestEnv) {
       debugPrint('[AppToast] [${type.name.toUpperCase()}] $title: $message');
       return;
     }
 
     try {
-      final isEn = Get.locale?.languageCode == 'en';
+      final isEn = isEnglish;
       final resolvedTitle = isEn ? _translateTitle(title, type) : title;
       final resolvedMessage = isEn ? _translateMessage(message) : message;
 
@@ -169,9 +178,40 @@ class AppToast {
       'Thao tác thất bại': 'Action Failed',
       'Thiếu thông tin': 'Missing Information',
       'Không thể thực hiện': 'Action Failed',
+      'Không thực hiện được': 'Action Failed',
       'Đã lưu': 'Saved',
       'Đã cập nhật': 'Updated',
       'Hoàn thành nghĩa vụ': 'Obligation Completed',
+      'Chưa khả dụng': 'Feature Unavailable',
+      'Đã chuyển Stage': 'Stage Transitioned',
+      'Đã phê duyệt': 'Approved',
+      'Đã từ chối': 'Rejected',
+      'Đã gửi yêu cầu sửa': 'Revision Requested',
+      'Đã chấp thuận': 'Approved',
+      'Đã tạm đình chỉ': 'Suspended',
+      'Đã phục hồi': 'Restored',
+      'Đồng bộ thành công': 'Sync Successful',
+      'Lỗi tạo kỹ năng': 'Skill Creation Error',
+      'Lỗi đánh giá': 'Evaluation Error',
+      'Lỗi đồng bộ': 'Sync Error',
+      'Lỗi phân tích': 'Analysis Error',
+      'Đã rà soát hợp đồng': 'Contract Reviewed',
+      'Phê duyệt thất bại': 'Approval Failed',
+      'Báo cáo thất bại': 'Report Failed',
+      'Đã chốt quyết định': 'Decision Finalized',
+      'Đã Tạo Cơ Hội Bán Hàng': 'Deal Created',
+      'Đã Gửi Duyệt Outreach': 'Outreach Submitted for Approval',
+      'Cập nhật Workforce Pack': 'Workforce Pack Updated',
+      'Không thể tạo dự án': 'Cannot Create Project',
+      'Chưa chọn dự án active': 'No Active Project Selected',
+      'Hồ sơ chế độ kế toán': 'Accounting Regime Profile',
+      'Chuyển đổi thành công': 'Conversion Successful',
+      'Đánh giá hoàn tất': 'Evaluation Completed',
+      'Không tải được chiến dịch': 'Cannot Load Campaign',
+      'Không đánh giá được': 'Cannot Evaluate',
+      'Không chạy được skill': 'Cannot Run Skill',
+      'Đã hủy chứng từ': 'Voucher Cancelled',
+      'Chúc mừng': 'Congratulations',
     };
     return titleMap[title] ?? title;
   }
@@ -209,6 +249,28 @@ class AppToast {
     if (message.startsWith('Lỗi hoàn thành nghĩa vụ: ')) {
       return 'Error completing obligation: ${message.substring('Lỗi hoàn thành nghĩa vụ: '.length)}';
     }
+    if (message.startsWith('Không thể duyệt yêu cầu: ')) {
+      return 'Cannot approve request: ${message.substring('Không thể duyệt yêu cầu: '.length)}';
+    }
+    if (message.startsWith('Không thể từ chối yêu cầu: ')) {
+      return 'Cannot reject request: ${message.substring('Không thể từ chối yêu cầu: '.length)}';
+    }
+    if (message.startsWith('Không thể đặt mục tiêu: ')) {
+      return 'Cannot set goal: ${message.substring('Không thể đặt mục tiêu: '.length)}';
+    }
+    if (message.startsWith('Không đổi được cài đặt: ')) {
+      return 'Cannot change settings: ${message.substring('Không đổi được cài đặt: '.length)}';
+    }
+    if (message.startsWith('Không thể bỏ kế hoạch: ')) {
+      return 'Cannot discard plan: ${message.substring('Không thể bỏ kế hoạch: '.length)}';
+    }
+    if (message.startsWith('Lỗi: ')) {
+      return 'Error: ${message.substring('Lỗi: '.length)}';
+    }
+    if (message.startsWith('Rà soát pháp lý tham khảo: ')) {
+      return 'Reference legal review: ${message.substring('Rà soát pháp lý tham khảo: '.length)}';
+    }
+
     final weekMatch = RegExp(r'^Đã tạo kế hoạch tuần (\d+)$').firstMatch(message);
     if (weekMatch != null) {
       return 'Created plan for Week ${weekMatch.group(1)}';
@@ -220,6 +282,46 @@ class AppToast {
     final cycleMatch = RegExp(r'^Đã khởi tạo chu kỳ danh mục "(.*)"$').firstMatch(message);
     if (cycleMatch != null) {
       return 'Initialized portfolio cycle "${cycleMatch.group(1)}"';
+    }
+    final taskSavedMatch = RegExp(r'^Đã lưu nhiệm vụ từ (.*) vào danh sách tuần!$').firstMatch(message);
+    if (taskSavedMatch != null) {
+      return 'Saved task from ${taskSavedMatch.group(1)} to weekly backlog!';
+    }
+    final accountingPeriodMatch = RegExp(r'^Đã mở kỳ kế toán mới \((.*) đến (.*)\)$').firstMatch(message);
+    if (accountingPeriodMatch != null) {
+      return 'Opened new accounting period (${accountingPeriodMatch.group(1)} to ${accountingPeriodMatch.group(2)})';
+    }
+    final crmAddMatch = RegExp(r'^Đã thêm (.*) vào CRM\.$').firstMatch(message);
+    if (crmAddMatch != null) {
+      return 'Added ${crmAddMatch.group(1)} to CRM.';
+    }
+    final crmDealStageMatch = RegExp(r'^Cơ hội bán hàng đã được cập nhật sang (.*)\.$').firstMatch(message);
+    if (crmDealStageMatch != null) {
+      return 'Sales deal updated to ${crmDealStageMatch.group(1)}.';
+    }
+    final modeSetMatch = RegExp(r'^Đã thiết lập chế độ (.*)$').firstMatch(message);
+    if (modeSetMatch != null) {
+      return 'Configured ${modeSetMatch.group(1)} mode';
+    }
+    final periodStatusMatch = RegExp(r'^Trạng thái kỳ đã chuyển sang (.*)$').firstMatch(message);
+    if (periodStatusMatch != null) {
+      return 'Period status changed to ${periodStatusMatch.group(1)}';
+    }
+    final attributionMatch = RegExp(r'^Đã tính toán phân bổ chuyển đổi \((.*)\)$').firstMatch(message);
+    if (attributionMatch != null) {
+      return 'Calculated conversion attribution (${attributionMatch.group(1)})';
+    }
+    final routineSuccessMatch = RegExp(r'^Kích hoạt quy trình "(.*)" thành công!$').firstMatch(message);
+    if (routineSuccessMatch != null) {
+      return 'Activated routine "${routineSuccessMatch.group(1)}" successfully!';
+    }
+    final routineErrorMatch = RegExp(r'^Lỗi khi kích hoạt quy trình "(.*)"$').firstMatch(message);
+    if (routineErrorMatch != null) {
+      return 'Error activating routine "${routineErrorMatch.group(1)}"';
+    }
+    final testScoreMatch = RegExp(r'^Điểm kiểm thử: (\d+)%$').firstMatch(message);
+    if (testScoreMatch != null) {
+      return 'Test score: ${testScoreMatch.group(1)}%';
     }
 
     return message;
@@ -275,6 +377,58 @@ class AppToast {
     'Đã sao chép vào bộ nhớ tạm': 'Copied to clipboard',
     'Thao tác thành công': 'Operation successful',
     'Đã lưu thay đổi': 'Changes saved',
+    'Bản nháp đã nằm trên CEO Command Center.': 'Draft is now on CEO Command Center.',
+    'Đã bỏ kế hoạch đề xuất.': 'Proposed plan discarded.',
+    'Kỹ năng mới đã được đưa vào hàng đợi kiểm thử Candidate': 'New skill queued for Candidate testing',
+    'Đã vô hiệu hóa gói mở rộng.': 'Extension pack disabled.',
+    'Agent sẽ cập nhật lại nội dung theo chỉ dẫn': 'Agent will update content per instructions',
+    'Cần nhập ít nhất quan sát và bài học': 'Observation and key lesson are required',
+    'Trạng thái chiến dịch đã được cập nhật.': 'Campaign status updated.',
+    'Lý do từ chối đã được ghi nhận.': 'Rejection reason recorded.',
+    'Yêu cầu từ chối chưa được ghi nhận ở backend. Vui lòng thử lại.': 'Rejection request not acknowledged by backend. Please retry.',
+    'Đã lưu nhiệm vụ vào kế hoạch tuần!': 'Task saved to weekly plan!',
+    'Không tìm thấy phòng ban để tuyển dụng': 'Department for recruitment not found',
+    'Cần nhập tiêu đề và nội dung': 'Title and content are required',
+    'Lệnh đã được phê duyệt và đang tiếp tục thực thi': 'Order approved and execution resumed',
+    'Bắt buộc đính kèm bằng chứng (evidence) để hoàn thành nghĩa vụ': 'Evidence attachment is required to complete obligation',
+    'Đã định tuyến năng lực': 'Capability routed successfully',
+    'Hành động cần người phê duyệt trước khi thực thi.': 'Action requires human approval before execution.',
+    'Máy chủ từ chối yêu cầu tạm đình chỉ': 'Server rejected suspension request',
+    'Máy chủ từ chối yêu cầu phục hồi (yêu cầu quyền Founder)': 'Server rejected restoration request (Founder role required)',
+    'Không thể thực thi phiên chạy': 'Cannot execute run session',
+    'Hệ thống AI đã chuyển sang trạng thái SUSPENDED': 'AI system has transitioned to SUSPENDED state',
+    'Đã hoàn thành phiên chạy thử nghiệm': 'Test run session completed',
+    'Đang thực thi thử nghiệm với Agent...': 'Executing test run with Agent...',
+    'Mục tiêu tuần không được để trống.': 'Weekly goal cannot be empty.',
+    'Đã ghi mục tiêu tuần. AI đang lập kế hoạch triển khai — kế hoạch sẽ hiện ở đây trong giây lát.': 'Weekly goal recorded. AI is compiling execution plan — it will appear shortly.',
+    'Cần có đánh giá rủi ro (assessment) và thời hạn hợp lệ để phê duyệt': 'Risk assessment and valid deadline required for approval',
+    'Triển khai này chưa có đánh giá rủi ro (assessment) hoặc hạn đánh giá hợp lệ': 'Deployment lacks risk assessment or valid evaluation deadline',
+    'Cần nhập tên mục tiêu và chỉ số theo dõi': 'Objective name and metric tracking required',
+    'Mã và tên chỉ số là bắt buộc': 'Metric code and name are required',
+    'Cần nhập tên chiến dịch': 'Campaign name is required',
+    'Chưa khả dụng': 'Feature unavailable',
+    'Chuyển đổi thành công': 'Conversion successful',
+    'Đánh giá hoàn tất': 'Evaluation completed',
+    'Đã chốt quyết định': 'Decision finalized',
+    'Đã Tạo Cơ Hội Bán Hàng': 'Deal created',
+    'Đã Gửi Duyệt Outreach': 'Outreach submitted for approval',
+    'Không thể tạo dự án': 'Cannot create project',
+    'Chưa chọn dự án active': 'No active project selected',
+    'Đã hủy chứng từ': 'Voucher cancelled',
+    'Đã phê duyệt': 'Approved',
+    'Đã từ chối': 'Rejected',
+    'Đã gửi yêu cầu sửa': 'Revision requested',
+    'Đã chấp thuận': 'Approved',
+    'Đã tạm đình chỉ': 'Suspended',
+    'Đã phục hồi': 'Restored',
+    'Phê duyệt thất bại': 'Approval failed',
+    'Báo cáo thất bại': 'Report failed',
+    'Đồng bộ thành công': 'Sync successful',
+    'Lỗi tạo kỹ năng': 'Skill creation error',
+    'Lỗi đánh giá': 'Evaluation error',
+    'Lỗi đồng bộ': 'Sync error',
+    'Lỗi phân tích': 'Analysis error',
+    'Đã rà soát hợp đồng': 'Contract reviewed',
   };
 
   static Color _getAccentColor(ToastType type) {

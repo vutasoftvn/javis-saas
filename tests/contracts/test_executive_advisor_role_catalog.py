@@ -79,3 +79,23 @@ def test_sales_profile_and_cro_role_ready():
     assert cro.runtime_readiness == "READY"
     assert cro.required_skill_pins == ("skillpack:executive/cro-advisor@1.0.0",)
     assert cro.advisory_only is True
+
+
+def test_coding_profile_and_vpe_role_ready():
+    startup_profiles_path = Path("shared/contracts/startup-team-profiles.json")
+    with open(startup_profiles_path, "r", encoding="utf-8") as f:
+        startup_data = json.load(f)
+
+    coding = next(p for p in startup_data["profiles"] if p["key"] == "coding")
+    assert coding == {
+        "key": "coding",
+        "label": "Coding",
+        "defaultMode": "TEMPLATE",
+        "runtimeReadiness": "READY",
+    }
+    vpe = EXECUTIVE_ROLE_CATALOG["vpe"]
+    assert vpe.required_profile_key == "coding"
+    assert vpe.runtime_readiness == "READY"
+    assert vpe.required_skill_pins == ("skillpack:executive/vpe-advisor@1.0.0",)
+    assert vpe.advisory_only is True
+

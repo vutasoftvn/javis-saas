@@ -54,7 +54,7 @@ export const STARTUP_TEAM_PROFILES: readonly StartupTeamProfileDef[] = Object.fr
   {"key":"finance","label":"Finance","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"crm","label":"CRM","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
   {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
-  {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"DEFERRED_CODING"},
+  {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 ]);
 

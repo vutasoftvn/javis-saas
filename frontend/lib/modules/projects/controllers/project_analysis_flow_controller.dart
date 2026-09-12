@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../core/network/api_client.dart';
 import '../../../data/models/stage_model.dart';
 import '../models/stage_analysis_models.dart';
@@ -17,6 +19,13 @@ class ProjectAnalysisFlowController extends GetxController {
   });
 
   final ProjectOperatingLoopService _loopService = ProjectOperatingLoopService();
+
+  bool get isEnglish {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
 
   // Wizard state
   final currentStep = 0.obs;
@@ -41,7 +50,8 @@ class ProjectAnalysisFlowController extends GetxController {
   final firstWeekActions = <String>[].obs;
   final newActionCtrl = TextEditingController();
 
-  StageGuidanceTemplate get guidance => StageAnalysisKnowledge.getTemplate(currentStage.value);
+  StageGuidanceTemplate get guidance =>
+      StageAnalysisKnowledge.getTemplate(currentStage.value, isEnglish ? 'en' : 'vi');
 
   @override
   void onInit() {
@@ -69,7 +79,7 @@ class ProjectAnalysisFlowController extends GetxController {
 
   void onStageChanged(ProjectStage newStage) {
     currentStage.value = newStage;
-    final tpl = StageAnalysisKnowledge.getTemplate(newStage);
+    final tpl = StageAnalysisKnowledge.getTemplate(newStage, isEnglish ? 'en' : 'vi');
     selectedAssumptions.assignAll(tpl.coreAssumptions);
     
     // Tự động điều chỉnh tuần theo stage
@@ -116,15 +126,18 @@ class ProjectAnalysisFlowController extends GetxController {
   Future<void> generateAiSuggestions() async {
     isAiGenerating.value = true;
     try {
+      final isEn = isEnglish;
       final customer = targetCustomerCtrl.text.trim();
       final problem = problemStatementCtrl.text.trim();
-      final stageName = currentStage.value.displayNameVi;
+      final stageName = isEn ? currentStage.value.displayNameEn : currentStage.value.displayNameVi;
       final stageCode = currentStage.value.code;
       final assumptionsCount = selectedAssumptions.length;
 
       // Thử gọi AI qua route chat nếu có, hoặc tạo template tổng hợp ngữ cảnh chính xác
       final suggestedOutcome = customer.isNotEmpty && problem.isNotEmpty
-          ? '[$stageCode - $stageName] Xác thực giải pháp cho "$customer" đối với vấn đề "$problem" ($assumptionsCount giả định cốt lõi).'
+          ? (isEn
+              ? '[$stageCode - $stageName] Validate solution for "$customer" addressing problem "$problem" ($assumptionsCount core assumptions).'
+              : '[$stageCode - $stageName] Xác thực giải pháp cho "$customer" đối với vấn đề "$problem" ($assumptionsCount giả định cốt lõi).')
           : guidance.suggestedOutcomeTemplate;
 
       firstWeekOutcomeCtrl.text = suggestedOutcome;
@@ -132,7 +145,11 @@ class ProjectAnalysisFlowController extends GetxController {
       // Sinh 2-3 action hành động cụ thể gắn liền với context
       firstWeekActions.clear();
       if (customer.isNotEmpty) {
-        firstWeekActions.add('Lập danh sách 10 khách hàng mục tiêu phù hợp: $customer');
+        firstWeekActions.add(
+          isEn
+              ? 'Build target list of 10 matching customers: $customer'
+              : 'Lập danh sách 10 khách hàng mục tiêu phù hợp: $customer',
+        );
       }
       for (final act in guidance.suggestedFirstWeekActions) {
         if (!firstWeekActions.contains(act)) {
@@ -146,27 +163,38 @@ class ProjectAnalysisFlowController extends GetxController {
 
   bool validateCurrentStep() {
     errorMessage.value = null;
+    final isEn = isEnglish;
     if (currentStep.value == 0) {
       if (targetCustomerCtrl.text.trim().isEmpty) {
-        errorMessage.value = 'Vui lòng nhập đối tượng khách hàng mục tiêu.';
+        errorMessage.value = isEn
+            ? 'Please enter your target customer / ICP.'
+            : 'Vui lòng nhập đối tượng khách hàng mục tiêu.';
         return false;
       }
       if (problemStatementCtrl.text.trim().isEmpty) {
-        errorMessage.value = 'Vui lòng mô tả vấn đề/nỗi đau cốt lõi mà dự án giải quyết.';
+        errorMessage.value = isEn
+            ? 'Please describe the core problem or pain point your project solves.'
+            : 'Vui lòng mô tả vấn đề/nỗi đau cốt lõi mà dự án giải quyết.';
         return false;
       }
     } else if (currentStep.value == 1) {
       if (selectedAssumptions.isEmpty) {
-        errorMessage.value = 'Vui lòng chọn hoặc thêm ít nhất 1 giả định cốt lõi cần kiểm chứng.';
+        errorMessage.value = isEn
+            ? 'Please select or add at least 1 core assumption to validate.'
+            : 'Vui lòng chọn hoặc thêm ít nhất 1 giả định cốt lõi cần kiểm chứng.';
         return false;
       }
     } else if (currentStep.value == 2) {
       if (firstWeekOutcomeCtrl.text.trim().isEmpty) {
-        errorMessage.value = 'Vui lòng nhập kết quả then chốt (Outcome) của tuần đầu tiên.';
+        errorMessage.value = isEn
+            ? 'Please enter the key outcome for the first week.'
+            : 'Vui lòng nhập kết quả then chốt (Outcome) của tuần đầu tiên.';
         return false;
       }
       if (firstWeekActions.isEmpty) {
-        errorMessage.value = 'Vui lòng thêm ít nhất 1 hành động ưu tiên cho tuần đầu tiên.';
+        errorMessage.value = isEn
+            ? 'Please add at least 1 priority action for the first week.'
+            : 'Vui lòng thêm ít nhất 1 hành động ưu tiên cho tuần đầu tiên.';
         return false;
       }
     }
@@ -281,10 +309,13 @@ class ProjectAnalysisFlowController extends GetxController {
 
       // 5. Tạo 1 Objective OKR nền tảng từ Problem & Stage
       try {
+        final isEn = isEnglish;
         await _loopService.createObjective(
           projectId,
           title: '[${currentStage.value.code}] ${guidance.focusHeadline}',
-          description: 'Khách hàng: ${targetCustomerCtrl.text.trim()} - Vấn đề: ${problemStatementCtrl.text.trim()}',
+          description: isEn
+              ? 'Customer: ${targetCustomerCtrl.text.trim()} - Problem: ${problemStatementCtrl.text.trim()}'
+              : 'Khách hàng: ${targetCustomerCtrl.text.trim()} - Vấn đề: ${problemStatementCtrl.text.trim()}',
         );
       } catch (e) {
         debugPrint('[ProjectAnalysis] createObjective error: $e');
@@ -292,7 +323,7 @@ class ProjectAnalysisFlowController extends GetxController {
 
       return true;
     } catch (e) {
-      errorMessage.value = 'Lỗi kích hoạt: $e';
+      errorMessage.value = isEnglish ? 'Activation error: $e' : 'Lỗi kích hoạt: $e';
       return false;
     } finally {
       isSubmitting.value = false;

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
+import '../../../data/models/stage_model.dart';
 
 class ProjectContextBar extends StatefulWidget {
   final List<dynamic> projects;
@@ -18,9 +21,17 @@ class ProjectContextBar extends StatefulWidget {
 }
 
 class _ProjectContextBarState extends State<ProjectContextBar> {
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode != 'vi';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
+      final isEn = _isEnglish();
       final selectedId = widget.selectedProjectId.value;
       final selectedProject = selectedId != null
           ? widget.projects.firstWhereOrNull(
@@ -63,7 +74,7 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
                 child: InkWell(
                   key: const Key('project_context_selector'),
                   onTap: () => _showProjectPicker(context),
-                  child: _buildProjectSelector(selectedProject),
+                  child: _buildProjectSelector(selectedProject, isEn),
                 ),
               ),
             ),
@@ -73,7 +84,7 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
     });
   }
 
-  Widget _buildProjectSelector(dynamic selectedProject) {
+  Widget _buildProjectSelector(dynamic selectedProject, bool isEn) {
     if (selectedProject == null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -89,10 +100,13 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
     }
 
     final title = selectedProject['title']?.toString() ?? 'Project';
-    final stage = selectedProject['lifecycleStage'] ??
+    final rawStage = selectedProject['lifecycleStage'] ??
         selectedProject['project_stage'] ??
-        selectedProject['lifecycle_stage'] ??
-        'Unknown';
+        selectedProject['lifecycle_stage'];
+    final parsedStage = rawStage != null ? ProjectStage.fromString(rawStage.toString()) : null;
+    final stageText = parsedStage != null
+        ? '${parsedStage.code}: ${isEn ? parsedStage.shortNameEn : parsedStage.shortNameVi}'
+        : (rawStage?.toString() ?? 'P0');
 
     return Row(
       children: [
@@ -115,10 +129,11 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
-            stage.toString(),
-            style: TextStyle(
-              color: const Color(0xFF6366F1),
+            stageText,
+            style: const TextStyle(
+              color: Color(0xFF6366F1),
               fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -129,6 +144,7 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
   }
 
   void _showProjectPicker(BuildContext context) {
+    final isEn = _isEnglish();
     showModalBottomSheet(
       context: context,
       builder: (ctx) => Container(
@@ -137,27 +153,24 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
           color: Color(0xFF0F172A),
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        // ListTile vẽ background/ink splash lên Material ancestor gần nhất —
-        // Container ở trên có màu nền riêng nên phải có Material trung gian,
-        // nếu không ink splash/background của ListTile sẽ vô hình.
         child: Material(
           color: Colors.transparent,
           child: ListView.builder(
-          itemCount: widget.projects.length,
-          itemBuilder: (_, i) {
-            final project = widget.projects[i];
-            final title = project['title']?.toString() ?? 'Project ${i + 1}';
-            return ListTile(
-              title: Text(
-                title,
-                style: const TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                widget.onSelected(project['id']?.toString() ?? '');
-                Navigator.pop(ctx);
-              },
-            );
-          },
+            itemCount: widget.projects.length,
+            itemBuilder: (_, i) {
+              final project = widget.projects[i];
+              final title = project['title']?.toString() ?? (isEn ? 'Project ${i + 1}' : 'Dự án ${i + 1}');
+              return ListTile(
+                title: Text(
+                  title,
+                  style: const TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  widget.onSelected(project['id']?.toString() ?? '');
+                  Navigator.pop(ctx);
+                },
+              );
+            },
           ),
         ),
       ),

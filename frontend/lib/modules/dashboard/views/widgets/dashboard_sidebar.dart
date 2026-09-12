@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/localization/app_translations.dart';
 import '../../../../core/localization/locale_controller.dart';
+import '../../../../core/localization/supported_locale.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/routing/module_routes.dart';
 import '../../../../core/services/feature_flags_controller.dart';
@@ -352,8 +353,9 @@ class DashboardDesktopSidebar extends StatelessWidget {
               }),
             ),
 
-            // Footer Logout Button
+            // Footer Controls
             const Divider(height: 1, color: AppTheme.borderDark),
+            const _SidebarLanguageTile(),
             Obx(() => SwitchListTile(
               dense: true,
               title: Text(L10nKey.sidebarDeveloperMode.tr, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
@@ -676,6 +678,7 @@ class DashboardMobileDrawer extends StatelessWidget {
               }),
             ),
             const Divider(height: 1, color: Color(0xFF1E293B)),
+            const _SidebarLanguageTile(),
             ListTile(
               leading: const Icon(Icons.logout, color: AppTheme.error),
               title: Text(L10nKey.sidebarLogout.tr, style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold, fontSize: 15)),
@@ -793,5 +796,70 @@ class DashboardSidebarSubItem extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _SidebarLanguageTile extends StatelessWidget {
+  const _SidebarLanguageTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final lc = Get.isRegistered<LocaleController>()
+        ? Get.find<LocaleController>()
+        : null;
+    if (lc == null) return const SizedBox.shrink();
+
+    return Obx(() {
+      final currentLocale = lc.current.value;
+      final isVi = currentLocale == SupportedLocale.viVN;
+      final tooltipMessage = isVi ? 'Chuyển sang English' : 'Switch to Tiếng Việt';
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        child: Tooltip(
+          message: tooltipMessage,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const Key('sidebar_language_toggle'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => lc.toggleLocale(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceDarkHeader.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.7)),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      isVi ? '🇻🇳' : '🇺🇸',
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        isVi ? 'Tiếng Việt' : 'English',
+                        style: const TextStyle(
+                          color: AppTheme.textDark,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.swap_horiz_rounded,
+                      size: 16,
+                      color: AppTheme.primary.withValues(alpha: 0.8),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../data/models/stage_model.dart';
 import '../controllers/project_analysis_flow_controller.dart';
@@ -15,6 +17,13 @@ class ProjectAnalysisFlowView extends StatelessWidget {
     required this.projectTitle,
     this.initialStage,
   });
+
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,30 +48,38 @@ class ProjectAnalysisFlowView extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.white70),
           onPressed: () => Get.back(),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Phân tích & Đề xuất Kế hoạch: $projectTitle',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            const Text(
-              'Thiết lập mục tiêu thực thi tuần đầu căn cứ theo từng giai đoạn',
-              style: TextStyle(fontSize: 11, color: Colors.white54),
-            ),
-          ],
-        ),
+        title: Obx(() {
+          final isEn = _isEnglish();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isEn
+                    ? 'Analysis & Plan Proposal: $projectTitle'
+                    : 'Phân tích & Đề xuất Kế hoạch: $projectTitle',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              Text(
+                isEn
+                    ? 'Set first-week execution objectives based on project stage'
+                    : 'Thiết lập mục tiêu thực thi tuần đầu căn cứ theo từng giai đoạn',
+                style: const TextStyle(fontSize: 11, color: Colors.white54),
+              ),
+            ],
+          );
+        }),
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 860),
           child: Obx(() {
+            final isEn = _isEnglish();
             final step = controller.currentStep.value;
 
             return Column(
               children: [
                 // Step Indicator Header
-                _buildStepHeader(controller),
+                _buildStepHeader(controller, isEn),
 
                 if (controller.errorMessage.value != null)
                   Container(
@@ -91,16 +108,16 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     child: switch (step) {
-                      0 => _buildStep1CustomerProblem(controller),
-                      1 => _buildStep2StageAssumptions(controller),
-                      2 => _buildStep3FirstWeekPlan(controller),
+                      0 => _buildStep1CustomerProblem(controller, isEn),
+                      1 => _buildStep2StageAssumptions(controller, isEn),
+                      2 => _buildStep3FirstWeekPlan(controller, isEn),
                       _ => const SizedBox.shrink(),
                     },
                   ),
                 ),
 
                 // Bottom Action Navigation Bar
-                _buildBottomBar(controller),
+                _buildBottomBar(controller, isEn),
               ],
             );
           }),
@@ -109,27 +126,68 @@ class ProjectAnalysisFlowView extends StatelessWidget {
     );
   }
 
-  Widget _buildStepHeader(ProjectAnalysisFlowController controller) {
+  Widget _buildStepHeader(ProjectAnalysisFlowController controller, bool isEn) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: const BoxDecoration(
         color: Color(0xFF0F172A),
         border: Border(bottom: BorderSide(color: Color(0xFF1E293B))),
       ),
-      child: Row(
-        children: [
-          _buildStepCircle(0, '1', 'Khách hàng & Nỗi đau', controller.currentStep.value),
-          Expanded(child: Container(height: 2, color: controller.currentStep.value >= 1 ? const Color(0xFF6366F1) : const Color(0xFF334155))),
-          _buildStepCircle(1, '2', 'Giai đoạn & Giả định', controller.currentStep.value),
-          Expanded(child: Container(height: 2, color: controller.currentStep.value >= 2 ? const Color(0xFF6366F1) : const Color(0xFF334155))),
-          _buildStepCircle(2, '3', 'Outcome & Kế hoạch tuần', controller.currentStep.value),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildStepCircle(
+                    0,
+                    '1',
+                    isEn ? 'Customer & Problem' : 'Khách hàng & Nỗi đau',
+                    controller.currentStep.value,
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    width: 32,
+                    height: 2,
+                    color: controller.currentStep.value >= 1 ? const Color(0xFF6366F1) : const Color(0xFF334155),
+                  ),
+                  _buildStepCircle(
+                    1,
+                    '2',
+                    isEn ? 'Stage & Assumptions' : 'Giai đoạn & Giả định',
+                    controller.currentStep.value,
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    width: 32,
+                    height: 2,
+                    color: controller.currentStep.value >= 2 ? const Color(0xFF6366F1) : const Color(0xFF334155),
+                  ),
+                  _buildStepCircle(
+                    2,
+                    '3',
+                    isEn ? 'Outcome & Weekly Plan' : 'Outcome & Kế hoạch tuần',
+                    controller.currentStep.value,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildStepCircle(int stepIndex, String number, String title, int currentStep) {
+  Widget _buildStepCircle(
+    int stepIndex,
+    String number,
+    String title,
+    int currentStep,
+  ) {
     final isActive = currentStep == stepIndex;
     final isDone = currentStep > stepIndex;
 
@@ -176,23 +234,29 @@ class ProjectAnalysisFlowView extends StatelessWidget {
   }
 
   // --- STEP 1: CUSTOMER & PROBLEM STATEMENT ---
-  Widget _buildStep1CustomerProblem(ProjectAnalysisFlowController controller) {
+  Widget _buildStep1CustomerProblem(ProjectAnalysisFlowController controller, bool isEn) {
     final tpl = controller.guidance;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionCard(
-          title: 'Bước 1: Chân dung Khách hàng & Vấn đề Cốt lõi',
-          description: 'Mọi phân tích và đề xuất hành động về sau đều sẽ xoay quanh đối tượng và nỗi đau bạn nhập tại đây.',
+          title: isEn
+              ? 'Step 1: Target Customer & Core Problem'
+              : 'Bước 1: Chân dung Khách hàng & Vấn đề Cốt lõi',
+          description: isEn
+              ? 'All subsequent analysis and action recommendations will focus on the target customer and pain points you define here.'
+              : 'Mọi phân tích và đề xuất hành động về sau đều sẽ xoay quanh đối tượng và nỗi đau bạn nhập tại đây.',
           icon: Icons.person_search_outlined,
           iconColor: const Color(0xFF6366F1),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Khách hàng mục tiêu (Target Customer / ICP)',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
+              Text(
+                isEn
+                    ? 'Target Customer (Target Customer / ICP)'
+                    : 'Khách hàng mục tiêu (Target Customer / ICP)',
+                style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -208,9 +272,11 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Vấn đề / Nỗi đau nhức nhối nhất (Core Problem Statement)',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
+              Text(
+                isEn
+                    ? 'Core Problem / Pain Point (Core Problem Statement)'
+                    : 'Vấn đề / Nỗi đau nhức nhối nhất (Core Problem Statement)',
+                style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -234,7 +300,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
   }
 
   // --- STEP 2: STAGE, EVIDENCE & ASSUMPTIONS (Chained from Step 1) ---
-  Widget _buildStep2StageAssumptions(ProjectAnalysisFlowController controller) {
+  Widget _buildStep2StageAssumptions(ProjectAnalysisFlowController controller, bool isEn) {
     final tpl = controller.guidance;
 
     return Column(
@@ -242,22 +308,28 @@ class ProjectAnalysisFlowView extends StatelessWidget {
       children: [
         // Summary context of Step 1
         _buildContextBanner(
-          'Ngữ cảnh đã xác lập:',
-          'Khách hàng: "${controller.targetCustomerCtrl.text}" • Nỗi đau: "${controller.problemStatementCtrl.text}"',
+          isEn ? 'Established Context:' : 'Ngữ cảnh đã xác lập:',
+          isEn
+              ? 'Customer: "${controller.targetCustomerCtrl.text}" • Problem: "${controller.problemStatementCtrl.text}"'
+              : 'Khách hàng: "${controller.targetCustomerCtrl.text}" • Nỗi đau: "${controller.problemStatementCtrl.text}"',
         ),
         const SizedBox(height: 16),
 
         _buildSectionCard(
-          title: 'Bước 2: Giai đoạn Vòng đời & Giả định Cốt lõi',
-          description: 'Chọn đúng giai đoạn dự án đang ở để nhận câu hỏi chiến lược và bộ giả định kiểm chứng tương ứng.',
+          title: isEn
+              ? 'Step 2: Lifecycle Stage & Core Assumptions'
+              : 'Bước 2: Giai đoạn Vòng đời & Giả định Cốt lõi',
+          description: isEn
+              ? 'Select the current stage of your project to receive strategic questions and corresponding validation assumptions.'
+              : 'Chọn đúng giai đoạn dự án đang ở để nhận câu hỏi chiến lược và bộ giả định kiểm chứng tương ứng.',
           icon: Icons.alt_route_rounded,
           iconColor: const Color(0xFFA855F7),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Giai đoạn hiện tại của Dự án:',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
+              Text(
+                isEn ? 'Current Project Stage:' : 'Giai đoạn hiện tại của Dự án:',
+                style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -265,8 +337,9 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                 runSpacing: 8,
                 children: ProjectStage.values.map((s) {
                   final isSelected = controller.currentStage.value == s;
+                  final stageLabel = isEn ? s.shortNameEn : s.shortNameVi;
                   return ChoiceChip(
-                    label: Text('${s.code}: ${s.shortNameVi}'),
+                    label: Text('${s.code}: $stageLabel'),
                     selected: isSelected,
                     onSelected: (_) => controller.onStageChanged(s),
                     selectedColor: s.primaryColor.withValues(alpha: 0.3),
@@ -304,9 +377,11 @@ class ProjectAnalysisFlowView extends StatelessWidget {
               ),
 
               const SizedBox(height: 20),
-              const Text(
-                'Các giả định cốt lõi cần kiểm chứng trong giai đoạn này (chọn hoặc thêm mới):',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
+              Text(
+                isEn
+                    ? 'Core assumptions to validate in this stage (select or add new):'
+                    : 'Các giả định cốt lõi cần kiểm chứng trong giai đoạn này (chọn hoặc thêm mới):',
+                style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
               ),
               const SizedBox(height: 10),
 
@@ -330,7 +405,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                       controller: controller.customAssumptionCtrl,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Thêm giả định khác...',
+                        hintText: isEn ? 'Add custom assumption...' : 'Thêm giả định khác...',
                         hintStyle: const TextStyle(color: Colors.white38, fontSize: 12.5),
                         filled: true,
                         fillColor: const Color(0xFF1E293B),
@@ -343,7 +418,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => controller.addCustomAssumption(),
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF334155), foregroundColor: Colors.white),
-                    child: const Text('Thêm'),
+                    child: Text(isEn ? 'Add' : 'Thêm'),
                   ),
                 ],
               ),
@@ -355,20 +430,26 @@ class ProjectAnalysisFlowView extends StatelessWidget {
   }
 
   // --- STEP 3: FIRST WEEK PLAN (Chained from Step 1 & Step 2) ---
-  Widget _buildStep3FirstWeekPlan(ProjectAnalysisFlowController controller) {
+  Widget _buildStep3FirstWeekPlan(ProjectAnalysisFlowController controller, bool isEn) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Summary context
         _buildContextBanner(
-          'Kế thừa ngữ cảnh (Chained Context):',
-          'Khách hàng: ${controller.targetCustomerCtrl.text} • Giai đoạn: ${controller.currentStage.value.code} (${controller.selectedAssumptions.length} giả định đang kiểm chứng)',
+          isEn ? 'Chained Context:' : 'Kế thừa ngữ cảnh (Chained Context):',
+          isEn
+              ? 'Customer: ${controller.targetCustomerCtrl.text} • Stage: ${controller.currentStage.value.code} (${controller.selectedAssumptions.length} assumptions to validate)'
+              : 'Khách hàng: ${controller.targetCustomerCtrl.text} • Giai đoạn: ${controller.currentStage.value.code} (${controller.selectedAssumptions.length} giả định đang kiểm chứng)',
         ),
         const SizedBox(height: 16),
 
         _buildSectionCard(
-          title: 'Bước 3: Kế hoạch Hành động Tuần Đầu tiên',
-          description: 'Hệ thống AI đề xuất Outcome then chốt và các hành động ưu tiên cao nhất cho tuần đầu căn cứ theo 2 bước trước.',
+          title: isEn
+              ? 'Step 3: First-Week Action Plan'
+              : 'Bước 3: Kế hoạch Hành động Tuần Đầu tiên',
+          description: isEn
+              ? 'The AI engine suggests a key outcome and highest-priority actions for your first week based on previous steps.'
+              : 'Hệ thống AI đề xuất Outcome then chốt và các hành động ưu tiên cao nhất cho tuần đầu căn cứ theo 2 bước trước.',
           icon: Icons.rocket_launch_outlined,
           iconColor: const Color(0xFF10B981),
           child: Column(
@@ -377,16 +458,21 @@ class ProjectAnalysisFlowView extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Kết quả then chốt (Outcome) tuần đầu:',
-                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
+                  Text(
+                    isEn
+                        ? 'Key Outcome for Week 1:'
+                        : 'Kết quả then chốt (Outcome) tuần đầu:',
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
                   ),
                   TextButton.icon(
                     onPressed: controller.isAiGenerating.value ? null : () => controller.generateAiSuggestions(),
                     icon: controller.isAiGenerating.value
                         ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)))
                         : const Icon(Icons.auto_awesome, size: 16, color: Color(0xFF10B981)),
-                    label: const Text('Gợi ý lại bằng AI', style: TextStyle(color: Color(0xFF10B981), fontSize: 12)),
+                    label: Text(
+                      isEn ? 'Regenerate with AI' : 'Gợi ý lại bằng AI',
+                      style: const TextStyle(color: Color(0xFF10B981), fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -404,14 +490,21 @@ class ProjectAnalysisFlowView extends StatelessWidget {
               ),
 
               const SizedBox(height: 20),
-              const Text(
-                'Danh sách 1–3 Hành động ưu tiên (Tasks for Week 1):',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
+              Text(
+                isEn
+                    ? 'Top 1–3 Priority Actions (Tasks for Week 1):'
+                    : 'Danh sách 1–3 Hành động ưu tiên (Tasks for Week 1):',
+                style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.5),
               ),
               const SizedBox(height: 10),
 
               if (controller.firstWeekActions.isEmpty)
-                const Text('Chưa có hành động nào. Hãy nhập thêm hoặc dùng gợi ý AI bên trên.', style: TextStyle(color: Colors.white38, fontSize: 12.5)),
+                Text(
+                  isEn
+                      ? 'No actions added yet. Enter custom tasks or use the AI suggestions above.'
+                      : 'Chưa có hành động nào. Hãy nhập thêm hoặc dùng gợi ý AI bên trên.',
+                  style: const TextStyle(color: Colors.white38, fontSize: 12.5),
+                ),
 
               ...controller.firstWeekActions.asMap().entries.map((entry) {
                 final idx = entry.key;
@@ -452,7 +545,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                       controller: controller.newActionCtrl,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Thêm hành động khác cho tuần 1...',
+                        hintText: isEn ? 'Add another action for Week 1...' : 'Thêm hành động khác cho tuần 1...',
                         hintStyle: const TextStyle(color: Colors.white38, fontSize: 12.5),
                         filled: true,
                         fillColor: const Color(0xFF1E293B),
@@ -465,7 +558,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => controller.addFirstWeekAction(),
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF334155), foregroundColor: Colors.white),
-                    child: const Text('Thêm'),
+                    child: Text(isEn ? 'Add' : 'Thêm'),
                   ),
                 ],
               ),
@@ -475,7 +568,12 @@ class ProjectAnalysisFlowView extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Text('Độ dài chu kỳ vận hành (Operating Cycle):', style: TextStyle(color: Colors.white70, fontSize: 12.5)),
+                  Text(
+                    isEn
+                        ? 'Operating Cycle Length:'
+                        : 'Độ dài chu kỳ vận hành (Operating Cycle):',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                  ),
                   const SizedBox(width: 12),
                   Obx(() => DropdownButton<int>(
                     value: controller.cycleDurationWeeks.value,
@@ -484,7 +582,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                     items: [1, 2, 3, 4, 6, 8, 12].map((w) {
                       return DropdownMenuItem<int>(
                         value: w,
-                        child: Text('$w tuần'),
+                        child: Text(isEn ? '$w week${w > 1 ? 's' : ''}' : '$w tuần'),
                       );
                     }).toList(),
                     onChanged: (v) {
@@ -573,7 +671,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomBar(ProjectAnalysisFlowController controller) {
+  Widget _buildBottomBar(ProjectAnalysisFlowController controller, bool isEn) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       decoration: const BoxDecoration(
@@ -587,7 +685,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => controller.prevStep(),
               icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Quay lại'),
+              label: Text(isEn ? 'Back' : 'Quay lại'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white70,
                 side: const BorderSide(color: Color(0xFF334155)),
@@ -600,7 +698,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: () => controller.nextStep(),
               icon: const Icon(Icons.arrow_forward, size: 16),
-              label: const Text('Tiếp tục bước sau'),
+              label: Text(isEn ? 'Continue' : 'Tiếp tục bước sau'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6366F1),
                 foregroundColor: Colors.white,
@@ -620,7 +718,11 @@ class ProjectAnalysisFlowView extends StatelessWidget {
               icon: controller.isSubmitting.value
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.check_circle_outline, size: 18),
-              label: Text(controller.isSubmitting.value ? 'Đang kích hoạt...' : 'Kích hoạt Kế hoạch & Vào Hub'),
+              label: Text(
+                controller.isSubmitting.value
+                    ? (isEn ? 'Activating...' : 'Đang kích hoạt...')
+                    : (isEn ? 'Activate Plan & Enter Hub' : 'Kích hoạt Kế hoạch & Vào Hub'),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,

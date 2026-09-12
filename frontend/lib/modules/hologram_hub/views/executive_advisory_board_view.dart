@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../controllers/executive_advisory_board_controller.dart';
 import '../models/executive_advisory_board.dart';
 
@@ -15,6 +17,13 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             (Get.isRegistered<ExecutiveAdvisoryBoardController>()
                 ? Get.find<ExecutiveAdvisoryBoardController>()
                 : Get.put(ExecutiveAdvisoryBoardController()));
+
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +58,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final isEn = _isEnglish();
     return Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -58,9 +68,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Hội đồng Cố vấn Điều hành',
-              style: TextStyle(
+            Text(
+              isEn ? 'Executive Advisory Board' : 'Hội đồng Cố vấn Điều hành',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -69,7 +79,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Cố vấn chiến lược cấp L1 (Read/Propose) theo từng Project',
+              isEn
+                  ? 'L1 Strategic Advisors (Read/Propose) per project'
+                  : 'Cố vấn chiến lược cấp L1 (Read/Propose) theo từng Project',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
@@ -84,9 +96,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => _showPresetDialog(context),
               icon: const Icon(Icons.tune, size: 16, color: Colors.indigoAccent),
-              label: const Text(
-                'Chọn Preset',
-                style: TextStyle(color: Colors.indigoAccent),
+              label: Text(
+                isEn ? 'Select Preset' : 'Chọn Preset',
+                style: const TextStyle(color: Colors.indigoAccent),
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.indigoAccent),
@@ -97,7 +109,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: () => _showCreateDeliberationDialog(context),
               icon: const Icon(Icons.add, size: 16, color: Colors.white),
-              label: const Text('Tạo Phiên Nghị sự'),
+              label: Text(isEn ? 'New Deliberation' : 'Tạo Phiên Nghị sự'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.indigoAccent,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -136,6 +148,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   Widget _buildActiveDeliberationSection(BuildContext context) {
     final delib = controller.currentDeliberation.value;
     if (delib == null) return const SizedBox.shrink();
+    final isEn = _isEnglish();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -180,9 +193,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
           ],
           if (delib.analyses.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Text(
-              'Ý kiến từ Cố vấn:',
-              style: TextStyle(
+            Text(
+              isEn ? 'Advisor Feedback:' : 'Ý kiến từ Cố vấn:',
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -205,7 +218,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
                     foregroundColor: Colors.redAccent,
                     side: const BorderSide(color: Colors.redAccent),
                   ),
-                  child: const Text('Huỷ bỏ'),
+                  child: Text(isEn ? 'Cancel' : 'Huỷ bỏ'),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
@@ -215,7 +228,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
                     decisionType: 'APPROVE',
                   ),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text('Phê duyệt (Approve)'),
+                  child: Text(isEn ? 'Approve' : 'Phê duyệt (Approve)'),
                 ),
               ],
             ),
@@ -226,7 +239,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   }
 
   Widget _buildAnalysisRow(DeliberationAnalysis analysis) {
-    final conclusion = analysis.descriptor['conclusion']?.toString() ?? 'Đã hoàn tất phân tích';
+    final isEn = _isEnglish();
+    final conclusion = analysis.descriptor['conclusion']?.toString() ??
+        (isEn ? 'Analysis completed' : 'Đã hoàn tất phân tích');
     final confidence = analysis.descriptor['confidence']?.toString() ?? 'UNKNOWN';
 
     return Container(
@@ -278,12 +293,13 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   }
 
   Widget _buildRolesSection(BuildContext context) {
+    final isEn = _isEnglish();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Thành phần Ban Cố vấn',
-          style: TextStyle(
+        Text(
+          isEn ? 'Executive Advisory Board Members' : 'Thành phần Ban Cố vấn',
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -382,23 +398,24 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   }
 
   Widget _buildRoleBadge(ExecutiveActivationState state) {
+    final isEn = _isEnglish();
     String text;
     Color color;
     switch (state) {
       case ExecutiveActivationState.active:
-        text = 'Đang hoạt động';
+        text = isEn ? 'Active' : 'Đang hoạt động';
         color = Colors.green;
         break;
       case ExecutiveActivationState.availableNotActivated:
-        text = 'Chưa kích hoạt';
+        text = isEn ? 'Inactive' : 'Chưa kích hoạt';
         color = Colors.amber;
         break;
       case ExecutiveActivationState.disabled:
-        text = 'Đã dừng';
+        text = isEn ? 'Disabled' : 'Đã dừng';
         color = Colors.grey;
         break;
       case ExecutiveActivationState.unavailable:
-        text = 'Chưa sẵn sàng';
+        text = isEn ? 'Unavailable' : 'Chưa sẵn sàng';
         color = Colors.redAccent;
         break;
     }
@@ -418,6 +435,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   }
 
   Widget _buildActionRow(ExecutiveAdvisorRole role) {
+    final isEn = _isEnglish();
     if (role.activationState == ExecutiveActivationState.availableNotActivated) {
       return SizedBox(
         width: double.infinity,
@@ -432,7 +450,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
-          child: const Text('Kích hoạt', style: TextStyle(fontSize: 12)),
+          child: Text(isEn ? 'Activate' : 'Kích hoạt', style: const TextStyle(fontSize: 12)),
         ),
       );
     } else if (role.activationState == ExecutiveActivationState.active) {
@@ -450,7 +468,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
-          child: const Text('Tạm dừng', style: TextStyle(fontSize: 12)),
+          child: Text(isEn ? 'Pause' : 'Tạm dừng', style: const TextStyle(fontSize: 12)),
         ),
       );
     }
@@ -480,25 +498,47 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   }
 
   void _showPresetDialog(BuildContext context) {
+    final isEn = _isEnglish();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Chọn Startup Core Preset', style: TextStyle(color: Colors.white)),
+        title: Text(
+          isEn ? 'Select Startup Core Preset' : 'Chọn Startup Core Preset',
+          style: const TextStyle(color: Colors.white),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: const Text('Giai đoạn Khám phá (Discovery)', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Kích hoạt CFO, CMO (read/propose)', style: TextStyle(color: Colors.white54)),
+              title: Text(
+                isEn ? 'Discovery Stage' : 'Giai đoạn Khám phá (Discovery)',
+                style: const TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                isEn
+                    ? 'Activate CFO, CMO (read/propose)'
+                    : 'Kích hoạt CFO, CMO (read/propose)',
+                style: const TextStyle(color: Colors.white54),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 controller.selectStartupPreset(projectId, 'startup-discovery');
               },
             ),
             ListTile(
-              title: const Text('Giai đoạn Xây dựng & Ra mắt (Build & Launch)', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Kích hoạt CFO, CMO, COO (read/propose)', style: TextStyle(color: Colors.white54)),
+              title: Text(
+                isEn
+                    ? 'Build & Launch Stage'
+                    : 'Giai đoạn Xây dựng & Ra mắt (Build & Launch)',
+                style: const TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                isEn
+                    ? 'Activate CFO, CMO, COO (read/propose)'
+                    : 'Kích hoạt CFO, CMO, COO (read/propose)',
+                style: const TextStyle(color: Colors.white54),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 controller.selectStartupPreset(projectId, 'startup-build-launch');
@@ -511,26 +551,32 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   }
 
   void _showCreateDeliberationDialog(BuildContext context) {
+    final isEn = _isEnglish();
     final titleController = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text('Tạo Phiên Nghị sự Mới', style: TextStyle(color: Colors.white)),
+        title: Text(
+          isEn ? 'Create New Deliberation' : 'Tạo Phiên Nghị sự Mới',
+          style: const TextStyle(color: Colors.white),
+        ),
         content: TextField(
           controller: titleController,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'Chủ đề / Vấn đề cần tham vấn',
-            labelStyle: TextStyle(color: Colors.white60),
-            hintText: 'VD: Kế hoạch phân bổ vốn Q3',
-            hintStyle: TextStyle(color: Colors.white30),
+          decoration: InputDecoration(
+            labelText: isEn
+                ? 'Topic / Consultation Subject'
+                : 'Chủ đề / Vấn đề cần tham vấn',
+            labelStyle: const TextStyle(color: Colors.white60),
+            hintText: isEn ? 'e.g. Q3 Capital Allocation Plan' : 'VD: Kế hoạch phân bổ vốn Q3',
+            hintStyle: const TextStyle(color: Colors.white30),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Huỷ', style: TextStyle(color: Colors.white54)),
+            child: Text(isEn ? 'Cancel' : 'Huỷ', style: const TextStyle(color: Colors.white54)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -541,7 +587,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.indigoAccent),
-            child: const Text('Tạo'),
+            child: Text(isEn ? 'Create' : 'Tạo'),
           ),
         ],
       ),

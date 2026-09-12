@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:frontend/modules/hologram_hub/models/project_activity_models.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 
 class ProjectActivityInspector extends StatelessWidget {
   final String eventId;
@@ -15,12 +18,20 @@ class ProjectActivityInspector extends StatelessWidget {
     this.onClose,
   });
 
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isEn = _isEnglish();
     if (event == null) {
       return Center(
         child: Text(
-          'Event not found',
+          isEn ? 'Event not found' : 'Không tìm thấy sự kiện',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.7),
           ),
@@ -38,9 +49,9 @@ class ProjectActivityInspector extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Activity Details',
-                  style: TextStyle(
+                Text(
+                  isEn ? 'Activity Details' : 'Chi tiết Hoạt động',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

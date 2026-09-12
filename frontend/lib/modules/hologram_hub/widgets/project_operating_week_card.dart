@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../projects/models/project_operating_loop.dart';
 
 class ProjectOperatingWeekCard extends StatelessWidget {
@@ -14,6 +17,13 @@ class ProjectOperatingWeekCard extends StatelessWidget {
   final bool isLoading;
   final String? errorMessage;
   final VoidCallback? onRetry;
+
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
 
   static int calculateCurrentWeek(LoopActiveCycle cycle) {
     final start = DateTime.tryParse(cycle.startDate);
@@ -37,6 +47,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isEn = _isEnglish();
 
     if (isLoading) {
       return Container(
@@ -73,7 +84,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                 Icon(Icons.error_outline, color: theme.colorScheme.error),
                 const SizedBox(width: 8),
                 Text(
-                  'Lỗi tải chu kỳ hoạt động',
+                  isEn ? 'Error loading operating cycle' : 'Lỗi tải chu kỳ hoạt động',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: theme.colorScheme.error,
                     fontWeight: FontWeight.bold,
@@ -94,7 +105,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                 key: const Key('operating_week_retry_button'),
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Thử lại'),
+                label: Text(isEn ? 'Retry' : 'Thử lại'),
               ),
             ],
           ],
@@ -121,7 +132,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                     size: 20, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Chu kỳ hoạt động dự án',
+                  isEn ? 'Project Operating Cycle' : 'Chu kỳ hoạt động dự án',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -130,7 +141,9 @@ class ProjectOperatingWeekCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Dự án chưa có chu kỳ hoạt động (Operating Cycle) nào đang diễn ra.',
+              isEn
+                  ? 'No active operating cycle for this project.'
+                  : 'Dự án chưa có chu kỳ hoạt động (Operating Cycle) nào đang diễn ra.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -164,7 +177,9 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                       size: 20, color: theme.colorScheme.primary),
                   const SizedBox(width: 8),
                   Text(
-                    'Chu kỳ ${cycle.durationWeeks} tuần — Tuần $currentWeekNo',
+                    isEn
+                        ? 'Cycle: ${cycle.durationWeeks} weeks — Week $currentWeekNo'
+                        : 'Chu kỳ ${cycle.durationWeeks} tuần — Tuần $currentWeekNo',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -178,7 +193,9 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Tuần $currentWeekNo / ${cycle.durationWeeks}',
+                  isEn
+                      ? 'Week $currentWeekNo / ${cycle.durationWeeks}'
+                      : 'Tuần $currentWeekNo / ${cycle.durationWeeks}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.bold,
@@ -202,7 +219,9 @@ class ProjectOperatingWeekCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Text(
-                'Chưa có cam kết công việc nào trong tuần này.',
+                isEn
+                    ? 'No commitments scheduled for this week.'
+                    : 'Chưa có cam kết công việc nào trong tuần này.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
@@ -210,7 +229,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
             )
           else ...[
             Text(
-              'Cam kết tuần này:',
+              isEn ? 'Commitments this week:' : 'Cam kết tuần này:',
               style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 fontWeight: FontWeight.w600,
@@ -246,7 +265,9 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '$incompleteTasks/$totalTasks việc',
+                        isEn
+                            ? '$incompleteTasks/$totalTasks tasks'
+                            : '$incompleteTasks/$totalTasks việc',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: incompleteTasks > 0
                               ? theme.colorScheme.primary

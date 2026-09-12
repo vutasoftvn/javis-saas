@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../agents/services/agents_service.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
 
@@ -40,21 +43,30 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
   bool _isThinking = false;
   late final AgentsService _agentsService;
 
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
+
   @override
   void initState() {
     super.initState();
     _agentsService = AgentsService();
 
-    final agentName = widget.agent['name'] ?? 'Chuyên viên AI';
-    final role = widget.agent['role_title'] ?? 'Cố vấn chuyên môn';
+    final isEn = _isEnglish();
+    final agentName = widget.agent['name'] ?? (isEn ? 'AI Specialist' : 'Chuyên viên AI');
+    final role = widget.agent['role_title'] ?? (isEn ? 'Domain Advisor' : 'Cố vấn chuyên môn');
     final dept = widget.agent['department'] ?? 'Operations';
 
     // Tin nhắn chào đón khởi tạo
     _messages.add(
       _ChatMessageItem(
         isUser: false,
-        text:
-            'Xin chào Founder! Tôi là **$agentName** ($role - Ban $dept). Tôi đã sẵn sàng nhận chỉ thị và phân tích nhiệm vụ. Bạn cần tôi hỗ trợ việc gì ngay hôm nay?',
+        text: isEn
+            ? 'Hello Founder! I am **$agentName** ($role - $dept Department). I am ready to receive instructions and analyze missions. How can I assist you today?'
+            : 'Xin chào Founder! Tôi là **$agentName** ($role - Ban $dept). Tôi đã sẵn sàng nhận chỉ thị và phân tích nhiệm vụ. Bạn cần tôi hỗ trợ việc gì ngay hôm nay?',
         timestamp: DateTime.now(),
       ),
     );
@@ -68,6 +80,48 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
   }
 
   List<String> _getQuickPrompts(String department) {
+    final isEn = _isEnglish();
+    if (isEn) {
+      switch (department.toLowerCase()) {
+        case 'marketing':
+          return [
+            'Research 3 key competitors and recommend this week\'s ICP angles',
+            'Plan distribution content and core communication messages',
+            'Optimize conversion rate on the current landing page',
+          ];
+        case 'sales':
+          return [
+            'Validate the deepest pain point of ICP and draft an interview script',
+            'Draft a cold outreach script via LinkedIn specifically for B2B leads',
+            'Propose a pricing and trial strategy to accelerate deal closing',
+          ];
+        case 'engineering':
+          return [
+            'Assess current technical architecture and draft risk mitigation checklist',
+            'Plan first week sprint to complete the core MVP feature set',
+            'Audit security and customer data safety protocols',
+          ];
+        case 'finance':
+          return [
+            'Forecast cashflow and calculate remaining runway months',
+            'Analyze variable costs and break-even point threshold',
+            'Model scenarios to optimize infrastructure and operational expenses',
+          ];
+        case 'legal':
+          return [
+            'Review Terms of Service and Privacy Policy agreements',
+            'Prepare compliance checklist and intellectual property protections',
+            'Consult on standard partnership agreements and non-disclosure agreements (NDA)',
+          ];
+        case 'operations':
+        default:
+          return [
+            'Decompose this week\'s OKRs into 3 concrete tactical action items',
+            'Draft weekly execution SOP for the cross-functional team',
+            'Identify bottlenecks and optimize internal operational workflows',
+          ];
+      }
+    }
     switch (department.toLowerCase()) {
       case 'marketing':
         return [
@@ -103,8 +157,8 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
       default:
         return [
           'Phân rã OKR tuần này thành 3 nhiệm vụ hành động cụ thể nhất',
-          'Đánh giá các rủi ro vận hành có thể cản trở tiến độ tuần đầu',
-          'Tổng hợp trạng thái công việc và đề xuất ưu tiên cao nhất cho Founder',
+          'Xây dựng SOP quy trình phối hợp nội bộ cho team đa nhiệm vụ',
+          'Đánh giá các nút thắt cổ chai và tối ưu hiệu suất vận hành',
         ];
     }
   }
@@ -365,7 +419,7 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
             onPressed: widget.onClose,
             icon: const Icon(Icons.close, color: Colors.white70, size: 20),
             splashRadius: 20,
-            tooltip: 'Đóng hội thoại',
+            tooltip: _isEnglish() ? 'Close conversation' : 'Đóng hội thoại',
           ),
         ],
       ),
@@ -457,9 +511,9 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
                   child: TextButton.icon(
                     onPressed: () => _convertLastMessageToTask(msg.text),
                     icon: const Icon(Icons.playlist_add_check, size: 16, color: Color(0xFF34D399)),
-                    label: const Text(
-                      'Đưa vào Kế hoạch Tuần',
-                      style: TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.w600),
+                    label: Text(
+                      _isEnglish() ? 'Add to Weekly Plan' : 'Đưa vào Kế hoạch Tuần',
+                      style: const TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                     style: TextButton.styleFrom(
                       backgroundColor: const Color(0xFF064E3B).withValues(alpha: 0.4),
@@ -501,7 +555,9 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  '$name đang phân tích nhiệm vụ...',
+                  _isEnglish()
+                      ? '$name is analyzing the mission...'
+                      : '$name đang phân tích nhiệm vụ...',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
                 ),
               ],
@@ -571,7 +627,9 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
               keyboardType: TextInputType.multiline,
               style: const TextStyle(color: Colors.white, fontSize: 13.5),
               decoration: InputDecoration(
-                hintText: 'Nhập nhiệm vụ hoặc câu hỏi cho Agent...',
+                hintText: _isEnglish()
+                    ? 'Enter mission or question for Agent...'
+                    : 'Nhập nhiệm vụ hoặc câu hỏi cho Agent...',
                 hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
                 filled: true,
                 fillColor: const Color(0xFF1E293B),
@@ -604,7 +662,7 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
             child: IconButton(
               onPressed: _isThinking ? null : () => _sendMessage(_textController.text),
               icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-              tooltip: 'Gửi chỉ đạo',
+              tooltip: _isEnglish() ? 'Send instruction' : 'Gửi chỉ đạo',
             ),
           ),
         ],

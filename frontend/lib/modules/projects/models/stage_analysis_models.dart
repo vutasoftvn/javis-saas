@@ -1,15 +1,23 @@
+import 'package:get/get.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../data/models/stage_model.dart';
 
 /// Mức độ bằng chứng hiện có của dự án
 enum EvidenceMaturityLevel {
-  unverified('NONE', 'Chưa khảo sát (Ý tưởng giả định)'),
-  initialConversations('INITIAL', 'Đã phỏng vấn 1–4 khách hàng tiềm năng'),
-  validatedProblem('VALIDATED_PROBLEM', 'Đã xác thực với 5+ khách hàng (Nỗi đau rõ ràng)'),
-  activePrototypeOrRevenue('PROTOTYPE_REVENUE', 'Đã có Prototype/LOI/Doanh thu đầu tiên');
+  unverified('NONE', 'Chưa khảo sát (Ý tưởng giả định)', 'Unverified (Idea / Assumption)'),
+  initialConversations('INITIAL', 'Đã phỏng vấn 1–4 khách hàng tiềm năng', 'Interviewed 1–4 prospective customers'),
+  validatedProblem('VALIDATED_PROBLEM', 'Đã xác thực với 5+ khách hàng (Nỗi đau rõ ràng)', 'Validated with 5+ customers (Urgent pain confirmed)'),
+  activePrototypeOrRevenue('PROTOTYPE_REVENUE', 'Đã có Prototype/LOI/Doanh thu đầu tiên', 'Active Prototype / LOI / Initial revenue');
 
-  const EvidenceMaturityLevel(this.wire, this.label);
+  const EvidenceMaturityLevel(this.wire, this.label, [String? labelEn])
+      : labelEn = labelEn ?? label;
+
   final String wire;
   final String label;
+  final String labelEn;
+
+  String localizedLabel([bool isEn = false]) => isEn ? labelEn : label;
 
   static EvidenceMaturityLevel fromWire(String? wire) {
     return values.firstWhere(
@@ -44,7 +52,9 @@ class StageGuidanceTemplate {
 
 /// Kho tri thức phân tích theo từng giai đoạn dự án (P0 -> P6)
 class StageAnalysisKnowledge {
-  static const Map<ProjectStage, StageGuidanceTemplate> templates = {
+  static Map<ProjectStage, StageGuidanceTemplate> get templates => templatesVi;
+
+  static const Map<ProjectStage, StageGuidanceTemplate> templatesVi = {
     ProjectStage.p0Discovery: StageGuidanceTemplate(
       stage: ProjectStage.p0Discovery,
       stageTag: 'P0: Khám phá & Đánh giá cơ hội',
@@ -179,7 +189,152 @@ class StageAnalysisKnowledge {
     ),
   };
 
-  static StageGuidanceTemplate getTemplate(ProjectStage stage) {
-    return templates[stage] ?? templates[ProjectStage.p0Discovery]!;
+  static const Map<ProjectStage, StageGuidanceTemplate> templatesEn = {
+    ProjectStage.p0Discovery: StageGuidanceTemplate(
+      stage: ProjectStage.p0Discovery,
+      stageTag: 'P0: Discovery & Opportunity Evaluation',
+      focusHeadline: 'Clearly identify early adopters and find initial market pull signals.',
+      customerHint: 'e.g., Founder of B2B SaaS startup in Southeast Asia with under 10 employees',
+      problemHint: 'e.g., Struggle maintaining OKR execution discipline and cross-department weekly alignment',
+      coreAssumptions: [
+        'Target customers actively search for alternatives to Excel/Notion spreadsheets.',
+        'Customers are willing to spend 20–30 minutes for an in-depth discovery interview.',
+        'The pain is urgent enough that they would pay at least \$100/month to solve it.',
+      ],
+      suggestedFirstWeekActions: [
+        'Build a list of 15 potential leads matching ICP criteria.',
+        'Conduct at least 3 problem discovery interviews.',
+        'Synthesize top 3 bottlenecks from interviews into evidence documentation.',
+      ],
+      suggestedOutcomeTemplate: 'Complete 3 customer discovery interviews and identify at least 1 validated core pain point with evidence.',
+    ),
+
+    ProjectStage.p1ProblemValidation: StageGuidanceTemplate(
+      stage: ProjectStage.p1ProblemValidation,
+      stageTag: 'P1: Problem Validation & Willingness to Pay',
+      focusHeadline: 'Measure pain frequency and intensity; validate customer willingness to commit or deposit.',
+      customerHint: 'e.g., Marketing Director at SME e-commerce businesses',
+      problemHint: 'e.g., Rising ad spend but low conversion rates due to lack of personalized messaging',
+      coreAssumptions: [
+        'The problem occurs daily and causes quantifiable cost or revenue loss.',
+        'Customers have tried at least 2 alternative solutions but failed.',
+        'Customers are willing to sign a Letter of Intent (LOI) or join as Design Partners.',
+      ],
+      suggestedFirstWeekActions: [
+        'Design deep-dive interview script for problem urgency and willingness-to-pay.',
+        'Meet 5 customers to test price elasticity and proposed pricing tiers.',
+        'Secure at least 1 pilot commitment (Letter of Intent or pre-order deposit).',
+      ],
+      suggestedOutcomeTemplate: 'Have at least 2 customers commit to pilot usage and accept proposed pricing structure.',
+    ),
+
+    ProjectStage.p2SolutionValidation: StageGuidanceTemplate(
+      stage: ProjectStage.p2SolutionValidation,
+      stageTag: 'P2: Solution Validation & Prototype',
+      focusHeadline: 'Validate whether the solution/prototype cleanly solves the core pain with a frictionless experience.',
+      customerHint: 'e.g., Chief Operating Officer (COO) of retail chain with 5–20 stores',
+      problemHint: 'e.g., Physical inventory diverges from ERP records, taking 2 hours daily to reconcile',
+      coreAssumptions: [
+        'Users can complete the primary workflow in under 5 minutes without complex training.',
+        'Core feature delivers an "Aha moment" on the very first session.',
+        'Satisfaction rating after testing the prototype exceeds 70%.',
+      ],
+      suggestedFirstWeekActions: [
+        'Demo clickable prototype/Figma to 3 target customers.',
+        'Compile usability feedback matrix and top frequently asked questions.',
+        'Finalize and freeze minimum MVP scope for next week.',
+      ],
+      suggestedOutcomeTemplate: 'Complete prototype testing with 3 target customers and finalize MVP v1.0 feature scope.',
+    ),
+
+    ProjectStage.p3BuildValidate: StageGuidanceTemplate(
+      stage: ProjectStage.p3BuildValidate,
+      stageTag: 'P3: Build MVP & Real-world Validation',
+      focusHeadline: 'Put the first working software version into real users\' hands and measure retention.',
+      customerHint: 'e.g., Cohort of 10 pioneer alpha testers',
+      problemHint: 'e.g., Need to automate invoice extraction and payment reconciliation',
+      coreAssumptions: [
+        'System reliably processes the primary data flow without critical blockers.',
+        'Users activate their account and return at least 3 times per week.',
+        'Customers report that the solution is at least 3x faster than their old workflow.',
+      ],
+      suggestedFirstWeekActions: [
+        'Onboard first 3 real users onto working software MVP.',
+        'Observe usage sessions and conduct 48-hour follow-up interviews.',
+        'Fix all blocker bugs impeding primary user workflow.',
+      ],
+      suggestedOutcomeTemplate: 'At least 3 customers successfully complete the end-to-end core workflow on MVP and provide review metrics.',
+    ),
+
+    ProjectStage.p4GoToMarket: StageGuidanceTemplate(
+      stage: ProjectStage.p4GoToMarket,
+      stageTag: 'P4: Go-to-Market (GTM)',
+      focusHeadline: 'Build a repeatable conversion funnel, identify the top distribution channel, and close commercial contracts.',
+      customerHint: 'e.g., Tier-2 enterprise seeking operational efficiency tools',
+      problemHint: 'e.g., Lack of dedicated tools to synchronize multi-channel operations',
+      coreAssumptions: [
+        'Customer Acquisition Cost (CAC) is under 1/3 of Customer Lifetime Value (LTV).',
+        'Outbound and content cold channels generate an appointment booking rate above 5%.',
+        'Sales cycle from initial outreach to contract signing is under 3 weeks.',
+      ],
+      suggestedFirstWeekActions: [
+        'Launch outreach campaign to 50 target leads across primary channel.',
+        'Optimize landing page and pricing table based on market feedback.',
+        'Establish sales pipeline tracking conversion stages.',
+      ],
+      suggestedOutcomeTemplate: 'Generate 5 qualified demo meetings and close at least 1 commercial contract.',
+    ),
+
+    ProjectStage.p5OperateGrowth: StageGuidanceTemplate(
+      stage: ProjectStage.p5OperateGrowth,
+      stageTag: 'P5: Operate & Grow',
+      focusHeadline: 'Scale recurring revenue, improve NPS, and automate customer lifecycle workflows.',
+      customerHint: 'e.g., Full customer base in core target market',
+      problemHint: 'e.g., Need to expand to adjacent segment or increase average revenue per user (ARPU)',
+      coreAssumptions: [
+        'Monthly churn rate stays below 2%.',
+        'Existing customers actively refer peers (Net Promoter Score > 50).',
+        'Infrastructure reliably scales to 5x load without performance degradation.',
+      ],
+      suggestedFirstWeekActions: [
+        'Measure Net Churn metrics and diagnose cancellation root causes.',
+        'Implement structured cadence reviews for high-value customer accounts.',
+        'Standardize Standard Operating Procedures (SOP) for support and operations.',
+      ],
+      suggestedOutcomeTemplate: 'Achieve 10% month-over-month MRR growth while maintaining CSAT above 90%.',
+    ),
+
+    ProjectStage.p6ScaleGovern: StageGuidanceTemplate(
+      stage: ProjectStage.p6ScaleGovern,
+      stageTag: 'P6: Scale & Govern',
+      focusHeadline: 'Standardize organizational governance, manage risk, optimize unit economics, and expand internationally.',
+      customerHint: 'e.g., Enterprise-scale customers and regional markets',
+      problemHint: 'e.g., Ensuring security compliance, audit trails, and large-scale treasury management',
+      coreAssumptions: [
+        'Operations achieve high autonomy orchestrated by AI Workforce agents.',
+        'Meets enterprise-grade information security standards and regulatory compliance policies.',
+        'Gross profit margin remains above 75%.',
+      ],
+      suggestedFirstWeekActions: [
+        'Review compliance risk matrix and data protection policies.',
+        'Configure autonomy level thresholds for specialized AI Agents.',
+        'Audit next quarter business plan with Advisory Board / Investors.',
+      ],
+      suggestedOutcomeTemplate: 'Finalize comprehensive governance framework and establish strategic OKRs for next scale cycle.',
+    ),
+  };
+
+  static StageGuidanceTemplate getTemplate(ProjectStage stage, [String? lang]) {
+    final effectiveLang = lang ??
+        ((Get.isRegistered<LocaleController>() &&
+                Get.find<LocaleController>().current.value == SupportedLocale.enUS) ||
+            Get.locale?.languageCode == 'en'
+            ? 'en'
+            : 'vi');
+
+    if (effectiveLang == 'en') {
+      return templatesEn[stage] ?? templatesEn[ProjectStage.p0Discovery]!;
+    }
+    return templatesVi[stage] ?? templatesVi[ProjectStage.p0Discovery]!;
   }
 }

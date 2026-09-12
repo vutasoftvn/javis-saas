@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/localization/app_translations.dart';
 import 'package:frontend/core/localization/locale_controller.dart';
+import 'package:frontend/core/localization/supported_locale.dart';
 import 'package:frontend/core/services/feature_flags_controller.dart';
 import 'package:frontend/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:frontend/modules/dashboard/views/widgets/dashboard_sidebar.dart';
@@ -53,5 +54,44 @@ void main() {
     expect(find.text('Conversation & Center'), findsOneWidget);
     expect(find.text('Cycle & Strategy'), findsOneWidget);
     expect(find.text('AI Team & Business'), findsOneWidget);
+  });
+
+  testWidgets('tapping sidebar_language_toggle flips locale between Vietnamese and English', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = DashboardController();
+    final lc = Get.find<LocaleController>();
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        translations: AppTranslations(),
+        locale: const Locale('vi', 'VN'),
+        fallbackLocale: const Locale('vi', 'VN'),
+        home: Scaffold(
+          body: DashboardDesktopSidebar(controller: controller),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('sidebar_language_toggle')), findsOneWidget);
+    expect(find.text('Tiếng Việt'), findsOneWidget);
+
+    // Tap to switch to English
+    await tester.tap(find.byKey(const Key('sidebar_language_toggle')));
+    await tester.pumpAndSettle();
+
+    expect(lc.current.value.flutterLocale, const Locale('en', 'US'));
+    expect(find.text('English'), findsOneWidget);
+
+    // Tap to switch back to Vietnamese
+    await tester.tap(find.byKey(const Key('sidebar_language_toggle')));
+    await tester.pumpAndSettle();
+
+    expect(lc.current.value.flutterLocale, const Locale('vi', 'VN'));
+    expect(find.text('Tiếng Việt'), findsOneWidget);
   });
 }

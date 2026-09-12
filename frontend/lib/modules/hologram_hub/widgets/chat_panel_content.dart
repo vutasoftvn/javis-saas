@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../core/ui/app_copy.dart';
 import '../controllers/founder_command_center_controller.dart';
 
@@ -27,8 +29,16 @@ class ChatPanelContent extends StatelessWidget {
   /// swap ra ngoài) để layout Hub luôn có đúng 1 khung chat cố định.
   final bool enabled;
 
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isEn = _isEnglish();
     if (!enabled) {
       return Center(
         child: Padding(
@@ -39,7 +49,7 @@ class ChatPanelContent extends StatelessWidget {
               Icon(Icons.chat_bubble_outline, size: 40, color: Colors.white.withValues(alpha: 0.2)),
               const SizedBox(height: 12),
               Text(
-                'Select a Project to proceed',
+                isEn ? 'Select a Project to proceed' : 'Chọn một Project / Dự án để tiếp tục',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
                 textAlign: TextAlign.center,
               ),
@@ -195,9 +205,17 @@ class _GoalConfirmCard extends StatefulWidget {
 class _GoalConfirmCardState extends State<_GoalConfirmCard> {
   bool _dismissed = false;
 
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_dismissed) return const SizedBox.shrink();
+    final isEn = _isEnglish();
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(12),
@@ -209,9 +227,11 @@ class _GoalConfirmCardState extends State<_GoalConfirmCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Đặt đây làm mục tiêu tuần này và để tôi lập kế hoạch?',
-            style: TextStyle(color: Colors.white, fontSize: 13),
+          Text(
+            isEn
+                ? "Set this as this week's goal and let me create a plan?"
+                : 'Đặt đây làm mục tiêu tuần này và để tôi lập kế hoạch?',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
           ),
           if (widget.goal.isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -232,14 +252,14 @@ class _GoalConfirmCardState extends State<_GoalConfirmCard> {
                   backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Đặt & lập kế hoạch'),
+                child: Text(isEn ? 'Set & Plan' : 'Đặt & lập kế hoạch'),
               ),
               const SizedBox(width: 8),
               TextButton(
                 onPressed: () => setState(() => _dismissed = true),
-                child: const Text(
-                  'Không',
-                  style: TextStyle(color: Color(0xFF94A3B8)),
+                child: Text(
+                  isEn ? 'No' : 'Không',
+                  style: const TextStyle(color: Color(0xFF94A3B8)),
                 ),
               ),
             ],

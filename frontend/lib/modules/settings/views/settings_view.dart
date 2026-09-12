@@ -4,6 +4,7 @@ import '../controllers/settings_controller.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 import '../../../core/localization/app_translations.dart';
 import 'widgets/ai_gateway_settings_card.dart';
+import 'widgets/language_settings_card.dart';
 import 'widgets/module_visibility_settings_card.dart';
 import 'widgets/workspace_orientation_settings_card.dart';
 import 'widgets/permissions_panel.dart';
@@ -37,6 +38,8 @@ class SettingsView extends GetView<SettingsController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: const [
+                  LanguageSettingsCard(),
+                  SizedBox(height: 12),
                   WorkspaceOrientationSettingsCard(),
                   SizedBox(height: 12),
                   ModuleVisibilitySettingsCard(),

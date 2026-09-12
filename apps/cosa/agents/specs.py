@@ -392,6 +392,62 @@ COSA_SALES_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA Sales Specialist Agent"},
 )
 
+COSA_CODING_PROMPT = PromptSpec(
+    id="cosa.agents.coding.prompt",
+    version="1.0.0",
+    text=(
+        "Kỹ sư phát triển phần mềm (Software Engineering Specialist). "
+        "Chỉ đọc bằng chứng thực thi kỹ thuật (Engineering Evidence) đã được xác thực, "
+        "phân tích tính khả thi kiến trúc và rủi ro triển khai (L1_PROPOSE). "
+        "Tuyệt đối không có quyền shell trực tiếp, không tự ý deploy hay sửa đổi hạ tầng/codebase."
+    ),
+).with_hash()
+
+COSA_CODING_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.coding",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_CODING_PROMPT.text,
+    capability_refs=[
+        "engineering.evidence.read",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_CODING_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Coding Specialist Agent"},
+)
+
+COSA_EXECUTIVE_VPE_PROMPT = PromptSpec(
+    id="cosa.executive.vpe.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Phó Chủ tịch Kỹ thuật (VP Engineering Advisor). "
+        "Đánh giá tính khả thi kỹ thuật, kiến trúc hệ thống, rủi ro phát hành và chất lượng kỹ thuật "
+        "trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only). "
+        "Tuyệt đối không có quyền thực thi lệnh, deploy, chỉnh sửa hạ tầng hay truy cập secrets."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_VPE_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.vpe",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_VPE_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_VPE_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA VP Engineering Advisor", "advisory_only": True},
+)
+
+EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
+    "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
+}
+
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
 # runtime specs (skillpacks + prompts/model_policy/agent) và verify mọi
 # pinned_skills resolve được trước khi phục vụ traffic (Wave M2b).
@@ -405,5 +461,6 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
     COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
     COSA_SALES_AGENT_SPEC,
+    COSA_CODING_AGENT_SPEC,
 )
 

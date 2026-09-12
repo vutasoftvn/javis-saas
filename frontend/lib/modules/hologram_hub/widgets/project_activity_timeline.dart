@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:frontend/modules/hologram_hub/models/project_activity_models.dart';
 import 'package:frontend/modules/hologram_hub/widgets/project_activity_inspector.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 
 class ProjectActivityTimeline extends StatefulWidget {
   final List<ProjectActivityEvent> events;
@@ -25,8 +28,16 @@ class ProjectActivityTimeline extends StatefulWidget {
 class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
   ProjectActivityEvent? _selectedEvent;
 
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode != 'vi';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isEn = _isEnglish();
     if (widget.loading) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF6366F1)),
@@ -38,14 +49,16 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.cloud_off,
               color: Colors.red,
               size: 48,
             ),
             const SizedBox(height: 16),
             Text(
-              'Activity feed currently unavailable',
+              isEn
+                  ? 'Activity feed currently unavailable'
+                  : 'Dòng hoạt động hiện chưa khả dụng',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
@@ -67,7 +80,7 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
     if (filteredEvents.isEmpty) {
       return Center(
         child: Text(
-          'No activity recorded yet',
+          isEn ? 'No activity recorded yet' : 'Chưa có hoạt động nào được ghi nhận',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.5),
             fontSize: 14,
@@ -245,15 +258,16 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
   }
 
   String _formatTime(DateTime dateTime) {
+    final isEn = _isEnglish();
     final now = DateTime.now();
     final diff = now.difference(dateTime);
 
     if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}m ago';
+      return isEn ? '${diff.inMinutes}m ago' : '${diff.inMinutes} phút trước';
     } else if (diff.inHours < 24) {
-      return '${diff.inHours}h ago';
+      return isEn ? '${diff.inHours}h ago' : '${diff.inHours} giờ trước';
     } else if (diff.inDays < 7) {
-      return '${diff.inDays}d ago';
+      return isEn ? '${diff.inDays}d ago' : '${diff.inDays} ngày trước';
     } else {
       return '${dateTime.month}/${dateTime.day}';
     }

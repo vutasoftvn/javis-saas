@@ -9,7 +9,8 @@ export type OwnerAgentProfile =
   | "research_intelligence"
   | "strategy"
   | "customer_support"
-  | "sales";
+  | "sales"
+  | "coding";
 
 // AgentSpec id theo apps/cosa/agents/specs.py (COSA_*_AGENT_SPEC.id).
 export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
@@ -20,6 +21,7 @@ export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
   strategy: "cosa.agents.strategy",
   customer_support: "cosa.agents.customer_support",
   sales: "cosa.agents.sales",
+  coding: "cosa.agents.coding",
 };
 
 // Metadata mô tả (constraint workforce_members yêu cầu agent_spec_version NOT NULL
@@ -32,6 +34,7 @@ export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
   strategy: "1.0.0",
   customer_support: "1.2.0",
   sales: "1.0.0",
+  coding: "1.0.0",
 };
 
 // Pinned definition_hash theo specs.py AgentSpec.compute_hash().
@@ -43,6 +46,7 @@ export const AGENT_PROFILE_SPEC_HASH: Record<OwnerAgentProfile, string> = {
   strategy: "9e73d25f9399303e78556c7f3b881f2fe1ef738b9e95c978f7106f5e55343dd0",
   customer_support: "71fbf6cfccd3299367ad88e68866e53fd488d406c7d74bd0fbaef472731e15aa",
   sales: "089a67c81dc22041835b0ed05df7a441305c6abe416f293f609cc5262d31f332",
+  coding: "d388ea7491ff1bad0863444b9bb764fe15804ee7eb74a4aad25e402a0af573e2",
 };
 
 // Drizzle transaction type — cùng cách project-kickoff-materialize.service.ts đặt tên.

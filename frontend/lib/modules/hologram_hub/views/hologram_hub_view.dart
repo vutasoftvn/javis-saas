@@ -27,6 +27,7 @@ import '../../dashboard/models/dashboard_nav_config.dart';
 import '../../../core/routing/module_routes.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../core/shell/chat_panel_controller.dart';
 
 import '../widgets/agent_direct_chat_sheet.dart';
@@ -123,7 +124,15 @@ class _HologramHubViewState extends State<HologramHubView> {
                   agent: _selectedAgentForChat!,
                   onClose: () => setState(() => _selectedAgentForChat = null),
                   onTaskCreated: (title, desc) {
-                    AppToast.success('Đã lưu nhiệm vụ vào kế hoạch tuần!');
+                    final isEn = (Get.isRegistered<LocaleController>() &&
+                            Get.find<LocaleController>().current.value ==
+                                SupportedLocale.enUS) ||
+                        Get.locale?.languageCode == 'en';
+                    AppToast.success(
+                      isEn
+                          ? 'Saved task to weekly plan!'
+                          : 'Đã lưu nhiệm vụ vào kế hoạch tuần!',
+                    );
                     setState(() => _selectedAgentForChat = null);
                   },
                 ),
@@ -147,7 +156,15 @@ class _HologramHubViewState extends State<HologramHubView> {
                   isLoading: false,
                   onClose: () => setState(() => _selectedAgentForTestRun = null),
                   onExecute: (prompt, model, temp) {
-                    AppToast.success('Đang thực thi thử nghiệm với Agent...');
+                    final isEn = (Get.isRegistered<LocaleController>() &&
+                            Get.find<LocaleController>().current.value ==
+                                SupportedLocale.enUS) ||
+                        Get.locale?.languageCode == 'en';
+                    AppToast.success(
+                      isEn
+                          ? 'Executing test run with Agent...'
+                          : 'Đang thực thi thử nghiệm với Agent...',
+                    );
                   },
                 ),
               ),
@@ -413,8 +430,9 @@ class _HologramHubViewState extends State<HologramHubView> {
                   );
                 },
                 icon: const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF818CF8)),
-                label: const Text(
-                  'Hội đồng Cố vấn',
+                label: const _LocalizedText(
+                  en: 'Advisory Board',
+                  vi: 'Hội đồng Cố vấn',
                   style: TextStyle(color: Color(0xFF818CF8), fontSize: 13),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -482,8 +500,9 @@ class _HologramHubViewState extends State<HologramHubView> {
               ),
             ] else if (!controller.hasProjects.value) ...[
               Center(
-                child: Text(
-                  'No projects available',
+                child: _LocalizedText(
+                  en: 'No projects available',
+                  vi: 'Chưa có dự án nào',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
@@ -493,8 +512,9 @@ class _HologramHubViewState extends State<HologramHubView> {
               top3Widget(),
               const SizedBox(height: 16),
               Center(
-                child: Text(
-                  'Select a project to view activity',
+                child: _LocalizedText(
+                  en: 'Select a project to view activity',
+                  vi: 'Chọn dự án để xem hoạt động',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
@@ -675,8 +695,9 @@ class _HologramHubViewState extends State<HologramHubView> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'AI WORKFORCE (Biệt đội chuyên viên)',
+                                  const _LocalizedText(
+                                    en: 'AI WORKFORCE (Specialist Team)',
+                                    vi: 'AI WORKFORCE (Biệt đội chuyên viên)',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 13.5,
@@ -684,8 +705,11 @@ class _HologramHubViewState extends State<HologramHubView> {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    _isMobileWorkforceExpanded
+                                  _LocalizedText(
+                                    en: _isMobileWorkforceExpanded
+                                        ? 'Tap to collapse'
+                                        : 'Tap to open task assignments',
+                                    vi: _isMobileWorkforceExpanded
                                         ? 'Bấm để thu gọn'
                                         : 'Bấm để mở danh sách giao việc',
                                     style: TextStyle(
@@ -925,13 +949,23 @@ class _HologramHubViewState extends State<HologramHubView> {
       controller.selectedTabIndex.value = 1;
       return;
     } else if (action.id == 'act_genesis_profile') {
-      controller.chatInputController.text =
-          'Tôi muốn thiết lập hồ sơ doanh nghiệp mới. Hãy hướng dẫn tôi định hình Vision, Problem và Target Market!';
+      final isEn = (Get.isRegistered<LocaleController>() &&
+              Get.find<LocaleController>().current.value ==
+                  SupportedLocale.enUS) ||
+          Get.locale?.languageCode == 'en';
+      controller.chatInputController.text = isEn
+          ? 'I want to set up a new company profile. Please guide me to define Vision, Problem, and Target Market!'
+          : 'Tôi muốn thiết lập hồ sơ doanh nghiệp mới. Hãy hướng dẫn tôi định hình Vision, Problem và Target Market!';
       Get.find<ChatPanelController>().open();
       return;
     } else if (action.id == 'act_genesis_12wy') {
-      controller.chatInputController.text =
-          'Hãy hướng dẫn tôi thiết lập Mục tiêu 12-Week Year cho Quý đầu tiên.';
+      final isEn = (Get.isRegistered<LocaleController>() &&
+              Get.find<LocaleController>().current.value ==
+                  SupportedLocale.enUS) ||
+          Get.locale?.languageCode == 'en';
+      controller.chatInputController.text = isEn
+          ? 'Please guide me to set up 12-Week Year Goals for the first quarter.'
+          : 'Hãy hướng dẫn tôi thiết lập Mục tiêu 12-Week Year cho Quý đầu tiên.';
       Get.find<ChatPanelController>().open();
       return;
     }
@@ -1128,5 +1162,30 @@ class _ProjectActivityFeedState extends State<_ProjectActivityFeed> {
         );
       },
     );
+  }
+}
+
+class _LocalizedText extends StatelessWidget {
+  const _LocalizedText({
+    required this.en,
+    required this.vi,
+    this.style,
+  });
+
+  final String en;
+  final String vi;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    if (Get.isRegistered<LocaleController>()) {
+      return Obx(() {
+        final isEn =
+            Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+        return Text(isEn ? en : vi, style: style);
+      });
+    }
+    final isEn = Get.locale?.languageCode == 'en';
+    return Text(isEn ? en : vi, style: style);
   }
 }

@@ -20,6 +20,10 @@ from apps.cosa.capabilities.project_crm_read import (
     PROJECT_CRM_READ_SPEC,
     create_project_crm_read_handler,
 )
+from apps.cosa.capabilities.engineering_evidence_read import (
+    ENGINEERING_EVIDENCE_READ_SPEC,
+    create_engineering_evidence_read_handler,
+)
 from apps.cosa.capabilities.engagement_assignment_write import (
     ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,
     create_engagement_assignment_write_handler,
@@ -287,6 +291,12 @@ def register_cosa_capabilities(
     cap_registry.register(
         PROJECT_CRM_READ_SPEC,
         create_project_crm_read_handler(client),
+    )
+
+    # Engineering Evidence
+    cap_registry.register(
+        ENGINEERING_EVIDENCE_READ_SPEC,
+        create_engineering_evidence_read_handler(),
     )
 
     # Sandbox MCP

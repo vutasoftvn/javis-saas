@@ -191,7 +191,7 @@
         "skillpack:executive/vpe-advisor@1.0.0"
       ],
       "advisoryOnly": true,
-      "runtimeReadiness": "PENDING_ENGINEERING_PROFILE",
+      "runtimeReadiness": "READY",
       "sourceProvenance": "superpowers:executive-advisory-board"
     }
   ]
