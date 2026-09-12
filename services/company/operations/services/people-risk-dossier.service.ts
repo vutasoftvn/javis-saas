@@ -36,6 +36,29 @@ const RISK_SIGNAL_CATEGORIES: ReadonlySet<string> = new Set<RiskSignalCategory>(
 const RISK_SEVERITIES: ReadonlySet<string> = new Set<RiskSeverity>(["LOW", "MEDIUM", "HIGH"]);
 
 /**
+ * Allowlist cố định cho `reasonCode` — KHÔNG free text. Review Task 1 finding
+ * Critical: một trường narrative/reasonCode tự do sẽ đánh bại chính headline
+ * privacy property của dossier này, vì quét compensation/protected-
+ * characteristic/performance-note/health-data bằng regex không đáng tin cậy
+ * (khác với email/phone, các category này không có "shape" cố định để quét).
+ * Mọi lý do ghi nhận phải rơi vào 1 trong các mã cố định dưới đây.
+ */
+export type PeopleRiskReasonCode =
+  | "INITIAL_ASSESSMENT"
+  | "NEW_CAPACITY_DATA"
+  | "RISK_REASSESSMENT"
+  | "SOURCE_UPDATED"
+  | "FOUNDER_REVIEW";
+
+const PEOPLE_RISK_REASON_CODES: ReadonlySet<string> = new Set<PeopleRiskReasonCode>([
+  "INITIAL_ASSESSMENT",
+  "NEW_CAPACITY_DATA",
+  "RISK_REASSESSMENT",
+  "SOURCE_UPDATED",
+  "FOUNDER_REVIEW",
+]);
+
+/**
  * Capacity band: đếm headcount theo role-category, KHÔNG BAO GIỜ chứa tên
  * người hay bất kỳ định danh cá nhân nào — chỉ số liệu tổng hợp.
  */
@@ -72,8 +95,7 @@ export interface CreatePeopleRiskDossierInput {
   capacityBands?: CapacityBand[];
   riskSignals?: RiskSignal[];
   sourceRefs?: EvidenceRef[];
-  reasonCode?: string;
-  narrative?: string;
+  reasonCode: PeopleRiskReasonCode;
 }
 
 export interface AppendPeopleRiskRevisionInput {
@@ -81,8 +103,7 @@ export interface AppendPeopleRiskRevisionInput {
   riskSignals?: RiskSignal[];
   sourceRefs?: EvidenceRef[];
   status?: "DRAFT" | "CONFIRMED";
-  reasonCode: string;
-  narrative?: string;
+  reasonCode: PeopleRiskReasonCode;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,7 +122,6 @@ const ALLOWED_CREATE_KEYS = new Set([
   "riskSignals",
   "sourceRefs",
   "reasonCode",
-  "narrative",
 ]);
 
 const ALLOWED_APPEND_KEYS = new Set([
@@ -110,7 +130,6 @@ const ALLOWED_APPEND_KEYS = new Set([
   "sourceRefs",
   "status",
   "reasonCode",
-  "narrative",
 ]);
 
 const ALLOWED_CAPACITY_BAND_KEYS = new Set(["roleCategory", "headcount"]);
@@ -278,6 +297,15 @@ function normalizeSourceRefs(raw: unknown): EvidenceRef[] {
  * hoàn toàn field lạ (vd. `candidateEmail`) dù giá trị của nó có giống PII
  * hay không.
  */
+function assertValidReasonCode(value: unknown, path: string): PeopleRiskReasonCode {
+  if (typeof value !== "string" || !PEOPLE_RISK_REASON_CODES.has(value)) {
+    throw APIError.invalidArgument(
+      `PEOPLE_DOSSIER_SHAPE_INVALID: "${path}" must be one of the fixed allowed reason codes — free text is not accepted`
+    );
+  }
+  return value as PeopleRiskReasonCode;
+}
+
 function validateCreateInput(input: unknown): CreatePeopleRiskDossierInput {
   const obj = assertPlainObject(input, "input");
   deepAssertNoPii(obj, "input");
@@ -285,19 +313,12 @@ function validateCreateInput(input: unknown): CreatePeopleRiskDossierInput {
   if (typeof obj.projectId !== "string" || !obj.projectId.trim()) {
     throw APIError.invalidArgument("projectId is required");
   }
-  if (obj.reasonCode !== undefined && typeof obj.reasonCode !== "string") {
-    throw APIError.invalidArgument("PEOPLE_DOSSIER_SHAPE_INVALID: reasonCode must be a string");
-  }
-  if (obj.narrative !== undefined && typeof obj.narrative !== "string") {
-    throw APIError.invalidArgument("PEOPLE_DOSSIER_SHAPE_INVALID: narrative must be a string");
-  }
   return {
     projectId: obj.projectId,
     capacityBands: normalizeCapacityBands(obj.capacityBands),
     riskSignals: normalizeRiskSignals(obj.riskSignals),
     sourceRefs: normalizeSourceRefs(obj.sourceRefs),
-    reasonCode: obj.reasonCode as string | undefined,
-    narrative: obj.narrative as string | undefined,
+    reasonCode: assertValidReasonCode(obj.reasonCode, "reasonCode"),
   };
 }
 
@@ -305,22 +326,15 @@ function validateAppendInput(input: unknown): AppendPeopleRiskRevisionInput {
   const obj = assertPlainObject(input, "input");
   deepAssertNoPii(obj, "input");
   assertOnlyAllowedKeys(obj, ALLOWED_APPEND_KEYS, "input");
-  if (typeof obj.reasonCode !== "string" || !obj.reasonCode.trim()) {
-    throw APIError.invalidArgument("reasonCode is required");
-  }
   if (obj.status !== undefined && obj.status !== "DRAFT" && obj.status !== "CONFIRMED") {
     throw APIError.invalidArgument("PEOPLE_DOSSIER_SHAPE_INVALID: status must be DRAFT or CONFIRMED");
-  }
-  if (obj.narrative !== undefined && typeof obj.narrative !== "string") {
-    throw APIError.invalidArgument("PEOPLE_DOSSIER_SHAPE_INVALID: narrative must be a string");
   }
   return {
     capacityBands: normalizeCapacityBands(obj.capacityBands),
     riskSignals: normalizeRiskSignals(obj.riskSignals),
     sourceRefs: normalizeSourceRefs(obj.sourceRefs),
     status: obj.status as "DRAFT" | "CONFIRMED" | undefined,
-    reasonCode: obj.reasonCode,
-    narrative: obj.narrative as string | undefined,
+    reasonCode: assertValidReasonCode(obj.reasonCode, "reasonCode"),
   };
 }
 
@@ -341,11 +355,13 @@ function validateAppendInput(input: unknown): AppendPeopleRiskRevisionInput {
  * built". Check `ctx.isAiAgent` dưới đây vẫn giữ làm defense-in-depth cho một
  * endpoint nội bộ tương lai có thể tái dùng service function này với
  * `TenantContext` dựng từ cosa-delegation.
+ *
+ * Tách riêng phần check ctx/isAiAgent thành `requireHumanContext` để
+ * `appendPeopleRiskRevision` (không cần lookup project) và
+ * `requireHumanProjectContext` (cần cả lookup project) dùng chung, tránh 2
+ * bản check lệch nhau theo thời gian (review Task 1 finding Important).
  */
-async function requireHumanProjectContext(
-  ctx: TenantContext,
-  projectId: string
-): Promise<{ id: bigint }> {
+function requireHumanContext(ctx: TenantContext): void {
   if (!ctx) {
     throw APIError.unauthenticated("Authentication context required");
   }
@@ -354,6 +370,13 @@ async function requireHumanProjectContext(
       "PEOPLE_DOSSIER_HUMAN_REQUIRED: Only a human Founder/member context can create or append a people risk dossier"
     );
   }
+}
+
+async function requireHumanProjectContext(
+  ctx: TenantContext,
+  projectId: string
+): Promise<{ id: bigint }> {
+  requireHumanContext(ctx);
 
   const wsId = BigInt(ctx.workspaceId);
   const projId = BigInt(projectId);
@@ -437,8 +460,7 @@ export async function createPeopleRiskDossier(
           capacityBands: validated.capacityBands,
           riskSignals: validated.riskSignals,
           sourceRefs: validated.sourceRefs,
-          reasonCode: validated.reasonCode ?? null,
-          narrative: validated.narrative ?? null,
+          reasonCode: validated.reasonCode,
           actorMemberId,
         })
         .returning();
@@ -468,15 +490,8 @@ export async function appendPeopleRiskRevision(
   expectedVersion: number,
   input: AppendPeopleRiskRevisionInput
 ): Promise<PeopleRiskSnapshot> {
-  if (!ctx) {
-    throw APIError.unauthenticated("Authentication context required");
-  }
-  // Xem ghi chú đầy đủ ở `requireHumanProjectContext` phía trên.
-  if (ctx.isAiAgent) {
-    throw APIError.permissionDenied(
-      "PEOPLE_DOSSIER_HUMAN_REQUIRED: Only a human Founder/member context can append a people risk dossier revision"
-    );
-  }
+  // Xem ghi chú đầy đủ ở `requireHumanContext` phía trên.
+  requireHumanContext(ctx);
 
   const validated = validateAppendInput(input);
 
@@ -530,7 +545,6 @@ export async function appendPeopleRiskRevision(
         riskSignals: validated.riskSignals,
         sourceRefs: validated.sourceRefs,
         reasonCode: validated.reasonCode,
-        narrative: validated.narrative ?? null,
         actorMemberId,
         confirmedByMemberId: nextStatus === "CONFIRMED" ? actorMemberId : null,
         confirmedAt: nextStatus === "CONFIRMED" ? new Date() : null,

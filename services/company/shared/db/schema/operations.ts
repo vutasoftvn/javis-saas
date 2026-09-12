@@ -1034,8 +1034,9 @@ export const peopleRiskDossierRevisions = operatingSchema.table("people_risk_dos
   capacityBands: jsonb("capacity_bands").default([]).notNull(),
   riskSignals: jsonb("risk_signals").default([]).notNull(),
   sourceRefs: jsonb("source_refs").default([]).notNull(),
-  reasonCode: text("reason_code"),
-  narrative: text("narrative"),
+  // Fixed enum (xem CHECK constraint ở migration 012), KHÔNG free text — dossier
+  // này không có bất kỳ trường narrative/free-text nào trên write path.
+  reasonCode: varchar("reason_code", { length: 32 }).notNull(),
   actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
   confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),

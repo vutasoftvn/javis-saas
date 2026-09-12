@@ -3,6 +3,7 @@ import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { EvidenceRef } from "../services/product-decision-dossier.service";
 import {
   CapacityBand,
+  PeopleRiskReasonCode,
   PeopleRiskSnapshot,
   RiskSignal,
   appendPeopleRiskRevision,
@@ -19,8 +20,7 @@ export const createPeopleRiskDossierEndpoint = api(
     capacityBands?: CapacityBand[];
     riskSignals?: RiskSignal[];
     sourceRefs?: EvidenceRef[];
-    reasonCode?: string;
-    narrative?: string;
+    reasonCode: PeopleRiskReasonCode;
   }): Promise<PeopleRiskSnapshot> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return createPeopleRiskDossier(ctx, params);
@@ -38,8 +38,7 @@ export const appendPeopleRiskRevisionEndpoint = api(
     riskSignals?: RiskSignal[];
     sourceRefs?: EvidenceRef[];
     status?: "DRAFT" | "CONFIRMED";
-    reasonCode: string;
-    narrative?: string;
+    reasonCode: PeopleRiskReasonCode;
   }): Promise<PeopleRiskSnapshot> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return appendPeopleRiskRevision(ctx, params.id, params.expectedVersion, params);

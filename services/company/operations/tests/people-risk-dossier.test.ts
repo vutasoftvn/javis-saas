@@ -53,7 +53,7 @@ describe("People Risk Dossier Service", () => {
     sourceRefs: [
       { sourceRef: "org-review://q3-2026", classification: "org_review" },
     ],
-    reasonCode: "PEOPLE_RISK_DRAFT",
+    reasonCode: "INITIAL_ASSESSMENT" as const,
   };
 
   beforeEach(async () => {
@@ -100,7 +100,7 @@ describe("People Risk Dossier Service", () => {
       capacityBands: draft.capacityBands,
       riskSignals: draft.riskSignals,
       sourceRefs: draft.sourceRefs,
-      reasonCode: "INITIAL_DRAFT",
+      reasonCode: "INITIAL_ASSESSMENT",
     });
     dossierId = created.dossierId;
   });
@@ -134,7 +134,7 @@ describe("People Risk Dossier Service", () => {
         capacityBands: [],
         riskSignals: [],
         sourceRefs: [{ sourceRef: "call +1 555-123-4567 for details", classification: "org_review" }],
-        reasonCode: "attempt",
+        reasonCode: "SOURCE_UPDATED",
       } as never)
     ).rejects.toMatchObject({ code: "invalid_argument" });
   });
@@ -144,7 +144,7 @@ describe("People Risk Dossier Service", () => {
       createPeopleRiskDossier(founderCtx, {
         projectId: secondProjectId,
         riskSignals: [{ category: "performance_review", severity: "HIGH", sourceRef: "x" }],
-        reasonCode: "attempt",
+        reasonCode: "RISK_REASSESSMENT",
       } as never)
     ).rejects.toMatchObject({ code: "invalid_argument" });
   });
@@ -152,7 +152,7 @@ describe("People Risk Dossier Service", () => {
   it("rejects PII fields on append too", async () => {
     await expect(
       appendPeopleRiskRevision(founderCtx, dossierId, 1, {
-        reasonCode: "attempt",
+        reasonCode: "RISK_REASSESSMENT",
         compensation: 150000,
       } as never)
     ).rejects.toMatchObject({ code: "invalid_argument" });
@@ -178,13 +178,13 @@ describe("People Risk Dossier Service", () => {
 
   it("agent context can never create a dossier", async () => {
     await expect(
-      createPeopleRiskDossier(agentCtx, { projectId: secondProjectId, reasonCode: "x" })
+      createPeopleRiskDossier(agentCtx, { projectId: secondProjectId, reasonCode: "INITIAL_ASSESSMENT" })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   it("agent context can never append a revision", async () => {
     await expect(
-      appendPeopleRiskRevision(agentCtx, dossierId, 1, { reasonCode: "x" })
+      appendPeopleRiskRevision(agentCtx, dossierId, 1, { reasonCode: "RISK_REASSESSMENT" })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
@@ -215,6 +215,7 @@ describe("People Risk Dossier Service", () => {
         authorization: `Bearer ${delegationToken}`,
         workspaceId: founderCtx.workspaceId,
         projectId: secondProjectId,
+        reasonCode: "INITIAL_ASSESSMENT",
       })
     ).rejects.toMatchObject({ code: "unauthenticated" });
 
@@ -224,7 +225,7 @@ describe("People Risk Dossier Service", () => {
         authorization: `Bearer ${delegationToken}`,
         workspaceId: founderCtx.workspaceId,
         expectedVersion: 1,
-        reasonCode: "attempted agent append",
+        reasonCode: "RISK_REASSESSMENT",
       })
     ).rejects.toMatchObject({ code: "unauthenticated" });
   });
@@ -250,7 +251,7 @@ describe("People Risk Dossier Service", () => {
 
   it("rejects a second dossier created for the same project as alreadyExists", async () => {
     await expect(
-      createPeopleRiskDossier(founderCtx, { projectId, reasonCode: "duplicate" })
+      createPeopleRiskDossier(founderCtx, { projectId, reasonCode: "INITIAL_ASSESSMENT" })
     ).rejects.toMatchObject({ code: "already_exists" });
   });
 
@@ -272,13 +273,13 @@ describe("People Risk Dossier Service", () => {
   it("a human member can append a DRAFT revision with CAS, and stale CAS is rejected", async () => {
     const appended = await appendPeopleRiskRevision(memberCtx, dossierId, 1, {
       capacityBands: [{ roleCategory: "engineering", headcount: 5 }],
-      reasonCode: "REVISED_AFTER_HIRE",
+      reasonCode: "NEW_CAPACITY_DATA",
     });
     expect(appended.revision).toBe(2);
     expect(appended.status).toBe("DRAFT");
 
     await expect(
-      appendPeopleRiskRevision(memberCtx, dossierId, 1, { reasonCode: "stale" })
+      appendPeopleRiskRevision(memberCtx, dossierId, 1, { reasonCode: "SOURCE_UPDATED" })
     ).rejects.toMatchObject({ code: "aborted" });
   });
 
@@ -286,13 +287,13 @@ describe("People Risk Dossier Service", () => {
     await expect(
       appendPeopleRiskRevision(memberCtx, dossierId, 1, {
         status: "CONFIRMED",
-        reasonCode: "member cannot confirm",
+        reasonCode: "FOUNDER_REVIEW",
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
 
     const confirmed = await appendPeopleRiskRevision(founderCtx, dossierId, 1, {
       status: "CONFIRMED",
-      reasonCode: "founder confirms after review",
+      reasonCode: "FOUNDER_REVIEW",
     });
     expect(confirmed.status).toBe("CONFIRMED");
     expect(confirmed.revision).toBe(2);
@@ -304,13 +305,19 @@ describe("People Risk Dossier Service", () => {
 
   it("rejects append to a dossier that does not exist in this workspace", async () => {
     await expect(
-      appendPeopleRiskRevision(founderCtx, "999999999999999999", 1, { reasonCode: "x" })
+      appendPeopleRiskRevision(founderCtx, "999999999999999999", 1, { reasonCode: "SOURCE_UPDATED" })
     ).rejects.toMatchObject({ code: "not_found" });
   });
 
   it("rejects create when projectId is missing", async () => {
     await expect(
-      createPeopleRiskDossier(founderCtx, { projectId: "" })
+      createPeopleRiskDossier(founderCtx, { projectId: "", reasonCode: "INITIAL_ASSESSMENT" } as never)
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+  });
+
+  it("rejects create when reasonCode is not one of the fixed allowed values", async () => {
+    await expect(
+      createPeopleRiskDossier(founderCtx, { projectId: secondProjectId, reasonCode: "because I said so" } as never)
     ).rejects.toMatchObject({ code: "invalid_argument" });
   });
 });

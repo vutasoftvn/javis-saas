@@ -48,8 +48,15 @@ CREATE TABLE IF NOT EXISTS operating.people_risk_dossier_revisions (
   -- Cùng shape EvidenceRef của Product Decision Dossier: sourceRef +
   -- classification + redacted excerpt, KHÔNG raw PII.
   source_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
-  reason_code TEXT,
-  narrative TEXT,
+  -- Fixed enum, KHÔNG free text — không có trường narrative/free-text nào
+  -- trên write path của dossier này (review Task 1 finding Critical: một
+  -- trường narrative tự do sẽ đánh bại chính headline privacy property của
+  -- dossier — không thể quét compensation/protected-characteristic/
+  -- performance-note/health-data đáng tin cậy bằng regex).
+  reason_code VARCHAR(32) NOT NULL CHECK (reason_code IN (
+    'INITIAL_ASSESSMENT', 'NEW_CAPACITY_DATA', 'RISK_REASSESSMENT',
+    'SOURCE_UPDATED', 'FOUNDER_REVIEW'
+  )),
   actor_member_id BIGINT,
   confirmed_by_member_id BIGINT,
   confirmed_at TIMESTAMPTZ,
