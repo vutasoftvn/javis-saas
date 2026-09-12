@@ -45,3 +45,41 @@ class ExecutiveAnalysisOutcome(BaseModel):
     role_key: str
     descriptor: dict[str, Any] | None = None
     error_detail: str | None = None
+
+
+EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["conclusion", "options", "evidence_claims"],
+    "properties": {
+        "conclusion": {"type": "string", "minLength": 1},
+        "options": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["title", "trade_off"],
+                "properties": {
+                    "title": {"type": "string"},
+                    "trade_off": {"type": "string"},
+                },
+            },
+        },
+        "evidence_claims": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["claim", "source_ref"],
+                "properties": {
+                    "claim": {"type": "string"},
+                    "source_ref": {"type": "string"},
+                },
+            },
+        },
+        "assumptions": {"type": "array", "items": {"type": "string"}},
+        "risks_and_unknowns": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "human_review_required": {"type": "boolean"},
+    },
+}
+
