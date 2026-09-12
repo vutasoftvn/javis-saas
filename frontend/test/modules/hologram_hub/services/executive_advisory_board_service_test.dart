@@ -145,6 +145,52 @@ void main() {
     expect(cpo.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
   });
 
+  test('CHRO remains unavailable until Company reports active People profile', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'roles': [
+              {
+                'roleKey': 'chro',
+                'label': 'CHRO Advisor',
+                'advisoryRemit': 'Thiết kế tổ chức, quy trình tuyển dụng, rủi ro con người',
+                'displayState': 'UNAVAILABLE',
+                'runtimeReadiness': 'READY',
+                'requiredProfileKey': 'people',
+                'version': 1,
+                'disabledReason': 'UNDERLYING_PROFILE_UNAVAILABLE',
+              },
+            ],
+          },
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-09-11T12:00:00Z',
+            'sources': [
+              {'kind': 'company_db', 'ref': 'operating'}
+            ],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final service = ExecutiveAdvisoryBoardService(client: requestClient);
+
+    final result = await service.fetchRoles('proj-101');
+    expect(result, isA<ApiSuccess<List<ExecutiveAdvisorRole>>>());
+    final roles = (result as ApiSuccess<List<ExecutiveAdvisorRole>>).data;
+    expect(roles, hasLength(1));
+
+    final chro = roles[0];
+    expect(chro.roleKey, 'chro');
+    expect(chro.activationState, ExecutiveActivationState.unavailable);
+    expect(chro.underlyingProfileKey, 'people');
+    expect(chro.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
+  });
+
   test('activates an executive role and decodes mutation receipt truthfully', () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'POST');

@@ -1,0 +1,68 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: executive.chro-advisor
+  name: CHRO Organizational Design & People Risk Advisory
+  version: 1.0.0
+  description: Đánh giá thiết kế tổ chức, quy trình tuyển dụng và rủi ro con người/đội nhóm dựa trên People Risk Dossier đã khử danh tính để phản biện quyết định chiến lược của Founder mà không đụng đến PII.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/executive/chro-advisor
+capability:
+  domain: executive
+  category: advisory
+  intents:
+  - chro advisory
+  - organizational design review
+  - hiring process evaluation
+  - team and people risk assessment
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - proposal
+  - artifact
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/executive/chro-advisor.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - peer-draft-forbidden
+  - pii-in-request
+  - workforce-mutation-attempt

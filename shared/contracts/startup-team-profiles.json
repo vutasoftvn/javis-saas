@@ -62,6 +62,12 @@
       "runtimeReadiness": "READY"
     },
     {
+      "key": "people",
+      "label": "People",
+      "defaultMode": "TEMPLATE",
+      "runtimeReadiness": "READY"
+    },
+    {
       "key": "customer_support",
       "label": "Customer Support",
       "defaultMode": "TEMPLATE",

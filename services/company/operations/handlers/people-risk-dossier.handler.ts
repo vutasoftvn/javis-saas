@@ -23,7 +23,18 @@ export const createPeopleRiskDossierEndpoint = api(
     reasonCode: PeopleRiskReasonCode;
   }): Promise<PeopleRiskSnapshot> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
-    return createPeopleRiskDossier(ctx, params);
+    // Chỉ forward field thuộc allowlist của service — không forward nguyên
+    // `params` (có `workspaceId`/`authorization` từ Header) vì service này
+    // (khác product-decision-dossier) dùng allowlist NGHIÊM NGẶT reject bất
+    // kỳ key lạ nào (headline privacy property), nên forward thẳng request
+    // params sẽ luôn bị PEOPLE_DOSSIER_FIELD_REJECTED qua HTTP thật.
+    return createPeopleRiskDossier(ctx, {
+      projectId: params.projectId,
+      capacityBands: params.capacityBands,
+      riskSignals: params.riskSignals,
+      sourceRefs: params.sourceRefs,
+      reasonCode: params.reasonCode,
+    });
   }
 );
 
@@ -41,7 +52,15 @@ export const appendPeopleRiskRevisionEndpoint = api(
     reasonCode: PeopleRiskReasonCode;
   }): Promise<PeopleRiskSnapshot> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
-    return appendPeopleRiskRevision(ctx, params.id, params.expectedVersion, params);
+    // Xem ghi chú ở createPeopleRiskDossierEndpoint — chỉ forward field
+    // thuộc allowlist của service, không forward nguyên `params`.
+    return appendPeopleRiskRevision(ctx, params.id, params.expectedVersion, {
+      capacityBands: params.capacityBands,
+      riskSignals: params.riskSignals,
+      sourceRefs: params.sourceRefs,
+      status: params.status,
+      reasonCode: params.reasonCode,
+    });
   }
 );
 
