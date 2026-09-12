@@ -52,7 +52,7 @@ export const STARTUP_TEAM_PROFILES: readonly StartupTeamProfileDef[] = Object.fr
   {"key":"crm","label":"CRM","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
   {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
   {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"DEFERRED_CODING"},
-  {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_PROJECT_KNOWLEDGE"},
+  {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 ]);
 
 export interface ProjectStartupTeamMember {

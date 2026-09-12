@@ -53,7 +53,7 @@
       "key": "customer_support",
       "label": "Customer Support",
       "defaultMode": "TEMPLATE",
-      "runtimeReadiness": "PENDING_PROJECT_KNOWLEDGE"
+      "runtimeReadiness": "READY"
     }
   ]
 }
