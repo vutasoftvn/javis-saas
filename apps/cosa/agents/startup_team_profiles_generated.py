@@ -15,6 +15,7 @@ StartupTeamProfileKey = Literal[
     "crm",
     "sales",
     "coding",
+    "product",
     "customer_support",
 ]
 
@@ -35,6 +36,7 @@ STARTUP_TEAM_PROFILE_KEYS: Final[tuple[StartupTeamProfileKey, ...]] = (
     "crm",
     "sales",
     "coding",
+    "product",
     "customer_support",
 )
 
@@ -48,6 +50,7 @@ STARTUP_TEAM_PROFILES: Final[list[dict[str, str]]] = [
     {"key":"crm","label":"CRM","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
     {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+    {"key":"product","label":"Product","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 ]
 
@@ -61,5 +64,6 @@ STARTUP_TEAM_PROFILES_MAP: Final[dict[str, dict[str, str]]] = {
     "crm": {"key":"crm","label":"CRM","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
     "sales": {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "coding": {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+    "product": {"key":"product","label":"Product","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "customer_support": {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 }
