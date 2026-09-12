@@ -16,14 +16,6 @@ from apps.cosa.capabilities.commercial_customer_read import (
     COMMERCIAL_CUSTOMER_360_READ_SPEC,
     create_commercial_customer_360_read_handler,
 )
-from apps.cosa.capabilities.project_crm_read import (
-    PROJECT_CRM_READ_SPEC,
-    create_project_crm_read_handler,
-)
-from apps.cosa.capabilities.engineering_evidence_read import (
-    ENGINEERING_EVIDENCE_READ_SPEC,
-    create_engineering_evidence_read_handler,
-)
 from apps.cosa.capabilities.engagement_assignment_write import (
     ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,
     create_engagement_assignment_write_handler,
@@ -39,6 +31,10 @@ from apps.cosa.capabilities.engagement_message_send import (
 from apps.cosa.capabilities.engagement_read import (
     ENGAGEMENT_THREAD_READ_SPEC,
     create_engagement_thread_read_handler,
+)
+from apps.cosa.capabilities.engineering_evidence_read import (
+    ENGINEERING_EVIDENCE_READ_SPEC,
+    create_engineering_evidence_read_handler,
 )
 from apps.cosa.capabilities.enterprise_knowledge_read import (
     ENTERPRISE_KNOWLEDGE_READ_SPEC,
@@ -95,6 +91,14 @@ from apps.cosa.capabilities.operations_write import (
     OPERATIONS_TASK_CREATE_DRAFT_SPEC,
     create_operations_task_advance_handler,
     create_operations_task_create_draft_handler,
+)
+from apps.cosa.capabilities.product_decision_read import (
+    PRODUCT_DECISION_READ_SPEC,
+    create_product_decision_read_handler,
+)
+from apps.cosa.capabilities.project_crm_read import (
+    PROJECT_CRM_READ_SPEC,
+    create_project_crm_read_handler,
 )
 from apps.cosa.capabilities.project_lifecycle import (
     ANALYTICS_METRIC_CONTRACT_GET_SPEC,
@@ -297,6 +301,12 @@ def register_cosa_capabilities(
     cap_registry.register(
         ENGINEERING_EVIDENCE_READ_SPEC,
         create_engineering_evidence_read_handler(),
+    )
+
+    # Product Decision Dossier (read-only)
+    cap_registry.register(
+        PRODUCT_DECISION_READ_SPEC,
+        create_product_decision_read_handler(client),
     )
 
     # Sandbox MCP

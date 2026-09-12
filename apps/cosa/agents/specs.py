@@ -13,6 +13,8 @@ __all__ = [
     "COSA_CUSTOMER_SUPPORT_PROMPT",
     "COSA_DEFAULT_MODEL_POLICY",
     "COSA_DEPLOYED_AGENT_SPECS",
+    "COSA_EXECUTIVE_CPO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CPO_PROMPT",
     "COSA_FINANCE_AGENT_SPEC",
     "COSA_FINANCE_PROMPT",
     "COSA_KICKOFF_SUGGESTION_AGENT_SPEC",
@@ -21,6 +23,8 @@ __all__ = [
     "COSA_MARKETING_PROMPT",
     "COSA_OPERATIONS_AGENT_SPEC",
     "COSA_OPERATIONS_PROMPT",
+    "COSA_PRODUCT_AGENT_SPEC",
+    "COSA_PRODUCT_PROMPT",
     "COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC",
     "COSA_RESEARCH_INTELLIGENCE_PROMPT",
     "COSA_SALES_AGENT_SPEC",
@@ -420,6 +424,60 @@ COSA_CODING_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA Coding Specialist Agent"},
 )
 
+COSA_PRODUCT_PROMPT = PromptSpec(
+    id="cosa.agents.product.prompt",
+    version="1.0.0",
+    text=(
+        "Chuyên viên sản phẩm (Product Specialist). "
+        "Chỉ đọc snapshot Product Decision Dossier (evidence_refs, assumptions, status) đã được "
+        "Founder/thành viên xác nhận, phân tích và đề xuất quyết định sản phẩm dựa trên bằng chứng "
+        "hiện có (L1_PROPOSE). Tuyệt đối không tự tạo hay xác nhận (append/confirm) Product Decision "
+        "Dossier — quyết định sản phẩm luôn thuộc về con người."
+    ),
+).with_hash()
+
+COSA_PRODUCT_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.product",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_PRODUCT_PROMPT.text,
+    capability_refs=[
+        "product.decision.read",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_PRODUCT_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Product Specialist Agent"},
+)
+
+COSA_EXECUTIVE_CPO_PROMPT = PromptSpec(
+    id="cosa.executive.cpo.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Sản phẩm (Chief Product Officer Advisor). "
+        "Đánh giá quyết định sản phẩm, câu hỏi về bằng chứng còn thiếu và đề xuất cân nhắc trong các "
+        "phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only). "
+        "Tuyệt đối không có quyền phát hành sản phẩm, chỉnh sửa roadmap, khởi chạy experiment hay "
+        "giao tiếp trực tiếp với khách hàng."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CPO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.cpo",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CPO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_CPO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA CPO Advisor", "advisory_only": True},
+)
+
 COSA_EXECUTIVE_VPE_PROMPT = PromptSpec(
     id="cosa.executive.vpe.prompt",
     version="1.0.0",
@@ -446,6 +504,7 @@ COSA_EXECUTIVE_VPE_AGENT_SPEC = AgentSpec(
 
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
+    "cosa.executive.cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
 }
 
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
@@ -462,5 +521,5 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
     COSA_SALES_AGENT_SPEC,
     COSA_CODING_AGENT_SPEC,
+    COSA_PRODUCT_AGENT_SPEC,
 )
-
