@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import inspect
 from datetime import UTC, datetime
 
 from agent.skills.contracts import SkillSpec
 from agent.skills.lab.executor import SkillCandidateExecutor
-from agent.skills.lab.models import EvalCase, SkillCandidateRecord, SkillMutationRecord
+from agent.skills.lab.models import (
+    EvalCase,
+    OptimizationResult,
+    SkillCandidateRecord,
+    SkillMutationRecord,
+)
 from agent.skills.lab.mutator import MutationFn, noop_mutator
 
 __all__ = ["SkillOptimizationLab"]
@@ -49,7 +55,7 @@ class SkillOptimizationLab:
         self._candidates: dict[str, SkillCandidateRecord] = {}
         self._mutations: list[SkillMutationRecord] = []
 
-    async def optimize(self, base_skill: SkillSpec, cases: list[EvalCase]) -> SkillCandidateRecord:
+    async def optimize(self, base_skill: SkillSpec, cases: list[EvalCase]) -> OptimizationResult:
         current_skill = base_skill.model_copy(deep=True)
         baseline_score, _, _ = await self._executor.run_suite(
             current_skill, cases, run_label="r0-baseline", include_holdout=False
@@ -66,7 +72,12 @@ class SkillOptimizationLab:
         self._candidates[record.candidate_id] = record
 
         for round_no in range(1, self._max_rounds + 1):
-            mutated_skill, rationale = self._mutation_fn(current_skill)
+            mut_res = self._mutation_fn(current_skill)
+            if inspect.isawaitable(mut_res):
+                mutated_skill, rationale = await mut_res
+            else:
+                mutated_skill, rationale = mut_res
+
             new_score, _, eval_run_id = await self._executor.run_suite(
                 mutated_skill, cases, run_label=f"r{round_no}", include_holdout=False
             )
@@ -99,7 +110,26 @@ class SkillOptimizationLab:
         record.latest_score = final_score
         record.status = "evaluated"
         record.updated_at = datetime.now(UTC)
-        return record
+
+        improved = (final_score > baseline_score) and (record.round_no > 0)
+        mutations = self.list_mutations(record.candidate_id)
+
+        return OptimizationResult(
+            candidate_id=record.candidate_id,
+            base_skill_id=record.base_skill_id,
+            base_skill_version=record.base_skill_version,
+            base_definition_hash=record.base_definition_hash,
+            proposed_content=record.proposed_content,
+            status=record.status,
+            baseline_score=baseline_score,
+            latest_score=record.latest_score,
+            final_score=final_score,
+            round_no=record.round_no,
+            improved=improved,
+            mutations=mutations,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
 
     def list_mutations(self, candidate_id: str) -> list[SkillMutationRecord]:
         return [m for m in self._mutations if m.candidate_id == candidate_id]

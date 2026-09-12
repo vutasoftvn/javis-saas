@@ -70,6 +70,7 @@ class SkillCandidateExecutor:
                 "version": f"{self._base_agent_spec.version}-lab-{run_label}",
                 "definition_hash": None,
                 "pinned_skills": [],
+                "capability_refs": [],
             }
         )
 

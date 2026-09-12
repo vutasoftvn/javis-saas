@@ -105,6 +105,37 @@ class ImprovementOutcome(BaseModel):
     candidate_id: str | None = None
 
 
+class SkillImprovementEvaluationRecord(BaseModel):
+    evaluation_id: str = Field(default_factory=lambda: f"eval_{uuid.uuid4().hex[:12]}")
+    workspace_id: str
+    request_id: str
+    candidate_id: str | None = None
+    suite_ref: str
+    suite_hash: str
+    baseline_score: float
+    candidate_score: float
+    delta: float
+    passed_cases: list[str] = Field(default_factory=list)
+    failed_cases: list[str] = Field(default_factory=list)
+    safe_reason_code: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SkillImprovementMutationRecord(BaseModel):
+    mutation_id: str = Field(default_factory=lambda: f"mut_{uuid.uuid4().hex[:12]}")
+    workspace_id: str
+    request_id: str
+    candidate_id: str | None = None
+    round_no: int
+    mutator_name: str
+    accepted: bool
+    score_before: float
+    score_after: float
+    validation_passed: bool = True
+    safe_reason_code: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class SkillImprovementPolicyConfig(BaseModel):
     mode: Literal["OFF", "OBSERVE", "CANDIDATE"] = "OFF"
     allowed_identities: frozenset[SkillIdentity] = Field(default_factory=frozenset)
@@ -161,6 +192,22 @@ class SkillImprovementRepository(Protocol):
     async def count_outbox(
         self, workspace_id: str, request_id: str | None = None
     ) -> int: ...
+
+    async def record_evaluation(
+        self, evaluation: SkillImprovementEvaluationRecord
+    ) -> None: ...
+
+    async def get_evaluations(
+        self, workspace_id: str, request_id: str
+    ) -> list[SkillImprovementEvaluationRecord]: ...
+
+    async def record_mutation(
+        self, mutation: SkillImprovementMutationRecord
+    ) -> None: ...
+
+    async def get_mutations(
+        self, workspace_id: str, request_id: str
+    ) -> list[SkillImprovementMutationRecord]: ...
 
 
 class InMemorySkillImprovementRepository:
@@ -465,6 +512,34 @@ class InMemorySkillImprovementRepository:
             1 for ob in self._outbox.values()
             if ob.workspace_id == workspace_id and (request_id is None or ob.request_id == request_id)
         )
+
+    async def record_evaluation(
+        self, evaluation: SkillImprovementEvaluationRecord
+    ) -> None:
+        self._evaluations.append(evaluation.model_dump(mode="json"))
+
+    async def get_evaluations(
+        self, workspace_id: str, request_id: str
+    ) -> list[SkillImprovementEvaluationRecord]:
+        return [
+            SkillImprovementEvaluationRecord(**e)
+            for e in self._evaluations
+            if e["workspace_id"] == workspace_id and e["request_id"] == request_id
+        ]
+
+    async def record_mutation(
+        self, mutation: SkillImprovementMutationRecord
+    ) -> None:
+        self._mutations.append(mutation.model_dump(mode="json"))
+
+    async def get_mutations(
+        self, workspace_id: str, request_id: str
+    ) -> list[SkillImprovementMutationRecord]:
+        return [
+            SkillImprovementMutationRecord(**m)
+            for m in self._mutations
+            if m["workspace_id"] == workspace_id and m["request_id"] == request_id
+        ]
 
 
 class PostgresSkillImprovementRepository:
@@ -1103,3 +1178,149 @@ class PostgresSkillImprovementRepository:
                     """
                 )
                 return (await session.execute(stmt, {"ws_id": workspace_id})).scalar() or 0
+
+    async def record_evaluation(
+        self, evaluation: SkillImprovementEvaluationRecord
+    ) -> None:
+        async with self._session_factory() as session:
+            stmt = text(
+                """
+                INSERT INTO agent.skill_improvement_evaluations (
+                    evaluation_id, workspace_id, request_id, candidate_id,
+                    suite_ref, suite_hash, baseline_score, candidate_score,
+                    delta, passed_cases, failed_cases, safe_reason_code, created_at
+                ) VALUES (
+                    :evaluation_id, :workspace_id, :request_id, :candidate_id,
+                    :suite_ref, :suite_hash, :baseline_score, :candidate_score,
+                    :delta, :passed_cases, :failed_cases, :safe_reason_code, :created_at
+                )
+                """
+            )
+            await session.execute(
+                stmt,
+                {
+                    "evaluation_id": evaluation.evaluation_id,
+                    "workspace_id": evaluation.workspace_id,
+                    "request_id": evaluation.request_id,
+                    "candidate_id": evaluation.candidate_id,
+                    "suite_ref": evaluation.suite_ref,
+                    "suite_hash": evaluation.suite_hash,
+                    "baseline_score": evaluation.baseline_score,
+                    "candidate_score": evaluation.candidate_score,
+                    "delta": evaluation.delta,
+                    "passed_cases": json.dumps(evaluation.passed_cases),
+                    "failed_cases": json.dumps(evaluation.failed_cases),
+                    "safe_reason_code": evaluation.safe_reason_code,
+                    "created_at": evaluation.created_at,
+                },
+            )
+            await session.commit()
+
+    async def get_evaluations(
+        self, workspace_id: str, request_id: str
+    ) -> list[SkillImprovementEvaluationRecord]:
+        async with self._session_factory() as session:
+            stmt = text(
+                """
+                SELECT evaluation_id, workspace_id, request_id, candidate_id,
+                       suite_ref, suite_hash, baseline_score, candidate_score,
+                       delta, passed_cases, failed_cases, safe_reason_code, created_at
+                FROM agent.skill_improvement_evaluations
+                WHERE workspace_id = :workspace_id AND request_id = :request_id
+                ORDER BY created_at ASC
+                """
+            )
+            res = await session.execute(stmt, {"workspace_id": workspace_id, "request_id": request_id})
+            rows = res.fetchall()
+            results = []
+            for r in rows:
+                results.append(
+                    SkillImprovementEvaluationRecord(
+                        evaluation_id=r[0],
+                        workspace_id=r[1],
+                        request_id=r[2],
+                        candidate_id=r[3],
+                        suite_ref=r[4],
+                        suite_hash=r[5],
+                        baseline_score=r[6],
+                        candidate_score=r[7],
+                        delta=r[8],
+                        passed_cases=r[9] if isinstance(r[9], list) else json.loads(r[9] or "[]"),
+                        failed_cases=r[10] if isinstance(r[10], list) else json.loads(r[10] or "[]"),
+                        safe_reason_code=r[11],
+                        created_at=r[12],
+                    )
+                )
+            return results
+
+    async def record_mutation(
+        self, mutation: SkillImprovementMutationRecord
+    ) -> None:
+        async with self._session_factory() as session:
+            stmt = text(
+                """
+                INSERT INTO agent.skill_improvement_mutations (
+                    mutation_id, workspace_id, request_id, candidate_id,
+                    round_no, mutator_name, accepted, score_before,
+                    score_after, validation_passed, safe_reason_code, created_at
+                ) VALUES (
+                    :mutation_id, :workspace_id, :request_id, :candidate_id,
+                    :round_no, :mutator_name, :accepted, :score_before,
+                    :score_after, :validation_passed, :safe_reason_code, :created_at
+                )
+                """
+            )
+            await session.execute(
+                stmt,
+                {
+                    "mutation_id": mutation.mutation_id,
+                    "workspace_id": mutation.workspace_id,
+                    "request_id": mutation.request_id,
+                    "candidate_id": mutation.candidate_id,
+                    "round_no": mutation.round_no,
+                    "mutator_name": mutation.mutator_name,
+                    "accepted": mutation.accepted,
+                    "score_before": mutation.score_before,
+                    "score_after": mutation.score_after,
+                    "validation_passed": mutation.validation_passed,
+                    "safe_reason_code": mutation.safe_reason_code,
+                    "created_at": mutation.created_at,
+                },
+            )
+            await session.commit()
+
+    async def get_mutations(
+        self, workspace_id: str, request_id: str
+    ) -> list[SkillImprovementMutationRecord]:
+        async with self._session_factory() as session:
+            stmt = text(
+                """
+                SELECT mutation_id, workspace_id, request_id, candidate_id,
+                       round_no, mutator_name, accepted, score_before,
+                       score_after, validation_passed, safe_reason_code, created_at
+                FROM agent.skill_improvement_mutations
+                WHERE workspace_id = :workspace_id AND request_id = :request_id
+                ORDER BY round_no ASC, created_at ASC
+                """
+            )
+            res = await session.execute(stmt, {"workspace_id": workspace_id, "request_id": request_id})
+            rows = res.fetchall()
+            results = []
+            for r in rows:
+                results.append(
+                    SkillImprovementMutationRecord(
+                        mutation_id=r[0],
+                        workspace_id=r[1],
+                        request_id=r[2],
+                        candidate_id=r[3],
+                        round_no=r[4],
+                        mutator_name=r[5],
+                        accepted=r[6],
+                        score_before=r[7],
+                        score_after=r[8],
+                        validation_passed=r[9],
+                        safe_reason_code=r[10],
+                        created_at=r[11],
+                    )
+                )
+            return results
