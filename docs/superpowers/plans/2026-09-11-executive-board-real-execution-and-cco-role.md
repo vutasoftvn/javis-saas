@@ -29,7 +29,7 @@
 **Interfaces:**
 - Produces: `EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA: dict[str, Any]` — dùng lại ở Task 4 (`AgentSpec.output_schema`) và validation nội bộ trong `runner.py`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/agent/executive_board/test_output_schema.py
@@ -69,12 +69,12 @@ def test_payload_missing_evidence_claims_fails_schema():
     assert errors
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận fail**
+- [x] **Step 2: Chạy test, xác nhận fail**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_output_schema.py -v`
 Expected: FAIL với `ImportError: cannot import name 'EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA'`
 
-- [ ] **Step 3: Thêm schema vào `models.py`**
+- [x] **Step 3: Thêm schema vào `models.py`**
 
 Thêm vào cuối `packages/agent/executive_board/models.py` (giữ nguyên toàn bộ nội dung hiện có phía trên):
 
@@ -120,12 +120,12 @@ EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA: dict[str, Any] = {
 
 Lưu ý: `models.py` đã có `from typing import Any, Literal` ở dòng 3 — chỉ cần thêm hằng số này, không thêm lại import trùng.
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_output_schema.py -v`
 Expected: PASS (2 test)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/agent/executive_board/models.py tests/agent/executive_board/test_output_schema.py
@@ -146,7 +146,7 @@ git commit -m "feat(executive-board): add structured output JSON schema for advi
 
 Xác nhận nền tảng (đã kiểm chứng trực tiếp trong code, không suy đoán): `apps/cosa/api/skillpack_mapper.py:58` lấy `skill_id = metadata.get("id") or pack_dir.name` — với `skillpacks/executive/cfo-advisor/manifest.yaml` có `metadata.id: executive.cfo-advisor`, nên skill_id thật trong registry là `"executive.cfo-advisor"` (dấu chấm), trong khi catalog `executive-advisor-roles.json` ghi `required_skill_pins: ["skillpack:executive/cfo-advisor@1.0.0"]` (dấu gạch chéo, có tiền tố `skillpack:`) — 2 định dạng khác nhau, cần hàm chuyển đổi tường minh.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/agent/executive_board/test_skill_pins.py
@@ -200,12 +200,12 @@ async def test_resolve_role_pin_skills_raises_when_not_published():
         await resolve_role_pin_skills(("skillpack:executive/cco-advisor@1.0.0",), registry)
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận fail**
+- [x] **Step 2: Chạy test, xác nhận fail**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_skill_pins.py -v`
 Expected: FAIL với `ModuleNotFoundError: No module named 'agent.executive_board.skill_pins'`
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 ```python
 # packages/agent/executive_board/skill_pins.py
@@ -256,12 +256,12 @@ async def resolve_role_pin_skills(
     return refs
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_skill_pins.py -v`
 Expected: PASS (4 test)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/agent/executive_board/skill_pins.py tests/agent/executive_board/test_skill_pins.py
@@ -280,7 +280,7 @@ git commit -m "feat(executive-board): resolve skill_pins catalog refs to hash-pi
 - Consumes: `agent.contracts.kernel.ExecutionKernel.run(request: RunRequest, spec: AgentSpec) -> RunResult`, `agent.contracts.run.RunRequest`, `agent.contracts.run.RunStatus`, `agent.contracts.spec.AgentSpec`, `agent.governance.contracts.AutonomyLevel`, `resolve_role_pin_skills` (Task 2), `EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA` (Task 1).
 - Produces: `ExecutiveBoardRunner(kernel: ExecutionKernel, spec_registry: SpecRegistryRepository)` — constructor thay đổi, dùng ở Task 5.
 
-- [ ] **Step 1: Viết test thất bại cho đường gọi kernel thật**
+- [x] **Step 1: Viết test thất bại cho đường gọi kernel thật**
 
 Thêm vào cuối `tests/agent/executive_board/test_runner.py` (giữ nguyên mọi test hiện có phía trên):
 
@@ -395,12 +395,12 @@ async def make_outcome_request(runner: ExecutiveBoardRunner, *, role_pin: RolePi
     return await runner.run(request)
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận fail**
+- [x] **Step 2: Chạy test, xác nhận fail**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_runner.py -v`
 Expected: FAIL — `TypeError: ExecutiveBoardRunner() takes no arguments` (constructor cũ không nhận `kernel`/`spec_registry`)
 
-- [ ] **Step 3: Viết implementation — thay toàn bộ nội dung `runner.py`**
+- [x] **Step 3: Viết implementation — thay toàn bộ nội dung `runner.py`**
 
 ```python
 # packages/agent/executive_board/runner.py
@@ -547,14 +547,14 @@ class ExecutiveBoardRunner:
         return result.final_output
 ```
 
-- [ ] **Step 4: Chạy toàn bộ test file, xác nhận pass (kể cả test cũ dùng `mock_model_output`)**
+- [x] **Step 4: Chạy toàn bộ test file, xác nhận pass (kể cả test cũ dùng `mock_model_output`)**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_runner.py -v`
 Expected: PASS toàn bộ — test cũ vẫn pass vì nhánh `mock_model_output is not None` không đổi hành vi; 2 test mới pass qua `_StubKernel`.
 
 Nếu test cũ trong file gọi `ExecutiveBoardRunner()` không tham số, sửa các dòng khởi tạo đó thành `ExecutiveBoardRunner(kernel=_StubKernel(...), spec_registry=InMemorySpecRegistryRepository())` (test cũ dùng `mock_model_output` nên `_StubKernel`/`spec_registry` không bao giờ thực sự được gọi tới, chỉ cần thoả constructor).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/agent/executive_board/runner.py tests/agent/executive_board/test_runner.py
@@ -572,12 +572,12 @@ git commit -m "feat(executive-board): call real ExecutionKernel instead of hardc
 **Interfaces:**
 - Consumes: `plane.kernel` (`ExecutionKernel`), `plane.spec_registry` (`SpecRegistryRepository`) — cả 2 đã tồn tại trên `CosaAgentPlane` (`apps/cosa/composition/agent_plane.py:107,113`).
 
-- [ ] **Step 1: Đọc test hiện có để biết nó mock gì**
+- [x] **Step 1: Đọc test hiện có để biết nó mock gì**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_handler.py -v`
 Expected: PASS (baseline trước khi sửa — xác nhận test hiện tại xanh trước khi đổi code).
 
-- [ ] **Step 2: Sửa dòng khởi tạo runner**
+- [x] **Step 2: Sửa dòng khởi tạo runner**
 
 Trong `apps/cosa/worker/executive_board_handler.py`, thay dòng 57:
 
@@ -594,17 +594,17 @@ runner = getattr(plane, "executive_board_runner", None) or ExecutiveBoardRunner(
 )
 ```
 
-- [ ] **Step 3: Chạy lại test handler, xác nhận vẫn pass**
+- [x] **Step 3: Chạy lại test handler, xác nhận vẫn pass**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_handler.py -v`
 Expected: PASS. Nếu FAIL vì test mock `plane` không có thuộc tính `kernel`/`spec_registry`, thêm 2 thuộc tính đó vào fixture `plane` giả trong test (dùng `_StubKernel`/`InMemorySpecRegistryRepository` từ Task 3, hoặc `MagicMock()` nếu test này set `plane.executive_board_runner` sẵn nên nhánh `getattr(...) or ...` không rơi vào `ExecutiveBoardRunner(...)`).
 
-- [ ] **Step 4: Chạy toàn bộ test suite executive_board**
+- [x] **Step 4: Chạy toàn bộ test suite executive_board**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/ -v`
 Expected: PASS toàn bộ.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/cosa/worker/executive_board_handler.py tests/agent/executive_board/test_handler.py
@@ -623,7 +623,7 @@ git commit -m "feat(executive-board): wire real kernel/spec_registry into worker
 
 Mục đích: Task 3 dùng `_StubKernel` tự viết (test đơn vị của riêng `runner.py`, không đụng kernel thật). Task này chứng minh code Task 3 hoạt động đúng khi chạy qua `RealOpenAIAgentsSDKKernel` thật (chỉ thay model client bằng `FakeSDKModel`, đúng pattern `tests/apps/cosa/compliance/test_run_delegation.py` đã dùng cho các luồng khác).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/agent/executive_board/test_runner_real_kernel_integration.py
@@ -704,17 +704,17 @@ async def test_runner_completes_analysis_through_real_kernel_with_fake_model():
 
 Ghi chú: chữ ký chính xác của `build_execution_kernel` (tham số nào bắt buộc `None` được, tham số nào cần object thật) cần đối chiếu lại với `apps/cosa/composition/kernel_factory.py` tại thời điểm code — nếu một số tham số không nhận `None` (vd. `repository`/`gateway`/`policy_engine` bắt buộc non-null), dùng `unittest.mock.MagicMock()` thay cho `None` ở đúng tham số đó và chạy lại test để xác nhận.
 
-- [ ] **Step 2: Chạy test, sửa tham số theo lỗi thực tế nếu cần**
+- [x] **Step 2: Chạy test, sửa tham số theo lỗi thực tế nếu cần**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_runner_real_kernel_integration.py -v`
 Expected: Nếu FAIL vì thiếu tham số bắt buộc, đọc traceback, thay `None` bằng `MagicMock()` cho đúng tham số đó, chạy lại tới khi PASS.
 
-- [ ] **Step 3: Xác nhận PASS**
+- [x] **Step 3: Xác nhận PASS**
 
 Run: `source .venv/bin/activate && PYTHONPATH=. python -m pytest tests/agent/executive_board/test_runner_real_kernel_integration.py -v`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/agent/executive_board/test_runner_real_kernel_integration.py
@@ -732,7 +732,7 @@ git commit -m "test(executive-board): prove runner works through real kernel wit
 **Interfaces:**
 - Produces: skill được `apps/cosa/agents/skillpack_seed.py::seed_builtin_skillpacks` tự động publish thành `spec_kind="skill", spec_id="executive.cco-advisor", version="1.0.0"` khi app khởi động — không cần đăng ký code thủ công nào khác (đã xác nhận cơ chế filesystem-driven qua `root.rglob("manifest.yaml")`).
 
-- [ ] **Step 1: Tạo `manifest.yaml` (theo đúng khuôn `cfo-advisor`)**
+- [x] **Step 1: Tạo `manifest.yaml` (theo đúng khuôn `cfo-advisor`)**
 
 ```yaml
 apiVersion: agentos.ai/v1
@@ -803,7 +803,7 @@ quality:
   - peer-draft-forbidden
 ```
 
-- [ ] **Step 2: Tạo `SKILL.md`**
+- [x] **Step 2: Tạo `SKILL.md`**
 
 ```markdown
 ---
@@ -822,12 +822,12 @@ Cung cấp góc nhìn phản biện về mức độ giữ chân khách hàng (r
 3. **Cấm side-effects**: Chỉ khuyến nghị và đánh giá, không tự ý phản hồi khách hàng hoặc thay đổi chính sách hỗ trợ.
 ```
 
-- [ ] **Step 3: Chạy validate skillpack**
+- [x] **Step 3: Chạy validate skillpack**
 
 Run: `make skillpacks-validate`
 Expected: PASS — không có violation nào cho `skillpacks/executive/cco-advisor`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add skillpacks/executive/cco-advisor/
@@ -846,12 +846,12 @@ git commit -m "feat(executive-board): add cco-advisor skillpack content"
 **Interfaces:**
 - Không có interface Python/TS mới — đây là thay đổi dữ liệu cấu hình + chạy lại generator.
 
-- [ ] **Step 1: Tìm script generator**
+- [x] **Step 1: Tìm script generator**
 
 Run: `grep -rn "startup-team-profiles.json\|executive-advisor-roles.json" package.json Makefile scripts/ 2>/dev/null`
 Expected: tìm ra đúng lệnh generate (nghi vấn `scripts/gen-executive-advisor-roles.mjs` theo phát hiện khảo sát trước, và 1 script tương tự cho `startup-team-profiles.json` — xác nhận tên chính xác trước khi chạy).
 
-- [ ] **Step 2: Sửa `shared/contracts/startup-team-profiles.json`**
+- [x] **Step 2: Sửa `shared/contracts/startup-team-profiles.json`**
 
 Đổi entry `customer_support`:
 ```json
@@ -859,21 +859,21 @@ Expected: tìm ra đúng lệnh generate (nghi vấn `scripts/gen-executive-advi
 ```
 (từ `"runtimeReadiness": "PENDING_PROJECT_KNOWLEDGE"`)
 
-- [ ] **Step 3: Sửa `shared/contracts/executive-advisor-roles.json`**
+- [x] **Step 3: Sửa `shared/contracts/executive-advisor-roles.json`**
 
 Đổi entry `cco`, field `runtimeReadiness` (hoặc `runtime_readiness` tuỳ key thật trong JSON — xác nhận đúng tên field khi mở file) từ `"PENDING_CUSTOMER_SUPPORT_PROFILE"` thành `"READY"`.
 
-- [ ] **Step 4: Chạy generator tìm được ở Step 1, rồi chạy contracts-check**
+- [x] **Step 4: Chạy generator tìm được ở Step 1, rồi chạy contracts-check**
 
 Run: lệnh generate tìm được ở Step 1, sau đó `make contracts-check`
 Expected: PASS — `.generated.ts`/`.generated.py` khớp với JSON nguồn, không có drift.
 
-- [ ] **Step 5: Chạy test service liên quan**
+- [x] **Step 5: Chạy test service liên quan**
 
 Run: `cd services/company && npx vitest run operations/tests/executive-role-activation.service.test.ts operations/tests/project-startup-team.service.test.ts operations/tests/executive-deliberation.service.test.ts`
 Expected: PASS toàn bộ (test hiện có không giả định `customer_support`/`cco` ở trạng thái PENDING nên không nên bị ảnh hưởng; nếu có test khẳng định `cco` đang `PENDING_CUSTOMER_SUPPORT_PROFILE`, cập nhật assertion đó thành `READY` — đây là hệ quả trực tiếp, mong đợi của thay đổi).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add shared/contracts/startup-team-profiles.json shared/contracts/executive-advisor-roles.json \
@@ -895,7 +895,7 @@ git commit -m "feat(executive-board): flip customer_support profile and cco role
 **Interfaces:**
 - Consumes: `activateProjectStartupTeamMember`, `activateExecutiveRole`, `getProjectExecutiveRoleStates`, `frameDeliberation` — đã tồn tại, không đổi signature.
 
-- [ ] **Step 1: Thêm test activation cho `cco` (mirror test `cfo` đã có)**
+- [x] **Step 1: Thêm test activation cho `cco` (mirror test `cfo` đã có)**
 
 Thêm vào `executive-role-activation.service.test.ts`, ngay sau test `"activates CFO when Finance is ACTIVE, and enforces CAS versioning"`:
 
@@ -924,12 +924,12 @@ it("refuses CCO when Customer Support assignment is not ACTIVE", async () => {
 });
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận pass**
+- [x] **Step 2: Chạy test, xác nhận pass**
 
 Run: `cd services/company && npx vitest run operations/tests/executive-role-activation.service.test.ts`
 Expected: PASS.
 
-- [ ] **Step 3: Thêm test deliberation framing cho `cco` (mirror test `cfo`/`cmo`)**
+- [x] **Step 3: Thêm test deliberation framing cho `cco` (mirror test `cfo`/`cmo`)**
 
 Thêm vào `executive-deliberation.service.test.ts`, mở rộng `beforeEach` để activate thêm `customer_support`/`cco` (giữ nguyên activation `finance`/`cfo`, `marketing`/`cmo` đã có), rồi thêm test:
 
@@ -943,12 +943,12 @@ it("frames cco alongside cfo and atomically writes the outbox", async () => {
 });
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `cd services/company && npx vitest run operations/tests/executive-deliberation.service.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/company/operations/tests/executive-role-activation.service.test.ts \
@@ -962,22 +962,22 @@ git commit -m "test(executive-board): cover cco role activation and deliberation
 
 **Files:** không sửa code ở task này — chỉ điều tra và ghi lại kết luận trong 1 file ghi chú tạm để dùng cho plan kế tiếp.
 
-- [ ] **Step 1: Kiểm tra `founder_assistant` có alias sang `"operations"` profile key hay không**
+- [x] **Step 1: Kiểm tra `founder_assistant` có alias sang `"operations"` profile key hay không**
 
 Run: `grep -n "\"operations\"\|'operations'" shared/contracts/startup-team-profiles.json services/company/operations/services/ai-member.service.ts`
 Expected output cần đọc kỹ: xác nhận `AGENT_PROFILE_SPEC_ID` có entry `operations: "cosa.agents.operations"` (đã biết từ khảo sát trước) NHƯNG `startup-team-profiles.json` không có key `"operations"` nào — nghĩa là `OwnerAgentProfile` (TS type dùng cho `ai-member.service.ts`) rộng hơn `StartupTeamProfileKey` (TS type dùng cho `startup-team-profiles.json`).
 
-- [ ] **Step 2: Tìm định nghĩa `OwnerAgentProfile` để xác nhận `"operations"` có phải giá trị hợp lệ độc lập, không qua `STARTUP_TEAM_PROFILES`**
+- [x] **Step 2: Tìm định nghĩa `OwnerAgentProfile` để xác nhận `"operations"` có phải giá trị hợp lệ độc lập, không qua `STARTUP_TEAM_PROFILES`**
 
 Run: `grep -rn "type OwnerAgentProfile\|OwnerAgentProfile =" services/company/`
 Expected: xác định `OwnerAgentProfile` có liệt kê `"operations"` như 1 giá trị riêng, độc lập với danh sách 9 profile trong `startup-team-profiles.json` — nếu đúng vậy, kết luận: **không phải lệch tên/bug, mà `"operations"` là 1 owner-profile khác kênh**, được activate qua đường khác (không qua `activateProjectStartupTeamMember`/`STARTUP_TEAM_PROFILES`).
 
-- [ ] **Step 3: Nếu Step 2 xác nhận có kênh activate riêng cho `"operations"`, tìm kênh đó**
+- [x] **Step 3: Nếu Step 2 xác nhận có kênh activate riêng cho `"operations"`, tìm kênh đó**
 
 Run: `grep -rn "\"operations\"" services/company/operations/services/*.ts | grep -v test`
 Expected: tìm ra hàm/đường dẫn nào set `project_agent_assignments` với `profileKey: "operations"` — nếu KHÔNG tìm thấy hàm nào, kết luận: đây là gap thật (role `coo`/`chief_of_staff` phụ thuộc 1 profile chưa từng được activate bằng bất kỳ đường nào) — cần 1 plan riêng để bổ sung con đường activate cho `"operations"` profile trước khi `coo`/`chief_of_staff` có thể `READY`.
 
-- [ ] **Step 4: Ghi kết luận**
+- [x] **Step 4: Ghi kết luận**
 
 Viết kết luận (2-3 câu, dựa trên bằng chứng Step 1-3) vào đầu Task tiếp theo trong plan kế tiếp (Giai đoạn 2 hoặc phần mở rộng Executive Board) — không cần file riêng, chỉ cần câu kết luận rõ ràng để plan sau không phải điều tra lại.
 
