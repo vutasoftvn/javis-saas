@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-11T12:18:18.850Z",
+  "generated_at": "2026-09-12T09:35:37.663Z",
   "groups": {
     "agent": {
-      "fingerprint": "8ac4060c0749bc0ea5793f0a8c3d443fca95fbeb1ff0486af231b97c1f99a87d",
+      "fingerprint": "3b9a96bd97ba979eea6d705e46329f134ba0ff61defb46fb4c8e99f1d5694265",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -13,9 +13,364 @@
         "knowledge",
         "models"
       ],
-      "tables_count": 33,
+      "tables_count": 43,
       "enums": [],
       "tables": {
+        "agent.agent_skill_candidates": {
+          "schema": "agent",
+          "name": "agent_skill_candidates",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "candidate_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "parent_run_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "proposed_skill",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "evidence_refs",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "eval_score",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": false,
+              "default": "0.0",
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "promotion_approval_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "promotion_definition_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "published_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "agent_skill_candidates_pkey",
+            "columns": [
+              "candidate_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "ux_agent_skill_candidates_ws_candidate",
+              "columns": [
+                "workspace_id",
+                "candidate_id"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "agent_skill_candidates_pkey",
+              "definition": "CREATE UNIQUE INDEX agent_skill_candidates_pkey ON agent.agent_skill_candidates USING btree (candidate_id)"
+            },
+            {
+              "name": "idx_agent_skill_candidates_ws_skill",
+              "definition": "CREATE INDEX idx_agent_skill_candidates_ws_skill ON agent.agent_skill_candidates USING btree (workspace_id, skill_id)"
+            },
+            {
+              "name": "ux_agent_skill_candidates_promotion_approval",
+              "definition": "CREATE UNIQUE INDEX ux_agent_skill_candidates_promotion_approval ON agent.agent_skill_candidates USING btree (promotion_approval_id) WHERE (promotion_approval_id IS NOT NULL)"
+            },
+            {
+              "name": "ux_agent_skill_candidates_ws_candidate",
+              "definition": "CREATE UNIQUE INDEX ux_agent_skill_candidates_ws_candidate ON agent.agent_skill_candidates USING btree (workspace_id, candidate_id)"
+            }
+          ]
+        },
+        "agent.agent_skill_feedback": {
+          "schema": "agent",
+          "name": "agent_skill_feedback",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "feedback_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "success",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "true",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "rating",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "notes",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "idempotency_key",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_kind",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'user'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "agent_skill_feedback_pkey",
+            "columns": [
+              "feedback_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "agent_skill_feedback_run_id_fkey",
+              "columns": [
+                "run_id"
+              ],
+              "foreign_table": "agent.runs",
+              "foreign_columns": [
+                "run_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "RESTRICT"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "agent_skill_feedback_pkey",
+              "definition": "CREATE UNIQUE INDEX agent_skill_feedback_pkey ON agent.agent_skill_feedback USING btree (feedback_id)"
+            },
+            {
+              "name": "idx_agent_skill_feedback_ws_skill",
+              "definition": "CREATE INDEX idx_agent_skill_feedback_ws_skill ON agent.agent_skill_feedback USING btree (workspace_id, skill_id)"
+            },
+            {
+              "name": "ux_agent_skill_feedback_ws_idempotency",
+              "definition": "CREATE UNIQUE INDEX ux_agent_skill_feedback_ws_idempotency ON agent.agent_skill_feedback USING btree (workspace_id, idempotency_key) WHERE (idempotency_key IS NOT NULL)"
+            }
+          ]
+        },
         "agent.agent_web_search_budget": {
           "schema": "agent",
           "name": "agent_web_search_budget",
@@ -113,6 +468,295 @@
             }
           ]
         },
+        "agent.approval_action_outbox": {
+          "schema": "agent",
+          "name": "approval_action_outbox",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "outbox_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "approval_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "action",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "subject_kind",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "subject_ref",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 256,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "subject_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'pending'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "attempt_count",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "next_attempt_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "claim_token",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "delivered_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "approval_action_outbox_pkey",
+            "columns": [
+              "outbox_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "approval_action_outbox_approval_id_key",
+              "columns": [
+                "approval_id"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "approval_action_outbox_approval_id_fkey",
+              "columns": [
+                "approval_id"
+              ],
+              "foreign_table": "agent.approvals",
+              "foreign_columns": [
+                "approval_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "approval_action_outbox_approval_id_key",
+              "definition": "CREATE UNIQUE INDEX approval_action_outbox_approval_id_key ON agent.approval_action_outbox USING btree (approval_id)"
+            },
+            {
+              "name": "approval_action_outbox_pkey",
+              "definition": "CREATE UNIQUE INDEX approval_action_outbox_pkey ON agent.approval_action_outbox USING btree (outbox_id)"
+            },
+            {
+              "name": "idx_agent_approval_action_outbox_state_next",
+              "definition": "CREATE INDEX idx_agent_approval_action_outbox_state_next ON agent.approval_action_outbox USING btree (state, next_attempt_at)"
+            }
+          ]
+        },
+        "agent.approval_events": {
+          "schema": "agent",
+          "name": "approval_events",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "event_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "approval_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "event_type",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "actor_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "payload",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "approval_events_pkey",
+            "columns": [
+              "event_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "approval_events_approval_id_fkey",
+              "columns": [
+                "approval_id"
+              ],
+              "foreign_table": "agent.approvals",
+              "foreign_columns": [
+                "approval_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "approval_events_pkey",
+              "definition": "CREATE UNIQUE INDEX approval_events_pkey ON agent.approval_events USING btree (event_id)"
+            },
+            {
+              "name": "idx_agent_approval_events_workspace_created",
+              "definition": "CREATE INDEX idx_agent_approval_events_workspace_created ON agent.approval_events USING btree (workspace_id, created_at)"
+            }
+          ]
+        },
         "agent.approvals": {
           "schema": "agent",
           "name": "approvals",
@@ -132,7 +776,7 @@
               "name": "run_id",
               "type": "character varying",
               "udt": "varchar",
-              "nullable": false,
+              "nullable": true,
               "default": null,
               "max_length": 64,
               "precision": null,
@@ -142,7 +786,7 @@
               "name": "tool_call_id",
               "type": "character varying",
               "udt": "varchar",
-              "nullable": false,
+              "nullable": true,
               "default": null,
               "max_length": 128,
               "precision": null,
@@ -152,7 +796,7 @@
               "name": "checkpoint_ref",
               "type": "character varying",
               "udt": "varchar",
-              "nullable": false,
+              "nullable": true,
               "default": null,
               "max_length": 128,
               "precision": null,
@@ -297,6 +941,56 @@
               "max_length": 64,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "binding_kind",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": "'TOOL_CALL'::character varying",
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "subject_kind",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "subject_ref",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 256,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "subject_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -334,7 +1028,12 @@
               "on_delete": "CASCADE"
             }
           ],
-          "check_constraints": [],
+          "check_constraints": [
+            {
+              "name": "chk_agent_approvals_binding",
+              "clause": "(((((binding_kind)::text = 'TOOL_CALL'::text) AND (run_id IS NOT NULL) AND (tool_call_id IS NOT NULL) AND (checkpoint_ref IS NOT NULL)) OR (((binding_kind)::text = 'CHANGE_REQUEST'::text) AND (workspace_id IS NOT NULL) AND (run_id IS NULL) AND (tool_call_id IS NULL) AND (checkpoint_ref IS NULL) AND (subject_kind IS NOT NULL) AND (subject_ref IS NOT NULL) AND (subject_hash IS NOT NULL))))"
+            }
+          ],
           "indexes": [
             {
               "name": "approvals_pkey",
@@ -355,6 +1054,14 @@
             {
               "name": "idx_agent_approvals_tool_call",
               "definition": "CREATE INDEX idx_agent_approvals_tool_call ON agent.approvals USING btree (tool_call_id)"
+            },
+            {
+              "name": "idx_agent_approvals_workspace",
+              "definition": "CREATE INDEX idx_agent_approvals_workspace ON agent.approvals USING btree (workspace_id)"
+            },
+            {
+              "name": "ux_agent_approvals_pending_change_subject",
+              "definition": "CREATE UNIQUE INDEX ux_agent_approvals_pending_change_subject ON agent.approvals USING btree (workspace_id, action, subject_kind, subject_ref, subject_hash) WHERE (((binding_kind)::text = 'CHANGE_REQUEST'::text) AND ((status)::text = 'pending'::text))"
             }
           ]
         },
@@ -2115,6 +2822,993 @@
             {
               "name": "runtime_signal_outbox_workspace_id_source_kind_source_id_se_key",
               "definition": "CREATE UNIQUE INDEX runtime_signal_outbox_workspace_id_source_kind_source_id_se_key ON agent.runtime_signal_outbox USING btree (workspace_id, source_kind, source_id, sequence)"
+            }
+          ]
+        },
+        "agent.skill_feedback_aggregates": {
+          "schema": "agent",
+          "name": "skill_feedback_aggregates",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 256,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "sample_count",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "aggregate_score",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "previous_score",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "degradation_delta",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "window_started_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "window_ended_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "health",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "skill_feedback_aggregates_pkey",
+            "columns": [
+              "workspace_id",
+              "skill_id",
+              "skill_version",
+              "definition_hash",
+              "revision"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_skill_feedback_agg_newest",
+              "definition": "CREATE INDEX idx_skill_feedback_agg_newest ON agent.skill_feedback_aggregates USING btree (workspace_id, skill_id, skill_version, definition_hash, revision DESC)"
+            },
+            {
+              "name": "skill_feedback_aggregates_pkey",
+              "definition": "CREATE UNIQUE INDEX skill_feedback_aggregates_pkey ON agent.skill_feedback_aggregates USING btree (workspace_id, skill_id, skill_version, definition_hash, revision)"
+            }
+          ]
+        },
+        "agent.skill_improvement_evaluations": {
+          "schema": "agent",
+          "name": "skill_improvement_evaluations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "evaluation_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "request_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "candidate_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "suite_ref",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 256,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "suite_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "baseline_score",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "candidate_score",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "delta",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "passed_cases",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "failed_cases",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "safe_reason_code",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "skill_improvement_evaluations_pkey",
+            "columns": [
+              "evaluation_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "skill_improvement_evaluations_candidate_id_fkey",
+              "columns": [
+                "candidate_id"
+              ],
+              "foreign_table": "agent.agent_skill_candidates",
+              "foreign_columns": [
+                "candidate_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
+              "name": "skill_improvement_evaluations_request_id_fkey",
+              "columns": [
+                "request_id"
+              ],
+              "foreign_table": "agent.skill_improvement_requests",
+              "foreign_columns": [
+                "request_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "RESTRICT"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "skill_improvement_evaluations_pkey",
+              "definition": "CREATE UNIQUE INDEX skill_improvement_evaluations_pkey ON agent.skill_improvement_evaluations USING btree (evaluation_id)"
+            }
+          ]
+        },
+        "agent.skill_improvement_mutations": {
+          "schema": "agent",
+          "name": "skill_improvement_mutations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "mutation_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "request_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "candidate_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "round_no",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "mutator_name",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "accepted",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "score_before",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "score_after",
+              "type": "double precision",
+              "udt": "float8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 53,
+              "scale": null
+            },
+            {
+              "name": "validation_passed",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "safe_reason_code",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "skill_improvement_mutations_pkey",
+            "columns": [
+              "mutation_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "skill_improvement_mutations_candidate_id_fkey",
+              "columns": [
+                "candidate_id"
+              ],
+              "foreign_table": "agent.agent_skill_candidates",
+              "foreign_columns": [
+                "candidate_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
+              "name": "skill_improvement_mutations_request_id_fkey",
+              "columns": [
+                "request_id"
+              ],
+              "foreign_table": "agent.skill_improvement_requests",
+              "foreign_columns": [
+                "request_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "RESTRICT"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "skill_improvement_mutations_pkey",
+              "definition": "CREATE UNIQUE INDEX skill_improvement_mutations_pkey ON agent.skill_improvement_mutations USING btree (mutation_id)"
+            }
+          ]
+        },
+        "agent.skill_improvement_outbox": {
+          "schema": "agent",
+          "name": "skill_improvement_outbox",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "outbox_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "request_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 32,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "attempt_count",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "next_attempt_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "claim_token",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "claimed_by",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "delivered_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "skill_improvement_outbox_pkey",
+            "columns": [
+              "outbox_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "skill_improvement_outbox_request_id_key",
+              "columns": [
+                "request_id"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "skill_improvement_outbox_request_id_fkey",
+              "columns": [
+                "request_id"
+              ],
+              "foreign_table": "agent.skill_improvement_requests",
+              "foreign_columns": [
+                "request_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "RESTRICT"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_skill_improvement_outbox_due",
+              "definition": "CREATE INDEX idx_skill_improvement_outbox_due ON agent.skill_improvement_outbox USING btree (state, next_attempt_at) WHERE ((state)::text = ANY ((ARRAY['PENDING'::character varying, 'RETRY'::character varying])::text[]))"
+            },
+            {
+              "name": "skill_improvement_outbox_pkey",
+              "definition": "CREATE UNIQUE INDEX skill_improvement_outbox_pkey ON agent.skill_improvement_outbox USING btree (outbox_id)"
+            },
+            {
+              "name": "skill_improvement_outbox_request_id_key",
+              "definition": "CREATE UNIQUE INDEX skill_improvement_outbox_request_id_key ON agent.skill_improvement_outbox USING btree (request_id)"
+            }
+          ]
+        },
+        "agent.skill_improvement_requests": {
+          "schema": "agent",
+          "name": "skill_improvement_requests",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "request_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 256,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "trigger",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "feedback_aggregate_revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "policy_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "attempt_count",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "claim_token",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "claimed_by",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "claimed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "safe_reason_code",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": true,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "skill_improvement_requests_pkey",
+            "columns": [
+              "request_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_skill_improvement_requests_claim",
+              "definition": "CREATE INDEX idx_skill_improvement_requests_claim ON agent.skill_improvement_requests USING btree (status, created_at) WHERE ((status)::text = 'PENDING'::text)"
+            },
+            {
+              "name": "skill_improvement_requests_pkey",
+              "definition": "CREATE UNIQUE INDEX skill_improvement_requests_pkey ON agent.skill_improvement_requests USING btree (request_id)"
+            },
+            {
+              "name": "ux_agent_skill_improvement_requests_live",
+              "definition": "CREATE UNIQUE INDEX ux_agent_skill_improvement_requests_live ON agent.skill_improvement_requests USING btree (workspace_id, skill_id, skill_version, definition_hash) WHERE ((status)::text = ANY ((ARRAY['PENDING'::character varying, 'RUNNING'::character varying])::text[]))"
+            }
+          ]
+        },
+        "agent.skill_usage_observations": {
+          "schema": "agent",
+          "name": "skill_usage_observations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "observation_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 256,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_version",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "root_spec_id",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 256,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "root_definition_hash",
+              "type": "character varying",
+              "udt": "varchar",
+              "nullable": false,
+              "default": null,
+              "max_length": 128,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "skill_usage_observations_pkey",
+            "columns": [
+              "observation_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "skill_usage_observations_run_id_skill_id_skill_version_defi_key",
+              "columns": [
+                "run_id",
+                "skill_id",
+                "skill_version",
+                "definition_hash"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "skill_usage_observations_run_id_fkey",
+              "columns": [
+                "run_id"
+              ],
+              "foreign_table": "agent.runs",
+              "foreign_columns": [
+                "run_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "RESTRICT"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_skill_usage_obs_ws_run_skill",
+              "definition": "CREATE INDEX idx_skill_usage_obs_ws_run_skill ON agent.skill_usage_observations USING btree (workspace_id, run_id, skill_id)"
+            },
+            {
+              "name": "skill_usage_observations_pkey",
+              "definition": "CREATE UNIQUE INDEX skill_usage_observations_pkey ON agent.skill_usage_observations USING btree (observation_id)"
+            },
+            {
+              "name": "skill_usage_observations_run_id_skill_id_skill_version_defi_key",
+              "definition": "CREATE UNIQUE INDEX skill_usage_observations_run_id_skill_id_skill_version_defi_key ON agent.skill_usage_observations USING btree (run_id, skill_id, skill_version, definition_hash)"
             }
           ]
         },

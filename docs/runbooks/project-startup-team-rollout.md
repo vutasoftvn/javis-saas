@@ -50,20 +50,26 @@ WHERE table_schema = 'strategy' AND table_name = 'projects';
 
 ## 3. Quy Trình Triển Khai Migration (Rollout Steps)
 
-### 3.1. Áp dụng Migration 005
-Chạy migration Encore trên Company service:
+### 3.1. Áp dụng Migrations (005 Schema + 007 Data Extension)
+Chạy migration trên Company service:
 ```bash
 cd services/company
-encore db migrate
+node scripts/migrate.mjs
 ```
-Migration sẽ thực thi:
-1. Tạo kiểu enum `operating.project_agent_assignment_state` ('TEMPLATE', 'ACTIVE', 'PAUSED', 'RETIRED').
-2. Tạo bảng `operating.project_agent_assignments`.
-3. Tạo bảng `operating.project_agent_assignment_events`.
-4. Khởi tạo hàng loạt template cho tất cả dự án hiện hữu với 9 catalog profiles (`INSERT INTO operating.project_agent_assignments ... ON CONFLICT DO NOTHING`).
+Migrations sẽ thực thi:
+1. **Migration 005 (Schema + Initial Seed):**
+   - Tạo kiểu enum `operating.project_agent_assignment_state` ('TEMPLATE', 'ACTIVE', 'PAUSED', 'RETIRED').
+   - Tạo bảng `operating.project_agent_assignments`.
+   - Tạo bảng `operating.project_agent_assignment_events`.
+   - Khởi tạo ban đầu template cho các dự án với 9 catalog profiles.
+2. **Migration 007 (Data Extension Backfill):**
+   - Bổ sung profile `operations` dưới dạng `TEMPLATE` (version 1) cho tất cả dự án hiện hữu chưa có `operations`.
+   - Ghi nhận duy nhất một sự kiện `ASSIGNMENT_TEMPLATE_CREATED` với `source = 'operations_profile_catalog_backfill_v1'`.
 
 ### 3.2. Đối soát số lượng bản ghi (Row-count Verification)
-Xác nhận công thức: `Tổng số bản ghi assignments = Tổng số projects hiện hữu × 9 catalog profiles`:
+Xác nhận công thức theo catalog hiện hành: `Tổng số bản ghi assignments = Tổng số projects hiện hữu × 10 catalog profiles`:
+> [!NOTE]
+> Khi catalog mở rộng thêm profile mới trong tương lai, hệ số nhân sẽ tăng theo số lượng profile trong `STARTUP_TEAM_PROFILES`.
 ```sql
 WITH project_count AS (
   SELECT count(*) as total_projects FROM strategy.projects
@@ -74,9 +80,9 @@ assignment_count AS (
 SELECT 
   p.total_projects,
   a.total_assignments,
-  (p.total_projects * 9) as expected_assignments,
+  (p.total_projects * 10) as expected_assignments,
   CASE 
-    WHEN a.total_assignments = (p.total_projects * 9) THEN 'MATCH'
+    WHEN a.total_assignments = (p.total_projects * 10) THEN 'MATCH'
     ELSE 'MISMATCH'
   END as validation_status
 FROM project_count p, assignment_count a;
@@ -95,17 +101,19 @@ WHERE created_at > now() - interval '1 hour';
 
 ### 3.4. Kiểm tra mẫu chuyển trạng thái (Sampled Transition Trace)
 1. Thử nghiệm trên 1 project test:
-   - Kích hoạt profile `marketing` qua endpoint Founder:
-     `POST /operations/projects/{projectId}/startup-team/marketing/activate` với `expectedVersion = 1`.
+   - Kích hoạt profile `operations` qua endpoint Founder:
+     `POST /operations/projects/{projectId}/startup-team/operations/activate` với `expectedVersion = 1`.
    - Kiểm tra `state = 'ACTIVE'` và `version = 2`.
+   - Kiểm tra `spec_id = 'cosa.agents.operations'`, `spec_version = '1.3.0'`, và hash pinned `0c838f93ddc700984b9acdfead50ce45eb7f6ad867453edaf7c6793562dc33b2`.
    - Kiểm tra ghi nhận event `ASSIGNMENT_ACTIVATED` trong `operating.project_agent_assignment_events`.
    - Gọi endpoint run-authority:
-     `GET /internal/operations/projects/{projectId}/startup-team/marketing/run-authority` với `x-service-token`.
+     `GET /internal/operations/projects/{projectId}/startup-team/operations/run-authority` với `x-service-token`.
      Phản hồi trả về mã 200 kèm `spec.hash`.
-   - Tạm dừng profile `marketing`:
-     `POST /operations/projects/{projectId}/startup-team/marketing/pause` với `expectedVersion = 2`.
+   - Tạm dừng profile `operations`:
+     `POST /operations/projects/{projectId}/startup-team/operations/pause` với `expectedVersion = 2`.
    - Kiểm tra `state = 'PAUSED'` và `version = 3`.
    - Gọi lại endpoint run-authority: nhận phản hồi 404 (bị từ chối).
+   - Tương tự với profile `marketing` hoặc profile khác đã `READY`.
 
 ---
 
@@ -138,13 +146,21 @@ curl -s -H "X-Service-Token: $COSA_WORKER_SERVICE_TOKEN" \
 # Kết quả phải trả về 404
 ```
 
-### Giai Đoạn 3: Rollback Schema (Chỉ khi cần phục hồi hoàn toàn trước khi có traffic thật)
-Nếu rollback ngay trong cửa sổ bảo trì (chưa có traffic production):
-```bash
-cd services/company
-encore db rollback
-```
-Script `005_project_startup_team.down.sql` sẽ thu hồi bảng `project_agent_assignment_events`, `project_agent_assignments` và enum `project_agent_assignment_state`.
+### Giai Đoạn 3: Rollback Schema & Backfill Data
+1. **Migration 007 Down (Chỉ áp dụng PRE-USE):**
+   - Script `007_operations_startup_profile.down.sql` được bảo vệ nghiêm ngặt (fail-closed).
+   - Nếu bất kỳ profile `operations` nào đã được kích hoạt, hoặc đã phát sinh sự kiện sử dụng ngoài event tạo ban đầu, script rollback sẽ từ chối thực thi với thông báo:
+     `migration 007 down refused: operations profile has usage evidence`.
+   - Khi đó, đội ngũ vận hành **không được cố ép xoá dữ liệu**, mà phải xử lý remediation tiến tới (forward remediation) bằng cách gọi Pause hoặc Disable role.
+   - Nếu rollback diễn ra ngay khi vừa deploy và chưa có bất kỳ kích hoạt nào (pre-use), down script sẽ thu hồi an toàn các bản ghi template và event của 007.
+
+2. **Migration 005 Down (Chỉ khi cần phục hồi hoàn toàn trước khi có traffic thật):**
+   - Nếu rollback toàn bộ tính năng ngay trong cửa sổ bảo trì (chưa có traffic production):
+   ```bash
+   cd services/company
+   node scripts/migrate.mjs --down 1
+   ```
+   - Script `005_project_startup_team.down.sql` sẽ thu hồi bảng `project_agent_assignment_events`, `project_agent_assignments` và enum `project_agent_assignment_state`.
 
 ---
 
@@ -155,5 +171,6 @@ Script `005_project_startup_team.down.sql` sẽ thu hồi bảng `project_agent_
 - [ ] `make company-boundary-check` thành công.
 - [ ] `make encore-handler-boundary-check` thành công.
 - [ ] Tất cả unit và integration test Flutter module `hologram_hub` đạt 100% pass.
-- [ ] Bộ kiểm thử E2E `pytest tests/e2e/test_default_project_startup_team.py` đạt 5/5 pass.
+- [ ] Bộ kiểm thử E2E `pytest tests/e2e/test_default_project_startup_team.py` đạt pass.
+- [ ] Bộ kiểm thử E2E `pytest tests/e2e/test_operations_profile_migration.py` đạt pass.
 - [ ] Không có exception liên quan đến `ProjectTeamAuthorityError` hoặc `409 Conflict` bất thường trong log của Worker.

@@ -13,12 +13,38 @@
  */
 
 import { execSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..");
+
+const envPath = join(REPO_ROOT, ".env");
+if (existsSync(envPath)) {
+  const envContent = readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim();
+    if (!process.env[key]) {
+      process.env[key] = val;
+    }
+  }
+}
+
+if (process.env.AGENT_TEST_MIGRATOR_DATABASE_URL) {
+  process.env.AGENT_MIGRATOR_DATABASE_URL = process.env.AGENT_TEST_MIGRATOR_DATABASE_URL;
+}
+if (process.env.COSA_TEST_MIGRATOR_DATABASE_URL) {
+  process.env.COSA_MIGRATOR_DATABASE_URL = process.env.COSA_TEST_MIGRATOR_DATABASE_URL;
+}
+if (process.env.WORKSPACE_TEST_MIGRATOR_DATABASE_URL) {
+  process.env.WORKSPACE_MIGRATOR_DATABASE_URL = process.env.WORKSPACE_TEST_MIGRATOR_DATABASE_URL;
+}
 
 const DEFAULT_STEPS = 5;
 
@@ -58,7 +84,7 @@ function nonBaselineUpMigrationCount(dirs) {
   for (const d of dirs) {
     for (const f of readdirSync(d)) {
       if ((f.endsWith(".up.sql") || (f.endsWith(".sql") && !f.endsWith(".down.sql"))) &&
-          !f.startsWith("001_founder_trial_mvp_baseline")) {
+          !f.startsWith("001_")) {
         count += 1;
       }
     }
