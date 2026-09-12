@@ -140,24 +140,13 @@ describe("project-startup-team handler authorization & governance", () => {
       })
     ).rejects.toThrow(/DEFERRED_CODING/i);
 
-    // cm is pending
+    // crm is pending
     await expect(
       activateProjectStartupTeamMemberApi({
         authorization: ws.bearerToken,
         workspaceId: ws.workspaceId,
         projectId: project.id,
         profileKey: "crm",
-        expectedVersion: 1,
-      })
-    ).rejects.toThrow(/PENDING_CRM_FOUNDATION/i);
-
-    // sales is pending
-    await expect(
-      activateProjectStartupTeamMemberApi({
-        authorization: ws.bearerToken,
-        workspaceId: ws.workspaceId,
-        projectId: project.id,
-        profileKey: "sales",
         expectedVersion: 1,
       })
     ).rejects.toThrow(/PENDING_CRM_FOUNDATION/i);
@@ -309,9 +298,12 @@ describe("project-startup-team handler authorization & governance", () => {
       expectedVersion: 2,
     });
 
+    const workerToken =
+      process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token";
+
     await expect(
       getProjectAgentRunAuthorityApi({
-        serviceToken: "dev-worker-service-token",
+        serviceToken: workerToken,
         workspaceId: ws.workspaceId,
         projectId: project.id,
         profileKey: "finance",
@@ -330,7 +322,7 @@ describe("project-startup-team handler authorization & governance", () => {
     expect(opsAct.assignmentVersion).toBe(2);
 
     const opsAuth = await getProjectAgentRunAuthorityApi({
-      serviceToken: "dev-worker-service-token",
+      serviceToken: workerToken,
       workspaceId: ws.workspaceId,
       projectId: project.id,
       profileKey: "operations",

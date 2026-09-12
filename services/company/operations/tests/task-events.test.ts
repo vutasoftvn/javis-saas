@@ -37,6 +37,7 @@ describe("Task Events Service", () => {
       expect(event.payload).toEqual({
         taskId: task.id,
         workspaceId: task.workspaceId,
+        project_id: "0",
         title: task.title,
         status: task.status,
       });

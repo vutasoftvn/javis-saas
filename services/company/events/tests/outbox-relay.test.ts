@@ -13,12 +13,13 @@ function evt(workspaceId: string, aggregateId: string) {
   return makeBusinessEvent({
     eventType: OPERATIONS_TASK_CREATED_V1,
     workspaceId,
+    projectId: "proj_relay_1",
     aggregateType: "task",
     aggregateId,
     correlationId: "corr_relay",
     actor: { kind: "system", id: "test" },
     classification: "internal",
-    payload: { taskId: aggregateId, workspaceId, title: "Relay Test", status: "todo" },
+    payload: { taskId: aggregateId, workspaceId, project_id: "proj_relay_1", title: "Relay Test", status: "todo" },
   });
 }
 

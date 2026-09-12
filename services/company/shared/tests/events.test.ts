@@ -10,12 +10,13 @@ import { OPERATIONS_TASK_CREATED_V1 } from "../events/event-types";
 const baseInput = {
   eventType: OPERATIONS_TASK_CREATED_V1,
   workspaceId: "ws_1",
+  projectId: "proj_1",
   aggregateType: "task",
   aggregateId: "t_1",
   correlationId: "corr_1",
   actor: { kind: "user" as const, id: "u_1" },
   classification: "internal" as const,
-  payload: { taskId: "t_1", workspaceId: "ws_1", title: "x", status: "todo" },
+  payload: { taskId: "t_1", workspaceId: "ws_1", project_id: "proj_1", title: "x", status: "todo" },
 };
 
 describe("makeBusinessEvent", () => {

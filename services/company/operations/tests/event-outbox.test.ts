@@ -16,10 +16,15 @@ import { readOutbox } from "./helpers/outbox";
 
 function evt(workspaceId: string, aggregateId: string) {
   return makeBusinessEvent({
-    eventType: OPERATIONS_TASK_CREATED_V1, workspaceId,
-    aggregateType: "task", aggregateId, correlationId: "corr_x",
-    actor: { kind: "system", id: "test" }, classification: "internal",
-    payload: { taskId: aggregateId, workspaceId, title: "x", status: "todo" },
+    eventType: OPERATIONS_TASK_CREATED_V1,
+    workspaceId,
+    projectId: "proj_outbox_1",
+    aggregateType: "task",
+    aggregateId,
+    correlationId: "corr_x",
+    actor: { kind: "system", id: "test" },
+    classification: "internal",
+    payload: { taskId: aggregateId, workspaceId, project_id: "proj_outbox_1", title: "x", status: "todo" },
   });
 }
 

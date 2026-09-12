@@ -46,7 +46,7 @@ STARTUP_TEAM_PROFILES: Final[list[dict[str, str]]] = [
     {"key":"marketing","label":"Marketing","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"finance","label":"Finance","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"crm","label":"CRM","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
-    {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
+    {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"DEFERRED_CODING"},
     {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 ]
@@ -59,7 +59,7 @@ STARTUP_TEAM_PROFILES_MAP: Final[dict[str, dict[str, str]]] = {
     "marketing": {"key":"marketing","label":"Marketing","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "finance": {"key":"finance","label":"Finance","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "crm": {"key":"crm","label":"CRM","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
-    "sales": {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
+    "sales": {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "coding": {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"DEFERRED_CODING"},
     "customer_support": {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 }

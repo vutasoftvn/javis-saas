@@ -47,7 +47,7 @@
       "key": "sales",
       "label": "Sales",
       "defaultMode": "TEMPLATE",
-      "runtimeReadiness": "PENDING_CRM_FOUNDATION"
+      "runtimeReadiness": "READY"
     },
     {
       "key": "coding",

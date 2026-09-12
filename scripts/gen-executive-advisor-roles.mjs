@@ -46,9 +46,16 @@ for (const r of spec.roles) {
   }
 
   if (r.runtimeReadiness === "READY") {
-    if (!startupProfileKeys.has(r.requiredProfileKey)) {
+    const requiredProfile = startupSpec.profiles.find((p) => p.key === r.requiredProfileKey);
+    if (!requiredProfile) {
       console.error(
         `Role ${r.key} is marked READY but requiredProfileKey '${r.requiredProfileKey}' does not exist in startup-team-profiles.json`
+      );
+      process.exit(1);
+    }
+    if (requiredProfile.runtimeReadiness !== "READY") {
+      console.error(
+        `Role ${r.key} is marked READY but requiredProfileKey '${r.requiredProfileKey}' has readiness '${requiredProfile.runtimeReadiness}', expected 'READY'`
       );
       process.exit(1);
     }

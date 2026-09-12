@@ -64,7 +64,7 @@ describe("ingestKnowledgePublished", () => {
   it("rejects a non knowledge.source.published event type", async () => {
     await expect(
       ingestKnowledgePublished(
-        { envelope: envelope({ eventType: "operations.task.created.v1" }), serviceToken: "tok" },
+        { envelope: envelope({ eventType: "operations.task.created.v1", projectId: "p_1" }), serviceToken: "tok" },
         "tok"
       )
     ).rejects.toThrow(/eventType/i);

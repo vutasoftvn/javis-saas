@@ -60,3 +60,22 @@ def test_operations_profile_and_roles_ready():
         assert role.required_profile_key == "operations"
         assert role.runtime_readiness == "READY"
         assert role.advisory_only is True
+
+
+def test_sales_profile_and_cro_role_ready():
+    startup_profiles_path = Path("shared/contracts/startup-team-profiles.json")
+    with open(startup_profiles_path, "r", encoding="utf-8") as f:
+        startup_data = json.load(f)
+
+    sales = next(p for p in startup_data["profiles"] if p["key"] == "sales")
+    assert sales == {
+        "key": "sales",
+        "label": "Sales",
+        "defaultMode": "TEMPLATE",
+        "runtimeReadiness": "READY",
+    }
+    cro = EXECUTIVE_ROLE_CATALOG["cro"]
+    assert cro.required_profile_key == "sales"
+    assert cro.runtime_readiness == "READY"
+    assert cro.required_skill_pins == ("skillpack:executive/cro-advisor@1.0.0",)
+    assert cro.advisory_only is True

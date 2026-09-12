@@ -30,10 +30,11 @@ export function buildTaskCreatedEvent(
 ): BusinessEventEnvelope<TaskCreatedPayloadV1> {
   const correlationId = ctx?.correlationId || randomUUID();
   const actor = ctx?.actor || { kind: "system", id: "operations" };
+  const effectiveProjectId = task.projectId || "0";
   return makeBusinessEvent({
     eventType: OPERATIONS_TASK_CREATED_V1,
     workspaceId: task.workspaceId,
-    projectId: task.projectId,
+    projectId: effectiveProjectId,
     aggregateType: "task",
     aggregateId: task.id,
     correlationId,
@@ -43,7 +44,7 @@ export function buildTaskCreatedEvent(
     payload: {
       taskId: task.id,
       workspaceId: task.workspaceId,
-      project_id: task.projectId,
+      project_id: effectiveProjectId,
       title: task.title,
       status: task.status,
     },
@@ -56,10 +57,11 @@ export function buildTaskCompletedEvent(
 ): BusinessEventEnvelope<TaskCompletedPayloadV1> {
   const correlationId = ctx?.correlationId || randomUUID();
   const actor = ctx?.actor || { kind: "system", id: "operations" };
+  const effectiveProjectId = task.projectId || "0";
   return makeBusinessEvent({
     eventType: OPERATIONS_TASK_COMPLETED_V1,
     workspaceId: task.workspaceId,
-    projectId: task.projectId,
+    projectId: effectiveProjectId,
     aggregateType: "task",
     aggregateId: task.id,
     correlationId,
@@ -69,7 +71,7 @@ export function buildTaskCompletedEvent(
     payload: {
       taskId: task.id,
       workspaceId: task.workspaceId,
-      project_id: task.projectId,
+      project_id: effectiveProjectId,
       completedAt: new Date().toISOString(),
     },
   });
