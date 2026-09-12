@@ -166,7 +166,12 @@ def test_invariant_4_and_5_startup_team_activation_pause_and_authority(e2e_tenan
     assert resp.status_code == 200, resp.text
     body = resp.json()
     items = body["items"]
-    assert len(items) == 9
+    assert len(items) == 10
+
+    # Verify operations initial state
+    ops = next(m for m in items if m["profileKey"] == "operations")
+    assert ops["displayState"] == "TEMPLATE"
+    assert ops["runtimeReadiness"] == "READY"
 
     # Verify marketing initial state
     mkt = next(m for m in items if m["profileKey"] == "marketing")
@@ -389,11 +394,144 @@ def test_invariant_7_pending_and_deferred_profiles_cannot_activate(e2e_tenants):
     assert sales_resp.status_code == 400
     assert "PENDING_CRM_FOUNDATION" in sales_resp.text
 
-    # Customer Support without knowledge base
-    support_resp = client.post(
-        f"/operations/projects/{p1_id}/startup-team/customer_support/activate",
+    # Founder Assistant cannot be activated as an operating agent
+    fa_resp = client.post(
+        f"/operations/projects/{p1_id}/startup-team/founder_assistant/activate",
         json={"expectedVersion": 1},
         headers=headers_a,
     )
-    assert support_resp.status_code == 400
-    assert "PENDING_PROJECT_KNOWLEDGE" in support_resp.text
+    assert fa_resp.status_code == 400
+    assert "cannot be activated as an operating agent" in fa_resp.text
+
+
+def test_invariant_operations_profile_lifecycle_and_authority(e2e_tenants):
+    """Operations profile lifecycle: TEMPLATE -> ACTIVE -> PAUSED with run authority and audit event proof."""
+    base_url = e2e_tenants["base_url"]
+    headers_a = e2e_tenants["headers_a"]
+    p2_id = e2e_tenants["proj_a2_id"]
+    ws_a = e2e_tenants["ws_a"]
+
+    client = httpx.Client(base_url=base_url, timeout=10.0)
+
+    # 1. Fetch team list for project A2
+    resp = client.get(f"/operations/projects/{p2_id}/startup-team", headers=headers_a)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    items = body["items"]
+    assert len(items) == 10
+
+    ops = next(m for m in items if m["profileKey"] == "operations")
+    assert ops["displayState"] == "TEMPLATE"
+    assert ops["runtimeReadiness"] == "READY"
+    version = ops.get("assignmentVersion") or 1
+
+    # 2. Founder activates Operations
+    act_resp = client.post(
+        f"/operations/projects/{p2_id}/startup-team/operations/activate",
+        json={"expectedVersion": version},
+        headers=headers_a,
+    )
+    assert act_resp.status_code == 200, f"Activation failed: {act_resp.text}"
+    act_data = act_resp.json()
+    assert act_data["displayState"] == "ACTIVE"
+    assert act_data["assignmentVersion"] == version + 1
+    assert act_data["activatedAt"] is not None
+
+    # Check DB state
+    conn = _get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT state, version, spec_hash
+                FROM operating.project_agent_assignments
+                WHERE project_id = %s AND profile_key = 'operations'
+                """,
+                (int(p2_id),),
+            )
+            row = cur.fetchone()
+            assert row is not None
+            assert row[0] == "ACTIVE"
+            assert row[1] == version + 1
+            pinned_hash = row[2]
+            assert pinned_hash and len(pinned_hash) > 10
+
+            cur.execute(
+                """
+                SELECT event_type, to_state, event_payload->>'specHash'
+                FROM operating.project_agent_assignment_events
+                WHERE project_id = %s AND event_payload->>'profileKey' = 'operations'
+                ORDER BY occurred_at DESC
+                LIMIT 1
+                """,
+                (int(p2_id),),
+            )
+            event_row = cur.fetchone()
+            assert event_row is not None
+            assert event_row[0] == "ASSIGNMENT_ACTIVATED"
+            assert event_row[1] == "ACTIVE"
+            assert event_row[2] == pinned_hash
+    finally:
+        conn.close()
+
+    # 3. Check ProjectTeamClient / internal run authority endpoint
+    pt_client = ProjectTeamClient(
+        base_url=base_url,
+        service_token=_SERVICE_TOKEN,
+    )
+    authority = asyncio.run(
+        pt_client.get_run_authority(
+            workspace_id=ws_a,
+            project_id=p2_id,
+            profile_key="operations",
+        )
+    )
+    assert authority.project_id == p2_id
+    assert authority.workspace_id == ws_a
+    assert authority.profile_key == "operations"
+    assert authority.assignment_version == version + 1
+    assert authority.spec.hash == pinned_hash
+
+    # 4. Founder pauses Operations
+    pause_resp = client.post(
+        f"/operations/projects/{p2_id}/startup-team/operations/pause",
+        json={"expectedVersion": version + 1, "reason": "Operational pause"},
+        headers=headers_a,
+    )
+    assert pause_resp.status_code == 200, f"Pause failed: {pause_resp.text}"
+    pause_data = pause_resp.json()
+    assert pause_data["displayState"] == "PAUSED"
+    assert pause_data["assignmentVersion"] == version + 2
+
+    # Verify run authority now DENIES execution
+    with pytest.raises(ProjectTeamAuthorityError) as exc_info:
+        asyncio.run(
+            pt_client.get_run_authority(
+                workspace_id=ws_a,
+                project_id=p2_id,
+                profile_key="operations",
+            )
+        )
+    assert exc_info.value.status_code in (404, 409)
+    assert "not actively assigned" in str(exc_info.value) or "PAUSED" in str(exc_info.value)
+
+    # Verify prior audit event trail remains intact in DB
+    conn = _get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT event_type, event_payload->>'reason'
+                FROM operating.project_agent_assignment_events
+                WHERE project_id = %s AND event_payload->>'profileKey' = 'operations' AND event_type IN ('ASSIGNMENT_ACTIVATED', 'ASSIGNMENT_PAUSED')
+                ORDER BY occurred_at ASC
+                """,
+                (int(p2_id),),
+            )
+            events = cur.fetchall()
+            assert len(events) >= 2
+            assert events[0][0] == "ASSIGNMENT_ACTIVATED"
+            assert events[1][0] == "ASSIGNMENT_PAUSED"
+            assert events[1][1] == "Operational pause"
+    finally:
+        conn.close()

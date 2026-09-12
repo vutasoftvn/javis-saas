@@ -123,6 +123,36 @@ Ngay sau khi tắt:
 - Vai trò không thể được chọn trong các phiên Deliberation mới.
 - Các phiên đang phân tích của vai trò này sẽ bị từ chối quyền truy cập khi worker xác thực authority.
 
+### 4.3 Điều kiện Tiên quyết Vận hành cho COO và Chief of Staff (Operations Prerequisite for COO / Chief of Staff)
+
+Hai vai trò điều hành cấp cao `chief_of_staff` và `coo` có ranh giới thẩm quyền gắn liền với hồ sơ `operations` trong Startup Team. Khác với `founder_assistant` (Co-Founder chat đồng hành mang tính hội thoại độc lập, không có thẩm quyền chạy tác vụ nền), `operations` là agent vận hành có thẩm quyền chạy được quản trị độc lập (`cosa.agents.operations`).
+
+Quy trình kích hoạt và vận hành chuẩn gồm 5 bước:
+
+1. **Đọc danh sách Startup Team và xác minh `operations`**:
+   - Gọi `GET /operations/projects/:id/startup-team`.
+   - Kiểm tra `operations` có `displayState == 'TEMPLATE'` và `runtimeReadiness == 'READY'`.
+   - Lưu ý: Co-Founder (`founder_assistant`) là chat-only, không thể và không cần kích hoạt để mở khóa COO/Chief of Staff.
+2. **Kích hoạt `operations` bằng version quan sát được**:
+   - Gọi `POST /operations/projects/:id/startup-team/operations/activate` với `expectedVersion`.
+   - `operations` chuyển sang `ACTIVE` và ghi nhận audit event `ASSIGNMENT_ACTIVATED`.
+3. **Đọc lại danh sách Executive Roles, xác minh `AVAILABLE_NOT_ACTIVATED`**:
+   - Gọi `GET /operations/projects/:id/executive-roles`.
+   - Xác nhận `chief_of_staff` và `coo` chuyển từ `UNAVAILABLE` sang `AVAILABLE_NOT_ACTIVATED`.
+   - **Tuyệt đối không tự động chuyển thành `ACTIVE`**: Việc kích hoạt hồ sơ vận hành không cấp quyền tư vấn mặc định cho bất kỳ vai trò cố vấn nào.
+4. **Kích hoạt vai trò được chọn hoặc chọn preset bằng version quan sát được**:
+   - Gọi `POST /operations/projects/:id/executive-roles/:roleKey/activate` với `expectedVersion` tương ứng của role, hoặc gọi chọn preset `startup-build-launch`.
+   - Sau bước này, vai trò mới trở thành `ACTIVE` và sẵn sàng được đưa vào phiên Deliberation.
+5. **Dừng vận hành an toàn (Stop work)**:
+   - Trước tiên vô hiệu hóa vai trò cố vấn (`POST .../disable`).
+   - Sau đó tạm dừng `operations` (`POST /operations/projects/:id/startup-team/operations/pause`).
+   - Kiểm tra lại authority: mọi yêu cầu chạy mới đều bị từ chối (HTTP 404/409) trong khi toàn bộ sổ cái lịch sử (deliberation, analyses, audit events) vẫn được lưu giữ nguyên vẹn để kiểm toán.
+
+> [!IMPORTANT]
+> **Quy tắc Migration 007 Down**:
+> File migration `007_operations_startup_profile.down.sql` được thiết kế **fail-closed**. Rollback migration 007 chỉ được phép thực hiện trong giai đoạn **trước khi sử dụng (pre-use)**. Nếu đã có bằng chứng kích hoạt, phân công hoặc sự kiện liên quan tới `operations`, migration down sẽ **từ chối thực thi**. Sau khi đã đưa vào sử dụng, chỉ được khắc phục tiến tới (remediate forward) hoặc tạm dừng/vô hiệu hóa (`PAUSED`/`DISABLED`), tuyệt đối không được cưỡng chế xóa dữ liệu.
+
+
 ---
 
 ## 5. Danh mục Kiểm toán Cách ly & Bảo mật (Audit Checklist)

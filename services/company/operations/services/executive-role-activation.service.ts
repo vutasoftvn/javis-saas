@@ -199,12 +199,18 @@ export async function getProjectExecutiveRoleStates(
         if (existingAct.state === "ACTIVE") {
           // If underlying assignment is no longer active, truth in display is UNAVAILABLE
           displayState = isProfileEligible ? "ACTIVE" : "UNAVAILABLE";
+          if (!isProfileEligible) {
+            disabledReason = "UNDERLYING_PROFILE_UNAVAILABLE";
+          }
           activatedAt = existingAct.updatedAt.toISOString();
         } else if (existingAct.state === "DISABLED") {
           displayState = "DISABLED";
         }
       } else {
         displayState = isProfileEligible ? "AVAILABLE_NOT_ACTIVATED" : "UNAVAILABLE";
+        if (!isProfileEligible) {
+          disabledReason = "UNDERLYING_PROFILE_UNAVAILABLE";
+        }
       }
 
       return {

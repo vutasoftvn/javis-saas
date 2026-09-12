@@ -217,9 +217,9 @@ workspace-model-routing-e2e: ## Task 5 (plan local-first-model-routing): fallbac
 	PYTHONPATH=. $(PYTEST) tests/e2e/test_workspace_model_routing.py -q --junitxml=test-results/e2e-workspace-model-routing.xml
 
 executive-board-verify: contracts-check mvp-contracts-check skillpacks-validate encore-handler-boundary-check ## Executive Advisory Board release gate: contracts, skillpacks, Encore boundaries, Company, Agent, Flutter, and E2E recovery
-	cd services/company && npm test -- operations/tests/executive-role-activation.service.test.ts operations/tests/executive-role-activation.handler.test.ts operations/tests/executive-deliberation.service.test.ts operations/tests/executive-deliberation.handler.test.ts operations/tests/executive-deliberation-callback.test.ts
-	PYTHONPATH=packages:. $(PYTEST) tests/contracts/test_executive_advisor_role_catalog.py tests/agent/executive_board/ tests/e2e/test_executive_advisory_board.py tests/e2e/test_executive_advisory_board_recovery.py -v
-	cd frontend && flutter test test/modules/hologram_hub/services/executive_advisory_board_service_test.dart test/modules/hologram_hub/views/executive_advisory_board_view_test.dart
+	cd services/company && npm test -- operations/tests/executive-role-activation.service.test.ts operations/tests/executive-role-activation.handler.test.ts operations/tests/executive-deliberation.service.test.ts operations/tests/executive-deliberation.handler.test.ts operations/tests/executive-deliberation-callback.test.ts operations/tests/project-startup-team.service.test.ts operations/tests/project-startup-team.handler.test.ts
+	PYTHONPATH=packages:. $(PYTEST) tests/contracts/test_executive_advisor_role_catalog.py tests/agent/executive_board/ tests/e2e/test_default_project_startup_team.py tests/e2e/test_executive_advisory_board.py tests/e2e/test_executive_advisory_board_recovery.py tests/e2e/test_operations_profile_migration.py -v
+	cd frontend && flutter test test/modules/hologram_hub/services/executive_advisory_board_service_test.dart test/modules/hologram_hub/views/executive_advisory_board_view_test.dart test/modules/hologram_hub/services/project_startup_team_service_test.dart test/modules/hologram_hub/widgets/project_startup_team_sidebar_test.dart
 	cd frontend && flutter analyze --no-pub
 	node scripts/check_frontend_api_contracts.mjs
 
