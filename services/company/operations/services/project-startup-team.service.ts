@@ -59,7 +59,7 @@ export async function requireStartupTeamAuthority(
 }
 
 /**
- * Đảm bảo Project có đầy đủ 9 catalog template assignments (idempotent).
+ * Đảm bảo Project có đầy đủ catalog hiện hành template assignments (idempotent).
  * Dùng trong transaction tạo Project hoặc khi repair/backfill.
  */
 export async function ensureProjectStartupTeam(
@@ -125,7 +125,7 @@ export async function ensureProjectStartupTeam(
 
 /**
  * Lấy danh sách Startup Team của Project.
- * Trả về đủ 9 profile theo catalog chuẩn.
+ * Trả về đủ profile theo catalog hiện hành.
  */
 export async function listProjectStartupTeam(input: {
   workspaceId: string;

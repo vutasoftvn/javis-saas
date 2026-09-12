@@ -13,7 +13,7 @@ import {
 } from "../../shared/contracts/startup-team-profiles.generated";
 
 describe("Project Startup Team Service", () => {
-  it("newly created project has exactly the 9 catalog profiles", async () => {
+  it("newly created project has exactly the catalog profiles", async () => {
     const ws = await createTestWorkspaceWithMember();
 
     const project = await createProject({
@@ -29,12 +29,20 @@ describe("Project Startup Team Service", () => {
       actorId: ws.userId,
     });
 
+    expect(team.length).toBe(STARTUP_TEAM_PROFILES.length);
     expect(team.map((m) => m.profileKey)).toEqual(STARTUP_TEAM_PROFILE_KEYS);
 
     const founder = team.find((m) => m.profileKey === "founder_assistant");
     expect(founder).toMatchObject({
       displayState: "CHAT_READY",
       runtimeReadiness: "READY",
+    });
+
+    const operations = team.find((m) => m.profileKey === "operations");
+    expect(operations).toMatchObject({
+      displayState: "TEMPLATE",
+      runtimeReadiness: "READY",
+      assignmentVersion: 1,
     });
 
     const coding = team.find((m) => m.profileKey === "coding");

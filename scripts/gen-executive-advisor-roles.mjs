@@ -54,13 +54,16 @@ for (const r of spec.roles) {
     }
   }
 
-  if (r.key === "chief_of_staff") {
-    if (r.runtimeReadiness !== "PENDING_OPERATIONS_PROFILE") {
-      console.error("chief_of_staff must have runtimeReadiness PENDING_OPERATIONS_PROFILE");
+  if (["chief_of_staff", "coo"].includes(r.key)) {
+    if (r.requiredProfileKey !== "operations") {
+      console.error(`${r.key} must require 'operations' profile`);
       process.exit(1);
     }
-    if (r.requiredProfileKey !== "operations") {
-      console.error("chief_of_staff must require 'operations' profile");
+    const expectedOperationsReadiness = startupProfileKeys.has("operations")
+      ? "READY"
+      : "PENDING_OPERATIONS_PROFILE";
+    if (r.runtimeReadiness !== expectedOperationsReadiness) {
+      console.error(`${r.key} must have runtimeReadiness ${expectedOperationsReadiness}`);
       process.exit(1);
     }
   }

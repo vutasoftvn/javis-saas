@@ -8,6 +8,12 @@
       "runtimeReadiness": "READY"
     },
     {
+      "key": "operations",
+      "label": "Operations",
+      "defaultMode": "TEMPLATE",
+      "runtimeReadiness": "READY"
+    },
+    {
       "key": "research_intelligence",
       "label": "Research & Intelligence",
       "defaultMode": "TEMPLATE",

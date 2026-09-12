@@ -35,7 +35,7 @@
         "skillpack:executive/chief-of-staff@1.0.0"
       ],
       "advisoryOnly": true,
-      "runtimeReadiness": "PENDING_OPERATIONS_PROFILE",
+      "runtimeReadiness": "READY",
       "sourceProvenance": "superpowers:executive-advisory-board"
     },
     {
@@ -74,7 +74,7 @@
         "skillpack:executive/coo-advisor@1.0.0"
       ],
       "advisoryOnly": true,
-      "runtimeReadiness": "PENDING_OPERATIONS_PROFILE",
+      "runtimeReadiness": "READY",
       "sourceProvenance": "superpowers:executive-advisory-board"
     },
     {

@@ -15,6 +15,7 @@ export type RuntimeReadiness =
 
 export type StartupTeamProfileKey =
   | "founder_assistant"
+  | "operations"
   | "research_intelligence"
   | "strategy"
   | "marketing"
@@ -26,6 +27,7 @@ export type StartupTeamProfileKey =
 
 export const STARTUP_TEAM_PROFILE_KEYS = [
   "founder_assistant",
+  "operations",
   "research_intelligence",
   "strategy",
   "marketing",
@@ -45,6 +47,7 @@ export interface StartupTeamProfileDef {
 
 export const STARTUP_TEAM_PROFILES: readonly StartupTeamProfileDef[] = Object.freeze([
   {"key":"founder_assistant","label":"Co-Founder","defaultMode":"CHAT_READY","runtimeReadiness":"READY"},
+  {"key":"operations","label":"Operations","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"research_intelligence","label":"Research & Intelligence","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"strategy","label":"Strategy","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"marketing","label":"Marketing","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
