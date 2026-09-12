@@ -54,11 +54,13 @@ describe("Executive Deliberation Service", () => {
     const secondWs = await createSecondWorkspace();
     foreignProjectId = secondWs.projectId;
 
-    // Activate finance and marketing in startup team, then activate CFO and CMO
+    // Activate finance, marketing, and customer_support in startup team, then activate CFO, CMO, and CCO
     await activateProjectStartupTeamMember(founderCtx, projectId, "finance", { expectedVersion: 1 });
     await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
+    await activateProjectStartupTeamMember(founderCtx, projectId, "customer_support", { expectedVersion: 1 });
     await activateExecutiveRole(founderCtx, projectId, "cfo", { expectedVersion: 1 });
     await activateExecutiveRole(founderCtx, projectId, "cmo", { expectedVersion: 1 });
+    await activateExecutiveRole(founderCtx, projectId, "cco", { expectedVersion: 1 });
   });
 
   it("creates a draft deliberation only with human founder authority", async () => {
@@ -102,6 +104,32 @@ describe("Executive Deliberation Service", () => {
       );
     expect(outboxRows).toHaveLength(1);
     expect(outboxRows[0].status).toBe("pending");
+  });
+
+  it("frames cco alongside cfo and atomically writes the outbox", async () => {
+    const draft = await createDraftDeliberation(founderCtx, projectId, {
+      title: "Pricing Strategy",
+    });
+    const framed = await frameDeliberation(founderCtx, projectId, draft.id, {
+      expectedVersion: 1,
+      roleKeys: ["cfo", "cco"],
+      question: "Có nên tăng giá gói Pro không?",
+    });
+    expect(framed.state).toBe("ANALYSIS_QUEUED");
+
+    const outboxRows = await db
+      .select()
+      .from(eventOutbox)
+      .where(
+        and(
+          eq(eventOutbox.workspaceId, founderCtx.workspaceId),
+          eq(eventOutbox.eventType, "executive.deliberation.framed.v1"),
+          eq(eventOutbox.aggregateId, draft.id)
+        )
+      );
+    expect(outboxRows).toHaveLength(1);
+    const envelope = outboxRows[0].envelope as { payload: { selectedRoles: Array<{ roleKey: string }> } };
+    expect(envelope.payload.selectedRoles.map((r) => r.roleKey).sort()).toEqual(["cco", "cfo"]);
   });
 
   it("refuses framing when a requested role is not ACTIVE", async () => {

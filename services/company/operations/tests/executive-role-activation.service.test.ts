@@ -113,6 +113,29 @@ describe("Executive Role Activation Service", () => {
     expect(dup.state).toBe("ACTIVE");
   });
 
+  it("activates CCO when Customer Support is ACTIVE, and enforces CAS versioning", async () => {
+    await activateProjectStartupTeamMember(founderCtx, projectId, "customer_support", { expectedVersion: 1 });
+    const statesBefore = await getProjectExecutiveRoleStates(founderCtx, projectId);
+    const ccoBefore = statesBefore.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cco");
+    expect(ccoBefore?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
+    const activated = await activateExecutiveRole(founderCtx, projectId, "cco", {
+      expectedVersion: ccoBefore!.version,
+      idempotencyKey: "act-cco-1",
+    });
+    expect(activated.state).toBe("ACTIVE");
+  });
+
+  it("refuses CCO when Customer Support assignment is not ACTIVE", async () => {
+    const statesBefore = await getProjectExecutiveRoleStates(founderCtx, projectId);
+    const ccoBefore = statesBefore.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cco");
+    await expect(
+      activateExecutiveRole(founderCtx, projectId, "cco", {
+        expectedVersion: ccoBefore!.version,
+        idempotencyKey: "act-cco-2",
+      })
+    ).rejects.toThrow(/EXECUTIVE_ROLE_NOT_AVAILABLE/);
+  });
+
   it("selectStartupCorePreset activates only eligible default roles and records setting", async () => {
     // Activate marketing only (finance remains TEMPLATE)
     await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
