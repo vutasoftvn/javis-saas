@@ -54,7 +54,7 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     }
   }
 
-  /// Kích hoạt vai trò cố vấn (Founder-only). Cập nhật theo kết quả trả về từ server, không optimistic.
+  /// Kích hoạt vai trò cố vấn (Founder-only). Cập nhật bằng cách reload lại board từ server, không optimistic.
   Future<bool> activateRole({
     required String projectId,
     required String roleKey,
@@ -73,10 +73,9 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     isMutating.value = false;
 
     if (result.isSuccess && result.dataOrNull != null) {
-      final updated = result.dataOrNull!;
-      final idx = roles.indexWhere((r) => r.roleKey == roleKey);
-      if (idx >= 0) {
-        roles[idx] = updated;
+      await loadBoard(projectId);
+      if (errorMessage.value != null) {
+        return false;
       }
       return true;
     } else {
@@ -85,7 +84,7 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     }
   }
 
-  /// Tạm dừng / vô hiệu hoá vai trò cố vấn.
+  /// Tạm dừng / vô hiệu hoá vai trò cố vấn. Reload lại board từ server.
   Future<bool> disableRole({
     required String projectId,
     required String roleKey,
@@ -106,10 +105,9 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     isMutating.value = false;
 
     if (result.isSuccess && result.dataOrNull != null) {
-      final updated = result.dataOrNull!;
-      final idx = roles.indexWhere((r) => r.roleKey == roleKey);
-      if (idx >= 0) {
-        roles[idx] = updated;
+      await loadBoard(projectId);
+      if (errorMessage.value != null) {
+        return false;
       }
       return true;
     } else {

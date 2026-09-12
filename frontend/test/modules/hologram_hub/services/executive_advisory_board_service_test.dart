@@ -17,7 +17,7 @@ void main() {
     await SecureStorageService.write('auth_token', 'test-token');
   });
 
-  test('fetches executive advisor roles with truthful states', () async {
+  test('fetches executive advisor roles with truthful Company contract fields', () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'GET');
       expect(request.url.path, '/operations/projects/proj-101/executive-roles');
@@ -28,28 +28,32 @@ void main() {
             'roles': [
               {
                 'roleKey': 'cfo',
-                'title': 'CFO Advisor',
-                'domain': 'finance',
-                'advisoryLevel': 'L1',
-                'description': 'Financial modeling and cash runway advisory',
-                'capabilities': ['read_metrics', 'propose_budget'],
-                'activationState': 'ACTIVE',
-                'underlyingProfileKey': 'finance',
-                'assignmentStatus': 'ACTIVE',
-                'specHash': 'spec-hash-1',
-                'assignmentVersion': 1,
+                'label': 'CFO Advisor',
+                'advisoryRemit': 'Financial modeling and cash runway advisory',
+                'displayState': 'ACTIVE',
+                'runtimeReadiness': 'READY',
+                'requiredProfileKey': 'finance',
+                'version': 2,
+                'actorId': 'user-1',
+                'activatedAt': '2026-09-11T12:00:00.000Z',
               },
               {
-                'roleKey': 'ciso',
-                'title': 'CISO Advisor',
-                'domain': 'security',
-                'advisoryLevel': 'L1',
-                'description': 'Security and compliance guidance',
-                'capabilities': ['audit_compliance'],
-                'activationState': 'UNAVAILABLE',
-                'underlyingProfileKey': 'security',
-                'assignmentStatus': 'UNASSIGNED',
-                'specHash': 'spec-hash-2',
+                'roleKey': 'chief_of_staff',
+                'label': 'Chief of Staff',
+                'advisoryRemit': 'Điều phối thực thi liên phòng ban',
+                'displayState': 'AVAILABLE_NOT_ACTIVATED',
+                'runtimeReadiness': 'READY',
+                'requiredProfileKey': 'operations',
+                'version': 1,
+              },
+              {
+                'roleKey': 'coo',
+                'label': 'Chief Operating Officer',
+                'advisoryRemit': 'Thiết kế hệ thống vận hành và tối ưu nguồn lực',
+                'displayState': 'UNAVAILABLE',
+                'runtimeReadiness': 'READY',
+                'requiredProfileKey': 'operations',
+                'version': 1,
                 'disabledReason': 'UNDERLYING_PROFILE_UNAVAILABLE',
               },
             ],
@@ -73,23 +77,34 @@ void main() {
     final result = await service.fetchRoles('proj-101');
     expect(result, isA<ApiSuccess<List<ExecutiveAdvisorRole>>>());
     final roles = (result as ApiSuccess<List<ExecutiveAdvisorRole>>).data;
-    expect(roles, hasLength(2));
+    expect(roles, hasLength(3));
 
     expect(roles[0].roleKey, 'cfo');
+    expect(roles[0].title, 'CFO Advisor');
+    expect(roles[0].description, 'Financial modeling and cash runway advisory');
     expect(roles[0].activationState, ExecutiveActivationState.active);
-    expect(roles[0].assignmentVersion, 1);
+    expect(roles[0].underlyingProfileKey, 'finance');
+    expect(roles[0].domain, 'finance');
+    expect(roles[0].assignmentVersion, 2);
+    expect(roles[0].activatedBy, 'user-1');
 
-    expect(roles[1].roleKey, 'ciso');
-    expect(roles[1].activationState, ExecutiveActivationState.unavailable);
-    expect(roles[1].disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
+    expect(roles[1].roleKey, 'chief_of_staff');
+    expect(roles[1].title, 'Chief of Staff');
+    expect(roles[1].activationState, ExecutiveActivationState.availableNotActivated);
+    expect(roles[1].underlyingProfileKey, 'operations');
+
+    expect(roles[2].roleKey, 'coo');
+    expect(roles[2].title, 'Chief Operating Officer');
+    expect(roles[2].activationState, ExecutiveActivationState.unavailable);
+    expect(roles[2].disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
   });
 
-  test('activates an executive role with expected version', () async {
+  test('activates an executive role and decodes mutation receipt truthfully', () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'POST');
       expect(
         request.url.path,
-        '/operations/projects/proj-101/executive-roles/cfo/activate',
+        '/operations/projects/proj-101/executive-roles/chief_of_staff/activate',
       );
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(body['expectedVersion'], 1);
@@ -97,17 +112,10 @@ void main() {
       return http.Response(
         jsonEncode({
           'data': {
-            'roleKey': 'cfo',
-            'title': 'CFO Advisor',
-            'domain': 'finance',
-            'advisoryLevel': 'L1',
-            'description': 'Financial modeling',
-            'capabilities': ['read_metrics'],
-            'activationState': 'ACTIVE',
-            'underlyingProfileKey': 'finance',
-            'assignmentStatus': 'ACTIVE',
-            'specHash': 'hash-cfo',
-            'assignmentVersion': 2,
+            'id': 'mut-cos-1',
+            'roleKey': 'chief_of_staff',
+            'state': 'ACTIVE',
+            'version': 2,
           },
           'meta': {
             'dataState': 'populated',
@@ -127,13 +135,64 @@ void main() {
 
     final result = await service.activateRole(
       projectId: 'proj-101',
-      roleKey: 'cfo',
+      roleKey: 'chief_of_staff',
       expectedVersion: 1,
     );
-    expect(result, isA<ApiSuccess<ExecutiveAdvisorRole>>());
-    final role = (result as ApiSuccess<ExecutiveAdvisorRole>).data;
-    expect(role.activationState, ExecutiveActivationState.active);
-    expect(role.assignmentVersion, 2);
+    expect(result, isA<ApiSuccess<ExecutiveRoleMutationReceipt>>());
+    final receipt = (result as ApiSuccess<ExecutiveRoleMutationReceipt>).data;
+    expect(receipt.id, 'mut-cos-1');
+    expect(receipt.roleKey, 'chief_of_staff');
+    expect(receipt.state, 'ACTIVE');
+    expect(receipt.version, 2);
+  });
+
+  test('disables an executive role and decodes mutation receipt truthfully', () async {
+    final mockHttp = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(
+        request.url.path,
+        '/operations/projects/proj-101/executive-roles/coo/disable',
+      );
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['expectedVersion'], 2);
+      expect(body['reason'], 'Strategic pause');
+
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'id': 'mut-coo-2',
+            'roleKey': 'coo',
+            'state': 'DISABLED',
+            'version': 3,
+          },
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-09-11T12:00:00Z',
+            'sources': [
+              {'kind': 'company_db', 'ref': 'operating'}
+            ],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final service = ExecutiveAdvisoryBoardService(client: requestClient);
+
+    final result = await service.disableRole(
+      projectId: 'proj-101',
+      roleKey: 'coo',
+      expectedVersion: 2,
+      reason: 'Strategic pause',
+    );
+    expect(result, isA<ApiSuccess<ExecutiveRoleMutationReceipt>>());
+    final receipt = (result as ApiSuccess<ExecutiveRoleMutationReceipt>).data;
+    expect(receipt.id, 'mut-coo-2');
+    expect(receipt.roleKey, 'coo');
+    expect(receipt.state, 'DISABLED');
+    expect(receipt.version, 3);
   });
 
   test('handles activation error faithfully without local success fabrication', () async {
@@ -142,7 +201,7 @@ void main() {
         jsonEncode({
           'error': {
             'code': 'failed_precondition',
-            'message': 'Underlying profile finance is not active',
+            'message': 'Underlying profile operations is not active',
           },
         }),
         412,
@@ -155,9 +214,9 @@ void main() {
 
     final result = await service.activateRole(
       projectId: 'proj-101',
-      roleKey: 'cfo',
+      roleKey: 'coo',
       expectedVersion: 1,
     );
-    expect(result, isA<ApiFailure<ExecutiveAdvisorRole>>());
+    expect(result, isA<ApiFailure<ExecutiveRoleMutationReceipt>>());
   });
 }

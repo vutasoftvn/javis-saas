@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/localization/locale_controller.dart';
+import '../../../core/localization/supported_locale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../controllers/founder_command_center_controller.dart';
 import '../models/project_startup_team.dart';
@@ -31,6 +33,13 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
   final Set<String> _actionInProgressKeys = <String>{};
   String? _expandedProfileKey;
 
+  bool _isEnglish() {
+    if (Get.isRegistered<LocaleController>()) {
+      return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+    }
+    return Get.locale?.languageCode == 'en';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -53,29 +62,47 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
     'strategy': Icons.explore_outlined,
     'marketing': Icons.campaign_outlined,
     'finance': Icons.account_balance_wallet_outlined,
+    'operations': Icons.settings_suggest_outlined,
     'crm': Icons.people_outline,
     'sales': Icons.trending_up,
     'coding': Icons.code_outlined,
     'customer_support': Icons.support_agent_outlined,
   };
 
-  static const Map<String, String> _profileDescriptions = {
+  static const Map<String, String> _profileDescriptionsVi = {
     'founder_assistant': 'Trợ lý Co-Founder AI đồng hành chiến lược và điều phối',
     'research_intelligence': 'Nghiên cứu thị trường, phân tích đối thủ và tổng hợp thông tin',
     'strategy': 'Hoạch định chiến lược tăng trưởng, OKR và mục tiêu 12 tuần',
     'marketing': 'Sáng tạo nội dung, chiến dịch tiếp thị và xây dựng thương hiệu',
     'finance': 'Phân tích tài chính, dự báo dòng tiền và quản lý ngân sách',
+    'operations': 'Chuẩn hóa quy trình, tối ưu vận hành và điều phối nguồn lực',
     'crm': 'Quản lý quan hệ khách hàng và quy trình tương tác',
     'sales': 'Tối ưu phễu bán hàng, kịch bản tư vấn và chuyển đổi',
     'coding': 'Lập trình, hiện thực hóa tính năng kỹ thuật và phát triển sản phẩm',
     'customer_support': 'Hỗ trợ khách hàng, giải đáp thắc mắc và chăm sóc sau bán',
   };
 
+  static const Map<String, String> _profileDescriptionsEn = {
+    'founder_assistant': 'AI Co-Founder assistant for strategic alignment and coordination',
+    'research_intelligence': 'Market research, competitor analysis, and intelligence synthesis',
+    'strategy': 'Growth strategy, OKRs planning, and 12-week execution goals',
+    'marketing': 'Content creation, marketing campaigns, and brand building',
+    'finance': 'Financial analysis, cash flow forecasting, and budget management',
+    'operations': 'Standardize processes, optimize operations, and orchestrate resources',
+    'crm': 'Customer relationship management and interaction workflows',
+    'sales': 'Sales funnel optimization, consultative scripts, and conversion',
+    'coding': 'Software engineering, technical implementation, and product development',
+    'customer_support': 'Customer support, inquiry resolution, and post-sales care',
+  };
+
   IconData _getIcon(String key) =>
       _profileIcons[key] ?? Icons.smart_toy_outlined;
 
-  String _getDescription(String key) =>
-      _profileDescriptions[key] ?? 'Thành viên đội ngũ khởi nghiệp AI';
+  String _getDescription(String key) {
+    final isEn = _isEnglish();
+    final map = isEn ? _profileDescriptionsEn : _profileDescriptionsVi;
+    return map[key] ?? (isEn ? 'AI Startup Team Member' : 'Thành viên đội ngũ khởi nghiệp AI');
+  }
 
   Future<void> _handleActivate(ProjectStartupTeamMember member) async {
     if (_actionInProgressKeys.contains(member.profileKey)) return;
@@ -116,6 +143,7 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
   }
 
   Widget _buildCollapsedRail() {
+    final isEn = _isEnglish();
     return Container(
       key: const Key('startup_team_collapsed_rail'),
       width: 68,
@@ -134,7 +162,7 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
             IconButton(
               onPressed: widget.onToggleCollapse,
               icon: const Icon(Icons.chevron_right, color: AppTheme.primaryLight),
-              tooltip: 'Mở rộng Đội ngũ Khởi nghiệp',
+              tooltip: isEn ? 'Expand Startup Team' : 'Mở rộng Đội ngũ Khởi nghiệp',
             ),
           Divider(color: AppTheme.primary.withValues(alpha: 0.13)),
           const SizedBox(height: 6),
@@ -159,18 +187,17 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
                           color: isActive
                               ? AppTheme.primary.withValues(alpha: 0.2)
                               : const Color(0xFF1E293B),
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isActive
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFF475569),
-                            width: 1.5,
+                                ? AppTheme.primaryLight
+                                : const Color(0xFF334155),
                           ),
                         ),
                         child: Icon(
                           _getIcon(member.profileKey),
                           color: isActive ? Colors.white : const Color(0xFF94A3B8),
-                          size: 18,
+                          size: 20,
                         ),
                       ),
                     ),
@@ -194,23 +221,28 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
           color: AppTheme.primary.withValues(alpha: 0.2),
           width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: widget.shrinkWrap ? MainAxisSize.min : MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeader(),
-          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _buildHeader(),
+          ),
           Divider(color: AppTheme.primary.withValues(alpha: 0.13), height: 1),
-          const SizedBox(height: 12),
-          _buildBody(),
+          if (widget.shrinkWrap)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildBody(),
+            )
+          else
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: _buildBody(),
+              ),
+            ),
         ],
       ),
     );
@@ -218,6 +250,7 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
 
   Widget _buildHeader() {
     return Obx(() {
+      final isEn = _isEnglish();
       final team = widget.controller.startupTeam;
       final activeCount = team.where((m) =>
           m.displayState == TeamDisplayState.active ||
@@ -242,9 +275,9 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ĐỘI NGŨ KHỞI NGHIỆP',
-                  style: TextStyle(
+                Text(
+                  isEn ? 'STARTUP TEAM' : 'ĐỘI NGŨ KHỞI NGHIỆP',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -255,8 +288,10 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
                 const SizedBox(height: 2),
                 Text(
                   projectTitle.isNotEmpty
-                      ? '$projectTitle ($activeCount/$totalCount đang chạy)'
-                      : 'Đang chọn dự án...',
+                      ? (isEn
+                          ? '$projectTitle ($activeCount/$totalCount running)'
+                          : '$projectTitle ($activeCount/$totalCount đang chạy)')
+                      : (isEn ? 'Selecting project...' : 'Đang chọn dự án...'),
                   style: const TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: 11,
@@ -270,7 +305,7 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
             IconButton(
               onPressed: widget.onToggleCollapse,
               icon: const Icon(Icons.chevron_left, color: Color(0xFF94A3B8), size: 20),
-              tooltip: 'Thu gọn cột',
+              tooltip: isEn ? 'Collapse sidebar' : 'Thu gọn cột',
             ),
         ],
       );
@@ -279,6 +314,7 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
 
   Widget _buildBody() {
     return Obx(() {
+      final isEn = _isEnglish();
       final pid = widget.controller.activeProjectId.value;
       if (pid == null || pid.isEmpty) {
         return _buildNoProjectState();
@@ -301,12 +337,12 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
 
       final team = widget.controller.startupTeam;
       if (team.isEmpty) {
-        return const Center(
+        return Center(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
+            padding: const EdgeInsets.symmetric(vertical: 32),
             child: Text(
-              'Không có dữ liệu đội ngũ khởi nghiệp',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              isEn ? 'No startup team data' : 'Không có dữ liệu đội ngũ khởi nghiệp',
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
             ),
           ),
         );
@@ -330,6 +366,7 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
   }
 
   Widget _buildNoProjectState() {
+    final isEn = _isEnglish();
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -337,24 +374,26 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF334155)),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           children: [
-            Icon(Icons.folder_open_outlined, color: Color(0xFF64748B), size: 36),
-            SizedBox(height: 8),
+            const Icon(Icons.folder_open_outlined, color: Color(0xFF64748B), size: 36),
+            const SizedBox(height: 8),
             Text(
-              'Chưa chọn dự án',
-              style: TextStyle(
+              isEn ? 'No project selected' : 'Chưa chọn dự án',
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
-              'Chọn một dự án để xem và quản lý đội ngũ khởi nghiệp.',
+              isEn
+                  ? 'Select a project to view and manage its startup team.'
+                  : 'Chọn một dự án để xem và quản lý đội ngũ khởi nghiệp.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
             ),
           ],
         ),
@@ -396,6 +435,7 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
   }
 
   Widget _buildMemberCard(ProjectStartupTeamMember member) {
+    final isEn = _isEnglish();
     final isExpanded = _expandedProfileKey == member.profileKey;
     final isActionInProgress = _actionInProgressKeys.contains(member.profileKey);
     final badge = _badgeText(member);
@@ -524,7 +564,9 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              'Kích hoạt: ${_formatDate(member.activatedAt!)}${member.activatedBy != null ? ' bởi ${member.activatedBy}' : ''}',
+                              isEn
+                                  ? 'Activated: ${_formatDate(member.activatedAt!)}${member.activatedBy != null ? ' by ${member.activatedBy}' : ''}'
+                                  : 'Kích hoạt: ${_formatDate(member.activatedAt!)}${member.activatedBy != null ? ' bởi ${member.activatedBy}' : ''}',
                               style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -544,7 +586,10 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
                         key: const Key('btn_chat_cofounder'),
                         onPressed: widget.onOpenCofounderChat,
                         icon: const Icon(Icons.chat_bubble_outline, size: 14),
-                        label: const Text('Mở Chat Co-Founder', style: TextStyle(fontSize: 11)),
+                        label: Text(
+                          isEn ? 'Open Co-Founder Chat' : 'Mở Chat Co-Founder',
+                          style: const TextStyle(fontSize: 11),
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primary,
                           foregroundColor: Colors.white,
@@ -569,7 +614,10 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
                                 child: CircularProgressIndicator(strokeWidth: 1.5),
                               )
                             : const Icon(Icons.pause_circle_outline, size: 14),
-                        label: const Text('Tạm dừng', style: TextStyle(fontSize: 11)),
+                        label: Text(
+                          isEn ? 'Pause' : 'Tạm dừng',
+                          style: const TextStyle(fontSize: 11),
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFFF59E0B),
                           side: const BorderSide(color: Color(0xFFF59E0B)),
@@ -595,7 +643,9 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
                               )
                             : const Icon(Icons.play_circle_outline, size: 14),
                         label: Text(
-                          canResume ? 'Kích hoạt lại' : 'Kích hoạt',
+                          canResume
+                              ? (isEn ? 'Reactivate' : 'Kích hoạt lại')
+                              : (isEn ? 'Activate' : 'Kích hoạt'),
                           style: const TextStyle(fontSize: 11),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -646,25 +696,26 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
   }
 
   String _badgeText(ProjectStartupTeamMember member) {
+    final isEn = _isEnglish();
     switch (member.displayState) {
       case TeamDisplayState.chatReady:
         return 'Co-Founder chat ready';
       case TeamDisplayState.active:
         return 'Active';
       case TeamDisplayState.paused:
-        return 'Tạm dừng';
+        return isEn ? 'Paused' : 'Tạm dừng';
       case TeamDisplayState.retired:
-        return 'Đã giải thể';
+        return isEn ? 'Retired' : 'Đã giải thể';
       case TeamDisplayState.template:
         switch (member.runtimeReadiness) {
           case RuntimeReadiness.deferredCoding:
             return 'Coming later';
           case RuntimeReadiness.pendingCrmFoundation:
-            return 'Cần tích hợp CRM';
+            return isEn ? 'Needs CRM Integration' : 'Cần tích hợp CRM';
           case RuntimeReadiness.pendingProjectKnowledge:
-            return 'Cần tri thức dự án';
+            return isEn ? 'Needs Project Knowledge' : 'Cần tri thức dự án';
           case RuntimeReadiness.ready:
-            return 'Sẵn sàng';
+            return isEn ? 'Ready' : 'Sẵn sàng';
         }
     }
   }
@@ -692,32 +743,40 @@ class _ProjectStartupTeamSidebarState extends State<ProjectStartupTeamSidebar> {
   }
 
   String _disabledButtonLabel(ProjectStartupTeamMember member) {
+    final isEn = _isEnglish();
     if (member.runtimeReadiness == RuntimeReadiness.deferredCoding) {
       return 'Coming later';
     }
     if (member.runtimeReadiness == RuntimeReadiness.pendingCrmFoundation) {
-      return 'Cần tích hợp CRM';
+      return isEn ? 'Needs CRM Integration' : 'Cần tích hợp CRM';
     }
     if (member.runtimeReadiness == RuntimeReadiness.pendingProjectKnowledge) {
-      return 'Cần tri thức dự án';
+      return isEn ? 'Needs Project Knowledge' : 'Cần tri thức dự án';
     }
-    return 'Chưa sẵn sàng';
+    return isEn ? 'Not Ready' : 'Chưa sẵn sàng';
   }
 
   String _disabledExplanation(ProjectStartupTeamMember member) {
+    final isEn = _isEnglish();
     if (member.disabledReason != null && member.disabledReason!.isNotEmpty) {
       return member.disabledReason!;
     }
     if (member.runtimeReadiness == RuntimeReadiness.deferredCoding) {
-      return 'Tính năng lập trình chưa mở trong giai đoạn hiện tại';
+      return isEn
+          ? 'Coding capability is not available in the current stage'
+          : 'Tính năng lập trình chưa mở trong giai đoạn hiện tại';
     }
     if (member.runtimeReadiness == RuntimeReadiness.pendingCrmFoundation) {
-      return 'Cần tích hợp nền tảng CRM trước khi kích hoạt agent';
+      return isEn
+          ? 'CRM platform integration required before activating agent'
+          : 'Cần tích hợp nền tảng CRM trước khi kích hoạt agent';
     }
     if (member.runtimeReadiness == RuntimeReadiness.pendingProjectKnowledge) {
-      return 'Cần cấu hình tài liệu và tri thức dự án trước khi kích hoạt';
+      return isEn
+          ? 'Project documentation and knowledge setup required before activation'
+          : 'Cần cấu hình tài liệu và tri thức dự án trước khi kích hoạt';
     }
-    return 'Agent chưa sẵn sàng để kích hoạt';
+    return isEn ? 'Agent is not ready to activate' : 'Agent chưa sẵn sàng để kích hoạt';
   }
 
   String _formatDate(DateTime dt) {

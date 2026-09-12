@@ -136,4 +136,64 @@ void main() {
     expect(find.text('Khả thi về dòng tiền'), findsOneWidget);
     expect(find.text('Phê duyệt (Approve)'), findsOneWidget);
   });
+
+  testWidgets('COO and Chief of Staff render as UNAVAILABLE when operations profile is missing', (tester) async {
+    final controller = ExecutiveAdvisoryBoardController();
+    controller.roles.assignAll([
+      _mockRole(
+        roleKey: 'chief_of_staff',
+        title: 'Chief of Staff',
+        state: ExecutiveActivationState.unavailable,
+        disabledReason: 'UNDERLYING_PROFILE_UNAVAILABLE',
+      ),
+      _mockRole(
+        roleKey: 'coo',
+        title: 'Chief Operating Officer',
+        state: ExecutiveActivationState.unavailable,
+        disabledReason: 'UNDERLYING_PROFILE_UNAVAILABLE',
+      ),
+    ]);
+
+    await _pumpBoard(tester, controller: controller);
+
+    expect(find.text('Chief of Staff'), findsOneWidget);
+    expect(find.text('Chief Operating Officer'), findsOneWidget);
+    expect(find.text('Chưa sẵn sàng'), findsNWidgets(2));
+    expect(find.text('UNDERLYING_PROFILE_UNAVAILABLE'), findsNWidgets(2));
+    expect(find.text('Kích hoạt'), findsNothing);
+  });
+
+  testWidgets('Chief of Staff renders as AVAILABLE_NOT_ACTIVATED with activate button when operations profile is active', (tester) async {
+    final controller = ExecutiveAdvisoryBoardController();
+    controller.roles.assignAll([
+      _mockRole(
+        roleKey: 'chief_of_staff',
+        title: 'Chief of Staff',
+        state: ExecutiveActivationState.availableNotActivated,
+      ),
+    ]);
+
+    await _pumpBoard(tester, controller: controller);
+
+    expect(find.text('Chief of Staff'), findsOneWidget);
+    expect(find.text('Chưa kích hoạt'), findsOneWidget);
+    expect(find.text('Kích hoạt'), findsOneWidget);
+  });
+
+  testWidgets('COO renders as ACTIVE with pause button when activated', (tester) async {
+    final controller = ExecutiveAdvisoryBoardController();
+    controller.roles.assignAll([
+      _mockRole(
+        roleKey: 'coo',
+        title: 'Chief Operating Officer',
+        state: ExecutiveActivationState.active,
+      ),
+    ]);
+
+    await _pumpBoard(tester, controller: controller);
+
+    expect(find.text('Chief Operating Officer'), findsOneWidget);
+    expect(find.text('Đang hoạt động'), findsOneWidget);
+    expect(find.text('Tạm dừng'), findsOneWidget);
+  });
 }

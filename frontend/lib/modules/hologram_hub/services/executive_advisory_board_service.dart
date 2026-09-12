@@ -49,13 +49,13 @@ class ExecutiveAdvisoryBoardService {
   }
 
   /// Kích hoạt một vai trò cố vấn (Founder-only).
-  Future<ApiResult<ExecutiveAdvisorRole>> activateRole({
+  Future<ApiResult<ExecutiveRoleMutationReceipt>> activateRole({
     required String projectId,
     required String roleKey,
     required int expectedVersion,
     String? idempotencyKey,
   }) async {
-    return _client.request<ExecutiveAdvisorRole>(
+    return _client.request<ExecutiveRoleMutationReceipt>(
       MvpEndpoint.projectExecutiveRolesActivate,
       pathParams: {
         'projectId': projectId,
@@ -67,7 +67,7 @@ class ExecutiveAdvisoryBoardService {
       },
       decode: (raw) {
         if (raw is Map<String, dynamic>) {
-          return ExecutiveAdvisorRole.fromJson(raw);
+          return ExecutiveRoleMutationReceipt.fromJson(raw);
         }
         throw const FormatException('Invalid response format for activate executive role');
       },
@@ -75,14 +75,14 @@ class ExecutiveAdvisoryBoardService {
   }
 
   /// Vô hiệu hoá một vai trò cố vấn (Founder-only).
-  Future<ApiResult<ExecutiveAdvisorRole>> disableRole({
+  Future<ApiResult<ExecutiveRoleMutationReceipt>> disableRole({
     required String projectId,
     required String roleKey,
     required int expectedVersion,
     String? reason,
     String? idempotencyKey,
   }) async {
-    return _client.request<ExecutiveAdvisorRole>(
+    return _client.request<ExecutiveRoleMutationReceipt>(
       MvpEndpoint.projectExecutiveRolesDisable,
       pathParams: {
         'projectId': projectId,
@@ -95,7 +95,7 @@ class ExecutiveAdvisoryBoardService {
       },
       decode: (raw) {
         if (raw is Map<String, dynamic>) {
-          return ExecutiveAdvisorRole.fromJson(raw);
+          return ExecutiveRoleMutationReceipt.fromJson(raw);
         }
         throw const FormatException('Invalid response format for disable executive role');
       },

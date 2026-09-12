@@ -108,6 +108,13 @@ void main() {
       assignmentVersion: 3,
     ),
     const ProjectStartupTeamMember(
+      profileKey: 'operations',
+      label: 'Operations',
+      displayState: TeamDisplayState.template,
+      runtimeReadiness: RuntimeReadiness.ready,
+      assignmentVersion: 1,
+    ),
+    const ProjectStartupTeamMember(
       profileKey: 'crm',
       label: 'CRM',
       displayState: TeamDisplayState.template,
@@ -167,21 +174,22 @@ void main() {
     );
   }
 
-  testWidgets('renders all 9 profiles truthful to catalog and truthful badges',
+  testWidgets('renders all 10 profiles truthful to catalog and truthful badges',
       (tester) async {
     await tester.pumpWidget(buildTestWidget());
     await tester.pumpAndSettle();
 
     // Verify header
     expect(find.text('ĐỘI NGŨ KHỞI NGHIỆP'), findsOneWidget);
-    expect(find.textContaining('Alpha B2B Project (2/9 đang chạy)'), findsOneWidget);
+    expect(find.textContaining('Alpha B2B Project (2/10 đang chạy)'), findsOneWidget);
 
-    // Verify all 9 profile labels exist in the widget tree
+    // Verify all 10 profile labels exist in the widget tree
     expect(find.text('Co-Founder'), findsOneWidget);
     expect(find.text('Research & Intelligence'), findsOneWidget);
     expect(find.text('Strategy'), findsOneWidget);
     expect(find.text('Marketing'), findsOneWidget);
     expect(find.text('Finance'), findsOneWidget);
+    expect(find.text('Operations'), findsOneWidget);
     expect(find.text('CRM'), findsOneWidget);
     expect(find.text('Sales'), findsOneWidget);
     expect(find.text('Coding'), findsOneWidget);
@@ -194,7 +202,7 @@ void main() {
     expect(find.text('Coming later'), findsWidgets);
     expect(find.text('Cần tích hợp CRM'), findsWidgets);
     expect(find.text('Cần tri thức dự án'), findsWidgets);
-    expect(find.text('Sẵn sàng'), findsNWidgets(2)); // Research & Intelligence, Strategy
+    expect(find.text('Sẵn sàng'), findsNWidgets(3)); // Research & Intelligence, Strategy, Operations
   });
 
   testWidgets('activate button triggers controller action with expected version after expanding card',
@@ -213,6 +221,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fakeService.lastActivatedProfileKey, equals('research_intelligence'));
+    expect(fakeService.lastActivatedExpectedVersion, equals(1));
+  });
+
+  testWidgets('operations can be expanded and shows btn_activate_operations',
+      (tester) async {
+    await tester.pumpWidget(buildTestWidget());
+    await tester.pumpAndSettle();
+
+    // Expand Operations card
+    final operationsCard = find.byKey(const Key('startup_team_card_inkwell_operations'));
+    await tester.ensureVisible(operationsCard);
+    await tester.pumpAndSettle();
+    await tester.tap(operationsCard);
+    await tester.pumpAndSettle();
+
+    final activateOperationsBtn = find.byKey(const Key('btn_activate_operations'));
+    expect(activateOperationsBtn, findsOneWidget);
+
+    await tester.tap(activateOperationsBtn);
+    await tester.pumpAndSettle();
+
+    expect(fakeService.lastActivatedProfileKey, equals('operations'));
     expect(fakeService.lastActivatedExpectedVersion, equals(1));
   });
 
@@ -243,11 +273,16 @@ void main() {
     await tester.pumpAndSettle();
 
     // Expand CRM card first
-    await tester.tap(find.byKey(const Key('startup_team_card_inkwell_crm')));
+    final crmCard = find.byKey(const Key('startup_team_card_inkwell_crm'));
+    await tester.ensureVisible(crmCard);
+    await tester.pumpAndSettle();
+    await tester.tap(crmCard);
     await tester.pumpAndSettle();
 
     // The CRM button must be disabled
     final crmBtnFinder = find.byKey(const Key('btn_disabled_crm'));
+    await tester.ensureVisible(crmBtnFinder);
+    await tester.pumpAndSettle();
     expect(crmBtnFinder, findsOneWidget);
 
     final buttonWidget = tester.widget<OutlinedButton>(crmBtnFinder);

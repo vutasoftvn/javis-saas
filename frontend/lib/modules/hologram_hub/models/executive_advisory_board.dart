@@ -71,26 +71,50 @@ class ExecutiveAdvisorRole {
   factory ExecutiveAdvisorRole.fromJson(Map<String, dynamic> json) {
     return ExecutiveAdvisorRole(
       roleKey: json['roleKey'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      domain: json['domain'] as String? ?? '',
+      title: json['label'] as String? ?? json['title'] as String? ?? '',
+      domain: json['requiredProfileKey'] as String? ?? json['domain'] as String? ?? '',
       advisoryLevel: json['advisoryLevel'] as String? ?? 'L1',
-      description: json['description'] as String? ?? '',
+      description: json['advisoryRemit'] as String? ?? json['description'] as String? ?? '',
       capabilities: (json['capabilities'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
       activationState: ExecutiveActivationState.fromString(
-        json['activationState'] as String? ?? '',
+        json['displayState'] as String? ?? json['activationState'] as String? ?? '',
       ),
-      underlyingProfileKey: json['underlyingProfileKey'] as String? ?? '',
+      underlyingProfileKey: json['requiredProfileKey'] as String? ?? json['underlyingProfileKey'] as String? ?? '',
       assignmentStatus: json['assignmentStatus'] as String? ?? '',
       specHash: json['specHash'] as String? ?? '',
       disabledReason: json['disabledReason'] as String?,
-      assignmentVersion: json['assignmentVersion'] as int?,
+      assignmentVersion: (json['version'] as num?)?.toInt() ?? json['assignmentVersion'] as int?,
       activatedAt: json['activatedAt'] != null
           ? DateTime.tryParse(json['activatedAt'].toString())
           : null,
-      activatedBy: json['activatedBy'] as String?,
+      activatedBy: json['activatedBy'] as String? ?? json['actorId'] as String?,
+    );
+  }
+}
+
+@immutable
+class ExecutiveRoleMutationReceipt {
+  final String id;
+  final String roleKey;
+  final String state;
+  final int version;
+
+  const ExecutiveRoleMutationReceipt({
+    required this.id,
+    required this.roleKey,
+    required this.state,
+    required this.version,
+  });
+
+  factory ExecutiveRoleMutationReceipt.fromJson(Map<String, dynamic> json) {
+    return ExecutiveRoleMutationReceipt(
+      id: json['id'] as String? ?? '',
+      roleKey: json['roleKey'] as String? ?? '',
+      state: json['state'] as String? ?? '',
+      version: (json['version'] as num?)?.toInt() ?? 0,
     );
   }
 }
