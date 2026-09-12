@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import datetime
+import uuid
 from collections.abc import Callable
 from typing import Any
+
+from pydantic import BaseModel
 
 from agent.contracts.target import ExecutionTargetSnapshot
 from agent.contracts.wait import WaitDescriptor, WaitKind
@@ -11,6 +14,7 @@ from agent.governance.contracts import (
     PolicyOutcome,
 )
 from agent.runs.models import (
+    ApprovalSubject,
     RunApprovalRecord,
     RunCheckpointRecord,
     RunEventRecord,
@@ -20,9 +24,17 @@ from agent.runs.repository import RunRepository
 
 __all__ = [
     "ApprovalAlreadyDecidedError",
+    "ApprovalChangeExecutionResult",
     "ApprovalResumeResult",
+    "ApprovalSubject",
     "DurableApprovalService",
 ]
+
+
+class ApprovalChangeExecutionResult(BaseModel):
+    can_execute: bool
+    reason_code: str
+    approval_record: RunApprovalRecord | None = None
 
 
 class ApprovalAlreadyDecidedError(Exception):
@@ -140,6 +152,118 @@ class DurableApprovalService:
 
         return record, wait_desc
 
+    async def create_change_approval_request(
+        self,
+        *,
+        workspace_id: str,
+        project_id: str | None = None,
+        action: str,
+        subject: ApprovalSubject,
+        requirement: dict[str, Any],
+        requester: str,
+    ) -> tuple[RunApprovalRecord, WaitDescriptor]:
+        """Tạo yêu cầu phê duyệt CHANGE_REQUEST bất biến theo Unified Governance §B.3."""
+        approval_id = f"appr_chg_{uuid.uuid4().hex[:16]}"
+        record = RunApprovalRecord(
+            approval_id=approval_id,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            binding_kind="CHANGE_REQUEST",
+            run_id=None,
+            tool_call_id=None,
+            checkpoint_ref=None,
+            action=action,
+            subject=f"{subject.kind}:{subject.ref}",
+            subject_kind=subject.kind,
+            subject_ref=subject.ref,
+            subject_hash=subject.definition_hash,
+            requirement=requirement,
+            requester=requester,
+            status="pending",
+        )
+        persisted, is_new = await self._repo.create_or_get_pending_change_approval(record)
+
+        if is_new:
+            await self._repo.append_approval_event(
+                approval_id=persisted.approval_id,
+                workspace_id=workspace_id,
+                event_type="approval.required",
+                actor_id=requester,
+                payload={
+                    "action": action,
+                    "subject_kind": subject.kind,
+                    "subject_ref": subject.ref,
+                    "subject_hash": subject.definition_hash,
+                    "requirement": requirement,
+                },
+            )
+
+        wait_desc = WaitDescriptor(
+            kind=WaitKind.APPROVAL,
+            reason=f"Action '{action}' requires approval for {subject.kind} {subject.ref}",
+            owner_responder=requirement.get("role") or "founder",
+            checkpoint_ref=f"change:{subject.kind}:{subject.ref}",
+            related_ref=persisted.approval_id,
+            resume_trigger="approval.decided",
+        )
+
+        return persisted, wait_desc
+
+    async def verify_change_execution(
+        self,
+        *,
+        approval_id: str,
+        workspace_id: str,
+        action: str,
+        subject: ApprovalSubject,
+    ) -> ApprovalChangeExecutionResult:
+        """Xác minh an toàn trước khi thực thi CHANGE_REQUEST theo Unified Governance §B.3."""
+        approval = await self._repo.get_scoped_approval(approval_id, workspace_id)
+        if approval is None:
+            return ApprovalChangeExecutionResult(
+                can_execute=False,
+                reason_code="APPROVAL_NOT_FOUND_OR_FORBIDDEN",
+            )
+        if approval.binding_kind != "CHANGE_REQUEST":
+            return ApprovalChangeExecutionResult(
+                can_execute=False,
+                reason_code="APPROVAL_BINDING_KIND_MISMATCH",
+                approval_record=approval,
+            )
+        if approval.action != action:
+            return ApprovalChangeExecutionResult(
+                can_execute=False,
+                reason_code="APPROVAL_ACTION_MISMATCH",
+                approval_record=approval,
+            )
+        if (
+            approval.subject_kind != subject.kind
+            or approval.subject_ref != subject.ref
+            or approval.subject_hash != subject.definition_hash
+        ):
+            return ApprovalChangeExecutionResult(
+                can_execute=False,
+                reason_code="APPROVAL_SUBJECT_STALE",
+                approval_record=approval,
+            )
+        if approval.expires_at is not None and approval.expires_at < datetime.datetime.now(datetime.UTC):
+            return ApprovalChangeExecutionResult(
+                can_execute=False,
+                reason_code="APPROVAL_EXPIRED",
+                approval_record=approval,
+            )
+        if approval.status != "approved":
+            return ApprovalChangeExecutionResult(
+                can_execute=False,
+                reason_code="APPROVAL_NOT_APPROVED",
+                approval_record=approval,
+            )
+        return ApprovalChangeExecutionResult(
+            can_execute=True,
+            reason_code="APPROVAL_VALID",
+            approval_record=approval,
+        )
+
     async def get_approval(self, approval_id: str) -> RunApprovalRecord | None:
         """Unscoped approval lookup — for internal use only (e.g., expiry processing).
         Call sites that need to check tenant scope should use get_scoped_approval() instead."""
@@ -199,6 +323,20 @@ class DurableApprovalService:
                 "submitted_at": datetime.datetime.now(datetime.UTC).isoformat(),
             }
         )
+
+        if approval.binding_kind == "CHANGE_REQUEST":
+            decided = await self._repo.decide_change_approval_and_enqueue(
+                approval_id=approval_id,
+                reviewer=reviewer,
+                approved=approved,
+                reason=reason,
+                evidence=evidence,
+            )
+            if decided is None:
+                raise ApprovalAlreadyDecidedError(
+                    approval_id=approval_id, current_status=approval.status
+                )
+            return decided
 
         decided = await self._repo.decide_approval(
             approval_id=approval_id,
@@ -295,6 +433,18 @@ class DurableApprovalService:
                     outcome=PolicyOutcome.DENY, reasons=("Approval not found",)
                 ),
                 reason=f"No matching approval for tool_call '{tool_call_id}' and checkpoint '{checkpoint_ref}'",
+            )
+
+        if approval.binding_kind != "TOOL_CALL":
+            return ApprovalResumeResult(
+                can_resume=False,
+                effective_decision=PolicyDecision(
+                    outcome=PolicyOutcome.DENY, reasons=("APPROVAL_BINDING_KIND_MISMATCH",)
+                ),
+                reason="APPROVAL_BINDING_KIND_MISMATCH: verify_and_prepare_resume only accepts TOOL_CALL bindings",
+                approval_record=approval,
+                tool_call_record=tool_call,
+                checkpoint_record=checkpoint,
             )
 
         # COSA Automation MVP (Task 6) — an approval bound to a manifest is valid

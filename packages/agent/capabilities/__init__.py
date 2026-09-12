@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from agent.capabilities.approval_service import (
+    ApprovalChangeExecutionResult,
     ApprovalResumeResult,
+    ApprovalSubject,
     DurableApprovalService,
 )
 from agent.capabilities.canonicalization import (
@@ -20,7 +22,9 @@ from agent.capabilities.registry import (
 )
 
 __all__ = [
+    "ApprovalChangeExecutionResult",
     "ApprovalResumeResult",
+    "ApprovalSubject",
     "CapabilityGateway",
     "CapabilityHandler",
     "CapabilityRegistration",
