@@ -961,5 +961,43 @@ export const projectExecutiveDeliberationAnalyses = operatingSchema.table("proje
   uixDelibAnalysesRole: uniqueIndex("uix_proj_exec_delib_analyses_role").on(t.deliberationId, t.frameVersion, t.roleKey),
 }));
 
+// Product Decision Dossier: bản ghi nghiệp vụ Founder-reviewed, append-only,
+// scoped theo workspace + project. Agent context chỉ được đọc snapshot đã
+// redact (evidence_refs chỉ chứa source ref/classification/redacted excerpt),
+// KHÔNG BAO GIỜ được tạo/confirm/append revision — guard tại service layer.
+export const productDecisionDossiers = operatingSchema.table("product_decision_dossiers", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  status: varchar("status", { length: 24 }).default("DRAFT").notNull(), // DRAFT | CONFIRMED | SUPERSEDED
+  currentVersion: integer("current_version").default(1).notNull(),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixProj: index("idx_product_decision_dossiers_proj").on(t.workspaceId, t.projectId, t.updatedAt),
+}));
+
+export const productDecisionDossierRevisions = operatingSchema.table("product_decision_dossier_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  dossierId: bigint("dossier_id", { mode: "bigint" }).notNull().references(() => productDecisionDossiers.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  status: varchar("status", { length: 24 }).notNull(), // DRAFT | CONFIRMED
+  assumptions: jsonb("assumptions").default([]).notNull(),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  reasonCode: text("reason_code"),
+  narrative: text("narrative"),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  supersedesRevisionId: bigint("supersedes_revision_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixVer: uniqueIndex("uix_product_decision_dossier_revisions_ver").on(t.dossierId, t.version),
+  ixDossier: index("idx_product_decision_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
+}));
 
 
