@@ -120,6 +120,11 @@ make deploy              # preflight → migrate-all → deploy-app (tuần tự
   thời — `ls docs/architecture/adr/` để chắc chắn không bỏ sót ADR mới hơn.
 - `docs/superpowers/specs/` — design đã duyệt (vd.
   `2026-08-31-maintainable-modular-truthful-mvp-design.md`).
+- **Founder-configurable Role/Agent/Skill/Workflow — design đã duyệt, chưa
+  triển khai:**
+  `docs/superpowers/specs/2026-09-13-founder-configurable-agent-skill-workflow-design.md`.
+  Nguồn chuẩn cho Workspace assets + Project deployments, clone-only built-in
+  assets, lifecycle evaluation/publish và Hướng 3 canvas mở có kiểm soát.
 - `docs/superpowers/plans/` — plan triển khai đã duyệt.
 - **COSA Startup Core — nguồn sự thật kiến trúc hiện hành (thay Founder Trial):**
   `docs/superpowers/specs/2026-09-10-cosa-startup-core-clean-slate-design.md`
@@ -205,6 +210,19 @@ seed built-in skillpack vào registry lúc khởi động. Mỗi `AgentSpec` pin
 qua `PinnedSkillRef{skill_id, version, definition_hash}` — resolve sai hash
 raise lỗi, không tự dùng version mới hơn.
 
+**Founder-configurable assets (design đã duyệt, chưa là runtime capability):**
+Built-in Role/AgentSpec/SkillSpec/WorkflowTemplate là Platform-owned và
+**read-only**, kể cả với Founder. Founder muốn tùy biến phải `clone` thành draft
+thuộc Workspace hoặc Project sandbox, giữ lineage `{origin_asset_id, version,
+hash}`, qua validate/eval/review rồi mới publish immutable version mới. Không
+cho edit/delete built-in, không floating `latest`, không tự publish/tự tăng
+authority. Agent/skill/workflow là Workspace asset tái sử dụng; Project chỉ tạo
+deployment/binding thu hẹp scope/quyền/dữ liệu/budget. Mọi business run mới có
+`workspace_id` + `project_id`; `PINNED` là binding/run snapshot, không phải
+trạng thái toàn cục của skill. Hướng 3 canvas mở chỉ compose node/capability đã
+được publish và chỉ mở sau khi có durable manifest, executor thật, validation,
+evaluation, live authorization và process E2E.
+
 
 ## Quy tắc bắt buộc
 
@@ -220,6 +238,13 @@ raise lỗi, không tự dùng version mới hơn.
 10. **An toàn khi sửa code:** chạy `git status` trước thao tác có thể mất dữ liệu; không dùng `--force`/`--no-verify` trừ khi được yêu cầu rõ; không tự ý xóa/archive file — xác nhận với người dùng trước hành động phá hủy.
 11. **Không tuyên bố "xong" khi chưa test.** Mỗi thay đổi hành vi cần test tương ứng; chạy test trước khi báo cáo hoàn thành.
 12. **Không bao giờ tạo git worktree — Code trực tiếp trong `main`:** Tuyệt đối KHÔNG tạo worktrees (`git worktree add`, v.v.). Luôn luôn chỉnh sửa code, chạy lệnh và commit trực tiếp trên nhánh `main` tại root workspace.
+13. **Built-in là clone-only:** Không viết API/UI/job cho Founder sửa hoặc xóa
+    built-in Role/AgentSpec/SkillSpec/WorkflowTemplate. Clone giữ lineage;
+    published version immutable; mọi run resolve exact version/hash.
+14. **Asset Workspace, effect Project:** Agent/skill/workflow tái sử dụng thuộc
+    Workspace; Project chỉ bind và thu hẹp policy/data/budget. Business run mới
+    fail closed nếu thiếu `workspace_id` hoặc `project_id`; không suy diễn scope
+    từ UI, prompt hay active Project local.
 
 ## Encore.ts (services/company, services/cosa)
 
