@@ -971,6 +971,7 @@ class TestRepositoryContract:
             "customer_success",
             "growth",
             "people",
+            "executive",
         }
 
         # Find all packs (directories with manifest.yaml and SKILL.md)

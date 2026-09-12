@@ -59,7 +59,7 @@ evidence:
   min_source_refs: 1
   self_validation_forbidden: true
 quality:
-  eval_suite: evals/executive/board_cases.yaml
+  eval_suite: evals/executive/chief-of-staff.yaml
   required_negative_cases:
   - missing-workspace
   - cross-workspace
