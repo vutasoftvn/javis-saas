@@ -50,7 +50,7 @@ tương ứng (`STARTUP_TEAM_PROFILES`) `READY`:
 | Role | required_profile_key | Trạng thái profile thật |
 |---|---|---|
 | cfo, cmo | finance, marketing | READY → role READY |
-| coo, chief_of_staff | `"operations"` | `PENDING_OPERATIONS_PROFILE` — **không có key `"operations"` trong `STARTUP_TEAM_PROFILES`** (lệch tên/thiếu profile, cần điều tra) |
+| coo, chief_of_staff | `"operations"` | READY — `operations` là `OwnerAgentProfile` độc lập, bổ sung vào `STARTUP_TEAM_PROFILES` (xem Quyết định operations 2026-09-12) |
 | cco | customer_support | `PENDING_PROJECT_KNOWLEDGE` (AgentSpec `customer_support`/`customer_support_autopilot` đã deploy thật, chỉ thiếu wiring knowledge) |
 | cro | sales | `PENDING_CRM_FOUNDATION` (đã có placeholder profile, chưa xong) |
 | vpe | coding | `DEFERRED_CODING` (chưa có sandboxed executor thật) |
@@ -122,10 +122,17 @@ Thứ tự triển khai theo dependency thật (không phải đếm skill):
 2. **cro, vpe** (ưu tiên 2): hoàn thiện functional profile `sales` (`PENDING_CRM_FOUNDATION`)
    và `coding` (`DEFERRED_CODING` — cần sandboxed executor thật, việc lớn) trước khi role
    tương ứng dùng được; viết skillpack có thể làm song song.
-3. **Điều tra "operations"** (ưu tiên 3, làm sớm vì có thể chỉ là gap nhỏ): xác nhận
-   `founder_assistant`/`cosa.agents.operations` có phải chính là profile `"operations"` mà
-   `coo`/`chief_of_staff` cần hay không; nếu chỉ thiếu 1 mapping thì sửa nhanh, nếu là gap thật
-   thì gộp vào nhóm 4.
+3. ### Quyết định operations (2026-09-12)
+
+   `operations` là `OwnerAgentProfile` độc lập, đã có `cosa.agents.operations` và
+   hash-pinned workforce identity. Nó thiếu duy nhất khỏi `STARTUP_TEAM_PROFILES`.
+   `founder_assistant` chỉ là alias chat; Company cấm nó trở thành operating assignment,
+   nên không được dùng làm fallback cho COO/Chief of Staff.
+
+   Thêm `operations` làm Startup Team profile `TEMPLATE`/`READY`, data-backfill Project
+   cũ, rồi đưa `chief_of_staff` và `coo` lên `READY`. Không tạo AgentSpec, skillpack,
+   route hoặc auto-activation mới. Profile activation chỉ mở eligibility; Founder vẫn
+   phải kích hoạt role/preset tường minh.
 4. **cpo, chro, ciso, gc, cdo, caio** (ưu tiên 4, tốn công nhất): mỗi role cần 1 functional-agent
    profile mới hoàn toàn (AgentSpec, capability, entry `STARTUP_TEAM_PROFILES`, allowlist
    route-policy) trước khi skillpack advisor có ý nghĩa. Tách sub-plan riêng theo domain, làm
