@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import text
@@ -10,6 +11,8 @@ from agent.contracts.run import RunStatus
 from agent.governance.contracts import ExecutionMode
 from agent.persistence import BasePostgresRepository
 from agent.runs.models import (
+    ApprovalActionOutboxRecord,
+    ApprovalEventRecord,
     IdempotencyClaimRecord,
     RunApprovalRecord,
     RunCheckpointRecord,
@@ -19,7 +22,10 @@ from agent.runs.models import (
     WorkforceRunAttribution,
 )
 
+ALLOW_LISTED_CHANGE_ACTIONS = {"promote_skill_candidate"}
+
 __all__ = [
+    "ALLOW_LISTED_CHANGE_ACTIONS",
     "InMemoryRunRepository",
     "PostgresRunRepository",
     "RunRepository",
@@ -100,6 +106,40 @@ class RunRepository(Protocol):
         self,
         workspace_id: str | None = None,
     ) -> list[RunApprovalRecord]: ...
+    async def create_or_get_pending_change_approval(
+        self, approval: RunApprovalRecord
+    ) -> tuple[RunApprovalRecord, bool]: ...
+    async def append_approval_event(
+        self,
+        *,
+        approval_id: str,
+        workspace_id: str,
+        event_type: str,
+        actor_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> ApprovalEventRecord: ...
+    async def decide_change_approval_and_enqueue(
+        self,
+        *,
+        approval_id: str,
+        reviewer: str,
+        approved: bool,
+        reason: str | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> RunApprovalRecord | None: ...
+    async def claim_approval_actions(
+        self,
+        *,
+        limit: int,
+        worker_id: str,
+        now: datetime,
+    ) -> list[ApprovalActionOutboxRecord]: ...
+    async def mark_approval_action_delivered(
+        self,
+        *,
+        approval_id: str,
+        worker_id: str,
+    ) -> bool: ...
 
     # 6. Atomic idempotency claims (Blueprint V2 §20)
     async def claim_idempotency(
@@ -124,6 +164,8 @@ class InMemoryRunRepository:
         self._events: dict[str, list[RunEventRecord]] = {}  # run_id -> [events]
         self._tool_calls: dict[str, RunToolCallRecord] = {}  # tool_call_id -> record
         self._approvals: dict[str, RunApprovalRecord] = {}  # approval_id -> record
+        self._approval_events: list[ApprovalEventRecord] = []
+        self._approval_outbox: dict[str, ApprovalActionOutboxRecord] = {}  # approval_id -> record
         self._idempotency_claims: dict[str, IdempotencyClaimRecord] = {}  # claim_id -> record
         self._idempotency_index: dict[tuple[str, str, str, str], str] = {}  # scope key -> claim_id
         self._automation_manifests: dict[str, dict[str, Any]] = {}  # run_id -> {hash, json}
@@ -313,8 +355,13 @@ class InMemoryRunRepository:
 
     # Approvals
     async def create_approval(self, approval: RunApprovalRecord) -> RunApprovalRecord:
-        self._approvals[approval.approval_id] = approval.model_copy(deep=True)
-        return approval
+        record = approval.model_copy(deep=True)
+        if record.workspace_id is None and record.run_id:
+            run = self._runs.get(record.run_id)
+            if run:
+                record.workspace_id = run.workspace_id
+        self._approvals[record.approval_id] = record
+        return record.model_copy(deep=True)
 
     async def get_approval(self, approval_id: str) -> RunApprovalRecord | None:
         a = self._approvals.get(approval_id)
@@ -323,9 +370,13 @@ class InMemoryRunRepository:
     async def get_scoped_approval(
         self, approval_id: str, workspace_id: str
     ) -> RunApprovalRecord | None:
-        """Scoped approval lookup: return the approval only if its associated run's workspace_id matches."""
+        """Scoped approval lookup: check workspace_id directly on approval or via run."""
         a = self._approvals.get(approval_id)
-        if a:
+        if not a:
+            return None
+        if a.workspace_id == workspace_id:
+            return a.model_copy(deep=True)
+        if a.workspace_id is None and a.run_id:
             run = self._runs.get(a.run_id)
             if run and run.workspace_id == workspace_id:
                 return a.model_copy(deep=True)
@@ -376,13 +427,134 @@ class InMemoryRunRepository:
         res = []
         for a in self._approvals.values():
             if a.status == "pending":
-                run = self._runs.get(a.run_id)
-                if not run:
-                    continue
-                if workspace_id is not None and run.workspace_id != workspace_id:
-                    continue
-                res.append(a.model_copy(deep=True))
+                if workspace_id is None:
+                    res.append(a.model_copy(deep=True))
+                elif a.workspace_id == workspace_id:
+                    res.append(a.model_copy(deep=True))
+                elif a.workspace_id is None and a.run_id:
+                    run = self._runs.get(a.run_id)
+                    if run and run.workspace_id == workspace_id:
+                        res.append(a.model_copy(deep=True))
         return res
+
+    async def create_or_get_pending_change_approval(
+        self, approval: RunApprovalRecord
+    ) -> tuple[RunApprovalRecord, bool]:
+        """Idempotently create or retrieve a pending CHANGE_REQUEST approval."""
+        for existing in self._approvals.values():
+            if (
+                existing.binding_kind == "CHANGE_REQUEST"
+                and existing.status == "pending"
+                and existing.workspace_id == approval.workspace_id
+                and existing.action == approval.action
+                and existing.subject_kind == approval.subject_kind
+                and existing.subject_ref == approval.subject_ref
+                and existing.subject_hash == approval.subject_hash
+            ):
+                return existing.model_copy(deep=True), False
+        self._approvals[approval.approval_id] = approval.model_copy(deep=True)
+        return approval.model_copy(deep=True), True
+
+    async def append_approval_event(
+        self,
+        *,
+        approval_id: str,
+        workspace_id: str,
+        event_type: str,
+        actor_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> ApprovalEventRecord:
+        record = ApprovalEventRecord(
+            approval_id=approval_id,
+            workspace_id=workspace_id,
+            event_type=event_type,
+            actor_id=actor_id,
+            payload=payload or {},
+        )
+        self._approval_events.append(record.model_copy(deep=True))
+        return record
+
+    async def decide_change_approval_and_enqueue(
+        self,
+        *,
+        approval_id: str,
+        reviewer: str,
+        approved: bool,
+        reason: str | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> RunApprovalRecord | None:
+        """Atomic decision for change approval: CAS status = 'pending', record event,
+        and enqueue into outbox only when approved and action is allow-listed."""
+        a = self._approvals.get(approval_id)
+        if not a or a.status != "pending":
+            return None
+        a.status = "approved" if approved else "denied"
+        a.reviewer = reviewer
+        a.decided_at = datetime.now(UTC)
+        a.decision_version += 1
+        if reason:
+            a.reason = reason
+        if evidence:
+            a.evidence = evidence
+
+        await self.append_approval_event(
+            approval_id=a.approval_id,
+            workspace_id=a.workspace_id or "",
+            event_type="approval.decided",
+            actor_id=reviewer,
+            payload={"approved": approved, "reason": reason, "action": a.action},
+        )
+
+        if approved and a.action in ALLOW_LISTED_CHANGE_ACTIONS:
+            outbox = ApprovalActionOutboxRecord(
+                approval_id=a.approval_id,
+                workspace_id=a.workspace_id or "",
+                action=a.action or "",
+                subject_kind=a.subject_kind,
+                subject_ref=a.subject_ref,
+                subject_hash=a.subject_hash or "",
+                state="pending",
+                attempt_count=0,
+                next_attempt_at=datetime.now(UTC),
+                created_at=datetime.now(UTC),
+            )
+            self._approval_outbox[a.approval_id] = outbox
+
+        return a.model_copy(deep=True)
+
+    async def claim_approval_actions(
+        self,
+        *,
+        limit: int,
+        worker_id: str,
+        now: datetime,
+    ) -> list[ApprovalActionOutboxRecord]:
+        claimed: list[ApprovalActionOutboxRecord] = []
+        for outbox in self._approval_outbox.values():
+            if len(claimed) >= limit:
+                break
+            if (outbox.state == "pending" and outbox.next_attempt_at <= now) or (
+                outbox.state == "claimed" and outbox.next_attempt_at <= now
+            ):
+                outbox.state = "claimed"
+                outbox.claim_token = worker_id
+                outbox.attempt_count += 1
+                outbox.next_attempt_at = now + timedelta(seconds=60)
+                claimed.append(outbox.model_copy(deep=True))
+        return claimed
+
+    async def mark_approval_action_delivered(
+        self,
+        *,
+        approval_id: str,
+        worker_id: str,
+    ) -> bool:
+        outbox = self._approval_outbox.get(approval_id)
+        if outbox and outbox.claim_token == worker_id and outbox.state == "claimed":
+            outbox.state = "delivered"
+            outbox.delivered_at = datetime.now(UTC)
+            return True
+        return False
 
     # 6. Atomic idempotency claims
     async def claim_idempotency(
@@ -1035,27 +1207,35 @@ class PostgresRunRepository(BasePostgresRepository):
 
     # 5. Approvals
     async def create_approval(self, approval: RunApprovalRecord) -> RunApprovalRecord:
+        ws_id = approval.workspace_id
+        if ws_id is None and approval.run_id:
+            run = await self.get_run(approval.run_id)
+            if run:
+                ws_id = run.workspace_id
+
         async with self._session_factory() as session:
             await self._execute(
                 session,
                 text(
                     """
                     INSERT INTO agent.approvals (
-                        approval_id, run_id, project_id, tool_call_id, checkpoint_ref, status,
-                        requirement, requester, action, subject, reviewer, reason, evidence,
-                        manifest_hash, created_at, decided_at, expires_at
+                        approval_id, workspace_id, project_id, binding_kind, run_id, tool_call_id, checkpoint_ref, status,
+                        requirement, requester, action, subject, subject_kind, subject_ref, subject_hash,
+                        reviewer, reason, evidence, manifest_hash, created_at, decided_at, expires_at
                     ) VALUES (
-                        :approval_id, :run_id, :project_id, :tool_call_id, :checkpoint_ref, :status,
-                        :requirement, :requester, :action, :subject, :reviewer, :reason, :evidence,
-                        :manifest_hash, :created_at, :decided_at, :expires_at
+                        :approval_id, :workspace_id, :project_id, :binding_kind, :run_id, :tool_call_id, :checkpoint_ref, :status,
+                        :requirement, :requester, :action, :subject, :subject_kind, :subject_ref, :subject_hash,
+                        :reviewer, :reason, :evidence, :manifest_hash, :created_at, :decided_at, :expires_at
                     )
                     ON CONFLICT (approval_id) DO NOTHING;
                     """
                 ),
                 {
                     "approval_id": approval.approval_id,
-                    "run_id": approval.run_id,
+                    "workspace_id": ws_id,
                     "project_id": approval.project_id,
+                    "binding_kind": approval.binding_kind,
+                    "run_id": approval.run_id,
                     "tool_call_id": approval.tool_call_id,
                     "checkpoint_ref": approval.checkpoint_ref,
                     "status": approval.status,
@@ -1063,6 +1243,9 @@ class PostgresRunRepository(BasePostgresRepository):
                     "requester": approval.requester,
                     "action": approval.action,
                     "subject": approval.subject,
+                    "subject_kind": approval.subject_kind,
+                    "subject_ref": approval.subject_ref,
+                    "subject_hash": approval.subject_hash,
                     "reviewer": approval.reviewer,
                     "reason": approval.reason,
                     "evidence": json.dumps(approval.evidence)
@@ -1083,9 +1266,9 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT approval_id, run_id, project_id, tool_call_id, checkpoint_ref, status,
-                           requirement, requester, action, subject, reviewer, reason, evidence,
-                           manifest_hash, decision_version, created_at, decided_at, expires_at
+                    SELECT approval_id, workspace_id, project_id, binding_kind, run_id, tool_call_id, checkpoint_ref, status,
+                           requirement, requester, action, subject, subject_kind, subject_ref, subject_hash,
+                           reviewer, reason, evidence, manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
                     WHERE approval_id = :approval_id
                     """
@@ -1100,19 +1283,18 @@ class PostgresRunRepository(BasePostgresRepository):
     async def get_scoped_approval(
         self, approval_id: str, workspace_id: str
     ) -> RunApprovalRecord | None:
-        """Scoped approval lookup: join with runs and enforce workspace_id in SQL WHERE clause."""
+        """Scoped approval lookup: query a.workspace_id directly."""
         async with self._session_factory() as session:
             res = await self._execute(
                 session,
                 text(
                     """
-                    SELECT a.approval_id, a.run_id, a.project_id, a.tool_call_id, a.checkpoint_ref, a.status,
-                           a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
-                           a.manifest_hash, a.decision_version, a.created_at, a.decided_at, a.expires_at
+                    SELECT a.approval_id, a.workspace_id, a.project_id, a.binding_kind, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
+                           a.requirement, a.requester, a.action, a.subject, a.subject_kind, a.subject_ref, a.subject_hash,
+                           a.reviewer, a.reason, a.evidence, a.manifest_hash, a.decision_version, a.created_at, a.decided_at, a.expires_at
                     FROM agent.approvals a
-                    JOIN agent.runs r ON a.run_id = r.run_id
                     WHERE a.approval_id = :approval_id
-                      AND r.workspace_id = :workspace_id
+                      AND a.workspace_id = :workspace_id
                     """
                 ),
                 {"approval_id": approval_id, "workspace_id": workspace_id},
@@ -1128,9 +1310,9 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT approval_id, run_id, project_id, tool_call_id, checkpoint_ref, status,
-                           requirement, requester, action, subject, reviewer, reason, evidence,
-                           manifest_hash, decision_version, created_at, decided_at, expires_at
+                    SELECT approval_id, workspace_id, project_id, binding_kind, run_id, tool_call_id, checkpoint_ref, status,
+                           requirement, requester, action, subject, subject_kind, subject_ref, subject_hash,
+                           reviewer, reason, evidence, manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
                     WHERE tool_call_id = :tool_call_id
                     """
@@ -1148,9 +1330,9 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT approval_id, run_id, project_id, tool_call_id, checkpoint_ref, status,
-                           requirement, requester, action, subject, reviewer, reason, evidence,
-                           manifest_hash, decision_version, created_at, decided_at, expires_at
+                    SELECT approval_id, workspace_id, project_id, binding_kind, run_id, tool_call_id, checkpoint_ref, status,
+                           requirement, requester, action, subject, subject_kind, subject_ref, subject_hash,
+                           reviewer, reason, evidence, manifest_hash, decision_version, created_at, decided_at, expires_at
                     FROM agent.approvals
                     WHERE checkpoint_ref = :checkpoint_ref
                     """
@@ -1214,25 +1396,323 @@ class PostgresRunRepository(BasePostgresRepository):
         self,
         workspace_id: str | None = None,
     ) -> list[RunApprovalRecord]:
-        """List pending approvals. If workspace_id is provided, filter by that workspace.
-        If workspace_id is None, return all pending approvals (system operation)."""
+        """List pending approvals directly querying a.workspace_id."""
         query = """
-            SELECT a.approval_id, a.run_id, a.project_id, a.tool_call_id, a.checkpoint_ref, a.status,
-                    a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
-                    a.decision_version, a.created_at, a.decided_at, a.expires_at
+            SELECT a.approval_id, a.workspace_id, a.project_id, a.binding_kind, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
+                    a.requirement, a.requester, a.action, a.subject, a.subject_kind, a.subject_ref, a.subject_hash,
+                    a.reviewer, a.reason, a.evidence, a.manifest_hash, a.decision_version, a.created_at, a.decided_at, a.expires_at
             FROM agent.approvals a
-            JOIN agent.runs r ON a.run_id = r.run_id
             WHERE a.status = 'pending'
         """
         params: dict[str, Any] = {}
         if workspace_id is not None:
-            query += " AND r.workspace_id = :workspace_id"
+            query += " AND a.workspace_id = :workspace_id"
             params["workspace_id"] = workspace_id
         query += " ORDER BY a.created_at ASC"
 
         async with self._session_factory() as session:
             res = await self._execute(session, text(query), params)
             return [self._row_to_approval(r) for r in res.mappings().all()]
+
+    async def create_or_get_pending_change_approval(
+        self, approval: RunApprovalRecord
+    ) -> tuple[RunApprovalRecord, bool]:
+        """Idempotently insert or retrieve a pending CHANGE_REQUEST approval using unique partial index."""
+        async with self._session_factory() as session:
+            res = await self._execute(
+                session,
+                text(
+                    """
+                    INSERT INTO agent.approvals (
+                        approval_id, workspace_id, project_id, binding_kind, run_id, tool_call_id, checkpoint_ref, status,
+                        requirement, requester, action, subject, subject_kind, subject_ref, subject_hash,
+                        reviewer, reason, evidence, manifest_hash, created_at, decided_at, expires_at
+                    ) VALUES (
+                        :approval_id, :workspace_id, :project_id, :binding_kind, :run_id, :tool_call_id, :checkpoint_ref, :status,
+                        :requirement, :requester, :action, :subject, :subject_kind, :subject_ref, :subject_hash,
+                        :reviewer, :reason, :evidence, :manifest_hash, :created_at, :decided_at, :expires_at
+                    )
+                    ON CONFLICT (workspace_id, action, subject_kind, subject_ref, subject_hash)
+                    WHERE binding_kind = 'CHANGE_REQUEST' AND status = 'pending'
+                    DO NOTHING
+                    RETURNING approval_id;
+                    """
+                ),
+                {
+                    "approval_id": approval.approval_id,
+                    "workspace_id": approval.workspace_id,
+                    "project_id": approval.project_id,
+                    "binding_kind": approval.binding_kind,
+                    "run_id": approval.run_id,
+                    "tool_call_id": approval.tool_call_id,
+                    "checkpoint_ref": approval.checkpoint_ref,
+                    "status": approval.status,
+                    "requirement": json.dumps(approval.requirement),
+                    "requester": approval.requester,
+                    "action": approval.action,
+                    "subject": approval.subject,
+                    "subject_kind": approval.subject_kind,
+                    "subject_ref": approval.subject_ref,
+                    "subject_hash": approval.subject_hash,
+                    "reviewer": approval.reviewer,
+                    "reason": approval.reason,
+                    "evidence": json.dumps(approval.evidence) if approval.evidence is not None else None,
+                    "manifest_hash": approval.manifest_hash,
+                    "created_at": approval.created_at,
+                    "decided_at": approval.decided_at,
+                    "expires_at": approval.expires_at,
+                },
+            )
+            row = res.mappings().first()
+            if row:
+                await self._commit(session)
+                return approval, True
+
+            # In case of conflict, retrieve existing pending record
+            existing_res = await self._execute(
+                session,
+                text(
+                    """
+                    SELECT approval_id, workspace_id, project_id, binding_kind, run_id, tool_call_id, checkpoint_ref, status,
+                           requirement, requester, action, subject, subject_kind, subject_ref, subject_hash,
+                           reviewer, reason, evidence, manifest_hash, decision_version, created_at, decided_at, expires_at
+                    FROM agent.approvals
+                    WHERE workspace_id = :workspace_id
+                      AND action = :action
+                      AND subject_kind = :subject_kind
+                      AND subject_ref = :subject_ref
+                      AND subject_hash = :subject_hash
+                      AND binding_kind = 'CHANGE_REQUEST'
+                      AND status = 'pending'
+                    LIMIT 1;
+                    """
+                ),
+                {
+                    "workspace_id": approval.workspace_id,
+                    "action": approval.action,
+                    "subject_kind": approval.subject_kind,
+                    "subject_ref": approval.subject_ref,
+                    "subject_hash": approval.subject_hash,
+                },
+            )
+            existing_row = existing_res.mappings().first()
+            await self._commit(session)
+            if existing_row:
+                return self._row_to_approval(existing_row), False
+            return approval, True
+
+    async def append_approval_event(
+        self,
+        *,
+        approval_id: str,
+        workspace_id: str,
+        event_type: str,
+        actor_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> ApprovalEventRecord:
+        record = ApprovalEventRecord(
+            approval_id=approval_id,
+            workspace_id=workspace_id,
+            event_type=event_type,
+            actor_id=actor_id,
+            payload=payload or {},
+        )
+        async with self._session_factory() as session:
+            await self._execute(
+                session,
+                text(
+                    """
+                    INSERT INTO agent.approval_events (
+                        event_id, approval_id, workspace_id, event_type, actor_id, payload, created_at
+                    ) VALUES (
+                        :event_id, :approval_id, :workspace_id, :event_type, :actor_id, :payload, :created_at
+                    );
+                    """
+                ),
+                {
+                    "event_id": record.event_id,
+                    "approval_id": record.approval_id,
+                    "workspace_id": record.workspace_id,
+                    "event_type": record.event_type,
+                    "actor_id": record.actor_id,
+                    "payload": json.dumps(record.payload),
+                    "created_at": record.created_at,
+                },
+            )
+            await self._commit(session)
+        return record
+
+    async def decide_change_approval_and_enqueue(
+        self,
+        *,
+        approval_id: str,
+        reviewer: str,
+        approved: bool,
+        reason: str | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> RunApprovalRecord | None:
+        """Atomic decision for change approval: CAS status = 'pending', record event,
+        and enqueue into outbox only when approved and action is allow-listed."""
+        status = "approved" if approved else "denied"
+        now = datetime.now(UTC)
+
+        async with self._session_factory() as session:
+            res = await self._execute(
+                session,
+                text(
+                    """
+                    UPDATE agent.approvals
+                    SET status = :status,
+                        reviewer = :reviewer,
+                        reason = COALESCE(:reason, reason),
+                        evidence = COALESCE(:evidence, evidence),
+                        decided_at = :decided_at,
+                        decision_version = decision_version + 1
+                    WHERE approval_id = :approval_id
+                      AND status = 'pending'
+                    RETURNING approval_id, workspace_id, project_id, binding_kind, run_id, tool_call_id, checkpoint_ref, status,
+                              requirement, requester, action, subject, subject_kind, subject_ref, subject_hash,
+                              reviewer, reason, evidence, manifest_hash, decision_version, created_at, decided_at, expires_at;
+                    """
+                ),
+                {
+                    "approval_id": approval_id,
+                    "status": status,
+                    "reviewer": reviewer,
+                    "reason": reason,
+                    "evidence": json.dumps(evidence) if evidence is not None else None,
+                    "decided_at": now,
+                },
+            )
+            row = res.mappings().first()
+            if not row:
+                return None
+
+            approval = self._row_to_approval(row)
+
+            # Append approval.decided event
+            event_id = f"apprevt_{uuid.uuid4().hex[:16]}"
+            await self._execute(
+                session,
+                text(
+                    """
+                    INSERT INTO agent.approval_events (
+                        event_id, approval_id, workspace_id, event_type, actor_id, payload, created_at
+                    ) VALUES (
+                        :event_id, :approval_id, :workspace_id, :event_type, :actor_id, :payload, :created_at
+                    );
+                    """
+                ),
+                {
+                    "event_id": event_id,
+                    "approval_id": approval.approval_id,
+                    "workspace_id": approval.workspace_id or "",
+                    "event_type": "approval.decided",
+                    "actor_id": reviewer,
+                    "payload": json.dumps({"approved": approved, "reason": reason, "action": approval.action}),
+                    "created_at": now,
+                },
+            )
+
+            # Enqueue into outbox only when approved and action is allow-listed
+            if approved and approval.action in ALLOW_LISTED_CHANGE_ACTIONS:
+                outbox_id = f"outbox_{uuid.uuid4().hex[:16]}"
+                await self._execute(
+                    session,
+                    text(
+                        """
+                        INSERT INTO agent.approval_action_outbox (
+                            outbox_id, approval_id, workspace_id, action, subject_kind, subject_ref, subject_hash,
+                            state, attempt_count, next_attempt_at, created_at
+                        ) VALUES (
+                            :outbox_id, :approval_id, :workspace_id, :action, :subject_kind, :subject_ref, :subject_hash,
+                            'pending', 0, :next_attempt_at, :created_at
+                        )
+                        ON CONFLICT (approval_id) DO NOTHING;
+                        """
+                    ),
+                    {
+                        "outbox_id": outbox_id,
+                        "approval_id": approval.approval_id,
+                        "workspace_id": approval.workspace_id or "",
+                        "action": approval.action or "",
+                        "subject_kind": approval.subject_kind,
+                        "subject_ref": approval.subject_ref,
+                        "subject_hash": approval.subject_hash or "",
+                        "next_attempt_at": now,
+                        "created_at": now,
+                    },
+                )
+
+            await self._commit(session)
+            return approval
+
+    async def claim_approval_actions(
+        self,
+        *,
+        limit: int,
+        worker_id: str,
+        now: datetime,
+    ) -> list[ApprovalActionOutboxRecord]:
+        async with self._session_factory() as session:
+            res = await self._execute(
+                session,
+                text(
+                    """
+                    WITH claimable AS (
+                        SELECT outbox_id
+                        FROM agent.approval_action_outbox
+                        WHERE (state = 'pending' AND next_attempt_at <= :now)
+                           OR (state = 'claimed' AND next_attempt_at <= :now)
+                        ORDER BY next_attempt_at ASC
+                        LIMIT :limit
+                        FOR UPDATE SKIP LOCKED
+                    )
+                    UPDATE agent.approval_action_outbox o
+                    SET state = 'claimed',
+                        claim_token = :worker_id,
+                        attempt_count = attempt_count + 1,
+                        next_attempt_at = :now + interval '60 seconds'
+                    FROM claimable c
+                    WHERE o.outbox_id = c.outbox_id
+                    RETURNING o.outbox_id, o.approval_id, o.workspace_id, o.action,
+                              o.subject_kind, o.subject_ref, o.subject_hash,
+                              o.state, o.attempt_count, o.next_attempt_at, o.claim_token,
+                              o.created_at, o.delivered_at;
+                    """
+                ),
+                {"limit": limit, "worker_id": worker_id, "now": now},
+            )
+            rows = res.mappings().all()
+            await self._commit(session)
+            return [self._row_to_approval_outbox(r) for r in rows]
+
+    async def mark_approval_action_delivered(
+        self,
+        *,
+        approval_id: str,
+        worker_id: str,
+    ) -> bool:
+        now = datetime.now(UTC)
+        async with self._session_factory() as session:
+            res = await self._execute(
+                session,
+                text(
+                    """
+                    UPDATE agent.approval_action_outbox
+                    SET state = 'delivered',
+                        delivered_at = :now
+                    WHERE approval_id = :approval_id
+                      AND claim_token = :worker_id
+                      AND state = 'claimed'
+                    RETURNING outbox_id;
+                    """
+                ),
+                {"approval_id": approval_id, "worker_id": worker_id, "now": now},
+            )
+            row = res.mappings().first()
+            await self._commit(session)
+            return bool(row)
 
     # 6. Atomic idempotency claims
     async def claim_idempotency(
@@ -1511,23 +1991,46 @@ class PostgresRunRepository(BasePostgresRepository):
     def _row_to_approval(cls, row: Any) -> RunApprovalRecord:
         return RunApprovalRecord(
             approval_id=row["approval_id"],
-            run_id=row["run_id"],
-            project_id=row["project_id"],
-            tool_call_id=row["tool_call_id"],
-            checkpoint_ref=row["checkpoint_ref"],
+            workspace_id=row.get("workspace_id"),
+            project_id=row.get("project_id"),
+            binding_kind=row.get("binding_kind") or "TOOL_CALL",
+            run_id=row.get("run_id"),
+            tool_call_id=row.get("tool_call_id"),
+            checkpoint_ref=row.get("checkpoint_ref"),
             status=row["status"],
             requirement=cls._parse_json(row["requirement"]) or {},
-            requester=row["requester"],
-            action=row["action"],
-            subject=row["subject"],
-            reviewer=row["reviewer"],
-            reason=row["reason"],
-            evidence=cls._parse_json(row["evidence"]),
+            requester=row.get("requester"),
+            action=row.get("action"),
+            subject=row.get("subject"),
+            subject_kind=row.get("subject_kind"),
+            subject_ref=row.get("subject_ref"),
+            subject_hash=row.get("subject_hash"),
+            reviewer=row.get("reviewer"),
+            reason=row.get("reason"),
+            evidence=cls._parse_json(row.get("evidence")),
             manifest_hash=row.get("manifest_hash"),
             decision_version=row["decision_version"],
             created_at=row["created_at"],
-            decided_at=row["decided_at"],
-            expires_at=row["expires_at"],
+            decided_at=row.get("decided_at"),
+            expires_at=row.get("expires_at"),
+        )
+
+    @classmethod
+    def _row_to_approval_outbox(cls, row: Any) -> ApprovalActionOutboxRecord:
+        return ApprovalActionOutboxRecord(
+            outbox_id=row["outbox_id"],
+            approval_id=row["approval_id"],
+            workspace_id=row["workspace_id"],
+            action=row["action"],
+            subject_kind=row.get("subject_kind"),
+            subject_ref=row.get("subject_ref"),
+            subject_hash=row["subject_hash"],
+            state=row["state"],
+            attempt_count=row["attempt_count"],
+            next_attempt_at=row["next_attempt_at"],
+            claim_token=row.get("claim_token"),
+            created_at=row["created_at"],
+            delivered_at=row.get("delivered_at"),
         )
 
     @classmethod

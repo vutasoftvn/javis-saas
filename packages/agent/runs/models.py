@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +11,10 @@ from agent.governance.contracts import ExecutionMode
 from agent.ids import uuid7  # LeafId UUIDv7 cho run_id (M2 §3)
 
 __all__ = [
+    "ApprovalActionOutboxRecord",
+    "ApprovalBindingKind",
+    "ApprovalEventRecord",
+    "ApprovalSubject",
     "AutomationRunManifestRecord",
     "ComplianceDecisionPayload",
     "IdempotencyClaimRecord",
@@ -21,6 +25,45 @@ __all__ = [
     "RunToolCallRecord",
     "WorkforceRunAttribution",
 ]
+
+
+ApprovalBindingKind = Literal["TOOL_CALL", "CHANGE_REQUEST"]
+
+
+class ApprovalSubject(BaseModel):
+    kind: str
+    ref: str
+    definition_hash: str
+
+
+class ApprovalEventRecord(BaseModel):
+    """Bản ghi audit event cho phê duyệt trong agent.approval_events."""
+
+    event_id: str = Field(default_factory=lambda: f"apprevt_{uuid.uuid4().hex[:16]}")
+    approval_id: str
+    workspace_id: str
+    event_type: str
+    actor_id: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ApprovalActionOutboxRecord(BaseModel):
+    """Bản ghi action outbox cho thay đổi đã duyệt trong agent.approval_action_outbox."""
+
+    outbox_id: str = Field(default_factory=lambda: f"outbox_{uuid.uuid4().hex[:16]}")
+    approval_id: str
+    workspace_id: str
+    action: str
+    subject_kind: str | None = None
+    subject_ref: str | None = None
+    subject_hash: str
+    state: str = "pending"
+    attempt_count: int = 0
+    next_attempt_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    claim_token: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    delivered_at: datetime | None = None
 
 
 class WorkforceRunAttribution(BaseModel):
@@ -148,18 +191,23 @@ class RunToolCallRecord(BaseModel):
 
 
 class RunApprovalRecord(BaseModel):
-    """Bản ghi human approval bind trong agent.approvals theo Master Guide §11.6."""
+    """Bản ghi human approval bind trong agent.approvals theo Master Guide §11.6 và Unified Governance §B.3."""
 
     approval_id: str = Field(default_factory=lambda: f"appr_{uuid.uuid4().hex[:16]}")
-    run_id: str
+    workspace_id: str | None = None
     project_id: str | None = None
-    tool_call_id: str
-    checkpoint_ref: str
+    binding_kind: ApprovalBindingKind = "TOOL_CALL"
+    run_id: str | None = None
+    tool_call_id: str | None = None
+    checkpoint_ref: str | None = None
     status: str = "pending"
     requirement: dict[str, Any] = Field(default_factory=dict)
     requester: str | None = None
     action: str | None = None
     subject: str | None = None
+    subject_kind: str | None = None
+    subject_ref: str | None = None
+    subject_hash: str | None = None
     reviewer: str | None = None
     reason: str | None = None
     evidence: dict[str, Any] | None = None
