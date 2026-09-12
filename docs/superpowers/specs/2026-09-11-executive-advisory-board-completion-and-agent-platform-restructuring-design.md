@@ -150,7 +150,24 @@ expansion.py và wait_resolver.py.
 B.1 chỉ wire worker vào CosaAgentPlane.workflow_orchestration; không mở endpoint
 spawn agent, prompt tự do hay role tự chọn. B.3 dùng một ledger approval cho
 TOOL_CALL và CHANGE_REQUEST. Promotion workspace_custom bind candidate ID + exact
-definition hash, Founder quyết định, worker recheck trước publish. B.2/B.4 deferred.
+definition hash, Founder quyết định, worker recheck trước publish.
+
+### Quyết định thực thi B.2 + B.4 (2026-09-12)
+
+Không chạy `SkillOptimizationLab.optimize()` trực tiếp sau mọi Run và không để
+worker POST qua endpoint công khai `/agent/skills/candidates`. Kernel chỉ append
+observation cho từng `PinnedSkillRef` sau khi RunRecord tồn tại. Feedback được
+lưu idempotent, tính aggregate theo cửa sổ và tách hoàn toàn khỏi `eval_score`.
+Chỉ aggregate suy giảm qua policy server-owned mới atomically tạo improvement
+request + outbox.
+
+Worker xử lý request runless với claim fencing, reload đúng `(skill_id, version,
+definition_hash)`, policy hash và evaluator suite hash. Chỉ skill trong
+allow-list có evaluator đăng ký, fixture synthetic/redacted, capability-empty
+eval AgentSpec và mutation budget mới đủ điều kiện. Candidate giữ lineage an
+toàn và không tự publish, auto-pin, đổi capability/autonomy hay kích hoạt role.
+Promotion vẫn là `CHANGE_REQUEST` Founder-reviewed của B.3. Mặc định runtime
+`OFF`; `OBSERVE` không gọi model; `CANDIDATE` chỉ là cấu hình deploy có chủ đích.
 
 **1. Hợp nhất lớp multi-agent orchestration.** Xoá
 `packages/agent/coordination/{supervisor,delegate,parallel,quality_gate,risk_classification,synthesis,
@@ -159,17 +176,17 @@ giữ `scheduler.py`, `control_plane_scheduler_client.py` (đang live). Chọn
 `WorkflowEngine` + `ParallelStep`/`AgentStep`/`ParallelBranch` làm con đường multi-agent DUY
 NHẤT, wire vào `apps/cosa/composition/workflow_orchestration.py`.
 
-**2. Nối vòng tự học/tự đề xuất cải tiến.** Wire `SkillOptimizationLab` vào `apps/cosa/worker/*`:
-sau mỗi run dùng 1 skill, chạy `optimize()`, tự POST candidate qua `POST /candidates` với
-`created_by_agent` được điền thật.
+**2. Nối vòng tự học/tự đề xuất cải tiến có kiểm soát.** Tín hiệu suy giảm từ feedback sau khi qua
+policy server-owned sẽ tạo request và outbox cải tiến bền vững; worker xử lý runless trong sandbox
+cách ly và chỉ đề xuất candidate nếu vượt qua bộ kiểm thử hash-pinned.
 
 **3. Hợp nhất cơ chế phê duyệt.** Thay cơ chế duyệt tự chế của `POST /{id}/promote` bằng
 `DurableApprovalService.create_approval_request(action="promote_skill_candidate", ...)`; mở
 rộng `verify_and_prepare_resume` (hoặc thêm hàm chị em) để xử lý đề xuất không phải tool-call —
 có 1 sổ phê duyệt/audit trail duy nhất cho mọi loại nâng cấp cần người duyệt.
 
-**4. Feedback → tín hiệu học thật.** Dùng `aggregate_score` giảm dần làm tín hiệu tự động kích
-hoạt `SkillOptimizationLab.optimize()`, thay vì là con số nằm im.
+**4. Feedback → tín hiệu học thật.** Dùng aggregate feedback theo cửa sổ giảm dần làm tín hiệu
+kích hoạt đề xuất cải tiến có kiểm soát qua policy, thay vì là con số nằm im hay ghi đè eval_score.
 
 File cốt lõi: xoá `packages/agent/coordination/{supervisor,delegate,parallel,quality_gate,
 risk_classification,synthesis,approval_gate}.py` + test tương ứng; giữ `scheduler.py`; sửa
