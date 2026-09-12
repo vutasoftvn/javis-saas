@@ -235,6 +235,53 @@ async def _dispatch_wga_task(plane: CosaAgentPlane, task, payload: dict, task_ty
         )
 
 
+async def _dispatch_approval_action_task(plane: CosaAgentPlane, task, payload: dict) -> None:
+    """Dispatch durable approval action task (e.g. skill promotion) — no run lease needed."""
+    try:
+        from apps.cosa.worker.approval_actions import execute_skill_candidate_promotion
+
+        action = payload.get("action")
+        subject_kind = payload.get("subject_kind")
+        if action != "promote_skill_candidate" or subject_kind != "skill_candidate":
+            logger.error(
+                "task=%s unsupported approval action=%s subject_kind=%s",
+                task.task_id,
+                action,
+                subject_kind,
+            )
+            await plane.scheduler.complete_task(
+                task.task_id,
+                worker_id=WORKER_ID,
+                claim_token=task.claim_token,
+                success=False,
+                error="UNSUPPORTED_APPROVAL_ACTION",
+            )
+            return
+
+        async def _execute_handler():
+            res = await execute_skill_candidate_promotion(plane, payload)
+            if not res.success:
+                raise RuntimeError(res.reason_code or "APPROVAL_ACTION_FAILED")
+
+        await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
+        ok = await plane.scheduler.complete_task(
+            task.task_id, worker_id=WORKER_ID, claim_token=task.claim_token, success=True
+        )
+        if not ok:
+            logger.warning(
+                "worker=%s task=%s completed but fencing rejected", WORKER_ID, task.task_id
+            )
+    except Exception as exc:
+        logger.exception("task=%s (approval_action) failed during execution", task.task_id)
+        await plane.scheduler.complete_task(
+            task.task_id,
+            worker_id=WORKER_ID,
+            claim_token=task.claim_token,
+            success=False,
+            error=str(exc),
+        )
+
+
 async def _run_with_heartbeats(
     plane: CosaAgentPlane, run_id: str, lease_token: str, task_id: str, claim_token: str, coro
 ) -> None:
@@ -343,6 +390,11 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
             # idempotency qua coalescing_key ở scheduler; không dùng RunLeaseManager.
             if task_type in ("goal_decomposition", "workspace_task_sweep"):
                 await _dispatch_wga_task(plane, task, payload, task_type)
+                return
+
+            # Branch: approval_action (Task 6) — durable worker promotion of approved custom skills
+            if task_type == "approval_action":
+                await _dispatch_approval_action_task(plane, task, payload)
                 return
 
             if not run_id:
@@ -470,6 +522,13 @@ async def run_worker_loop(
     while max_iterations is None or iterations < max_iterations:
         if health_state is not None:
             health_state.last_poll_ts = asyncio.get_event_loop().time()
+
+        try:
+            from apps.cosa.worker.approval_actions import relay_approved_actions
+
+            await relay_approved_actions(plane, worker_id=WORKER_ID, limit=poll_limit)
+        except Exception as exc:
+            logger.warning("Failed to relay approved actions: %s", exc)
 
         try:
             tasks = await plane.scheduler.poll_due_tasks(worker_id=WORKER_ID, limit=poll_limit)

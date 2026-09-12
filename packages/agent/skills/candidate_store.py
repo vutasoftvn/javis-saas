@@ -56,6 +56,13 @@ class SkillCandidateStore(Protocol):
     async def compute_aggregate_feedback_score(
         self, workspace_id: str, skill_id: str
     ) -> float | None: ...
+    async def publish_candidate_if_approved(
+        self,
+        workspace_id: str,
+        candidate_id: str,
+        approval_id: str,
+        expected_definition_hash: str,
+    ) -> tuple[bool, str, SkillCandidate | None]: ...
 
 
 class InMemorySkillCandidateStore:
@@ -66,18 +73,30 @@ class InMemorySkillCandidateStore:
         self._feedback: list[SkillFeedbackRecord] = []
 
     async def save_candidate(self, workspace_id: str, candidate: SkillCandidate) -> SkillCandidate:
-        key = (str(workspace_id), candidate.candidate_id)
-        self._candidates[key] = candidate.model_copy(deep=True)
-        return candidate.model_copy(deep=True)
+        cand = candidate.model_copy(deep=True)
+        if not cand.definition_hash:
+            computed = f"sha256:{cand.proposed_skill.compute_hash()}"
+            cand.definition_hash = computed
+        if hasattr(cand.proposed_skill, "definition_hash") and not cand.proposed_skill.definition_hash:
+            cand.proposed_skill.definition_hash = cand.definition_hash
+        key = (str(workspace_id), cand.candidate_id)
+        self._candidates[key] = cand.model_copy(deep=True)
+        return cand.model_copy(deep=True)
 
     async def get_candidate(self, workspace_id: str, candidate_id: str) -> SkillCandidate | None:
         key = (str(workspace_id), candidate_id)
         cand = self._candidates.get(key)
         if cand is not None:
-            return cand.model_copy(deep=True)
+            c = cand.model_copy(deep=True)
+            if not c.definition_hash:
+                c.definition_hash = f"sha256:{c.proposed_skill.compute_hash()}"
+            return c
         for (ws, _), c in self._candidates.items():
             if ws == str(workspace_id) and c.proposed_skill.id == candidate_id:
-                return c.model_copy(deep=True)
+                res = c.model_copy(deep=True)
+                if not res.definition_hash:
+                    res.definition_hash = f"sha256:{res.proposed_skill.compute_hash()}"
+                return res
         return None
 
     async def list_candidates(
@@ -89,7 +108,10 @@ class InMemorySkillCandidateStore:
                 continue
             if status is not None and c.status.value.lower() != status.lower():
                 continue
-            results.append(c.model_copy(deep=True))
+            item = c.model_copy(deep=True)
+            if not item.definition_hash:
+                item.definition_hash = f"sha256:{item.proposed_skill.compute_hash()}"
+            results.append(item)
         return results
 
     async def update_candidate_status(
@@ -108,6 +130,44 @@ class InMemorySkillCandidateStore:
             cand.eval_score = eval_score
         self._candidates[key] = cand.model_copy(deep=True)
         return cand.model_copy(deep=True)
+
+    async def publish_candidate_if_approved(
+        self,
+        workspace_id: str,
+        candidate_id: str,
+        approval_id: str,
+        expected_definition_hash: str,
+    ) -> tuple[bool, str, SkillCandidate | None]:
+        cand = await self.get_candidate(workspace_id, candidate_id)
+        if cand is None:
+            return False, "CANDIDATE_NOT_FOUND", None
+
+        # Idempotent replay: already published with same approval and hash
+        if cand.status == SkillStatus.PUBLISHED:
+            if cand.promotion_approval_id == approval_id and (
+                cand.promotion_definition_hash == expected_definition_hash
+                or cand.definition_hash == expected_definition_hash
+            ):
+                return True, "ALREADY_PUBLISHED", cand.model_copy(deep=True)
+            return False, "ALREADY_PUBLISHED_DIFFERENT_APPROVAL", cand.model_copy(deep=True)
+
+        # Stale definition check
+        if cand.definition_hash != expected_definition_hash:
+            return False, "APPROVAL_SUBJECT_STALE", cand.model_copy(deep=True)
+
+        if cand.status != SkillStatus.EVALUATED:
+            return False, "CANDIDATE_NOT_EVALUATED", cand.model_copy(deep=True)
+
+        if cand.promotion_approval_id is not None:
+            return False, "PROMOTION_ALREADY_CLAIMED", cand.model_copy(deep=True)
+
+        key = (str(workspace_id), cand.candidate_id)
+        cand.status = SkillStatus.PUBLISHED
+        cand.proposed_skill.status = SkillStatus.PUBLISHED
+        cand.promotion_approval_id = approval_id
+        cand.promotion_definition_hash = expected_definition_hash
+        self._candidates[key] = cand.model_copy(deep=True)
+        return True, "PUBLISHED", cand.model_copy(deep=True)
 
     async def save_feedback(self, feedback: SkillFeedbackRecord) -> SkillFeedbackRecord:
         self._feedback.append(feedback.model_copy(deep=True))
@@ -145,22 +205,36 @@ class PostgresSkillCandidateStore:
     async def save_candidate(self, workspace_id: str, candidate: SkillCandidate) -> SkillCandidate:
         from sqlalchemy import text
 
+        cand = candidate.model_copy(deep=True)
+        if not cand.definition_hash:
+            computed = f"sha256:{cand.proposed_skill.compute_hash()}"
+            cand.definition_hash = computed
+        if hasattr(cand.proposed_skill, "definition_hash") and not cand.proposed_skill.definition_hash:
+            cand.proposed_skill.definition_hash = cand.definition_hash
+
         async with self._session_factory() as session, session.begin():
             query = text(
                 """
-                    INSERT INTO agent_skill_candidates (
+                    INSERT INTO agent.agent_skill_candidates (
                         candidate_id, workspace_id, parent_run_id, skill_id,
-                        proposed_skill, evidence_refs, eval_score, status, updated_at
+                        proposed_skill, evidence_refs, eval_score, status,
+                        definition_hash, promotion_approval_id, promotion_definition_hash,
+                        updated_at
                     ) VALUES (
                         :candidate_id, :workspace_id, :parent_run_id, :skill_id,
                         CAST(:proposed_skill AS jsonb), CAST(:evidence_refs AS jsonb),
-                        :eval_score, :status, now()
+                        :eval_score, :status,
+                        :definition_hash, :promotion_approval_id, :promotion_definition_hash,
+                        now()
                     )
                     ON CONFLICT (candidate_id) DO UPDATE SET
                         proposed_skill = EXCLUDED.proposed_skill,
                         evidence_refs = EXCLUDED.evidence_refs,
                         eval_score = EXCLUDED.eval_score,
                         status = EXCLUDED.status,
+                        definition_hash = EXCLUDED.definition_hash,
+                        promotion_approval_id = COALESCE(EXCLUDED.promotion_approval_id, agent.agent_skill_candidates.promotion_approval_id),
+                        promotion_definition_hash = COALESCE(EXCLUDED.promotion_definition_hash, agent.agent_skill_candidates.promotion_definition_hash),
                         updated_at = now()
                     """
             )
@@ -169,17 +243,20 @@ class PostgresSkillCandidateStore:
             await session.execute(
                 query,
                 {
-                    "candidate_id": candidate.candidate_id,
+                    "candidate_id": cand.candidate_id,
                     "workspace_id": str(workspace_id),
-                    "parent_run_id": candidate.parent_run_id,
-                    "skill_id": candidate.proposed_skill.id,
-                    "proposed_skill": json.dumps(candidate.proposed_skill.model_dump(mode="json")),
-                    "evidence_refs": json.dumps(candidate.evidence_refs),
-                    "eval_score": candidate.eval_score,
-                    "status": candidate.status.value,
+                    "parent_run_id": cand.parent_run_id,
+                    "skill_id": cand.proposed_skill.id,
+                    "proposed_skill": json.dumps(cand.proposed_skill.model_dump(mode="json")),
+                    "evidence_refs": json.dumps(cand.evidence_refs),
+                    "eval_score": cand.eval_score,
+                    "status": cand.status.value,
+                    "definition_hash": cand.definition_hash,
+                    "promotion_approval_id": cand.promotion_approval_id,
+                    "promotion_definition_hash": cand.promotion_definition_hash,
                 },
             )
-        return candidate.model_copy(deep=True)
+        return cand.model_copy(deep=True)
 
     async def get_candidate(self, workspace_id: str, candidate_id: str) -> SkillCandidate | None:
         from sqlalchemy import text
@@ -187,8 +264,9 @@ class PostgresSkillCandidateStore:
         async with self._session_factory() as session:
             query = text(
                 """
-                SELECT candidate_id, parent_run_id, proposed_skill, evidence_refs, eval_score, status
-                FROM agent_skill_candidates
+                SELECT candidate_id, parent_run_id, proposed_skill, evidence_refs, eval_score, status,
+                       definition_hash, promotion_approval_id, promotion_definition_hash
+                FROM agent.agent_skill_candidates
                 WHERE workspace_id = :workspace_id AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
                 LIMIT 1
                 """
@@ -201,13 +279,19 @@ class PostgresSkillCandidateStore:
                 return None
             from agent.skills.contracts import SkillSpec
 
+            spec = SkillSpec.model_validate(row["proposed_skill"])
+            def_hash = row["definition_hash"] or f"sha256:{spec.compute_hash()}"
+
             return SkillCandidate(
                 candidate_id=row["candidate_id"],
                 parent_run_id=row["parent_run_id"],
-                proposed_skill=SkillSpec.model_validate(row["proposed_skill"]),
+                proposed_skill=spec,
                 evidence_refs=row["evidence_refs"] or [],
                 eval_score=row["eval_score"],
                 status=SkillStatus(row["status"]),
+                definition_hash=def_hash,
+                promotion_approval_id=row["promotion_approval_id"],
+                promotion_definition_hash=row["promotion_definition_hash"],
             )
 
     async def list_candidates(
@@ -219,8 +303,9 @@ class PostgresSkillCandidateStore:
             if status is not None:
                 query = text(
                     """
-                    SELECT candidate_id, parent_run_id, proposed_skill, evidence_refs, eval_score, status
-                    FROM agent_skill_candidates
+                    SELECT candidate_id, parent_run_id, proposed_skill, evidence_refs, eval_score, status,
+                           definition_hash, promotion_approval_id, promotion_definition_hash
+                    FROM agent.agent_skill_candidates
                     WHERE workspace_id = :workspace_id AND lower(status) = lower(:status)
                     ORDER BY created_at DESC
                     """
@@ -231,8 +316,9 @@ class PostgresSkillCandidateStore:
             else:
                 query = text(
                     """
-                    SELECT candidate_id, parent_run_id, proposed_skill, evidence_refs, eval_score, status
-                    FROM agent_skill_candidates
+                    SELECT candidate_id, parent_run_id, proposed_skill, evidence_refs, eval_score, status,
+                           definition_hash, promotion_approval_id, promotion_definition_hash
+                    FROM agent.agent_skill_candidates
                     WHERE workspace_id = :workspace_id
                     ORDER BY created_at DESC
                     """
@@ -241,17 +327,24 @@ class PostgresSkillCandidateStore:
 
             from agent.skills.contracts import SkillSpec
 
-            return [
-                SkillCandidate(
-                    candidate_id=row["candidate_id"],
-                    parent_run_id=row["parent_run_id"],
-                    proposed_skill=SkillSpec.model_validate(row["proposed_skill"]),
-                    evidence_refs=row["evidence_refs"] or [],
-                    eval_score=row["eval_score"],
-                    status=SkillStatus(row["status"]),
+            items: list[SkillCandidate] = []
+            for row in result.mappings().all():
+                spec = SkillSpec.model_validate(row["proposed_skill"])
+                def_hash = row["definition_hash"] or f"sha256:{spec.compute_hash()}"
+                items.append(
+                    SkillCandidate(
+                        candidate_id=row["candidate_id"],
+                        parent_run_id=row["parent_run_id"],
+                        proposed_skill=spec,
+                        evidence_refs=row["evidence_refs"] or [],
+                        eval_score=row["eval_score"],
+                        status=SkillStatus(row["status"]),
+                        definition_hash=def_hash,
+                        promotion_approval_id=row["promotion_approval_id"],
+                        promotion_definition_hash=row["promotion_definition_hash"],
+                    )
                 )
-                for row in result.mappings().all()
-            ]
+            return items
 
     async def update_candidate_status(
         self,
@@ -266,7 +359,7 @@ class PostgresSkillCandidateStore:
             if eval_score is not None:
                 query = text(
                     """
-                    UPDATE agent_skill_candidates
+                    UPDATE agent.agent_skill_candidates
                     SET status = :status, eval_score = :eval_score, updated_at = now()
                     WHERE workspace_id = :workspace_id AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
                     """
@@ -283,7 +376,7 @@ class PostgresSkillCandidateStore:
             else:
                 query = text(
                     """
-                    UPDATE agent_skill_candidates
+                    UPDATE agent.agent_skill_candidates
                     SET status = :status, updated_at = now()
                     WHERE workspace_id = :workspace_id AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
                     """
@@ -297,6 +390,118 @@ class PostgresSkillCandidateStore:
                     },
                 )
         return await self.get_candidate(workspace_id, candidate_id)
+
+    async def publish_candidate_if_approved(
+        self,
+        workspace_id: str,
+        candidate_id: str,
+        approval_id: str,
+        expected_definition_hash: str,
+    ) -> tuple[bool, str, SkillCandidate | None]:
+        from sqlalchemy import text
+        from agent.skills.contracts import SkillSpec
+
+        async with self._session_factory() as session, session.begin():
+            fetch_query = text(
+                """
+                SELECT candidate_id, parent_run_id, proposed_skill, evidence_refs, eval_score,
+                       status, definition_hash, promotion_approval_id, promotion_definition_hash
+                FROM agent.agent_skill_candidates
+                WHERE workspace_id = :workspace_id AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
+                LIMIT 1
+                FOR UPDATE
+                """
+            )
+            result = await session.execute(
+                fetch_query, {"workspace_id": str(workspace_id), "candidate_id": candidate_id}
+            )
+            row = result.mappings().first()
+            if not row:
+                return False, "CANDIDATE_NOT_FOUND", None
+
+            spec = SkillSpec.model_validate(row["proposed_skill"])
+            current_def_hash = row["definition_hash"] or f"sha256:{spec.compute_hash()}"
+
+            cand = SkillCandidate(
+                candidate_id=row["candidate_id"],
+                parent_run_id=row["parent_run_id"],
+                proposed_skill=spec,
+                evidence_refs=row["evidence_refs"] or [],
+                eval_score=row["eval_score"],
+                status=SkillStatus(row["status"]),
+                definition_hash=current_def_hash,
+                promotion_approval_id=row["promotion_approval_id"],
+                promotion_definition_hash=row["promotion_definition_hash"],
+            )
+
+            # Idempotent replay: already published with same approval and hash
+            if cand.status == SkillStatus.PUBLISHED:
+                if cand.promotion_approval_id == approval_id and (
+                    cand.promotion_definition_hash == expected_definition_hash
+                    or cand.definition_hash == expected_definition_hash
+                ):
+                    return True, "ALREADY_PUBLISHED", cand
+                return False, "ALREADY_PUBLISHED_DIFFERENT_APPROVAL", cand
+
+            # Stale subject check
+            if cand.definition_hash != expected_definition_hash:
+                return False, "APPROVAL_SUBJECT_STALE", cand
+
+            if cand.status != SkillStatus.EVALUATED:
+                return False, "CANDIDATE_NOT_EVALUATED", cand
+
+            if cand.promotion_approval_id is not None:
+                return False, "PROMOTION_ALREADY_CLAIMED", cand
+
+            import json
+
+            updated_proposed_skill = cand.proposed_skill.model_dump(mode="json")
+            updated_proposed_skill["status"] = SkillStatus.PUBLISHED.value
+
+            cas_query = text(
+                """
+                UPDATE agent.agent_skill_candidates
+                SET status = 'PUBLISHED',
+                    promotion_approval_id = :approval_id,
+                    promotion_definition_hash = :expected_definition_hash,
+                    published_at = now(),
+                    updated_at = now(),
+                    proposed_skill = CAST(:proposed_skill AS jsonb)
+                WHERE workspace_id = :workspace_id
+                  AND (candidate_id = :candidate_id OR skill_id = :candidate_id)
+                  AND status = 'EVALUATED'
+                  AND (definition_hash = :expected_definition_hash OR definition_hash IS NULL)
+                  AND promotion_approval_id IS NULL
+                RETURNING candidate_id, parent_run_id, proposed_skill, evidence_refs, eval_score,
+                          status, definition_hash, promotion_approval_id, promotion_definition_hash
+                """
+            )
+            cas_result = await session.execute(
+                cas_query,
+                {
+                    "workspace_id": str(workspace_id),
+                    "candidate_id": candidate_id,
+                    "approval_id": approval_id,
+                    "expected_definition_hash": expected_definition_hash,
+                    "proposed_skill": json.dumps(updated_proposed_skill),
+                },
+            )
+            updated_row = cas_result.mappings().first()
+            if not updated_row:
+                return False, "CONCURRENT_MODIFICATION", cand
+
+            published_cand = SkillCandidate(
+                candidate_id=updated_row["candidate_id"],
+                parent_run_id=updated_row["parent_run_id"],
+                proposed_skill=SkillSpec.model_validate(updated_row["proposed_skill"]),
+                evidence_refs=updated_row["evidence_refs"] or [],
+                eval_score=updated_row["eval_score"],
+                status=SkillStatus(updated_row["status"]),
+                definition_hash=updated_row["definition_hash"] or expected_definition_hash,
+                promotion_approval_id=updated_row["promotion_approval_id"],
+                promotion_definition_hash=updated_row["promotion_definition_hash"],
+            )
+            return True, "PUBLISHED", published_cand
 
     async def save_feedback(self, feedback: SkillFeedbackRecord) -> SkillFeedbackRecord:
         from sqlalchemy import text

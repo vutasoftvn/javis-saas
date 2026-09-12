@@ -207,3 +207,27 @@ async def test_run_task_still_requires_run_id_and_lease():
     # Task should be completed (failed due to missing run_id)
     remaining = await plane.scheduler.poll_due_tasks()
     assert len(remaining) == 0
+
+
+@pytest.mark.asyncio
+async def test_approval_action_dispatches_without_run_id_or_lease():
+    """approval_action tasks do not require run_id or run lease."""
+    plane = _plane()
+    import apps.cosa.worker.main as worker_main
+
+    # Unsupported action is rejected gracefully by worker without run lease
+    payload = {
+        "task_type": "approval_action",
+        "action": "unsupported_action",
+        "subject_kind": "unknown",
+    }
+    await plane.scheduler.schedule(target_spec_id="x", input_payload=payload)
+
+    tasks = await plane.scheduler.poll_due_tasks()
+    assert len(tasks) == 1
+    await worker_main.dispatch_one_task(plane, tasks[0])
+
+    # Task is completed (failed due to UNSUPPORTED_APPROVAL_ACTION) without raising or getting stuck
+    remaining = await plane.scheduler.poll_due_tasks()
+    assert len(remaining) == 0
+

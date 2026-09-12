@@ -139,3 +139,6 @@ class SkillCandidate(BaseModel):
     evidence_refs: list[str] = Field(default_factory=list)
     eval_score: float = 0.0
     status: SkillStatus = SkillStatus.CANDIDATE
+    definition_hash: str | None = None
+    promotion_approval_id: str | None = None
+    promotion_definition_hash: str | None = None
