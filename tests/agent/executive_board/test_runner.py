@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import pytest
+from agent.contracts.kernel import ExecutionKernel
+from agent.contracts.run import RunResult, RunStatus
 from agent.executive_board.models import (
+    EvidenceRef,
     ExecutiveAnalysisRequest,
     ExecutiveBoardInputError,
     RolePin,
-    EvidenceRef,
 )
 from agent.executive_board.runner import ExecutiveBoardRunner
+from agent.registry.models import PublishedSpecRecord
+from agent.registry.repository import InMemorySpecRegistryRepository
+
 
 
 def make_request(**kwargs) -> ExecutiveAnalysisRequest:
@@ -38,16 +43,35 @@ def make_request(**kwargs) -> ExecutiveAnalysisRequest:
     return ExecutiveAnalysisRequest(**defaults)
 
 
+class _StubKernel:
+    def __init__(self, result: RunResult | None = None) -> None:
+        self._result = result or RunResult(run_id="test-stub", status=RunStatus.COMPLETED)
+        self.last_spec = None
+        self.last_request = None
+
+    async def run(self, request, spec):
+        self.last_request = request
+        self.last_spec = spec
+        return self._result
+
+
+def make_runner(kernel: ExecutionKernel | None = None, spec_registry: InMemorySpecRegistryRepository | None = None) -> ExecutiveBoardRunner:
+    return ExecutiveBoardRunner(
+        kernel=kernel or _StubKernel(),
+        spec_registry=spec_registry or InMemorySpecRegistryRepository(),
+    )
+
+
 @pytest.mark.asyncio
 async def test_peer_draft_is_forbidden():
-    runner = ExecutiveBoardRunner()
+    runner = make_runner()
     with pytest.raises(ExecutiveBoardInputError, match="PEER_DRAFT_FORBIDDEN"):
         await runner.run(make_request(peer_drafts=[{"claim": "spend $20k"}]))
 
 
 @pytest.mark.asyncio
 async def test_missing_claim_evidence_mapping_fails():
-    runner = ExecutiveBoardRunner()
+    runner = make_runner()
     # Model output missing claim-to-evidence mapping or options
     result = await runner.run(
         make_request(mock_model_output={"conclusion": "expand", "options": []})
@@ -58,7 +82,7 @@ async def test_missing_claim_evidence_mapping_fails():
 
 @pytest.mark.asyncio
 async def test_cross_project_evidence_fails():
-    runner = ExecutiveBoardRunner()
+    runner = make_runner()
     with pytest.raises(ExecutiveBoardInputError, match="CROSS_PROJECT_EVIDENCE_FORBIDDEN"):
         await runner.run(
             make_request(
@@ -76,7 +100,7 @@ async def test_cross_project_evidence_fails():
 
 @pytest.mark.asyncio
 async def test_successful_isolated_analysis_produces_completed_descriptor():
-    runner = ExecutiveBoardRunner()
+    runner = make_runner()
     mock_output = {
         "conclusion": "Runway is 9 months under base case; drops to 5.5 months under 20% burn stress.",
         "options": [
@@ -107,3 +131,93 @@ async def test_successful_isolated_analysis_produces_completed_descriptor():
     assert result.descriptor["role_key"] == "cfo"
     assert result.descriptor["confidence"] == 0.85
     assert len(result.descriptor["options"]) == 2
+
+
+
+async def make_outcome_request(runner: ExecutiveBoardRunner, *, role_pin: RolePin):
+    request = ExecutiveAnalysisRequest(
+        workspace_id="ws-1",
+        project_id="proj-1",
+        deliberation_id="delib-1",
+        frame_version=1,
+        role_key=role_pin.role_key,
+        question="Founder muốn biết tình hình runway.",
+        role_pin=role_pin,
+    )
+    return await runner.run(request)
+
+
+@pytest.mark.asyncio
+async def test_run_calls_kernel_when_no_mock_output_provided():
+    registry = InMemorySpecRegistryRepository()
+    await registry.publish(
+        PublishedSpecRecord(
+            spec_kind="skill",
+            spec_id="executive.cfo-advisor",
+            version="1.0.0",
+            definition_hash="hash-cfo-1",
+            content={"id": "executive.cfo-advisor", "version": "1.0.0", "instructions": "..."},
+            publisher="cosa_built_in",
+        )
+    )
+    kernel_output = {
+        "conclusion": "Runway đủ 12 tháng.",
+        "options": [{"title": "Giữ nguyên", "trade_off": "An toàn"}],
+        "evidence_claims": [{"claim": "Burn rate ổn định", "source_ref": "object://x"}],
+        "confidence": 0.7,
+    }
+    stub = _StubKernel(
+        RunResult(run_id="run-1", status=RunStatus.COMPLETED, final_output=kernel_output)
+    )
+    runner = ExecutiveBoardRunner(kernel=stub, spec_registry=registry)
+
+    outcome = await make_outcome_request(
+        runner,
+        role_pin=RolePin(
+            role_key="cfo",
+            assignment_id="assign-cfo",
+            spec_id="cosa.agents.finance",
+            spec_version="1.1.0",
+            spec_hash="fin-hash",
+            skill_pins=("skillpack:executive/cfo-advisor@1.0.0",),
+        ),
+    )
+
+    assert outcome.kind == "executive.analysis.completed.v1"
+    assert outcome.descriptor["conclusion"] == "Runway đủ 12 tháng."
+    assert stub.last_spec.pinned_skills[0].skill_id == "executive.cfo-advisor"
+    assert stub.last_spec.autonomy_level.value == "L1"
+    assert stub.last_request.workspace_id == "ws-1"
+
+
+@pytest.mark.asyncio
+async def test_run_fails_when_kernel_status_not_completed():
+    registry = InMemorySpecRegistryRepository()
+    await registry.publish(
+        PublishedSpecRecord(
+            spec_kind="skill",
+            spec_id="executive.cfo-advisor",
+            version="1.0.0",
+            definition_hash="hash-cfo-1",
+            content={},
+            publisher="cosa_built_in",
+        )
+    )
+    stub = _StubKernel(RunResult(run_id="run-2", status=RunStatus.FAILED, errors=["boom"]))
+    runner = ExecutiveBoardRunner(kernel=stub, spec_registry=registry)
+
+    outcome = await make_outcome_request(
+        runner,
+        role_pin=RolePin(
+            role_key="cfo",
+            assignment_id="assign-cfo",
+            spec_id="cosa.agents.finance",
+            spec_version="1.1.0",
+            spec_hash="fin-hash",
+            skill_pins=("skillpack:executive/cfo-advisor@1.0.0",),
+        ),
+    )
+
+    assert outcome.kind == "executive.analysis.failed.v1"
+    assert "KERNEL_RUN_FAILED" in outcome.error_detail
+

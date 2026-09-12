@@ -1,17 +1,29 @@
 from __future__ import annotations
 
 from typing import Any
+
+from agent.contracts.kernel import ExecutionKernel
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
 from agent.executive_board.models import (
-    ExecutiveAnalysisRequest,
+    EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     ExecutiveAnalysisOutcome,
+    ExecutiveAnalysisRequest,
     ExecutiveBoardInputError,
 )
+from agent.executive_board.skill_pins import resolve_role_pin_skills
+from agent.governance.contracts import AutonomyLevel
+from agent.registry.repository import SpecRegistryRepository
 
 
 class ExecutiveBoardRunner:
     """Isolated runner for Executive Advisory Board analyses.
     Enforces no-peer-drafts, cross-project data fencing, and strict claim-evidence mapping.
     """
+
+    def __init__(self, kernel: ExecutionKernel, spec_registry: SpecRegistryRepository) -> None:
+        self._kernel = kernel
+        self._spec_registry = spec_registry
 
     async def run(self, req: ExecutiveAnalysisRequest) -> ExecutiveAnalysisOutcome:
         # 1. Isolation check: Peer drafts strictly forbidden
@@ -27,27 +39,19 @@ class ExecutiveBoardRunner:
                     f"CROSS_PROJECT_EVIDENCE_FORBIDDEN: Evidence {ref.source_ref} belongs to project {ref.project_id}, not {req.project_id}"
                 )
 
-        # 3. Model execution / mock execution
-        output = req.mock_model_output
-        if output is None:
-            # Default stub analysis when no mock is supplied
-            output = {
-                "conclusion": f"Analysis for role {req.role_key} regarding: {req.question}",
-                "options": [
-                    {"title": "Recommended Option", "trade_off": "Balanced risk and reward"},
-                    {"title": "Conservative Option", "trade_off": "Lower risk, slower execution"},
-                ],
-                "evidence_claims": [
-                    {
-                        "claim": "Baseline metric referenced",
-                        "source_ref": req.evidence_refs[0].source_ref if req.evidence_refs else "object://default",
-                    }
-                ],
-                "assumptions": ["Market conditions remain stable"],
-                "risks_and_unknowns": ["Execution timeline uncertainty"],
-                "confidence": 0.85,
-                "human_review_required": True,
-            }
+        # 3. Model execution: mock_model_output là test override; mặc định gọi kernel thật
+        if req.mock_model_output is not None:
+            output: dict[str, Any] | None = req.mock_model_output
+        else:
+            output = await self._run_kernel(req)
+            if output is None:
+                return ExecutiveAnalysisOutcome(
+                    kind="executive.analysis.failed.v1",
+                    deliberation_id=req.deliberation_id,
+                    frame_version=req.frame_version,
+                    role_key=req.role_key,
+                    error_detail="KERNEL_RUN_FAILED: model execution did not produce a valid analysis",
+                )
 
         # 4. Validate output schema & claim-to-evidence mapping
         conclusion = output.get("conclusion")
@@ -99,3 +103,39 @@ class ExecutiveBoardRunner:
             role_key=req.role_key,
             descriptor=descriptor,
         )
+
+    async def _run_kernel(self, req: ExecutiveAnalysisRequest) -> dict[str, Any] | None:
+        pinned_skills = await resolve_role_pin_skills(req.role_pin.skill_pins, self._spec_registry)
+
+        spec = AgentSpec(
+            id=f"executive.board.{req.role_key}",
+            version="1.0.0",
+            instructions=(
+                f"Bạn là thành viên Hội đồng Cố vấn Điều hành (Executive Advisory Board) "
+                f"giữ vai trò '{req.role_key}'. Chỉ đọc và đề xuất (advisory L1_PROPOSE) — "
+                f"không tự quyết định hay thực thi bất kỳ hành động nào. Trả lời bằng đúng "
+                f"cấu trúc JSON được yêu cầu, không thêm văn bản ngoài JSON."
+            ),
+            autonomy_level=AutonomyLevel.L1,
+            pinned_skills=pinned_skills,
+            output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
+        ).with_hash()
+
+        evidence_text = "\n".join(
+            f"- {ref.source_ref} (hash={ref.source_hash}, classification={ref.classification})"
+            for ref in req.evidence_refs
+        ) or "(không có evidence nào được đính kèm)"
+
+        run_req = RunRequest(
+            principal=f"executive_board:{req.role_key}",
+            workspace_id=req.workspace_id,
+            root_executable_ref=spec.id,
+            input={"prompt": f"Câu hỏi deliberation: {req.question}\n\nEvidence:\n{evidence_text}"},
+        )
+
+        result = await self._kernel.run(run_req, spec)
+        if result.status != RunStatus.COMPLETED:
+            return None
+        if not isinstance(result.final_output, dict):
+            return None
+        return result.final_output
