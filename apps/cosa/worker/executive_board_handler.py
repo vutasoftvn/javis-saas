@@ -54,7 +54,11 @@ async def execute_executive_deliberation_framed_task(
         return {"status": "completed", "analyzed_roles": 0}
 
     client = getattr(plane, "executive_board_client", None) or ExecutiveBoardClient()
-    runner = getattr(plane, "executive_board_runner", None) or ExecutiveBoardRunner()
+    runner = getattr(plane, "executive_board_runner", None) or ExecutiveBoardRunner(
+        kernel=plane.kernel,
+        spec_registry=plane.spec_registry,
+    )
+
 
     raw_evidence = payload.get("evidence_refs") or []
     evidence_refs = tuple(
