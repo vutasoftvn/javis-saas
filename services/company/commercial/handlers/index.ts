@@ -8,3 +8,4 @@ export * from "./marketing-context.handler";
 export * from "./marketing-mvp.handler";
 export * from "./opportunity.handler";
 export * from "./customer-engagement";
+export * from "./project-crm.handler";
