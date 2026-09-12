@@ -96,6 +96,7 @@ class RealOpenAIAgentsSDKKernel:
         policy_evaluator: Callable[..., Any] | None = None,
         compliance_resolver: Any | None = None,
         model_input_guard: ModelInputGuard | None = None,
+        skill_usage_observer: Any | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
@@ -106,6 +107,7 @@ class RealOpenAIAgentsSDKKernel:
         self._policy_evaluator = policy_evaluator
         self._compliance_resolver = compliance_resolver
         self._model_input_guard = model_input_guard
+        self._skill_usage_observer = skill_usage_observer
         self._cancelled_runs: set[str] = set()
 
         # Nhớ lại approval TRUE/FALSE gần nhất cho mỗi tool_call_id đã policy-
@@ -406,6 +408,11 @@ class RealOpenAIAgentsSDKKernel:
             {"principal": request.principal, "spec_id": spec.id},
             correlation_id,
         )
+
+        if self._skill_usage_observer is not None and spec.pinned_skills:
+            await self._skill_usage_observer.record_resolved_pins(
+                run_record, pinned_spec, resolved_skills, spec.pinned_skills
+            )
 
         system_prompt = PromptBundle(
             agent_instructions=spec.instructions,

@@ -22,6 +22,8 @@ from agent.registry.repository import SpecRegistryRepository
 from agent.runs.control_plane_client import HttpControlPlaneLeaseClient
 from agent.runs.repository import RunRepository
 from agent.runs.stream_events import RunStreamEventRepository
+from agent.skills.candidate_store import SkillCandidateStore
+from agent.skills.improvement_repository import SkillImprovementRepository
 from agent.vault import VaultRepository
 from agent.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent.workflows.engine import WorkflowEngine
@@ -100,6 +102,9 @@ class CosaAgentPlane:
         model_routing_repository: Any | None = None,
         project_activity_repository: ProjectActivityRepository | None = None,
         project_activity_service: ProjectActivityService | None = None,
+        skill_candidate_store: SkillCandidateStore | None = None,
+        skill_improvement_repository: SkillImprovementRepository | None = None,
+        skill_usage_observer: Any | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -115,6 +120,9 @@ class CosaAgentPlane:
         self.workflow_engine = workflow_engine
         self.company_client = company_client
         self.tenant_policy_client = tenant_policy_client
+        self.skill_candidate_store = skill_candidate_store
+        self.skill_improvement_repository = skill_improvement_repository
+        self.skill_usage_observer = skill_usage_observer
         # COSA Automation MVP (Task 6) — worker -> Company outcome projection.
         # Lazily created so a plane built for unit tests without COMPANY_SERVICE_URL
         # simply reports nothing (the worker handler is None-safe).
@@ -266,6 +274,9 @@ def build_cosa_agent_plane(
     model_routing_repository: Any | None = None,
     model_route_resolver: Any | None = None,
     project_activity_repository: ProjectActivityRepository | None = None,
+    skill_candidate_store: SkillCandidateStore | None = None,
+    skill_improvement_repository: SkillImprovementRepository | None = None,
+    skill_usage_observer: Any | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -295,6 +306,9 @@ def build_cosa_agent_plane(
         database_url=database_url,
         model_routing_repository=model_routing_repository,
         project_activity_repository=project_activity_repository,
+        skill_candidate_store=skill_candidate_store,
+        skill_improvement_repository=skill_improvement_repository,
+        skill_usage_observer=skill_usage_observer,
     )
 
     # Task 3 — Project Activity projection service, luôn dựng 1 instance thật
@@ -370,6 +384,7 @@ def build_cosa_agent_plane(
         policy_engine=policy_engine,
         company_client=client,
         model=model,
+        skill_usage_observer=storage.skill_usage_observer,
     )
 
     # 5b. Model route resolver (Task 3, plan 2026-09-07-local-first-model-
@@ -459,4 +474,7 @@ def build_cosa_agent_plane(
         model_routing_repository=storage.model_routing_repository,
         project_activity_repository=storage.project_activity_repository,
         project_activity_service=resolved_project_activity_service,
+        skill_candidate_store=storage.skill_candidate_store,
+        skill_improvement_repository=storage.skill_improvement_repository,
+        skill_usage_observer=storage.skill_usage_observer,
     )

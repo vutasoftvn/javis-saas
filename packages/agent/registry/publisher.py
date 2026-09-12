@@ -61,12 +61,14 @@ async def publish_skill_spec(
     nếu cùng hash; raise SpecVersionHashConflictError nếu version đã publish với
     nội dung khác."""
     pinned_hash = spec.definition_hash or spec.compute_hash()
+    content = spec.model_dump(mode="json")
+    content["definition_hash"] = pinned_hash
     record = PublishedSpecRecord(
         spec_kind="skill",
         spec_id=spec.id,
         version=spec.version,
         definition_hash=pinned_hash,
-        content=spec.model_dump(mode="json"),
+        content=content,
         publisher=publisher,
     )
     return await repository.publish(record)

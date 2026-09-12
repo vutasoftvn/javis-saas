@@ -14,6 +14,11 @@ from agent.skills.candidate_store import (
     SkillCandidateStore,
     SkillFeedbackRecord,
 )
+from agent.skills.improvement_repository import (
+    InMemorySkillImprovementRepository,
+    PostgresSkillImprovementRepository,
+    SkillImprovementRepository,
+)
 from agent.skills.contracts import (
     LifecycleApplicability,
     ProjectLifecycleStage,
@@ -139,6 +144,9 @@ def _run_workspace_custom_evaluation(
 
 def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
     """Dependency injection helper cho SkillCandidateStore."""
+    plane = getattr(request.app.state, "cosa_plane", None)
+    if plane is not None and getattr(plane, "skill_candidate_store", None) is not None:
+        return plane.skill_candidate_store
     store = getattr(request.app.state, "skill_candidate_store", None)
     if store is None:
         session_factory = getattr(request.app.state, "session_factory", None) or getattr(
@@ -150,6 +158,24 @@ def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
             store = InMemorySkillCandidateStore()
         request.app.state.skill_candidate_store = store
     return store
+
+
+def get_skill_improvement_repository(request: Request) -> SkillImprovementRepository:
+    """Dependency injection helper cho SkillImprovementRepository."""
+    plane = getattr(request.app.state, "cosa_plane", None)
+    if plane is not None and getattr(plane, "skill_improvement_repository", None) is not None:
+        return plane.skill_improvement_repository
+    repo = getattr(request.app.state, "skill_improvement_repository", None)
+    if repo is None:
+        session_factory = getattr(request.app.state, "session_factory", None) or getattr(
+            request.app.state, "db_session_factory", None
+        )
+        if session_factory is not None:
+            repo = PostgresSkillImprovementRepository(session_factory)
+        else:
+            repo = InMemorySkillImprovementRepository()
+        request.app.state.skill_improvement_repository = repo
+    return repo
 
 
 def _extract_instructions_body(skillmd_text: str) -> str:

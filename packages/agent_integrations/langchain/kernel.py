@@ -25,6 +25,7 @@ from agent.runs.models import (
 )
 from agent.runs.repository import InMemoryRunRepository, RunRepository
 from agent.skills.resolver import SkillResolver
+from agent.skills.usage_observer import SkillUsageObserver
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -113,10 +114,12 @@ class LangChainKernel:
         chat_model: Any | None = None,
         capability_executor: Callable[..., Any] | None = None,
         policy_evaluator: Callable[..., Any] | None = None,
+        skill_usage_observer: SkillUsageObserver | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
         self._skill_resolver = SkillResolver(self._spec_registry)
+        self._skill_usage_observer = skill_usage_observer
         self._capability_registry = capability_registry
         self._chat_model = chat_model
         self._capability_executor = capability_executor
@@ -171,6 +174,7 @@ class LangChainKernel:
         # Resolve pinned skills TRƯỚC khi tạo Run — mismatch/không tồn tại là lỗi
         # cấu hình, propagate raw, không để RunRecord kẹt RUNNING (ADR-SKILL-IDENTITY §4).
         skill_texts: list[str] = []
+        resolved_skills = []
         if spec.pinned_skills:
             resolved_skills = await self._skill_resolver.resolve(spec.pinned_skills)
             skill_texts = [s.instructions for s in resolved_skills if s.instructions]
@@ -200,6 +204,14 @@ class LangChainKernel:
             {"principal": request.principal, "spec_id": spec.id},
             correlation_id,
         )
+
+        if self._skill_usage_observer is not None:
+            await self._skill_usage_observer.record_resolved_pins(
+                run_record=run_record,
+                agent_spec=pinned_spec,
+                resolved_skills=resolved_skills,
+                pinned_refs=spec.pinned_skills or [],
+            )
 
         system_prompt = PromptBundle(
             agent_instructions=spec.instructions,

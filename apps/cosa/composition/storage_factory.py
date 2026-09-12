@@ -39,6 +39,17 @@ from agent.runs.stream_events import (
     PostgresRunStreamEventRepository,
     RunStreamEventRepository,
 )
+from agent.skills.candidate_store import (
+    InMemorySkillCandidateStore,
+    PostgresSkillCandidateStore,
+    SkillCandidateStore,
+)
+from agent.skills.improvement_repository import (
+    InMemorySkillImprovementRepository,
+    PostgresSkillImprovementRepository,
+    SkillImprovementRepository,
+)
+from agent.skills.usage_observer import SkillUsageObserver
 from agent.vault import (
     InMemoryVaultRepository,
     PostgresVaultRepository,
@@ -85,13 +96,11 @@ class PlaneStorageBundle:
     # wired giống artifact/workforce/vault ở trên: không fail-fast nếu thiếu
     # resolved_url, fallback InMemory cho test/dev.
     project_activity_repository: ProjectActivityRepository
-    # Task 3 (plan 2026-09-07-local-first-model-routing) — repository cho
-    # `models.model_provider_profiles`/`models.workspace_model_policies`.
-    # `model_routing_session_factory` = None khi InMemory fallback (không có
-    # AsyncEngine/session_factory thật để tái dùng cho credential store lazy
-    # ở `apps/cosa/worker/run_core.py`).
     model_routing_repository: Any
     model_routing_session_factory: Any | None
+    skill_candidate_store: SkillCandidateStore
+    skill_improvement_repository: SkillImprovementRepository
+    skill_usage_observer: Any
     created_engines: list[Any]
 
 
@@ -112,6 +121,9 @@ def init_plane_storage(
     database_url: str | None = None,
     model_routing_repository: Any | None = None,
     project_activity_repository: ProjectActivityRepository | None = None,
+    skill_candidate_store: SkillCandidateStore | None = None,
+    skill_improvement_repository: SkillImprovementRepository | None = None,
+    skill_usage_observer: Any | None = None,
 ) -> PlaneStorageBundle:
     """Khởi tạo toàn bộ database sessions và repositories cho CosaAgentPlane.
 
@@ -307,6 +319,30 @@ def init_plane_storage(
     else:
         search_budget = InMemoryWebSearchBudgetStore()
 
+    # Skill candidate store & improvement repository
+    if skill_candidate_store is not None:
+        cand_store = skill_candidate_store
+    elif resolved_url:
+        cand_engine, cand_session_factory = build_postgres_session_factory(resolved_url)
+        created_engines.append(cand_engine)
+        cand_store = PostgresSkillCandidateStore(cand_session_factory)
+    else:
+        cand_store = InMemorySkillCandidateStore()
+
+    if skill_improvement_repository is not None:
+        imp_repo = skill_improvement_repository
+    elif resolved_url:
+        imp_engine, imp_session_factory = build_postgres_session_factory(resolved_url)
+        created_engines.append(imp_engine)
+        imp_repo = PostgresSkillImprovementRepository(imp_session_factory, candidate_store=cand_store)
+    else:
+        imp_repo = InMemorySkillImprovementRepository(candidate_store=cand_store)
+
+    if skill_usage_observer is not None:
+        usage_observer = skill_usage_observer
+    else:
+        usage_observer = SkillUsageObserver(imp_repo)
+
     return PlaneStorageBundle(
         run_repository=repo,
         conversation_repository=conv_repo,
@@ -323,5 +359,8 @@ def init_plane_storage(
         model_routing_repository=model_routing_repo,
         model_routing_session_factory=model_routing_session_factory,
         project_activity_repository=proj_activity_repo,
+        skill_candidate_store=cand_store,
+        skill_improvement_repository=imp_repo,
+        skill_usage_observer=usage_observer,
         created_engines=created_engines,
     )

@@ -88,6 +88,7 @@ def build_execution_kernel(
     company_client: CompanyServiceClient,
     model: Any | None = None,
     compliance_resolver_override: Any | None = None,
+    skill_usage_observer: Any | None = None,
 ) -> tuple[ExecutionKernel, Any | None]:
     """Khởi tạo ExecutionKernel và ComplianceResolver theo runtime configuration.
 
@@ -113,6 +114,7 @@ def build_execution_kernel(
             capability_registry=capability_registry,
             capability_executor=gateway.execute,
             policy_evaluator=policy_engine.evaluate,
+            skill_usage_observer=skill_usage_observer,
         )
     elif runtime == "openai_agents":
         if model is not None:
@@ -159,6 +161,7 @@ def build_execution_kernel(
             policy_evaluator=policy_engine.evaluate,
             compliance_resolver=compliance_resolver,
             model_input_guard=model_input_guard,
+            skill_usage_observer=skill_usage_observer,
         )
     elif runtime == "manual_tool_loop":
         kernel = ManualToolLoopKernel(
@@ -166,6 +169,7 @@ def build_execution_kernel(
             spec_registry=spec_registry,
             capability_executor=gateway.execute,
             policy_evaluator=policy_engine.evaluate,
+            skill_usage_observer=skill_usage_observer,
         )
     else:
         raise ValueError(

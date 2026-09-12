@@ -26,6 +26,7 @@ from agent.runs.models import (
 )
 from agent.runs.repository import InMemoryRunRepository, RunRepository
 from agent.skills.resolver import SkillResolver
+from agent.skills.usage_observer import SkillUsageObserver
 
 __all__ = ["KernelRunState", "ManualToolLoopKernel"]
 
@@ -103,10 +104,12 @@ class ManualToolLoopKernel:
         model_client: Any | None = None,
         capability_executor: Callable[..., Any] | None = None,
         policy_evaluator: Callable[..., Any] | None = None,
+        skill_usage_observer: SkillUsageObserver | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
         self._skill_resolver = SkillResolver(self._spec_registry)
+        self._skill_usage_observer = skill_usage_observer
         self._client = model_client
         self._capability_executor = capability_executor
         self._policy_evaluator = policy_evaluator
@@ -148,6 +151,7 @@ class ManualToolLoopKernel:
         # (ADR-SKILL-IDENTITY §4, kích hoạt 2026-08-24) — tránh để lại RunRecord kẹt
         # ở status RUNNING nếu resolve thất bại giữa chừng.
         skill_texts: list[str] = []
+        resolved_skills = []
         if spec.pinned_skills:
             resolved_skills = await self._skill_resolver.resolve(spec.pinned_skills)
             skill_texts = [s.instructions for s in resolved_skills if s.instructions]
@@ -178,6 +182,14 @@ class ManualToolLoopKernel:
             {"principal": request.principal, "spec_id": spec.id},
             correlation_id,
         )
+
+        if self._skill_usage_observer is not None:
+            await self._skill_usage_observer.record_resolved_pins(
+                run_record=run_record,
+                agent_spec=pinned_spec,
+                resolved_skills=resolved_skills,
+                pinned_refs=spec.pinned_skills or [],
+            )
 
         # 2. Khởi tạo KernelRunState
         # System message compose qua PromptBundle (Blueprint V2 §68.2): platform
