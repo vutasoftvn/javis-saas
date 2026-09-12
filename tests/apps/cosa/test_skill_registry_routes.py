@@ -220,12 +220,28 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     assert res_dep.json()["status"] == "RETIRED"
 
     # 10. Record Feedback
+    import asyncio
+    from agent.skills.improvement_repository import SkillUsageObservation
+
+    plane = setup_env["plane"]
+    obs = SkillUsageObservation(
+        workspace_id="ws-1",
+        run_id="run-custom-fb",
+        skill_id="custom-email-drafter",
+        skill_version="1.0.0",
+        definition_hash="hash_draft_1",
+        root_spec_id="agent_root",
+        root_definition_hash="root_h",
+    )
+    asyncio.run(plane.skill_improvement_repository.record_resolved_skill_use(obs))
+
     res_fb = client.post(
         "/agent/skills/custom-email-drafter/feedback",
-        json={"success": True, "rating": 5, "notes": "Great copy generated"},
+        headers={"Idempotency-Key": "fb-test-lifecycle-1"},
+        json={"run_id": "run-custom-fb", "success": True, "rating": 5, "notes": "Great copy generated"},
     )
     assert res_fb.status_code == 200
-    assert res_fb.json()["recorded"] is True
+    assert res_fb.json()["status"] == "ok"
 
 
 def test_sync_builtin_fails_closed_when_shared_bootstrap_rejects_bundle(
@@ -403,18 +419,45 @@ def test_skill_feedback_pipeline_updates_aggregate_score(mock_company_client):
     assert res_cand.status_code == 201
     cand_id = res_cand.json()["skill_id"]
 
+    import asyncio
+    from agent.skills.improvement_repository import SkillUsageObservation
+
+    obs1 = SkillUsageObservation(
+        workspace_id="ws-fb-1",
+        run_id="run-fb-1",
+        skill_id=cand_id,
+        skill_version="1.0.0",
+        definition_hash="hash_fb_cand",
+        root_spec_id="root_spec",
+        root_definition_hash="root_hash",
+    )
+    asyncio.run(plane.skill_improvement_repository.record_resolved_skill_use(obs1))
+
     # 2. Record feedback 1: 5 stars (1.0)
     fb1 = client.post(
         f"/agent/skills/{cand_id}/feedback",
-        json={"rating": 5, "success": True, "notes": "Great answer"},
+        headers={"Idempotency-Key": "fb-key-1"},
+        json={"run_id": "run-fb-1", "rating": 5, "success": True, "notes": "Great answer"},
     )
     assert fb1.status_code == 200
     assert fb1.json()["aggregate_score"] == 1.0
 
     # 3. Record feedback 2: 3 stars (0.6)
+    obs2 = SkillUsageObservation(
+        workspace_id="ws-fb-1",
+        run_id="run-fb-2",
+        skill_id=cand_id,
+        skill_version="1.0.0",
+        definition_hash="hash_fb_cand",
+        root_spec_id="root_spec",
+        root_definition_hash="root_hash",
+    )
+    asyncio.run(plane.skill_improvement_repository.record_resolved_skill_use(obs2))
+
     fb2 = client.post(
         f"/agent/skills/{cand_id}/feedback",
-        json={"rating": 3, "success": True, "notes": "Average"},
+        headers={"Idempotency-Key": "fb-key-2"},
+        json={"run_id": "run-fb-2", "rating": 3, "success": True, "notes": "Average"},
     )
     assert fb2.status_code == 200
     # Average of 1.0 and 0.6 is 0.8

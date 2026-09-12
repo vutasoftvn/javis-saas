@@ -45,6 +45,7 @@ from apps.cosa.api.skill_schemas import (
     SyncBuiltInResponse,
     SyncSkillItem,
 )
+from apps.cosa.skills.improvement_policy import load_effective_improvement_policy
 from apps.cosa.auth import (
     AuthenticatedIdentity,
     get_authenticated_identity,
@@ -144,7 +145,7 @@ def _run_workspace_custom_evaluation(
 
 def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
     """Dependency injection helper cho SkillCandidateStore."""
-    plane = getattr(request.app.state, "cosa_plane", None)
+    plane = getattr(request.app.state, "plane", None) or getattr(request.app.state, "cosa_plane", None)
     if plane is not None and getattr(plane, "skill_candidate_store", None) is not None:
         return plane.skill_candidate_store
     store = getattr(request.app.state, "skill_candidate_store", None)
@@ -162,7 +163,7 @@ def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
 
 def get_skill_improvement_repository(request: Request) -> SkillImprovementRepository:
     """Dependency injection helper cho SkillImprovementRepository."""
-    plane = getattr(request.app.state, "cosa_plane", None)
+    plane = getattr(request.app.state, "plane", None) or getattr(request.app.state, "cosa_plane", None)
     if plane is not None and getattr(plane, "skill_improvement_repository", None) is not None:
         return plane.skill_improvement_repository
     repo = getattr(request.app.state, "skill_improvement_repository", None)
@@ -659,8 +660,9 @@ async def record_skill_feedback(
     request: Request,
     identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
+    improvement_repo: SkillImprovementRepository = Depends(get_skill_improvement_repository),
 ) -> dict[str, Any]:
-    """Ghi nhận phản hồi kết quả thực thi kỹ năng."""
+    """Ghi nhận phản hồi kết quả thực thi kỹ năng qua usage observation thật."""
     ws_id = identity.workspace_id if identity else None
     if not ws_id:
         raise HTTPException(
@@ -668,28 +670,64 @@ async def record_skill_feedback(
             detail="Missing required workspace context",
         )
 
+    idempotency_key = request.headers.get("Idempotency-Key") or request.headers.get("idempotency-key")
+    if not idempotency_key or not idempotency_key.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required Idempotency-Key header",
+        )
+
+    if not req.run_id or not req.run_id.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required run_id in feedback request",
+        )
+
+    matching_obs = await improvement_repo.get_usage_observations(ws_id, req.run_id.strip(), skill_id)
+    if not matching_obs:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No observation found for run {req.run_id} and skill {skill_id}",
+        )
+
+    distinct_identities = {(o.skill_version, o.definition_hash) for o in matching_obs}
+    if len(distinct_identities) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ambiguous observations for run {req.run_id} and skill {skill_id}",
+        )
+
+    obs = matching_obs[0]
+    policy = load_effective_improvement_policy()
+
     fb = SkillFeedbackRecord(
         workspace_id=ws_id,
         skill_id=skill_id,
+        version=obs.skill_version,
+        definition_hash=obs.definition_hash,
+        run_id=req.run_id.strip(),
+        idempotency_key=idempotency_key.strip(),
+        source_kind="user",
         success=req.success,
         rating=req.rating,
         notes=req.notes,
     )
-    saved = await candidate_store.save_feedback(fb)
-    agg_score = await candidate_store.compute_aggregate_feedback_score(ws_id, skill_id)
-    if agg_score is not None:
-        cand = await candidate_store.get_candidate(ws_id, skill_id)
-        if cand is not None:
-            await candidate_store.update_candidate_status(
-                ws_id, cand.candidate_id, status=cand.status, eval_score=agg_score
-            )
+
+    write_result = await improvement_repo.record_feedback_and_maybe_enqueue(feedback=fb, policy=policy)
+
+    data = {
+        "feedback_id": write_result.feedback_id,
+        "skill_id": skill_id,
+        "aggregate_score": write_result.aggregate_score,
+        "feedback_health": write_result.feedback_health,
+        "improvement_disposition": write_result.improvement_disposition,
+        "request_id": write_result.request_id,
+    }
 
     return {
         "status": "ok",
-        "feedback_id": saved.feedback_id,
-        "skill_id": skill_id,
-        "aggregate_score": agg_score,
-        "recorded": True,
+        "data": data,
+        **data,
     }
 
 

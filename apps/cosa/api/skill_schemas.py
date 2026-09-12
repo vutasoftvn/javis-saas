@@ -100,6 +100,27 @@ class DeprecateSkillRequest(BaseModel):
 
 
 class SkillFeedbackRequest(BaseModel):
+    run_id: str | None = None
     success: bool
     rating: int | None = None
     notes: str | None = None
+
+
+class SkillFeedbackResponseData(BaseModel):
+    feedback_id: str
+    skill_id: str
+    aggregate_score: float
+    feedback_health: str
+    improvement_disposition: str
+    request_id: str | None = None
+
+
+class SkillFeedbackResponse(BaseModel):
+    status: str = "ok"
+    feedback_id: str
+    skill_id: str
+    aggregate_score: float
+    feedback_health: str
+    improvement_disposition: str
+    request_id: str | None = None
+    data: SkillFeedbackResponseData | None = None
