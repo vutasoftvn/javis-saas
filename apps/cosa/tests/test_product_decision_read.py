@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -42,7 +41,7 @@ _CANNED_SNAPSHOT = {
 async def test_handler_uses_ctx_project_and_workspace_scope() -> None:
     fake_client = _FakeCompanyServiceClient(_CANNED_SNAPSHOT)
     handler = create_product_decision_read_handler(fake_client)
-    ctx = SimpleNamespace(project_id="project-A", workspace_id="workspace-1")
+    ctx: dict[str, Any] = {"project_id": "project-A", "workspace_id": "workspace-1"}
 
     result = await handler({"project_id": "project-A"}, ctx)
 
@@ -69,7 +68,7 @@ async def test_handler_rejects_args_project_id_mismatching_ctx_scope() -> None:
     """
     fake_client = _FakeCompanyServiceClient(_CANNED_SNAPSHOT)
     handler = create_product_decision_read_handler(fake_client)
-    ctx = SimpleNamespace(project_id="project-A", workspace_id="workspace-1")
+    ctx: dict[str, Any] = {"project_id": "project-A", "workspace_id": "workspace-1"}
 
     with pytest.raises(ValueError, match="project_id trong args không khớp"):
         await handler({"project_id": "project-B"}, ctx)
@@ -85,7 +84,7 @@ async def test_handler_rejects_args_workspace_id_override_of_ctx() -> None:
     args cố tình truyền workspace_id khác."""
     fake_client = _FakeCompanyServiceClient(_CANNED_SNAPSHOT)
     handler = create_product_decision_read_handler(fake_client)
-    ctx = SimpleNamespace(project_id="project-A", workspace_id="workspace-1")
+    ctx: dict[str, Any] = {"project_id": "project-A", "workspace_id": "workspace-1"}
 
     result = await handler(
         {"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx
@@ -100,7 +99,7 @@ async def test_handler_rejects_args_workspace_id_override_of_ctx() -> None:
 async def test_handler_raises_when_ctx_missing_project_id_and_no_args_fallback() -> None:
     fake_client = _FakeCompanyServiceClient(_CANNED_SNAPSHOT)
     handler = create_product_decision_read_handler(fake_client)
-    ctx = SimpleNamespace(workspace_id="workspace-1")
+    ctx: dict[str, Any] = {"workspace_id": "workspace-1"}
 
     with pytest.raises(ValueError, match="thiếu project_id"):
         await handler({}, ctx)
@@ -110,7 +109,7 @@ async def test_handler_raises_when_ctx_missing_project_id_and_no_args_fallback()
 async def test_handler_raises_when_ctx_missing_workspace_id() -> None:
     fake_client = _FakeCompanyServiceClient(_CANNED_SNAPSHOT)
     handler = create_product_decision_read_handler(fake_client)
-    ctx = SimpleNamespace(project_id="project-A")
+    ctx: dict[str, Any] = {"project_id": "project-A"}
 
     with pytest.raises(ValueError, match="thiếu workspace_id"):
         await handler({"project_id": "project-A"}, ctx)
