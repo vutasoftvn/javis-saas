@@ -15,7 +15,13 @@ CREATE TABLE IF NOT EXISTS operating.product_decision_dossiers (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT fk_product_decision_dossiers_proj_ws FOREIGN KEY (project_id, workspace_id)
-    REFERENCES strategy.projects(id, workspace_id) ON DELETE CASCADE
+    REFERENCES strategy.projects(id, workspace_id) ON DELETE CASCADE,
+  -- Model hiện tại: 1 dossier duy nhất mỗi Project (immutable, Project-bound
+  -- theo plan). Không có trạng thái nào (kể cả SUPERSEDED — hiện chưa có code
+  -- path nào set giá trị này ở mức dossier, chỉ revision mới supersede lẫn
+  -- nhau trong CÙNG 1 dossier) hợp lệ hoá việc tồn tại dossier thứ hai cho
+  -- cùng project — ràng buộc phẳng, không cần partial index theo status.
+  CONSTRAINT uix_product_decision_dossiers_project UNIQUE (workspace_id, project_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_product_decision_dossiers_proj

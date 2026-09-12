@@ -11,6 +11,11 @@ import {
   appendProductDecisionRevision,
   readProductDecisionSnapshot,
 } from "../services/product-decision-dossier.service";
+import {
+  createProductDecisionDossierEndpoint,
+  appendProductDecisionRevisionEndpoint,
+} from "../handlers/product-decision-dossier.handler";
+import { mintCompanyDelegation } from "../../shared/auth/cosa-delegation.service";
 
 describe("Product Decision Dossier Service", () => {
   let founderCtx: TenantContext;
@@ -152,5 +157,51 @@ describe("Product Decision Dossier Service", () => {
     const snapshot = await readProductDecisionSnapshot(agentCtx, projectId);
     expect(snapshot.dossierId).toBe(dossierId);
     expect(snapshot.evidenceRefs[0]).not.toHaveProperty("rawAttachment");
+  });
+
+  it("rejects a second dossier created for the same project as alreadyExists", async () => {
+    await expect(
+      createProductDecisionDossier(founderCtx, {
+        projectId,
+        title: "Second dossier attempt",
+        reasonCode: "duplicate",
+      })
+    ).rejects.toMatchObject({ code: "already_exists" });
+  });
+
+  // Review Task 1, finding 1 — prove the Agent Platform (apps/cosa) cannot
+  // reach these endpoints at all: the ONLY credential it holds towards
+  // services/company is a COSA_COMPANY_DELEGATION_SECRET-signed delegation
+  // token (see cosa-delegation.service.ts), never a JWT_SECRET-signed local
+  // session token. `requireWorkspaceAccess` → `resolveTenantContext` only
+  // accepts the latter, so a delegation token must be rejected with
+  // `unauthenticated` BEFORE any TenantContext (and therefore any
+  // `ctx.isAiAgent` check) is even built.
+  it("rejects a COSA-delegation-signed token before any TenantContext is built", async () => {
+    const delegationToken = mintCompanyDelegation({
+      sub: "cosa-worker-1",
+      workspace_id: founderCtx.workspaceId,
+      run_id: "run-1",
+      capability_ids: ["operations.product_decision.append"],
+    });
+
+    await expect(
+      createProductDecisionDossierEndpoint({
+        authorization: `Bearer ${delegationToken}`,
+        workspaceId: founderCtx.workspaceId,
+        projectId,
+        title: "Attempted agent-authored dossier",
+      })
+    ).rejects.toMatchObject({ code: "unauthenticated" });
+
+    await expect(
+      appendProductDecisionRevisionEndpoint({
+        id: dossierId,
+        authorization: `Bearer ${delegationToken}`,
+        workspaceId: founderCtx.workspaceId,
+        expectedVersion: 1,
+        reasonCode: "attempted agent confirm",
+      })
+    ).rejects.toMatchObject({ code: "unauthenticated" });
   });
 });

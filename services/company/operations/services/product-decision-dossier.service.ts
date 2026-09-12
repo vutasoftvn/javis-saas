@@ -58,6 +58,28 @@ function normalizeEvidenceRefs(refs?: EvidenceRef[]): EvidenceRef[] {
  * Product Decision Dossier — model có thể tư vấn nhưng KHÔNG BAO GIỜ tự xác
  * nhận quyết định sản phẩm (CLAUDE.md quy tắc 1 & 5). Project phải thuộc
  * đúng Workspace của ctx — chống truy cập chéo project/workspace.
+ *
+ * Ghi chú (review Task 1, finding 1): 3 endpoint hiện có
+ * (`createProductDecisionDossierEndpoint`,
+ * `appendProductDecisionRevisionEndpoint`,
+ * `readProductDecisionSnapshotEndpoint`) chỉ xác thực qua
+ * `requireWorkspaceAccess` → `resolveTenantContext`, hàm này CHỈ verify JWT
+ * ký bởi `JWT_SECRET` (local human business session) qua `verifyAccessToken`
+ * — nó không bao giờ set `isAiAgent: true` trên `TenantContext` trả về, và
+ * sẽ tự reject một token ký bởi `COSA_COMPANY_DELEGATION_SECRET` (cách duy
+ * nhất `apps/cosa` có thể tự xác thực sang service này) bằng
+ * `APIError.unauthenticated` TRƯỚC KHI tới được service function này — xem
+ * `product-decision-dossier.test.ts` test
+ * "rejects a COSA-delegation-signed token before any TenantContext is built".
+ * Nói cách khác: thuộc tính "model không bao giờ tự confirm quyết định sản
+ * phẩm" HIỆN TẠI được đảm bảo bởi transport-level auth rejection, không phải
+ * bởi check `ctx.isAiAgent` bên dưới.
+ *
+ * Check `ctx.isAiAgent` vẫn được GIỮ LẠI có chủ đích làm defense-in-depth
+ * cho một endpoint nội bộ (`expose: false`) mà Task 2 của plan này có thể
+ * thêm sau, gọi cùng service function này với một `TenantContext` dựng từ
+ * cosa-delegation (`isAiAgent: true`) thay vì session người dùng thật —
+ * KHÔNG xoá check này dù nó chưa reachable qua 3 endpoint public hiện tại.
  */
 async function requireHumanProjectContext(
   ctx: TenantContext,
@@ -123,40 +145,51 @@ export async function createProductDecisionDossier(
   const projId = BigInt(input.projectId);
   const actorMemberId = ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null;
 
-  return db.transaction(async (tx) => {
-    const dossierId = generateSnowflake();
+  try {
+    return await db.transaction(async (tx) => {
+      const dossierId = generateSnowflake();
 
-    await tx.insert(productDecisionDossiers).values({
-      id: dossierId,
-      workspaceId: wsId,
-      projectId: projId,
-      title: input.title,
-      status: "DRAFT",
-      currentVersion: 1,
-      createdByMemberId: actorMemberId,
-    });
-
-    const [revision] = await tx
-      .insert(productDecisionDossierRevisions)
-      .values({
-        id: generateSnowflake(),
+      // `uix_product_decision_dossiers_project` (migration 010) bắt buộc
+      // duy nhất 1 dossier/project — race giữa 2 request tạo đồng thời cho
+      // cùng project được chặn ở tầng DB (catch bên dưới), không chỉ ở
+      // check-trước-khi-ghi (vốn không race-safe).
+      await tx.insert(productDecisionDossiers).values({
+        id: dossierId,
         workspaceId: wsId,
         projectId: projId,
-        dossierId,
-        version: 1,
+        title: input.title,
         status: "DRAFT",
-        assumptions: input.assumptions ?? [],
-        evidenceRefs: normalizeEvidenceRefs(input.evidenceRefs),
-        reasonCode: input.reasonCode ?? null,
-        narrative: input.narrative ?? null,
-        actorMemberId,
-      })
-      .returning();
+        currentVersion: 1,
+        createdByMemberId: actorMemberId,
+      });
 
-    if (!revision) throw APIError.internal("failed to create product decision dossier");
+      const [revision] = await tx
+        .insert(productDecisionDossierRevisions)
+        .values({
+          id: generateSnowflake(),
+          workspaceId: wsId,
+          projectId: projId,
+          dossierId,
+          version: 1,
+          status: "DRAFT",
+          assumptions: input.assumptions ?? [],
+          evidenceRefs: normalizeEvidenceRefs(input.evidenceRefs),
+          reasonCode: input.reasonCode ?? null,
+          narrative: input.narrative ?? null,
+          actorMemberId,
+        })
+        .returning();
 
-    return toSnapshot(dossierId, revision);
-  });
+      if (!revision) throw APIError.internal("failed to create product decision dossier");
+
+      return toSnapshot(dossierId, revision);
+    });
+  } catch (err: any) {
+    if (err?.cause?.code === "23505" || err?.code === "23505") {
+      throw APIError.alreadyExists("a product decision dossier already exists for this project");
+    }
+    throw err;
+  }
 }
 
 /**
@@ -174,6 +207,10 @@ export async function appendProductDecisionRevision(
   if (!ctx) {
     throw APIError.unauthenticated("Authentication context required");
   }
+  // Xem ghi chú đầy đủ ở `requireHumanProjectContext` phía trên: qua endpoint
+  // public hiện tại, `ctx.isAiAgent` không bao giờ true (transport auth đã
+  // chặn agent trước khi tới đây) — check này là defense-in-depth cho một
+  // endpoint nội bộ tương lai (Task 2) dùng chung service function này.
   if (ctx.isAiAgent) {
     throw APIError.permissionDenied(
       "PRODUCT_DECISION_HUMAN_REQUIRED: Only a human Founder/member context can append a product decision revision"

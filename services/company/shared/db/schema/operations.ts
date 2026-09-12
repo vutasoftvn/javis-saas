@@ -977,6 +977,9 @@ export const productDecisionDossiers = operatingSchema.table("product_decision_d
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   ixProj: index("idx_product_decision_dossiers_proj").on(t.workspaceId, t.projectId, t.updatedAt),
+  // 1 dossier duy nhất mỗi Project (xem migration 010 để biết lý do không
+  // cần partial index theo status).
+  uixProject: uniqueIndex("uix_product_decision_dossiers_project").on(t.workspaceId, t.projectId),
 }));
 
 export const productDecisionDossierRevisions = operatingSchema.table("product_decision_dossier_revisions", {
