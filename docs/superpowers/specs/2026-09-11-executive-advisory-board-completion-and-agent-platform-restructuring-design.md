@@ -139,10 +139,23 @@ File cốt lõi: `shared/contracts/executive-advisor-roles.json` (sửa nguồn,
 
 ### Phần B — Tái cấu trúc multi-agent / tự học / phê duyệt
 
+### Quyết định thực thi B.1 + B.3 (2026-09-12)
+
+WorkflowEngine là đường orchestration workflow duy nhất. Chỉ xoá primitive không
+có production caller: approval_gate.py, delegate.py, parallel.py, quality_gate.py,
+risk_classification.py, supervisor.py và synthesis.py. Giữ scheduler.py,
+control_plane_scheduler_client.py, delegation_envelope.py, durable_supervisor.py,
+expansion.py và wait_resolver.py.
+
+B.1 chỉ wire worker vào CosaAgentPlane.workflow_orchestration; không mở endpoint
+spawn agent, prompt tự do hay role tự chọn. B.3 dùng một ledger approval cho
+TOOL_CALL và CHANGE_REQUEST. Promotion workspace_custom bind candidate ID + exact
+definition hash, Founder quyết định, worker recheck trước publish. B.2/B.4 deferred.
+
 **1. Hợp nhất lớp multi-agent orchestration.** Xoá
-`packages/agent/coordination/{supervisor,delegate,quality_gate,risk_classification,synthesis,
-scheduler,approval_gate}.py` (0 caller, trùng chức năng `WorkflowEngine`/`DurableApprovalService`/
-`HttpControlPlaneSchedulerClient`), giữ `control_plane_scheduler_client.py` (đang live). Chọn
+`packages/agent/coordination/{supervisor,delegate,parallel,quality_gate,risk_classification,synthesis,
+approval_gate}.py` (0 caller, trùng chức năng `WorkflowEngine`/`DurableApprovalService`),
+giữ `scheduler.py`, `control_plane_scheduler_client.py` (đang live). Chọn
 `WorkflowEngine` + `ParallelStep`/`AgentStep`/`ParallelBranch` làm con đường multi-agent DUY
 NHẤT, wire vào `apps/cosa/composition/workflow_orchestration.py`.
 
@@ -158,8 +171,8 @@ có 1 sổ phê duyệt/audit trail duy nhất cho mọi loại nâng cấp cầ
 **4. Feedback → tín hiệu học thật.** Dùng `aggregate_score` giảm dần làm tín hiệu tự động kích
 hoạt `SkillOptimizationLab.optimize()`, thay vì là con số nằm im.
 
-File cốt lõi: xoá `packages/agent/coordination/{supervisor,delegate,quality_gate,
-risk_classification,synthesis,scheduler,approval_gate}.py` + test tương ứng; sửa
+File cốt lõi: xoá `packages/agent/coordination/{supervisor,delegate,parallel,quality_gate,
+risk_classification,synthesis,approval_gate}.py` + test tương ứng; giữ `scheduler.py`; sửa
 `apps/cosa/composition/workflow_orchestration.py`, `apps/cosa/worker/*.py`,
 `apps/cosa/api/skill_registry_routes.py`, `packages/agent/capabilities/approval_service.py`,
 `packages/agent/skills/candidate_store.py`.
