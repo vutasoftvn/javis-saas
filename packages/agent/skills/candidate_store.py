@@ -23,6 +23,10 @@ class SkillFeedbackRecord(BaseModel):
     workspace_id: str
     skill_id: str
     version: str | None = None
+    definition_hash: str | None = None
+    run_id: str | None = None
+    idempotency_key: str | None = None
+    source_kind: str = "user"
     success: bool = True
     rating: int | None = None
     notes: str | None = None
