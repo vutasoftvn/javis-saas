@@ -14,6 +14,7 @@ import {
 import {
   createProductDecisionDossierEndpoint,
   appendProductDecisionRevisionEndpoint,
+  readProductDecisionSnapshotEndpoint,
 } from "../handlers/product-decision-dossier.handler";
 import { mintCompanyDelegation } from "../../shared/auth/cosa-delegation.service";
 
@@ -201,6 +202,30 @@ describe("Product Decision Dossier Service", () => {
         workspaceId: founderCtx.workspaceId,
         expectedVersion: 1,
         reasonCode: "attempted agent confirm",
+      })
+    ).rejects.toMatchObject({ code: "unauthenticated" });
+  });
+
+  // Final-review Fix 4a — chứng minh (thay vì giả định) rằng GET read
+  // endpoint có cùng lỗ hổng auth như 2 write endpoint ở trên: nó cũng dùng
+  // `requireWorkspaceAccess`, nên một COSA-delegation token (thứ duy nhất mà
+  // apps/cosa thực sự nắm giữ để gọi services/company) cũng bị từ chối
+  // `unauthenticated` TRƯỚC khi có TenantContext nào được dựng. Kết quả: hiện
+  // tại `product.decision.read` capability không thể thực sự được một agent
+  // run thật gọi tới — xem "Known limitations" trong plan.
+  it("rejects a COSA-delegation-signed token on the read endpoint the same way", async () => {
+    const delegationToken = mintCompanyDelegation({
+      sub: "cosa-worker-1",
+      workspace_id: founderCtx.workspaceId,
+      run_id: "run-1",
+      capability_ids: ["product.decision.read"],
+    });
+
+    await expect(
+      readProductDecisionSnapshotEndpoint({
+        projectId,
+        authorization: `Bearer ${delegationToken}`,
+        workspaceId: founderCtx.workspaceId,
       })
     ).rejects.toMatchObject({ code: "unauthenticated" });
   });

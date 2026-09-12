@@ -63,7 +63,7 @@ BEGIN
   -- 4. Kiểm tra nếu có deliberation frame nào tham chiếu đến cpo role
   SELECT EXISTS (
     SELECT 1
-    FROM operating.project_deliberation_frames f,
+    FROM operating.project_executive_deliberation_frames f,
          jsonb_array_elements(f.selected_roles) AS r
     WHERE (r->>'roleKey') = 'cpo'
   ) INTO v_has_usage;

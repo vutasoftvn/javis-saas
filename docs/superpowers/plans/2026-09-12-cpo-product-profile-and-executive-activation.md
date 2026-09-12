@@ -141,3 +141,36 @@ cd frontend && flutter test test/modules/hologram_hub && flutter analyze
 git add frontend
 git commit -m "test(hub): show CPO activation truth"
 ```
+
+## Known limitations (post-final-review)
+
+Ghi lại từ đợt review toàn nhánh sau khi cả 4 task đã merge — hai điểm sau đây
+là giới hạn đã biết, KHÔNG phải bug được fix trong đợt review đó (cả hai đều
+là thay đổi kiến trúc nhiều bước, cần plan riêng theo đúng quy tắc CLAUDE.md
+"nhiều bước → viết plan trước khi sửa code"):
+
+- **CPO deliberation framing không gate trên sự tồn tại của Product Decision
+  Dossier.** Không có bất kỳ enforcement `PRODUCT_EVIDENCE_REQUIRED` nào trong
+  `executive-deliberation.service.ts`. Điều này khớp với hành vi thật đã ship
+  của các role `cro`/`vpe` khác (cả hai cũng không gate deliberation trên
+  evidence source tương ứng của mình) — đây không phải regression riêng của
+  plan này, nhưng pseudocode ở Task 3 của plan đã ngụ ý một mức enforcement
+  mạnh hơn so với những gì thực sự tồn tại. Cần một đợt thiết kế follow-up nếu
+  thực sự muốn có mandatory evidence gating theo từng role.
+
+- **`product.decision.read` capability (Python, `apps/cosa`) hiện không thể
+  gọi được từ một agent run thật.** Lời gọi HTTP sang Company được xác thực
+  bằng header COSA-delegation "ambient" của Agent Platform, nhưng endpoint
+  Company mà nó gọi (`GET /operations/projects/:projectId/product-decision-dossier`)
+  được bảo vệ bởi `requireWorkspaceAccess` — hàm này chỉ chấp nhận session
+  token ký bằng `JWT_SECRET` của người dùng thật, không chấp nhận
+  COSA-delegation token. Đã được chứng minh bằng test mới trong
+  `services/company/operations/tests/product-decision-dossier.test.ts`
+  ("rejects a COSA-delegation-signed token on the read endpoint the same
+  way"): delegation token bị từ chối `unauthenticated` trên endpoint đọc y hệt
+  như trên 2 endpoint ghi. Kết quả: capability này hiện chỉ "reachable" qua
+  đúng con đường vốn dĩ đã cần session người dùng thật — điều này triệt tiêu
+  mục đích ban đầu là cho agent tự đọc. Cần một task follow-up thêm route nội
+  bộ `expose: false` xác thực qua `resolveCosaTaskContext`
+  (xem `services/company/shared/auth/cosa-task-delegation.ts`) trước khi
+  capability này được coi là hoạt động được trong một agent run thật.

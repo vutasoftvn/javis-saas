@@ -46,10 +46,8 @@ def create_product_decision_read_handler(
     company_client: CompanyServiceClient,
 ) -> Callable[[dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]]:
     async def handle(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
-        workspace_id = _resolve_workspace_id(args, ctx)
-        project_id = args.get("project_id") or getattr(ctx, "project_id", None)
-        if not project_id:
-            raise ValueError("product.decision.read: thiếu project_id")
+        workspace_id = _resolve_workspace_id(ctx)
+        project_id = _resolve_project_id(args, ctx)
 
         headers = {"X-Workspace-Id": str(workspace_id)}
 
@@ -74,10 +72,38 @@ def create_product_decision_read_handler(
     return handle
 
 
-def _resolve_workspace_id(args: dict[str, Any], ctx: Any) -> str:
+def _resolve_project_id(args: dict[str, Any], ctx: Any) -> str:
+    """Xác định project_id cho request — ctx (scope thật của run) LUÔN thắng.
+
+    `project_id` là input bắt buộc theo input_schema (một số caller nội bộ vẫn
+    truyền nó tường minh), nhưng model/agent không được phép dùng nó để đọc
+    dossier của Project khác ngoài scope run đang chạy. Nếu args["project_id"]
+    khác ctx.project_id, coi đây là request sai lệch scope và từ chối thẳng
+    thay vì âm thầm override — không được để lộ dữ liệu Project khác.
+    """
+    context_project_id = getattr(ctx, "project_id", None)
+    context_project_id = str(context_project_id) if context_project_id else None
+
+    requested_project_id = args.get("project_id")
+    requested_project_id = str(requested_project_id) if requested_project_id else None
+
+    if context_project_id and requested_project_id and requested_project_id != context_project_id:
+        raise ValueError(
+            "product.decision.read: project_id trong args không khớp scope của run "
+            f"(ctx.project_id={context_project_id!r}, args.project_id={requested_project_id!r})"
+        )
+
+    project_id = context_project_id or requested_project_id
+    if not project_id:
+        raise ValueError("product.decision.read: thiếu project_id")
+    return project_id
+
+
+def _resolve_workspace_id(ctx: Any) -> str:
+    """workspace_id LUÔN lấy từ ctx (scope thật của run) — không phải input_schema
+    khai báo, args không có quyền ghi đè trường này dù thế nào.
+    """
     wid = ctx.get("workspace_id") if isinstance(ctx, dict) else getattr(ctx, "workspace_id", None)
-    if not wid and "workspace_id" in args:
-        wid = str(args["workspace_id"])
     if not wid:
-        raise ValueError("product.decision.read: thiếu workspace_id")
+        raise ValueError("product.decision.read: thiếu workspace_id trong ctx")
     return str(wid)
