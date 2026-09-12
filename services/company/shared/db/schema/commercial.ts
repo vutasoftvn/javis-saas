@@ -44,6 +44,8 @@ export const salesLeads = salesSchema.table("sales_leads", {
   accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id, { onDelete: "set null" }),
   contactId: bigint("contact_id", { mode: "bigint" }).references(() => contacts.id, { onDelete: "set null" }),
   projectId: bigint("project_id", { mode: "bigint" }),
+  leadSourceId: bigint("lead_source_id", { mode: "bigint" }),
+  provenanceEventId: bigint("provenance_event_id", { mode: "bigint" }),
   name: text("name").notNull(),
   company: text("company"),
   stage: text("stage").default("NEW").notNull(),
@@ -415,3 +417,120 @@ export const marketingProposals = commercialSchema.table("marketing_proposals", 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ============================================================================
+// Project CRM Foundation (003) — Project-scoped custom lead schema & provenance
+// ============================================================================
+
+export const leadSources = salesSchema.table("lead_sources", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  sourceType: text("source_type").notNull(),
+  label: text("label").notNull(),
+  status: text("status").default("ACTIVE").notNull(),
+  configurationRevision: integer("configuration_revision").default(1).notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const leadFieldDefinitions = salesSchema.table("lead_field_definitions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  stableKey: text("stable_key").notNull(),
+  version: integer("version").default(1).notNull(),
+  label: text("label").notNull(),
+  dataType: text("data_type").notNull(),
+  validationJson: jsonb("validation_json").default({}).notNull(),
+  allowedValuesJson: jsonb("allowed_values_json"),
+  requiredAtStagesJson: jsonb("required_at_stages_json").default([]).notNull(),
+  classification: text("classification").default("BUSINESS_CONFIDENTIAL").notNull(),
+  agentInputAllowed: boolean("agent_input_allowed").default(true).notNull(),
+  searchable: boolean("searchable").default(true).notNull(),
+  status: text("status").default("ACTIVE").notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  retiredAt: timestamp("retired_at", { withTimezone: true }),
+});
+
+export const projectLeadCaptureForms = salesSchema.table("project_lead_capture_forms", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  leadSourceId: bigint("lead_source_id", { mode: "bigint" }).notNull().references(() => leadSources.id, { onDelete: "cascade" }),
+  formKey: text("form_key").notNull(),
+  revision: integer("revision").default(1).notNull(),
+  active: boolean("active").default(true).notNull(),
+  allowedFieldDefinitionIds: jsonb("allowed_field_definition_ids").default([]).notNull(),
+  requiredConsentPurpose: text("required_consent_purpose").notNull(),
+  requiredConsentVersion: text("required_consent_version").notNull(),
+  publicVerificationKeyId: text("public_verification_key_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const leadIngestionEvents = salesSchema.table("lead_ingestion_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  leadSourceId: bigint("lead_source_id", { mode: "bigint" }).notNull().references(() => leadSources.id, { onDelete: "cascade" }),
+  captureFormId: bigint("capture_form_id", { mode: "bigint" }).references(() => projectLeadCaptureForms.id, { onDelete: "set null" }),
+  externalEventId: text("external_event_id").notNull(),
+  payloadDigest: text("payload_digest").notNull(),
+  signatureKeyId: text("signature_key_id"),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  leadId: bigint("lead_id", { mode: "bigint" }).references(() => salesLeads.id, { onDelete: "set null" }),
+});
+
+export const leadFieldValues = salesSchema.table("lead_field_values", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  leadId: bigint("lead_id", { mode: "bigint" }).notNull().references(() => salesLeads.id, { onDelete: "cascade" }),
+  fieldDefinitionId: bigint("field_definition_id", { mode: "bigint" }).notNull().references(() => leadFieldDefinitions.id, { onDelete: "cascade" }),
+  valueJson: jsonb("value_json").notNull(),
+  normalizedSearchValue: text("normalized_search_value"),
+  sourceKind: text("source_kind").default("manual").notNull(),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const leadIdentityKeys = salesSchema.table("lead_identity_keys", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  leadId: bigint("lead_id", { mode: "bigint" }).notNull().references(() => salesLeads.id, { onDelete: "cascade" }),
+  keyType: text("key_type").notNull(),
+  keyHash: text("key_hash").notNull(),
+  keyVersion: integer("key_version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const leadDedupCandidates = salesSchema.table("lead_dedup_candidates", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  incomingLeadId: bigint("incoming_lead_id", { mode: "bigint" }).notNull().references(() => salesLeads.id, { onDelete: "cascade" }),
+  existingLeadId: bigint("existing_lead_id", { mode: "bigint" }).notNull().references(() => salesLeads.id, { onDelete: "cascade" }),
+  reasonCodesJson: jsonb("reason_codes_json").default([]).notNull(),
+  state: text("state").default("NEEDS_REVIEW").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  resolvedBy: bigint("resolved_by", { mode: "bigint" }),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
+export const leadConsents = salesSchema.table("lead_consents", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  leadId: bigint("lead_id", { mode: "bigint" }).notNull().references(() => salesLeads.id, { onDelete: "cascade" }),
+  purpose: text("purpose").notNull(),
+  lawfulBasis: text("lawful_basis").notNull(),
+  consentState: text("consent_state").default("GRANTED").notNull(),
+  policyVersion: text("policy_version").notNull(),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  provenanceEventId: bigint("provenance_event_id", { mode: "bigint" }).references(() => leadIngestionEvents.id, { onDelete: "set null" }),
+});
+

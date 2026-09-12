@@ -28,7 +28,9 @@ export interface SalesLead {
   fitScore: number | null;
   intentScore: number | null;
   engagementScore: number | null;
-  qualificationStatus: string | null;
+  projectId?: string | null;
+  leadSourceId?: string | null;
+  provenanceEventId?: string | null;
   ownerMemberId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -42,6 +44,8 @@ export interface CreateSalesLeadParams {
   company?: string;
   value?: number;
   source?: string;
+  leadSourceId?: string;
+  provenanceEventId?: string;
   ownerMemberId?: string;
   /** Founder Trial R1 — gắn lead vào tối đa 1 project (sales.sales_leads.project_id). */
   projectId?: string;
@@ -54,6 +58,9 @@ function toSalesLead(row: typeof salesLeads.$inferSelect): SalesLead {
     keyResultId: row.keyResultId ? String(row.keyResultId) : null,
     accountId: row.accountId ? String(row.accountId) : null,
     contactId: row.contactId ? String(row.contactId) : null,
+    projectId: row.projectId ? String(row.projectId) : null,
+    leadSourceId: row.leadSourceId ? String(row.leadSourceId) : null,
+    provenanceEventId: row.provenanceEventId ? String(row.provenanceEventId) : null,
     name: row.name,
     company: row.company,
     stage: row.stage,
@@ -93,6 +100,8 @@ export async function createSalesLeadService(
       accountId: params.accountId ? BigInt(String(params.accountId)) : null,
       contactId: params.contactId ? BigInt(String(params.contactId)) : null,
       projectId: params.projectId ? BigInt(String(params.projectId)) : null,
+      leadSourceId: params.leadSourceId ? BigInt(String(params.leadSourceId)) : null,
+      provenanceEventId: params.provenanceEventId ? BigInt(String(params.provenanceEventId)) : null,
       name: params.name,
       company: params.company || null,
       value: params.value ?? null,
