@@ -1005,6 +1005,24 @@ async def decide_approval(
     except Exception:
         pass
 
+    binding_kind = getattr(existing_approval, "binding_kind", None) or getattr(decided, "binding_kind", "TOOL_CALL")
+    binding_kind_str = str(getattr(binding_kind, "value", binding_kind)).upper()
+
+    if binding_kind_str == "CHANGE_REQUEST":
+        return mvp_item(
+            {
+                "approval_id": decided.approval_id,
+                "run_id": decided.run_id,
+                "status": decided.status,
+                "reviewer": decided.reviewer or identity.principal_id,
+                "reason": decided.reason,
+                "decided_at": (decided.decided_at or datetime.now(UTC)).isoformat(),
+                "binding_kind": "CHANGE_REQUEST",
+                "dispatch_state": "outbox_pending" if approved_flag else "none",
+            },
+            [MvpSourceRef(kind="agent_db", ref="agent.approvals")],
+        )
+
     run_id = decided.run_id
     run_record = await plane.repository.get_scoped_run(
         run_id=run_id,

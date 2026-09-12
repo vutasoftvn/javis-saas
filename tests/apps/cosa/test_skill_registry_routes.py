@@ -194,25 +194,22 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     )
     assert res_eval_forbidden.status_code == 422
 
-    # 7. Promote without approved_by or approval_reason fails with 422
+    # 7. Promote with extra fields (approved_by/approval_reason/version) fails with 422
     res_promote_fail = client.post(
         "/agent/skills/custom-email-drafter/promote",
-        json={"approved_by": "", "approval_reason": ""},
+        json={"approved_by": "someone", "approval_reason": "test"},
     )
     assert res_promote_fail.status_code == 422
 
-    # 8. Promote with approval succeeds — workspace-scoped, không vào shared registry
+    # 8. Promote requests approval (202 PENDING_APPROVAL) — does not publish directly
     res_promote = client.post(
         "/agent/skills/custom-email-drafter/promote",
-        json={
-            "approved_by": "founder_admin",
-            "approval_reason": "Server-attested policy-contract pass",
-        },
+        json={},
     )
-    assert res_promote.status_code == 200
-    assert res_promote.json()["status"] == "PUBLISHED"
-    assert res_promote.json()["approved_by"] == "founder_admin"
-    assert res_promote.json()["scope"] == "workspace_custom"
+    assert res_promote.status_code == 202
+    assert res_promote.json()["status"] == "PENDING_APPROVAL"
+    assert res_promote.json()["action"] == "promote_skill_candidate"
+    assert res_promote.json()["definition_hash"].startswith("sha256:")
 
     # 9. Deprecate Skill
     res_dep = client.post(

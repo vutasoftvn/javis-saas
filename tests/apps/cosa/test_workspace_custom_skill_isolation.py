@@ -56,7 +56,7 @@ def _authenticate(application, workspace_id: str) -> None:
     )
 
 
-def _create_and_promote(client: TestClient, workspace_id: str, skill_name: str) -> str:
+def _create_and_promote(client: TestClient, workspace_id: str, skill_name: str, app=None) -> str:
     res = client.post(
         "/agent/skills/candidates",
         json={
@@ -75,9 +75,15 @@ def _create_and_promote(client: TestClient, workspace_id: str, skill_name: str) 
 
     res_promote = client.post(
         f"/agent/skills/{skill_id}/promote",
-        json={"approved_by": "founder", "approval_reason": "server-attested pass"},
+        json={},
     )
-    assert res_promote.status_code == 200, res_promote.text
+    assert res_promote.status_code == 202, res_promote.text
+
+    if app and hasattr(app.state, "skill_candidate_store"):
+        import asyncio
+        from agent.skills.contracts import SkillStatus
+        cand_store = app.state.skill_candidate_store
+        asyncio.run(cand_store.update_candidate_status(workspace_id, skill_id, status=SkillStatus.PUBLISHED))
     return skill_id
 
 
@@ -91,7 +97,7 @@ def test_promoted_workspace_custom_skill_is_invisible_to_another_workspace(app) 
     client = TestClient(app)
 
     _authenticate(app, "ws-a")
-    skill_id = _create_and_promote(client, "ws-a", "A-only skill")
+    skill_id = _create_and_promote(client, "ws-a", "A-only skill", app=app)
 
     _authenticate(app, "ws-b")
     assert not _contains_skill(client, "ws-b", skill_id)
@@ -142,6 +148,6 @@ def test_founder_cannot_promote_candidate_with_unknown_capability(app) -> None:
 
     res_promote = client.post(
         f"/agent/skills/{skill_id}/promote",
-        json={"approved_by": "founder", "approval_reason": "try"},
+        json={},
     )
     assert res_promote.status_code == 400

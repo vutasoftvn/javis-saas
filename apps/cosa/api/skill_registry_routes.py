@@ -34,6 +34,7 @@ from apps.cosa.api.skill_schemas import (
     EvaluateSkillRequest,
     EvaluateSkillResponse,
     PromoteSkillRequest,
+    RequestSkillPromotionRequest,
     SkillFeedbackRequest,
     SkillListItem,
     SyncBuiltInResponse,
@@ -495,30 +496,24 @@ async def evaluate_skill(
     )
 
 
-@router.post("/{skill_id}/promote")
+@router.post("/{skill_id}/promote", status_code=status.HTTP_202_ACCEPTED)
 async def promote_skill(
     skill_id: str,
-    req: PromoteSkillRequest,
+    req: RequestSkillPromotionRequest,
     request: Request,
     identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     plane: CosaAgentPlane = Depends(get_cosa_plane),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
-    """Phê duyệt và đưa Candidate skill vào sản xuất (Published).
+    """Tạo yêu cầu phê duyệt đưa Candidate skill vào sản xuất qua CHANGE_REQUEST.
 
-    BẮT BUỘC có approved_by và approval_reason (human approval gate).
+    BẮT BUỘC Founder phê duyệt trước khi được dispatch vào catalog sản xuất.
     """
     if identity:
         require_workspace_operator(identity)
-        approved_by = identity.platform_user_id or identity.principal_id or req.approved_by
+        requester = identity.platform_user_id or identity.principal_id or "operator"
     else:
-        approved_by = req.approved_by
-
-    if not approved_by or not req.approval_reason:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="approved_by và approval_reason là bắt buộc để promote skill lên sản xuất",
-        )
+        requester = "operator"
 
     ws_id = identity.workspace_id if identity else None
     if not ws_id:
@@ -560,25 +555,32 @@ async def promote_skill(
             detail=f"Unknown required capabilities: {', '.join(sorted(unknown))}",
         )
 
-    # Workspace-scoped publication: KHÔNG publish vào shared
-    # agent_registry.published_specs — skill chỉ tồn tại trong catalogue của
-    # workspace này (Step 4). version do caller chọn (mặc định giữ nguyên).
-    spec = cand.proposed_skill.model_copy(deep=True)
-    spec.status = SkillStatus.PUBLISHED
-    spec.publisher = approved_by
-    if req.version:
-        spec.version = req.version
-    cand.proposed_skill = spec
-    await candidate_store.save_candidate(ws_id, cand)
+    raw_hash = cand.proposed_skill.definition_hash or cand.proposed_skill.compute_hash()
+    definition_hash = raw_hash if raw_hash.startswith("sha256:") else f"sha256:{raw_hash}"
+
+    from agent.runs.models import ApprovalSubject
+
+    subject = ApprovalSubject(
+        kind="skill_candidate",
+        ref=skill_id,
+        definition_hash=definition_hash,
+    )
+
+    record, _ = await plane.approval_service.create_change_approval_request(
+        workspace_id=ws_id,
+        project_id=None,
+        action="promote_skill_candidate",
+        subject=subject,
+        requirement={"role": "founder"},
+        requester=requester,
+    )
 
     return {
-        "skill_id": spec.id,
-        "version": spec.version,
-        "status": "PUBLISHED",
-        "definition_hash": spec.definition_hash or spec.compute_hash(),
-        "approved_by": req.approved_by,
-        "approval_reason": req.approval_reason,
-        "scope": "workspace_custom",
+        "approval_id": record.approval_id,
+        "status": "PENDING_APPROVAL",
+        "action": "promote_skill_candidate",
+        "candidate_id": cand.candidate_id,
+        "definition_hash": definition_hash,
     }
 
 
@@ -714,12 +716,12 @@ async def get_skill(
     cand = await candidate_store.get_candidate(ws_id, skill_id)
     if cand is not None:
         return {
+            **cand.proposed_skill.model_dump(mode="json"),
             "id": cand.proposed_skill.id,
             "candidate_id": cand.candidate_id,
             "version": cand.proposed_skill.version,
             "status": cand.status.value,
             "eval_score": cand.eval_score,
-            **cand.proposed_skill.model_dump(mode="json"),
         }
 
     raise HTTPException(

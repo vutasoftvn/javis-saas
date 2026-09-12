@@ -88,10 +88,11 @@ class EvaluateSkillResponse(BaseModel):
     report: dict[str, Any] = Field(default_factory=dict)
 
 
-class PromoteSkillRequest(BaseModel):
-    approved_by: str = Field(..., description="Tên hoặc user_id của người phê duyệt (bắt buộc)")
-    approval_reason: str = Field(..., description="Lý do phê duyệt đưa vào sản xuất (bắt buộc)")
-    version: str | None = None
+class RequestSkillPromotionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+PromoteSkillRequest = RequestSkillPromotionRequest
 
 
 class DeprecateSkillRequest(BaseModel):
