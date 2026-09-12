@@ -13,6 +13,8 @@ __all__ = [
     "COSA_CUSTOMER_SUPPORT_PROMPT",
     "COSA_DEFAULT_MODEL_POLICY",
     "COSA_DEPLOYED_AGENT_SPECS",
+    "COSA_EXECUTIVE_CHRO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CHRO_PROMPT",
     "COSA_EXECUTIVE_CPO_AGENT_SPEC",
     "COSA_EXECUTIVE_CPO_PROMPT",
     "COSA_FINANCE_AGENT_SPEC",
@@ -23,6 +25,8 @@ __all__ = [
     "COSA_MARKETING_PROMPT",
     "COSA_OPERATIONS_AGENT_SPEC",
     "COSA_OPERATIONS_PROMPT",
+    "COSA_PEOPLE_AGENT_SPEC",
+    "COSA_PEOPLE_PROMPT",
     "COSA_PRODUCT_AGENT_SPEC",
     "COSA_PRODUCT_PROMPT",
     "COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC",
@@ -502,9 +506,69 @@ COSA_EXECUTIVE_VPE_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA VP Engineering Advisor", "advisory_only": True},
 )
 
+COSA_PEOPLE_PROMPT = PromptSpec(
+    id="cosa.agents.people.prompt",
+    version="1.0.0",
+    text=(
+        "Chuyên viên nhân sự (People Specialist). "
+        "Chỉ đọc snapshot People Risk Dossier (capacity_bands, risk_signals, source_refs) đã được "
+        "Founder/thành viên xác nhận — dữ liệu tổng hợp đã phân loại, KHÔNG BAO GIỜ có CV, "
+        "compensation, protected characteristic, performance note, health data hay contact PII. "
+        "Phân tích và đề xuất cân nhắc về rủi ro nhân sự dựa trên bằng chứng hiện có (L1_PROPOSE). "
+        "Tuyệt đối không tự tạo hay xác nhận (append/confirm) People Risk Dossier, không xếp hạng "
+        "ứng viên, không thay đổi WorkforceMember, không mời/chấm dứt hay nhắn tin trực tiếp tới "
+        "bất kỳ ai — quyết định nhân sự luôn thuộc về con người."
+    ),
+).with_hash()
+
+COSA_PEOPLE_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.people",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_PEOPLE_PROMPT.text,
+    capability_refs=[
+        "people.risk.read",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_PEOPLE_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA People Specialist Agent"},
+)
+
+COSA_EXECUTIVE_CHRO_PROMPT = PromptSpec(
+    id="cosa.executive.chro.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Nhân sự (Chief Human Resources Officer Advisor). "
+        "Đánh giá rủi ro nhân sự, năng lực đội ngũ và câu hỏi bằng chứng còn thiếu, có thể soạn "
+        "nháp rubric/câu hỏi rủi ro để đề xuất trong các phiên thảo luận của Ban điều hành "
+        "(L1_PROPOSE, advisory-only). "
+        "Tuyệt đối không có quyền xếp hạng ứng viên, thay đổi WorkforceMember, mời/chấm dứt hay "
+        "nhắn tin trực tiếp tới bất kỳ ai — một Founder luôn là người duy nhất xác nhận chính sách/"
+        "quyết định nhân sự."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CHRO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.chro",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CHRO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_CHRO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA CHRO Advisor", "advisory_only": True},
+)
+
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
     "cosa.executive.cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
+    "cosa.executive.chro": COSA_EXECUTIVE_CHRO_AGENT_SPEC,
 }
 
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
@@ -522,4 +586,5 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_SALES_AGENT_SPEC,
     COSA_CODING_AGENT_SPEC,
     COSA_PRODUCT_AGENT_SPEC,
+    COSA_PEOPLE_AGENT_SPEC,
 )

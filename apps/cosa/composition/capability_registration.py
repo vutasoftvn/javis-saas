@@ -92,6 +92,10 @@ from apps.cosa.capabilities.operations_write import (
     create_operations_task_advance_handler,
     create_operations_task_create_draft_handler,
 )
+from apps.cosa.capabilities.people_risk_read import (
+    PEOPLE_RISK_READ_SPEC,
+    create_people_risk_read_handler,
+)
 from apps.cosa.capabilities.product_decision_read import (
     PRODUCT_DECISION_READ_SPEC,
     create_product_decision_read_handler,
@@ -307,6 +311,12 @@ def register_cosa_capabilities(
     cap_registry.register(
         PRODUCT_DECISION_READ_SPEC,
         create_product_decision_read_handler(client),
+    )
+
+    # People Risk Dossier (read-only)
+    cap_registry.register(
+        PEOPLE_RISK_READ_SPEC,
+        create_people_risk_read_handler(client),
     )
 
     # Sandbox MCP
