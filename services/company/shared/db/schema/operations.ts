@@ -1298,5 +1298,54 @@ export const founderAssetEvents = operatingSchema.table("founder_asset_events", 
   ixWsTime: index("idx_founder_asset_events_ws_time").on(t.workspaceId, t.occurredAt),
 }));
 
+// Task 2 (CAIO plan, 2026-09-12) — AI Governance Dossier: reference-only
+// (policy/evaluator id+version+definitionHash, snapshot_ref hash, observedAt,
+// risk signal classification enums, redacted source refs) — KHÔNG BAO GIỜ raw
+// signature/prompt/output/credential. Xem migration 022 và
+// ai-governance-dossier.service.ts cho đầy đủ ngữ cảnh + validation.
+export const aiGovernanceDossiers = operatingSchema.table("ai_governance_dossiers", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  status: varchar("status", { length: 24 }).default("DRAFT").notNull(), // DRAFT | CONFIRMED | SUPERSEDED
+  currentVersion: integer("current_version").default(1).notNull(),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixProj: index("idx_ai_governance_dossiers_proj").on(t.workspaceId, t.projectId, t.updatedAt),
+  // 1 dossier duy nhất mỗi Project (xem migration 022).
+  uixProject: uniqueIndex("uix_ai_governance_dossiers_project").on(t.workspaceId, t.projectId),
+}));
+
+export const aiGovernanceDossierRevisions = operatingSchema.table("ai_governance_dossier_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  dossierId: bigint("dossier_id", { mode: "bigint" }).notNull().references(() => aiGovernanceDossiers.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  status: varchar("status", { length: 24 }).notNull(), // DRAFT | CONFIRMED
+  // Hash tham chiếu độc lập của snapshot đã verify (KHÔNG phải raw signature).
+  snapshotRef: varchar("snapshot_ref", { length: 128 }).notNull(),
+  // Mảng {id, version, definitionHash} — danh tính tham chiếu, đã verify
+  // signature trước khi ghi.
+  policy: jsonb("policy").default([]).notNull(),
+  evaluators: jsonb("evaluators").default([]).notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  // Mảng {category, severity} — enum cố định, không có field tự do.
+  riskSignals: jsonb("risk_signals").default([]).notNull(),
+  // Tham chiếu nguồn đã redact (reference-only, mirror EvidenceRef).
+  sourceRefs: jsonb("source_refs").default([]).notNull(),
+  reasonCode: varchar("reason_code", { length: 32 }).notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  supersedesRevisionId: bigint("supersedes_revision_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixVer: uniqueIndex("uix_ai_governance_dossier_revisions_ver").on(t.dossierId, t.version),
+  ixDossier: index("idx_ai_governance_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
+}));
+
 
 
