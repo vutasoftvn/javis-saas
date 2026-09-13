@@ -17,17 +17,20 @@ __all__ = [
     "ApprovalSubject",
     "AutomationRunManifestRecord",
     "ComplianceDecisionPayload",
+    "GovernedWorkflowRunManifest",
     "IdempotencyClaimRecord",
     "RunApprovalRecord",
     "RunCheckpointRecord",
     "RunEventRecord",
     "RunRecord",
     "RunToolCallRecord",
+    "WorkflowRunRecord",
     "WorkforceRunAttribution",
 ]
 
 
 ApprovalBindingKind = Literal["TOOL_CALL", "CHANGE_REQUEST"]
+
 
 
 class ApprovalSubject(BaseModel):
@@ -260,3 +263,14 @@ class AutomationRunManifestRecord(BaseModel):
     manifest_hash: str
     manifest_json: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+def __getattr__(name: str) -> Any:
+    if name == "GovernedWorkflowRunManifest":
+        from agent.workflows.manifest import GovernedWorkflowRunManifest
+        return GovernedWorkflowRunManifest
+    if name == "WorkflowRunRecord":
+        from agent.workflows.models import WorkflowRunRecord
+        return WorkflowRunRecord
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+

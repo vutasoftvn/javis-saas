@@ -85,3 +85,20 @@ class Workflow(BaseModel):
 
     def is_terminal(self) -> bool:
         return self.status in _TERMINAL_STATUSES
+
+
+class WorkflowRunRecord(BaseModel):
+    """Bản ghi durable execution của một workflow run."""
+
+    run_id: str
+    workspace_id: str = "default"
+    project_id: str
+    workflow_asset_id: str
+    workflow_version: str = "1.0.0"
+    workflow_definition_hash: str
+    manifest_hash: str
+    status: WorkflowStatus = WorkflowStatus.PENDING
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
+

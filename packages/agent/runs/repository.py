@@ -62,13 +62,19 @@ class RunRepository(Protocol):
         self, run_id: str, attribution: WorkforceRunAttribution
     ) -> RunRecord | None: ...
 
-    # 2. Checkpoints
+    # 2. Checkpoints & Manifests
     async def save_checkpoint(self, checkpoint: RunCheckpointRecord) -> RunCheckpointRecord: ...
     async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None: ...
     async def save_automation_manifest(
         self, run_id: str, manifest_hash: str, manifest_json: dict[str, Any]
     ) -> dict[str, Any]: ...
     async def get_automation_manifest(self, run_id: str) -> dict[str, Any] | None: ...
+    async def create_workflow_manifest(
+        self, manifest: GovernedWorkflowRunManifest
+    ) -> GovernedWorkflowRunManifest: ...
+    async def get_workflow_manifest(
+        self, run_id: str
+    ) -> GovernedWorkflowRunManifest | None: ...
     async def get_checkpoint(self, checkpoint_ref: str) -> RunCheckpointRecord | None: ...
     async def list_checkpoints(self, run_id: str) -> list[RunCheckpointRecord]: ...
 
@@ -304,6 +310,22 @@ class InMemoryRunRepository:
     async def get_automation_manifest(self, run_id: str) -> dict[str, Any] | None:
         rec = self._automation_manifests.get(run_id)
         return dict(rec) if rec else None
+
+    async def create_workflow_manifest(
+        self, manifest: GovernedWorkflowRunManifest
+    ) -> GovernedWorkflowRunManifest:
+        if not hasattr(self, "_workflow_manifest_repo"):
+            from agent.workflows.manifest import InMemoryWorkflowManifestRepository
+            self._workflow_manifest_repo = InMemoryWorkflowManifestRepository()
+        return await self._workflow_manifest_repo.create_manifest(manifest)
+
+    async def get_workflow_manifest(
+        self, run_id: str
+    ) -> GovernedWorkflowRunManifest | None:
+        if not hasattr(self, "_workflow_manifest_repo"):
+            from agent.workflows.manifest import InMemoryWorkflowManifestRepository
+            self._workflow_manifest_repo = InMemoryWorkflowManifestRepository()
+        return await self._workflow_manifest_repo.get_manifest(run_id)
 
     async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None:
         seq_list = self._run_checkpoints.get(run_id, [])
@@ -992,6 +1014,22 @@ class PostgresRunRepository(BasePostgresRepository):
         if isinstance(mj, str):
             mj = json.loads(mj)
         return {"run_id": row.run_id, "manifest_hash": row.manifest_hash, "manifest_json": mj}
+
+    async def create_workflow_manifest(
+        self, manifest: GovernedWorkflowRunManifest
+    ) -> GovernedWorkflowRunManifest:
+        if not hasattr(self, "_workflow_manifest_repo"):
+            from agent.workflows.manifest import PostgresWorkflowManifestRepository
+            self._workflow_manifest_repo = PostgresWorkflowManifestRepository(self._session_factory)
+        return await self._workflow_manifest_repo.create_manifest(manifest)
+
+    async def get_workflow_manifest(
+        self, run_id: str
+    ) -> GovernedWorkflowRunManifest | None:
+        if not hasattr(self, "_workflow_manifest_repo"):
+            from agent.workflows.manifest import PostgresWorkflowManifestRepository
+            self._workflow_manifest_repo = PostgresWorkflowManifestRepository(self._session_factory)
+        return await self._workflow_manifest_repo.get_manifest(run_id)
 
     async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None:
         async with self._session_factory() as session:
