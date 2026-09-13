@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -9,16 +9,16 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from packages.agent.assets.contracts import (
-    WorkspaceAssetDraft,
-    WorkspaceAssetVersion,
-    AssetScope,
-    AssetLifecycle,
-    AssetOrigin,
-    PinnedAssetIdentity,
-    AssetImmutableError,
-    AssetNotFoundError,
     AssetConflictError,
     AssetEvaluationResult,
+    AssetImmutableError,
+    AssetLifecycle,
+    AssetNotFoundError,
+    AssetOrigin,
+    AssetScope,
+    PinnedAssetIdentity,
+    WorkspaceAssetDraft,
+    WorkspaceAssetVersion,
 )
 
 
@@ -117,7 +117,7 @@ class InMemoryWorkspaceAssetRepository:
         if not item:
             raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found in workspace {workspace_id}")
 
-        if item.lifecycle != AssetLifecycle.DRAFT and item.lifecycle != AssetLifecycle.CANDIDATE:
+        if item.lifecycle not in (AssetLifecycle.DRAFT, AssetLifecycle.CANDIDATE):
             raise AssetImmutableError(f"Cannot mutate content of asset in lifecycle {item.lifecycle.value}")
 
         new_hash = compute_canonical_hash(content)
@@ -374,7 +374,7 @@ class PostgresWorkspaceAssetRepository:
         current = await self.get_version(workspace_id, asset_id, version)
         if not current:
             raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found")
-        if current.lifecycle != AssetLifecycle.DRAFT and current.lifecycle != AssetLifecycle.CANDIDATE:
+        if current.lifecycle not in (AssetLifecycle.DRAFT, AssetLifecycle.CANDIDATE):
             raise AssetImmutableError(f"Cannot mutate content of asset in lifecycle {current.lifecycle.value}")
 
         new_hash = compute_canonical_hash(content)

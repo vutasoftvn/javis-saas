@@ -1,11 +1,12 @@
 import pytest
+
 from packages.agent.assets.contracts import (
-    WorkspaceAssetDraft,
-    AssetScope,
-    AssetKind,
-    PinnedAssetIdentity,
     AssetImmutableError,
+    AssetKind,
+    AssetScope,
     AssetScopeError,
+    PinnedAssetIdentity,
+    WorkspaceAssetDraft,
 )
 from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
 

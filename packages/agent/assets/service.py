@@ -3,15 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from packages.agent.assets.contracts import (
-    WorkspaceAssetDraft,
-    WorkspaceAssetVersion,
+    AssetEvaluationResult,
     AssetScope,
     PinnedAssetIdentity,
-    AssetConflictError,
-    AssetNotFoundError,
-    AssetEvaluationResult,
+    WorkspaceAssetDraft,
+    WorkspaceAssetVersion,
 )
-from packages.agent.assets.repository import WorkspaceAssetRepository, compute_canonical_hash
+from packages.agent.assets.repository import WorkspaceAssetRepository
 
 
 class WorkspaceAssetService:

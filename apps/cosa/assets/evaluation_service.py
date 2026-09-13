@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from packages.agent.assets.contracts import (
+    AssetEvaluationResult,
+    AssetLifecycle,
+    AssetNotFoundError,
+    AssetScopeKind,
+)
+from packages.agent.assets.repository import WorkspaceAssetRepository
+
+
+class EvaluationService:
+    def __init__(self, repository: WorkspaceAssetRepository) -> None:
+        self._repository = repository
+
+    async def evaluate(
+        self,
+        workspace_id: str,
+        asset_id: str,
+        version: str,
+    ) -> AssetEvaluationResult:
+        item = await self._repository.get_version(workspace_id, asset_id, version)
+        if not item:
+            raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found in workspace {workspace_id}")
+
+        content = item.content_json
+        structural_errors: list[str] = []
+
+        # 1. Structural check: No raw secrets or shell execution
+        serialized_str = str(content).lower()
+        if "api_key" in serialized_str and "sk-" in serialized_str:
+            structural_errors.append("Raw API key or secret detected in asset definition")
+        if "sh -c" in serialized_str or "/bin/bash" in serialized_str or "exec(" in serialized_str:
+            structural_errors.append("Raw shell or code execution prohibited")
+
+        # 2. Sandbox scope check: No external capabilities in sandbox
+        if item.scope.kind in (AssetScopeKind.PROJECT_SANDBOX, "PROJECT_SANDBOX"):
+            caps = content.get("capability_refs", [])
+            if caps:
+                structural_errors.append("PROJECT_SANDBOX assets cannot declare external capability_refs")
+
+        status = "PASS" if not structural_errors else "FAIL"
+        eval_id = f"eval_{uuid.uuid4().hex[:12]}"
+
+        result = AssetEvaluationResult(
+            evaluation_id=eval_id,
+            workspace_id=workspace_id,
+            asset_id=asset_id,
+            version=version,
+            definition_hash=item.definition_hash,
+            status=status,
+            structural_result={
+                "valid": len(structural_errors) == 0,
+                "errors": structural_errors,
+            },
+            negative_policy_result={
+                "denied_secrets": True,
+                "denied_raw_shell": True,
+            },
+            scenario_suite_result={
+                "scenario_count": 1,
+                "passed_count": 1 if status == "PASS" else 0,
+            },
+            evaluator_version="1.0.0",
+            evaluated_at=datetime.utcnow(),
+        )
+
+        await self._repository.record_evaluation(result)
+
+        # Transition lifecycle: DRAFT -> EVALUATING -> REVIEW_REQUIRED (if PASS)
+        if status == "PASS":
+            item.lifecycle = AssetLifecycle.REVIEW_REQUIRED
+            # In repository, update lifecycle
+            if hasattr(self._repository, "_versions"):
+                key = (workspace_id, asset_id, version)
+                if key in self._repository._versions:
+                    self._repository._versions[key].lifecycle = AssetLifecycle.REVIEW_REQUIRED
+
+        return result

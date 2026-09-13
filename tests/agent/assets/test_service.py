@@ -1,12 +1,13 @@
 import pytest
+
 from packages.agent.assets.contracts import (
+    AssetConflictError,
     AssetKind,
     AssetScope,
     WorkspaceAssetDraft,
-    AssetConflictError,
 )
-from packages.agent.assets.service import WorkspaceAssetService
 from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+from packages.agent.assets.service import WorkspaceAssetService
 
 
 @pytest.fixture

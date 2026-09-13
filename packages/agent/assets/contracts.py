@@ -2,22 +2,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class AssetKind(str, Enum):
+class AssetKind(StrEnum):
     AGENT = "AGENT"
     SKILL = "SKILL"
     WORKFLOW = "WORKFLOW"
 
 
-class AssetScopeKind(str, Enum):
+class AssetScopeKind(StrEnum):
     WORKSPACE = "WORKSPACE"
     PROJECT_SANDBOX = "PROJECT_SANDBOX"
 
 
-class AssetLifecycle(str, Enum):
+class AssetLifecycle(StrEnum):
     DRAFT = "DRAFT"
     CANDIDATE = "CANDIDATE"
     EVALUATING = "EVALUATING"
@@ -26,7 +26,7 @@ class AssetLifecycle(str, Enum):
     RETIRED = "RETIRED"
 
 
-class AssetOriginKind(str, Enum):
+class AssetOriginKind(StrEnum):
     SCRATCH = "SCRATCH"
     CLONE = "CLONE"
     BUILTIN = "BUILTIN"
@@ -62,10 +62,10 @@ class AssetScope:
     project_id: str | None = None
 
     def __post_init__(self) -> None:
-        if self.kind == AssetScopeKind.PROJECT_SANDBOX or self.kind == "PROJECT_SANDBOX":
+        if self.kind in (AssetScopeKind.PROJECT_SANDBOX, "PROJECT_SANDBOX"):
             if not self.project_id:
                 raise AssetScopeError("PROJECT_SANDBOX scope requires a non-empty project_id")
-        elif self.kind == AssetScopeKind.WORKSPACE or self.kind == "WORKSPACE":
+        elif self.kind in (AssetScopeKind.WORKSPACE, "WORKSPACE"):
             if self.project_id is not None:
                 raise AssetScopeError("WORKSPACE scope must not have a project_id")
         else:
