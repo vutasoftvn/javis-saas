@@ -28,6 +28,10 @@ from apps.cosa.capabilities.engagement_message_send import (
     ENGAGEMENT_MESSAGE_SEND_SPEC,
     create_engagement_message_send_handler,
 )
+from apps.cosa.capabilities.data_governance_read import (
+    DATA_GOVERNANCE_READ_SPEC,
+    create_data_governance_read_handler,
+)
 from apps.cosa.capabilities.engagement_read import (
     ENGAGEMENT_THREAD_READ_SPEC,
     create_engagement_thread_read_handler,
@@ -337,6 +341,12 @@ def register_cosa_capabilities(
     cap_registry.register(
         LEGAL_ISSUE_READ_SPEC,
         create_legal_issue_read_handler(client),
+    )
+
+    # Data Governance Dossier (read-only)
+    cap_registry.register(
+        DATA_GOVERNANCE_READ_SPEC,
+        create_data_governance_read_handler(client),
     )
 
     # Sandbox MCP

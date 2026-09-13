@@ -19,6 +19,10 @@ __all__ = [
     "COSA_EXECUTIVE_CPO_PROMPT",
     "COSA_FINANCE_AGENT_SPEC",
     "COSA_FINANCE_PROMPT",
+    "COSA_DATA_AGENT_SPEC",
+    "COSA_DATA_PROMPT",
+    "COSA_EXECUTIVE_CDO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CDO_PROMPT",
     "COSA_EXECUTIVE_GC_AGENT_SPEC",
     "COSA_EXECUTIVE_GC_PROMPT",
     "COSA_KICKOFF_SUGGESTION_AGENT_SPEC",
@@ -700,12 +704,76 @@ COSA_EXECUTIVE_GC_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA GC Advisor", "advisory_only": True},
 )
 
+COSA_DATA_PROMPT = PromptSpec(
+    id="cosa.agents.data.prompt",
+    version="1.0.0",
+    text=(
+        "Chuyên viên quản trị dữ liệu (Data Specialist). "
+        "Chỉ đọc snapshot Data Governance Dossier (assets với assetId/"
+        "classification/qualityStatus, sourceRefs) đã được Founder/thành "
+        "viên xác nhận — chỉ metadata catalog đã phân loại, KHÔNG BAO GIỜ có "
+        "giá trị/field sample thật, embedding vector, raw file URI hay API "
+        "credential. Phân tích và đề xuất cân nhắc về chất lượng/phân loại "
+        "dữ liệu dựa trên bằng chứng hiện có (L1_PROPOSE). Tuyệt đối không tự "
+        "tạo hay xác nhận (append/confirm) Data Governance Dossier, không "
+        "thay đổi classification/ACL/retention hay xoá dữ liệu — quyết định "
+        "quản trị dữ liệu luôn thuộc về con người."
+    ),
+).with_hash()
+
+COSA_DATA_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.data",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_DATA_PROMPT.text,
+    capability_refs=[
+        "data.governance.read",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_DATA_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Data Specialist Agent"},
+)
+
+COSA_EXECUTIVE_CDO_PROMPT = PromptSpec(
+    id="cosa.executive.cdo.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Dữ liệu (Chief Data Officer Advisor). "
+        "Đánh giá chất lượng/phân loại dữ liệu, phát hiện gap quản trị "
+        "(governance gap) và đề xuất bản nháp remediation để đưa vào các "
+        "phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only). "
+        "Tuyệt đối không có quyền đọc giá trị/field sample thật, embedding "
+        "vector, raw file URI hay API credential, không thay đổi "
+        "classification, ACL, retention hay xoá bản ghi — một Founder luôn "
+        "là người duy nhất xác nhận chính sách/quyết định quản trị dữ liệu; "
+        "Data Governance Dossier hiện có vẫn là nguồn sự thật duy nhất."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CDO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.cdo",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CDO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_CDO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA CDO Advisor", "advisory_only": True},
+)
+
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
     "cosa.executive.cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
     "cosa.executive.chro": COSA_EXECUTIVE_CHRO_AGENT_SPEC,
     "cosa.executive.ciso": COSA_EXECUTIVE_CISO_AGENT_SPEC,
     "cosa.executive.gc": COSA_EXECUTIVE_GC_AGENT_SPEC,
+    "cosa.executive.cdo": COSA_EXECUTIVE_CDO_AGENT_SPEC,
 }
 
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
@@ -726,4 +794,5 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_PEOPLE_AGENT_SPEC,
     COSA_SECURITY_AGENT_SPEC,
     COSA_LEGAL_AGENT_SPEC,
+    COSA_DATA_AGENT_SPEC,
 )
