@@ -1136,4 +1136,129 @@ export const legalIssueDossierRevisions = operatingSchema.table("legal_issue_dos
   ixDossier: index("idx_legal_issue_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
 }));
 
+// =============================================================================
+// Founder-Configurable Role, Agent, Skill & Workflow Storage (Migration 018)
+// =============================================================================
+
+export const workspaceOperatingRoles = operatingSchema.table("workspace_operating_roles", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  roleCode: text("role_code").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  state: text("state").default("ACTIVE").notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }).notNull(),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixWsCode: uniqueIndex("uix_workspace_operating_roles_ws_code").on(t.workspaceId, t.roleCode),
+  uixIdWs: uniqueIndex("uix_workspace_operating_roles_id_ws").on(t.id, t.workspaceId),
+  ixWs: index("idx_workspace_operating_roles_ws").on(t.workspaceId),
+}));
+
+export const workspaceAgents = operatingSchema.table("workspace_agents", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  agentAssetId: text("agent_asset_id").notNull(),
+  agentAssetVersion: text("agent_asset_version").notNull(),
+  agentDefinitionHash: text("agent_definition_hash").notNull(),
+  workforceMemberId: bigint("workforce_member_id", { mode: "bigint" }).notNull(),
+  state: text("state").default("ACTIVE").notNull(),
+  originKind: text("origin_kind").notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }).notNull(),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixWsAsset: uniqueIndex("uix_workspace_agents_ws_asset").on(t.workspaceId, t.agentAssetId),
+  uixIdWs: uniqueIndex("uix_workspace_agents_id_ws").on(t.id, t.workspaceId),
+  ixWs: index("idx_workspace_agents_ws").on(t.workspaceId),
+}));
+
+export const roleAgentBindings = operatingSchema.table("role_agent_bindings", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  roleId: bigint("role_id", { mode: "bigint" }).notNull(),
+  workspaceAgentId: bigint("workspace_agent_id", { mode: "bigint" }).notNull(),
+  isPrimary: boolean("is_primary").default(false).notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixRoleAgent: uniqueIndex("uix_role_agent_bindings_role_agent").on(t.workspaceId, t.roleId, t.workspaceAgentId),
+}));
+
+export const projectRoleDeployments = operatingSchema.table("project_role_deployments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  roleId: bigint("role_id", { mode: "bigint" }).notNull(),
+  state: text("state").default("ACTIVE").notNull(),
+  policyOverride: jsonb("policy_override").default({}).notNull(),
+  budgetLimit: jsonb("budget_limit"),
+  version: integer("version").default(1).notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixProjRole: uniqueIndex("uix_project_role_deployments_proj_role").on(t.workspaceId, t.projectId, t.roleId),
+  uixIdWs: uniqueIndex("uix_project_role_deployments_id_ws").on(t.id, t.workspaceId),
+  ixWsProj: index("idx_project_role_deployments_ws_proj").on(t.workspaceId, t.projectId),
+}));
+
+export const projectAgentDeployments = operatingSchema.table("project_agent_deployments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  workspaceAgentId: bigint("workspace_agent_id", { mode: "bigint" }).notNull(),
+  projectRoleDeploymentId: bigint("project_role_deployment_id", { mode: "bigint" }),
+  state: text("state").default("ACTIVE").notNull(),
+  capabilityOverrides: jsonb("capability_overrides").default([]).notNull(),
+  version: integer("version").default(1).notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixProjAgent: uniqueIndex("uix_project_agent_deployments_proj_agent").on(t.workspaceId, t.projectId, t.workspaceAgentId),
+  uixIdWs: uniqueIndex("uix_project_agent_deployments_id_ws").on(t.id, t.workspaceId),
+  ixWsProj: index("idx_project_agent_deployments_ws_proj").on(t.workspaceId, t.projectId),
+}));
+
+export const projectWorkflowBindings = operatingSchema.table("project_workflow_bindings", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  workflowAssetId: text("workflow_asset_id").notNull(),
+  workflowAssetVersion: text("workflow_asset_version").notNull(),
+  workflowDefinitionHash: text("workflow_definition_hash").notNull(),
+  state: text("state").default("ACTIVE").notNull(),
+  executionPolicy: jsonb("execution_policy").default({}).notNull(),
+  version: integer("version").default(1).notNull(),
+  createdBy: bigint("created_by", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixProjWf: uniqueIndex("uix_project_workflow_bindings_proj_wf").on(t.workspaceId, t.projectId, t.workflowAssetId),
+  ixWsProj: index("idx_project_workflow_bindings_ws_proj").on(t.workspaceId, t.projectId),
+}));
+
+export const founderAssetEvents = operatingSchema.table("founder_asset_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }),
+  actorId: bigint("actor_id", { mode: "bigint" }).notNull(),
+  command: text("command").notNull(),
+  targetKind: text("target_kind").notNull(),
+  targetRef: jsonb("target_ref").notNull(),
+  beforeHash: text("before_hash"),
+  afterHash: text("after_hash"),
+  reason: text("reason").notNull(),
+  correlationId: text("correlation_id").notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+  metadata: jsonb("metadata").default({}).notNull(),
+}, (t) => ({
+  ixWsTime: index("idx_founder_asset_events_ws_time").on(t.workspaceId, t.occurredAt),
+}));
+
+
 
