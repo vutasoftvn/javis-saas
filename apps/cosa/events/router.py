@@ -251,6 +251,16 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
             )
             return IntakeResult(outcome=outcome, scheduledTaskId=task_id)
 
+        # Founder Configurable Asset Authoring (Task 6)
+        if env.eventType == "founder.asset.commanded.v1":
+            from apps.cosa.events.founder_asset_events import dispatch_founder_asset_command
+
+            outcome, err_or_task = await dispatch_founder_asset_command(deps, env)
+            await inbox_store.set_outcome(
+                conn, env.workspaceId, env.eventId, CONSUMER, outcome, err_or_task
+            )
+            return IntakeResult(outcome=outcome, reason=err_or_task if outcome != "accepted" else None)
+
         self_trigger = _PLATFORM_SELF_TRIGGER.get(env.eventType)
         if self_trigger is not None:
             task_type, target_spec_id = self_trigger

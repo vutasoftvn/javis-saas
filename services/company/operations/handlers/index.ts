@@ -26,3 +26,4 @@ export * from "./people-risk-dossier.handler";
 export * from "./security-posture.handler";
 export * from "./legal-issue-dossier.handler";
 export * from "./founder-asset-deployment.handler";
+export * from "./founder-asset-authoring.handler";
