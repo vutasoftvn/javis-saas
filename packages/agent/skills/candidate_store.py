@@ -30,6 +30,8 @@ class SkillFeedbackRecord(BaseModel):
     success: bool = True
     rating: int | None = None
     notes: str | None = None
+    project_id: str | None = None
+    manifest_hash: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -149,8 +151,7 @@ class InMemorySkillCandidateStore:
         # Idempotent replay: already published with same approval and hash
         if cand.status == SkillStatus.PUBLISHED:
             if cand.promotion_approval_id == approval_id and (
-                cand.promotion_definition_hash == expected_definition_hash
-                or cand.definition_hash == expected_definition_hash
+                expected_definition_hash in (cand.promotion_definition_hash, cand.definition_hash)
             ):
                 return True, "ALREADY_PUBLISHED", cand.model_copy(deep=True)
             return False, "ALREADY_PUBLISHED_DIFFERENT_APPROVAL", cand.model_copy(deep=True)
@@ -403,6 +404,7 @@ class PostgresSkillCandidateStore:
         expected_definition_hash: str,
     ) -> tuple[bool, str, SkillCandidate | None]:
         from sqlalchemy import text
+
         from agent.skills.contracts import SkillSpec
 
         async with self._session_factory() as session, session.begin():
@@ -441,8 +443,7 @@ class PostgresSkillCandidateStore:
             # Idempotent replay: already published with same approval and hash
             if cand.status == SkillStatus.PUBLISHED:
                 if cand.promotion_approval_id == approval_id and (
-                    cand.promotion_definition_hash == expected_definition_hash
-                    or cand.definition_hash == expected_definition_hash
+                    expected_definition_hash in (cand.promotion_definition_hash, cand.definition_hash)
                 ):
                     return True, "ALREADY_PUBLISHED", cand
                 return False, "ALREADY_PUBLISHED_DIFFERENT_APPROVAL", cand
@@ -514,9 +515,11 @@ class PostgresSkillCandidateStore:
             query = text(
                 """
                 INSERT INTO agent_skill_feedback (
-                    feedback_id, workspace_id, skill_id, version, success, rating, notes, created_at
+                    feedback_id, workspace_id, skill_id, version, success, rating, notes,
+                    project_id, manifest_hash, created_at
                 ) VALUES (
-                    :feedback_id, :workspace_id, :skill_id, :version, :success, :rating, :notes, :created_at
+                    :feedback_id, :workspace_id, :skill_id, :version, :success, :rating, :notes,
+                    :project_id, :manifest_hash, :created_at
                 )
                 """
             )
@@ -530,6 +533,8 @@ class PostgresSkillCandidateStore:
                     "success": feedback.success,
                     "rating": feedback.rating,
                     "notes": feedback.notes,
+                    "project_id": feedback.project_id,
+                    "manifest_hash": feedback.manifest_hash,
                     "created_at": feedback.created_at,
                 },
             )
@@ -541,7 +546,8 @@ class PostgresSkillCandidateStore:
         async with self._session_factory() as session:
             query = text(
                 """
-                SELECT feedback_id, workspace_id, skill_id, version, success, rating, notes, created_at
+                SELECT feedback_id, workspace_id, skill_id, version, success, rating, notes,
+                       project_id, manifest_hash, created_at
                 FROM agent_skill_feedback
                 WHERE workspace_id = :workspace_id AND skill_id = :skill_id
                 ORDER BY created_at DESC
@@ -559,6 +565,8 @@ class PostgresSkillCandidateStore:
                     success=row["success"],
                     rating=row["rating"],
                     notes=row["notes"],
+                    project_id=row.get("project_id"),
+                    manifest_hash=row.get("manifest_hash"),
                     created_at=row["created_at"],
                 )
                 for row in result.mappings().all()

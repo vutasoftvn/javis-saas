@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-import hashlib
 import json
-from typing import Any, Literal, Protocol, runtime_checkable
 import uuid
+from datetime import UTC, datetime
+from typing import Any, Literal, Protocol, runtime_checkable
+
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from agent.skills.candidate_store import SkillFeedbackRecord, SkillCandidateStore
+from agent.skills.candidate_store import SkillCandidateStore, SkillFeedbackRecord
 
 SkillIdentity = tuple[str, str, str]  # (skill_id, version, definition_hash)
 
@@ -24,7 +23,9 @@ class SkillUsageObservation(BaseModel):
     definition_hash: str
     root_spec_id: str
     root_definition_hash: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    project_id: str | None = None
+    manifest_hash: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class FeedbackAggregate(BaseModel):
@@ -40,7 +41,9 @@ class FeedbackAggregate(BaseModel):
     window_started_at: datetime
     window_ended_at: datetime
     health: Literal["INSUFFICIENT_SAMPLES", "STABLE", "DEGRADING"]
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    project_id: str | None = None
+    manifest_hash: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class SkillImprovementRequest(BaseModel):
@@ -58,8 +61,10 @@ class SkillImprovementRequest(BaseModel):
     claimed_by: str | None = None
     claimed_at: datetime | None = None
     safe_reason_code: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    project_id: str | None = None
+    manifest_hash: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ClaimedSkillImprovementRequest(BaseModel):
@@ -73,11 +78,13 @@ class SkillImprovementOutbox(BaseModel):
     workspace_id: str
     state: str = "PENDING"
     attempt_count: int = 0
-    next_attempt_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    next_attempt_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     claim_token: str | None = None
     claimed_by: str | None = None
     delivered_at: datetime | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    project_id: str | None = None
+    manifest_hash: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ClaimedSkillImprovementOutbox(BaseModel):
@@ -118,7 +125,7 @@ class SkillImprovementEvaluationRecord(BaseModel):
     passed_cases: list[str] = Field(default_factory=list)
     failed_cases: list[str] = Field(default_factory=list)
     safe_reason_code: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class SkillImprovementMutationRecord(BaseModel):
@@ -133,7 +140,7 @@ class SkillImprovementMutationRecord(BaseModel):
     score_after: float
     validation_passed: bool = True
     safe_reason_code: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class SkillImprovementPolicyConfig(BaseModel):
@@ -242,18 +249,22 @@ class InMemorySkillImprovementRepository:
     ) -> list[SkillUsageObservation]:
         results = []
         for obs in self._observations.values():
-            if obs.workspace_id == workspace_id and obs.run_id == run_id:
-                if skill_id is None or obs.skill_id == skill_id:
-                    results.append(obs)
+            if obs.workspace_id == workspace_id and obs.run_id == run_id and (skill_id is None or obs.skill_id == skill_id):
+                results.append(obs)
         return results
 
     async def record_feedback_and_maybe_enqueue(
         self, *, feedback: SkillFeedbackRecord, policy: Any
     ) -> FeedbackWriteResult:
+        if policy is None:
+            policy = SkillImprovementPolicyConfig()
         ws_id = feedback.workspace_id
         # 1. Resolve exact observation
         version = feedback.version
         def_hash = feedback.definition_hash
+        project_id = feedback.project_id
+        manifest_hash = feedback.manifest_hash
+
         if feedback.run_id:
             matching_obs = await self.get_usage_observations(ws_id, feedback.run_id, feedback.skill_id)
             if not matching_obs:
@@ -263,11 +274,20 @@ class InMemorySkillImprovementRepository:
             if len(distinct_identities) > 1:
                 raise ValueError(f"Ambiguous observations for run {feedback.run_id} and skill {feedback.skill_id}")
             obs = matching_obs[0]
+            if feedback.project_id is not None and obs.project_id != feedback.project_id:
+                raise ValueError(
+                    f"No observation found matching project_id {feedback.project_id} for run {feedback.run_id}"
+                )
+            if feedback.manifest_hash is not None and obs.manifest_hash != feedback.manifest_hash:
+                raise ValueError(
+                    f"No observation found matching manifest_hash {feedback.manifest_hash} for run {feedback.run_id}"
+                )
             version = obs.skill_version
             def_hash = obs.definition_hash
-        else:
-            if not version or not def_hash:
-                raise ValueError("Skill version and definition hash required when run_id is omitted")
+            project_id = feedback.project_id or obs.project_id
+            manifest_hash = feedback.manifest_hash or obs.manifest_hash
+        elif not version or not def_hash:
+            raise ValueError("Skill version and definition hash required when run_id is omitted")
 
         # 2. Idempotency check
         idem_key = feedback.idempotency_key
@@ -309,7 +329,12 @@ class InMemorySkillImprovementRepository:
                 )
 
         # 3. Store feedback
-        stored_fb = feedback.model_copy(update={"version": version, "definition_hash": def_hash})
+        stored_fb = feedback.model_copy(update={
+            "version": version,
+            "definition_hash": def_hash,
+            "project_id": project_id,
+            "manifest_hash": manifest_hash,
+        })
         self._feedbacks.append(stored_fb)
         if idem_key:
             self._feedback_by_key[(ws_id, idem_key)] = stored_fb
@@ -353,11 +378,9 @@ class InMemorySkillImprovementRepository:
         else:
             is_low = agg_score <= policy.low_score_threshold
             is_dropping = (delta is not None and delta >= policy.minimum_degradation_delta)
-            if is_low and is_dropping:
-                health = "DEGRADING"
-            else:
-                health = "STABLE"
+            health = "DEGRADING" if (is_low and is_dropping) else "STABLE"
 
+        now = datetime.now(UTC)
         agg = FeedbackAggregate(
             workspace_id=ws_id,
             skill_id=feedback.skill_id,
@@ -368,9 +391,12 @@ class InMemorySkillImprovementRepository:
             aggregate_score=agg_score,
             previous_score=prev_score,
             degradation_delta=delta,
-            window_started_at=min(f.created_at for f in window),
-            window_ended_at=max(f.created_at for f in window),
+            window_started_at=min(f.created_at for f in window) if window else now,
+            window_ended_at=max(f.created_at for f in window) if window else now,
             health=health,
+            project_id=project_id,
+            manifest_hash=manifest_hash,
+            created_at=now,
         )
         self._aggregates.append(agg)
 
@@ -413,6 +439,10 @@ class InMemorySkillImprovementRepository:
                             feedback_aggregate_revision=revision,
                             policy_hash=policy_hash,
                             status="PENDING",
+                            project_id=project_id,
+                            manifest_hash=manifest_hash,
+                            created_at=now,
+                            updated_at=now,
                         )
                         self._requests[req_id] = req
                         outbox = SkillImprovementOutbox(
@@ -420,6 +450,9 @@ class InMemorySkillImprovementRepository:
                             request_id=req_id,
                             workspace_id=ws_id,
                             state="PENDING",
+                            project_id=project_id,
+                            manifest_hash=manifest_hash,
+                            created_at=now,
                         )
                         self._outbox[outbox.outbox_id] = outbox
                         disposition = "QUEUED"
@@ -476,7 +509,7 @@ class InMemorySkillImprovementRepository:
         req.status = outcome.status
         req.safe_reason_code = outcome.safe_reason_code
         req.claim_token = None
-        req.updated_at = datetime.now(timezone.utc)
+        req.updated_at = datetime.now(UTC)
         return True
 
     async def claim_improvement_outbox(
@@ -590,10 +623,10 @@ class PostgresSkillImprovementRepository:
                 """
                 INSERT INTO agent.skill_usage_observations (
                     observation_id, workspace_id, run_id, skill_id, skill_version,
-                    definition_hash, root_spec_id, root_definition_hash, created_at
+                    definition_hash, root_spec_id, root_definition_hash, project_id, manifest_hash, created_at
                 ) VALUES (
                     :obs_id, :ws_id, :run_id, :skill_id, :skill_version,
-                    :def_hash, :root_spec_id, :root_def_hash, :created_at
+                    :def_hash, :root_spec_id, :root_def_hash, :project_id, :manifest_hash, :created_at
                 ) ON CONFLICT (run_id, skill_id, skill_version, definition_hash) DO NOTHING
                 """
             )
@@ -608,6 +641,8 @@ class PostgresSkillImprovementRepository:
                     "def_hash": observation.definition_hash,
                     "root_spec_id": observation.root_spec_id,
                     "root_def_hash": observation.root_definition_hash,
+                    "project_id": observation.project_id,
+                    "manifest_hash": observation.manifest_hash,
                     "created_at": observation.created_at,
                 },
             )
@@ -622,7 +657,7 @@ class PostgresSkillImprovementRepository:
                 stmt = text(
                     """
                     SELECT observation_id, workspace_id, run_id, skill_id, skill_version,
-                           definition_hash, root_spec_id, root_definition_hash, created_at
+                           definition_hash, root_spec_id, root_definition_hash, project_id, manifest_hash, created_at
                     FROM agent.skill_usage_observations
                     WHERE workspace_id = :ws_id AND run_id = :run_id AND skill_id = :skill_id
                     ORDER BY created_at ASC
@@ -633,7 +668,7 @@ class PostgresSkillImprovementRepository:
                 stmt = text(
                     """
                     SELECT observation_id, workspace_id, run_id, skill_id, skill_version,
-                           definition_hash, root_spec_id, root_definition_hash, created_at
+                           definition_hash, root_spec_id, root_definition_hash, project_id, manifest_hash, created_at
                     FROM agent.skill_usage_observations
                     WHERE workspace_id = :ws_id AND run_id = :run_id
                     ORDER BY created_at ASC
@@ -651,6 +686,8 @@ class PostgresSkillImprovementRepository:
                     definition_hash=r.definition_hash,
                     root_spec_id=r.root_spec_id,
                     root_definition_hash=r.root_definition_hash,
+                    project_id=r.project_id,
+                    manifest_hash=r.manifest_hash,
                     created_at=r.created_at,
                 )
                 for r in rows
@@ -659,16 +696,20 @@ class PostgresSkillImprovementRepository:
     async def record_feedback_and_maybe_enqueue(
         self, *, feedback: SkillFeedbackRecord, policy: Any
     ) -> FeedbackWriteResult:
+        if policy is None:
+            policy = SkillImprovementPolicyConfig()
         ws_id = feedback.workspace_id
-        async with self._session_factory() as session:
-            async with session.begin():
-                # 1. Resolve exact observation
+        async with self._session_factory() as session, session.begin():
+            # 1. Resolve exact observation
                 version = feedback.version
                 def_hash = feedback.definition_hash
+                project_id = feedback.project_id
+                manifest_hash = feedback.manifest_hash
+
                 if feedback.run_id:
                     stmt = text(
                         """
-                        SELECT skill_version, definition_hash
+                        SELECT skill_version, definition_hash, project_id, manifest_hash
                         FROM agent.skill_usage_observations
                         WHERE workspace_id = :ws_id AND run_id = :run_id AND skill_id = :skill_id
                         """
@@ -681,10 +722,20 @@ class PostgresSkillImprovementRepository:
                     distinct_identities = {(r.skill_version, r.definition_hash) for r in obs_rows}
                     if len(distinct_identities) > 1:
                         raise ValueError(f"Ambiguous observations for run {feedback.run_id} and skill {feedback.skill_id}")
-                    version, def_hash = obs_rows[0]
-                else:
-                    if not version or not def_hash:
-                        raise ValueError("Skill version and definition hash required when run_id is omitted")
+                    obs_row = obs_rows[0]
+                    if feedback.project_id is not None and obs_row.project_id != feedback.project_id:
+                        raise ValueError(
+                            f"No observation found matching project_id {feedback.project_id} for run {feedback.run_id}"
+                        )
+                    if feedback.manifest_hash is not None and obs_row.manifest_hash != feedback.manifest_hash:
+                        raise ValueError(
+                            f"No observation found matching manifest_hash {feedback.manifest_hash} for run {feedback.run_id}"
+                        )
+                    version, def_hash = obs_row.skill_version, obs_row.definition_hash
+                    project_id = feedback.project_id or obs_row.project_id
+                    manifest_hash = feedback.manifest_hash or obs_row.manifest_hash
+                elif not version or not def_hash:
+                    raise ValueError("Skill version and definition hash required when run_id is omitted")
 
                 # 2. Check idempotency
                 idem_key = feedback.idempotency_key
@@ -754,15 +805,15 @@ class PostgresSkillImprovementRepository:
                     INSERT INTO agent.agent_skill_feedback (
                         feedback_id, workspace_id, skill_id, version, skill_version,
                         definition_hash, run_id, idempotency_key, source_kind,
-                        success, rating, notes, created_at
+                        success, rating, notes, project_id, manifest_hash, created_at
                     ) VALUES (
                         :fb_id, :ws_id, :skill_id, :version, :version,
                         :def_hash, :run_id, :idem_key, :source_kind,
-                        :success, :rating, :notes, :created_at
+                        :success, :rating, :notes, :project_id, :manifest_hash, :created_at
                     )
                     """
                 )
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 await session.execute(
                     ins_stmt,
                     {
@@ -777,6 +828,8 @@ class PostgresSkillImprovementRepository:
                         "success": feedback.success,
                         "rating": feedback.rating,
                         "notes": feedback.notes,
+                        "project_id": project_id,
+                        "manifest_hash": manifest_hash,
                         "created_at": feedback.created_at or now,
                     },
                 )
@@ -832,21 +885,18 @@ class PostgresSkillImprovementRepository:
                 else:
                     is_low = agg_score <= policy.low_score_threshold
                     is_dropping = (delta is not None and delta >= policy.minimum_degradation_delta)
-                    if is_low and is_dropping:
-                        health = "DEGRADING"
-                    else:
-                        health = "STABLE"
+                    health = "DEGRADING" if (is_low and is_dropping) else "STABLE"
 
                 ins_agg_stmt = text(
                     """
                     INSERT INTO agent.skill_feedback_aggregates (
                         workspace_id, skill_id, skill_version, definition_hash, revision,
                         sample_count, aggregate_score, previous_score, degradation_delta,
-                        window_started_at, window_ended_at, health, created_at
+                        window_started_at, window_ended_at, health, project_id, manifest_hash, created_at
                     ) VALUES (
                         :ws_id, :skill_id, :version, :def_hash, :rev,
                         :samples, :score, :prev_score, :delta,
-                        :w_start, :w_end, :health, :created_at
+                        :w_start, :w_end, :health, :project_id, :manifest_hash, :created_at
                     )
                     """
                 )
@@ -865,6 +915,8 @@ class PostgresSkillImprovementRepository:
                         "w_start": min(created_ats) if created_ats else now,
                         "w_end": max(created_ats) if created_ats else now,
                         "health": health,
+                        "project_id": project_id,
+                        "manifest_hash": manifest_hash,
                         "created_at": now,
                     },
                 )
@@ -909,11 +961,11 @@ class PostgresSkillImprovementRepository:
                                     INSERT INTO agent.skill_improvement_requests (
                                         request_id, workspace_id, skill_id, skill_version,
                                         definition_hash, trigger, feedback_aggregate_revision,
-                                        policy_hash, status, created_at, updated_at
+                                        policy_hash, status, project_id, manifest_hash, created_at, updated_at
                                     ) VALUES (
                                         :req_id, :ws_id, :skill_id, :version,
                                         :def_hash, 'feedback_degradation', :rev,
-                                        :policy_hash, 'PENDING', :now, :now
+                                        :policy_hash, 'PENDING', :project_id, :manifest_hash, :now, :now
                                     )
                                     """
                                 )
@@ -927,6 +979,8 @@ class PostgresSkillImprovementRepository:
                                         "def_hash": def_hash,
                                         "rev": revision,
                                         "policy_hash": policy_hash,
+                                        "project_id": project_id,
+                                        "manifest_hash": manifest_hash,
                                         "now": now,
                                     }
                                 )
@@ -936,10 +990,10 @@ class PostgresSkillImprovementRepository:
                                     """
                                     INSERT INTO agent.skill_improvement_outbox (
                                         outbox_id, request_id, workspace_id, state,
-                                        next_attempt_at, created_at
+                                        project_id, manifest_hash, next_attempt_at, created_at
                                     ) VALUES (
                                         :outbox_id, :req_id, :ws_id, 'PENDING',
-                                        :now, :now
+                                        :project_id, :manifest_hash, :now, :now
                                     )
                                     """
                                 )
@@ -949,6 +1003,8 @@ class PostgresSkillImprovementRepository:
                                         "outbox_id": outbox_id,
                                         "req_id": req_id,
                                         "ws_id": ws_id,
+                                        "project_id": project_id,
+                                        "manifest_hash": manifest_hash,
                                         "now": now,
                                     }
                                 )
@@ -969,83 +1025,31 @@ class PostgresSkillImprovementRepository:
     async def claim_improvement_requests(
         self, *, worker_id: str, limit: int, now: datetime
     ) -> list[ClaimedSkillImprovementRequest]:
-        async with self._session_factory() as session:
-            async with session.begin():
-                stmt = text(
-                    """
+        async with self._session_factory() as session, session.begin():
+            stmt = text(
+                """
                     SELECT request_id, workspace_id, skill_id, skill_version, definition_hash,
                            trigger, feedback_aggregate_revision, policy_hash, status, attempt_count,
-                           claim_token, claimed_by, claimed_at, safe_reason_code, created_at, updated_at
+                           claim_token, claimed_by, claimed_at, safe_reason_code,
+                           project_id, manifest_hash, created_at, updated_at
                     FROM agent.skill_improvement_requests
                     WHERE status = 'PENDING'
                     ORDER BY created_at ASC
                     LIMIT :limit
                     FOR UPDATE SKIP LOCKED
                     """
-                )
-                rows = (await session.execute(stmt, {"limit": limit})).fetchall()
-                claimed = []
-                for r in rows:
-                    token = f"token_{uuid.uuid4().hex[:16]}"
-                    upd = text(
-                        """
+            )
+            rows = (await session.execute(stmt, {"limit": limit})).fetchall()
+            claimed = []
+            for r in rows:
+                token = f"token_{uuid.uuid4().hex[:16]}"
+                upd = text(
+                    """
                         UPDATE agent.skill_improvement_requests
                         SET status = 'RUNNING', claim_token = :token, claimed_by = :worker_id,
                             claimed_at = :now, attempt_count = attempt_count + 1, updated_at = :now
                         WHERE request_id = :req_id
                         """
-                    )
-                    await session.execute(
-                        upd,
-                        {"token": token, "worker_id": worker_id, "now": now, "req_id": r.request_id}
-                    )
-                    req = SkillImprovementRequest(
-                        request_id=r.request_id,
-                        workspace_id=r.workspace_id,
-                        skill_id=r.skill_id,
-                        skill_version=r.skill_version,
-                        definition_hash=r.definition_hash,
-                        trigger=r.trigger,
-                        feedback_aggregate_revision=r.feedback_aggregate_revision,
-                        policy_hash=r.policy_hash,
-                        status="RUNNING",
-                        attempt_count=r.attempt_count + 1,
-                        claim_token=token,
-                        claimed_by=worker_id,
-                        claimed_at=now,
-                        safe_reason_code=r.safe_reason_code,
-                        created_at=r.created_at,
-                        updated_at=now,
-                    )
-                    claimed.append(ClaimedSkillImprovementRequest(request=req, claim_token=token))
-                return claimed
-
-    async def claim_improvement_request(
-        self, *, request_id: str, worker_id: str, now: datetime
-    ) -> ClaimedSkillImprovementRequest | None:
-        async with self._session_factory() as session:
-            async with session.begin():
-                stmt = text(
-                    """
-                    SELECT request_id, workspace_id, skill_id, skill_version, definition_hash,
-                           trigger, feedback_aggregate_revision, policy_hash, status, attempt_count,
-                           claim_token, claimed_by, claimed_at, safe_reason_code, created_at, updated_at
-                    FROM agent.skill_improvement_requests
-                    WHERE request_id = :req_id AND status = 'PENDING'
-                    FOR UPDATE SKIP LOCKED
-                    """
-                )
-                r = (await session.execute(stmt, {"req_id": request_id})).fetchone()
-                if not r:
-                    return None
-                token = f"token_{uuid.uuid4().hex[:16]}"
-                upd = text(
-                    """
-                    UPDATE agent.skill_improvement_requests
-                    SET status = 'RUNNING', claim_token = :token, claimed_by = :worker_id,
-                        claimed_at = :now, attempt_count = attempt_count + 1, updated_at = :now
-                    WHERE request_id = :req_id
-                    """
                 )
                 await session.execute(
                     upd,
@@ -1066,113 +1070,167 @@ class PostgresSkillImprovementRepository:
                     claimed_by=worker_id,
                     claimed_at=now,
                     safe_reason_code=r.safe_reason_code,
+                    project_id=r.project_id,
+                    manifest_hash=r.manifest_hash,
                     created_at=r.created_at,
                     updated_at=now,
                 )
-                return ClaimedSkillImprovementRequest(request=req, claim_token=token)
+                claimed.append(ClaimedSkillImprovementRequest(request=req, claim_token=token))
+            return claimed
+
+    async def claim_improvement_request(
+        self, *, request_id: str, worker_id: str, now: datetime
+    ) -> ClaimedSkillImprovementRequest | None:
+        async with self._session_factory() as session, session.begin():
+            stmt = text(
+                """
+                    SELECT request_id, workspace_id, skill_id, skill_version, definition_hash,
+                           trigger, feedback_aggregate_revision, policy_hash, status, attempt_count,
+                           claim_token, claimed_by, claimed_at, safe_reason_code,
+                           project_id, manifest_hash, created_at, updated_at
+                    FROM agent.skill_improvement_requests
+                    WHERE request_id = :req_id AND status = 'PENDING'
+                    FOR UPDATE SKIP LOCKED
+                    """
+            )
+            r = (await session.execute(stmt, {"req_id": request_id})).fetchone()
+            if not r:
+                return None
+            token = f"token_{uuid.uuid4().hex[:16]}"
+            upd = text(
+                """
+                    UPDATE agent.skill_improvement_requests
+                    SET status = 'RUNNING', claim_token = :token, claimed_by = :worker_id,
+                        claimed_at = :now, attempt_count = attempt_count + 1, updated_at = :now
+                    WHERE request_id = :req_id
+                    """
+            )
+            await session.execute(
+                upd,
+                {"token": token, "worker_id": worker_id, "now": now, "req_id": r.request_id}
+            )
+            req = SkillImprovementRequest(
+                request_id=r.request_id,
+                workspace_id=r.workspace_id,
+                skill_id=r.skill_id,
+                skill_version=r.skill_version,
+                definition_hash=r.definition_hash,
+                trigger=r.trigger,
+                feedback_aggregate_revision=r.feedback_aggregate_revision,
+                policy_hash=r.policy_hash,
+                status="RUNNING",
+                attempt_count=r.attempt_count + 1,
+                claim_token=token,
+                claimed_by=worker_id,
+                claimed_at=now,
+                safe_reason_code=r.safe_reason_code,
+                project_id=r.project_id,
+                manifest_hash=r.manifest_hash,
+                created_at=r.created_at,
+                updated_at=now,
+            )
+            return ClaimedSkillImprovementRequest(request=req, claim_token=token)
 
     async def finish_improvement_request(
         self, *, request_id: str, claim_token: str, outcome: ImprovementOutcome
     ) -> bool:
-        async with self._session_factory() as session:
-            async with session.begin():
-                upd = text(
-                    """
-                    UPDATE agent.skill_improvement_requests
-                    SET status = :status, safe_reason_code = :reason, claim_token = NULL, updated_at = :now
-                    WHERE request_id = :req_id AND claim_token = :token
-                    """
-                )
-                now = datetime.now(timezone.utc)
-                res = await session.execute(
-                    upd,
-                    {
-                        "status": outcome.status,
-                        "reason": outcome.safe_reason_code,
-                        "now": now,
-                        "req_id": request_id,
-                        "token": claim_token,
-                    }
-                )
-                return res.rowcount > 0
+        async with self._session_factory() as session, session.begin():
+            upd = text(
+                """
+                UPDATE agent.skill_improvement_requests
+                SET status = :status, safe_reason_code = :reason, claim_token = NULL, updated_at = :now
+                WHERE request_id = :req_id AND claim_token = :token
+                """
+            )
+            now = datetime.now(UTC)
+            res = await session.execute(
+                upd,
+                {
+                    "status": outcome.status,
+                    "reason": outcome.safe_reason_code,
+                    "now": now,
+                    "req_id": request_id,
+                    "token": claim_token,
+                }
+            )
+            return res.rowcount > 0
 
     async def claim_improvement_outbox(
         self, *, worker_id: str, limit: int, now: datetime
     ) -> list[ClaimedSkillImprovementOutbox]:
-        async with self._session_factory() as session:
-            async with session.begin():
-                stmt = text(
+        async with self._session_factory() as session, session.begin():
+            stmt = text(
+                """
+                SELECT outbox_id, request_id, workspace_id, state, attempt_count,
+                       project_id, manifest_hash, next_attempt_at, claim_token, claimed_by, delivered_at, created_at
+                FROM agent.skill_improvement_outbox
+                WHERE state IN ('PENDING', 'RETRY') AND next_attempt_at <= :now
+                ORDER BY next_attempt_at ASC
+                LIMIT :limit
+                FOR UPDATE SKIP LOCKED
+                """
+            )
+            rows = (await session.execute(stmt, {"limit": limit, "now": now})).fetchall()
+            claimed = []
+            for r in rows:
+                token = f"claim_{uuid.uuid4().hex[:16]}"
+                upd = text(
                     """
-                    SELECT outbox_id, request_id, workspace_id, state, attempt_count,
-                           next_attempt_at, claim_token, claimed_by, delivered_at, created_at
-                    FROM agent.skill_improvement_outbox
-                    WHERE state IN ('PENDING', 'RETRY') AND next_attempt_at <= :now
-                    ORDER BY next_attempt_at ASC
-                    LIMIT :limit
-                    FOR UPDATE SKIP LOCKED
+                    UPDATE agent.skill_improvement_outbox
+                    SET state = 'CLAIMED', claim_token = :token, claimed_by = :worker_id,
+                        attempt_count = attempt_count + 1
+                    WHERE outbox_id = :ob_id
                     """
                 )
-                rows = (await session.execute(stmt, {"limit": limit, "now": now})).fetchall()
-                claimed = []
-                for r in rows:
-                    token = f"claim_{uuid.uuid4().hex[:16]}"
-                    upd = text(
-                        """
-                        UPDATE agent.skill_improvement_outbox
-                        SET state = 'CLAIMED', claim_token = :token, claimed_by = :worker_id,
-                            attempt_count = attempt_count + 1
-                        WHERE outbox_id = :ob_id
-                        """
-                    )
-                    await session.execute(upd, {"token": token, "worker_id": worker_id, "ob_id": r.outbox_id})
-                    ob = SkillImprovementOutbox(
-                        outbox_id=r.outbox_id,
-                        request_id=r.request_id,
-                        workspace_id=r.workspace_id,
-                        state="CLAIMED",
-                        attempt_count=r.attempt_count + 1,
-                        next_attempt_at=r.next_attempt_at,
-                        claim_token=token,
-                        claimed_by=worker_id,
-                        delivered_at=r.delivered_at,
-                        created_at=r.created_at,
-                    )
-                    claimed.append(ClaimedSkillImprovementOutbox(outbox=ob, claim_token=token))
-                return claimed
+                await session.execute(upd, {"token": token, "worker_id": worker_id, "ob_id": r.outbox_id})
+                ob = SkillImprovementOutbox(
+                    outbox_id=r.outbox_id,
+                    request_id=r.request_id,
+                    workspace_id=r.workspace_id,
+                    state="CLAIMED",
+                    attempt_count=r.attempt_count + 1,
+                    project_id=r.project_id,
+                    manifest_hash=r.manifest_hash,
+                    next_attempt_at=r.next_attempt_at,
+                    claim_token=token,
+                    claimed_by=worker_id,
+                    delivered_at=r.delivered_at,
+                    created_at=r.created_at,
+                )
+                claimed.append(ClaimedSkillImprovementOutbox(outbox=ob, claim_token=token))
+            return claimed
 
     async def mark_outbox_delivered(
         self, *, outbox_id: str, claim_token: str, delivered_at: datetime
     ) -> bool:
-        async with self._session_factory() as session:
-            async with session.begin():
-                upd = text(
-                    """
+        async with self._session_factory() as session, session.begin():
+            upd = text(
+                """
                     UPDATE agent.skill_improvement_outbox
                     SET state = 'DELIVERED', delivered_at = :delivered_at, claim_token = NULL
                     WHERE outbox_id = :ob_id AND claim_token = :token
                     """
-                )
-                res = await session.execute(
-                    upd, {"delivered_at": delivered_at, "ob_id": outbox_id, "token": claim_token}
-                )
-                return res.rowcount > 0
+            )
+            res = await session.execute(
+                upd, {"delivered_at": delivered_at, "ob_id": outbox_id, "token": claim_token}
+            )
+            return res.rowcount > 0
 
     async def mark_outbox_failed(
         self, *, outbox_id: str, claim_token: str, error: str | None = None
     ) -> bool:
-        async with self._session_factory() as session:
-            async with session.begin():
-                upd = text(
-                    """
-                    UPDATE agent.skill_improvement_outbox
-                    SET state = CASE WHEN attempt_count >= 5 THEN 'FAILED_REQUIRES_ATTENTION' ELSE 'RETRY' END,
-                        claim_token = NULL,
-                        next_attempt_at = NOW() + INTERVAL '1 minute'
-                    WHERE outbox_id = :ob_id AND claim_token = :token
-                    """
-                )
-                res = await session.execute(upd, {"ob_id": outbox_id, "token": claim_token})
-                return res.rowcount > 0
+        async with self._session_factory() as session, session.begin():
+            upd = text(
+                """
+                UPDATE agent.skill_improvement_outbox
+                SET state = CASE WHEN attempt_count >= 5 THEN 'FAILED_REQUIRES_ATTENTION' ELSE 'RETRY' END,
+                    claim_token = NULL,
+                    next_attempt_at = NOW() + INTERVAL '1 minute'
+                WHERE outbox_id = :ob_id AND claim_token = :token
+                """
+            )
+            res = await session.execute(upd, {"ob_id": outbox_id, "token": claim_token})
+            return res.rowcount > 0
 
     async def create_improvement_request(
         self, request: SkillImprovementRequest
@@ -1183,11 +1241,11 @@ class PostgresSkillImprovementRepository:
                 INSERT INTO agent.skill_improvement_requests (
                     request_id, workspace_id, skill_id, skill_version, definition_hash,
                     trigger, feedback_aggregate_revision, policy_hash, status,
-                    attempt_count, created_at, updated_at
+                    project_id, manifest_hash, attempt_count, created_at, updated_at
                 ) VALUES (
                     :req_id, :ws_id, :skill_id, :version, :def_hash,
                     :trigger, :rev, :policy_hash, :status,
-                    :attempt_count, :created_at, :updated_at
+                    :project_id, :manifest_hash, :attempt_count, :created_at, :updated_at
                 )
                 """
             )
@@ -1203,6 +1261,8 @@ class PostgresSkillImprovementRepository:
                     "rev": request.feedback_aggregate_revision,
                     "policy_hash": request.policy_hash,
                     "status": request.status,
+                    "project_id": request.project_id,
+                    "manifest_hash": request.manifest_hash,
                     "attempt_count": request.attempt_count,
                     "created_at": request.created_at,
                     "updated_at": request.updated_at,
@@ -1219,7 +1279,8 @@ class PostgresSkillImprovementRepository:
                 """
                 SELECT request_id, workspace_id, skill_id, skill_version, definition_hash,
                        trigger, feedback_aggregate_revision, policy_hash, status, attempt_count,
-                       claim_token, claimed_by, claimed_at, safe_reason_code, created_at, updated_at
+                       claim_token, claimed_by, claimed_at, safe_reason_code,
+                       project_id, manifest_hash, created_at, updated_at
                 FROM agent.skill_improvement_requests
                 WHERE request_id = :req_id
                 """
@@ -1242,6 +1303,8 @@ class PostgresSkillImprovementRepository:
                 claimed_by=row.claimed_by,
                 claimed_at=row.claimed_at,
                 safe_reason_code=row.safe_reason_code,
+                project_id=row.project_id,
+                manifest_hash=row.manifest_hash,
                 created_at=row.created_at,
                 updated_at=row.updated_at,
             )
