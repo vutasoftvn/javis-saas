@@ -1,0 +1,47 @@
+from packages.agent.assets.contracts import (
+    AssetKind,
+    AssetScopeKind,
+    AssetLifecycle,
+    AssetOriginKind,
+    AssetScope,
+    AssetOrigin,
+    PinnedAssetIdentity,
+    WorkspaceAssetDraft,
+    WorkspaceAssetVersion,
+    AssetEvaluationResult,
+    AssetImmutableError,
+    AssetScopeError,
+    AssetConflictError,
+    AssetNotFoundError,
+    BuiltinAssetReadOnlyError,
+    AssetNotEvaluatedError,
+)
+from packages.agent.assets.repository import (
+    WorkspaceAssetRepository,
+    InMemoryWorkspaceAssetRepository,
+    compute_canonical_hash,
+)
+from packages.agent.assets.service import WorkspaceAssetService
+
+__all__ = [
+    "AssetKind",
+    "AssetScopeKind",
+    "AssetLifecycle",
+    "AssetOriginKind",
+    "AssetScope",
+    "AssetOrigin",
+    "PinnedAssetIdentity",
+    "WorkspaceAssetDraft",
+    "WorkspaceAssetVersion",
+    "AssetEvaluationResult",
+    "AssetImmutableError",
+    "AssetScopeError",
+    "AssetConflictError",
+    "AssetNotFoundError",
+    "BuiltinAssetReadOnlyError",
+    "AssetNotEvaluatedError",
+    "WorkspaceAssetRepository",
+    "InMemoryWorkspaceAssetRepository",
+    "compute_canonical_hash",
+    "WorkspaceAssetService",
+]
