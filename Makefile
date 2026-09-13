@@ -53,7 +53,7 @@ agent-test:
 	PYTHONPATH=$(CURDIR) AGENT_TEST_DATABASE_URL="$(AGENT_TEST_DATABASE_URL)" $(PYTEST) --cov=packages/agent --cov-fail-under=80 tests/agent packages/agent_testkit -q
 
 apps-cosa-test:
-	PYTHONPATH=$(CURDIR) AGENT_TEST_DATABASE_URL="$(AGENT_TEST_DATABASE_URL)" COSA_TEST_DATABASE_URL="$(COSA_TEST_DATABASE_URL)" AGENT_DATABASE_URL="" COSA_DATABASE_URL="" DATABASE_URL="" $(PYTEST) --cov=apps/cosa --cov-fail-under=78 tests/apps/cosa -q
+	PYTHONPATH=$(CURDIR) AGENT_TEST_DATABASE_URL="$(AGENT_TEST_DATABASE_URL)" COSA_TEST_DATABASE_URL="$(COSA_TEST_DATABASE_URL)" AGENT_DATABASE_URL="" COSA_DATABASE_URL="" DATABASE_URL="" $(PYTEST) --cov=apps/cosa --cov-fail-under=78 tests/apps/cosa apps/cosa/tests -q
 
 
 unified-approval-verify:
