@@ -4,6 +4,7 @@ from typing import Any
 
 from apps.cosa.assets.evaluation_service import EvaluationService
 from packages.agent.assets.contracts import (
+    AssetConflictError,
     AssetKind,
     AssetNotEvaluatedError,
     AssetNotFoundError,
@@ -38,10 +39,11 @@ class AuthoringService:
         identity: PinnedAssetIdentity,
         content: dict[str, Any],
     ) -> WorkspaceAssetVersion:
-        if identity.asset_id.startswith("builtin."):
-            raise BuiltinAssetReadOnlyError(
-                f"Built-in asset {identity.asset_id} is read-only. Founder may only clone."
-            )
+        # Check if asset is builtin (immutable)
+        if identity.asset_id.startswith("builtin.") or getattr(identity, "origin", None) == "BUILTIN":
+            raise BuiltinAssetReadOnlyError(f"Built-in asset {identity.asset_id} cannot be edited directly")
+
+        # Mutate draft
         return await self._repository.replace_draft_content(
             workspace_id=workspace_id,
             asset_id=identity.asset_id,
@@ -76,15 +78,9 @@ class AuthoringService:
                     )
 
             if not content:
-                # Fallback to structured initial content matching the kind
-                if source.kind == AssetKind.AGENT:
-                    content = {"instructions": f"Cloned from {source.asset_id}", "model": "gpt-4o"}
-                elif source.kind == AssetKind.SKILL:
-                    content = {"name": source.asset_id, "instructions": f"Cloned skill from {source.asset_id}"}
-                elif source.kind == AssetKind.WORKFLOW:
-                    content = {"id": source.asset_id, "name": f"Cloned {source.asset_id}", "steps": []}
-                else:
-                    content = {}
+                raise AssetNotFoundError(
+                    f"Source asset {source.asset_id}:{source.version} not found for clone"
+                )
 
         return await self._repository.clone_to_draft(
             workspace_id=workspace_id,
@@ -112,10 +108,10 @@ class AuthoringService:
 
         draft = WorkspaceAssetDraft(
             asset_id=asset_id,
-            kind=AssetKind.AGENT,
             version=version,
             name=name,
             description=description,
+            kind=AssetKind.AGENT,
             content=content,
             scope=scope,
             created_by=created_by,
@@ -135,10 +131,10 @@ class AuthoringService:
     ) -> WorkspaceAssetVersion:
         draft = WorkspaceAssetDraft(
             asset_id=asset_id,
-            kind=AssetKind.SKILL,
             version=version,
             name=name,
             description=description,
+            kind=AssetKind.SKILL,
             content=content,
             scope=scope,
             created_by=created_by,
@@ -158,15 +154,36 @@ class AuthoringService:
     ) -> WorkspaceAssetVersion:
         draft = WorkspaceAssetDraft(
             asset_id=asset_id,
-            kind=AssetKind.WORKFLOW,
             version=version,
             name=name,
             description=description,
+            kind=AssetKind.WORKFLOW,
             content=content,
             scope=scope,
             created_by=created_by,
         )
         return await self._repository.create_draft(workspace_id, draft)
+
+    async def evaluate_draft(
+        self,
+        workspace_id: str,
+        asset_id: str,
+        version: str,
+    ) -> dict[str, Any]:
+        item = await self._repository.get_version(workspace_id, asset_id, version)
+        if not item:
+            raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found")
+
+        eval_result = await self._evaluation_service.evaluate(
+            workspace_id=workspace_id,
+            asset_id=asset_id,
+            version=version,
+        )
+        return {
+            "evaluation_id": eval_result.evaluation_id,
+            "status": eval_result.status,
+            "definition_hash": eval_result.definition_hash,
+        }
 
     async def publish(
         self,
@@ -174,6 +191,7 @@ class AuthoringService:
         asset_id: str,
         expected_hash: str,
         company_command_ref: str | None = None,
+        version: str | None = None,
     ) -> WorkspaceAssetVersion:
         # Check if asset is a workflow:
         if asset_id.startswith("wf.") or "workflow" in asset_id.lower():
@@ -182,21 +200,26 @@ class AuthoringService:
         if not company_command_ref:
             raise ValueError("company_command_ref is required to publish an asset")
 
-        # Load latest candidate/draft version
-        item = await self._repository.get_version(workspace_id, asset_id, "0.1.0")
-        versions_dict = getattr(self._repository, "_versions", None)
-        if not item and isinstance(versions_dict, dict):
-            matches = [v for (ws, a_id, _), v in versions_dict.items() if ws == workspace_id and a_id == asset_id]
-            item = matches[0] if matches else None
+        # Load candidate/draft version: explicit version or latest version
+        if version is not None:
+            item = await self._repository.get_version(workspace_id, asset_id, version)
+        else:
+            item = await self._repository.get_latest_version(workspace_id, asset_id)
 
         if not item:
             raise AssetNotFoundError(f"Asset {asset_id} not found in workspace {workspace_id}")
+
+        if item.definition_hash != expected_hash:
+            raise AssetConflictError(
+                f"expected_hash mismatch for asset {asset_id}:{item.version}: "
+                f"expected {expected_hash}, found {item.definition_hash}"
+            )
 
         # Verify evaluation
         latest_eval = await self._repository.get_latest_evaluation(workspace_id, asset_id, item.version)
         if not latest_eval or latest_eval.status != "PASS":
             raise AssetNotEvaluatedError(
-                f"Asset {asset_id} requires a passing evaluation before publish"
+                f"Asset {asset_id} version {item.version} requires a passing evaluation before publish"
             )
 
         return await self._repository.publish(workspace_id, asset_id, expected_hash)

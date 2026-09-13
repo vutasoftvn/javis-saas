@@ -189,4 +189,60 @@ describe("Founder Asset Authoring Service", () => {
       safeReasonCode: "CLONE_SUCCESS",
     });
   });
+
+  it("rejects command when metadata contains raw secrets before creating outbox event", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const founderContext: TenantContext = {
+      workspaceId: ws.workspaceId,
+      userId: ws.userId,
+      membershipRole: "founder",
+      permissions: ["*"],
+      correlationId: "corr-secret-test",
+      isAiAgent: false,
+    };
+
+    await expect(
+      requestAssetCreate(founderContext, {
+        projectId: ws.projectId,
+        assetKind: "AGENT",
+        assetRef: { assetId: "agent_secret_test", version: "0.1.0" },
+        idempotencyKey: "idem_secret_1",
+        reason: "Testing secret rejection",
+        metadata: {
+          config: {
+            apiKey: "sk-1234567890abcdef1234567890",
+          },
+        },
+      })
+    ).rejects.toThrow(/FOUNDER_ASSET_SECRET_REJECTED/);
+
+    // Verify nothing was written to founderAssetEvents or eventOutbox
+    const events = await getFounderAssetEvents(ws.workspaceId);
+    expect(events.find((e) => e.targetRef?.assetId === "agent_secret_test")).toBeUndefined();
+  });
+
+  it("rejects command when metadata contains forbidden credential keys", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const founderContext: TenantContext = {
+      workspaceId: ws.workspaceId,
+      userId: ws.userId,
+      membershipRole: "founder",
+      permissions: ["*"],
+      correlationId: "corr-forbidden-key-test",
+      isAiAgent: false,
+    };
+
+    await expect(
+      requestAssetCreate(founderContext, {
+        projectId: ws.projectId,
+        assetKind: "AGENT",
+        assetRef: { assetId: "agent_forbidden_key_test", version: "0.1.0" },
+        idempotencyKey: "idem_forbidden_1",
+        reason: "Testing forbidden key rejection",
+        metadata: {
+          secret: "some-raw-value",
+        },
+      })
+    ).rejects.toThrow(/FOUNDER_ASSET_FORBIDDEN_KEY/);
+  });
 });

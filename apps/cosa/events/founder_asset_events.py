@@ -208,16 +208,24 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
 
         # Dispatch status callback to Company
         if callback_client is not None:
-            await callback_client.send_status_callback(
-                command_id=cmd.command_id,
-                workspace_id=cmd.workspace_id,
-                project_id=cmd.project_id,
-                asset_kind=cmd.asset_kind,
-                operation=cmd.operation,
-                status=status,
-                asset_ref=out_ref,
-                evaluation_summary=eval_summary,
-                safe_reason_code=safe_reason,
-            )
+            try:
+                await callback_client.send_status_callback(
+                    command_id=cmd.command_id,
+                    workspace_id=cmd.workspace_id,
+                    project_id=cmd.project_id,
+                    asset_kind=cmd.asset_kind,
+                    operation=cmd.operation,
+                    status=status,
+                    asset_ref=out_ref,
+                    evaluation_summary=eval_summary,
+                    safe_reason_code=safe_reason,
+                )
+            except Exception as cb_err:
+                logger.error(
+                    "Callback delivery failed for command %s: %s",
+                    cmd.command_id,
+                    cb_err,
+                )
+                return "failed", f"callback delivery failed: {cb_err}"
 
     return "accepted", None

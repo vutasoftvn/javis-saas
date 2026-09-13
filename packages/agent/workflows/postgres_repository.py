@@ -105,17 +105,32 @@ class PostgresWorkflowDefinitionRepository(WorkflowDefinitionRepository):
                 workspace_id=row["workspace_id"],
             )
 
-    async def get_by_hash(self, definition_hash: str) -> WorkflowDefinitionRecord | None:
-        stmt = text(
-            """
-            SELECT workspace_id, workflow_asset_id, version, definition_hash, spec_data, description, created_at
-            FROM agent.workflow_definitions
-            WHERE definition_hash = :def_hash
-            LIMIT 1
-            """
-        )
+    async def get_by_hash(
+        self, definition_hash: str, workspace_id: str | None = None
+    ) -> WorkflowDefinitionRecord | None:
+        if workspace_id is not None:
+            stmt = text(
+                """
+                SELECT workspace_id, workflow_asset_id, version, definition_hash, spec_data, description, created_at
+                FROM agent.workflow_definitions
+                WHERE definition_hash = :def_hash AND workspace_id = :ws_id
+                LIMIT 1
+                """
+            )
+            params = {"def_hash": definition_hash, "ws_id": workspace_id}
+        else:
+            stmt = text(
+                """
+                SELECT workspace_id, workflow_asset_id, version, definition_hash, spec_data, description, created_at
+                FROM agent.workflow_definitions
+                WHERE definition_hash = :def_hash
+                LIMIT 1
+                """
+            )
+            params = {"def_hash": definition_hash}
+
         async with self._session_factory() as session:
-            res = await session.execute(stmt, {"def_hash": definition_hash})
+            res = await session.execute(stmt, params)
             row = res.mappings().one_or_none()
             if not row:
                 return None

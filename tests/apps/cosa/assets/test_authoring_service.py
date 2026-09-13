@@ -3,11 +3,14 @@ import pytest
 from apps.cosa.assets.authoring_service import AuthoringService, WorkflowPublishDisabledError
 from apps.cosa.assets.evaluation_service import EvaluationService
 from packages.agent.assets.contracts import (
+    AssetConflictError,
     AssetKind,
     AssetNotEvaluatedError,
+    AssetNotFoundError,
     AssetScope,
     BuiltinAssetReadOnlyError,
     PinnedAssetIdentity,
+    WorkspaceAssetDraft,
 )
 from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
 
@@ -28,7 +31,7 @@ def authoring_service(repo, evaluation_service):
 
 
 @pytest.mark.asyncio
-async def test_builtin_edit_is_rejected_and_clone_preserves_origin(authoring_service):
+async def test_builtin_edit_is_rejected_and_clone_preserves_origin(authoring_service, repo):
     builtin_identity = PinnedAssetIdentity(
         kind=AssetKind.AGENT,
         asset_id="builtin.finance_officer",
@@ -43,6 +46,21 @@ async def test_builtin_edit_is_rejected_and_clone_preserves_origin(authoring_ser
             content={"instructions": "mutate builtin"},
         )
 
+    # Pre-seed the source asset so clone has an immutable default to copy from
+    await repo.create_draft(
+        workspace_id="ws-1",
+        draft=WorkspaceAssetDraft(
+            asset_id=builtin_identity.asset_id,
+            version=builtin_identity.version,
+            name="Finance Officer",
+            description="Builtin finance officer",
+            kind=AssetKind.AGENT,
+            content={"instructions": "finance officer instructions", "model": "gpt-4o"},
+            scope=AssetScope.workspace(),
+            created_by="system",
+        ),
+    )
+
     clone = await authoring_service.clone(
         workspace_id="ws-1",
         source=builtin_identity,
@@ -54,6 +72,23 @@ async def test_builtin_edit_is_rejected_and_clone_preserves_origin(authoring_ser
     assert clone.origin.definition_hash == builtin_identity.definition_hash
     assert clone.origin.asset_id == builtin_identity.asset_id
     assert clone.lifecycle.value == "DRAFT"
+
+
+@pytest.mark.asyncio
+async def test_clone_nonexistent_source_is_rejected(authoring_service):
+    nonexistent_identity = PinnedAssetIdentity(
+        kind=AssetKind.AGENT,
+        asset_id="nonexistent.asset",
+        version="1.0.0",
+        definition_hash="sha256:nonexistent",
+    )
+    with pytest.raises(AssetNotFoundError, match=r"not found for clone"):
+        await authoring_service.clone(
+            workspace_id="ws-1",
+            source=nonexistent_identity,
+            target_scope=AssetScope.workspace(),
+            created_by="founder-1",
+        )
 
 
 @pytest.mark.asyncio
@@ -130,3 +165,33 @@ async def test_workflow_publish_is_disabled_in_v1_early_phase(authoring_service)
             expected_hash=wf_draft.definition_hash,
             company_command_ref="cmd-wf-1",
         )
+
+
+@pytest.mark.asyncio
+async def test_publish_resolves_latest_version_not_fixed_010(authoring_service, evaluation_service):
+    # Create draft with version 2.5.0
+    draft = await authoring_service.create_agent_draft(
+        workspace_id="ws-1",
+        asset_id="agent.analyst.v2",
+        version="2.5.0",
+        name="Custom Analyst V2",
+        description="Analyst version 2.5.0",
+        content={"instructions": "analyze financial data v2", "model": "gpt-4o"},
+        scope=AssetScope.workspace(),
+        created_by="founder-1",
+    )
+
+    # Evaluate the version
+    eval_result = await authoring_service.evaluate_draft("ws-1", draft.asset_id, "2.5.0")
+    assert eval_result["status"] == "PASS"
+
+    # Publish without passing version: should automatically resolve 2.5.0 as latest
+    published = await authoring_service.publish(
+        workspace_id="ws-1",
+        asset_id=draft.asset_id,
+        expected_hash=draft.definition_hash,
+        company_command_ref="cmd-founder-v2",
+    )
+    assert published.version == "2.5.0"
+    assert published.lifecycle.value == "PUBLISHED"
+

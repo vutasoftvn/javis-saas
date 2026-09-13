@@ -66,3 +66,38 @@ async def test_durable_workflow_definition_repository():
     # List all versions
     versions = await repo.list_versions("wf_payout")
     assert len(versions) == 2
+
+
+@pytest.mark.asyncio
+async def test_in_memory_repository_does_not_fallback_across_workspaces():
+    repo = InMemoryWorkflowDefinitionRepository()
+    spec = WorkflowSpec(
+        id="wf_secret",
+        version="1.0.0",
+        steps=[
+            WorkflowStepSpec(
+                id="step1",
+                step_type=StepType.DETERMINISTIC,
+                handler="test_fn",
+            )
+        ],
+    )
+    saved = await repo.save_definition(spec, workspace_id="tenant-A")
+
+    # Asking for tenant-B must return None, NOT tenant-A's definition
+    res_b = await repo.get_definition("wf_secret", "1.0.0", workspace_id="tenant-B")
+    assert res_b is None
+
+    # Asking for default workspace must return None
+    res_default = await repo.get_definition("wf_secret", "1.0.0", workspace_id="default")
+    assert res_default is None
+
+    # Scoped get_by_hash with tenant-B must return None
+    res_hash_b = await repo.get_by_hash(saved.definition_hash, workspace_id="tenant-B")
+    assert res_hash_b is None
+
+    # Scoped get_by_hash with tenant-A must return the record
+    res_hash_a = await repo.get_by_hash(saved.definition_hash, workspace_id="tenant-A")
+    assert res_hash_a is not None
+    assert res_hash_a.workspace_id == "tenant-A"
+

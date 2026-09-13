@@ -1,3 +1,4 @@
+import { APIError } from "encore.dev/api";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "../models/db";
 import { founderAssetEvents } from "../../shared/db/schema/operations";
@@ -5,6 +6,51 @@ import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
 import { makeBusinessEvent, type BusinessEventEnvelope } from "../../shared/events/envelope";
+
+const SECRET_PATTERNS = [
+  { name: "api_key_or_token", re: /\b(sk-[A-Za-z0-9]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{12,})\b/ },
+  { name: "jwt_like_token", re: /\bey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
+  { name: "bearer_token", re: /\bBearer\s+[A-Za-z0-9\-_.]{20,}/i },
+  { name: "pem_private_key", re: /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/ },
+  { name: "raw_http_header", re: /\b(Authorization|Cookie)\s*:\s*\S+/i },
+];
+
+const FORBIDDEN_METADATA_KEYS = new Set([
+  "secret",
+  "secrets",
+  "credentials",
+  "credential",
+  "password",
+  "token",
+  "access_token",
+  "private_key",
+  "raw_prompt",
+  "authorization",
+  "cookie",
+]);
+
+function deepAssertNoSecret(value: unknown, path: string): void {
+  if (typeof value === "string") {
+    for (const { name, re } of SECRET_PATTERNS) {
+      if (re.test(value)) {
+        throw APIError.invalidArgument(
+          `FOUNDER_ASSET_SECRET_REJECTED: "${path}" looks like a ${name} — raw secrets and credentials must never be passed in asset commands`
+        );
+      }
+    }
+  } else if (Array.isArray(value)) {
+    value.forEach((v, i) => deepAssertNoSecret(v, `${path}[${i}]`));
+  } else if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (FORBIDDEN_METADATA_KEYS.has(k.toLowerCase())) {
+        throw APIError.invalidArgument(
+          `FOUNDER_ASSET_FORBIDDEN_KEY: "${path}.${k}" is a forbidden metadata field containing potential raw credentials`
+        );
+      }
+      deepAssertNoSecret(v, `${path}.${k}`);
+    }
+  }
+}
 
 export type AssetKind = "AGENT" | "SKILL" | "WORKFLOW";
 export type AssetOperation = "CREATE" | "CLONE" | "EDIT_DRAFT" | "EVALUATE" | "PUBLISH" | "RETIRE";
@@ -49,11 +95,14 @@ export interface AssetStatusCallbackPayload {
 }
 
 function assertHumanFounder(context: TenantContext): void {
+  if (!context) {
+    throw APIError.unauthenticated("Authentication context required");
+  }
   if (context.isAiAgent) {
-    throw new Error("Only a HUMAN founder can perform asset authoring operations");
+    throw APIError.permissionDenied("Only a HUMAN founder can perform asset authoring operations");
   }
   if (context.membershipRole !== "founder") {
-    throw new Error("Forbidden: requires founder membership role");
+    throw APIError.permissionDenied("Forbidden: requires founder membership role");
   }
 }
 
@@ -62,6 +111,13 @@ export async function commandFounderAsset(
   input: FounderAssetCommandInput
 ): Promise<FounderAssetCommandResult> {
   assertHumanFounder(context);
+
+  // Validate no raw secrets, credentials, or forbidden keys exist in command payload
+  deepAssertNoSecret(input.reason, "reason");
+  deepAssertNoSecret(input.assetRef, "assetRef");
+  if (input.metadata) {
+    deepAssertNoSecret(input.metadata, "metadata");
+  }
 
   const wsIdBigInt = BigInt(context.workspaceId);
 

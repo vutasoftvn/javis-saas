@@ -129,4 +129,111 @@ describe("Founder Asset Deployment Service", () => {
 
     expect(countAfter).toBe(countBefore);
   });
+
+  it("rejects capability widening overrides and accepts only authority tightening", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const workforceMemberId = generateSnowflake();
+    await db.execute(sql`
+      INSERT INTO core.workforce_members (
+        id, workspace_id, member_type, role_title, agent_spec_id, agent_spec_version, status
+      ) VALUES (
+        ${workforceMemberId}, ${ws.workspaceId}, 'AI_AGENT', 'Support Agent', 'agent.support.1', '1.0.0', 'active'
+      )
+    `);
+
+    const founderContext: TenantContext = {
+      workspaceId: ws.workspaceId,
+      userId: ws.userId,
+      membershipRole: "founder",
+      permissions: ["*"],
+      correlationId: "test-corr-tightening",
+      isAiAgent: false,
+    };
+
+    const role = await createOperatingRole(founderContext, {
+      roleCode: "customer_support",
+      name: "Customer Support",
+      reason: "Support operations",
+    });
+
+    const { createWorkspaceAgent, bindRoleAgent } = await import(
+      "../services/founder-asset-deployment.service"
+    );
+
+    const agent = await createWorkspaceAgent(founderContext, {
+      agentAssetId: "agent.support.1",
+      agentAssetVersion: "1.0.0",
+      agentDefinitionHash: "sha256:supporthash11111111111111111111111111111111111111111111111111111111",
+      workforceMemberId: workforceMemberId.toString(),
+      originKind: "CUSTOM",
+      reason: "Support Agent",
+    });
+
+    await bindRoleAgent(founderContext, {
+      roleId: role.id,
+      workspaceAgentId: agent.id,
+      reason: "Bind to support role",
+    });
+
+    const roleDep = await deployRoleToProject(founderContext, {
+      projectId: ws.projectId,
+      roleId: role.id,
+      reason: "Deploy support role",
+    });
+
+    // 1. Widening attempt with ALLOW must be rejected
+    await expect(
+      deployAgentToProject(founderContext, {
+        projectId: ws.projectId,
+        workspaceAgentId: agent.id,
+        projectRoleDeploymentId: roleDep.id,
+        capabilityOverrides: [
+          { capabilityId: "system.network.unrestricted", effect: "ALLOW" },
+        ],
+        reason: "Attempting to expand capability",
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+
+    // 2. Widening attempt with enabled: true must be rejected
+    await expect(
+      deployAgentToProject(founderContext, {
+        projectId: ws.projectId,
+        workspaceAgentId: agent.id,
+        projectRoleDeploymentId: roleDep.id,
+        capabilityOverrides: [
+          { capabilityId: "system.db.admin", enabled: true },
+        ],
+        reason: "Attempting to enable capability",
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+
+    // 3. Tightening with DENY must succeed
+    const deployed = await deployAgentToProject(founderContext, {
+      projectId: ws.projectId,
+      workspaceAgentId: agent.id,
+      projectRoleDeploymentId: roleDep.id,
+      capabilityOverrides: [
+        { capabilityId: "system.shell.exec", effect: "DENY", reason: "Blocked in project" },
+        { capabilityId: "billing.charge", enabled: false },
+      ],
+      reason: "Deploy with tightened security",
+    });
+
+    expect(deployed.state).toBe("ACTIVE");
+    expect(deployed.capabilityOverrides).toHaveLength(2);
+
+    // 4. getProjectDeploymentAuthority exposes capabilityRestrictions
+    const authority = await getProjectDeploymentAuthority(founderContext, {
+      projectId: ws.projectId,
+      workspaceAgentId: agent.id,
+    });
+
+    expect(authority.capabilityRestrictions).toBeDefined();
+    expect(authority.capabilityRestrictions).toHaveLength(2);
+    expect(authority.capabilityRestrictions?.[0]).toMatchObject({
+      capabilityId: "system.shell.exec",
+      effect: "DENY",
+    });
+  });
 });
+

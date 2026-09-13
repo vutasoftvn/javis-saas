@@ -38,6 +38,7 @@ class WorkspaceAssetRepository(Protocol):
         created_by: str,
     ) -> WorkspaceAssetVersion: ...
     async def get_version(self, workspace_id: str, asset_id: str, version: str) -> WorkspaceAssetVersion | None: ...
+    async def get_latest_version(self, workspace_id: str, asset_id: str) -> WorkspaceAssetVersion | None: ...
     async def replace_draft_content(
         self, workspace_id: str, asset_id: str, version: str, content: dict[str, Any]
     ) -> WorkspaceAssetVersion: ...
@@ -108,6 +109,15 @@ class InMemoryWorkspaceAssetRepository:
 
     async def get_version(self, workspace_id: str, asset_id: str, version: str) -> WorkspaceAssetVersion | None:
         return self._versions.get((workspace_id, asset_id, version))
+
+    async def get_latest_version(self, workspace_id: str, asset_id: str) -> WorkspaceAssetVersion | None:
+        candidates = [
+            v for (ws, a_id, _), v in self._versions.items()
+            if ws == workspace_id and a_id == asset_id
+        ]
+        if not candidates:
+            return None
+        return sorted(candidates, key=lambda x: x.version, reverse=True)[0]
 
     async def replace_draft_content(
         self, workspace_id: str, asset_id: str, version: str, content: dict[str, Any]
@@ -319,6 +329,40 @@ class PostgresWorkspaceAssetRepository:
         )
         return await self.create_draft(workspace_id, draft)
 
+    def _row_to_version(self, row: Any) -> WorkspaceAssetVersion:
+        origin = None
+        if row["origin_json"]:
+            raw_origin = row["origin_json"] if isinstance(row["origin_json"], dict) else json.loads(row["origin_json"])
+            origin = AssetOrigin(
+                kind=raw_origin.get("kind", "CLONE"),
+                asset_id=raw_origin.get("asset_id", ""),
+                version=raw_origin.get("version", ""),
+                definition_hash=raw_origin.get("definition_hash", ""),
+            )
+
+        raw_content = row["content_json"]
+        content = raw_content if isinstance(raw_content, dict) else json.loads(raw_content)
+
+        scope = AssetScope(kind=row["scope_kind"], project_id=row["project_id"])
+        eval_summary = row["evaluation_summary"]
+        if eval_summary and isinstance(eval_summary, str):
+            eval_summary = json.loads(eval_summary)
+
+        return WorkspaceAssetVersion(
+            workspace_id=row["workspace_id"],
+            asset_id=row["asset_id"],
+            version=row["version"],
+            definition_hash=row["definition_hash"],
+            content_json=content,
+            lifecycle=AssetLifecycle(row["lifecycle"]),
+            scope=scope,
+            created_by=row["created_by"],
+            origin=origin,
+            evaluation_summary=eval_summary,
+            created_at=row["created_at"],
+            published_at=row["published_at"],
+        )
+
     async def get_version(self, workspace_id: str, asset_id: str, version: str) -> WorkspaceAssetVersion | None:
         async with self._session_factory() as session:
             stmt = text(
@@ -334,39 +378,26 @@ class PostgresWorkspaceAssetRepository:
             row = res.mappings().first()
             if not row:
                 return None
+            return self._row_to_version(row)
 
-            origin = None
-            if row["origin_json"]:
-                raw_origin = row["origin_json"] if isinstance(row["origin_json"], dict) else json.loads(row["origin_json"])
-                origin = AssetOrigin(
-                    kind=raw_origin.get("kind", "CLONE"),
-                    asset_id=raw_origin.get("asset_id", ""),
-                    version=raw_origin.get("version", ""),
-                    definition_hash=raw_origin.get("definition_hash", ""),
-                )
-
-            raw_content = row["content_json"]
-            content = raw_content if isinstance(raw_content, dict) else json.loads(raw_content)
-
-            scope = AssetScope(kind=row["scope_kind"], project_id=row["project_id"])
-            eval_summary = row["evaluation_summary"]
-            if eval_summary and isinstance(eval_summary, str):
-                eval_summary = json.loads(eval_summary)
-
-            return WorkspaceAssetVersion(
-                workspace_id=row["workspace_id"],
-                asset_id=row["asset_id"],
-                version=row["version"],
-                definition_hash=row["definition_hash"],
-                content_json=content,
-                lifecycle=AssetLifecycle(row["lifecycle"]),
-                scope=scope,
-                created_by=row["created_by"],
-                origin=origin,
-                evaluation_summary=eval_summary,
-                created_at=row["created_at"],
-                published_at=row["published_at"],
+    async def get_latest_version(self, workspace_id: str, asset_id: str) -> WorkspaceAssetVersion | None:
+        async with self._session_factory() as session:
+            stmt = text(
+                """
+                SELECT workspace_id, asset_id, version, definition_hash, content_json,
+                       lifecycle, scope_kind, project_id, origin_json, evaluation_summary,
+                       created_by, created_at, published_at
+                FROM agent.workspace_asset_versions
+                WHERE workspace_id = :ws_id AND asset_id = :asset_id
+                ORDER BY version DESC
+                LIMIT 1
+                """
             )
+            res = await session.execute(stmt, {"ws_id": workspace_id, "asset_id": asset_id})
+            row = res.mappings().first()
+            if not row:
+                return None
+            return self._row_to_version(row)
 
     async def replace_draft_content(
         self, workspace_id: str, asset_id: str, version: str, content: dict[str, Any]

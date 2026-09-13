@@ -40,7 +40,9 @@ class WorkflowDefinitionRepository(Protocol):
         self, workflow_id: str, version: str, workspace_id: str = "default"
     ) -> WorkflowDefinitionRecord | None: ...
 
-    async def get_by_hash(self, definition_hash: str) -> WorkflowDefinitionRecord | None: ...
+    async def get_by_hash(
+        self, definition_hash: str, workspace_id: str | None = None
+    ) -> WorkflowDefinitionRecord | None: ...
 
     async def list_versions(
         self, workflow_id: str, workspace_id: str | None = None
@@ -78,12 +80,20 @@ class InMemoryWorkflowDefinitionRepository:
     async def get_definition(
         self, workflow_id: str, version: str, workspace_id: str = "default"
     ) -> WorkflowDefinitionRecord | None:
-        return self._definitions.get((workspace_id, workflow_id, version)) or next(
-            (r for (ws, wid, ver), r in self._definitions.items() if wid == workflow_id and ver == version),
-            None,
-        )
+        return self._definitions.get((workspace_id, workflow_id, version))
 
-    async def get_by_hash(self, definition_hash: str) -> WorkflowDefinitionRecord | None:
+    async def get_by_hash(
+        self, definition_hash: str, workspace_id: str | None = None
+    ) -> WorkflowDefinitionRecord | None:
+        if workspace_id is not None:
+            return next(
+                (
+                    r
+                    for (ws, _, _), r in self._definitions.items()
+                    if ws == workspace_id and r.definition_hash == definition_hash
+                ),
+                None,
+            )
         return self._by_hash.get(definition_hash)
 
     async def list_versions(

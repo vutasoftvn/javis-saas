@@ -25,14 +25,44 @@ _default_authoring_service = AuthoringService(_default_repo, _default_eval_servi
 
 
 def get_authoring_service(request: Request | None = None) -> AuthoringService:
-    if request is not None and hasattr(request.app.state, "authoring_service") and request.app.state.authoring_service:
-        return request.app.state.authoring_service
+    if request is not None:
+        if hasattr(request.app.state, "authoring_service") and request.app.state.authoring_service:
+            return request.app.state.authoring_service
+        plane = getattr(request.app.state, "plane", None)
+        if plane is not None:
+            if hasattr(plane, "authoring_service") and plane.authoring_service:
+                return plane.authoring_service
+            deps = getattr(plane, "event_intake_deps", None)
+            if deps is not None and getattr(deps, "authoring_service", None):
+                return deps.authoring_service
+
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    if env_name in ("production", "staging", "prod"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AuthoringService not configured with persistent PostgreSQL repository in production",
+        )
     return _default_authoring_service
 
 
 def get_evaluation_service(request: Request | None = None) -> EvaluationService:
-    if request is not None and hasattr(request.app.state, "evaluation_service") and request.app.state.evaluation_service:
-        return request.app.state.evaluation_service
+    if request is not None:
+        if hasattr(request.app.state, "evaluation_service") and request.app.state.evaluation_service:
+            return request.app.state.evaluation_service
+        plane = getattr(request.app.state, "plane", None)
+        if plane is not None:
+            if hasattr(plane, "evaluation_service") and plane.evaluation_service:
+                return plane.evaluation_service
+            deps = getattr(plane, "event_intake_deps", None)
+            if deps is not None and getattr(deps, "evaluation_service", None):
+                return deps.evaluation_service
+
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    if env_name in ("production", "staging", "prod"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="EvaluationService not configured with persistent PostgreSQL repository in production",
+        )
     return _default_eval_service
 
 

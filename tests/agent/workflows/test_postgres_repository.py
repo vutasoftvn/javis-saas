@@ -144,3 +144,13 @@ async def test_cross_workspace_definition_isolation_returns_none(factory):
     # Fetching with default workspace returns None when created under tenant-a
     found_default = await repo.get_definition(spec.id, spec.version, workspace_id="default")
     assert found_default is None
+
+    # get_by_hash scoped to ws-tenant-b returns None
+    found_hash_b = await repo.get_by_hash(spec.definition_hash, workspace_id="ws-tenant-b")
+    assert found_hash_b is None
+
+    # get_by_hash scoped to ws-tenant-a returns the record
+    found_hash_a = await repo.get_by_hash(spec.definition_hash, workspace_id="ws-tenant-a")
+    assert found_hash_a is not None
+    assert found_hash_a.workspace_id == "ws-tenant-a"
+

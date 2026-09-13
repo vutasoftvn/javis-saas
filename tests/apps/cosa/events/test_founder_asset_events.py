@@ -133,6 +133,15 @@ class RecordingCallbackClient:
         return True
 
 
+class FailingCallbackClient:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+    async def send_status_callback(self, **kwargs: Any) -> Any:
+        raise self.error
+
+
+
 @pytest.mark.asyncio
 async def test_replayed_signed_command_does_not_create_second_asset() -> None:
     deps = Deps()
@@ -305,6 +314,22 @@ async def test_production_wiring_clone_builtin_asset() -> None:
         status_callback_client=callback_client,
     )
 
+    # Pre-seed the source asset so clone has an immutable default to copy from
+    from packages.agent.assets.contracts import AssetKind, AssetScope, WorkspaceAssetDraft
+    await repo.create_draft(
+        workspace_id="ws_1",
+        draft=WorkspaceAssetDraft(
+            asset_id="agent.ops.analyst",
+            version="1.0.0",
+            name="Ops Analyst",
+            description="Builtin analyst",
+            kind=AssetKind.AGENT,
+            content={"instructions": "analyst instructions", "model": "gpt-4o"},
+            scope=AssetScope.workspace(),
+            created_by="system",
+        ),
+    )
+
     clone_payload = _command_payload(
         operation="CLONE",
         assetKind="AGENT",
@@ -325,5 +350,74 @@ async def test_production_wiring_clone_builtin_asset() -> None:
     cloned = await repo.get_version("ws_1", "clone.agent.ops.analyst", "0.1.0")
     assert cloned is not None
     assert cloned.lifecycle == AssetLifecycle.DRAFT
+
+
+@pytest.mark.asyncio
+async def test_production_wiring_clone_nonexistent_asset_dispatches_failed_callback() -> None:
+    from apps.cosa.assets.authoring_service import AuthoringService
+    from apps.cosa.assets.evaluation_service import EvaluationService
+    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+
+    repo = InMemoryWorkspaceAssetRepository()
+    eval_svc = EvaluationService(repo)
+    auth_svc = AuthoringService(repo, eval_svc)
+    callback_client = RecordingCallbackClient()
+
+    deps = Deps(
+        founder_asset_handler=None,
+        authoring_service=auth_svc,
+        evaluation_service=eval_svc,
+        status_callback_client=callback_client,
+    )
+
+    # Attempt to clone non-existent asset without seeding
+    clone_payload = _command_payload(
+        operation="CLONE",
+        assetKind="AGENT",
+        assetRef={
+            "assetId": "nonexistent.agent",
+            "version": "1.0.0",
+            "definitionHash": "sha256:missing",
+        },
+    )
+    env = _env(clone_payload)
+    res = await handle_event(deps, _raw(env), _sig(env))
+    assert res.outcome == "accepted"
+    assert len(callback_client.calls) == 1
+    assert callback_client.calls[0]["status"] == "FAILED"
+    assert "not found for clone" in callback_client.calls[0]["safe_reason_code"]
+
+
+
+@pytest.mark.asyncio
+async def test_callback_delivery_failure_marks_outcome_failed_in_inbox() -> None:
+    from apps.cosa.assets.authoring_service import AuthoringService
+    from apps.cosa.assets.evaluation_service import EvaluationService
+    from apps.cosa.events.founder_asset_callback_client import FounderAssetCallbackDeliveryError
+    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+
+    repo = InMemoryWorkspaceAssetRepository()
+    eval_svc = EvaluationService(repo)
+    auth_svc = AuthoringService(repo, eval_svc)
+    failing_client = FailingCallbackClient(FounderAssetCallbackDeliveryError("cmd_fail", "Connection refused"))
+
+    deps = Deps(
+        founder_asset_handler=None,
+        authoring_service=auth_svc,
+        evaluation_service=eval_svc,
+        status_callback_client=failing_client,
+    )
+
+    create_payload = _command_payload(
+        operation="CREATE",
+        assetKind="AGENT",
+        assetRef={"assetId": "agent.ops.failing_cb", "version": "0.1.0"},
+        metadata={"name": "Test Agent", "content": {}},
+    )
+    env = _env(create_payload)
+    res = await handle_event(deps, _raw(env), _sig(env))
+    assert res.outcome == "failed"
+    assert "callback delivery failed" in (res.reason or "")
+
 
 

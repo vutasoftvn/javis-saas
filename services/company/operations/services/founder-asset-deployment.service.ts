@@ -110,6 +110,7 @@ export interface ProjectDeploymentAuthority {
   readonly roleIds: readonly string[];
   readonly projectId: string;
   readonly state: "ACTIVE" | "PAUSED" | "RETIRED";
+  readonly capabilityRestrictions?: readonly any[];
 }
 
 export async function createOperatingRole(
@@ -495,6 +496,64 @@ export async function deployRoleToProject(
   });
 }
 
+export function validateCapabilityTighteningOnly(overrides: unknown[]): void {
+  if (!Array.isArray(overrides)) {
+    throw APIError.invalidArgument("capabilityOverrides must be an array");
+  }
+
+  const wideningKeywords = ["ALLOW", "GRANT", "PERMIT", "ENABLE", "WIDEN"];
+
+  for (const override of overrides) {
+    if (!override || typeof override !== "object") {
+      throw APIError.invalidArgument("Each capability override must be a non-null object");
+    }
+    const o = override as Record<string, unknown>;
+
+    // 1. Identify target capability
+    const target = o.capabilityId ?? o.capability ?? o.target ?? o.id;
+    if (!target || typeof target !== "string" || target.trim().length === 0) {
+      throw APIError.invalidArgument(
+        "Each capability override must specify a target capability (e.g. capabilityId)"
+      );
+    }
+
+    // 2. Reject widening attempts
+    const effect = typeof o.effect === "string" ? o.effect.trim().toUpperCase() : undefined;
+    const action = typeof o.action === "string" ? o.action.trim().toUpperCase() : undefined;
+    const mode = typeof o.mode === "string" ? o.mode.trim().toUpperCase() : undefined;
+
+    for (const kw of wideningKeywords) {
+      if (effect === kw || action === kw || mode === kw) {
+        throw APIError.invalidArgument(
+          `Capability override for '${target}' cannot grant or expand authority (${kw}). Control Plane may only restrict authority (DENY/RESTRICT).`
+        );
+      }
+    }
+
+    if (o.enabled === true || o.allow === true || o.grant === true) {
+      throw APIError.invalidArgument(
+        `Capability override for '${target}' cannot enable or grant capabilities. Control Plane may only restrict authority.`
+      );
+    }
+
+    // 3. Must be a valid restriction
+    const isDenyOrRestrict = effect === "DENY" || effect === "RESTRICT";
+    const isDisabled = o.enabled === false;
+    const hasTighteningConstraint =
+      Boolean(o.rateLimit) ||
+      Boolean(o.budgetLimit) ||
+      Boolean(o.maxCalls) ||
+      Boolean(o.restrictions) ||
+      Boolean(o.paramRestrictions);
+
+    if (!isDenyOrRestrict && !isDisabled && !hasTighteningConstraint) {
+      throw APIError.invalidArgument(
+        `Capability override for '${target}' must specify a tightening restriction (e.g. effect: 'DENY' | 'RESTRICT', enabled: false, or budget/rate limits).`
+      );
+    }
+  }
+}
+
 export async function deployAgentToProject(
   ctx: TenantContext,
   input: {
@@ -512,6 +571,10 @@ export async function deployAgentToProject(
   const projId = BigInt(input.projectId);
   const agentId = BigInt(input.workspaceAgentId);
   const actorId = BigInt(ctx.userId);
+
+  if (input.capabilityOverrides && input.capabilityOverrides.length > 0) {
+    validateCapabilityTighteningOnly(input.capabilityOverrides);
+  }
 
   await validateProjectInWorkspace(wsId, projId);
 
@@ -911,6 +974,7 @@ export async function getProjectDeploymentAuthority(
     .select({
       deploymentId: projectAgentDeployments.id,
       state: projectAgentDeployments.state,
+      capabilityOverrides: projectAgentDeployments.capabilityOverrides,
       workspaceAgentId: workspaceAgents.id,
       workforceMemberId: workspaceAgents.workforceMemberId,
       agentAssetId: workspaceAgents.agentAssetId,
@@ -976,5 +1040,6 @@ export async function getProjectDeploymentAuthority(
     roleIds: roleRows.map((r) => r.roleId.toString()),
     projectId: input.projectId,
     state: effectiveState,
+    capabilityRestrictions: (deployment.capabilityOverrides as any[]) ?? [],
   };
 }

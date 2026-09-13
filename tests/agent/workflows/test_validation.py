@@ -42,11 +42,35 @@ def test_publish_validator_passes_valid_v1_spec():
         project_id="proj-1",
         active_deployments={"dep_valid_123": {"status": "ACTIVE"}},
         active_capabilities={"read_data", "write_data"},
+        registered_executors={StepType.AGENT, StepType.TOOL_CALL, StepType.APPROVAL_GATE},
     )
 
     result = WorkflowPublishValidator.validate(spec, ctx)
     assert result.is_valid is True
     assert len(result.errors) == 0
+
+
+def test_publish_validator_rejects_step_without_registered_executor():
+    spec = WorkflowSpec(
+        id="wf_agent_no_exec",
+        name="Agent Without Registered Executor Flow",
+        version="1.0.0",
+        steps=[
+            WorkflowStepSpec(
+                id="step_agent",
+                type=StepType.AGENT,
+                project_agent_deployment_id="dep_valid_123",
+            ),
+        ],
+    )
+    # Default context does not register AGENT executor
+    ctx = WorkflowValidationContext(
+        workspace_id="ws-1",
+        active_deployments={"dep_valid_123": {"status": "ACTIVE"}},
+    )
+    result = WorkflowPublishValidator.validate(spec, ctx)
+    assert result.is_valid is False
+    assert any("has no registered executor in execution plane" in e for e in result.errors)
 
 
 def test_publish_validator_rejects_inactive_agent_deployment():
@@ -66,6 +90,7 @@ def test_publish_validator_rejects_inactive_agent_deployment():
     ctx = WorkflowValidationContext(
         workspace_id="ws-1",
         active_deployments={"dep_other": {"status": "ACTIVE"}},
+        registered_executors={StepType.AGENT},
     )
 
     result = WorkflowPublishValidator.validate(spec, ctx)

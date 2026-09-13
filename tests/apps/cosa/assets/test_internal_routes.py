@@ -88,3 +88,34 @@ async def test_internal_routes_publish_requires_company_command_ref():
         )
         assert resp.status_code == 400
         assert "company_command_ref is required" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_internal_routes_blocks_in_memory_fallback_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+    from apps.cosa.assets.internal_routes import router
+
+    app = FastAPI()
+    app.include_router(router)
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("FOUNDER_ASSET_SERVICE_TOKEN", "prod-secret-token")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = {"X-Service-Token": "prod-secret-token"}
+        body = {
+            "operation": "CREATE",
+            "workspace_id": "ws-prod",
+            "asset_kind": "AGENT",
+            "asset_id": "agent.prod.test",
+            "name": "Prod Agent",
+        }
+        resp = await client.post(
+            "/agent/internal/founder-assets/commands",
+            headers=headers,
+            json=body,
+        )
+        assert resp.status_code == 503
+        assert "AuthoringService not configured" in resp.json()["detail"]
+

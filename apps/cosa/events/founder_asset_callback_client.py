@@ -5,6 +5,7 @@ SUCCESS, FAILED, or REJECTED with updated assetRef and evaluation summary.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -16,6 +17,14 @@ logger = logging.getLogger(__name__)
 _CALLBACK_PATH = "/internal/operations/founder/assets/status-callback"
 
 
+class FounderAssetCallbackDeliveryError(Exception):
+    """Raised when asset status callback delivery to Company plane fails after retries."""
+
+    def __init__(self, command_id: str, message: str) -> None:
+        super().__init__(f"Failed to deliver asset status callback for command {command_id}: {message}")
+        self.command_id = command_id
+
+
 class FounderAssetStatusCallbackClient:
     def __init__(
         self,
@@ -23,6 +32,8 @@ class FounderAssetStatusCallbackClient:
         service_token: str | None = None,
         client: httpx.AsyncClient | None = None,
         timeout_sec: float = 5.0,
+        max_retries: int = 3,
+        backoff_sec: float = 0.5,
     ) -> None:
         self._base_url = (
             base_url or os.getenv("COMPANY_SERVICE_URL") or "http://localhost:4000"
@@ -31,6 +42,8 @@ class FounderAssetStatusCallbackClient:
             service_token or os.getenv("COSA_WORKER_SERVICE_TOKEN") or "dev-worker-service-token"
         )
         self._client = client or httpx.AsyncClient(timeout=timeout_sec)
+        self._max_retries = max_retries
+        self._backoff_sec = backoff_sec
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -62,18 +75,27 @@ class FounderAssetStatusCallbackClient:
             "evaluationSummary": evaluation_summary,
             "safeReasonCode": safe_reason_code,
         }
-        try:
-            resp = await self._client.post(
-                f"{self._base_url}{_CALLBACK_PATH}",
-                json=payload,
-                headers=self._headers(),
-            )
-            resp.raise_for_status()
-            return resp.json()
-        except Exception as exc:
-            logger.warning(
-                "Failed to dispatch asset status callback for command %s: %s",
-                command_id,
-                exc,
-            )
-            return {"error": str(exc)}
+        last_exc: Exception | None = None
+        for attempt in range(1, self._max_retries + 1):
+            try:
+                resp = await self._client.post(
+                    f"{self._base_url}{_CALLBACK_PATH}",
+                    json=payload,
+                    headers=self._headers(),
+                )
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as exc:
+                last_exc = exc
+                logger.warning(
+                    "Attempt %d/%d failed to dispatch asset status callback for command %s: %s",
+                    attempt,
+                    self._max_retries,
+                    command_id,
+                    exc,
+                )
+                if attempt < self._max_retries:
+                    await asyncio.sleep(self._backoff_sec * (2 ** (attempt - 1)))
+
+        raise FounderAssetCallbackDeliveryError(command_id, str(last_exc))
+

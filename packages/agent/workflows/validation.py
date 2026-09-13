@@ -31,6 +31,9 @@ class WorkflowValidationContext:
     active_capabilities: set[str] = field(default_factory=set)
     registered_handlers: set[str] = field(default_factory=set)
     published_assets: dict[str, Any] = field(default_factory=dict)
+    registered_executors: set[StepType | str] = field(
+        default_factory=lambda: {StepType.TOOL_CALL, StepType.APPROVAL_GATE, StepType.DETERMINISTIC}
+    )
 
 
 @dataclass
@@ -50,6 +53,14 @@ class WorkflowPublishValidator:
             StepType.APPROVAL_GATE,
             StepType.DETERMINISTIC,
             StepType.RETRY,
+        }
+    )
+
+    DEFAULT_EXECUTABLE_STEP_TYPES = frozenset(
+        {
+            StepType.TOOL_CALL,
+            StepType.APPROVAL_GATE,
+            StepType.DETERMINISTIC,
         }
     )
 
@@ -73,7 +84,25 @@ class WorkflowPublishValidator:
                 active_capabilities=set(context.get("active_capabilities", [])),
                 registered_handlers=set(context.get("registered_handlers", [])),
                 published_assets=context.get("published_assets", {}),
+                registered_executors=set(context.get("registered_executors", cls.DEFAULT_EXECUTABLE_STEP_TYPES)),
             )
+
+        executors = (
+            set(ctx.registered_executors)
+            if (ctx and ctx.registered_executors is not None)
+            else set(cls.DEFAULT_EXECUTABLE_STEP_TYPES)
+        )
+        executor_types: set[Any] = set()
+        for e in executors:
+            if isinstance(e, StepType):
+                executor_types.add(e)
+                executor_types.add(e.value)
+            elif isinstance(e, str):
+                executor_types.add(e)
+                try:
+                    executor_types.add(StepType(e))
+                except ValueError:
+                    pass
 
         # 1. Structural DAG validation
         try:
@@ -87,6 +116,13 @@ class WorkflowPublishValidator:
                 errors.append(
                     f"Step '{step.id}' uses unsupported type '{step.type}'. "
                     f"Supported types: {sorted(t.value for t in cls.SUPPORTED_V1_STEP_TYPES)}"
+                )
+                continue
+
+            if step.type not in executor_types and step.type.value not in executor_types:
+                errors.append(
+                    f"Step '{step.id}' uses step type '{step.type.value}' which has no registered executor "
+                    f"in execution plane; publish rejected until executor is implemented"
                 )
                 continue
 
