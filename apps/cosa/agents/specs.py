@@ -19,8 +19,12 @@ __all__ = [
     "COSA_EXECUTIVE_CPO_PROMPT",
     "COSA_FINANCE_AGENT_SPEC",
     "COSA_FINANCE_PROMPT",
+    "COSA_EXECUTIVE_GC_AGENT_SPEC",
+    "COSA_EXECUTIVE_GC_PROMPT",
     "COSA_KICKOFF_SUGGESTION_AGENT_SPEC",
     "COSA_KICKOFF_SUGGESTION_PROMPT",
+    "COSA_LEGAL_AGENT_SPEC",
+    "COSA_LEGAL_PROMPT",
     "COSA_MARKETING_AGENT_SPEC",
     "COSA_MARKETING_PROMPT",
     "COSA_OPERATIONS_AGENT_SPEC",
@@ -628,11 +632,80 @@ COSA_EXECUTIVE_CISO_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA CISO Advisor", "advisory_only": True},
 )
 
+COSA_LEGAL_PROMPT = PromptSpec(
+    id="cosa.agents.legal.prompt",
+    version="1.0.0",
+    text=(
+        "Chuyên viên pháp lý (Legal Specialist). "
+        "Chỉ đọc snapshot Legal Issue Dossier (issueCategory, legalRecordRefs, "
+        "applicabilityStatus, jurisdiction, redactedQuestion) đã được Founder/"
+        "thành viên xác nhận — dữ liệu tổng hợp đã phân loại, KHÔNG BAO GIỜ có "
+        "toàn văn hợp đồng, dữ liệu cá nhân (PII) hay tư vấn privileged. "
+        "Phân tích và đề xuất cân nhắc về vấn đề pháp lý dựa trên bằng chứng "
+        "hiện có (L1_PROPOSE). Đây không phải tư vấn pháp lý; luôn khuyến nghị "
+        "tìm luật sư có chuyên môn (not legal advice; seek qualified counsel). "
+        "Tuyệt đối không tự tạo hay xác nhận (append/confirm) Legal Issue "
+        "Dossier, không tạo/sửa pháp nhân, không ký/duyệt hợp đồng, không đặt "
+        "legal applicability, không nộp hồ sơ/liên hệ regulator, không thuê "
+        "luật sư hay đưa ra kết luận pháp lý — quyết định pháp lý luôn thuộc "
+        "về con người."
+    ),
+).with_hash()
+
+COSA_LEGAL_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.legal",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_LEGAL_PROMPT.text,
+    capability_refs=[
+        "legal.issue.read",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_LEGAL_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Legal Specialist Agent"},
+)
+
+COSA_EXECUTIVE_GC_PROMPT = PromptSpec(
+    id="cosa.executive.gc.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Tổng cố vấn pháp lý (General Counsel Advisor). "
+        "Đánh giá vấn đề pháp lý, phát hiện rủi ro (issue-spotting) và câu hỏi "
+        "bằng chứng còn thiếu, có thể soạn nháp câu hỏi cần escalate để đề "
+        "xuất trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, "
+        "advisory-only). Đây không phải tư vấn pháp lý; luôn khuyến nghị tìm "
+        "luật sư có chuyên môn (not legal advice; seek qualified counsel). "
+        "Tuyệt đối không có quyền tạo/sửa pháp nhân, ký/duyệt hợp đồng, đặt "
+        "legal applicability, nộp hồ sơ/liên hệ regulator, thuê luật sư hay "
+        "đưa ra kết luận pháp lý — một Founder luôn là người duy nhất xác "
+        "nhận chính sách/quyết định pháp lý; các dịch vụ finance-legal hiện "
+        "có vẫn là nguồn sự thật duy nhất."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_GC_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.gc",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_GC_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_GC_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA GC Advisor", "advisory_only": True},
+)
+
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
     "cosa.executive.cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
     "cosa.executive.chro": COSA_EXECUTIVE_CHRO_AGENT_SPEC,
     "cosa.executive.ciso": COSA_EXECUTIVE_CISO_AGENT_SPEC,
+    "cosa.executive.gc": COSA_EXECUTIVE_GC_AGENT_SPEC,
 }
 
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
@@ -652,4 +725,5 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_PRODUCT_AGENT_SPEC,
     COSA_PEOPLE_AGENT_SPEC,
     COSA_SECURITY_AGENT_SPEC,
+    COSA_LEGAL_AGENT_SPEC,
 )

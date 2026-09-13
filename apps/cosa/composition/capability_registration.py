@@ -60,6 +60,10 @@ from apps.cosa.capabilities.knowledge_read import (
     KNOWLEDGE_PROFILE_READ_SPEC,
     create_knowledge_profile_read_handler,
 )
+from apps.cosa.capabilities.legal_issue_read import (
+    LEGAL_ISSUE_READ_SPEC,
+    create_legal_issue_read_handler,
+)
 from apps.cosa.capabilities.legal_read import (
     LEGAL_APPLICABILITY_ASSESS_SPEC,
     create_legal_applicability_assess_handler,
@@ -327,6 +331,12 @@ def register_cosa_capabilities(
     cap_registry.register(
         SECURITY_POSTURE_READ_SPEC,
         create_security_posture_read_handler(client),
+    )
+
+    # Legal Issue Dossier (read-only)
+    cap_registry.register(
+        LEGAL_ISSUE_READ_SPEC,
+        create_legal_issue_read_handler(client),
     )
 
     # Sandbox MCP

@@ -13,7 +13,8 @@ export type OwnerAgentProfile =
   | "coding"
   | "product"
   | "people"
-  | "security";
+  | "security"
+  | "legal";
 
 // AgentSpec id theo apps/cosa/agents/specs.py (COSA_*_AGENT_SPEC.id).
 export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
@@ -28,6 +29,7 @@ export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
   product: "cosa.agents.product",
   people: "cosa.agents.people",
   security: "cosa.agents.security",
+  legal: "cosa.agents.legal",
 };
 
 // Metadata mô tả (constraint workforce_members yêu cầu agent_spec_version NOT NULL
@@ -44,6 +46,7 @@ export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
   product: "1.0.0",
   people: "1.0.0",
   security: "1.0.0",
+  legal: "1.0.0",
 };
 
 // Pinned definition_hash theo specs.py AgentSpec.compute_hash().
@@ -59,6 +62,7 @@ export const AGENT_PROFILE_SPEC_HASH: Record<OwnerAgentProfile, string> = {
   product: "f91ce512b333d3dff17672164206bc958fab042435fd420a926a715a1ac889be",
   people: "a03fcb1d3050bf4f364ca7c9e7581b443c08d3dac781199162626a5329dc0b05",
   security: "54232cdc8454ebda917991b48eb38f639dae3e6d8db3081070b859561670d966",
+  legal: "b3f8435557658d3882da386db95c41f087c173acfe39f43e688c122263f46baf",
 };
 
 // Drizzle transaction type — cùng cách project-kickoff-materialize.service.ts đặt tên.
