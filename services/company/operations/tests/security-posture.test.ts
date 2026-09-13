@@ -326,6 +326,35 @@ describe("Security Posture Dossier Service", () => {
     expect(snapshot.revision).toBe(2);
   });
 
+  // Ghi lại tường minh hành vi full-replace (KHÔNG merge) của append — theo
+  // đúng final-review known-limitations #6 của CISO plan. Dossier khởi tạo ở
+  // beforeEach có 1 finding HIGH severity; append một revision CONFIRMED với
+  // findings/controls RỖNG phải xoá sạch dữ liệu cũ và hạ severity xuống LOW
+  // — đây là hành vi hiện tại đã kế thừa từ people-risk-dossier.service.ts
+  // (không phải regression của task này), nhưng chưa từng được pin bằng test
+  // nào trước final review. Cố ý biến nó thành contract rõ ràng: nếu ai đó
+  // sau này đổi sang merge semantics, test này PHẢI được sửa có chủ đích thay
+  // vì đổi hành vi một cách âm thầm.
+  it("documents full-replace (not merge) append semantics: an empty CONFIRMED payload drops prior HIGH finding down to LOW", async () => {
+    const confirmed = await appendSecurityPostureRevision(founderCtx, dossierId, 1, {
+      status: "CONFIRMED",
+      findings: [],
+      controls: [],
+      reasonCode: "FOUNDER_REVIEW",
+    });
+
+    expect(confirmed.status).toBe("CONFIRMED");
+    expect(confirmed.revision).toBe(2);
+    expect(confirmed.findings).toEqual([]);
+    expect(confirmed.controlStates).toEqual([]);
+    expect(confirmed.severity).toBe("LOW");
+
+    const snapshot = await readSecurityPostureSnapshot(founderCtx, projectId);
+    expect(snapshot.findings).toEqual([]);
+    expect(snapshot.controlStates).toEqual([]);
+    expect(snapshot.severity).toBe("LOW");
+  });
+
   it("rejects append to a dossier that does not exist in this workspace", async () => {
     await expect(
       appendSecurityPostureRevision(founderCtx, "999999999999999999", 1, { reasonCode: "EVIDENCE_UPDATED" })

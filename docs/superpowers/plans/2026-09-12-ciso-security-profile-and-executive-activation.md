@@ -101,3 +101,85 @@ PYTHONPATH=packages:. .venv/bin/python -m pytest tests/e2e/test_ciso_security_pr
 git add shared/contracts scripts services/company/operations apps/cosa skillpacks/executive/ciso-advisor frontend tests/e2e
 git commit -m "feat(executive-board): activate CISO advisory path"
 ```
+
+## Known limitations (post-final-review)
+
+Ghi lại từ đợt review toàn nhánh sau khi cả 3 task đã merge — sáu điểm sau đây
+là giới hạn đã biết, KHÔNG phải bug được fix trong đợt review đó (mỗi điểm cần
+plan riêng hoặc quyết định portfolio-wide theo đúng quy tắc CLAUDE.md "nhiều
+bước → viết plan trước khi sửa code").
+
+- **Read capability HTTP auth unreachable — cùng giới hạn dùng chung với
+  CPO/CHRO, không phải gap riêng của role này.** Lời gọi của
+  `security.posture.read` sang Company được xác thực bằng header
+  COSA-delegation "ambient", nhưng `readSecurityPostureSnapshotEndpoint` được
+  bảo vệ bởi `requireWorkspaceAccess` — hàm này chỉ chấp nhận session token ký
+  bằng `JWT_SECRET` của người dùng thật, không chấp nhận COSA-delegation
+  token. Cùng gap portfolio-wide đã ghi trong known-limitations của
+  `product_decision_read.py`/`people_risk_read.py`, không phải lỗi mới phát
+  sinh riêng ở đây.
+
+- **`ctx` không bao giờ mang `project_id` trong pipeline invocation thật.**
+  Đã verify trực tiếp: `apps/cosa/worker/copilot_run.py` build `ctx` (dòng
+  ~242-247) chỉ với `workspace_id`, `run_id`, `delegation_token`, `token` —
+  không có `project_id`. `apps/cosa/worker/handlers.py` (quanh dòng ~1167) là
+  nơi DUY NHẤT đặt `project_id` vào `run_payload`, nhưng đó là đường
+  scheduler (`service:scheduler` chạy `agent_profile == "operations"`), không
+  phải đường invocation capability chung. Nói thẳng: `_resolve_project_id`
+  trong `security_posture_read.py` được code đúng (dict-aware, ctx thắng
+  args), nhưng vô hiệu trên hầu hết đường invocation thật hiện nay vì
+  `project_id` không được thread vào `ctx` ở đó — cùng hạng mục gap đã ghi
+  cho capability sibling `product`/`people`.
+
+- **Không có generic deliberation evidence-gate nào** — nhất quán với
+  cro/vpe/cpo/chro, không phải regression.
+
+- **`COSA_EXECUTIVE_CISO_AGENT_SPEC` không nằm trong
+  `COSA_DEPLOYED_AGENT_SPECS`, và câu hỏi mở này (lần đầu được nêu trong
+  chính known-limitations của plan CHRO, nói nên giải quyết thống nhất
+  "trước khi role thứ 5") giờ đã bị hoãn tới lần thứ TƯ (vpe, cpo, chro, ciso
+  đều cùng chia sẻ pattern chưa giải quyết này) mà không có quyết định nào.**
+  Nói thẳng: việc này cần được giải quyết một lần, thống nhất, cho cả bốn
+  executive spec, trước khi role thứ 6 (gc) tạo thêm một instance thứ năm của
+  cùng pattern chưa giải quyết — plan này không tự ý giải quyết một mình.
+
+- **CISO-specific: Global Constraint #3 của plan ("Cross-project, stale or
+  unclassified evidence produces `SECURITY_EVIDENCE_REQUIRED`, never a
+  guessed model conclusion") chưa được implement ở bất kỳ đâu.** Đã verify
+  trực tiếp: `grep -rn "SECURITY_EVIDENCE_REQUIRED\|SECURITY_PROFILE_NOT_ACTIVE"
+  --include="*.ts" --include="*.py" --include="*.dart" .` trả về 0 kết quả.
+  Nói thẳng: hành vi thực tế đã ship cho một lần đọc security evidence chưa
+  phân loại/cũ/chéo project là lỗi generic `permission_denied`/`not_found`/
+  `aborted` sẵn có của Company (cùng cơ chế generic như mọi role khác — không
+  role nào trong số đó tự implement bespoke evidence-required error code
+  riêng) — đây là pseudocode mang tính minh hoạ ở red test Step 1 của Task 3
+  trong plan, không phải thứ Task 3 thực sự xây hay được kỳ vọng phải xây,
+  theo đúng tiền lệ portfolio-wide đã có là KHÔNG xây bespoke deliberation
+  gate riêng cho từng role. `runtimeReadiness: READY` của `security`/`ciso`
+  phản ánh mức sẵn sàng của activation-plumbing, không phải ngôn ngữ evidence-
+  gating mạnh hơn ở headline của plan — nêu rõ điều này để không ai lầm tưởng
+  đã có gate `SECURITY_EVIDENCE_REQUIRED`.
+
+- **CISO-specific: `appendSecurityPostureRevision` dùng full-replace, không
+  phải merge semantics — một hành động Founder `CONFIRMED` với payload rỗng/
+  một phần sẽ âm thầm xoá controls/findings cũ và tính lại severity chỉ từ
+  danh sách findings mới (có thể rỗng), có khả năng hạ một severity HIGH đã
+  ghi trước đó xuống LOW với 0 finding.** Đã verify trực tiếp: đọc
+  `services/company/operations/services/security-posture.service.ts`'s hàm
+  `appendSecurityPostureRevision` và các hàm `normalizeControls`/
+  `normalizeFindings`/`normalizeEvidenceRefs` khi nhận input `undefined`
+  (mặc định về `[]`), và cách `severity`/`computeAggregateSeverity` được tính
+  hoàn toàn từ `findings` của revision mới, không merge với findings của
+  revision trước. Nói thẳng: đây là semantics kế thừa giống hệt sibling
+  `people-risk-dossier.service.ts` (không phải regression do task này gây
+  ra), nhưng hậu quả nghiêm trọng hơn đối với một bản ghi security-severity,
+  và hiện chưa có test nào pin/assert tường minh hành vi này (test founder-
+  confirmation hiện có chỉ assert `status`/`revision`, không assert nội dung
+  `controls`/`findings`/`severity` kết quả). Đề xuất follow-up: (a) thêm một
+  quyết định tường minh merge-vs-replace (áp dụng nhất quán cho cả
+  `security-posture` và `people-risk-dossier` cùng lúc, không chỉ một bên),
+  hoặc (b) tối thiểu, bắt buộc caller luôn resubmit toàn bộ state hiện tại
+  (đã đúng theo schema này) và thêm cảnh báo UI/skillpack rằng append thay
+  thế toàn bộ thay vì merge. KHÔNG đổi hành vi thật của service trong đợt fix
+  này — đây là fix documentation-only cho task này; một thay đổi hành vi cần
+  một đợt design riêng ảnh hưởng cả hai dossier liên quan.
