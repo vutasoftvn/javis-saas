@@ -313,8 +313,10 @@ class InMemorySkillImprovementRepository:
                     disposition = "QUEUED"
                 elif latest_agg and latest_agg.health == "DEGRADING":
                     disposition = "DEFERRED_POLICY_DISABLED"
+                elif latest_agg and latest_agg.health == "STABLE":
+                    disposition = "STABLE"
                 else:
-                    disposition = latest_agg.health if latest_agg else "INSUFFICIENT_SAMPLES"
+                    disposition = "INSUFFICIENT_SAMPLES"
 
                 return FeedbackWriteResult(
                     feedback_id=existing_fb.feedback_id,
@@ -610,6 +612,10 @@ class InMemorySkillImprovementRepository:
         ]
 
 
+def _rowcount(res: Any) -> int:
+    return int(getattr(res, "rowcount", 0) or 0)
+
+
 class PostgresSkillImprovementRepository:
     def __init__(
         self, session_factory: async_sessionmaker[AsyncSession], candidate_store: SkillCandidateStore | None = None
@@ -647,7 +653,7 @@ class PostgresSkillImprovementRepository:
                 },
             )
             await session.commit()
-            return result.rowcount > 0
+            return _rowcount(result) > 0
 
     async def get_usage_observations(
         self, workspace_id: str, run_id: str, skill_id: str | None = None
@@ -783,8 +789,10 @@ class PostgresSkillImprovementRepository:
                             disposition = "QUEUED"
                         elif agg_row and agg_row.health == "DEGRADING":
                             disposition = "DEFERRED_POLICY_DISABLED"
+                        elif agg_row and agg_row.health == "STABLE":
+                            disposition = "STABLE"
                         else:
-                            disposition = agg_row.health if agg_row else "INSUFFICIENT_SAMPLES"
+                            disposition = "INSUFFICIENT_SAMPLES"
 
                         return FeedbackWriteResult(
                             feedback_id=fb_id,
@@ -1153,7 +1161,7 @@ class PostgresSkillImprovementRepository:
                     "token": claim_token,
                 }
             )
-            return res.rowcount > 0
+            return _rowcount(res) > 0
 
     async def claim_improvement_outbox(
         self, *, worker_id: str, limit: int, now: datetime
@@ -1214,7 +1222,7 @@ class PostgresSkillImprovementRepository:
             res = await session.execute(
                 upd, {"delivered_at": delivered_at, "ob_id": outbox_id, "token": claim_token}
             )
-            return res.rowcount > 0
+            return _rowcount(res) > 0
 
     async def mark_outbox_failed(
         self, *, outbox_id: str, claim_token: str, error: str | None = None
@@ -1230,7 +1238,7 @@ class PostgresSkillImprovementRepository:
                 """
             )
             res = await session.execute(upd, {"ob_id": outbox_id, "token": claim_token})
-            return res.rowcount > 0
+            return _rowcount(res) > 0
 
     async def create_improvement_request(
         self, request: SkillImprovementRequest
