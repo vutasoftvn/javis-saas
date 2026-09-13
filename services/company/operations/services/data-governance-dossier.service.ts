@@ -189,6 +189,16 @@ function assertNoDataValueShape(value: string, path: string): void {
  * dossier này không có khái niệm "danh sách số" hợp lệ nào khác, nên chặn
  * chủ động thay vì cố phân biệt "vector thật" với "mảng số vô hại"
  * (task-1-brief: "reject any JSON array where all elements are numbers").
+ *
+ * LƯU Ý (final review, xem Known limitations #7 trong plan CDO): mọi field
+ * của `DataAsset`/`DataSourceRef` đều khai báo kiểu `string`, nên Encore's
+ * typed request decoder đã reject một JSON array TRƯỚC KHI handler chạy —
+ * nhánh này hiện KHÔNG reachable qua bất kỳ HTTP endpoint thật nào (chỉ
+ * exercise được bằng `as never` cast trong unit test). Giữ lại có chủ đích
+ * làm defense-in-depth cho một caller nội bộ giả định trong tương lai (vd.
+ * gọi thẳng service function cùng process, bỏ qua Encore's type contract),
+ * KHÔNG phải dead code cần xoá — nếu field nào sau này đổi sang chấp nhận
+ * kiểu khác `string`, nhánh này sẽ lập tức trở thành đường bảo vệ thật.
  */
 function isEmbeddingVectorShaped(arr: unknown[]): boolean {
   return arr.length > 0 && arr.every((v) => typeof v === "number");

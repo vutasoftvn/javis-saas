@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Metadata is not a backdoor to data: deny values, field samples, embeddings, raw file URI, API credentials and cross-Project lineage.
+- Metadata is not a backdoor to data: deny values, field samples, embeddings, raw file URI, API credentials and cross-Project lineage. (Lưu ý sau final review: với riêng "embeddings", điều này hiện được đảm bảo trên thực tế bởi kiểu dữ liệu `string` chặt của Encore request contract — không phải bởi deep-scan runtime — vì mọi field liên quan đều khai báo `string`, khiến Encore reject một JSON array trước khi handler chạy. Xem "## Known limitations" mục 7 để biết chi tiết và lý do deep-scan branch tương ứng vẫn được giữ lại làm defense-in-depth.)
 - Only authorized founder data stewards confirm classification/retention/access changes; CDO proposes a gap/remediation draft, never mutates ACL or deletes records.
 - Missing provenance/classification must be returned as missing, not inferred by LLM.
 
