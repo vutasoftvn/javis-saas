@@ -195,3 +195,77 @@ async def test_publish_resolves_latest_version_not_fixed_010(authoring_service, 
     assert published.version == "2.5.0"
     assert published.lifecycle.value == "PUBLISHED"
 
+
+@pytest.mark.asyncio
+async def test_valid_workflow_evaluates_and_publishes_successfully(authoring_service, evaluation_service):
+    wf_draft = await authoring_service.create_workflow_draft(
+        workspace_id="ws-1",
+        asset_id="wf.valid.1",
+        version="1.0.0",
+        name="Valid Workflow",
+        description="A valid V1 workflow",
+        content={
+            "id": "wf.valid.1",
+            "version": "1.0.0",
+            "steps": [
+                {
+                    "id": "step_det",
+                    "type": "deterministic",
+                    "handler": "pass_through",
+                }
+            ],
+        },
+        scope=AssetScope.workspace(),
+        created_by="founder-1",
+    )
+
+    # 1. Evaluate valid workflow
+    eval_result = await authoring_service.evaluate_draft("ws-1", wf_draft.asset_id, "1.0.0")
+    assert eval_result["status"] == "PASS"
+
+    # 2. Publish with signed Company founder command
+    published = await authoring_service.publish(
+        workspace_id="ws-1",
+        asset_id=wf_draft.asset_id,
+        expected_hash=wf_draft.definition_hash,
+        company_command_ref="cmd-founder-valid-wf",
+    )
+    assert published.lifecycle.value == "PUBLISHED"
+
+
+@pytest.mark.asyncio
+async def test_invalid_workflow_fails_evaluation_and_blocks_publish(authoring_service, evaluation_service):
+    wf_draft = await authoring_service.create_workflow_draft(
+        workspace_id="ws-1",
+        asset_id="wf.invalid.1",
+        version="1.0.0",
+        name="Invalid Workflow",
+        description="An invalid workflow with unregistered handler",
+        content={
+            "id": "wf.invalid.1",
+            "version": "1.0.0",
+            "steps": [
+                {
+                    "id": "step_bad",
+                    "type": "deterministic",
+                    "handler": "non_existent_unregistered_handler",
+                }
+            ],
+        },
+        scope=AssetScope.workspace(),
+        created_by="founder-1",
+    )
+
+    # 1. Evaluation should fail due to unregistered handler
+    eval_result = await authoring_service.evaluate_draft("ws-1", wf_draft.asset_id, "1.0.0")
+    assert eval_result["status"] == "FAIL"
+
+    # 2. Publish should be rejected with WorkflowPublishDisabledError
+    with pytest.raises(WorkflowPublishDisabledError):
+        await authoring_service.publish(
+            workspace_id="ws-1",
+            asset_id=wf_draft.asset_id,
+            expected_hash=wf_draft.definition_hash,
+            company_command_ref="cmd-founder-invalid-wf",
+        )
+

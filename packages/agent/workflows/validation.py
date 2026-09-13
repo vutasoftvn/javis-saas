@@ -58,9 +58,11 @@ class WorkflowPublishValidator:
 
     DEFAULT_EXECUTABLE_STEP_TYPES = frozenset(
         {
+            StepType.AGENT,
             StepType.TOOL_CALL,
             StepType.APPROVAL_GATE,
             StepType.DETERMINISTIC,
+            StepType.RETRY,
         }
     )
 
@@ -170,10 +172,18 @@ class WorkflowPublishValidator:
                 handler = step.handler or (step.inputs.get("handler") if step.inputs else None) or step.action
                 if not handler:
                     errors.append(f"DETERMINISTIC step '{step.id}' missing handler")
-                elif ctx and ctx.registered_handlers and handler not in ctx.registered_handlers:
-                    errors.append(
-                        f"DETERMINISTIC step '{step.id}' references unregistered handler '{handler}'"
+                else:
+                    from agent.workflows.deterministic_handlers import WHITELISTED_DETERMINISTIC_HANDLERS
+
+                    known_handlers = (
+                        set(ctx.registered_handlers)
+                        if (ctx and ctx.registered_handlers)
+                        else set(WHITELISTED_DETERMINISTIC_HANDLERS.keys())
                     )
+                    if handler not in known_handlers:
+                        errors.append(
+                            f"DETERMINISTIC step '{step.id}' references unregistered handler '{handler}'"
+                        )
 
         return WorkflowValidationResult(
             is_valid=len(errors) == 0,

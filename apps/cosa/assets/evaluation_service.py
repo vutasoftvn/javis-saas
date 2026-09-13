@@ -5,6 +5,7 @@ from datetime import datetime
 
 from packages.agent.assets.contracts import (
     AssetEvaluationResult,
+    AssetKind,
     AssetLifecycle,
     AssetNotFoundError,
     AssetScopeKind,
@@ -42,6 +43,31 @@ class EvaluationService:
             if caps:
                 structural_errors.append("PROJECT_SANDBOX assets cannot declare external capability_refs")
 
+        # 3. Workflow asset structural & executor readiness validation
+        is_workflow = (
+            getattr(item, "kind", None) in (AssetKind.WORKFLOW, "WORKFLOW")
+            or asset_id.startswith("wf.")
+            or "workflow" in asset_id.lower()
+            or "steps" in content
+        )
+        if is_workflow:
+            from agent.workflows.schema import WorkflowSpec
+            from agent.workflows.validation import WorkflowPublishValidator, WorkflowValidationContext
+
+            try:
+                spec = WorkflowSpec.model_validate(content)
+                val_res = WorkflowPublishValidator.validate(
+                    spec,
+                    WorkflowValidationContext(
+                        workspace_id=workspace_id,
+                        project_id=getattr(item.scope, "project_id", None) if hasattr(item, "scope") else None,
+                    ),
+                )
+                if not val_res.is_valid:
+                    structural_errors.extend(val_res.errors)
+            except Exception as exc:
+                structural_errors.append(f"Invalid workflow specification: {exc}")
+
         status = "PASS" if not structural_errors else "FAIL"
         eval_id = f"eval_{uuid.uuid4().hex[:12]}"
 
@@ -78,5 +104,18 @@ class EvaluationService:
                 key = (workspace_id, asset_id, version)
                 if key in self._repository._versions:
                     self._repository._versions[key].lifecycle = AssetLifecycle.REVIEW_REQUIRED
+            elif hasattr(self._repository, "_session_factory"):
+                from sqlalchemy import text
+
+                async with self._repository._session_factory() as session:
+                    stmt = text(
+                        """
+                        UPDATE agent.workspace_asset_versions
+                        SET lifecycle = 'REVIEW_REQUIRED'
+                        WHERE workspace_id = :ws_id AND asset_id = :asset_id AND version = :ver
+                        """
+                    )
+                    await session.execute(stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
+                    await session.commit()
 
         return result

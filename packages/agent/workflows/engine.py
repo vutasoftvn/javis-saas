@@ -36,6 +36,9 @@ class WorkflowEngine:
         approval_service: Any | None = None,
         governance_store: GovernanceStateStore | None = None,
         registered_handlers: dict[str, Any] | None = None,
+        kernel: Any | None = None,
+        resolver: Any | None = None,
+        step_builders: dict[str | StepType, Callable] | None = None,
     ) -> None:
         from agent.workflows.deterministic_handlers import WHITELISTED_DETERMINISTIC_HANDLERS
 
@@ -47,6 +50,9 @@ class WorkflowEngine:
         self._registered_handlers = dict(WHITELISTED_DETERMINISTIC_HANDLERS)
         if registered_handlers:
             self._registered_handlers.update(registered_handlers)
+        self._kernel = kernel
+        self._resolver = resolver
+        self._step_builders = dict(step_builders) if step_builders else {}
 
     # ------------------------------------------------------------------------
     # Linear Pipeline Execution
@@ -211,6 +217,51 @@ class WorkflowEngine:
                         step_callable = _sync_without_params
 
                 compiled_steps.append(DeterministicStep(name=step_name, fn=step_callable))
+            elif step_spec.type == StepType.AGENT:
+                from agent.workflows.agent_step import AgentWorkflowStep
+
+                dep_id = (
+                    step_spec.project_agent_deployment_id
+                    or (step_spec.inputs.get("project_agent_deployment_id") if step_spec.inputs else None)
+                    or (step_spec.metadata.get("project_agent_deployment_id") if step_spec.metadata else None)
+                )
+                compiled_steps.append(
+                    AgentWorkflowStep(
+                        resolver=self._resolver,
+                        kernel=self._kernel,
+                        name=step_name,
+                        output_key=step_spec.output_key or f"{step_spec.id}_output",
+                        project_agent_deployment_id=dep_id,
+                    )
+                )
+            elif step_spec.type == StepType.RETRY:
+                from agent.workflows.retry_step import RetryWorkflowStep
+
+                max_attempts = int(
+                    (step_spec.inputs.get("max_attempts") if step_spec.inputs else None)
+                    or (step_spec.metadata.get("max_attempts") if step_spec.metadata else None)
+                    or 3
+                )
+                target_handler = (
+                    (step_spec.inputs.get("handler") if step_spec.inputs else None)
+                    or step_spec.action
+                    or (step_spec.id if step_spec.id in self._registered_handlers else None)
+                )
+                if target_handler and target_handler in self._registered_handlers:
+                    inner_fn = self._registered_handlers[target_handler]
+                else:
+                    async def _default_retry_fn(s: Any) -> Any:
+                        return {}
+
+                    inner_fn = _default_retry_fn
+
+                compiled_steps.append(
+                    RetryWorkflowStep(
+                        inner_fn,
+                        name=step_name,
+                        max_attempts=max_attempts,
+                    )
+                )
             else:
                 raise UnsupportedWorkflowStepError(step_spec.id, step_spec.type)
 

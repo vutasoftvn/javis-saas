@@ -6,6 +6,7 @@ from apps.cosa.assets.evaluation_service import EvaluationService
 from packages.agent.assets.contracts import (
     AssetConflictError,
     AssetKind,
+    AssetLifecycle,
     AssetNotEvaluatedError,
     AssetNotFoundError,
     AssetScope,
@@ -193,10 +194,6 @@ class AuthoringService:
         company_command_ref: str | None = None,
         version: str | None = None,
     ) -> WorkspaceAssetVersion:
-        # Check if asset is a workflow:
-        if asset_id.startswith("wf.") or "workflow" in asset_id.lower():
-            raise WorkflowPublishDisabledError("WORKFLOW_PUBLISH_DISABLED")
-
         if not company_command_ref:
             raise ValueError("company_command_ref is required to publish an asset")
 
@@ -215,11 +212,50 @@ class AuthoringService:
                 f"expected {expected_hash}, found {item.definition_hash}"
             )
 
+        # Check if asset is a workflow:
+        is_workflow = (
+            getattr(item, "kind", None) in (AssetKind.WORKFLOW, "WORKFLOW")
+            or asset_id.startswith("wf.")
+            or "workflow" in asset_id.lower()
+        )
+
         # Verify evaluation
         latest_eval = await self._repository.get_latest_evaluation(workspace_id, asset_id, item.version)
         if not latest_eval or latest_eval.status != "PASS":
+            if is_workflow:
+                raise WorkflowPublishDisabledError(
+                    f"Workflow {asset_id} version {item.version} requires a passing evaluation before publish"
+                )
             raise AssetNotEvaluatedError(
                 f"Asset {asset_id} version {item.version} requires a passing evaluation before publish"
             )
+
+        # For workflow assets, validate full DAG structure, executor readiness, and require REVIEW_REQUIRED
+        if is_workflow:
+            from agent.workflows.schema import WorkflowSpec
+            from agent.workflows.validation import WorkflowPublishValidator, WorkflowValidationContext
+
+            if item.lifecycle != AssetLifecycle.REVIEW_REQUIRED and item.lifecycle != "REVIEW_REQUIRED":
+                raise WorkflowPublishDisabledError(
+                    f"Workflow {asset_id} version {item.version} must be in REVIEW_REQUIRED state to publish "
+                    f"(current: {item.lifecycle})"
+                )
+
+            try:
+                spec = WorkflowSpec.model_validate(item.content_json)
+            except Exception as exc:
+                raise WorkflowPublishDisabledError(f"Workflow schema validation failed: {exc}") from exc
+
+            val_res = WorkflowPublishValidator.validate(
+                spec,
+                WorkflowValidationContext(
+                    workspace_id=workspace_id,
+                    project_id=getattr(item.scope, "project_id", None) if hasattr(item, "scope") else None,
+                ),
+            )
+            if not val_res.is_valid:
+                raise WorkflowPublishDisabledError(
+                    f"Workflow publish validation failed: {'; '.join(val_res.errors)}"
+                )
 
         return await self._repository.publish(workspace_id, asset_id, expected_hash)

@@ -63,10 +63,11 @@ def test_publish_validator_rejects_step_without_registered_executor():
             ),
         ],
     )
-    # Default context does not register AGENT executor
+    # Context with only TOOL_CALL registered does not register AGENT executor
     ctx = WorkflowValidationContext(
         workspace_id="ws-1",
         active_deployments={"dep_valid_123": {"status": "ACTIVE"}},
+        registered_executors={StepType.TOOL_CALL},
     )
     result = WorkflowPublishValidator.validate(spec, ctx)
     assert result.is_valid is False

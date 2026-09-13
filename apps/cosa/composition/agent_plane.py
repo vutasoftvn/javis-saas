@@ -426,6 +426,8 @@ def build_cosa_agent_plane(
         policy_engine=policy_engine,
         approval_service=approval_service,
         governance_store=storage.governance_store,
+        kernel=kernel,
+        resolver=compliance_resolver,
     )
 
     # 7. Knowledge ingestion dependencies (Task 4) — chỉ dựng khi feature flag
