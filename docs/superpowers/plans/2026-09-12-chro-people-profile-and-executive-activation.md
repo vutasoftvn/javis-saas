@@ -112,3 +112,66 @@ PYTHONPATH=packages:. .venv/bin/python -m pytest tests/e2e/test_chro_people_prof
 git add shared/contracts scripts services/company/operations apps/cosa skillpacks/executive/chro-advisor frontend tests/e2e
 git commit -m "feat(executive-board): activate CHRO advisory path"
 ```
+
+## Known limitations (post-final-review)
+
+Ghi lại từ đợt review toàn nhánh sau khi cả 3 task đã merge — bốn điểm sau đây
+là giới hạn đã biết, KHÔNG phải bug được fix trong đợt review đó (mỗi điểm cần
+plan riêng hoặc quyết định portfolio-wide theo đúng quy tắc CLAUDE.md "nhiều
+bước → viết plan trước khi sửa code").
+
+- **Project-isolation guard trong `people_risk_read.py` đúng về logic nhưng
+  KHÔNG có hiệu lực trong pipeline invocation thật — cùng loại gap với
+  `product_decision_read.py` phía sibling CPO.** Đã verify trực tiếp:
+  `apps/cosa/worker/run_core.py` build `run_metadata` từ `extra_metadata`
+  (dòng ~96-101, `run_metadata.update(extra_metadata)`); `extra_md` được
+  populate trong `apps/cosa/worker/handlers.py` (dòng ~606-624) chỉ với
+  `agent_workforce_member_id`, `company_workforce_member_id`, `assignment_id`,
+  `direct_message_data_access`, `role_id`, `locale_source` — **không nơi nào
+  đặt `project_id` vào metadata trở thành `ctx` của capability handler.** Do
+  đó `ctx.get("project_id")` (trong `_resolve_project_id` của
+  `people_risk_read.py`) luôn là `None` tại runtime, khiến hàm luôn rơi về
+  `args["project_id"]` do model cung cấp — nghĩa là cross-project read trong
+  cùng workspace KHÔNG thực sự bị chặn bởi guard này ở thời điểm hiện tại;
+  hàng rào duy nhất còn lại là check `project ∈ workspace` phía Company (
+  `readPeopleRiskSnapshot` — workspace-level isolation vẫn giữ, project-level
+  thì không). Nói thẳng: Global Constraint của plan này ("`people` và `chro`
+  chỉ được chuyển READY sau khi test Project isolation ... pass") chỉ được
+  thỏa mãn ở mức unit test (dùng `ctx` dạng dict giả lập trực tiếp), KHÔNG
+  được chứng minh trên đường invocation thật của production — cùng hạng mục
+  gap mà known-limitations của plan CPO đã ghi cho capability sibling của nó,
+  không phải lỗi mới phát sinh riêng ở đây, nhưng phải nêu rõ cho catalog
+  entry của role này vì `runtimeReadiness` đã được chuyển sang READY.
+
+- **Read capability HTTP auth unreachable — cùng giới hạn dùng chung với
+  CPO/sales, không phải gap riêng của role này.** Lời gọi của
+  `people.risk.read` sang Company được xác thực bằng header COSA-delegation
+  "ambient", nhưng `readPeopleRiskSnapshotEndpoint` được bảo vệ bởi
+  `requireWorkspaceAccess` — hàm này chỉ chấp nhận session token ký bằng
+  `JWT_SECRET` của người dùng thật, không chấp nhận COSA-delegation token
+  (cùng gap với `product_decision_read.py`/`project_crm_read.py`). Xem lại
+  ghi chú tương ứng trong known-limitations của plan CPO thay vì suy diễn lại
+  từ đầu — đây là gap ở tầng portfolio, không phải riêng role này, cần một
+  task thiết kế follow-up riêng.
+
+- **`COSA_EXECUTIVE_CHRO_AGENT_SPEC` không nằm trong `COSA_DEPLOYED_AGENT_SPECS`,
+  và `EXECUTIVE_AGENT_SPECS` (định nghĩa tại `apps/cosa/agents/specs.py`)
+  hiện chưa có consumer non-test nào** — nhất quán với tiền lệ đã có của
+  `vpe`/`cpo`, không phải regression, nhưng cần đánh dấu: câu hỏi mở này (có
+  nên seed executive advisor spec vào deployed-specs registry hay không) nên
+  được quyết định một lần, thống nhất cho `vpe`/`cpo`/`chro` cùng lúc trước
+  khi role thứ 5 tạo thêm một instance thứ tư của cùng một pattern chưa được
+  giải quyết — không fix trong commit này.
+
+- **Đường reject strict-key allowlist chỉ được chứng minh ở tầng service
+  function, chưa qua HTTP thật.** Vì fix của Task 3 cho handler giờ chỉ
+  destructure các field đã biết trước khi gọi service, một request HTTP có
+  body chứa key lạ (vd. `candidateEmail`) sẽ bị destructuring đó âm thầm loại
+  bỏ trước khi có cơ hội chạm tới logic reject-on-unknown-key của
+  `assertOnlyAllowedKeys`. Đây KHÔNG phải lỗ hổng rò rỉ dữ liệu (field bị loại
+  bỏ không bao giờ được persist), nhưng có nghĩa hành vi "reject unknown key"
+  (khác với "âm thầm drop unknown key") hiện chỉ được exercise trong vitest ở
+  tầng service, chưa được chứng minh end-to-end qua HTTP thật. Việc quét PII
+  giá trị sâu (email/phone pattern nằm trong một field đã được allowlist) THÌ
+  ĐÃ được chứng minh end-to-end (case
+  `test_people_risk_dossier_rejects_pii_shaped_field` trong E2E).

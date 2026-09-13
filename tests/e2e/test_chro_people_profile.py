@@ -215,6 +215,12 @@ def test_people_risk_dossier_is_project_and_workspace_isolated(chro_test_env):
         headers=headers_b,
     )
     assert read_b_resp.status_code in (403, 404), read_b_resp.text
+    # Không chỉ kiểm tra status code chung chung — xác nhận đúng loại từ chối
+    # là "project không thuộc workspace" (permission_denied), không phải một
+    # lỗi 4xx bất kỳ khác vô tình khớp status code.
+    read_b_body = read_b_resp.json()
+    assert read_b_body.get("code") == "permission_denied", read_b_resp.text
+    assert "PROJECT_ACCESS_DENIED" in read_b_body.get("message", ""), read_b_resp.text
 
 
 def test_people_risk_dossier_rejects_pii_shaped_field(chro_test_env):
@@ -241,3 +247,9 @@ def test_people_risk_dossier_rejects_pii_shaped_field(chro_test_env):
         headers=headers_a,
     )
     assert create_resp.status_code == 400, create_resp.text
+    # Không chỉ kiểm tra status 400 chung chung — xác nhận body thật sự mang
+    # marker PII-rejection cụ thể, phân biệt với một invalid_argument khác
+    # (vd. thiếu field) vô tình cũng trả 400.
+    create_body = create_resp.json()
+    assert create_body.get("code") == "invalid_argument", create_resp.text
+    assert "PEOPLE_DOSSIER_PII_REJECTED" in create_body.get("message", ""), create_resp.text

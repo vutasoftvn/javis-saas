@@ -113,10 +113,6 @@
       "resolved": true,
       "owner": null
     },
-    "GET /operations/strategy/projects": {
-      "resolved": true,
-      "owner": "M4"
-    },
     "GET /operations/tasks": {
       "resolved": true,
       "owner": null
