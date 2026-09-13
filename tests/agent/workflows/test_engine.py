@@ -1,8 +1,9 @@
 import pytest
 
 from agent.workflows.approval_step import ApprovalGateStep
-from agent.workflows.engine import WorkflowEngine
+from agent.workflows.engine import UnsupportedWorkflowStepError, WorkflowEngine
 from agent.workflows.models import StepOutcome, StepStatus, WorkflowStatus
+from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 from agent.workflows.steps import CompensatingStep, DeterministicStep
 
 
@@ -195,3 +196,25 @@ async def test_compensation_runs_when_a_resumed_approval_is_denied():
 
     assert resumed.status == WorkflowStatus.FAILED
     assert order == ["compensate-write"]
+
+
+@pytest.mark.asyncio
+async def test_engine_rejects_unregistered_step_type_instead_of_noop():
+    engine = WorkflowEngine()
+    spec = WorkflowSpec(
+        id="wf_unsupported",
+        name="Unsupported Step Flow",
+        steps=[
+            WorkflowStepSpec(
+                id="step_router",
+                type="router",  # unsupported type
+            )
+        ],
+    )
+
+    with pytest.raises(UnsupportedWorkflowStepError) as exc_info:
+        await engine.execute_spec(spec, {})
+
+    assert exc_info.value.step_id == "step_router"
+    assert exc_info.value.step_type == "router"
+

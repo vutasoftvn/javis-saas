@@ -13,8 +13,10 @@ from agent.workflows.models import StepOutcome, StepStatus, Workflow, WorkflowSt
 from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 from agent.workflows.steps import CompensatingStep, DeterministicStep, WorkflowStep
 from agent.workflows.tool_step import GatewayToolCallStep
+from agent.workflows.validation import UnsupportedWorkflowStepError
 
-__all__ = ["WorkflowEngine"]
+__all__ = ["UnsupportedWorkflowStepError", "WorkflowEngine"]
+
 
 
 class WorkflowEngine:
@@ -165,11 +167,7 @@ class WorkflowEngine:
 
                 compiled_steps.append(DeterministicStep(name=step_name, fn=noop_fn))
             else:
-
-                async def fallback_fn(s: dict[str, Any]) -> dict[str, Any]:
-                    return {}
-
-                compiled_steps.append(DeterministicStep(name=step_name, fn=fallback_fn))
+                raise UnsupportedWorkflowStepError(step_spec.id, step_spec.type)
 
         return compiled_steps
 

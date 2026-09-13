@@ -19,6 +19,8 @@ class StepType(enum.StrEnum):
     PARALLEL = "parallel"
     RETRY = "retry"
     COMPENSATING = "compensating"
+    ROUTER = "router"
+
 
 
 class WorkflowStepSpec(BaseModel):
@@ -38,6 +40,7 @@ class WorkflowStepSpec(BaseModel):
     permission_level: str | None = None
     autonomy_level: str | None = None
     capability_risk: str | None = None
+    project_agent_deployment_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -73,6 +76,18 @@ class WorkflowSpec(BaseModel):
         """
         if len(self.steps) == 0:
             raise ValueError("WorkflowSpec has no steps")
+
+        for step in self.steps:
+            if step.type == StepType.AGENT:
+                has_dep = bool(
+                    step.project_agent_deployment_id
+                    or step.inputs.get("project_agent_deployment_id")
+                    or step.metadata.get("project_agent_deployment_id")
+                )
+                if not has_dep:
+                    raise ValueError(
+                        f"step '{step.id}' of type AGENT requires project_agent_deployment_id pin"
+                    )
 
         step_ids = [s.id for s in self.steps]
         step_id_set = set(step_ids)
