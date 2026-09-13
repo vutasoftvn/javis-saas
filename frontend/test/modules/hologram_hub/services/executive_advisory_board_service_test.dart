@@ -191,6 +191,52 @@ void main() {
     expect(chro.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
   });
 
+  test('CISO remains unavailable until Company reports active Security profile', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'roles': [
+              {
+                'roleKey': 'ciso',
+                'label': 'CISO Advisor',
+                'advisoryRemit': 'Threat modeling, kiểm soát quyền riêng tư, khoảng trống tuân thủ',
+                'displayState': 'UNAVAILABLE',
+                'runtimeReadiness': 'READY',
+                'requiredProfileKey': 'security',
+                'version': 1,
+                'disabledReason': 'UNDERLYING_PROFILE_UNAVAILABLE',
+              },
+            ],
+          },
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-09-11T12:00:00Z',
+            'sources': [
+              {'kind': 'company_db', 'ref': 'operating'}
+            ],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final service = ExecutiveAdvisoryBoardService(client: requestClient);
+
+    final result = await service.fetchRoles('proj-101');
+    expect(result, isA<ApiSuccess<List<ExecutiveAdvisorRole>>>());
+    final roles = (result as ApiSuccess<List<ExecutiveAdvisorRole>>).data;
+    expect(roles, hasLength(1));
+
+    final ciso = roles[0];
+    expect(ciso.roleKey, 'ciso');
+    expect(ciso.activationState, ExecutiveActivationState.unavailable);
+    expect(ciso.underlyingProfileKey, 'security');
+    expect(ciso.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
+  });
+
   test('activates an executive role and decodes mutation receipt truthfully', () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'POST');

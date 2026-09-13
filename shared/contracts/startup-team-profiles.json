@@ -68,6 +68,12 @@
       "runtimeReadiness": "READY"
     },
     {
+      "key": "security",
+      "label": "Security",
+      "defaultMode": "TEMPLATE",
+      "runtimeReadiness": "READY"
+    },
+    {
       "key": "customer_support",
       "label": "Customer Support",
       "defaultMode": "TEMPLATE",

@@ -360,9 +360,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/operations/projects/:projectId/operating-loop/weeks` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |
 | GET | `/operations/projects/:projectId/people-risk-dossier` | company | ✓ |  | services/company/operations/handlers/people-risk-dossier.handler.ts |
 | GET | `/operations/projects/:projectId/product-decision-dossier` | company | ✓ |  | services/company/operations/handlers/product-decision-dossier.handler.ts |
+| GET | `/operations/projects/:projectId/security-posture-dossier` | company | ✓ |  | services/company/operations/handlers/security-posture.handler.ts |
 | GET | `/operations/projects/:projectId/startup-team` | company | ✓ |  | services/company/operations/handlers/project-startup-team.handler.ts |
 | POST | `/operations/projects/:projectId/startup-team/:profileKey/activate` | company | ✓ |  | services/company/operations/handlers/project-startup-team.handler.ts |
 | POST | `/operations/projects/:projectId/startup-team/:profileKey/pause` | company | ✓ |  | services/company/operations/handlers/project-startup-team.handler.ts |
+| POST | `/operations/security-posture-dossiers` | company | ✓ |  | services/company/operations/handlers/security-posture.handler.ts |
+| POST | `/operations/security-posture-dossiers/:id/revisions` | company | ✓ |  | services/company/operations/handlers/security-posture.handler.ts |
 | GET | `/operations/strategy/action-context` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | GET | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |
 | POST | `/operations/strategy/action-proposals` | company | ✓ |  | services/company/operations/strategy/handlers/next-best-action.handler.ts |

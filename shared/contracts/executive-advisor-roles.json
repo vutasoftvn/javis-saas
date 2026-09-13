@@ -139,7 +139,7 @@
         "skillpack:executive/ciso-advisor@1.0.0"
       ],
       "advisoryOnly": true,
-      "runtimeReadiness": "PENDING_SECURITY_PROFILE",
+      "runtimeReadiness": "READY",
       "sourceProvenance": "superpowers:executive-advisory-board"
     },
     {

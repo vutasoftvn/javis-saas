@@ -17,6 +17,7 @@ StartupTeamProfileKey = Literal[
     "coding",
     "product",
     "people",
+    "security",
     "customer_support",
 ]
 
@@ -39,6 +40,7 @@ STARTUP_TEAM_PROFILE_KEYS: Final[tuple[StartupTeamProfileKey, ...]] = (
     "coding",
     "product",
     "people",
+    "security",
     "customer_support",
 )
 
@@ -54,6 +56,7 @@ STARTUP_TEAM_PROFILES: Final[list[dict[str, str]]] = [
     {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"product","label":"Product","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"people","label":"People","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+    {"key":"security","label":"Security","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 ]
 
@@ -69,5 +72,6 @@ STARTUP_TEAM_PROFILES_MAP: Final[dict[str, dict[str, str]]] = {
     "coding": {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "product": {"key":"product","label":"Product","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "people": {"key":"people","label":"People","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+    "security": {"key":"security","label":"Security","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "customer_support": {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 }

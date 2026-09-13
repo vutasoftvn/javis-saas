@@ -1,0 +1,69 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: executive.ciso-advisor
+  name: CISO Security Threat Modeling & Compliance Gap Advisory
+  version: 1.0.0
+  description: Đánh giá mối đe dọa bảo mật, kiểm soát quyền riêng tư và khoảng trống tuân thủ dựa trên Security Posture Dossier đã loại bỏ bí mật để phản biện quyết định chiến lược của Founder mà không đụng đến secret/credential.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/executive/ciso-advisor
+capability:
+  domain: executive
+  category: advisory
+  intents:
+  - ciso advisory
+  - threat modeling review
+  - privacy control assessment
+  - compliance gap assessment
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - proposal
+  - artifact
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/executive/ciso-advisor.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - peer-draft-forbidden
+  - secret-in-request
+  - scan-request-forbidden
+  - certification-claim-forbidden

@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 109 | 23 |
 | VALID_KEEP (giữ nguyên) | 131 | 36 |
-| REVIEW (chưa phân loại) | 976 | 212 |
+| REVIEW (chưa phân loại) | 988 | 215 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -72,6 +72,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/events/router.py | 8 |
 | apps/cosa/tests/test_people_risk_read.py | 8 |
 | apps/cosa/tests/test_product_decision_read.py | 8 |
+| apps/cosa/tests/test_security_posture_read.py | 8 |
 | apps/cosa/auth/workspace_client.py | 7 |
 | apps/cosa/capabilities/engagement_assignment_write.py | 7 |
 | apps/cosa/capabilities/operations_read.py | 7 |
@@ -131,6 +132,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/operations_write.py | 3 |
 | apps/cosa/capabilities/people_risk_read.py | 3 |
 | apps/cosa/capabilities/product_decision_read.py | 3 |
+| apps/cosa/capabilities/security_posture_read.py | 3 |
 | apps/cosa/compliance/data_egress_context.py | 3 |
 | apps/cosa/events/workforce_employee_contract.py | 3 |
 | apps/cosa/knowledge_ingestion/publish.py | 3 |
@@ -239,6 +241,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/services/automation-blueprint.service.ts | 1 |
 | services/company/operations/services/people-risk-dossier.service.ts | 1 |
 | services/company/operations/services/product-decision-dossier.service.ts | 1 |
+| services/company/operations/services/security-posture.service.ts | 1 |
 | services/company/operations/services/workforce-delegation.client.ts | 1 |
 | services/company/operations/services/workforce-eligibility.client.ts | 1 |
 | services/company/operations/strategy/handlers/experiment.handler.ts | 1 |
