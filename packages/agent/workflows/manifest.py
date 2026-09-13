@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -196,7 +197,10 @@ class InMemoryWorkflowManifestRepository:
 
 
 class PostgresWorkflowManifestRepository(WorkflowManifestRepository):
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession] | Callable[[], AsyncSession] | Any,
+    ) -> None:
         self._session_factory = session_factory
 
     async def create_manifest(self, manifest: GovernedWorkflowRunManifest) -> GovernedWorkflowRunManifest:

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from agent.workflows.manifest import GovernedWorkflowRunManifest
+    from agent.workflows.models import WorkflowRunRecord
 
 from pydantic import BaseModel, Field
 

@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from agent.workflows.manifest import GovernedWorkflowRunManifest
 
 from sqlalchemy import text
 
