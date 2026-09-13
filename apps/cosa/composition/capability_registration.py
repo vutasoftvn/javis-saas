@@ -11,6 +11,10 @@ from agent.capabilities.web_search import (
 )
 from agent.knowledge.snapshot_repository import KnowledgeSnapshotRepository
 
+from apps.cosa.capabilities.ai_governance_read import (
+    AI_GOVERNANCE_READ_SPEC,
+    create_ai_governance_read_handler,
+)
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.commercial_customer_read import (
     COMMERCIAL_CUSTOMER_360_READ_SPEC,
@@ -347,6 +351,12 @@ def register_cosa_capabilities(
     cap_registry.register(
         DATA_GOVERNANCE_READ_SPEC,
         create_data_governance_read_handler(client),
+    )
+
+    # AI Governance Dossier (read-only)
+    cap_registry.register(
+        AI_GOVERNANCE_READ_SPEC,
+        create_ai_governance_read_handler(client),
     )
 
     # Sandbox MCP

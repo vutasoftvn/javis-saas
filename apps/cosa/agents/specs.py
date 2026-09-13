@@ -23,6 +23,10 @@ __all__ = [
     "COSA_DATA_PROMPT",
     "COSA_EXECUTIVE_CDO_AGENT_SPEC",
     "COSA_EXECUTIVE_CDO_PROMPT",
+    "COSA_AI_GOVERNANCE_AGENT_SPEC",
+    "COSA_AI_GOVERNANCE_PROMPT",
+    "COSA_EXECUTIVE_CAIO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CAIO_PROMPT",
     "COSA_EXECUTIVE_GC_AGENT_SPEC",
     "COSA_EXECUTIVE_GC_PROMPT",
     "COSA_KICKOFF_SUGGESTION_AGENT_SPEC",
@@ -767,6 +771,74 @@ COSA_EXECUTIVE_CDO_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA CDO Advisor", "advisory_only": True},
 )
 
+COSA_AI_GOVERNANCE_PROMPT = PromptSpec(
+    id="cosa.agents.ai_governance.prompt",
+    version="1.0.0",
+    text=(
+        "Chuyên viên quản trị AI (AI Governance Specialist). "
+        "Chỉ đọc snapshot AI Governance Dossier (tham chiếu policy/evaluator "
+        "đã ký với id/version/hash, risk signal đã phân loại category/"
+        "severity, source ref đã redact) đã được Founder/thành viên xác "
+        "nhận — KHÔNG BAO GIỜ có prompt/output transcript thật, API key/"
+        "provider credential hay raw user message. Phân tích và đề xuất cân "
+        "nhắc về policy drift/evaluator failure/compliance gap dựa trên "
+        "bằng chứng hiện có (L1_PROPOSE). Tuyệt đối không tự tạo hay xác "
+        "nhận (append/confirm) AI Governance Dossier, không publish/pin/"
+        "retire skill, không đổi model/provider/policy, không xoay vòng "
+        "(rotate) provider secret, không tự invoke model, không duyệt "
+        "promotion hay bypass unified approval ledger — quyết định quản "
+        "trị AI luôn thuộc về con người."
+    ),
+).with_hash()
+
+COSA_AI_GOVERNANCE_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.ai_governance",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_AI_GOVERNANCE_PROMPT.text,
+    capability_refs=[
+        "ai.governance.read",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_AI_GOVERNANCE_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA AI Governance Specialist Agent"},
+)
+
+COSA_EXECUTIVE_CAIO_PROMPT = PromptSpec(
+    id="cosa.executive.caio.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc AI (Chief AI Officer Advisor). "
+        "Đánh giá policy drift, evaluator failure và compliance gap trong "
+        "vận hành AI, phát hiện rủi ro và đề xuất bản nháp remediation để "
+        "đưa vào các phiên thảo luận của Ban điều hành (L1_PROPOSE, "
+        "advisory-only). "
+        "Tuyệt đối không có quyền publish/pin/retire skill, đổi model/"
+        "provider/policy, xoay vòng (rotate) provider secret, tự invoke "
+        "model, duyệt promotion hay bypass unified approval ledger — một "
+        "Founder luôn là người duy nhất xác nhận chính sách/quyết định "
+        "quản trị AI; AI Governance Dossier hiện có vẫn là nguồn sự thật "
+        "duy nhất."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CAIO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.caio",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CAIO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_CAIO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA CAIO Advisor", "advisory_only": True},
+)
+
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
     "cosa.executive.cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
@@ -774,6 +846,7 @@ EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.ciso": COSA_EXECUTIVE_CISO_AGENT_SPEC,
     "cosa.executive.gc": COSA_EXECUTIVE_GC_AGENT_SPEC,
     "cosa.executive.cdo": COSA_EXECUTIVE_CDO_AGENT_SPEC,
+    "cosa.executive.caio": COSA_EXECUTIVE_CAIO_AGENT_SPEC,
 }
 
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
@@ -795,4 +868,5 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_SECURITY_AGENT_SPEC,
     COSA_LEGAL_AGENT_SPEC,
     COSA_DATA_AGENT_SPEC,
+    COSA_AI_GOVERNANCE_AGENT_SPEC,
 )

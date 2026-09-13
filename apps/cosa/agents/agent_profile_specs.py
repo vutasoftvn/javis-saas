@@ -18,9 +18,11 @@ from __future__ import annotations
 from agent.contracts.spec import AgentSpec
 
 from apps.cosa.agents.specs import (
+    COSA_AI_GOVERNANCE_AGENT_SPEC,
     COSA_CODING_AGENT_SPEC,
     COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
     COSA_DATA_AGENT_SPEC,
+    COSA_EXECUTIVE_CAIO_AGENT_SPEC,
     COSA_EXECUTIVE_CDO_AGENT_SPEC,
     COSA_EXECUTIVE_CHRO_AGENT_SPEC,
     COSA_EXECUTIVE_CISO_AGENT_SPEC,
@@ -66,4 +68,6 @@ AGENT_PROFILE_SPECS: dict[str, AgentSpec] = {
     "gc": COSA_EXECUTIVE_GC_AGENT_SPEC,
     "data": COSA_DATA_AGENT_SPEC,
     "cdo": COSA_EXECUTIVE_CDO_AGENT_SPEC,
+    "ai_governance": COSA_AI_GOVERNANCE_AGENT_SPEC,
+    "caio": COSA_EXECUTIVE_CAIO_AGENT_SPEC,
 }
