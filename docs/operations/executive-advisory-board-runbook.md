@@ -295,3 +295,52 @@ Chỉ truy vấn các trường định danh, hash, trạng thái và telemetry:
 5. **Xử lý sự cố Outbox bị kẹt hoặc Worker Crash**:
    - Nếu outbox có trạng thái `FAILED` hoặc `PENDING` nhưng không được dispatch: Đảm bảo `cosa-worker` đang gọi hàm `relay_skill_improvement_outbox`.
    - Nếu request ở trạng thái `RUNNING` nhưng worker đã chết: Sau khi `claimed_until` qua đi, worker loop kế tiếp hoặc task scheduler sẽ reclaim và thực thi lại an toàn nhờ tính lũy đẳng của request claim.
+
+---
+
+## 8. Runbook kiểm chứng E2E toàn Portfolio (8 role Executive Advisory Board)
+
+Bổ sung 2026-09-13 (Task 5 — portfolio closeout gate, kế hoạch
+`2026-09-12-caio-ai-governance-profile-and-executive-activation`). Mỗi role
+trong 8 role mới (`cro/sales`, `vpe/coding`, `cpo/product`, `chro/people`,
+`ciso/security`, `gc/legal`, `cdo/data`, `caio/ai_governance`) có 1 process E2E
+riêng, chạy độc lập, không cần tham số bổ sung ngoài `.venv` đã cài. CAIO cần
+disposable Postgres cluster thật (`PGPASSWORD` phải khớp `POSTGRES_PASSWORD`
+thật trong `.env`, KHÔNG phải mặc định `"postgres"` của thư viện test).
+
+```bash
+source .venv/bin/activate
+
+# 7 role không cần disposable Postgres cluster (dùng real_company_service fixture only)
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_cro_sales_profile.py -v
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_vpe_coding_profile.py -v
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_cpo_product_profile.py -v
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_chro_people_profile.py -v
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_ciso_security_profile.py -v
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_gc_legal_profile.py -v
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_cdo_data_profile.py -v
+
+# CAIO — cần disposable Postgres cluster thật (boot services/cosa + Company)
+export PGPASSWORD=dev-postgres-password   # khớp POSTGRES_PASSWORD thật trong .env, không phải "postgres"
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_caio_ai_governance_profile.py -v
+
+# Portfolio-wide: không role/profile nào tự kích hoạt trên 1 Project mới tạo
+PYTHONPATH=packages:. python -m pytest tests/e2e/test_executive_board_portfolio_closeout.py -v
+```
+
+Kỳ vọng: mỗi lệnh exit 0, không skip. Nếu CAIO báo lỗi
+`password authentication failed for user "postgres"`, đó là do `PGPASSWORD`
+chưa khớp `.env` thật — không phải lỗi code (xem
+`docs/architecture/generated/` và memory `javis-saas-company-test-runner.md`).
+
+### 8.1 Diễn giải kết quả gate rộng (`make verify`)
+
+`make verify` chạy tuần tự (`lint typecheck-py boundary-check
+skillpacks-validate tenancy-check contract-freeze-check agent-test
+apps-cosa-test services-test frontend-test frontend-analyze check-docs`) và
+**dừng ở target đỏ đầu tiên** — một target đỏ ở đầu chuỗi (vd. `lint`) không
+có nghĩa các target sau nó cũng đỏ; phải chạy tách riêng từng target còn lại
+để có bằng chứng đầy đủ. Xem
+`## Portfolio Closeout Evidence (2026-09-13)` trong
+`docs/superpowers/specs/2026-09-11-executive-advisory-board-completion-and-agent-platform-restructuring-design.md`
+để biết baseline lỗi đã biết (pre-existing) tách bạch với phát hiện mới.

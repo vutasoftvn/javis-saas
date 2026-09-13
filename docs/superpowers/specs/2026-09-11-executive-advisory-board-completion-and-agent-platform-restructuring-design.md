@@ -239,3 +239,126 @@ risk_classification,synthesis,approval_gate}.py` + test tương ứng; giữ `sc
 3. Ai (role nào) chịu trách nhiệm approve `promote_skill_candidate` sau khi hợp nhất vào
    `DurableApprovalService` — vẫn `require_workspace_operator` hay mở rộng cho `founder` only,
    khớp với authority model của Executive Board (`role_id == 'founder'`)?
+
+## Portfolio Closeout Evidence (2026-09-13)
+
+Ghi nhận từ Task 5 (kế hoạch
+`.superpowers/sdd/2026-09-12-caio-ai-governance-profile-and-executive-activation`)
+— cổng closeout cuối cùng của toàn bộ 8 role Executive Board mới (`cro/sales`,
+`vpe/coding`, `cpo/product`, `chro/people`, `ciso/security`, `gc/legal`,
+`cdo/data`, `caio/ai_governance`). Mục tiêu: chứng minh không role nào tự kích
+hoạt ngầm, và ghi trạng thái VERIFIED/UNVERIFIED trung thực dựa trên bằng chứng
+chạy thật, không rubber-stamp.
+
+### 1. Regression "không tự kích hoạt" (no-auto-activation)
+
+Test mới `tests/e2e/test_executive_board_portfolio_closeout.py::test_new_project_has_all_new_profiles_as_templates_and_no_new_executive_roles_active`
+tạo 1 Project thật hoàn toàn mới qua `POST /operations/projects`, đọc lại
+`GET /operations/projects/:id/startup-team` và
+`GET /operations/projects/:id/executive-roles` thật. Kết quả: **PASS**. Cả 8
+functional profile mới đều `TEMPLATE`, cả 8 executive role mới đều
+`UNAVAILABLE` (không phải `ACTIVE` hay bất kỳ trạng thái nào khác) trên 1
+Project mới tinh — không có auto-activation ngầm nào. Các role tiền tồn tại
+(`chief_of_staff`, `cfo`, `cmo`, `coo`, `cco`) vẫn hiện diện trong roster,
+không bị phá vỡ.
+
+### 2. Bảng VERIFIED/UNVERIFIED từng role (process E2E chạy thật, tại chỗ, 2026-09-13)
+
+| Role key | Trạng thái | Lệnh chạy | Kết quả thật |
+|---|---|---|---|
+| `cro` (sales) | **VERIFIED** | `pytest tests/e2e/test_cro_sales_profile.py -v` | 1 passed |
+| `vpe` (coding) | **VERIFIED** | `pytest tests/e2e/test_vpe_coding_profile.py -v` | 1 passed |
+| `cpo` (product) | **VERIFIED** | `pytest tests/e2e/test_cpo_product_profile.py -v` | 2 passed |
+| `chro` (people) | **VERIFIED** | `pytest tests/e2e/test_chro_people_profile.py -v` | 3 passed |
+| `ciso` (security) | **VERIFIED** | `pytest tests/e2e/test_ciso_security_profile.py -v` | 3 passed |
+| `gc` (legal) | **VERIFIED** | `pytest tests/e2e/test_gc_legal_profile.py -v` | 3 passed |
+| `cdo` (data) | **VERIFIED** | `pytest tests/e2e/test_cdo_data_profile.py -v` | 3 passed |
+| `caio` (ai_governance) | **VERIFIED** | `PGPASSWORD=<POSTGRES_PASSWORD thật trong .env> pytest tests/e2e/test_caio_ai_governance_profile.py -v` | 5 passed (cần disposable Postgres cluster thật; chạy lần đầu KHÔNG set `PGPASSWORD` khớp `.env` → 4 error "password authentication failed" — đây KHÔNG phải lỗi code, là thiếu bước môi trường đã biết, xem `docs/operations/executive-advisory-board-runbook.md` §8) |
+
+**Tất cả 8/8 role VERIFIED** theo đúng định nghĩa của kế hoạch: "process E2E
+có successful exit thật", không phải static check xanh.
+
+### 3. `make verify` — kết quả từng target, phân loại rõ Xanh / Đỏ-đã-biết / Đỏ-MỚI
+
+`make verify` chạy tuần tự và dừng ở target đỏ đầu tiên
+(`lint`) — nên mỗi target còn lại được chạy TÁCH RIÊNG để có bằng chứng đầy
+đủ, không suy diễn "toàn bộ đỏ" từ 1 lần dừng sớm.
+
+| Target | Kết quả | Phân loại |
+|---|---|---|
+| `lint` | 72 lỗi ruff | **Đỏ, đã biết** — khớp baseline 77 lỗi ghi nhận tại Task 4 (`task-4-report.md`), xác nhận pre-existing trên `main`, không liên quan CAIO/8-role |
+| `typecheck-py` | `error: Source file found twice under different module names: "agent.assets.contracts" và "packages.agent.assets.contracts"` (dừng luôn, 1 file) | **Đỏ, MỚI** — chưa từng ghi nhận trong lịch sử plan này. Nguyên nhân: `packages/agent/assets/{__init__,service,repository}.py` và một số nơi ở `apps/cosa/` import bằng tiền tố `from packages.agent.assets...` thay vì quy ước `from agent.assets...` toàn repo đang dùng (đến từ nhánh công việc "founder configurable assets", commit `be036229`/`c11a1560`, không thuộc phạm vi CAIO/8-role). Cần task riêng sửa import path, KHÔNG sửa trong Task 5 vì ngoài phạm vi role executive board |
+| `boundary-check` | PASS | Xanh |
+| `skillpacks-validate` | PASS | Xanh |
+| `tenancy-check` | PASS (services/company vitest 247 file/1519 test; `tests/agent`+`test_tenant_isolation.py`; 3 file Flutter) | Xanh |
+| `contract-freeze-check` | `company-usage-inventory.md lệch — chạy make company-usage-inventory và commit` | **Đỏ, MỚI** — snapshot generated cuối cùng khớp commit `7c377cce` (Task 4 của plan này); HEAD hiện tại `ef797caf` ("fix(workflows): enforce durable founder workflow authority", phiên khác, không thuộc plan CAIO) đã đổi company usage mà chưa regen snapshot. Không phải do Task 5 gây ra, cần phiên chủ của thay đổi đó tự regen+commit |
+| `agent-test` | PASS — 1073 passed, 66 skipped, coverage 81.36% (gate 80%) | Xanh |
+| `apps-cosa-test` | 15 failed, 1188 passed, 29 skipped | **Đỏ, đã biết** — 15 tên test FAIL khớp CHÍNH XÁC danh sách đã ghi tại Task 4 (`test_seed_publishes_every_deployed_agent_spec`, `test_project_crm_read_success`, 5 case `test_run_delegation.py`, 2 case `test_worker_wiring.py`, 2 case `test_founder_knowledge_context.py`, `test_lifecycle_tranche_c_acceptance.py`, `test_scheduled_session_worker.py`, `test_vertical_slice_1_read_path.py`, `test_workspace_execution_e2e.py`) — không có tên test mới nào xuất hiện |
+| `services-test` (company + cosa) | PASS — company 247 file/1519 test; cosa 37 file/441 test | Xanh |
+| `frontend-test` | PASS — 784 test, "All tests passed!" | Xanh |
+| `frontend-analyze` | PASS — "No issues found!" | Xanh |
+| `check-docs` | 2 broken relative doc link (`docs/architecture/plans/2026-08-29-cosa-workspace-canonical/M7-workforce-ui.md`, `M1-p0-security.md` → trỏ tới `packages/agent/coordination/{supervisor,approval_gate}.py`) | **Đỏ, pre-existing nhưng chưa từng ghi trong ledger plan này** — 2 file đã bị xoá tại commit `f8e960ff` ("refactor(agent): remove duplicate coordination primitives", 2026-09-12), là hệ quả của quyết định Phần B (§ "Quyết định thực thi B.1 + B.3" ở trên) đã chốt trong chính tài liệu này nhưng chưa dọn doc link cũ. Không liên quan CAIO/8-role, không sửa trong Task 5 |
+
+`git diff --check` (whitespace) trên toàn bộ working tree: **sạch** (exit 0).
+
+`make e2e-cross-plane-smoke`: **3 failed, 3 passed** — **Đỏ, MỚI, khác chữ ký
+lỗi với bug đã biết trước đây.** `test_s2_dispatch_worker_result`,
+`test_s3_capability_governance`, `test_s4_outbox_relay` đều fail vì bất nhất
+`project_id`: `POST /agent/conversations` trên `apps/cosa` giờ đòi
+`project_id` bắt buộc (`PROJECT_CONTEXT_REQUIRED`, xem
+`apps/cosa/api/project_context.py`, từ commit `04afee16` "feat: require
+project context for hub runs", 2026-09-11), trong khi `Envelope` outbox
+(`apps/cosa/events/contracts.py`, `model_config = {"extra": "forbid"}`) lại từ
+chối field `projectId` do Company gửi kèm ("Extra inputs are not permitted").
+Đây KHÔNG phải bug "company-service-500" đã ghi nhận trước đây (task-9-report
+của kế hoạch `2026-09-08-platform-authority-durability-hardening`) — chữ ký
+lỗi hoàn toàn khác, xuất hiện SAU thời điểm plan đó đóng. Đây là phát hiện MỚI,
+thật, ngoài phạm vi 8-role Executive Board, cần 1 task điều tra/sửa riêng
+(khớp `project_id` bắt buộc ở route conversation với schema `Envelope` chưa
+cập nhật theo).
+
+### 4. Khung 5 trục (ACCEPTED / IMPLEMENTED / WIRED / VERIFIED / PRODUCTION) — 8 role
+
+| Role | ACCEPTED | IMPLEMENTED | WIRED | VERIFIED | PRODUCTION |
+|---|---|---|---|---|---|
+| cro/sales | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — `COSA_EXECUTIVE_CRO_AGENT_SPEC` NẰM TRONG `COSA_DEPLOYED_AGENT_SPECS` (đã wired production deploy list) |
+| vpe/coding | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — spec CHƯA nằm trong `COSA_DEPLOYED_AGENT_SPECS` (chỉ `EXECUTIVE_AGENT_SPECS`) |
+| cpo/product | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
+| chro/people | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
+| ciso/security | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
+| gc/legal | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
+| cdo/data | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
+| caio/ai_governance | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
+
+`ACCEPTED` chỉ xác nhận quyết định kiến trúc đã chốt trong tài liệu này;
+`VERIFIED` ở đây nghĩa là process E2E thành công thật, không phải static
+check xanh; `PRODUCTION` KHÔNG được suy diễn từ 4 trục kia — 7/8 role
+(tất cả trừ `cro`) chưa được xác nhận nằm trong danh sách agent spec triển
+khai production thật (`COSA_DEPLOYED_AGENT_SPECS`), đây là open item portfolio-
+wide đã nêu 7 lần qua các Known Limitations của Task 4 mỗi role.
+
+### 5. Open item portfolio-wide cần task riêng (không sửa trong Task 5)
+
+1. **`COSA_DEPLOYED_AGENT_SPECS` thiếu 7 spec** (`vpe`, `cpo`, `chro`, `ciso`,
+   `gc`, `cdo`, `caio`) — cần quyết định kiến trúc tường minh (thêm vào danh
+   sách deploy production hay giữ nguyên là gap có chủ đích) trước khi coi các
+   role này là `PRODUCTION`-ready.
+2. **Read-capability HTTP-auth-unreachability** (portfolio-wide, cả 8 role):
+   `*_read` capability gọi Company qua ambient COSA-delegation auth nhưng
+   endpoint đọc dossier của Company bị khoá bởi `requireWorkspaceAccess` (chỉ
+   chấp nhận `JWT_SECRET` human-session token) — không thể chạm tới từ 1 agent
+   run thật hôm nay. Cần 1 thiết kế riêng cho auth surface giữa agent-run và
+   Company read endpoint.
+3. **`typecheck-py` mới đỏ** (mục 3 ở trên) — sửa import `packages.agent.assets.*`
+   → `agent.assets.*` cho nhất quán, thuộc phạm vi "founder configurable
+   assets", không thuộc phạm vi CAIO/8-role.
+4. **`contract-freeze-check` mới đỏ** (mục 3 ở trên) — regenerate
+   `docs/architecture/generated/company-usage-inventory.md` sau commit
+   `ef797caf`, thuộc trách nhiệm phiên đã tạo thay đổi đó.
+5. **`check-docs` đỏ do doc link chết** (mục 3 ở trên) — dọn 2 link trong
+   `docs/architecture/plans/2026-08-29-cosa-workspace-canonical/{M7-workforce-ui,M1-p0-security}.md`
+   trỏ tới file đã xoá theo quyết định Phần B của chính tài liệu này.
+6. **`make e2e-cross-plane-smoke` mới đỏ 3/6 scenario** (mục 3 ở trên) — khớp
+   `project_id` bắt buộc ở `POST /agent/conversations` với schema `Envelope`
+   outbox chưa cập nhật để mang `projectId`; ngoài phạm vi 8-role, cần task
+   điều tra riêng, có khả năng ảnh hưởng runtime thật (không chỉ test).
