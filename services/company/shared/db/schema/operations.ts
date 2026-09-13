@@ -1047,4 +1047,50 @@ export const peopleRiskDossierRevisions = operatingSchema.table("people_risk_dos
   ixDossier: index("idx_people_risk_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
 }));
 
+// Security Posture Dossier: bản ghi nghiệp vụ Founder-reviewed, append-only,
+// scoped theo workspace + project — mirror cấu trúc People Risk Dossier ở
+// trên nhưng data model là Security Posture (controls đã classify theo
+// category/state, findings theo severity/category/sourceRef). KHÔNG BAO GIỜ
+// chứa password, token, private key, raw HTTP header, raw vulnerability
+// payload hay infrastructure topology — validation allowlist + deep secret
+// scan thực hiện tại service layer (security-posture.service.ts).
+export const securityPostureDossiers = operatingSchema.table("security_posture_dossiers", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  status: varchar("status", { length: 24 }).default("DRAFT").notNull(), // DRAFT | CONFIRMED | SUPERSEDED
+  currentVersion: integer("current_version").default(1).notNull(),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixProj: index("idx_security_posture_dossiers_proj").on(t.workspaceId, t.projectId, t.updatedAt),
+  // 1 dossier duy nhất mỗi Project (xem migration 014).
+  uixProject: uniqueIndex("uix_security_posture_dossiers_project").on(t.workspaceId, t.projectId),
+}));
+
+export const securityPostureDossierRevisions = operatingSchema.table("security_posture_dossier_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  dossierId: bigint("dossier_id", { mode: "bigint" }).notNull().references(() => securityPostureDossiers.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  status: varchar("status", { length: 24 }).notNull(), // DRAFT | CONFIRMED
+  controls: jsonb("controls").default([]).notNull(),
+  findings: jsonb("findings").default([]).notNull(),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  severity: varchar("severity", { length: 16 }).notNull(), // LOW | MEDIUM | HIGH | CRITICAL (aggregate)
+  // Fixed enum (xem CHECK constraint ở migration 014), KHÔNG free text —
+  // dossier này không có bất kỳ trường narrative/free-text nào trên write path.
+  reasonCode: varchar("reason_code", { length: 32 }).notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  supersedesRevisionId: bigint("supersedes_revision_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixVer: uniqueIndex("uix_security_posture_dossier_revisions_ver").on(t.dossierId, t.version),
+  ixDossier: index("idx_security_posture_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
+}));
+
 
