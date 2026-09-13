@@ -33,6 +33,8 @@ __all__ = [
     "COSA_RESEARCH_INTELLIGENCE_PROMPT",
     "COSA_SALES_AGENT_SPEC",
     "COSA_SALES_PROMPT",
+    "COSA_SECURITY_AGENT_SPEC",
+    "COSA_SECURITY_PROMPT",
     "COSA_STRATEGY_AGENT_SPEC",
     "COSA_STRATEGY_PROMPT",
 ]
@@ -565,10 +567,72 @@ COSA_EXECUTIVE_CHRO_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA CHRO Advisor", "advisory_only": True},
 )
 
+COSA_SECURITY_PROMPT = PromptSpec(
+    id="cosa.agents.security.prompt",
+    version="1.0.0",
+    text=(
+        "Chuyên viên bảo mật (Security Specialist). "
+        "Chỉ đọc snapshot Security Posture Dossier (controlStates, findings, evidenceRefs, "
+        "severity) đã được Founder/thành viên xác nhận — dữ liệu tổng hợp đã phân loại, KHÔNG "
+        "BAO GIỜ có secret, credential, raw vulnerability payload hay infrastructure topology. "
+        "Phân tích và đề xuất cân nhắc về rủi ro bảo mật/control gap dựa trên bằng chứng hiện có "
+        "(L1_PROPOSE). "
+        "Tuyệt đối không tự tạo hay xác nhận (append/confirm) Security Posture Dossier, không "
+        "quét (scan) target, không xoay vòng (rotate) secret, không vô hiệu hoá user, không "
+        "patch/deploy hay tự tuyên bố compliance/certification — quyết định bảo mật luôn thuộc "
+        "về con người."
+    ),
+).with_hash()
+
+COSA_SECURITY_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.security",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_SECURITY_PROMPT.text,
+    capability_refs=[
+        "security.posture.read",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_SECURITY_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Security Specialist Agent"},
+)
+
+COSA_EXECUTIVE_CISO_PROMPT = PromptSpec(
+    id="cosa.executive.ciso.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc An ninh Thông tin (Chief Information Security Officer Advisor). "
+        "Đánh giá rủi ro bảo mật, control gap và câu hỏi bằng chứng còn thiếu, có thể soạn nháp "
+        "rubric/câu hỏi rủi ro để đề xuất trong các phiên thảo luận của Ban điều hành "
+        "(L1_PROPOSE, advisory-only). "
+        "Tuyệt đối không có quyền quét (scan) target, xoay vòng (rotate) secret, vô hiệu hoá "
+        "user, patch/deploy hay tự tuyên bố compliance/certification — một Founder luôn là "
+        "người duy nhất xác nhận chính sách/quyết định bảo mật."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CISO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.ciso",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CISO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_CISO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA CISO Advisor", "advisory_only": True},
+)
+
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
     "cosa.executive.cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
     "cosa.executive.chro": COSA_EXECUTIVE_CHRO_AGENT_SPEC,
+    "cosa.executive.ciso": COSA_EXECUTIVE_CISO_AGENT_SPEC,
 }
 
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
@@ -587,4 +651,5 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_CODING_AGENT_SPEC,
     COSA_PRODUCT_AGENT_SPEC,
     COSA_PEOPLE_AGENT_SPEC,
+    COSA_SECURITY_AGENT_SPEC,
 )

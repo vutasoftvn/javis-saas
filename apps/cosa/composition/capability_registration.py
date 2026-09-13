@@ -121,6 +121,10 @@ from apps.cosa.capabilities.project_lifecycle import (
     create_strategy_project_get_handler,
 )
 from apps.cosa.capabilities.sandbox_read_mcp import register_sandbox_read_mcp_tools
+from apps.cosa.capabilities.security_posture_read import (
+    SECURITY_POSTURE_READ_SPEC,
+    create_security_posture_read_handler,
+)
 from apps.cosa.capabilities.venture_profile import (
     VENTURE_PROFILE_PROPOSE_UPDATE_SPEC,
     VENTURE_PROFILE_READ_SPEC,
@@ -317,6 +321,12 @@ def register_cosa_capabilities(
     cap_registry.register(
         PEOPLE_RISK_READ_SPEC,
         create_people_risk_read_handler(client),
+    )
+
+    # Security Posture Dossier (read-only)
+    cap_registry.register(
+        SECURITY_POSTURE_READ_SPEC,
+        create_security_posture_read_handler(client),
     )
 
     # Sandbox MCP
