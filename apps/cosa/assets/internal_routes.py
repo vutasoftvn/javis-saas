@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 
 from apps.cosa.assets.authoring_service import AuthoringService
 from apps.cosa.assets.evaluation_service import EvaluationService
@@ -18,22 +18,34 @@ router = APIRouter(prefix="/agent/internal/founder-assets", tags=["founder-asset
 
 _DEV_SERVICE_TOKEN = "dev-founder-asset-service-token"
 
-# Shared singleton instances for internal routes
+# Shared fallback instances for internal routes
 _default_repo = InMemoryWorkspaceAssetRepository()
 _default_eval_service = EvaluationService(_default_repo)
 _default_authoring_service = AuthoringService(_default_repo, _default_eval_service)
 
 
-def get_authoring_service() -> AuthoringService:
+def get_authoring_service(request: Request | None = None) -> AuthoringService:
+    if request is not None and hasattr(request.app.state, "authoring_service") and request.app.state.authoring_service:
+        return request.app.state.authoring_service
     return _default_authoring_service
 
 
-def get_evaluation_service() -> EvaluationService:
+def get_evaluation_service(request: Request | None = None) -> EvaluationService:
+    if request is not None and hasattr(request.app.state, "evaluation_service") and request.app.state.evaluation_service:
+        return request.app.state.evaluation_service
     return _default_eval_service
 
 
 def _require_service_token(token: str | None) -> None:
-    expected = os.environ.get("FOUNDER_ASSET_SERVICE_TOKEN") or _DEV_SERVICE_TOKEN
+    expected = os.environ.get("FOUNDER_ASSET_SERVICE_TOKEN")
+    if not expected:
+        if os.environ.get("ENVIRONMENT") in ("production", "prod"):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="FOUNDER_ASSET_SERVICE_TOKEN is not configured",
+            )
+        expected = _DEV_SERVICE_TOKEN
+
     if not token or token != expected:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -44,12 +56,13 @@ def _require_service_token(token: str | None) -> None:
 @router.post("/commands", response_model=AuthoringResponse)
 async def handle_authoring_command(
     body: AuthoringCommand,
+    request: Request,
     x_service_token: str | None = Header(default=None),
 ) -> AuthoringResponse:
     _require_service_token(x_service_token)
 
-    auth_svc = get_authoring_service()
-    eval_svc = get_evaluation_service()
+    auth_svc = get_authoring_service(request)
+    eval_svc = get_evaluation_service(request)
 
     if body.operation == "CREATE":
         scope = (
@@ -57,16 +70,43 @@ async def handle_authoring_command(
             if body.scope_kind == "PROJECT_SANDBOX" and body.project_id
             else AssetScope.workspace()
         )
-        saved = await auth_svc.create_agent_draft(
-            workspace_id=body.workspace_id,
-            asset_id=body.asset_id or "unnamed-asset",
-            version=body.version or "0.1.0",
-            name=body.name or "Unnamed Asset",
-            description=body.description,
-            content=body.content or {},
-            scope=scope,
-            created_by=body.created_by,
-        )
+        kind = AssetKind(body.asset_kind or "AGENT")
+        if kind == AssetKind.AGENT:
+            saved = await auth_svc.create_agent_draft(
+                workspace_id=body.workspace_id,
+                asset_id=body.asset_id or "unnamed-agent",
+                version=body.version or "0.1.0",
+                name=body.name or "Unnamed Agent",
+                description=body.description,
+                content=body.content or {},
+                scope=scope,
+                created_by=body.created_by,
+            )
+        elif kind == AssetKind.SKILL:
+            saved = await auth_svc.create_skill_draft(
+                workspace_id=body.workspace_id,
+                asset_id=body.asset_id or "unnamed-skill",
+                version=body.version or "0.1.0",
+                name=body.name or "Unnamed Skill",
+                description=body.description,
+                content=body.content or {},
+                scope=scope,
+                created_by=body.created_by,
+            )
+        elif kind == AssetKind.WORKFLOW:
+            saved = await auth_svc.create_workflow_draft(
+                workspace_id=body.workspace_id,
+                asset_id=body.asset_id or "unnamed-workflow",
+                version=body.version or "0.1.0",
+                name=body.name or "Unnamed Workflow",
+                description=body.description,
+                content=body.content or {},
+                scope=scope,
+                created_by=body.created_by,
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported asset kind: {body.asset_kind}")
+
         return AuthoringResponse(
             asset_id=saved.asset_id,
             version=saved.version,
@@ -123,11 +163,16 @@ async def handle_authoring_command(
     elif body.operation == "PUBLISH":
         if not body.asset_id or not body.expected_hash:
             raise HTTPException(status_code=400, detail="Missing asset_id or expected_hash for PUBLISH")
+        if not body.company_command_ref:
+            raise HTTPException(
+                status_code=400,
+                detail="company_command_ref is required for publish to preserve founder authority chain",
+            )
         published = await auth_svc.publish(
             workspace_id=body.workspace_id,
             asset_id=body.asset_id,
             expected_hash=body.expected_hash,
-            company_command_ref=body.company_command_ref or "cmd-default",
+            company_command_ref=body.company_command_ref,
         )
         return AuthoringResponse(
             asset_id=published.asset_id,
@@ -144,12 +189,13 @@ async def handle_authoring_command(
 @router.get("/{asset_id}/status", response_model=AuthoringResponse)
 async def get_asset_status(
     asset_id: str,
+    request: Request,
     workspace_id: str = Query(...),
     version: str = Query("0.1.0"),
     x_service_token: str | None = Header(default=None),
 ) -> AuthoringResponse:
     _require_service_token(x_service_token)
-    auth_svc = get_authoring_service()
+    auth_svc = get_authoring_service(request)
     item = await auth_svc._repository.get_version(workspace_id, asset_id, version)
     if not item:
         raise HTTPException(status_code=404, detail="Asset version not found")

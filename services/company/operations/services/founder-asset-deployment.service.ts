@@ -1,6 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { identityWorkforceMembers } from "../../shared/db/schema/identity";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { requireFounderCommand } from "../../identity/services/command-authority.service";
@@ -199,6 +200,21 @@ export async function createWorkspaceAgent(
   const memberId = BigInt(input.workforceMemberId);
 
   return db.transaction(async (tx) => {
+    const [member] = await tx
+      .select({ id: identityWorkforceMembers.id })
+      .from(identityWorkforceMembers)
+      .where(
+        and(
+          eq(identityWorkforceMembers.id, memberId),
+          eq(identityWorkforceMembers.workspaceId, wsId)
+        )
+      )
+      .limit(1);
+
+    if (!member) {
+      throw APIError.notFound("Workforce member not found in workspace");
+    }
+
     const [existing] = await tx
       .select()
       .from(workspaceAgents)

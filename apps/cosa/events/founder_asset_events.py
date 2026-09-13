@@ -67,54 +67,157 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
     """
     payload = getattr(env, "payload", {}) or {}
     cmd, err = validate_founder_asset_command_payload(payload)
-    if err is not None:
-        return "rejected", err
+    if err is not None or cmd is None:
+        return "rejected", err or "invalid command payload"
 
     if cmd.workspace_id != env.workspaceId:
         return "rejected", "workspace mismatch"
 
-    # If deps has explicit founder_asset_handler (used in tests or modular dispatch):
+    # If deps has explicit founder_asset_handler (used in test mocks or external dispatch):
     handler = getattr(deps, "founder_asset_handler", None)
     if handler is not None:
         if hasattr(handler, "handle_asset_command"):
             await handler.handle_asset_command(payload)
         return "accepted", None
 
-    # Production dispatch via authoring_service if available
+    # Production dispatch via authoring_service / evaluation_service
     authoring_service = getattr(deps, "authoring_service", None)
+    evaluation_service = getattr(deps, "evaluation_service", None)
+    callback_client = getattr(deps, "status_callback_client", None)
+
     if authoring_service is not None:
-        from packages.agent.assets.contracts import AssetScope, AssetScopeKind, PinnedAssetIdentity
+        from packages.agent.assets.contracts import AssetKind, AssetScope, PinnedAssetIdentity
 
         target_scope = (
-            AssetScope(kind=AssetScopeKind.PROJECT_SANDBOX, project_id=cmd.project_id)
+            AssetScope.project_sandbox(cmd.project_id)
             if cmd.project_id
-            else AssetScope(kind=AssetScopeKind.WORKSPACE_SHARED)
+            else AssetScope.workspace()
         )
         source_id = PinnedAssetIdentity(
+            kind=AssetKind(cmd.asset_kind),
             asset_id=cmd.asset_ref.asset_id,
             version=cmd.asset_ref.version or "1.0.0",
             definition_hash=cmd.asset_ref.definition_hash or "sha256:placeholder",
         )
 
-        if cmd.operation == "CLONE":
-            await authoring_service.clone(
+        status = "SUCCESS"
+        out_ref: dict[str, Any] = {
+            "assetId": cmd.asset_ref.asset_id,
+            "version": cmd.asset_ref.version,
+            "definitionHash": cmd.asset_ref.definition_hash,
+        }
+        eval_summary: dict[str, Any] | None = None
+        safe_reason: str | None = None
+
+        try:
+            if cmd.operation == "CLONE":
+                res = await authoring_service.clone(
+                    workspace_id=cmd.workspace_id,
+                    source=source_id,
+                    target_scope=target_scope,
+                    created_by=getattr(getattr(env, "actor", None), "id", "founder"),
+                )
+                out_ref = {
+                    "assetId": res.asset_id,
+                    "version": res.version,
+                    "definitionHash": res.definition_hash,
+                }
+            elif cmd.operation == "CREATE":
+                if source_id.kind == AssetKind.AGENT:
+                    res = await authoring_service.create_agent_draft(
+                        workspace_id=cmd.workspace_id,
+                        asset_id=cmd.asset_ref.asset_id,
+                        version=cmd.asset_ref.version or "0.1.0",
+                        name=cmd.metadata.get("name", cmd.asset_ref.asset_id),
+                        description=cmd.metadata.get("description"),
+                        content=cmd.metadata.get("content", {}),
+                        scope=target_scope,
+                        created_by=getattr(getattr(env, "actor", None), "id", "founder"),
+                    )
+                elif source_id.kind == AssetKind.SKILL:
+                    res = await authoring_service.create_skill_draft(
+                        workspace_id=cmd.workspace_id,
+                        asset_id=cmd.asset_ref.asset_id,
+                        version=cmd.asset_ref.version or "0.1.0",
+                        name=cmd.metadata.get("name", cmd.asset_ref.asset_id),
+                        description=cmd.metadata.get("description"),
+                        content=cmd.metadata.get("content", {}),
+                        scope=target_scope,
+                        created_by=getattr(getattr(env, "actor", None), "id", "founder"),
+                    )
+                elif source_id.kind == AssetKind.WORKFLOW:
+                    res = await authoring_service.create_workflow_draft(
+                        workspace_id=cmd.workspace_id,
+                        asset_id=cmd.asset_ref.asset_id,
+                        version=cmd.asset_ref.version or "0.1.0",
+                        name=cmd.metadata.get("name", cmd.asset_ref.asset_id),
+                        description=cmd.metadata.get("description"),
+                        content=cmd.metadata.get("content", {}),
+                        scope=target_scope,
+                        created_by=getattr(getattr(env, "actor", None), "id", "founder"),
+                    )
+                else:
+                    raise ValueError(f"Unsupported create asset kind: {source_id.kind}")
+                out_ref = {
+                    "assetId": res.asset_id,
+                    "version": res.version,
+                    "definitionHash": res.definition_hash,
+                }
+            elif cmd.operation == "EDIT_DRAFT":
+                res = await authoring_service.edit(
+                    workspace_id=cmd.workspace_id,
+                    identity=source_id,
+                    content=cmd.metadata.get("content", {}),
+                )
+                out_ref = {
+                    "assetId": res.asset_id,
+                    "version": res.version,
+                    "definitionHash": res.definition_hash,
+                }
+            elif cmd.operation == "EVALUATE":
+                if evaluation_service is not None:
+                    eval_res = await evaluation_service.evaluate(
+                        workspace_id=cmd.workspace_id,
+                        asset_id=cmd.asset_ref.asset_id,
+                        version=cmd.asset_ref.version or "0.1.0",
+                    )
+                    status = "SUCCESS" if eval_res.status == "PASS" else "REJECTED"
+                    eval_summary = {
+                        "status": eval_res.status,
+                        "evaluation_id": eval_res.evaluation_id,
+                        "structural_result": eval_res.structural_result,
+                    }
+            elif cmd.operation == "PUBLISH":
+                res = await authoring_service.publish(
+                    workspace_id=cmd.workspace_id,
+                    asset_id=cmd.asset_ref.asset_id,
+                    expected_hash=cmd.asset_ref.definition_hash or "",
+                    company_command_ref=cmd.command_id,
+                )
+                out_ref = {
+                    "assetId": res.asset_id,
+                    "version": res.version,
+                    "definitionHash": res.definition_hash,
+                }
+            else:
+                status = "REJECTED"
+                safe_reason = f"Unsupported operation: {cmd.operation}"
+        except Exception as exc:
+            status = "FAILED"
+            safe_reason = str(exc)
+
+        # Dispatch status callback to Company
+        if callback_client is not None:
+            await callback_client.send_status_callback(
+                command_id=cmd.command_id,
                 workspace_id=cmd.workspace_id,
-                source=source_id,
-                target_scope=target_scope,
-                created_by=getattr(getattr(env, "actor", None), "id", "founder"),
-            )
-        elif cmd.operation == "EDIT_DRAFT":
-            await authoring_service.edit(
-                workspace_id=cmd.workspace_id,
-                identity=source_id,
-                content=cmd.metadata.get("content", {}),
-            )
-        elif cmd.operation == "PUBLISH":
-            await authoring_service.publish(
-                workspace_id=cmd.workspace_id,
-                asset_id=cmd.asset_ref.asset_id,
-                expected_hash=cmd.asset_ref.definition_hash or "",
-                company_command_ref=cmd.command_id,
+                project_id=cmd.project_id,
+                asset_kind=cmd.asset_kind,
+                operation=cmd.operation,
+                status=status,
+                asset_ref=out_ref,
+                evaluation_summary=eval_summary,
+                safe_reason_code=safe_reason,
             )
 
     return "accepted", None

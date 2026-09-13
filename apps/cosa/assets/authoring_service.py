@@ -26,9 +26,11 @@ class AuthoringService:
         self,
         repository: WorkspaceAssetRepository,
         evaluation_service: EvaluationService,
+        spec_registry: Any | None = None,
     ) -> None:
         self._repository = repository
         self._evaluation_service = evaluation_service
+        self._spec_registry = spec_registry
 
     async def edit(
         self,
@@ -55,7 +57,35 @@ class AuthoringService:
         created_by: str,
         source_content: dict[str, Any] | None = None,
     ) -> WorkspaceAssetVersion:
-        content = source_content or {"instructions": f"Cloned from {source.asset_id}", "model": "gpt-4o"}
+        content = source_content
+        if content is None:
+            # 1. Try resolving from existing published asset in repository
+            existing = await self._repository.get_version(workspace_id, source.asset_id, source.version)
+            if existing:
+                content = existing.content_json
+            # 2. Try resolving from spec_registry if available
+            elif self._spec_registry is not None:
+                kind_str = source.kind.value.lower() if hasattr(source.kind, "value") else str(source.kind).lower()
+                rec = await self._spec_registry.get(kind_str, source.asset_id, source.version)
+                if rec:
+                    content = (
+                        getattr(rec, "spec_data", None)
+                        or (rec.get("spec_data") if isinstance(rec, dict) else None)
+                        or getattr(rec, "content", None)
+                        or {}
+                    )
+
+            if not content:
+                # Fallback to structured initial content matching the kind
+                if source.kind == AssetKind.AGENT:
+                    content = {"instructions": f"Cloned from {source.asset_id}", "model": "gpt-4o"}
+                elif source.kind == AssetKind.SKILL:
+                    content = {"name": source.asset_id, "instructions": f"Cloned skill from {source.asset_id}"}
+                elif source.kind == AssetKind.WORKFLOW:
+                    content = {"id": source.asset_id, "name": f"Cloned {source.asset_id}", "steps": []}
+                else:
+                    content = {}
+
         return await self._repository.clone_to_draft(
             workspace_id=workspace_id,
             source=source,
@@ -83,6 +113,29 @@ class AuthoringService:
         draft = WorkspaceAssetDraft(
             asset_id=asset_id,
             kind=AssetKind.AGENT,
+            version=version,
+            name=name,
+            description=description,
+            content=content,
+            scope=scope,
+            created_by=created_by,
+        )
+        return await self._repository.create_draft(workspace_id, draft)
+
+    async def create_skill_draft(
+        self,
+        workspace_id: str,
+        asset_id: str,
+        version: str,
+        name: str,
+        description: str | None,
+        content: dict[str, Any],
+        scope: AssetScope,
+        created_by: str,
+    ) -> WorkspaceAssetVersion:
+        draft = WorkspaceAssetDraft(
+            asset_id=asset_id,
+            kind=AssetKind.SKILL,
             version=version,
             name=name,
             description=description,
@@ -131,8 +184,9 @@ class AuthoringService:
 
         # Load latest candidate/draft version
         item = await self._repository.get_version(workspace_id, asset_id, "0.1.0")
-        if not item and hasattr(self._repository, "_versions"):
-            matches = [v for (ws, a_id, _), v in self._repository._versions.items() if ws == workspace_id and a_id == asset_id]
+        versions_dict = getattr(self._repository, "_versions", None)
+        if not item and isinstance(versions_dict, dict):
+            matches = [v for (ws, a_id, _), v in versions_dict.items() if ws == workspace_id and a_id == asset_id]
             item = matches[0] if matches else None
 
         if not item:

@@ -66,6 +66,10 @@ class EventIntakeDeps:
     caller_workspace_id: str | None = None
     # Task 4A — resolve Outcome Analyst binding cho task.result_submitted.v1.
     workforce_repository: Any = None
+    authoring_service: Any = None
+    evaluation_service: Any = None
+    status_callback_client: Any = None
+    founder_asset_handler: Any = None
 
     async def aclose(self) -> None:
         for c in (self.db, self.execution_plane):
@@ -98,6 +102,16 @@ async def build_event_intake_deps(
 
     workforce_repository = PostgresWorkforceRepository(session_factory)
 
+    from packages.agent.assets.repository import PostgresWorkspaceAssetRepository
+    from apps.cosa.assets.authoring_service import AuthoringService
+    from apps.cosa.assets.evaluation_service import EvaluationService
+    from apps.cosa.events.founder_asset_callback_client import FounderAssetStatusCallbackClient
+
+    asset_repo = PostgresWorkspaceAssetRepository(session_factory)
+    evaluation_service = EvaluationService(asset_repo)
+    authoring_service = AuthoringService(asset_repo, evaluation_service, spec_registry=spec_registry)
+    status_callback_client = FounderAssetStatusCallbackClient()
+
     rule_store = PostgresTriggerRuleStore(pool)
     fingerprint_provider = SpecFingerprintProvider(spec_registry)
     trigger_policy = TriggerPolicyService(
@@ -121,4 +135,7 @@ async def build_event_intake_deps(
         fingerprint_provider=fingerprint_provider,
         caller_workspace_id=None,  # node đa-workspace; HMAC là ranh giới tin cậy
         workforce_repository=workforce_repository,
+        authoring_service=authoring_service,
+        evaluation_service=evaluation_service,
+        status_callback_client=status_callback_client,
     )

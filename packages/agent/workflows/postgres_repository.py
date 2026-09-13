@@ -93,19 +93,7 @@ class PostgresWorkflowDefinitionRepository(WorkflowDefinitionRepository):
             res = await session.execute(stmt, {"wid": workflow_id, "version": version, "ws_id": workspace_id})
             row = res.mappings().one_or_none()
             if not row:
-                # Fallback to unscoped / default workspace match if specific workspace row not found
-                stmt_fallback = text(
-                    """
-                    SELECT workspace_id, workflow_asset_id, version, definition_hash, spec_data, description, created_at
-                    FROM agent.workflow_definitions
-                    WHERE workflow_asset_id = :wid AND version = :version
-                    LIMIT 1
-                    """
-                )
-                res_fallback = await session.execute(stmt_fallback, {"wid": workflow_id, "version": version})
-                row = res_fallback.mappings().one_or_none()
-                if not row:
-                    return None
+                return None
 
             return WorkflowDefinitionRecord(
                 workflow_id=row["workflow_asset_id"],

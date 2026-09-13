@@ -218,3 +218,24 @@ async def test_engine_rejects_unregistered_step_type_instead_of_noop():
     assert exc_info.value.step_id == "step_router"
     assert exc_info.value.step_type == "router"
 
+
+@pytest.mark.asyncio
+async def test_engine_rejects_unregistered_deterministic_handler():
+    engine = WorkflowEngine()
+    spec = WorkflowSpec(
+        id="wf_bad_deterministic",
+        steps=[
+            WorkflowStepSpec(
+                id="step_calc",
+                type=StepType.DETERMINISTIC,
+                action="unregistered_math_function",
+            )
+        ],
+    )
+
+    with pytest.raises(UnsupportedWorkflowStepError) as exc_info:
+        await engine.execute_spec(spec, {})
+
+    assert exc_info.value.step_id == "step_calc"
+    assert "no registered handler" in exc_info.value.step_type
+

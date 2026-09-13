@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { createTestWorkspaceWithMember } from "./_helpers";
+import { createTestWorkspaceWithMember, createSecondWorkspace } from "./_helpers";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { getProjectDeploymentAuthorityApi } from "../handlers/founder-asset-deployment.handler";
 import {
@@ -98,5 +98,38 @@ describe("Founder Asset Deployment Handler", () => {
       projectId: ws.projectId,
       state: "ACTIVE",
     });
+  });
+
+  it("rejects createWorkspaceAgent when workforceMemberId belongs to another workspace", async () => {
+    const wsA = await createTestWorkspaceWithMember({ role: "founder" });
+    const wsB = await createSecondWorkspace();
+
+    const workforceMemberIdB = generateSnowflake();
+    await db.execute(sql`
+      INSERT INTO core.workforce_members (
+        id, workspace_id, member_type, role_title, agent_spec_id, agent_spec_version, status
+      ) VALUES (
+        ${workforceMemberIdB}, ${wsB.workspaceId}, 'AI_AGENT', 'Foreign Member', 'foreign.spec', '1.0.0', 'active'
+      )
+    `);
+
+    const ctxA = {
+      workspaceId: wsA.workspaceId,
+      userId: wsA.userId,
+      membershipRole: "founder",
+      permissions: ["*"],
+      correlationId: "corr-cross-tenant-test",
+    };
+
+    await expect(
+      createWorkspaceAgent(ctxA, {
+        agentAssetId: "agent.foreign.1",
+        agentAssetVersion: "1.0.0",
+        agentDefinitionHash: "sha256:foreignhash1111111111111111111111111111111111111111111111111111",
+        workforceMemberId: workforceMemberIdB.toString(),
+        originKind: "CUSTOM",
+        reason: "Cross tenant workforce member should fail",
+      })
+    ).rejects.toMatchObject({ code: "not_found" });
   });
 });

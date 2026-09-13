@@ -91,4 +91,33 @@ describe("Founder Asset Schema Invariants", () => {
     const errorString = `${errorThrown?.message || ""} ${errorThrown?.cause?.message || ""} ${errorThrown?.detail || ""}`;
     expect(errorString).toMatch(/unique|duplicate/i);
   });
+
+  it("rejects workspace agent creation with workforce member from another workspace via composite FK", async () => {
+    const wsA = await createTestWorkspaceWithMember();
+    const wsB = await createSecondWorkspace();
+
+    const workforceMemberIdB = generateSnowflake();
+    await db.execute(sql`
+      INSERT INTO core.workforce_members (
+        id, workspace_id, member_type, role_title, agent_spec_id, agent_spec_version, status
+      ) VALUES (
+        ${workforceMemberIdB}, ${wsB.workspaceId}, 'AI_AGENT', 'Foreign Member', 'foreign.spec', '1.0.0', 'active'
+      )
+    `);
+
+    const workspaceAgentId = generateSnowflake();
+    await expect(
+      db.insert(schema.workspaceAgents).values({
+        id: workspaceAgentId,
+        workspaceId: BigInt(wsA.workspaceId),
+        agentAssetId: "agent.foreign.direct",
+        agentAssetVersion: "1.0.0",
+        agentDefinitionHash: "sha256:foreignhash1111111111111111111111111111111111111111111111111111",
+        workforceMemberId: workforceMemberIdB,
+        state: "ACTIVE",
+        originKind: "CUSTOM",
+        createdBy: BigInt(wsA.userId),
+      })
+    ).rejects.toThrow();
+  });
 });

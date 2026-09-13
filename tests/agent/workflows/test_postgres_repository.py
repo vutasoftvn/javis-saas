@@ -124,3 +124,23 @@ async def test_rejects_mutation_of_published_version_with_different_hash(factory
 
     with pytest.raises(ValueError, match="Cannot mutate published workflow"):
         await repo.save_definition(mutated, workspace_id="ws-immut")
+
+
+@pytest.mark.asyncio
+async def test_cross_workspace_definition_isolation_returns_none(factory):
+    repo = PostgresWorkflowDefinitionRepository(factory)
+    spec = _make_workflow_spec()
+    await repo.save_definition(spec, workspace_id="ws-tenant-a")
+
+    # Fetching with ws-tenant-a succeeds
+    found_a = await repo.get_definition(spec.id, spec.version, workspace_id="ws-tenant-a")
+    assert found_a is not None
+    assert found_a.workflow_id == spec.id
+
+    # Fetching with different workspace ws-tenant-b returns None (no fallback)
+    found_b = await repo.get_definition(spec.id, spec.version, workspace_id="ws-tenant-b")
+    assert found_b is None
+
+    # Fetching with default workspace returns None when created under tenant-a
+    found_default = await repo.get_definition(spec.id, spec.version, workspace_id="default")
+    assert found_default is None

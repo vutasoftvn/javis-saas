@@ -130,6 +130,15 @@ class WorkflowPublishValidator:
                     except (ValueError, TypeError):
                         errors.append(f"RETRY step '{step.id}' max_attempts must be an integer")
 
+            elif step.type == StepType.DETERMINISTIC:
+                handler = step.handler or (step.inputs.get("handler") if step.inputs else None) or step.action
+                if not handler:
+                    errors.append(f"DETERMINISTIC step '{step.id}' missing handler")
+                elif ctx and ctx.registered_handlers and handler not in ctx.registered_handlers:
+                    errors.append(
+                        f"DETERMINISTIC step '{step.id}' references unregistered handler '{handler}'"
+                    )
+
         return WorkflowValidationResult(
             is_valid=len(errors) == 0,
             errors=errors,

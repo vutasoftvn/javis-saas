@@ -8,6 +8,7 @@ import hmac
 import json
 import uuid
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 
@@ -115,9 +116,21 @@ class StubAssetAuthoringHandler:
 class Deps:
     local_auth: InMemoryLocalAuth = field(default_factory=InMemoryLocalAuth)
     inbox_store: InMemoryInboxStore = field(default_factory=InMemoryInboxStore)
-    founder_asset_handler: StubAssetAuthoringHandler = field(default_factory=StubAssetAuthoringHandler)
+    founder_asset_handler: Any = field(default_factory=StubAssetAuthoringHandler)
+    authoring_service: Any = None
+    evaluation_service: Any = None
+    status_callback_client: Any = None
     db: DummyDb = field(default_factory=DummyDb)
     caller_workspace_id: str | None = None
+
+
+class RecordingCallbackClient:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def send_status_callback(self, **kwargs: Any) -> bool:
+        self.calls.append(kwargs)
+        return True
 
 
 @pytest.mark.asyncio
@@ -156,3 +169,161 @@ async def test_foreign_workspace_envelope_is_rejected() -> None:
 
     with pytest.raises(PermissionDenied, match="cross-workspace envelope"):
         await handle_event(deps, raw, sig)
+
+
+@pytest.mark.asyncio
+async def test_production_wiring_create_evaluate_publish_lifecycle() -> None:
+    from apps.cosa.assets.authoring_service import AuthoringService
+    from apps.cosa.assets.evaluation_service import EvaluationService
+    from packages.agent.assets.contracts import AssetLifecycle
+    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+
+    repo = InMemoryWorkspaceAssetRepository()
+    eval_svc = EvaluationService(repo)
+    auth_svc = AuthoringService(repo, eval_svc)
+    callback_client = RecordingCallbackClient()
+
+    deps = Deps(
+        founder_asset_handler=None,
+        authoring_service=auth_svc,
+        evaluation_service=eval_svc,
+        status_callback_client=callback_client,
+    )
+
+    # 1. CREATE draft
+    create_payload = _command_payload(
+        operation="CREATE",
+        assetKind="AGENT",
+        assetRef={"assetId": "agent.ops.specialist", "version": "0.1.0"},
+        metadata={
+            "name": "Operations Specialist",
+            "content": {"system_prompt": "You specialize in operations", "capabilities": []},
+        },
+    )
+    env1 = _env(create_payload)
+    res1 = await handle_event(deps, _raw(env1), _sig(env1))
+    assert res1.outcome == "accepted"
+    assert len(callback_client.calls) == 1
+    assert callback_client.calls[0]["status"] == "SUCCESS"
+    assert callback_client.calls[0]["operation"] == "CREATE"
+    assert callback_client.calls[0]["asset_ref"]["assetId"] == "agent.ops.specialist"
+
+    draft = await repo.get_version("ws_1", "agent.ops.specialist", "0.1.0")
+    assert draft is not None
+    assert draft.lifecycle == AssetLifecycle.DRAFT
+
+    # 2. EVALUATE draft
+    eval_cmd_id = f"cmd_{uuid.uuid4().hex[:10]}"
+    eval_payload = _command_payload(
+        commandId=eval_cmd_id,
+        operation="EVALUATE",
+        assetKind="AGENT",
+        assetRef={"assetId": "agent.ops.specialist", "version": "0.1.0"},
+    )
+    env2 = _env(eval_payload)
+    res2 = await handle_event(deps, _raw(env2), _sig(env2))
+    assert res2.outcome == "accepted"
+    assert len(callback_client.calls) == 2
+    assert callback_client.calls[1]["status"] == "SUCCESS"
+    assert callback_client.calls[1]["operation"] == "EVALUATE"
+    assert callback_client.calls[1]["evaluation_summary"] is not None
+    assert callback_client.calls[1]["evaluation_summary"]["status"] == "PASS"
+
+    # 3. PUBLISH asset
+    pub_cmd_id = f"cmd_{uuid.uuid4().hex[:10]}"
+    pub_payload = _command_payload(
+        commandId=pub_cmd_id,
+        operation="PUBLISH",
+        assetKind="AGENT",
+        assetRef={
+            "assetId": "agent.ops.specialist",
+            "version": "0.1.0",
+            "definitionHash": draft.definition_hash,
+        },
+    )
+    env3 = _env(pub_payload)
+    res3 = await handle_event(deps, _raw(env3), _sig(env3))
+    assert res3.outcome == "accepted"
+    assert len(callback_client.calls) == 3
+    assert callback_client.calls[2]["status"] == "SUCCESS"
+    assert callback_client.calls[2]["operation"] == "PUBLISH"
+    assert callback_client.calls[2]["command_id"] == pub_cmd_id
+
+    published = await repo.get_version("ws_1", "agent.ops.specialist", "0.1.0")
+    assert published is not None
+    assert published.lifecycle == AssetLifecycle.PUBLISHED
+
+
+@pytest.mark.asyncio
+async def test_production_wiring_failure_dispatches_failed_status_callback() -> None:
+    from apps.cosa.assets.authoring_service import AuthoringService
+    from apps.cosa.assets.evaluation_service import EvaluationService
+    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+
+    repo = InMemoryWorkspaceAssetRepository()
+    eval_svc = EvaluationService(repo)
+    auth_svc = AuthoringService(repo, eval_svc)
+    callback_client = RecordingCallbackClient()
+
+    deps = Deps(
+        founder_asset_handler=None,
+        authoring_service=auth_svc,
+        evaluation_service=eval_svc,
+        status_callback_client=callback_client,
+    )
+
+    # PUBLISH non-existent asset -> should catch error and dispatch status=FAILED
+    fail_payload = _command_payload(
+        operation="PUBLISH",
+        assetKind="AGENT",
+        assetRef={"assetId": "agent.nonexistent", "version": "0.1.0", "definitionHash": "bad-hash"},
+    )
+    env = _env(fail_payload)
+    res = await handle_event(deps, _raw(env), _sig(env))
+    assert res.outcome == "accepted"  # event intake accepted the envelope
+    assert len(callback_client.calls) == 1
+    assert callback_client.calls[0]["status"] == "FAILED"
+    assert callback_client.calls[0]["safe_reason_code"] is not None
+
+
+@pytest.mark.asyncio
+async def test_production_wiring_clone_builtin_asset() -> None:
+    from apps.cosa.assets.authoring_service import AuthoringService
+    from apps.cosa.assets.evaluation_service import EvaluationService
+    from packages.agent.assets.contracts import AssetLifecycle
+    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+
+    repo = InMemoryWorkspaceAssetRepository()
+    eval_svc = EvaluationService(repo)
+    auth_svc = AuthoringService(repo, eval_svc)
+    callback_client = RecordingCallbackClient()
+
+    deps = Deps(
+        founder_asset_handler=None,
+        authoring_service=auth_svc,
+        evaluation_service=eval_svc,
+        status_callback_client=callback_client,
+    )
+
+    clone_payload = _command_payload(
+        operation="CLONE",
+        assetKind="AGENT",
+        assetRef={
+            "assetId": "agent.ops.analyst",
+            "version": "1.0.0",
+            "definitionHash": "sha256:analyst",
+        },
+    )
+    env = _env(clone_payload)
+    res = await handle_event(deps, _raw(env), _sig(env))
+    assert res.outcome == "accepted"
+    assert len(callback_client.calls) == 1
+    assert callback_client.calls[0]["status"] == "SUCCESS"
+    assert callback_client.calls[0]["operation"] == "CLONE"
+    assert callback_client.calls[0]["asset_ref"]["assetId"] == "clone.agent.ops.analyst"
+
+    cloned = await repo.get_version("ws_1", "clone.agent.ops.analyst", "0.1.0")
+    assert cloned is not None
+    assert cloned.lifecycle == AssetLifecycle.DRAFT
+
+

@@ -35,12 +35,18 @@ class WorkflowEngine:
         policy_engine: Any | None = None,
         approval_service: Any | None = None,
         governance_store: GovernanceStateStore | None = None,
+        registered_handlers: dict[str, Any] | None = None,
     ) -> None:
+        from agent.workflows.deterministic_handlers import WHITELISTED_DETERMINISTIC_HANDLERS
+
         self._tool_registry = tool_registry
         self._gateway = gateway
         self._policy_engine = policy_engine
         self._approval_service = approval_service
         self._governance_store = governance_store or InMemoryGovernanceStateStore()
+        self._registered_handlers = dict(WHITELISTED_DETERMINISTIC_HANDLERS)
+        if registered_handlers:
+            self._registered_handlers.update(registered_handlers)
 
     # ------------------------------------------------------------------------
     # Linear Pipeline Execution
@@ -161,11 +167,50 @@ class WorkflowEngine:
                     )
                 )
             elif step_spec.type == StepType.DETERMINISTIC:
+                handler_name = (
+                    getattr(step_spec, "handler", None)
+                    or step_spec.action
+                    or (step_spec.inputs.get("handler") if step_spec.inputs else None)
+                    or (step_spec.id if step_spec.id in self._registered_handlers else None)
+                )
+                if handler_name is not None:
+                    handler_fn = self._registered_handlers.get(handler_name)
+                    if handler_fn is None:
+                        raise UnsupportedWorkflowStepError(
+                            step_spec.id,
+                            f"DETERMINISTIC step '{step_spec.id}' has no registered handler for '{handler_name}'",
+                        )
+                else:
+                    handler_fn = self._registered_handlers.get("pass_through")
+                    if handler_fn is None:
+                        raise UnsupportedWorkflowStepError(
+                            step_spec.id,
+                            f"DETERMINISTIC step '{step_spec.id}' has no handler specified",
+                        )
 
-                async def noop_fn(s: dict[str, Any]) -> dict[str, Any]:
-                    return {}
+                step_params = getattr(step_spec, "params", {}) or (step_spec.inputs if step_spec.inputs else {})
+                import inspect
+                sig = inspect.signature(handler_fn)
+                takes_params = len(sig.parameters) >= 2
 
-                compiled_steps.append(DeterministicStep(name=step_name, fn=noop_fn))
+                if inspect.iscoroutinefunction(handler_fn):
+                    if takes_params:
+                        async def _async_with_params(s: Any, _f=handler_fn, _p=step_params) -> Any:
+                            return await _f(s, _p)
+                        step_callable = _async_with_params
+                    else:
+                        step_callable = handler_fn
+                else:
+                    if takes_params:
+                        async def _sync_with_params(s: Any, _f=handler_fn, _p=step_params) -> Any:
+                            return _f(s, _p)
+                        step_callable = _sync_with_params
+                    else:
+                        async def _sync_without_params(s: Any, _f=handler_fn) -> Any:
+                            return _f(s)
+                        step_callable = _sync_without_params
+
+                compiled_steps.append(DeterministicStep(name=step_name, fn=step_callable))
             else:
                 raise UnsupportedWorkflowStepError(step_spec.id, step_spec.type)
 

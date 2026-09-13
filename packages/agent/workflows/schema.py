@@ -36,6 +36,8 @@ class WorkflowStepSpec(BaseModel):
     agent_key: str | None = None
     goal_key: str | None = None
     action: str | None = None
+    handler: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
     subject_key: str | None = None
     permission_level: str | None = None
     autonomy_level: str | None = None
