@@ -195,3 +195,25 @@ sửa code").
   `test_scheduled_session_worker.py`, `test_vertical_slice_1_read_path.py`,
   `test_workspace_execution_e2e.py`). KHÔNG do task này gây ra — không sửa
   trong phạm vi task này (ngoài scope, cần điều tra riêng).
+
+- **`legalRecordRefs` chỉ được xác thực theo workspace, KHÔNG theo project —
+  phát hiện bởi final whole-branch review, chưa được ghi trước đó.**
+  `legal_obligations` (`services/company/shared/db/schema/finance-legal.ts`)
+  không có cột `project_id` — obligation chỉ scope theo workspace.
+  `assertLegalRecordRefsResolve` (`legal-issue-dossier.service.ts`) gọi
+  `getObligationService` và chỉ kiểm tra obligation resolve được trong đúng
+  `ctx.workspaceId`; nó không có cách nào kiểm tra obligation đó có thật sự
+  liên quan tới đúng Project của dossier hay không, vì bản ghi obligation
+  không mang khái niệm Project. Hệ quả cụ thể: Founder tạo Legal Issue
+  Dossier cho Project B nhưng tham chiếu một obligation thật sự được tạo cho
+  Project A (cùng workspace) — tham chiếu này vẫn resolve hợp lệ và được
+  chấp nhận, vì không có gì ràng buộc obligation vào đúng Project. Đây KHÔNG
+  phải lỗ hổng cross-tenant (vẫn nằm trong cùng workspace/tenant boundary),
+  chỉ là vấn đề vệ sinh dữ liệu/độ chính xác provenance — nhưng chưa có test
+  nào exercise case same-workspace-khác-project này (chỉ có test
+  same-workspace-same-project và cross-workspace). Đây là hạn chế kiến trúc
+  mới, chưa từng gặp ở các dossier sibling (product/people/security không có
+  tích hợp cross-service tương tự) do CISO/CHRO không để lại tiền lệ nào cho
+  việc này. Cần một task follow-up nếu muốn Project-scope obligation
+  reference chặt hơn (vd. thêm `project_id` optional vào obligation, hoặc
+  chấp nhận rủi ro này như một trade-off có chủ đích).
