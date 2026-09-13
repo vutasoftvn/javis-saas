@@ -92,6 +92,11 @@ class ClaimedSkillImprovementOutbox(BaseModel):
     claim_token: str
 
 
+ImprovementDisposition = Literal[
+    "INSUFFICIENT_SAMPLES", "STABLE", "DEFERRED_POLICY_DISABLED", "NOT_ELIGIBLE", "QUEUED"
+]
+
+
 class FeedbackWriteResult(BaseModel):
     feedback_id: str
     workspace_id: str
@@ -100,9 +105,7 @@ class FeedbackWriteResult(BaseModel):
     definition_hash: str
     feedback_health: Literal["INSUFFICIENT_SAMPLES", "STABLE", "DEGRADING"]
     aggregate_score: float
-    improvement_disposition: Literal[
-        "INSUFFICIENT_SAMPLES", "STABLE", "DEFERRED_POLICY_DISABLED", "NOT_ELIGIBLE", "QUEUED"
-    ]
+    improvement_disposition: ImprovementDisposition
     request_id: str | None = None
 
 
@@ -308,15 +311,15 @@ class InMemorySkillImprovementRepository:
                     and r.skill_version == version and r.definition_hash == def_hash
                 ]
                 live_req = next((r for r in reqs if r.status in ("PENDING", "RUNNING")), None)
-                disposition: Literal["INSUFFICIENT_SAMPLES", "STABLE", "DEFERRED_POLICY_DISABLED", "NOT_ELIGIBLE", "QUEUED"]
+                existing_disp: ImprovementDisposition
                 if live_req:
-                    disposition = "QUEUED"
+                    existing_disp = "QUEUED"
                 elif latest_agg and latest_agg.health == "DEGRADING":
-                    disposition = "DEFERRED_POLICY_DISABLED"
+                    existing_disp = "DEFERRED_POLICY_DISABLED"
                 elif latest_agg and latest_agg.health == "STABLE":
-                    disposition = "STABLE"
+                    existing_disp = "STABLE"
                 else:
-                    disposition = "INSUFFICIENT_SAMPLES"
+                    existing_disp = "INSUFFICIENT_SAMPLES"
 
                 return FeedbackWriteResult(
                     feedback_id=existing_fb.feedback_id,
@@ -326,7 +329,7 @@ class InMemorySkillImprovementRepository:
                     definition_hash=def_hash,
                     feedback_health=latest_agg.health if latest_agg else "INSUFFICIENT_SAMPLES",
                     aggregate_score=latest_agg.aggregate_score if latest_agg else 1.0,
-                    improvement_disposition=disposition,
+                    improvement_disposition=existing_disp,
                     request_id=live_req.request_id if live_req else None,
                 )
 
@@ -404,9 +407,11 @@ class InMemorySkillImprovementRepository:
 
         # 5. Determine disposition and request/outbox
         req_id = None
-        disposition: Literal["INSUFFICIENT_SAMPLES", "STABLE", "DEFERRED_POLICY_DISABLED", "NOT_ELIGIBLE", "QUEUED"]
-        if health != "DEGRADING":
-            disposition = health
+        disposition: ImprovementDisposition
+        if health == "STABLE":
+            disposition = "STABLE"
+        elif health == "INSUFFICIENT_SAMPLES":
+            disposition = "INSUFFICIENT_SAMPLES"
         else:
             mode = getattr(policy, "mode", "OFF")
             if mode != "CANDIDATE":
@@ -784,15 +789,15 @@ class PostgresSkillImprovementRepository:
                             req_stmt, {"ws_id": ws_id, "skill_id": feedback.skill_id, "version": v, "def_hash": h}
                         )).fetchone()
 
-                        disposition: Literal["INSUFFICIENT_SAMPLES", "STABLE", "DEFERRED_POLICY_DISABLED", "NOT_ELIGIBLE", "QUEUED"]
+                        existing_disp: ImprovementDisposition
                         if req_row:
-                            disposition = "QUEUED"
+                            existing_disp = "QUEUED"
                         elif agg_row and agg_row.health == "DEGRADING":
-                            disposition = "DEFERRED_POLICY_DISABLED"
+                            existing_disp = "DEFERRED_POLICY_DISABLED"
                         elif agg_row and agg_row.health == "STABLE":
-                            disposition = "STABLE"
+                            existing_disp = "STABLE"
                         else:
-                            disposition = "INSUFFICIENT_SAMPLES"
+                            existing_disp = "INSUFFICIENT_SAMPLES"
 
                         return FeedbackWriteResult(
                             feedback_id=fb_id,
@@ -802,7 +807,7 @@ class PostgresSkillImprovementRepository:
                             definition_hash=h,
                             feedback_health=agg_row.health if agg_row else "INSUFFICIENT_SAMPLES",
                             aggregate_score=agg_row.aggregate_score if agg_row else 1.0,
-                            improvement_disposition=disposition,
+                            improvement_disposition=existing_disp,
                             request_id=req_row.request_id if req_row else None,
                         )
 
@@ -931,9 +936,11 @@ class PostgresSkillImprovementRepository:
 
                 # 5. Evaluate policy and enqueue
                 req_id = None
-                disposition: Literal["INSUFFICIENT_SAMPLES", "STABLE", "DEFERRED_POLICY_DISABLED", "NOT_ELIGIBLE", "QUEUED"]
-                if health != "DEGRADING":
-                    disposition = health
+                disposition: ImprovementDisposition
+                if health == "STABLE":
+                    disposition = "STABLE"
+                elif health == "INSUFFICIENT_SAMPLES":
+                    disposition = "INSUFFICIENT_SAMPLES"
                 else:
                     mode = getattr(policy, "mode", "OFF")
                     if mode != "CANDIDATE":
