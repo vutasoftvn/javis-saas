@@ -16,6 +16,10 @@ from apps.cosa.capabilities.commercial_customer_read import (
     COMMERCIAL_CUSTOMER_360_READ_SPEC,
     create_commercial_customer_360_read_handler,
 )
+from apps.cosa.capabilities.data_governance_read import (
+    DATA_GOVERNANCE_READ_SPEC,
+    create_data_governance_read_handler,
+)
 from apps.cosa.capabilities.engagement_assignment_write import (
     ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,
     create_engagement_assignment_write_handler,
@@ -27,10 +31,6 @@ from apps.cosa.capabilities.engagement_message_draft import (
 from apps.cosa.capabilities.engagement_message_send import (
     ENGAGEMENT_MESSAGE_SEND_SPEC,
     create_engagement_message_send_handler,
-)
-from apps.cosa.capabilities.data_governance_read import (
-    DATA_GOVERNANCE_READ_SPEC,
-    create_data_governance_read_handler,
 )
 from apps.cosa.capabilities.engagement_read import (
     ENGAGEMENT_THREAD_READ_SPEC,
