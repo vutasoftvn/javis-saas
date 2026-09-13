@@ -10,6 +10,17 @@ const DEV_WORKER_JWT_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32c
 // env với COSA_COMPANY_DELEGATION_SECRET (chiều apps/cosa -> services/company)
 // nhưng KHÔNG dùng chung giá trị — 2 chiều/2 callee khác nhau.
 const DEV_CONTROL_DELEGATION_SECRET = "cosa-control-delegation-dev-secret-change-in-prod";
+// Secret RIÊNG cho việc ký HMAC envelope ai-governance-snapshot
+// (services/cosa/services/ai-governance-snapshot.service.ts). Cố tình KHÔNG
+// dùng chung COSA_CONTROL_DELEGATION_SECRET dù cùng hướng apps/cosa ->
+// services/cosa: secret đó chứng minh DANH TÍNH caller (JWT ngắn hạn, TTL
+// <=600s, có thể rotate độc lập theo chu kỳ auth), còn secret này chứng minh
+// TÍNH TOÀN VẸN của 1 envelope có thể được lưu/forward lâu dài sang Company
+// dossier layer để làm evidence — 2 mục đích khác nhau, rotate theo lịch khác
+// nhau. Tái dùng 1 secret cho 2 mục đích sẽ khiến rotate secret auth vô tình
+// làm mọi snapshot đã ký trước đó "tamper" giả — vi phạm CLAUDE.md "Không dùng
+// đè secret này cho secret khác dù 'có vẻ tiện'".
+const DEV_AI_GOVERNANCE_SIGNING_SECRET = "cosa-ai-governance-signing-dev-secret-change-in-prod";
 
 export function getPlatformJwtSecret(): string {
   const secret = process.env.PLATFORM_JWT_SECRET;
@@ -42,6 +53,17 @@ export function getControlDelegationSecret(): string {
     return secret;
   }
   return secret || DEV_CONTROL_DELEGATION_SECRET;
+}
+
+export function getAiGovernanceSigningSecret(): string {
+  const secret = process.env.COSA_AI_GOVERNANCE_SIGNING_SECRET;
+  if (isStagingOrProd()) {
+    if (!secret || secret === DEV_AI_GOVERNANCE_SIGNING_SECRET || secret.length < 32) {
+      throw new Error("COSA_AI_GOVERNANCE_SIGNING_SECRET must be explicitly set with >= 32 characters in staging/production");
+    }
+    return secret;
+  }
+  return secret || DEV_AI_GOVERNANCE_SIGNING_SECRET;
 }
 
 export interface ControlDelegationPayload {

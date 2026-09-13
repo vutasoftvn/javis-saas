@@ -34,6 +34,13 @@ EXPLICIT_UNAUTHENTICATED_ALLOWLIST = {
     # token để lấy preferred_locale snapshot. Handler tự verify qua
     # resolveCallerAuthorizedForWorkspace. auth:false có chủ đích, đã kiểm tra.
     ("cosa", "GET", "/platform/auth/me/locale-snapshot"),
+    # Task 1 (caio-ai-governance-profile-and-executive-activation): Caller
+    # (apps/cosa, Python, ngoài Encore) mang control-plane delegation token để
+    # ký ai-governance-snapshot envelope. Handler tự verify token thủ công qua
+    # verifyControlDelegationToken (ai-governance-snapshot.service.ts) — cùng
+    # pattern B5 ở trên, khác secret (Gateway PLATFORM_JWT_SECRET không hiểu
+    # được token này). auth:false có chủ đích, đã kiểm tra.
+    ("cosa", "POST", "/cosa/ai-governance/snapshot"),
 }
 
 

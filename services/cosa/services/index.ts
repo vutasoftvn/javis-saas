@@ -10,3 +10,4 @@ export * from "./control-plane-mission.service";
 export * from "./control-plane-worker.service";
 export * from "./control-plane-watch.service";
 export * from "./control-plane-delivery.service";
+export * from "./ai-governance-snapshot.service";
