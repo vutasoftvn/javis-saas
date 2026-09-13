@@ -1093,4 +1093,47 @@ export const securityPostureDossierRevisions = operatingSchema.table("security_p
   ixDossier: index("idx_security_posture_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
 }));
 
+export const legalIssueDossiers = operatingSchema.table("legal_issue_dossiers", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  status: varchar("status", { length: 24 }).default("DRAFT").notNull(), // DRAFT | CONFIRMED | SUPERSEDED
+  currentVersion: integer("current_version").default(1).notNull(),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixProj: index("idx_legal_issue_dossiers_proj").on(t.workspaceId, t.projectId, t.updatedAt),
+  // 1 dossier duy nhất mỗi Project (xem migration 016).
+  uixProject: uniqueIndex("uix_legal_issue_dossiers_project").on(t.workspaceId, t.projectId),
+}));
+
+export const legalIssueDossierRevisions = operatingSchema.table("legal_issue_dossier_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  dossierId: bigint("dossier_id", { mode: "bigint" }).notNull().references(() => legalIssueDossiers.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  status: varchar("status", { length: 24 }).notNull(), // DRAFT | CONFIRMED
+  // Fixed enum (xem CHECK constraint ở migration 016), KHÔNG free text.
+  issueCategory: varchar("issue_category", { length: 32 }).notNull(),
+  // Tham chiếu bản ghi legal thật đã validate qua Finance-Legal read service
+  // — KHÔNG sao chép nội dung, chỉ {recordType, recordId}.
+  legalRecordRefs: jsonb("legal_record_refs").default([]).notNull(),
+  // Fixed enum — KHÔNG BAO GIỜ null khi applicability không xác định được
+  // (dùng UNKNOWN/ESCALATED).
+  applicabilityStatus: varchar("applicability_status", { length: 24 }).default("UNKNOWN").notNull(),
+  jurisdiction: varchar("jurisdiction", { length: 64 }),
+  redactedQuestion: text("redacted_question").notNull(),
+  reasonCode: varchar("reason_code", { length: 32 }).notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  supersedesRevisionId: bigint("supersedes_revision_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixVer: uniqueIndex("uix_legal_issue_dossier_revisions_ver").on(t.dossierId, t.version),
+  ixDossier: index("idx_legal_issue_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
+}));
+
 

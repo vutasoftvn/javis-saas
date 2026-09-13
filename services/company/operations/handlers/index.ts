@@ -24,3 +24,4 @@ export * from "./executive-deliberation.handler";
 export * from "./product-decision-dossier.handler";
 export * from "./people-risk-dossier.handler";
 export * from "./security-posture.handler";
+export * from "./legal-issue-dossier.handler";
