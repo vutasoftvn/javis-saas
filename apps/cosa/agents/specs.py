@@ -17,6 +17,8 @@ __all__ = [
     "COSA_EXECUTIVE_CHRO_PROMPT",
     "COSA_EXECUTIVE_CPO_AGENT_SPEC",
     "COSA_EXECUTIVE_CPO_PROMPT",
+    "COSA_EXECUTIVE_CRO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CRO_PROMPT",
     "COSA_FINANCE_AGENT_SPEC",
     "COSA_FINANCE_PROMPT",
     "COSA_DATA_AGENT_SPEC",
@@ -412,6 +414,33 @@ COSA_SALES_AGENT_SPEC = AgentSpec(
     prompt_ref=COSA_SALES_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Sales Specialist Agent"},
+)
+
+COSA_EXECUTIVE_CRO_PROMPT = PromptSpec(
+    id="cosa.executive.cro.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Kinh doanh (Chief Revenue Officer Advisor). "
+        "Đánh giá pipeline doanh thu, năng lực sales enablement, ràng buộc giá và mức độ liên kết "
+        "RevOps trong các phiên thảo luận của Ban điều hành, chỉ dựa trên dữ liệu CRM đã được "
+        "phân quyền/redact của Project (L1_PROPOSE, advisory-only) — luôn nêu rõ khoảng trống "
+        "bằng chứng/giả định trong mỗi phản hồi. "
+        "Tuyệt đối không có quyền thay đổi giá, phê duyệt hợp đồng, ghi/sửa dữ liệu CRM hay gửi "
+        "tin nhắn ra ngoài."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CRO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.cro",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CRO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_CRO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA CRO Advisor", "advisory_only": True},
 )
 
 COSA_CODING_PROMPT = PromptSpec(
@@ -842,6 +871,7 @@ COSA_EXECUTIVE_CAIO_AGENT_SPEC = AgentSpec(
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
     "cosa.executive.cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
+    "cosa.executive.cro": COSA_EXECUTIVE_CRO_AGENT_SPEC,
     "cosa.executive.chro": COSA_EXECUTIVE_CHRO_AGENT_SPEC,
     "cosa.executive.ciso": COSA_EXECUTIVE_CISO_AGENT_SPEC,
     "cosa.executive.gc": COSA_EXECUTIVE_GC_AGENT_SPEC,

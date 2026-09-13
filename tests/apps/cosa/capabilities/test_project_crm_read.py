@@ -46,21 +46,20 @@ async def test_project_crm_read_success():
 
     def mock_handler(request: httpx.Request) -> httpx.Response:
         captured_requests.append(request)
-        if request.url.path == "/commercial/projects/1001/leads":
+        if request.url.path == "/commercial/projects/1001/crm/leads":
             return httpx.Response(
                 200,
                 json={
-                    "items": [
+                    "leads": [
                         {"id": "lead_1", "name": "Acme Lead", "stage": "NEW"},
                     ],
-                    "total": 1,
                 },
             )
-        if request.url.path == "/commercial/projects/1001/lead-field-definitions":
+        if request.url.path == "/commercial/projects/1001/crm/schema":
             return httpx.Response(
                 200,
                 json={
-                    "items": [
+                    "customFields": [
                         {"id": "def_1", "stableKey": "budget", "label": "Budget"},
                     ],
                 },

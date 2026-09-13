@@ -275,8 +275,23 @@ không bị phá vỡ.
 | `cdo` (data) | **VERIFIED** | `pytest tests/e2e/test_cdo_data_profile.py -v` | 3 passed |
 | `caio` (ai_governance) | **VERIFIED** | `PGPASSWORD=<POSTGRES_PASSWORD thật trong .env> pytest tests/e2e/test_caio_ai_governance_profile.py -v` | 5 passed (cần disposable Postgres cluster thật; chạy lần đầu KHÔNG set `PGPASSWORD` khớp `.env` → 4 error "password authentication failed" — đây KHÔNG phải lỗi code, là thiếu bước môi trường đã biết, xem `docs/operations/executive-advisory-board-runbook.md` §8) |
 
-**Tất cả 8/8 role VERIFIED** theo đúng định nghĩa của kế hoạch: "process E2E
-có successful exit thật", không phải static check xanh.
+**Tất cả 8/8 role VERIFIED (Company activation plane)** theo đúng định nghĩa
+của kế hoạch: "process E2E có successful exit thật", không phải static check
+xanh. **Cảnh báo phạm vi (sửa 2026-09-13, final whole-branch review):** các
+E2E ở bảng trên (`tests/e2e/test_*_profile.py`) chỉ chạy qua roster/dossier
+CRUD, tenancy và frame-queuing phía `services/company` — KHÔNG có test nào
+trong số đó thực sự dispatch một agent run thật qua
+`apps/cosa/worker/handlers.py` → `SpecResolver.resolve_exact("agent", ...)`.
+Vì `seed_cosa_agent_specs()` (xem mục 5 dưới, đã sửa) chưa từng publish 15/16
+AgentSpec mới của portfolio này trước bản sửa 2026-09-13, agent-execution
+plane của cả 8 role đã KHÔNG resolvable trong suốt thời gian bảng này được
+ghi — nhãn "VERIFIED" ở đây chỉ đúng cho activation plane, không phải cho
+agent execution plane. Sau bản sửa 2026-09-13, agent execution plane được
+unblock (mọi `AGENT_PROFILE_SPECS` resolve được — xác nhận bằng script seed
+vào `InMemorySpecRegistryRepository` rồi gọi `SpecResolver.resolve_exact()`
+cho cả 23 profile) nhưng vẫn CHƯA có process E2E nào tự chạy 1 agent run thật
+end-to-end để đóng gap này — xem báo cáo
+`.superpowers/sdd/2026-09-12-caio-ai-governance-profile-and-executive-activation/final-review-fix-report.md`.
 
 ### 3. `make verify` — kết quả từng target, phân loại rõ Xanh / Đỏ-đã-biết / Đỏ-MỚI
 
@@ -321,28 +336,58 @@ cập nhật theo).
 
 | Role | ACCEPTED | IMPLEMENTED | WIRED | VERIFIED | PRODUCTION |
 |---|---|---|---|---|---|
-| cro/sales | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — `COSA_EXECUTIVE_CRO_AGENT_SPEC` NẰM TRONG `COSA_DEPLOYED_AGENT_SPECS` (đã wired production deploy list) |
-| vpe/coding | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — spec CHƯA nằm trong `COSA_DEPLOYED_AGENT_SPECS` (chỉ `EXECUTIVE_AGENT_SPECS`) |
-| cpo/product | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
-| chro/people | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
-| ciso/security | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
-| gc/legal | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
-| cdo/data | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
-| caio/ai_governance | ✅ | ✅ | ✅ | ✅ (E2E pass) | Không xác nhận — như trên |
+| cro/sales | ✅ | ✅ (sửa 2026-09-13 — xem dưới) | ✅ | ✅ (E2E pass, Company activation plane) | Không xác nhận trước 2026-09-13 |
+| vpe/coding | ✅ | ✅ | ✅ | ✅ (E2E pass, Company activation plane) | Không xác nhận trước 2026-09-13 |
+| cpo/product | ✅ | ✅ | ✅ | ✅ (E2E pass, Company activation plane) | Không xác nhận trước 2026-09-13 |
+| chro/people | ✅ | ✅ | ✅ | ✅ (E2E pass, Company activation plane) | Không xác nhận trước 2026-09-13 |
+| ciso/security | ✅ | ✅ | ✅ | ✅ (E2E pass, Company activation plane) | Không xác nhận trước 2026-09-13 |
+| gc/legal | ✅ | ✅ | ✅ | ✅ (E2E pass, Company activation plane) | Không xác nhận trước 2026-09-13 |
+| cdo/data | ✅ | ✅ | ✅ | ✅ (E2E pass, Company activation plane) | Không xác nhận trước 2026-09-13 |
+| caio/ai_governance | ✅ | ✅ | ✅ | ✅ (E2E pass, Company activation plane) | Không xác nhận trước 2026-09-13 |
 
 `ACCEPTED` chỉ xác nhận quyết định kiến trúc đã chốt trong tài liệu này;
-`VERIFIED` ở đây nghĩa là process E2E thành công thật, không phải static
-check xanh; `PRODUCTION` KHÔNG được suy diễn từ 4 trục kia — 7/8 role
-(tất cả trừ `cro`) chưa được xác nhận nằm trong danh sách agent spec triển
-khai production thật (`COSA_DEPLOYED_AGENT_SPECS`), đây là open item portfolio-
-wide đã nêu 7 lần qua các Known Limitations của Task 4 mỗi role.
+`VERIFIED` ở đây nghĩa là process E2E thành công thật cho Company activation
+plane (roster, dossier CRUD, tenancy, frame queuing) — KHÔNG phải bằng chứng
+1 agent run thật thực thi end-to-end; agent execution plane không có process
+E2E riêng (open item, vẫn còn sau bản sửa 2026-09-13, xem ghi chú ở mục 2).
+
+**Sửa 2026-09-13 (final whole-branch review — đã lỗi thời khi viết lần đầu):**
+Dòng gốc của bảng này từng ghi sai rằng `COSA_EXECUTIVE_CRO_AGENT_SPEC` đã
+"NẰM TRONG `COSA_DEPLOYED_AGENT_SPECS` (đã wired production deploy list)" —
+**sai hai lần**: (1) `COSA_EXECUTIVE_CRO_AGENT_SPEC` chưa từng tồn tại trong
+`apps/cosa/agents/specs.py` trước bản sửa này (được tạo mới ngày 2026-09-13,
+xem `final-review-fix-report.md`); và (2) có mặt trong `COSA_DEPLOYED_AGENT_SPECS`
+KHÔNG BAO GIỜ là cơ chế khiến 1 AgentSpec resolvable lúc runtime — đó chỉ là
+tuple dùng để verify `pinned_skills` trong `seed_cosa_runtime_specs()`. Cơ chế
+DUY NHẤT khiến `SpecResolver.resolve_exact("agent", ...)` tìm thấy 1 spec là
+được `apps/cosa/agents/seed.py::seed_cosa_agent_specs()` publish vào registry
+— hàm này chưa từng được cập nhật qua cả 8 role plan, nên toàn bộ 15 AgentSpec
+mới của portfolio (8 functional + 7 executive đã có sẵn) đều KHÔNG resolvable
+ở runtime cho tới bản sửa 2026-09-13. Sau bản sửa: `seed_cosa_agent_specs()`
+publish đủ cả 16 spec mới (bao gồm `COSA_EXECUTIVE_CRO_AGENT_SPEC` mới tạo),
+và cả 23 entry của `AGENT_PROFILE_SPECS` được xác nhận resolve được qua
+`InMemorySpecRegistryRepository` + `SpecResolver.resolve_exact()`. `cro` không
+còn là ngoại lệ "khá hơn" — nó từng là role DUY NHẤT thiếu hẳn AgentSpec Python
+(không chỉ thiếu seed như 7 role kia), nay đã có spec đầy đủ và mapping trong
+`AGENT_PROFILE_SPECS["cro"]`. Chi tiết đầy đủ:
+`.superpowers/sdd/2026-09-12-caio-ai-governance-profile-and-executive-activation/final-review-fix-report.md`.
 
 ### 5. Open item portfolio-wide cần task riêng (không sửa trong Task 5)
 
-1. **`COSA_DEPLOYED_AGENT_SPECS` thiếu 7 spec** (`vpe`, `cpo`, `chro`, `ciso`,
-   `gc`, `cdo`, `caio`) — cần quyết định kiến trúc tường minh (thêm vào danh
-   sách deploy production hay giữ nguyên là gap có chủ đích) trước khi coi các
-   role này là `PRODUCTION`-ready.
+1. ~~`COSA_DEPLOYED_AGENT_SPECS` thiếu 7 spec (`vpe`, `cpo`, `chro`, `ciso`,
+   `gc`, `cdo`, `caio`) — cần quyết định kiến trúc...`~~ **Đã sửa 2026-09-13,
+   và tiền đề của mục này SAI ngay từ đầu:** `COSA_DEPLOYED_AGENT_SPECS` không
+   phải, và chưa từng là, cơ chế quyết định resolvability/production của 1
+   AgentSpec — đó chỉ là tuple dùng để verify `pinned_skills` trong
+   `seed_cosa_runtime_specs()`. Cơ chế thật là danh sách publish tường minh
+   trong `apps/cosa/agents/seed.py::seed_cosa_agent_specs()`, và hàm đó CHƯA
+   BAO GIỜ được cập nhật cho bất kỳ role nào trong 8 role — đây là gap thật sự
+   (Critical finding của final whole-branch review), không phải gap của riêng
+   `COSA_DEPLOYED_AGENT_SPECS`. Đã sửa: `seed_cosa_agent_specs()` giờ publish
+   đủ cả 8 functional spec + 8 executive spec (bao gồm `COSA_EXECUTIVE_CRO_AGENT_SPEC`
+   mới tạo); mọi entry của `AGENT_PROFILE_SPECS` (23 profile) đã xác nhận
+   resolve được. Chi tiết:
+   `.superpowers/sdd/2026-09-12-caio-ai-governance-profile-and-executive-activation/final-review-fix-report.md`.
 2. **Read-capability HTTP-auth-unreachability** (portfolio-wide, cả 8 role):
    `*_read` capability gọi Company qua ambient COSA-delegation auth nhưng
    endpoint đọc dossier của Company bị khoá bởi `requireWorkspaceAccess` (chỉ
