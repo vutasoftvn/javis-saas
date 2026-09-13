@@ -319,6 +319,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | PUT | `/operations/key-results/:id` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/key-results/:id/checkin` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/kr-contributions/:id/verify` | company | ✓ |  | services/company/operations/handlers/task-outcome-review.handler.ts |
+| POST | `/operations/legal-issue-dossiers` | company | ✓ |  | services/company/operations/handlers/legal-issue-dossier.handler.ts |
+| POST | `/operations/legal-issue-dossiers/:id/revisions` | company | ✓ |  | services/company/operations/handlers/legal-issue-dossier.handler.ts |
 | GET | `/operations/objectives` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | POST | `/operations/objectives` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
 | DELETE | `/operations/objectives/:id` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
@@ -347,6 +349,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/operations/projects/:projectId/executive-roles/:roleKey/activate` | company | ✓ |  | services/company/operations/handlers/executive-role-activation.handler.ts |
 | POST | `/operations/projects/:projectId/executive-roles/:roleKey/disable` | company | ✓ |  | services/company/operations/handlers/executive-role-activation.handler.ts |
 | POST | `/operations/projects/:projectId/founder-trial/experiments` | company | ✓ |  | services/company/operations/strategy/handlers/experiment.handler.ts |
+| GET | `/operations/projects/:projectId/legal-issue-dossier` | company | ✓ |  | services/company/operations/handlers/legal-issue-dossier.handler.ts |
 | PATCH | `/operations/projects/:projectId/lifecycle` | company | ✓ |  | services/company/operations/handlers/project-lifecycle.handler.ts |
 | GET | `/operations/projects/:projectId/lifecycle/events` | company | ✓ |  | services/company/operations/handlers/project-lifecycle.handler.ts |
 | GET | `/operations/projects/:projectId/operating-loop` | company | ✓ |  | services/company/operations/handlers/project-operating-loop.handler.ts |

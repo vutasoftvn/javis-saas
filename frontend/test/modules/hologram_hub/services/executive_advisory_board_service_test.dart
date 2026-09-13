@@ -237,6 +237,52 @@ void main() {
     expect(ciso.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
   });
 
+  test('GC remains unavailable until Company reports active Legal profile', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'roles': [
+              {
+                'roleKey': 'gc',
+                'label': 'General Counsel',
+                'advisoryRemit': 'Legal and regulatory issue spotting, policy risk resolution, escalation',
+                'displayState': 'UNAVAILABLE',
+                'runtimeReadiness': 'READY',
+                'requiredProfileKey': 'legal',
+                'version': 1,
+                'disabledReason': 'UNDERLYING_PROFILE_UNAVAILABLE',
+              },
+            ],
+          },
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-09-13T12:00:00Z',
+            'sources': [
+              {'kind': 'company_db', 'ref': 'operating'}
+            ],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final service = ExecutiveAdvisoryBoardService(client: requestClient);
+
+    final result = await service.fetchRoles('proj-101');
+    expect(result, isA<ApiSuccess<List<ExecutiveAdvisorRole>>>());
+    final roles = (result as ApiSuccess<List<ExecutiveAdvisorRole>>).data;
+    expect(roles, hasLength(1));
+
+    final gc = roles[0];
+    expect(gc.roleKey, 'gc');
+    expect(gc.activationState, ExecutiveActivationState.unavailable);
+    expect(gc.underlyingProfileKey, 'legal');
+    expect(gc.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
+  });
+
   test('activates an executive role and decodes mutation receipt truthfully', () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'POST');

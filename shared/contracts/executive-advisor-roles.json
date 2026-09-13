@@ -152,7 +152,7 @@
         "skillpack:executive/gc-advisor@1.0.0"
       ],
       "advisoryOnly": true,
-      "runtimeReadiness": "PENDING_LEGAL_PROFILE",
+      "runtimeReadiness": "READY",
       "sourceProvenance": "superpowers:executive-advisory-board"
     },
     {

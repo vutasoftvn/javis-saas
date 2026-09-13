@@ -347,6 +347,28 @@ describe("Legal Issue Dossier Service", () => {
     expect(snapshot.revision).toBe(2);
   });
 
+  // Ghi lại tường minh hành vi full-replace (KHÔNG merge) của append — theo
+  // đúng pattern known-limitations #10 của GC plan (mirror CISO fix-wave).
+  // Dossier khởi tạo ở beforeEach có 1 legalRecordRefs entry (obligationId);
+  // append một revision KHÔNG kèm legalRecordRefs phải xoá sạch reference cũ
+  // (mặc định về mảng rỗng), không âm thầm carry-over từ revision trước —
+  // đây là hành vi hiện tại đã kế thừa từ security-posture.service.ts/
+  // people-risk-dossier.service.ts (không phải regression của task này),
+  // nhưng chưa từng được pin bằng test riêng trước final review.
+  it("documents full-replace (not merge) append semantics: an append without legalRecordRefs drops the prior reference", async () => {
+    const appended = await appendLegalIssueRevision(founderCtx, dossierId, 1, {
+      issueCategory: draft.issueCategory,
+      redactedQuestion: "Follow-up: is the vendor MSA still under review?",
+      reasonCode: "REFERENCE_UPDATED",
+    } as never);
+
+    expect(appended.revision).toBe(2);
+    expect(appended.legalRecordRefs).toEqual([]);
+
+    const snapshot = await readLegalIssueSnapshot(founderCtx, projectId);
+    expect(snapshot.legalRecordRefs).toEqual([]);
+  });
+
   it("rejects append to a dossier that does not exist in this workspace", async () => {
     await expect(
       appendLegalIssueRevision(founderCtx, "999999999999999999", 1, {

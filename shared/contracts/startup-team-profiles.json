@@ -74,6 +74,12 @@
       "runtimeReadiness": "READY"
     },
     {
+      "key": "legal",
+      "label": "Legal",
+      "defaultMode": "TEMPLATE",
+      "runtimeReadiness": "READY"
+    },
+    {
       "key": "customer_support",
       "label": "Customer Support",
       "defaultMode": "TEMPLATE",
