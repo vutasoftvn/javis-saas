@@ -62,7 +62,7 @@ async def test_postgres_workflow_definition_survives_repository_restart(factory)
 
     # Simulate restart with new repo instance
     second = PostgresWorkflowDefinitionRepository(factory)
-    loaded = await second.get_by_hash(saved.definition_hash)
+    loaded = await second.get_by_hash(saved.definition_hash, workspace_id="ws-test-1")
     assert loaded is not None
     assert loaded.workflow_id == spec.id
     assert loaded.version == spec.version
@@ -153,4 +153,3 @@ async def test_cross_workspace_definition_isolation_returns_none(factory):
     found_hash_a = await repo.get_by_hash(spec.definition_hash, workspace_id="ws-tenant-a")
     assert found_hash_a is not None
     assert found_hash_a.workspace_id == "ws-tenant-a"
-

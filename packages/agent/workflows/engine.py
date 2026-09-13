@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from collections.abc import Callable
 from typing import Any
 
-from agent.governance.contracts import AutonomyLevel
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.governance.store import GovernanceStateStore
 from agent.workflows.approval_step import ApprovalGateStep
@@ -247,13 +245,12 @@ class WorkflowEngine:
                     or step_spec.action
                     or (step_spec.id if step_spec.id in self._registered_handlers else None)
                 )
-                if target_handler and target_handler in self._registered_handlers:
-                    inner_fn = self._registered_handlers[target_handler]
-                else:
-                    async def _default_retry_fn(s: Any) -> Any:
-                        return {}
-
-                    inner_fn = _default_retry_fn
+                if not target_handler or target_handler not in self._registered_handlers:
+                    raise UnsupportedWorkflowStepError(
+                        step_spec.id,
+                        "RETRY step has no registered retry target",
+                    )
+                inner_fn = self._registered_handlers[target_handler]
 
                 compiled_steps.append(
                     RetryWorkflowStep(

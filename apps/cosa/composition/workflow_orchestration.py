@@ -7,6 +7,7 @@ from typing import Any
 from agent.capabilities.gateway import CapabilityGateway
 from agent.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent.workflows.engine import WorkflowEngine
+from agent.workflows.repository import WorkflowDefinitionRepository
 
 
 class WorkflowOrchestration:
@@ -18,17 +19,34 @@ class WorkflowOrchestration:
         workflow_engine: WorkflowEngine,
         workflow_registry: WorkflowDefinitionRegistry,
         approval_service: Any,
+        workflow_definition_repository: WorkflowDefinitionRepository | None = None,
     ) -> None:
         self.gateway = gateway
         self.workflow_engine = workflow_engine
         self.workflow_registry = workflow_registry
         self.approval_service = approval_service
+        self.workflow_definition_repository = workflow_definition_repository
 
     def get_executor_health(self) -> dict[str, dict[str, Any]]:
         """Health/readiness status for all registered V1 workflow executors."""
+        has_authority_resolver = callable(
+            getattr(getattr(self.workflow_engine, "_resolver", None), "resolve_authority", None)
+        )
+        has_skill_resolver = callable(
+            getattr(getattr(self.workflow_engine, "_resolver", None), "resolve_skills", None)
+        )
+        has_definition_repository = self.workflow_definition_repository is not None
+        handler_count = len(getattr(self.workflow_engine, "_registered_handlers", {}))
         return {
             "agent": {
-                "status": "ready" if getattr(self.workflow_engine, "_kernel", None) is not None else "degraded",
+                "status": (
+                    "ready"
+                    if getattr(self.workflow_engine, "_kernel", None) is not None
+                    and has_authority_resolver
+                    and has_skill_resolver
+                    and has_definition_repository
+                    else "degraded"
+                ),
                 "registered": True,
             },
             "tool_call": {
@@ -42,10 +60,10 @@ class WorkflowOrchestration:
             "deterministic": {
                 "status": "ready",
                 "registered": True,
-                "handler_count": len(getattr(self.workflow_engine, "_registered_handlers", {})),
+                "handler_count": handler_count,
             },
             "retry": {
-                "status": "ready",
+                "status": "ready" if handler_count else "degraded",
                 "registered": True,
             },
         }
@@ -73,27 +91,38 @@ class WorkflowOrchestration:
         Obtains builders from the explicit engine registry; must never synthesize
         generic fallbacks for arbitrary input steps.
         """
-        resolved_spec = spec
-        if resolved_spec is None and self.workflow_registry is not None:
-            asset_id = getattr(manifest, "workflow_asset_id", None)
-            version = getattr(manifest, "workflow_version", None)
-            if asset_id:
-                try:
-                    resolved_spec = self.workflow_registry.get_version(asset_id, version or "1.0.0")
-                except Exception:
-                    resolved_spec = None
+        if self.workflow_definition_repository is None:
+            raise RuntimeError("Durable workflow definition repository is required for manifest execution")
 
-        if resolved_spec is None:
-            manifest_json = getattr(manifest, "manifest_json", {})
-            if manifest_json and "workflow_spec" in manifest_json:
-                from agent.workflows.schema import WorkflowSpec
-
-                resolved_spec = WorkflowSpec.model_validate(manifest_json["workflow_spec"])
-
-        if resolved_spec is None:
+        record = await self.workflow_definition_repository.get_definition(
+            manifest.workflow_asset_id,
+            manifest.workflow_version,
+            workspace_id=manifest.workspace_id,
+        )
+        if record is None:
             raise ValueError(
-                f"Workflow spec not found for manifest {getattr(manifest, 'run_id', 'unknown')}"
+                f"Durable workflow definition not found for manifest {getattr(manifest, 'run_id', 'unknown')}"
             )
+
+        from agent.workflows.schema import WorkflowSpec
+
+        resolved_spec = WorkflowSpec.model_validate(record.spec_data)
+        resolved_hash = resolved_spec.definition_hash or resolved_spec.compute_hash()
+        if (
+            resolved_spec.id != manifest.workflow_asset_id
+            or resolved_spec.version != manifest.workflow_version
+            or resolved_hash != record.definition_hash
+            or record.definition_hash != manifest.workflow_definition_hash
+        ):
+            raise ValueError("Resolved workflow definition does not match the exact manifest definition hash pin")
+        if spec is not None:
+            supplied_hash = getattr(spec, "definition_hash", None) or spec.compute_hash()
+            if (
+                spec.id != resolved_spec.id
+                or spec.version != resolved_spec.version
+                or supplied_hash != resolved_hash
+            ):
+                raise ValueError("Caller-supplied workflow definition does not match the durable manifest pin")
 
         state = dict(initial_state or {})
         state["_manifest"] = manifest
@@ -114,6 +143,7 @@ class IWorkflowOrchestration:
     workflow_engine: WorkflowEngine
     workflow_registry: WorkflowDefinitionRegistry
     approval_service: Any
+    workflow_definition_repository: WorkflowDefinitionRepository | None
 
     def get_executor_health(self) -> dict[str, dict[str, Any]]:
         ...

@@ -52,5 +52,6 @@ async def test_service_publish_validates_hash_mismatch(service):
         await service.publish(
             workspace_id="ws-1",
             asset_id=saved.asset_id,
+            version=saved.version,
             expected_hash="sha256:wronghash",
         )

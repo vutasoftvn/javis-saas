@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.contracts.run import RunRequest, RunResult, RunStatus
+from agent.contracts.run import RunRequest
 from agent.governance.contracts import PinnedSpecIdentity
 from agent.workflows.models import StepOutcome, StepStatus
 
@@ -29,85 +29,95 @@ class AgentWorkflowStep:
 
     async def run(self, state: dict[str, Any]) -> StepOutcome:
         manifest = state.get("_manifest") or state.get("manifest")
+        if manifest is None:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="Governed workflow manifest is required for an AGENT step",
+            )
         workspace_id = (
-            (manifest.workspace_id if manifest else None)
+            manifest.workspace_id
             or state.get("workspace_id")
-            or "default"
         )
         project_id = (
-            (manifest.project_id if manifest else None)
+            manifest.project_id
             or state.get("project_id")
-            or "default"
         )
         dep_id = (
             self._project_agent_deployment_id
-            or (manifest.project_agent_deployment_id if manifest else None)
+            or manifest.project_agent_deployment_id
             or state.get("project_agent_deployment_id")
         )
+        if not workspace_id or not project_id or not dep_id:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="AGENT step requires workspace, project, and project agent deployment authority",
+            )
+        if self._resolver is None or not hasattr(self._resolver, "resolve_authority"):
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="Live deployment authority resolver is required for an AGENT step",
+            )
 
         # 1. Authority resolution: verify live deployment status
         agent_spec_info: dict[str, Any] | None = None
-        if self._resolver is not None and hasattr(self._resolver, "resolve_authority") and dep_id:
-            try:
-                auth = await self._resolver.resolve_authority(workspace_id, project_id, dep_id)
-            except Exception as exc:
-                return StepOutcome(
-                    status=StepStatus.FAILED,
-                    error=f"Failed to resolve deployment authority for '{dep_id}': {exc}",
-                )
+        try:
+            auth = await self._resolver.resolve_authority(workspace_id, project_id, dep_id)
+        except Exception as exc:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error=f"Failed to resolve deployment authority for '{dep_id}': {exc}",
+            )
 
-            auth_state = auth.get("state")
-            if auth_state != "ACTIVE":
-                return StepOutcome(
-                    status=StepStatus.FAILED,
-                    error=f"Deployment '{dep_id}' is not active (status: {auth_state})",
-                )
+        auth_state = auth.get("state")
+        if auth_state != "ACTIVE":
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error=f"Deployment '{dep_id}' is not active (status: {auth_state})",
+            )
 
             # Check workspace and project matching
-            auth_ws = auth.get("workspaceId") or auth.get("workspace_id")
-            auth_proj = auth.get("projectId") or auth.get("project_id")
-            if auth_ws and auth_ws != workspace_id:
-                return StepOutcome(
-                    status=StepStatus.FAILED,
-                    error=f"Deployment workspace mismatch: expected {workspace_id}, got {auth_ws}",
-                )
-            if auth_proj and auth_proj != project_id:
-                return StepOutcome(
-                    status=StepStatus.FAILED,
-                    error=f"Deployment project mismatch: expected {project_id}, got {auth_proj}",
-                )
+        auth_ws = auth.get("workspaceId") or auth.get("workspace_id")
+        auth_proj = auth.get("projectId") or auth.get("project_id")
+        if auth_ws != workspace_id:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error=f"Deployment workspace mismatch: expected {workspace_id}, got {auth_ws}",
+            )
+        if auth_proj != project_id:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error=f"Deployment project mismatch: expected {project_id}, got {auth_proj}",
+            )
 
-            agent_spec_info = auth.get("agentSpec") or auth.get("agent_spec")
+        agent_spec_info = auth.get("agentSpec") or auth.get("agent_spec")
 
         # 2. Match pinned agent spec from manifest
-        pinned_specs = manifest.pinned_agent_specs if manifest else {}
-        spec_id = "default_agent"
-        version = "1.0.0"
-        definition_hash = "sha256:default"
-
-        if agent_spec_info:
-            spec_id = agent_spec_info.get("id", spec_id)
-            version = agent_spec_info.get("version", version)
-            definition_hash = (
-                agent_spec_info.get("definitionHash")
-                or agent_spec_info.get("definition_hash")
-                or definition_hash
+        pinned_specs = manifest.pinned_agent_specs
+        if not agent_spec_info or not pinned_specs:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="AGENT step requires a live AgentSpec and an exact manifest pin",
             )
-        elif pinned_specs:
-            first_key = next(iter(pinned_specs))
-            spec_id = first_key
-            spec_meta = pinned_specs[first_key]
-            if isinstance(spec_meta, dict):
-                version = spec_meta.get("version", version)
-                definition_hash = (
-                    spec_meta.get("definition_hash")
-                    or spec_meta.get("definitionHash")
-                    or definition_hash
-                )
+        spec_id = agent_spec_info.get("id")
+        version = agent_spec_info.get("version")
+        definition_hash = agent_spec_info.get("definitionHash") or agent_spec_info.get("definition_hash")
+        pinned_spec = pinned_specs.get(spec_id) if spec_id else None
+        if not isinstance(pinned_spec, dict):
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="Live AgentSpec is not pinned in the workflow manifest",
+            )
+        pinned_version = pinned_spec.get("version")
+        pinned_hash = pinned_spec.get("definition_hash") or pinned_spec.get("definitionHash")
+        if not spec_id or not version or not definition_hash or version != pinned_version or definition_hash != pinned_hash:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="Live AgentSpec does not match the exact manifest pin",
+            )
 
         # 3. Resolve skills through scoped resolver
         if self._resolver is not None and hasattr(self._resolver, "resolve_skills"):
-            skill_refs = manifest.pinned_skill_specs if manifest else {}
+            skill_refs = manifest.pinned_skill_specs
             if skill_refs:
                 try:
                     await self._resolver.resolve_skills(workspace_id, skill_refs)
@@ -116,6 +126,11 @@ class AgentWorkflowStep:
                         status=StepStatus.FAILED,
                         error=f"Skill resolution failed: {exc}",
                     )
+        elif manifest.pinned_skill_specs:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="Scoped skill resolver is required for pinned workflow skills",
+            )
 
         # 4. Construct PinnedSpecIdentity and RunRequest
         root_ref = PinnedSpecIdentity(

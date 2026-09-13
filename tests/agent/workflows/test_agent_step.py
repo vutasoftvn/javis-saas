@@ -3,10 +3,9 @@ from __future__ import annotations
 import pytest
 
 from agent.contracts.run import RunRequest, RunResult, RunStatus
-from agent.governance.contracts import PinnedSpecIdentity
 from agent.workflows.agent_step import AgentWorkflowStep
 from agent.workflows.manifest import make_manifest
-from agent.workflows.models import StepOutcome, StepStatus
+from agent.workflows.models import StepStatus
 
 AGENT_HASH = "sha256:agenthash1234567890abcdef1234567890abcdef1234567890abcdef12345678"
 
@@ -92,4 +91,40 @@ async def test_agent_step_rejects_inactive_deployment():
 
     assert outcome.status == StepStatus.FAILED
     assert "not active" in (outcome.error or "").lower()
+    assert fake_kernel.request is None
+
+
+@pytest.mark.asyncio
+async def test_agent_step_fails_closed_without_live_authority_resolver():
+    fake_kernel = FakeKernel()
+    step = AgentWorkflowStep(resolver=None, kernel=fake_kernel)
+
+    outcome = await step.run(state_for_manifest())
+
+    assert outcome.status == StepStatus.FAILED
+    assert "authority" in (outcome.error or "").lower()
+    assert fake_kernel.request is None
+
+
+@pytest.mark.asyncio
+async def test_agent_step_rejects_live_authority_that_drifted_from_manifest_pin():
+    fake_kernel = FakeKernel()
+    resolver = FakeResolver(
+        authority_data={
+            "state": "ACTIVE",
+            "workspaceId": "ws-1",
+            "projectId": "p-1",
+            "agentSpec": {
+                "id": "agent.analyst",
+                "version": "2.0.0",
+                "definitionHash": "sha256:drifted-agent-hash",
+            },
+        }
+    )
+    step = AgentWorkflowStep(resolver=resolver, kernel=fake_kernel)
+
+    outcome = await step.run(state_for_manifest())
+
+    assert outcome.status == StepStatus.FAILED
+    assert "pin" in (outcome.error or "").lower()
     assert fake_kernel.request is None

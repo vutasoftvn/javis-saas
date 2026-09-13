@@ -83,6 +83,25 @@ class CompanyServiceClient:
     async def list_tasks(self, workspace_id: str) -> dict[str, Any]:
         return await self.get("/operations/tasks", params={"workspaceId": workspace_id})
 
+    async def get_project_agent_deployment_authority(
+        self,
+        workspace_id: str,
+        project_id: str,
+        project_agent_deployment_id: str,
+    ) -> dict[str, Any]:
+        """Resolve a live ProjectAgentDeployment authority pin for workflow execution."""
+        service_token = os.environ.get(
+            "COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token"
+        )
+        return await self.get(
+            f"/internal/operations/projects/{project_id}/agent-deployments/"
+            f"{project_agent_deployment_id}/deployment-authority",
+            headers={
+                "X-Workspace-Id": workspace_id,
+                "X-Service-Token": service_token,
+            },
+        )
+
     async def issue_agent_authorization_ticket(
         self,
         workspace_id: str,

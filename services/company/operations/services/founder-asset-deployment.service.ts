@@ -104,6 +104,8 @@ export interface ProjectWorkflowBindingDto {
 }
 
 export interface ProjectDeploymentAuthority {
+  readonly workspaceId: string;
+  readonly projectAgentDeploymentId: string;
   readonly workspaceAgentId: string;
   readonly workforceMemberId: string;
   readonly agentSpec: { id: string; version: string; definitionHash: string };
@@ -111,6 +113,55 @@ export interface ProjectDeploymentAuthority {
   readonly projectId: string;
   readonly state: "ACTIVE" | "PAUSED" | "RETIRED";
   readonly capabilityRestrictions?: readonly any[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isExactWorkflowAssetReference(
+  value: unknown,
+  workflowAssetId: string,
+  workflowAssetVersion: string,
+  workflowDefinitionHash: string
+): boolean {
+  return isRecord(value)
+    && value.assetId === workflowAssetId
+    && value.version === workflowAssetVersion
+    && value.definitionHash === workflowDefinitionHash;
+}
+
+function isSuccessfulPublishedWorkflowReceipt(
+  event: typeof founderAssetEvents.$inferSelect,
+  input: {
+    workflowAssetId: string;
+    workflowAssetVersion: string;
+    workflowDefinitionHash: string;
+  }
+): boolean {
+  if (
+    event.projectId !== null
+    || event.command !== "PUBLISH"
+    || event.targetKind !== "WORKFLOW"
+    || event.afterHash !== input.workflowDefinitionHash
+    || !isExactWorkflowAssetReference(
+      event.targetRef,
+      input.workflowAssetId,
+      input.workflowAssetVersion,
+      input.workflowDefinitionHash
+    )
+  ) {
+    return false;
+  }
+
+  const metadata = isRecord(event.metadata) ? event.metadata : {};
+  return metadata.status === "SUCCESS"
+    && isExactWorkflowAssetReference(
+      metadata.updatedAssetRef,
+      input.workflowAssetId,
+      input.workflowAssetVersion,
+      input.workflowDefinitionHash
+    );
 }
 
 export async function createOperatingRole(
@@ -749,6 +800,26 @@ export async function bindWorkflowToProject(
   await validateProjectInWorkspace(wsId, projId);
 
   return db.transaction(async (tx) => {
+    const workflowReceipts = await tx
+      .select()
+      .from(founderAssetEvents)
+      .where(
+        and(
+          eq(founderAssetEvents.workspaceId, wsId),
+          eq(founderAssetEvents.command, "PUBLISH"),
+          eq(founderAssetEvents.targetKind, "WORKFLOW"),
+          eq(founderAssetEvents.afterHash, input.workflowDefinitionHash)
+        )
+      );
+    const hasPublishedReceipt = workflowReceipts.some((event) =>
+      isSuccessfulPublishedWorkflowReceipt(event, input)
+    );
+    if (!hasPublishedReceipt) {
+      throw APIError.invalidArgument(
+        "Workflow binding requires an exact successful workspace workflow publish receipt"
+      );
+    }
+
     const [existing] = await tx
       .select()
       .from(projectWorkflowBindings)
@@ -961,12 +1032,20 @@ export async function getProjectDeploymentAuthority(
   ctx: TenantContext,
   input: {
     projectId: string;
-    workspaceAgentId: string;
+    workspaceAgentId?: string;
+    projectAgentDeploymentId?: string;
   }
 ): Promise<ProjectDeploymentAuthority> {
   const wsId = BigInt(ctx.workspaceId);
   const projId = BigInt(input.projectId);
-  const agentId = BigInt(input.workspaceAgentId);
+  if (!input.workspaceAgentId && !input.projectAgentDeploymentId) {
+    throw APIError.invalidArgument("workspaceAgentId or projectAgentDeploymentId is required");
+  }
+  if (input.workspaceAgentId && input.projectAgentDeploymentId) {
+    throw APIError.invalidArgument("Provide exactly one deployment authority identifier");
+  }
+  const agentId = input.workspaceAgentId ? BigInt(input.workspaceAgentId) : null;
+  const deploymentId = input.projectAgentDeploymentId ? BigInt(input.projectAgentDeploymentId) : null;
 
   await validateProjectInWorkspace(wsId, projId);
 
@@ -994,7 +1073,9 @@ export async function getProjectDeploymentAuthority(
       and(
         eq(projectAgentDeployments.workspaceId, wsId),
         eq(projectAgentDeployments.projectId, projId),
-        eq(projectAgentDeployments.workspaceAgentId, agentId)
+        deploymentId
+          ? eq(projectAgentDeployments.id, deploymentId)
+          : eq(projectAgentDeployments.workspaceAgentId, agentId!)
       )
     )
     .limit(1);
@@ -1011,7 +1092,7 @@ export async function getProjectDeploymentAuthority(
       roleAgentBindings,
       and(
         eq(roleAgentBindings.roleId, projectRoleDeployments.roleId),
-        eq(roleAgentBindings.workspaceAgentId, agentId),
+        eq(roleAgentBindings.workspaceAgentId, deployment.workspaceAgentId),
         eq(roleAgentBindings.workspaceId, wsId)
       )
     )
@@ -1030,6 +1111,8 @@ export async function getProjectDeploymentAuthority(
       : "ACTIVE";
 
   return {
+    workspaceId: ctx.workspaceId,
+    projectAgentDeploymentId: deployment.deploymentId.toString(),
     workspaceAgentId: deployment.workspaceAgentId.toString(),
     workforceMemberId: deployment.workforceMemberId.toString(),
     agentSpec: {

@@ -3,7 +3,10 @@ import { sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { createTestWorkspaceWithMember, createSecondWorkspace } from "./_helpers";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
-import { getProjectDeploymentAuthorityApi } from "../handlers/founder-asset-deployment.handler";
+import {
+  getProjectDeploymentAuthorityApi,
+  getProjectDeploymentAuthorityByDeploymentApi,
+} from "../handlers/founder-asset-deployment.handler";
 import {
   createOperatingRole,
   createWorkspaceAgent,
@@ -72,7 +75,7 @@ describe("Founder Asset Deployment Handler", () => {
       reason: "Deploying tech lead role to project",
     });
 
-    await deployAgentToProject(ctx, {
+    const agentDeployment = await deployAgentToProject(ctx, {
       projectId: ws.projectId,
       workspaceAgentId: agent.id,
       projectRoleDeploymentId: roleDep.id,
@@ -97,6 +100,18 @@ describe("Founder Asset Deployment Handler", () => {
       roleIds: [role.id],
       projectId: ws.projectId,
       state: "ACTIVE",
+    });
+
+    const exactAuthority = await getProjectDeploymentAuthorityByDeploymentApi({
+      workspaceId: ws.workspaceId,
+      projectId: ws.projectId,
+      projectAgentDeploymentId: agentDeployment.id,
+      serviceToken: "dev-worker-service-token",
+    });
+    expect(exactAuthority).toMatchObject({
+      projectAgentDeploymentId: agentDeployment.id,
+      workspaceAgentId: agent.id,
+      projectId: ws.projectId,
     });
   });
 

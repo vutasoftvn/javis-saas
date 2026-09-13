@@ -12,6 +12,10 @@ import {
   pauseProjectDeployment,
   getProjectDeploymentAuthority,
 } from "../services/founder-asset-deployment.service";
+import {
+  handleAssetStatusCallback,
+  requestAssetPublish,
+} from "../services/founder-asset-authoring.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
 
 describe("Founder Asset Deployment Service", () => {
@@ -235,5 +239,60 @@ describe("Founder Asset Deployment Service", () => {
       effect: "DENY",
     });
   });
-});
 
+  it("binds only an exact workflow version and hash with a successful publish receipt", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const founderContext: TenantContext = {
+      workspaceId: ws.workspaceId,
+      userId: ws.userId,
+      membershipRole: "founder",
+      permissions: ["*"],
+      correlationId: "test-corr-workflow-receipt",
+      isAiAgent: false,
+    };
+    const workflowRef = {
+      assetId: "workflow.sales.review",
+      version: "0.1.0",
+      definitionHash: "sha256:workflow-sales-review-0-1-0",
+    };
+
+    await expect(
+      bindWorkflowToProject(founderContext, {
+        projectId: ws.projectId,
+        workflowAssetId: workflowRef.assetId,
+        workflowAssetVersion: workflowRef.version,
+        workflowDefinitionHash: workflowRef.definitionHash,
+        reason: "Attempt to bind an arbitrary workflow",
+        idempotencyKey: "bind-workflow-without-receipt",
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+
+    const publish = await requestAssetPublish(founderContext, {
+      assetKind: "WORKFLOW",
+      assetRef: workflowRef,
+      idempotencyKey: "publish-workflow-sales-review",
+      reason: "Publish reviewed sales workflow",
+    });
+    await handleAssetStatusCallback({
+      commandId: publish.commandId,
+      workspaceId: ws.workspaceId,
+      assetKind: "WORKFLOW",
+      operation: "PUBLISH",
+      status: "SUCCESS",
+      assetRef: workflowRef,
+    });
+
+    const binding = await bindWorkflowToProject(founderContext, {
+      projectId: ws.projectId,
+      workflowAssetId: workflowRef.assetId,
+      workflowAssetVersion: workflowRef.version,
+      workflowDefinitionHash: workflowRef.definitionHash,
+      reason: "Bind the published sales workflow",
+      idempotencyKey: "bind-published-workflow",
+    });
+
+    expect(binding.workflowAssetId).toBe(workflowRef.assetId);
+    expect(binding.workflowAssetVersion).toBe(workflowRef.version);
+    expect(binding.workflowDefinitionHash).toBe(workflowRef.definitionHash);
+  });
+});

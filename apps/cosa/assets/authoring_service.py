@@ -17,6 +17,7 @@ from packages.agent.assets.contracts import (
     WorkspaceAssetVersion,
 )
 from packages.agent.assets.repository import WorkspaceAssetRepository
+from packages.agent.workflows.repository import WorkflowDefinitionRepository
 
 
 class WorkflowPublishDisabledError(Exception):
@@ -29,10 +30,12 @@ class AuthoringService:
         repository: WorkspaceAssetRepository,
         evaluation_service: EvaluationService,
         spec_registry: Any | None = None,
+        workflow_definition_repository: WorkflowDefinitionRepository | None = None,
     ) -> None:
         self._repository = repository
         self._evaluation_service = evaluation_service
         self._spec_registry = spec_registry
+        self._workflow_definition_repository = workflow_definition_repository
 
     async def edit(
         self,
@@ -213,11 +216,7 @@ class AuthoringService:
             )
 
         # Check if asset is a workflow:
-        is_workflow = (
-            getattr(item, "kind", None) in (AssetKind.WORKFLOW, "WORKFLOW")
-            or asset_id.startswith("wf.")
-            or "workflow" in asset_id.lower()
-        )
+        is_workflow = item.kind == AssetKind.WORKFLOW
 
         # Verify evaluation
         latest_eval = await self._repository.get_latest_evaluation(workspace_id, asset_id, item.version)
@@ -258,4 +257,24 @@ class AuthoringService:
                     f"Workflow publish validation failed: {'; '.join(val_res.errors)}"
                 )
 
-        return await self._repository.publish(workspace_id, asset_id, expected_hash)
+            if self._workflow_definition_repository is None:
+                raise WorkflowPublishDisabledError(
+                    "Workflow publish requires a durable workflow definition repository"
+                )
+
+            # Asset version is the canonical identity surfaced to Company.
+            # Persist that exact asset hash in the executable definition so a
+            # Project binding and a run manifest pin the same immutable body.
+            persisted_spec = spec.model_copy(update={"definition_hash": item.definition_hash})
+            definition = await self._workflow_definition_repository.save_definition(
+                persisted_spec,
+                workspace_id=workspace_id,
+            )
+            if definition.definition_hash != item.definition_hash:
+                raise WorkflowPublishDisabledError(
+                    "Durable workflow definition hash does not match the asset version hash"
+                )
+
+        return await self._repository.publish(
+            workspace_id, asset_id, item.version, expected_hash
+        )

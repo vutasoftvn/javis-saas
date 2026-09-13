@@ -52,6 +52,17 @@ function deepAssertNoSecret(value: unknown, path: string): void {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sameAssetRef(left: unknown, right: AssetRef | undefined): boolean {
+  if (!isRecord(left) || !right) return false;
+  return left.assetId === right.assetId
+    && left.version === right.version
+    && left.definitionHash === right.definitionHash;
+}
+
 export type AssetKind = "AGENT" | "SKILL" | "WORKFLOW";
 export type AssetOperation = "CREATE" | "CLONE" | "EDIT_DRAFT" | "EVALUATE" | "PUBLISH" | "RETIRE";
 
@@ -262,11 +273,32 @@ export async function handleAssetStatusCallback(
     );
 
   if (!existing.length) {
-    return;
+    throw APIError.notFound("Founder asset command not found for callback");
   }
 
   const current = existing[0];
-  const currentMeta = (current.metadata as any) || {};
+  if (current.targetKind !== payload.assetKind || current.command !== payload.operation) {
+    throw APIError.invalidArgument("Founder asset callback does not match the original command kind or operation");
+  }
+  const expectedProjectId = current.projectId?.toString();
+  if (expectedProjectId !== payload.projectId) {
+    throw APIError.invalidArgument("Founder asset callback project does not match the original command");
+  }
+  if (payload.operation === "PUBLISH" && !sameAssetRef(current.targetRef, payload.assetRef)) {
+    throw APIError.invalidArgument("Published asset callback must match the original exact asset reference");
+  }
+
+  const currentMeta = isRecord(current.metadata) ? current.metadata : {};
+  const currentStatus = currentMeta.status;
+  if (typeof currentStatus === "string" && currentStatus !== "PENDING") {
+    if (currentStatus !== payload.status) {
+      throw APIError.aborted("Founder asset callback conflicts with the terminal command status");
+    }
+    if (current.afterHash && payload.assetRef?.definitionHash !== current.afterHash) {
+      throw APIError.aborted("Founder asset callback conflicts with the terminal definition hash");
+    }
+    return;
+  }
 
   const updatedMeta = {
     ...currentMeta,

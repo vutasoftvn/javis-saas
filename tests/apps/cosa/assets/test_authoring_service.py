@@ -3,7 +3,6 @@ import pytest
 from apps.cosa.assets.authoring_service import AuthoringService, WorkflowPublishDisabledError
 from apps.cosa.assets.evaluation_service import EvaluationService
 from packages.agent.assets.contracts import (
-    AssetConflictError,
     AssetKind,
     AssetNotEvaluatedError,
     AssetNotFoundError,
@@ -13,6 +12,7 @@ from packages.agent.assets.contracts import (
     WorkspaceAssetDraft,
 )
 from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+from packages.agent.workflows.repository import InMemoryWorkflowDefinitionRepository
 
 
 @pytest.fixture
@@ -26,8 +26,17 @@ def evaluation_service(repo):
 
 
 @pytest.fixture
-def authoring_service(repo, evaluation_service):
-    return AuthoringService(repo, evaluation_service)
+def workflow_definition_repository():
+    return InMemoryWorkflowDefinitionRepository()
+
+
+@pytest.fixture
+def authoring_service(repo, evaluation_service, workflow_definition_repository):
+    return AuthoringService(
+        repo,
+        evaluation_service,
+        workflow_definition_repository=workflow_definition_repository,
+    )
 
 
 @pytest.mark.asyncio
@@ -197,7 +206,11 @@ async def test_publish_resolves_latest_version_not_fixed_010(authoring_service, 
 
 
 @pytest.mark.asyncio
-async def test_valid_workflow_evaluates_and_publishes_successfully(authoring_service, evaluation_service):
+async def test_valid_workflow_evaluates_and_publishes_successfully(
+    authoring_service,
+    evaluation_service,
+    workflow_definition_repository,
+):
     wf_draft = await authoring_service.create_workflow_draft(
         workspace_id="ws-1",
         asset_id="wf.valid.1",
@@ -231,6 +244,13 @@ async def test_valid_workflow_evaluates_and_publishes_successfully(authoring_ser
         company_command_ref="cmd-founder-valid-wf",
     )
     assert published.lifecycle.value == "PUBLISHED"
+    definition = await workflow_definition_repository.get_definition(
+        wf_draft.asset_id,
+        wf_draft.version,
+        workspace_id="ws-1",
+    )
+    assert definition is not None
+    assert definition.definition_hash == wf_draft.definition_hash
 
 
 @pytest.mark.asyncio
@@ -269,3 +289,60 @@ async def test_invalid_workflow_fails_evaluation_and_blocks_publish(authoring_se
             company_command_ref="cmd-founder-invalid-wf",
         )
 
+
+@pytest.mark.asyncio
+async def test_workflow_kind_is_preserved_without_name_heuristics(authoring_service, evaluation_service):
+    workflow = await authoring_service.create_workflow_draft(
+        workspace_id="ws-1",
+        asset_id="sales-flow",
+        version="1.0.0",
+        name="Sales Flow",
+        description="A malformed workflow whose asset id has no workflow marker",
+        content={"id": "sales-flow", "version": "1.0.0"},
+        scope=AssetScope.workspace(),
+        created_by="founder-1",
+    )
+
+    evaluation = await evaluation_service.evaluate(
+        workspace_id="ws-1",
+        asset_id=workflow.asset_id,
+        version=workflow.version,
+    )
+
+    assert evaluation.status == "FAIL"
+    assert any("workflow" in error.lower() for error in evaluation.structural_result["errors"])
+
+
+@pytest.mark.asyncio
+async def test_publish_uses_the_exact_evaluated_version(authoring_service, evaluation_service):
+    newer = await authoring_service.create_agent_draft(
+        workspace_id="ws-1",
+        asset_id="agent.versioned",
+        version="0.10.0",
+        name="Versioned Agent",
+        description="Semver ordering regression",
+        content={"instructions": "version 0.10.0"},
+        scope=AssetScope.workspace(),
+        created_by="founder-1",
+    )
+    await authoring_service.create_agent_draft(
+        workspace_id="ws-1",
+        asset_id="agent.versioned",
+        version="0.2.0",
+        name="Versioned Agent",
+        description="Older semver but lexically later",
+        content={"instructions": "version 0.2.0"},
+        scope=AssetScope.workspace(),
+        created_by="founder-1",
+    )
+    await evaluation_service.evaluate("ws-1", newer.asset_id, newer.version)
+
+    published = await authoring_service.publish(
+        workspace_id="ws-1",
+        asset_id=newer.asset_id,
+        version=newer.version,
+        expected_hash=newer.definition_hash,
+        company_command_ref="cmd-versioned-publish",
+    )
+
+    assert published.version == "0.10.0"

@@ -27,6 +27,10 @@ from agent.skills.improvement_repository import SkillImprovementRepository
 from agent.vault import VaultRepository
 from agent.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent.workflows.engine import WorkflowEngine
+from agent.workflows.repository import (
+    InMemoryWorkflowDefinitionRepository,
+    WorkflowDefinitionRepository,
+)
 from agent.workforce.repository import WorkforceRepository
 
 from apps.cosa.capabilities.client import CompanyServiceClient
@@ -79,6 +83,7 @@ class CosaAgentPlane:
         kernel: ExecutionKernel,
         workflow_registry: WorkflowDefinitionRegistry,
         workflow_engine: WorkflowEngine,
+        workflow_definition_repository: WorkflowDefinitionRepository,
         company_client: CompanyServiceClient,
         tenant_policy_client: CosaTenantPolicyClient,
         scheduler: Any,
@@ -119,6 +124,7 @@ class CosaAgentPlane:
         self.kernel = kernel
         self.workflow_registry = workflow_registry
         self.workflow_engine = workflow_engine
+        self.workflow_definition_repository = workflow_definition_repository
         self.company_client = company_client
         self.tenant_policy_client = tenant_policy_client
         self.skill_candidate_store = skill_candidate_store
@@ -215,6 +221,7 @@ class CosaAgentPlane:
             workflow_engine=self.workflow_engine,
             workflow_registry=self.workflow_registry,
             approval_service=self.approval_service,
+            workflow_definition_repository=self.workflow_definition_repository,
         )
 
     @property
@@ -280,6 +287,7 @@ def build_cosa_agent_plane(
     skill_improvement_repository: SkillImprovementRepository | None = None,
     skill_usage_observer: Any | None = None,
     skill_improvement_service: Any | None = None,
+    workflow_definition_repository: WorkflowDefinitionRepository | None = None,
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
@@ -419,6 +427,49 @@ def build_cosa_agent_plane(
     # 6. Workflow Engine & Definition Registry
     wf_registry = WorkflowDefinitionRegistry()
     wf_registry.register_version(COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC)
+    resolved_workflow_definition_repository = workflow_definition_repository
+    workflow_asset_repository: Any
+    if resolved_workflow_definition_repository is None:
+        resolved_database_url = database_url or os.environ.get("AGENT_DATABASE_URL")
+        if resolved_database_url:
+            from packages.agent.assets.repository import PostgresWorkspaceAssetRepository
+            from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
+
+            wf_definition_engine, wf_definition_session_factory = build_postgres_session_factory(
+                resolved_database_url
+            )
+            storage.created_engines.append(wf_definition_engine)
+            resolved_workflow_definition_repository = PostgresWorkflowDefinitionRepository(
+                wf_definition_session_factory
+            )
+            workflow_asset_repository = PostgresWorkspaceAssetRepository(
+                wf_definition_session_factory
+            )
+        else:
+            from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+
+            resolved_workflow_definition_repository = InMemoryWorkflowDefinitionRepository()
+            workflow_asset_repository = InMemoryWorkspaceAssetRepository()
+    else:
+        resolved_database_url = database_url or os.environ.get("AGENT_DATABASE_URL")
+        if resolved_database_url:
+            from packages.agent.assets.repository import PostgresWorkspaceAssetRepository
+
+            wf_asset_engine, wf_asset_session_factory = build_postgres_session_factory(
+                resolved_database_url
+            )
+            storage.created_engines.append(wf_asset_engine)
+            workflow_asset_repository = PostgresWorkspaceAssetRepository(wf_asset_session_factory)
+        else:
+            from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+
+            workflow_asset_repository = InMemoryWorkspaceAssetRepository()
+    from apps.cosa.workflows.deployment_authority_resolver import CompanyDeploymentAuthorityResolver
+
+    workflow_authority_resolver = CompanyDeploymentAuthorityResolver(
+        client,
+        asset_repository=workflow_asset_repository,
+    )
 
     wf_engine = WorkflowEngine(
         tool_registry=cap_registry,
@@ -427,7 +478,7 @@ def build_cosa_agent_plane(
         approval_service=approval_service,
         governance_store=storage.governance_store,
         kernel=kernel,
-        resolver=compliance_resolver,
+        resolver=workflow_authority_resolver,
     )
 
     # 7. Knowledge ingestion dependencies (Task 4) — chỉ dựng khi feature flag
@@ -478,6 +529,7 @@ def build_cosa_agent_plane(
         kernel=kernel,
         workflow_registry=wf_registry,
         workflow_engine=wf_engine,
+        workflow_definition_repository=resolved_workflow_definition_repository,
         company_client=client,
         tenant_policy_client=tenant_policy,
         scheduler=run_scheduler,

@@ -5,6 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from apps.cosa.events.founder_asset_callback_outbox import FounderAssetCallbackRecord
+
 logger = logging.getLogger(__name__)
 
 FOUNDER_ASSET_COMMANDED_EVENT = "founder.asset.commanded.v1"
@@ -60,6 +62,82 @@ def validate_founder_asset_command_payload(payload: dict[str, Any]) -> tuple[Fou
         return None, f"invalid founder asset command: {e}"
 
 
+def _status_callback_payload(
+    *,
+    command_id: str,
+    workspace_id: str,
+    project_id: str | None,
+    asset_kind: str,
+    operation: str,
+    status: str,
+    asset_ref: dict[str, Any],
+    evaluation_summary: dict[str, Any] | None,
+    safe_reason_code: str | None,
+) -> dict[str, Any]:
+    return {
+        "command_id": command_id,
+        "workspace_id": workspace_id,
+        "project_id": project_id,
+        "asset_kind": asset_kind,
+        "operation": operation,
+        "status": status,
+        "asset_ref": asset_ref,
+        "evaluation_summary": evaluation_summary,
+        "safe_reason_code": safe_reason_code,
+    }
+
+
+async def _deliver_callback_record(deps: Any, record: FounderAssetCallbackRecord) -> tuple[str, str | None]:
+    callback_client = getattr(deps, "status_callback_client", None)
+    callback_outbox = getattr(deps, "founder_asset_callback_outbox", None)
+    if callback_client is None:
+        return "accepted", None
+    if callback_outbox is None:
+        return "failed", "durable callback outbox is required"
+
+    try:
+        await callback_client.send_status_callback(**record.payload)
+        await callback_outbox.mark_delivered(record.workspace_id, record.command_id)
+        return "accepted", None
+    except Exception as cb_err:
+        logger.error("Callback delivery failed for command %s: %s", record.command_id, cb_err)
+        try:
+            await callback_outbox.mark_failed(record.workspace_id, record.command_id, str(cb_err))
+        except Exception as outbox_err:
+            logger.exception(
+                "Failed to persist callback delivery error for command %s: %s",
+                record.command_id,
+                outbox_err,
+            )
+        return "failed", f"callback delivery failed: {cb_err}"
+
+
+async def replay_founder_asset_callback(deps: Any, *, workspace_id: str, command_id: str) -> tuple[str, str | None]:
+    """Retry a pending callback for an idempotent duplicate Company command.
+
+    Authoring has already run for this command.  A replay must never invoke it
+    again; it can only deliver the callback whose exact payload was persisted.
+    """
+    callback_outbox = getattr(deps, "founder_asset_callback_outbox", None)
+    if callback_outbox is None:
+        if getattr(deps, "authoring_service", None) is not None and getattr(
+            deps, "status_callback_client", None
+        ) is not None:
+            return "failed", "durable callback outbox is required for authoring replay"
+        return "duplicate", None
+
+    record = await callback_outbox.get(workspace_id, command_id)
+    if record is None:
+        if getattr(deps, "authoring_service", None) is not None and getattr(
+            deps, "status_callback_client", None
+        ) is not None:
+            return "failed", "durable callback record is missing for an authored command"
+        return "duplicate", None
+    if record.delivery_status == "DELIVERED":
+        return "duplicate", None
+    return await _deliver_callback_record(deps, record)
+
+
 async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str | None]:
     """Handles founder.asset.commanded.v1 inside router.
 
@@ -84,6 +162,7 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
     authoring_service = getattr(deps, "authoring_service", None)
     evaluation_service = getattr(deps, "evaluation_service", None)
     callback_client = getattr(deps, "status_callback_client", None)
+    callback_outbox = getattr(deps, "founder_asset_callback_outbox", None)
 
     if authoring_service is not None:
         from packages.agent.assets.contracts import AssetKind, AssetScope, PinnedAssetIdentity
@@ -193,6 +272,7 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
                     asset_id=cmd.asset_ref.asset_id,
                     expected_hash=cmd.asset_ref.definition_hash or "",
                     company_command_ref=cmd.command_id,
+                    version=cmd.asset_ref.version,
                 )
                 out_ref = {
                     "assetId": res.asset_id,
@@ -206,10 +286,15 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
             status = "FAILED"
             safe_reason = str(exc)
 
-        # Dispatch status callback to Company
+        # Persist the exact callback before sending it.  A duplicate Company
+        # command will retry this record and never invoke authoring again.
         if callback_client is not None:
-            try:
-                await callback_client.send_status_callback(
+            if callback_outbox is None:
+                return "failed", "durable callback outbox is required"
+            callback_record = FounderAssetCallbackRecord(
+                workspace_id=cmd.workspace_id,
+                command_id=cmd.command_id,
+                payload=_status_callback_payload(
                     command_id=cmd.command_id,
                     workspace_id=cmd.workspace_id,
                     project_id=cmd.project_id,
@@ -219,13 +304,17 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
                     asset_ref=out_ref,
                     evaluation_summary=eval_summary,
                     safe_reason_code=safe_reason,
-                )
-            except Exception as cb_err:
-                logger.error(
-                    "Callback delivery failed for command %s: %s",
+                ),
+            )
+            try:
+                callback_record = await callback_outbox.enqueue(callback_record)
+            except Exception as outbox_err:
+                logger.exception(
+                    "Failed to persist callback outbox for command %s: %s",
                     cmd.command_id,
-                    cb_err,
+                    outbox_err,
                 )
-                return "failed", f"callback delivery failed: {cb_err}"
+                return "failed", f"callback outbox persistence failed: {outbox_err}"
+            return await _deliver_callback_record(deps, callback_record)
 
     return "accepted", None

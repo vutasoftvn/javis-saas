@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel, Field
 
 from agent.workflows.schema import WorkflowSpec
+
+if TYPE_CHECKING:
+    from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
 
 __all__ = [
     "InMemoryWorkflowDefinitionRepository",
@@ -41,7 +42,7 @@ class WorkflowDefinitionRepository(Protocol):
     ) -> WorkflowDefinitionRecord | None: ...
 
     async def get_by_hash(
-        self, definition_hash: str, workspace_id: str | None = None
+        self, definition_hash: str, workspace_id: str
     ) -> WorkflowDefinitionRecord | None: ...
 
     async def list_versions(
@@ -56,7 +57,7 @@ class InMemoryWorkflowDefinitionRepository:
         self._definitions: dict[
             tuple[str, str, str], WorkflowDefinitionRecord
         ] = {}  # (ws_id, id, ver) -> record
-        self._by_hash: dict[str, WorkflowDefinitionRecord] = {}
+        self._by_hash: dict[tuple[str, str], WorkflowDefinitionRecord] = {}
 
     async def save_definition(
         self, spec: WorkflowSpec, workspace_id: str = "default"
@@ -74,7 +75,7 @@ class InMemoryWorkflowDefinitionRepository:
             workspace_id=workspace_id,
         )
         self._definitions[(workspace_id, spec.id, spec.version)] = rec
-        self._by_hash[def_hash] = rec
+        self._by_hash[(workspace_id, def_hash)] = rec
         return rec
 
     async def get_definition(
@@ -83,18 +84,9 @@ class InMemoryWorkflowDefinitionRepository:
         return self._definitions.get((workspace_id, workflow_id, version))
 
     async def get_by_hash(
-        self, definition_hash: str, workspace_id: str | None = None
+        self, definition_hash: str, workspace_id: str
     ) -> WorkflowDefinitionRecord | None:
-        if workspace_id is not None:
-            return next(
-                (
-                    r
-                    for (ws, _, _), r in self._definitions.items()
-                    if ws == workspace_id and r.definition_hash == definition_hash
-                ),
-                None,
-            )
-        return self._by_hash.get(definition_hash)
+        return self._by_hash.get((workspace_id, definition_hash))
 
     async def list_versions(
         self, workflow_id: str, workspace_id: str | None = None
@@ -113,5 +105,3 @@ def __getattr__(name: str) -> Any:
         from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
         return PostgresWorkflowDefinitionRepository
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-

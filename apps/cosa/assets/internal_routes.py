@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 
 from apps.cosa.assets.authoring_service import AuthoringService
 from apps.cosa.assets.evaluation_service import EvaluationService
@@ -13,6 +13,7 @@ from packages.agent.assets.contracts import (
     PinnedAssetIdentity,
 )
 from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+from packages.agent.workflows.repository import InMemoryWorkflowDefinitionRepository
 
 router = APIRouter(prefix="/agent/internal/founder-assets", tags=["founder-assets-internal"])
 
@@ -21,7 +22,11 @@ _DEV_SERVICE_TOKEN = "dev-founder-asset-service-token"
 # Shared fallback instances for internal routes
 _default_repo = InMemoryWorkspaceAssetRepository()
 _default_eval_service = EvaluationService(_default_repo)
-_default_authoring_service = AuthoringService(_default_repo, _default_eval_service)
+_default_authoring_service = AuthoringService(
+    _default_repo,
+    _default_eval_service,
+    workflow_definition_repository=InMemoryWorkflowDefinitionRepository(),
+)
 
 
 def get_authoring_service(request: Request | None = None) -> AuthoringService:
@@ -203,6 +208,7 @@ async def handle_authoring_command(
             asset_id=body.asset_id,
             expected_hash=body.expected_hash,
             company_command_ref=body.company_command_ref,
+            version=body.version,
         )
         return AuthoringResponse(
             asset_id=published.asset_id,

@@ -12,6 +12,7 @@ from packages.agent.assets.contracts import (
     AssetConflictError,
     AssetEvaluationResult,
     AssetImmutableError,
+    AssetKind,
     AssetLifecycle,
     AssetNotFoundError,
     AssetOrigin,
@@ -42,7 +43,9 @@ class WorkspaceAssetRepository(Protocol):
     async def replace_draft_content(
         self, workspace_id: str, asset_id: str, version: str, content: dict[str, Any]
     ) -> WorkspaceAssetVersion: ...
-    async def publish(self, workspace_id: str, asset_id: str, expected_hash: str) -> WorkspaceAssetVersion: ...
+    async def publish(
+        self, workspace_id: str, asset_id: str, version: str, expected_hash: str
+    ) -> WorkspaceAssetVersion: ...
     async def record_evaluation(self, evaluation: AssetEvaluationResult) -> None: ...
     async def get_latest_evaluation(self, workspace_id: str, asset_id: str, version: str) -> AssetEvaluationResult | None: ...
 
@@ -61,6 +64,7 @@ class InMemoryWorkspaceAssetRepository:
         version = WorkspaceAssetVersion(
             workspace_id=workspace_id,
             asset_id=draft.asset_id,
+            kind=draft.kind,
             version=draft.version,
             definition_hash=definition_hash,
             content_json=draft.content,
@@ -95,6 +99,7 @@ class InMemoryWorkspaceAssetRepository:
         version = WorkspaceAssetVersion(
             workspace_id=workspace_id,
             asset_id=clone_asset_id,
+            kind=source.kind,
             version=clone_version,
             definition_hash=definition_hash,
             content_json=source_content,
@@ -117,7 +122,7 @@ class InMemoryWorkspaceAssetRepository:
         ]
         if not candidates:
             return None
-        return sorted(candidates, key=lambda x: x.version, reverse=True)[0]
+        return max(candidates, key=lambda x: x.created_at)
 
     async def replace_draft_content(
         self, workspace_id: str, asset_id: str, version: str, content: dict[str, Any]
@@ -134,6 +139,7 @@ class InMemoryWorkspaceAssetRepository:
         updated = WorkspaceAssetVersion(
             workspace_id=item.workspace_id,
             asset_id=item.asset_id,
+            kind=item.kind,
             version=item.version,
             definition_hash=new_hash,
             content_json=content,
@@ -147,17 +153,12 @@ class InMemoryWorkspaceAssetRepository:
         self._versions[key] = updated
         return updated
 
-    async def publish(self, workspace_id: str, asset_id: str, expected_hash: str) -> WorkspaceAssetVersion:
-        # Tìm draft version của asset này
-        candidates = [
-            v for (ws, a_id, _), v in self._versions.items()
-            if ws == workspace_id and a_id == asset_id
-        ]
-        if not candidates:
-            raise AssetNotFoundError(f"Asset {asset_id} not found in workspace {workspace_id}")
-
-        # Chọn version mới nhất
-        latest = sorted(candidates, key=lambda x: x.version, reverse=True)[0]
+    async def publish(
+        self, workspace_id: str, asset_id: str, version: str, expected_hash: str
+    ) -> WorkspaceAssetVersion:
+        latest = self._versions.get((workspace_id, asset_id, version))
+        if not latest:
+            raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found in workspace {workspace_id}")
         if latest.definition_hash != expected_hash:
             raise AssetConflictError(f"expected_hash mismatch: expected {expected_hash}, found {latest.definition_hash}")
 
@@ -167,6 +168,7 @@ class InMemoryWorkspaceAssetRepository:
         published = WorkspaceAssetVersion(
             workspace_id=latest.workspace_id,
             asset_id=latest.asset_id,
+            kind=latest.kind,
             version=latest.version,
             definition_hash=latest.definition_hash,
             content_json=latest.content_json,
@@ -178,7 +180,7 @@ class InMemoryWorkspaceAssetRepository:
             created_at=latest.created_at,
             published_at=datetime.utcnow(),
         )
-        self._versions[(workspace_id, asset_id, latest.version)] = published
+        self._versions[(workspace_id, asset_id, version)] = published
         return published
 
     async def record_evaluation(self, evaluation: AssetEvaluationResult) -> None:
@@ -290,6 +292,7 @@ class PostgresWorkspaceAssetRepository:
         return WorkspaceAssetVersion(
             workspace_id=workspace_id,
             asset_id=draft.asset_id,
+            kind=draft.kind,
             version=draft.version,
             definition_hash=definition_hash,
             content_json=draft.content,
@@ -351,6 +354,7 @@ class PostgresWorkspaceAssetRepository:
         return WorkspaceAssetVersion(
             workspace_id=row["workspace_id"],
             asset_id=row["asset_id"],
+            kind=AssetKind(row["kind"]),
             version=row["version"],
             definition_hash=row["definition_hash"],
             content_json=content,
@@ -367,11 +371,13 @@ class PostgresWorkspaceAssetRepository:
         async with self._session_factory() as session:
             stmt = text(
                 """
-                SELECT workspace_id, asset_id, version, definition_hash, content_json,
+                SELECT v.workspace_id, v.asset_id, a.kind, v.version, v.definition_hash, v.content_json,
                        lifecycle, scope_kind, project_id, origin_json, evaluation_summary,
                        created_by, created_at, published_at
-                FROM agent.workspace_asset_versions
-                WHERE workspace_id = :ws_id AND asset_id = :asset_id AND version = :ver
+                FROM agent.workspace_asset_versions v
+                INNER JOIN agent.workspace_assets a
+                    ON a.workspace_id = v.workspace_id AND a.asset_id = v.asset_id
+                WHERE v.workspace_id = :ws_id AND v.asset_id = :asset_id AND v.version = :ver
                 """
             )
             res = await session.execute(stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
@@ -384,12 +390,14 @@ class PostgresWorkspaceAssetRepository:
         async with self._session_factory() as session:
             stmt = text(
                 """
-                SELECT workspace_id, asset_id, version, definition_hash, content_json,
+                SELECT v.workspace_id, v.asset_id, a.kind, v.version, v.definition_hash, v.content_json,
                        lifecycle, scope_kind, project_id, origin_json, evaluation_summary,
                        created_by, created_at, published_at
-                FROM agent.workspace_asset_versions
-                WHERE workspace_id = :ws_id AND asset_id = :asset_id
-                ORDER BY version DESC
+                FROM agent.workspace_asset_versions v
+                INNER JOIN agent.workspace_assets a
+                    ON a.workspace_id = v.workspace_id AND a.asset_id = v.asset_id
+                WHERE v.workspace_id = :ws_id AND v.asset_id = :asset_id
+                ORDER BY v.created_at DESC
                 LIMIT 1
                 """
             )
@@ -433,18 +441,20 @@ class PostgresWorkspaceAssetRepository:
         current.definition_hash = new_hash
         return current
 
-    async def publish(self, workspace_id: str, asset_id: str, expected_hash: str) -> WorkspaceAssetVersion:
+    async def publish(
+        self, workspace_id: str, asset_id: str, version: str, expected_hash: str
+    ) -> WorkspaceAssetVersion:
         async with self._session_factory() as session:
             stmt = text(
                 """
-                SELECT version, definition_hash, lifecycle
+                SELECT definition_hash, lifecycle
                 FROM agent.workspace_asset_versions
-                WHERE workspace_id = :ws_id AND asset_id = :asset_id
-                ORDER BY version DESC
-                LIMIT 1
+                WHERE workspace_id = :ws_id AND asset_id = :asset_id AND version = :ver
                 """
             )
-            res = await session.execute(stmt, {"ws_id": workspace_id, "asset_id": asset_id})
+            res = await session.execute(
+                stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version}
+            )
             row = res.mappings().first()
             if not row:
                 raise AssetNotFoundError(f"Asset {asset_id} not found in workspace {workspace_id}")
@@ -452,7 +462,6 @@ class PostgresWorkspaceAssetRepository:
             if row["definition_hash"] != expected_hash:
                 raise AssetConflictError(f"expected_hash mismatch: expected {expected_hash}, found {row['definition_hash']}")
 
-            ver = row["version"]
             stmt_update = text(
                 """
                 UPDATE agent.workspace_asset_versions
@@ -460,7 +469,7 @@ class PostgresWorkspaceAssetRepository:
                 WHERE workspace_id = :ws_id AND asset_id = :asset_id AND version = :ver
                 """
             )
-            await session.execute(stmt_update, {"ws_id": workspace_id, "asset_id": asset_id, "ver": ver})
+            await session.execute(stmt_update, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
 
             stmt_asset_update = text(
                 """
@@ -469,10 +478,10 @@ class PostgresWorkspaceAssetRepository:
                 WHERE workspace_id = :ws_id AND asset_id = :asset_id
                 """
             )
-            await session.execute(stmt_asset_update, {"ws_id": workspace_id, "asset_id": asset_id, "ver": ver})
+            await session.execute(stmt_asset_update, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
             await session.commit()
 
-        updated = await self.get_version(workspace_id, asset_id, ver)
+        updated = await self.get_version(workspace_id, asset_id, version)
         assert updated is not None
         return updated
 
@@ -565,4 +574,3 @@ class PostgresWorkspaceAssetRepository:
                 evaluator_version=row["evaluator_version"],
                 evaluated_at=row["evaluated_at"],
             )
-

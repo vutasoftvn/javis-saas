@@ -69,6 +69,7 @@ class EventIntakeDeps:
     authoring_service: Any = None
     evaluation_service: Any = None
     status_callback_client: Any = None
+    founder_asset_callback_outbox: Any = None
     founder_asset_handler: Any = None
 
     async def aclose(self) -> None:
@@ -106,11 +107,21 @@ async def build_event_intake_deps(
     from apps.cosa.assets.authoring_service import AuthoringService
     from apps.cosa.assets.evaluation_service import EvaluationService
     from apps.cosa.events.founder_asset_callback_client import FounderAssetStatusCallbackClient
+    from apps.cosa.events.founder_asset_callback_outbox import PostgresFounderAssetCallbackOutbox
+    from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
 
     asset_repo = PostgresWorkspaceAssetRepository(session_factory)
     evaluation_service = EvaluationService(asset_repo)
-    authoring_service = AuthoringService(asset_repo, evaluation_service, spec_registry=spec_registry)
+    workflow_definition_repository = PostgresWorkflowDefinitionRepository(session_factory)
+    authoring_service = AuthoringService(
+        asset_repo,
+        evaluation_service,
+        spec_registry=spec_registry,
+        workflow_definition_repository=workflow_definition_repository,
+    )
     status_callback_client = FounderAssetStatusCallbackClient()
+    event_database = _AsyncpgTx(pool)
+    callback_outbox = PostgresFounderAssetCallbackOutbox(event_database)
 
     rule_store = PostgresTriggerRuleStore(pool)
     fingerprint_provider = SpecFingerprintProvider(spec_registry)
@@ -125,7 +136,7 @@ async def build_event_intake_deps(
 
     return EventIntakeDeps(
         local_auth=LocalServiceAuth(require_local_service_secret()),
-        db=_AsyncpgTx(pool),
+        db=event_database,
         trigger_policy=trigger_policy,
         execution_plane=LocalExecutionPlaneScheduleClient(
             resolve_execution_plane_url(), os.environ.get("COSA_WORKER_SERVICE_TOKEN", "")
@@ -138,4 +149,5 @@ async def build_event_intake_deps(
         authoring_service=authoring_service,
         evaluation_service=evaluation_service,
         status_callback_client=status_callback_client,
+        founder_asset_callback_outbox=callback_outbox,
     )

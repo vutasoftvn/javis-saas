@@ -41,7 +41,12 @@ async def test_workspace_asset_version_cannot_be_read_from_another_workspace(rep
 @pytest.mark.asyncio
 async def test_published_version_rejects_in_place_content_change(repo):
     draft = await repo.create_draft(workspace_id="ws-a", draft=make_agent_draft())
-    published = await repo.publish(workspace_id="ws-a", asset_id=draft.asset_id, expected_hash=draft.definition_hash)
+    published = await repo.publish(
+        workspace_id="ws-a",
+        asset_id=draft.asset_id,
+        version=draft.version,
+        expected_hash=draft.definition_hash,
+    )
     assert published.lifecycle.value == "PUBLISHED"
 
     with pytest.raises(AssetImmutableError):

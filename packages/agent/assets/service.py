@@ -43,8 +43,10 @@ class WorkspaceAssetService:
     ) -> WorkspaceAssetVersion:
         return await self._repository.replace_draft_content(workspace_id, asset_id, version, content)
 
-    async def publish(self, workspace_id: str, asset_id: str, expected_hash: str) -> WorkspaceAssetVersion:
-        return await self._repository.publish(workspace_id, asset_id, expected_hash)
+    async def publish(
+        self, workspace_id: str, asset_id: str, version: str, expected_hash: str
+    ) -> WorkspaceAssetVersion:
+        return await self._repository.publish(workspace_id, asset_id, version, expected_hash)
 
     async def record_evaluation(self, evaluation: AssetEvaluationResult) -> None:
         await self._repository.record_evaluation(evaluation)

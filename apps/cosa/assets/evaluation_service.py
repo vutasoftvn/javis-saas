@@ -44,12 +44,7 @@ class EvaluationService:
                 structural_errors.append("PROJECT_SANDBOX assets cannot declare external capability_refs")
 
         # 3. Workflow asset structural & executor readiness validation
-        is_workflow = (
-            getattr(item, "kind", None) in (AssetKind.WORKFLOW, "WORKFLOW")
-            or asset_id.startswith("wf.")
-            or "workflow" in asset_id.lower()
-            or "steps" in content
-        )
+        is_workflow = item.kind == AssetKind.WORKFLOW
         if is_workflow:
             from agent.workflows.schema import WorkflowSpec
             from agent.workflows.validation import WorkflowPublishValidator, WorkflowValidationContext

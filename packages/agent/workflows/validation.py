@@ -159,6 +159,21 @@ class WorkflowPublishValidator:
                     errors.append(f"APPROVAL_GATE step '{step.id}' missing subject_key")
 
             elif step.type == StepType.RETRY:
+                handler = step.handler or (step.inputs.get("handler") if step.inputs else None) or step.action
+                if not handler:
+                    errors.append(f"RETRY step '{step.id}' missing registered retry target")
+                else:
+                    from agent.workflows.deterministic_handlers import WHITELISTED_DETERMINISTIC_HANDLERS
+
+                    known_handlers = (
+                        set(ctx.registered_handlers)
+                        if (ctx and ctx.registered_handlers)
+                        else set(WHITELISTED_DETERMINISTIC_HANDLERS.keys())
+                    )
+                    if handler not in known_handlers:
+                        errors.append(
+                            f"RETRY step '{step.id}' references unregistered retry target '{handler}'"
+                        )
                 max_attempts = step.inputs.get("max_attempts") or step.metadata.get("max_attempts")
                 if max_attempts is not None:
                     try:

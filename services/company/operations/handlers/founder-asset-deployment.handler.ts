@@ -46,6 +46,14 @@ interface GetProjectDeploymentAuthorityParams {
   workspaceAgentId: string;
 }
 
+interface GetProjectDeploymentAuthorityByDeploymentParams {
+  serviceToken?: Header<"X-Service-Token">;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  projectId: string;
+  projectAgentDeploymentId: string;
+}
+
 export const getProjectDeploymentAuthorityApi = api(
   {
     expose: true,
@@ -72,5 +80,34 @@ export const getProjectDeploymentAuthorityApi = api(
       projectId: params.projectId,
       workspaceAgentId: params.workspaceAgentId,
     });
+  }
+);
+
+export const getProjectDeploymentAuthorityByDeploymentApi = api(
+  {
+    expose: true,
+    method: "GET",
+    path: "/internal/operations/projects/:projectId/agent-deployments/:projectAgentDeploymentId/deployment-authority",
+  },
+  async (
+    params: GetProjectDeploymentAuthorityByDeploymentParams
+  ): Promise<ProjectDeploymentAuthority> => {
+    requireWorkerServiceToken(params.serviceToken, params.authorization);
+    if (!params.workspaceId) {
+      throw APIError.invalidArgument("X-Workspace-Id header is required");
+    }
+    return getProjectDeploymentAuthority(
+      {
+        workspaceId: params.workspaceId,
+        userId: "0",
+        membershipRole: "system",
+        permissions: ["*"],
+        correlationId: `auth-${Date.now()}`,
+      },
+      {
+        projectId: params.projectId,
+        projectAgentDeploymentId: params.projectAgentDeploymentId,
+      }
+    );
   }
 );

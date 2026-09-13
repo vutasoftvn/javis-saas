@@ -59,7 +59,7 @@ async def test_durable_workflow_definition_repository():
     assert len(fetched1.spec_data["steps"]) == 1
 
     # Query by definition_hash
-    by_hash = await repo.get_by_hash(rec2.definition_hash)
+    by_hash = await repo.get_by_hash(rec2.definition_hash, workspace_id="default")
     assert by_hash is not None
     assert by_hash.version == "2.0.0"
 
@@ -100,4 +100,3 @@ async def test_in_memory_repository_does_not_fallback_across_workspaces():
     res_hash_a = await repo.get_by_hash(saved.definition_hash, workspace_id="tenant-A")
     assert res_hash_a is not None
     assert res_hash_a.workspace_id == "tenant-A"
-

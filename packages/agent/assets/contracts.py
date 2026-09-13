@@ -113,6 +113,7 @@ class WorkspaceAssetDraft:
 class WorkspaceAssetVersion:
     workspace_id: str
     asset_id: str
+    kind: AssetKind
     version: str
     definition_hash: str
     content_json: dict[str, Any]

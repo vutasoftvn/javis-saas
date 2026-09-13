@@ -190,6 +190,43 @@ describe("Founder Asset Authoring Service", () => {
     });
   });
 
+  it("rejects a callback that does not exactly match its command identity", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const founderContext: TenantContext = {
+      workspaceId: ws.workspaceId,
+      userId: ws.userId,
+      membershipRole: "founder",
+      permissions: ["*"],
+      correlationId: "callback-command-identity",
+      isAiAgent: false,
+    };
+    const command = await requestAssetPublish(founderContext, {
+      assetKind: "WORKFLOW",
+      assetRef: {
+        assetId: "workflow.identity.check",
+        version: "0.1.0",
+        definitionHash: "sha256:workflow-identity-check",
+      },
+      idempotencyKey: "workflow-identity-check-publish",
+      reason: "Publish reviewed workflow",
+    });
+
+    await expect(
+      handleAssetStatusCallback({
+        commandId: command.commandId,
+        workspaceId: ws.workspaceId,
+        assetKind: "AGENT",
+        operation: "PUBLISH",
+        status: "SUCCESS",
+        assetRef: {
+          assetId: "workflow.identity.check",
+          version: "0.1.0",
+          definitionHash: "sha256:workflow-identity-check",
+        },
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+  });
+
   it("rejects command when metadata contains raw secrets before creating outbox event", async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
     const founderContext: TenantContext = {

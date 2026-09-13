@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from apps.cosa.events.router import PermissionDenied, Unauthenticated, handle_event
+from apps.cosa.events.founder_asset_callback_outbox import InMemoryFounderAssetCallbackOutbox
 
 SECRET = "test-secret"
 
@@ -120,6 +121,7 @@ class Deps:
     authoring_service: Any = None
     evaluation_service: Any = None
     status_callback_client: Any = None
+    founder_asset_callback_outbox: Any = field(default_factory=InMemoryFounderAssetCallbackOutbox)
     db: DummyDb = field(default_factory=DummyDb)
     caller_workspace_id: str | None = None
 
@@ -139,6 +141,18 @@ class FailingCallbackClient:
 
     async def send_status_callback(self, **kwargs: Any) -> Any:
         raise self.error
+
+
+class FailOnceCallbackClient:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+        self.calls: list[dict[str, Any]] = []
+
+    async def send_status_callback(self, **kwargs: Any) -> bool:
+        self.calls.append(kwargs)
+        if len(self.calls) == 1:
+            raise self.error
+        return True
 
 
 
@@ -420,4 +434,62 @@ async def test_callback_delivery_failure_marks_outcome_failed_in_inbox() -> None
     assert "callback delivery failed" in (res.reason or "")
 
 
+@pytest.mark.asyncio
+async def test_duplicate_command_retries_durable_callback_without_replaying_authoring() -> None:
+    from apps.cosa.assets.authoring_service import AuthoringService
+    from apps.cosa.assets.evaluation_service import EvaluationService
+    from apps.cosa.events.founder_asset_callback_client import FounderAssetCallbackDeliveryError
+    from apps.cosa.events.founder_asset_callback_outbox import InMemoryFounderAssetCallbackOutbox
+    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
 
+    repo = InMemoryWorkspaceAssetRepository()
+    eval_svc = EvaluationService(repo)
+    base_authoring = AuthoringService(repo, eval_svc)
+
+    class CountingCreateAuthoringService:
+        def __init__(self) -> None:
+            self.create_calls = 0
+
+        async def create_agent_draft(self, **kwargs: Any):
+            self.create_calls += 1
+            return await base_authoring.create_agent_draft(**kwargs)
+
+    auth_svc = CountingCreateAuthoringService()
+    callback_outbox = InMemoryFounderAssetCallbackOutbox()
+    callback_client = FailOnceCallbackClient(
+        FounderAssetCallbackDeliveryError("cmd_retry_callback", "Connection refused")
+    )
+    deps = Deps(
+        founder_asset_handler=None,
+        authoring_service=auth_svc,
+        evaluation_service=eval_svc,
+        status_callback_client=callback_client,
+        founder_asset_callback_outbox=callback_outbox,
+    )
+    command = _command_payload(
+        commandId="cmd_retry_callback",
+        operation="CREATE",
+        assetKind="AGENT",
+        assetRef={"assetId": "agent.ops.retry_callback", "version": "0.1.0"},
+        metadata={"name": "Retry callback agent", "content": {}},
+    )
+    env = _env(command)
+    raw = _raw(env)
+    sig = _sig(env)
+
+    first = await handle_event(deps, raw, sig)
+    assert first.outcome == "failed"
+    pending = await callback_outbox.get("ws_1", "cmd_retry_callback")
+    assert pending is not None
+    assert pending.delivery_status == "PENDING"
+    assert pending.delivery_attempts == 1
+
+    replay = await handle_event(deps, raw, sig)
+    assert replay.outcome == "accepted"
+    delivered = await callback_outbox.get("ws_1", "cmd_retry_callback")
+    assert delivered is not None
+    assert delivered.delivery_status == "DELIVERED"
+    assert delivered.delivery_attempts == 2
+    assert len(callback_client.calls) == 2
+    assert auth_svc.create_calls == 1
+    assert await repo.get_version("ws_1", "agent.ops.retry_callback", "0.1.0") is not None

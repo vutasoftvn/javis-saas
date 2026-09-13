@@ -146,6 +146,48 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
 
     inbox_store = getattr(deps, "inbox_store", inbox)
 
+    # Founder asset commands need a durable inbox commit before authoring.
+    # Their callback can fail after authoring commits; duplicate relay then
+    # retries only the persisted callback rather than rerunning the command.
+    if env.eventType == "founder.asset.commanded.v1":
+        async with deps.db.begin() as conn:
+            state = await inbox_store.record(
+                conn,
+                workspace_id=env.workspaceId,
+                event_id=env.eventId,
+                consumer_name=CONSUMER,
+                event_type=env.eventType,
+                correlation_id=env.correlationId,
+                outcome="pending",
+                aggregate_type=env.aggregateType,
+                aggregate_id=env.aggregateId,
+            )
+
+        from apps.cosa.events.founder_asset_events import (
+            dispatch_founder_asset_command,
+            replay_founder_asset_callback,
+        )
+
+        if state == "duplicate":
+            outcome, reason = await replay_founder_asset_callback(
+                deps,
+                workspace_id=env.workspaceId,
+                command_id=(getattr(env, "payload", {}) or {}).get("commandId", ""),
+            )
+            if outcome != "duplicate":
+                async with deps.db.begin() as conn:
+                    await inbox_store.set_outcome(
+                        conn, env.workspaceId, env.eventId, CONSUMER, outcome, reason
+                    )
+            return IntakeResult(outcome=outcome, reason=reason)
+
+        outcome, reason = await dispatch_founder_asset_command(deps, env)
+        async with deps.db.begin() as conn:
+            await inbox_store.set_outcome(
+                conn, env.workspaceId, env.eventId, CONSUMER, outcome, reason
+            )
+        return IntakeResult(outcome=outcome, reason=reason if outcome != "accepted" else None)
+
     async with deps.db.begin() as conn:
         state = await inbox_store.record(
             conn,
@@ -250,16 +292,6 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
                 conn, env.workspaceId, env.eventId, CONSUMER, outcome, task_id
             )
             return IntakeResult(outcome=outcome, scheduledTaskId=task_id)
-
-        # Founder Configurable Asset Authoring (Task 6)
-        if env.eventType == "founder.asset.commanded.v1":
-            from apps.cosa.events.founder_asset_events import dispatch_founder_asset_command
-
-            outcome, err_or_task = await dispatch_founder_asset_command(deps, env)
-            await inbox_store.set_outcome(
-                conn, env.workspaceId, env.eventId, CONSUMER, outcome, err_or_task
-            )
-            return IntakeResult(outcome=outcome, reason=err_or_task if outcome != "accepted" else None)
 
         self_trigger = _PLATFORM_SELF_TRIGGER.get(env.eventType)
         if self_trigger is not None:
