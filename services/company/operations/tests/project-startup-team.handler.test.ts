@@ -80,7 +80,7 @@ describe("project-startup-team handler authorization & governance", () => {
       workspaceId: ws.workspaceId,
       projectId: project.id,
     });
-    expect(listRes.items).toHaveLength(11);
+    expect(listRes.items).toHaveLength(14);
 
     // Member cannot activate
     await expect(
@@ -105,7 +105,7 @@ describe("project-startup-team handler authorization & governance", () => {
     ).rejects.toThrow(/founder or admin authority required/i);
   });
 
-  it("blocks activation of founder_assistant, coding, and unready profiles", async () => {
+  it("blocks activation of founder_assistant and unready profiles", async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
     const project = await createProjectService(
       {
@@ -128,17 +128,6 @@ describe("project-startup-team handler authorization & governance", () => {
         expectedVersion: 1,
       })
     ).rejects.toThrow(/chat co-founder/i);
-
-    // coding is deferred
-    await expect(
-      activateProjectStartupTeamMemberApi({
-        authorization: ws.bearerToken,
-        workspaceId: ws.workspaceId,
-        projectId: project.id,
-        profileKey: "coding",
-        expectedVersion: 1,
-      })
-    ).rejects.toThrow(/DEFERRED_CODING/i);
 
     // crm is pending
     await expect(

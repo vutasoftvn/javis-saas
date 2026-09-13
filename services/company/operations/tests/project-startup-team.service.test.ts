@@ -48,8 +48,7 @@ describe("Project Startup Team Service", () => {
     const coding = team.find((m) => m.profileKey === "coding");
     expect(coding).toMatchObject({
       displayState: "TEMPLATE",
-      runtimeReadiness: "DEFERRED_CODING",
-      disabledReason: "DEFERRED_CODING",
+      runtimeReadiness: "READY",
     });
 
     const marketing = team.find((m) => m.profileKey === "marketing");

@@ -68,17 +68,25 @@ export const AGENT_PROFILE_SPEC_HASH: Record<OwnerAgentProfile, string> = {
 // Drizzle transaction type — cùng cách project-kickoff-materialize.service.ts đặt tên.
 type Tx = Parameters<Parameters<typeof import("../models/db").db.transaction>[0]>[0];
 
+export interface AssetIdentityInput {
+  specId: string;
+  specVersion: string;
+  definitionHash?: string;
+  title?: string;
+}
+
 /**
- * Đảm bảo workspace có đúng 1 workforce member kiểu AI_AGENT cho agent profile.
- * Trả về member id (string). Seed lười khi materialize execution plan lần đầu.
+ * Đảm bảo workspace có đúng 1 workforce member kiểu AI_AGENT cho asset spec & version.
+ * Idempotent: tìm theo (workspaceId, memberType='AI_AGENT', agentSpecId, agentSpecVersion).
  */
-export async function ensureAiWorkforceMember(
+export async function ensureAiWorkforceMemberForAsset(
   tx: Tx,
   workspaceId: string,
-  agentProfile: OwnerAgentProfile
+  asset: AssetIdentityInput
 ): Promise<string> {
   const wsId = BigInt(workspaceId);
-  const specId = AGENT_PROFILE_SPEC_ID[agentProfile];
+  const specId = asset.specId;
+  const specVersion = asset.specVersion;
 
   const [existing] = await tx
     .select({ id: identityWorkforceMembers.id })
@@ -87,7 +95,8 @@ export async function ensureAiWorkforceMember(
       and(
         eq(identityWorkforceMembers.workspaceId, wsId),
         eq(identityWorkforceMembers.memberType, "AI_AGENT"),
-        eq(identityWorkforceMembers.agentSpecId, specId)
+        eq(identityWorkforceMembers.agentSpecId, specId),
+        eq(identityWorkforceMembers.agentSpecVersion, specVersion)
       )
     )
     .limit(1);
@@ -100,12 +109,29 @@ export async function ensureAiWorkforceMember(
       workspaceId: wsId,
       memberType: "AI_AGENT",
       agentSpecId: specId,
-      agentSpecVersion: AGENT_PROFILE_SPEC_VERSION[agentProfile],
-      roleTitle: `AI ${agentProfile}`,
+      agentSpecVersion: specVersion,
+      roleTitle: asset.title || `AI ${specId}`,
       status: "active",
     })
     .returning({ id: identityWorkforceMembers.id });
   return row!.id.toString();
+}
+
+/**
+ * Đảm bảo workspace có đúng 1 workforce member kiểu AI_AGENT cho agent profile.
+ * Trả về member id (string). Seed lười khi materialize execution plan lần đầu.
+ */
+export async function ensureAiWorkforceMember(
+  tx: Tx,
+  workspaceId: string,
+  agentProfile: OwnerAgentProfile
+): Promise<string> {
+  return ensureAiWorkforceMemberForAsset(tx, workspaceId, {
+    specId: AGENT_PROFILE_SPEC_ID[agentProfile],
+    specVersion: AGENT_PROFILE_SPEC_VERSION[agentProfile],
+    definitionHash: AGENT_PROFILE_SPEC_HASH[agentProfile],
+    title: `AI ${agentProfile}`,
+  });
 }
 
 /**

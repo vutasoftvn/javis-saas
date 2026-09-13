@@ -11,6 +11,7 @@ import {
   isExecutiveRoleKey,
   isStartupCorePresetKey,
 } from "../../shared/contracts/executive-advisor-roles.generated";
+import { verifyUnderlyingAgentActive } from "./founder-agent-compatibility.service";
 
 const {
   projects,
@@ -450,28 +451,14 @@ export async function activateExecutiveRole(
   const projId = BigInt(projectId);
   const actorId = BigInt(ctx.userId);
 
-  // Verify underlying profile assignment is ACTIVE
-  const [profileAssignment] = await db
-    .select({
-      id: projectAgentAssignments.id,
-      state: projectAgentAssignments.state,
-      specHash: projectAgentAssignments.specHash,
-    })
-    .from(projectAgentAssignments)
-    .where(
-      and(
-        eq(projectAgentAssignments.workspaceId, wsId),
-        eq(projectAgentAssignments.projectId, projId),
-        eq(projectAgentAssignments.profileKey, roleDef.requiredProfileKey)
-      )
-    )
-    .limit(1);
+  // Verify underlying profile assignment or V2 deployment is ACTIVE
+  const isUnderlyingActive = await verifyUnderlyingAgentActive(
+    ctx.workspaceId,
+    projectId,
+    roleDef.requiredProfileKey
+  );
 
-  if (
-    !profileAssignment ||
-    profileAssignment.state !== "ACTIVE" ||
-    !profileAssignment.specHash
-  ) {
+  if (!isUnderlyingActive) {
     throw APIError.failedPrecondition(
       `EXECUTIVE_ROLE_NOT_AVAILABLE: Required profile ${roleDef.requiredProfileKey} is not active in startup team`
     );
