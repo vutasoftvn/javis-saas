@@ -266,6 +266,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | PATCH | `/identity/workspaces/:workspaceId/lifecycle` | company | ✓ |  | services/company/identity/handlers/workspace-lifecycle.handler.ts |
 | GET | `/identity/workspaces/:workspaceId/lifecycle/events` | company | ✓ |  | services/company/identity/handlers/workspace-lifecycle.handler.ts |
 | GET | `/identity/workspaces/:workspaceId/platform-company` | company | ✓ |  | services/company/identity/handlers/workspace.handler.ts |
+| POST | `/internal/operations/founder/assets/status-callback` | company | ✓ |  | services/company/operations/handlers/founder-asset-authoring.handler.ts |
+| GET | `/internal/operations/projects/:projectId/agents/:workspaceAgentId/deployment-authority` | company | ✓ |  | services/company/operations/handlers/founder-asset-deployment.handler.ts |
 | GET | `/internal/operations/projects/:projectId/deliberations/:deliberationId/authority` | company | ✓ |  | services/company/operations/handlers/executive-deliberation-internal.handler.ts |
 | POST | `/internal/operations/projects/:projectId/deliberations/:deliberationId/callback` | company | ✓ |  | services/company/operations/handlers/executive-deliberation-internal.handler.ts |
 | GET | `/internal/operations/projects/:projectId/startup-team/:profileKey/run-authority` | company | ✓ |  | services/company/operations/handlers/project-startup-team.handler.ts |
@@ -299,6 +301,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/cycles/:cycleId/reviews` | company | ✓ |  | services/company/operations/strategy/handlers/cycle-review.handler.ts |
 | POST | `/operations/cycles/:cycleId/reviews/custom-mid-cycle` | company | ✓ |  | services/company/operations/strategy/handlers/cycle-review.handler.ts |
 | PATCH | `/operations/cycles/:id` | company | ✓ |  | services/company/operations/handlers/twelve-week-year.handler.ts |
+| POST | `/operations/data-governance-dossiers` | company | ✓ |  | services/company/operations/handlers/data-governance-dossier.handler.ts |
+| POST | `/operations/data-governance-dossiers/:id/revisions` | company | ✓ |  | services/company/operations/handlers/data-governance-dossier.handler.ts |
 | GET | `/operations/execution-cycle-view` | company | ✓ |  | services/company/operations/handlers/execution-cycle-view.handler.ts |
 | GET | `/operations/execution-plans` | company | ✓ |  | services/company/operations/handlers/execution-plan.handler.ts |
 | POST | `/operations/execution-plans` | company | ✓ |  | services/company/operations/handlers/execution-plan.handler.ts |
@@ -309,6 +313,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/execution-settings` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
 | POST | `/operations/execution-settings` | company | ✓ |  | services/company/operations/handlers/task.handler.ts |
 | GET | `/operations/executive-context` | company | ✓ |  | services/company/operations/handlers/executive-context.handler.ts |
+| POST | `/operations/founder/assets/commands` | company | ✓ |  | services/company/operations/handlers/founder-asset-authoring.handler.ts |
+| GET | `/operations/founder/assets/events` | company | ✓ |  | services/company/operations/handlers/founder-asset-authoring.handler.ts |
 | GET | `/operations/initiatives` | company | ✓ |  | services/company/operations/handlers/initiative.handler.ts |
 | POST | `/operations/initiatives` | company | ✓ |  | services/company/operations/handlers/initiative.handler.ts |
 | GET | `/operations/initiatives/:id` | company | ✓ |  | services/company/operations/handlers/initiative.handler.ts |
@@ -339,6 +345,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | POST | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | GET | `/operations/projects/:id` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
+| GET | `/operations/projects/:projectId/data-governance-dossier` | company | ✓ |  | services/company/operations/handlers/data-governance-dossier.handler.ts |
 | GET | `/operations/projects/:projectId/deliberations/:deliberationId` | company | ✓ |  | services/company/operations/handlers/executive-deliberation.handler.ts |
 | POST | `/operations/projects/:projectId/deliberations/:deliberationId/cancel` | company | ✓ |  | services/company/operations/handlers/executive-deliberation.handler.ts |
 | POST | `/operations/projects/:projectId/deliberations/:deliberationId/decision` | company | ✓ |  | services/company/operations/handlers/executive-deliberation.handler.ts |
@@ -604,6 +611,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/assignments/{assignment_id}/retire` | apps/cosa/api/workforce_routes.py |
 | POST | `/candidates` | apps/cosa/api/skill_registry_routes.py |
 | GET | `/capabilities` | apps/cosa/api/workforce_routes.py |
+| POST | `/commands` | apps/cosa/assets/internal_routes.py |
 | GET | `/composition` | apps/cosa/api/workforce_routes.py |
 | POST | `/connectors/authorize` | apps/cosa/api/connector_routes.py |
 | POST | `/connectors/grant` | apps/cosa/api/connector_routes.py |
@@ -681,6 +689,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/sync-built-in` | apps/cosa/api/skill_registry_routes.py |
 | POST | `/uploads/{upload_id}/complete` | apps/cosa/api/vault_routes.py |
 | PUT | `/uploads/{upload_id}/content` | apps/cosa/api/vault_routes.py |
+| GET | `/{asset_id}/status` | apps/cosa/assets/internal_routes.py |
 | POST | `/{event_id}/retry` | apps/cosa/api/event_operations_routes.py |
 | POST | `/{rule_id}/enable` | apps/cosa/api/event_rule_routes.py |
 | GET | `/{skill_id}` | apps/cosa/api/skill_registry_routes.py |

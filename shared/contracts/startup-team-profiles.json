@@ -80,6 +80,12 @@
       "runtimeReadiness": "READY"
     },
     {
+      "key": "data",
+      "label": "Data",
+      "defaultMode": "TEMPLATE",
+      "runtimeReadiness": "READY"
+    },
+    {
       "key": "customer_support",
       "label": "Customer Support",
       "defaultMode": "TEMPLATE",

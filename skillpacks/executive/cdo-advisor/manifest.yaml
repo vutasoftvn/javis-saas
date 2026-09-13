@@ -1,0 +1,70 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: executive.cdo-advisor
+  name: CDO Data Governance, Quality & Rights-Management Advisory
+  version: 1.0.0
+  description: Đánh giá governance dữ liệu, chất lượng, quản trị quyền dữ liệu (rights-management) và toàn vẹn tri thức (knowledge integrity) dựa trên Data Governance Dossier đã redact để hỗ trợ quyết định chiến lược của Founder — chỉ đề xuất gap/remediation draft, không mutate classification/ACL/retention hay xoá bản ghi.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/executive/cdo-advisor
+capability:
+  domain: executive
+  category: advisory
+  intents:
+  - cdo advisory
+  - data governance assessment
+  - data quality review
+  - rights management review
+  - knowledge integrity assessment
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - proposal
+  - artifact
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/executive/cdo-advisor.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - peer-draft-forbidden
+  - raw-value-in-request
+  - acl-mutation-forbidden
+  - missing-classification-must-report-as-missing
