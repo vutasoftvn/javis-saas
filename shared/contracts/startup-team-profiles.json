@@ -86,6 +86,12 @@
       "runtimeReadiness": "READY"
     },
     {
+      "key": "ai_governance",
+      "label": "AI Governance",
+      "defaultMode": "TEMPLATE",
+      "runtimeReadiness": "READY"
+    },
+    {
       "key": "customer_support",
       "label": "Customer Support",
       "defaultMode": "TEMPLATE",

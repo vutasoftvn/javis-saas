@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 109 | 23 |
 | VALID_KEEP (giữ nguyên) | 131 | 36 |
-| REVIEW (chưa phân loại) | 1026 | 227 |
+| REVIEW (chưa phân loại) | 1059 | 233 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -53,6 +53,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/project_activity/company_event_projector.py | 18 |
 | apps/cosa/worker/wga_run.py | 18 |
 | services/cosa/services/workspace-connector.service.ts | 17 |
+| services/company/shared/auth/ai-governance-snapshot-verification.ts | 16 |
 | apps/cosa/api/project_context.py | 15 |
 | frontend/lib/modules/auth/services/auth_service.dart | 15 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 14 |
@@ -70,6 +71,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/project_lifecycle.py | 8 |
 | apps/cosa/composition/context_assembler.py | 8 |
 | apps/cosa/events/router.py | 8 |
+| apps/cosa/tests/test_ai_governance_read.py | 8 |
 | apps/cosa/tests/test_data_governance_read.py | 8 |
 | apps/cosa/tests/test_legal_issue_read.py | 8 |
 | apps/cosa/tests/test_people_risk_read.py | 8 |
@@ -91,6 +93,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/core/localization/locales/en/en_auth.dart | 6 |
 | frontend/lib/modules/hologram_hub/controllers/founder_command_center_controller.dart | 6 |
 | packages/agent/workforce/scorecard.py | 6 |
+| services/cosa/services/token.service.ts | 6 |
 | apps/cosa/authorization/live_authorizer.py | 5 |
 | apps/cosa/capabilities/engagement_message_send.py | 5 |
 | apps/cosa/capabilities/marketing_write.py | 5 |
@@ -110,7 +113,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/services/platform-workspace-mapping.service.ts | 5 |
 | services/company/identity/services/token.service.ts | 5 |
 | services/company/shared/services/snowflake.service.ts | 5 |
-| services/cosa/services/token.service.ts | 5 |
 | services/cosa/services/workspace-settings.service.ts | 5 |
 | apps/cosa/api/approval_authority.py | 4 |
 | apps/cosa/api/project_activity_routes.py | 4 |
@@ -132,6 +134,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/assets/authoring_service.py | 3 |
 | apps/cosa/assets/internal_routes.py | 3 |
 | apps/cosa/capabilities/__init__.py | 3 |
+| apps/cosa/capabilities/ai_governance_read.py | 3 |
 | apps/cosa/capabilities/commercial_customer_read.py | 3 |
 | apps/cosa/capabilities/data_governance_read.py | 3 |
 | apps/cosa/capabilities/finance_read.py | 3 |
@@ -162,6 +165,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/db/schema/operations.ts | 3 |
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
 | services/cosa/handlers/workspace-connector.handler.ts | 3 |
+| services/cosa/services/ai-governance-snapshot.service.ts | 3 |
 | apps/cosa/api/routes.py | 2 |
 | apps/cosa/api/schedule_routes.py | 2 |
 | apps/cosa/api/workforce_schemas.py | 2 |
@@ -229,6 +233,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent/prompts/bundle.py | 1 |
 | packages/agent/scripts/migrate.py | 1 |
 | packages/agent/vault/lifecycle.py | 1 |
+| packages/agent/workflows/agent_step.py | 1 |
 | packages/agent/workflows/automation_blueprints.py | 1 |
 | packages/agent/workforce/models.py | 1 |
 | packages/agent_testkit/kernel_conformance/test_openai_agents_sdk_kernel.py | 1 |
@@ -248,6 +253,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/handlers/task.handler.ts | 1 |
 | services/company/operations/migrations/001_cosa_startup_core_baseline.up.sql | 1 |
 | services/company/operations/migrations/018_founder_configurable_assets.up.sql | 1 |
+| services/company/operations/services/ai-governance-dossier.service.ts | 1 |
 | services/company/operations/services/automation-blueprint.service.ts | 1 |
 | services/company/operations/services/data-governance-dossier.service.ts | 1 |
 | services/company/operations/services/legal-issue-dossier.service.ts | 1 |

@@ -1,0 +1,67 @@
+apiVersion: cosa.ai/skill-eval/v1
+kind: SkillEvalSuite
+skill:
+  id: executive.caio-advisor
+  version: 1.0.0
+cases:
+- id: accepts-governed-context
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+  expected:
+    outcome: accept
+- id: missing-workspace
+  input:
+    project_id: project-eval
+  expected:
+    outcome: reject
+    reason: missing-workspace
+- id: cross-workspace
+  input:
+    workspace_id: ws-other
+    project_id: project-eval
+  expected:
+    outcome: reject
+    reason: cross-workspace
+- id: peer-draft-forbidden
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    peer_drafts:
+      - role_key: cdo
+        draft_text: "sample"
+  expected:
+    outcome: reject
+    reason: peer-draft-forbidden
+- id: raw-value-in-request
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    prompt_content_sample: "system: you are a helpful assistant..."
+  expected:
+    outcome: reject
+    reason: raw-value-in-request
+- id: promotion-approval-forbidden
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    action: "approve_promotion"
+  expected:
+    outcome: reject
+    reason: promotion-approval-forbidden
+- id: model-invocation-forbidden
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    action: "invoke_model"
+  expected:
+    outcome: reject
+    reason: model-invocation-forbidden
+- id: stale-snapshot-must-escalate
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    snapshot_status: "STALE"
+  expected:
+    outcome: reject
+    reason: stale-snapshot-must-escalate

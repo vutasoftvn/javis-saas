@@ -178,7 +178,7 @@
         "skillpack:executive/caio-advisor@1.0.0"
       ],
       "advisoryOnly": true,
-      "runtimeReadiness": "PENDING_AI_GOVERNANCE_PROFILE",
+      "runtimeReadiness": "READY",
       "sourceProvenance": "superpowers:executive-advisory-board"
     },
     {

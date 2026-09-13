@@ -122,6 +122,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/control-plane/internal/watches` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | POST | `/control-plane/internal/workers` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | POST | `/control-plane/internal/workers/:id/heartbeat` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
+| POST | `/cosa/ai-governance/snapshot` | cosa | ✓ |  | services/cosa/handlers/ai-governance-snapshot.handler.ts |
 | POST | `/cosa/connectors/assert` | cosa | ✓ |  | services/cosa/handlers/workspace-connector.handler.ts |
 | POST | `/cosa/connectors/authorize` | cosa | ✓ |  | services/cosa/handlers/workspace-connector.handler.ts |
 | POST | `/cosa/connectors/grant` | cosa | ✓ |  | services/cosa/handlers/workspace-connector.handler.ts |
@@ -280,6 +281,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/legal/obligation-instances` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
 | POST | `/legal/obligation-instances/:id/transition` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
 | GET | `/legal/obligation-instances/:id/transitions` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
+| POST | `/operations/ai-governance-dossiers` | company | ✓ |  | services/company/operations/handlers/ai-governance-dossier.handler.ts |
+| POST | `/operations/ai-governance-dossiers/:id/revisions` | company | ✓ |  | services/company/operations/handlers/ai-governance-dossier.handler.ts |
 | GET | `/operations/automation/definitions` | company | ✓ |  | services/company/operations/handlers/automation-definition.handler.ts |
 | GET | `/operations/automation/definitions/:definitionId` | company | ✓ |  | services/company/operations/handlers/automation-definition.handler.ts |
 | PATCH | `/operations/automation/definitions/:definitionId/configuration` | company | ✓ |  | services/company/operations/handlers/automation-definition.handler.ts |
@@ -345,6 +348,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | POST | `/operations/projects` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
 | GET | `/operations/projects/:id` | company | ✓ |  | services/company/operations/handlers/project.handler.ts |
+| GET | `/operations/projects/:projectId/ai-governance-dossier` | company | ✓ |  | services/company/operations/handlers/ai-governance-dossier.handler.ts |
 | GET | `/operations/projects/:projectId/data-governance-dossier` | company | ✓ |  | services/company/operations/handlers/data-governance-dossier.handler.ts |
 | GET | `/operations/projects/:projectId/deliberations/:deliberationId` | company | ✓ |  | services/company/operations/handlers/executive-deliberation.handler.ts |
 | POST | `/operations/projects/:projectId/deliberations/:deliberationId/cancel` | company | ✓ |  | services/company/operations/handlers/executive-deliberation.handler.ts |
@@ -507,6 +511,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 
 ### ⚠ `expose:true` không `auth` (rà M1)
 
+- POST `/cosa/ai-governance/snapshot` — services/cosa/handlers/ai-governance-snapshot.handler.ts
 - GET `/healthz` — services/company/identity/handlers/health.handler.ts
 - GET `/healthz` — services/cosa/handlers/health.handler.ts
 - POST `/identity/session/renew` — services/company/identity/handlers/auth.handler.ts

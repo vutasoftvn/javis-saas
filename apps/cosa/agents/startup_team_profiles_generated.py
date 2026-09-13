@@ -20,6 +20,7 @@ StartupTeamProfileKey = Literal[
     "security",
     "legal",
     "data",
+    "ai_governance",
     "customer_support",
 ]
 
@@ -45,6 +46,7 @@ STARTUP_TEAM_PROFILE_KEYS: Final[tuple[StartupTeamProfileKey, ...]] = (
     "security",
     "legal",
     "data",
+    "ai_governance",
     "customer_support",
 )
 
@@ -63,6 +65,7 @@ STARTUP_TEAM_PROFILES: Final[list[dict[str, str]]] = [
     {"key":"security","label":"Security","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"legal","label":"Legal","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"data","label":"Data","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+    {"key":"ai_governance","label":"AI Governance","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 ]
 
@@ -81,5 +84,6 @@ STARTUP_TEAM_PROFILES_MAP: Final[dict[str, dict[str, str]]] = {
     "security": {"key":"security","label":"Security","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "legal": {"key":"legal","label":"Legal","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "data": {"key":"data","label":"Data","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+    "ai_governance": {"key":"ai_governance","label":"AI Governance","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
     "customer_support": {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 }

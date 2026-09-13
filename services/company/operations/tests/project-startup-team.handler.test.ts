@@ -80,7 +80,7 @@ describe("project-startup-team handler authorization & governance", () => {
       workspaceId: ws.workspaceId,
       projectId: project.id,
     });
-    expect(listRes.items).toHaveLength(15);
+    expect(listRes.items).toHaveLength(16);
 
     // Member cannot activate
     await expect(

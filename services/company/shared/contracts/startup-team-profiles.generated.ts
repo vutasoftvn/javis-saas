@@ -28,6 +28,7 @@ export type StartupTeamProfileKey =
   | "security"
   | "legal"
   | "data"
+  | "ai_governance"
   | "customer_support";
 
 export const STARTUP_TEAM_PROFILE_KEYS = [
@@ -45,6 +46,7 @@ export const STARTUP_TEAM_PROFILE_KEYS = [
   "security",
   "legal",
   "data",
+  "ai_governance",
   "customer_support",
 ] as const;
 
@@ -70,6 +72,7 @@ export const STARTUP_TEAM_PROFILES: readonly StartupTeamProfileDef[] = Object.fr
   {"key":"security","label":"Security","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"legal","label":"Legal","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"data","label":"Data","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
+  {"key":"ai_governance","label":"AI Governance","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"customer_support","label":"Customer Support","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
 ]);
 

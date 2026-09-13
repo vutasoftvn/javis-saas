@@ -330,6 +330,55 @@ void main() {
     expect(cdo.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
   });
 
+  test(
+      'CAIO remains unavailable until Company reports active AI Governance profile',
+      () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'roles': [
+              {
+                'roleKey': 'caio',
+                'label': 'Chief AI Officer',
+                'advisoryRemit':
+                    'Model evaluation, provider governance, prompt safety, red-team assessment',
+                'displayState': 'UNAVAILABLE',
+                'runtimeReadiness': 'READY',
+                'requiredProfileKey': 'ai_governance',
+                'version': 1,
+                'disabledReason': 'UNDERLYING_PROFILE_UNAVAILABLE',
+              },
+            ],
+          },
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-09-13T12:00:00Z',
+            'sources': [
+              {'kind': 'company_db', 'ref': 'operating'}
+            ],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final requestClient = MvpRequestClient(httpClient: mockHttp);
+    final service = ExecutiveAdvisoryBoardService(client: requestClient);
+
+    final result = await service.fetchRoles('proj-101');
+    expect(result, isA<ApiSuccess<List<ExecutiveAdvisorRole>>>());
+    final roles = (result as ApiSuccess<List<ExecutiveAdvisorRole>>).data;
+    expect(roles, hasLength(1));
+
+    final caio = roles[0];
+    expect(caio.roleKey, 'caio');
+    expect(caio.activationState, ExecutiveActivationState.unavailable);
+    expect(caio.underlyingProfileKey, 'ai_governance');
+    expect(caio.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
+  });
+
   test('activates an executive role and decodes mutation receipt truthfully', () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'POST');
