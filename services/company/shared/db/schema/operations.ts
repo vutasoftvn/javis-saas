@@ -1136,6 +1136,44 @@ export const legalIssueDossierRevisions = operatingSchema.table("legal_issue_dos
   ixDossier: index("idx_legal_issue_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
 }));
 
+export const dataGovernanceDossiers = operatingSchema.table("data_governance_dossiers", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  status: varchar("status", { length: 24 }).default("DRAFT").notNull(), // DRAFT | CONFIRMED | SUPERSEDED
+  currentVersion: integer("current_version").default(1).notNull(),
+  createdByMemberId: bigint("created_by_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixProj: index("idx_data_governance_dossiers_proj").on(t.workspaceId, t.projectId, t.updatedAt),
+  // 1 dossier duy nhất mỗi Project (xem migration 019).
+  uixProject: uniqueIndex("uix_data_governance_dossiers_project").on(t.workspaceId, t.projectId),
+}));
+
+export const dataGovernanceDossierRevisions = operatingSchema.table("data_governance_dossier_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  dossierId: bigint("dossier_id", { mode: "bigint" }).notNull().references(() => dataGovernanceDossiers.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  status: varchar("status", { length: 24 }).notNull(), // DRAFT | CONFIRMED
+  // Mảng {assetId, classification, qualityStatus} — validate qua allowlist +
+  // enum cố định ở service layer, KHÔNG BAO GIỜ chứa field sample thật.
+  assets: jsonb("assets").default([]).notNull(),
+  // Tham chiếu nguồn đã redact (reference-only, mirror EvidenceRef).
+  sourceRefs: jsonb("source_refs").default([]).notNull(),
+  reasonCode: varchar("reason_code", { length: 32 }).notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  confirmedByMemberId: bigint("confirmed_by_member_id", { mode: "bigint" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  supersedesRevisionId: bigint("supersedes_revision_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixVer: uniqueIndex("uix_data_governance_dossier_revisions_ver").on(t.dossierId, t.version),
+  ixDossier: index("idx_data_governance_dossier_revisions_dossier").on(t.dossierId, t.createdAt),
+}));
+
 // =============================================================================
 // Founder-Configurable Role, Agent, Skill & Workflow Storage (Migration 018)
 // =============================================================================
