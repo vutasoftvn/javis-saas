@@ -79,18 +79,12 @@ class WorkflowOrchestration:
             spec, initial_state=initial_state, custom_step_builders=custom_step_builders
         )
 
-    async def execute_manifest(
-        self,
-        manifest: Any,
-        *,
-        initial_state: dict[str, Any] | None = None,
-        spec: Any | None = None,
-    ) -> Any:
-        """Execute a governed workflow run manifest using explicit registered executors.
-
-        Obtains builders from the explicit engine registry; must never synthesize
-        generic fallbacks for arbitrary input steps.
-        """
+    async def _resolve_pinned_spec(self, manifest: Any, spec: Any | None = None) -> Any:
+        """Resolve the exact `WorkflowSpec` pinned by `manifest` from the durable
+        definition repository — never the caller's in-memory object, never a
+        floating "latest" version (Task 8-10 exact-hash pin contract). Shared by
+        `execute_manifest` (fresh run) and `resume_manifest` (Task 11) so a resume
+        re-verifies the exact same pin instead of re-deriving its own copy."""
         if self.workflow_definition_repository is None:
             raise RuntimeError("Durable workflow definition repository is required for manifest execution")
 
@@ -123,8 +117,9 @@ class WorkflowOrchestration:
                 or supplied_hash != resolved_hash
             ):
                 raise ValueError("Caller-supplied workflow definition does not match the durable manifest pin")
+        return resolved_spec
 
-        state = dict(initial_state or {})
+    def _seed_manifest_state(self, state: dict[str, Any], manifest: Any) -> dict[str, Any]:
         state["_manifest"] = manifest
         if hasattr(manifest, "workspace_id"):
             state["workspace_id"] = manifest.workspace_id
@@ -132,8 +127,41 @@ class WorkflowOrchestration:
             state["project_id"] = manifest.project_id
         if getattr(manifest, "project_agent_deployment_id", None):
             state["project_agent_deployment_id"] = manifest.project_agent_deployment_id
+        return state
 
+    async def execute_manifest(
+        self,
+        manifest: Any,
+        *,
+        initial_state: dict[str, Any] | None = None,
+        spec: Any | None = None,
+    ) -> Any:
+        """Execute a governed workflow run manifest using explicit registered executors.
+
+        Obtains builders from the explicit engine registry; must never synthesize
+        generic fallbacks for arbitrary input steps.
+        """
+        resolved_spec = await self._resolve_pinned_spec(manifest, spec)
+        state = self._seed_manifest_state(dict(initial_state or {}), manifest)
         return await self.workflow_engine.execute_spec(resolved_spec, initial_state=state)
+
+    async def resume_manifest(
+        self,
+        manifest: Any,
+        workflow: Any,
+        *,
+        spec: Any | None = None,
+    ) -> Any:
+        """Resume a previously paused (`WAITING_APPROVAL`) governed workflow run
+        (Task 11) — `workflow` is the exact `Workflow` DAG state reloaded from
+        the caller's durable checkpoint, never a fresh instance. Re-resolves the
+        pinned spec (same exact-hash contract as `execute_manifest`) rather than
+        trusting whatever `WorkflowSpec` object happens to be in memory, so a
+        worker restart between pause and resume can never silently pick up a
+        newer published workflow version."""
+        resolved_spec = await self._resolve_pinned_spec(manifest, spec)
+        self._seed_manifest_state(workflow.state, manifest)
+        return await self.workflow_engine.resume_spec(workflow, resolved_spec)
 
 
 class IWorkflowOrchestration:
@@ -162,6 +190,15 @@ class IWorkflowOrchestration:
         manifest: Any,
         *,
         initial_state: dict[str, Any] | None = None,
+        spec: Any | None = None,
+    ) -> Any:
+        ...
+
+    async def resume_manifest(
+        self,
+        manifest: Any,
+        workflow: Any,
+        *,
         spec: Any | None = None,
     ) -> Any:
         ...

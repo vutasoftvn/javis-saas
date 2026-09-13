@@ -56,6 +56,45 @@ _AUTOMATION_FORBIDDEN_KEYS = (
 )
 
 
+# Task 11 (plan 2026-09-13-founder-configurable-agent-skill-workflow) — signed
+# Company event dispatching one governed workflow run (project workflow
+# binding fired). Reference-only: workspace/project/binding/manifest-pin ids,
+# never raw prompt/credential — same discipline as the automation envelope above.
+GOVERNED_WORKFLOW_RUN_REQUESTED_EVENT = "operations.workflow_run.requested.v1"
+_GOVERNED_WORKFLOW_ENVELOPE_FIELDS = (
+    "workspace_id",
+    "project_id",
+    "workflow_binding_id",
+    "workflow_asset_id",
+    "workflow_version",
+    "workflow_definition_hash",
+    "idempotency_key",
+)
+_GOVERNED_WORKFLOW_FORBIDDEN_KEYS = (
+    "input",
+    "input_payload",
+    "prompt",
+    "credential",
+    "secret",
+    "authorization",
+    "connector_grant",
+    "document",
+)
+
+
+def _validate_governed_workflow_payload(payload: dict) -> str | None:
+    """Return an error string if the payload is not a clean workflow-run trigger."""
+    if not isinstance(payload, dict):
+        return "governed workflow payload is not an object"
+    for k in _GOVERNED_WORKFLOW_FORBIDDEN_KEYS:
+        if k in payload:
+            return f"governed workflow payload carries forbidden key '{k}'"
+    for k in _GOVERNED_WORKFLOW_ENVELOPE_FIELDS:
+        if payload.get(k) in (None, ""):
+            return f"governed workflow payload missing '{k}'"
+    return None
+
+
 def _validate_automation_payload(payload: dict) -> str | None:
     """Return an error string if the payload is not a clean dispatch envelope."""
     if not isinstance(payload, dict):
@@ -276,6 +315,48 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
                 return IntakeResult(outcome="rejected", reason="workspace mismatch")
 
             task_id = await deps.execution_plane.schedule_automation_dispatch(env)
+            await inbox_store.set_outcome(
+                conn, env.workspaceId, env.eventId, CONSUMER, "accepted", task_id
+            )
+            return IntakeResult(outcome="accepted", scheduledTaskId=task_id)
+
+        # Task 11 — governed workflow run trigger. `idempotency_key` yields a
+        # deterministic run_id so a retried Company event (same key, new
+        # eventId) and this consumer's own inbox dedup (same eventId) both
+        # collapse to exactly one scheduled task / one run — never a second
+        # execution of the same manifest.
+        if env.eventType == GOVERNED_WORKFLOW_RUN_REQUESTED_EVENT:
+            payload = getattr(env, "payload", {}) or {}
+            error = _validate_governed_workflow_payload(payload)
+            if error is not None:
+                await inbox_store.set_outcome(
+                    conn, env.workspaceId, env.eventId, CONSUMER, "rejected"
+                )
+                return IntakeResult(outcome="rejected", reason=error)
+            if payload["workspace_id"] != env.workspaceId:
+                await inbox_store.set_outcome(
+                    conn, env.workspaceId, env.eventId, CONSUMER, "rejected"
+                )
+                return IntakeResult(outcome="rejected", reason="workspace mismatch")
+
+            run_id = f"run_wf_{payload['idempotency_key']}"
+            task_id = await deps.execution_plane.schedule_platform_task(
+                target_spec_id=payload["workflow_asset_id"],
+                task_type="governed_workflow_run",
+                input_payload={
+                    "run_id": run_id,
+                    "workspace_id": payload["workspace_id"],
+                    "project_id": payload["project_id"],
+                    "workflow_binding_id": payload["workflow_binding_id"],
+                    "workflow_asset_id": payload["workflow_asset_id"],
+                    "workflow_version": payload["workflow_version"],
+                    "workflow_definition_hash": payload["workflow_definition_hash"],
+                    "project_agent_deployment_id": payload.get("project_agent_deployment_id"),
+                    "role_deployment_id": payload.get("role_deployment_id"),
+                    "correlation_id": payload.get("correlation_id") or env.correlationId,
+                },
+                coalescing_key=f"governed_workflow_run:{payload['workspace_id']}:{run_id}",
+            )
             await inbox_store.set_outcome(
                 conn, env.workspaceId, env.eventId, CONSUMER, "accepted", task_id
             )

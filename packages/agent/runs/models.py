@@ -22,6 +22,7 @@ __all__ = [
     "AutomationRunManifestRecord",
     "ComplianceDecisionPayload",
     "GovernedWorkflowRunManifest",
+    "GovernedWorkflowRunOutcome",
     "IdempotencyClaimRecord",
     "RunApprovalRecord",
     "RunCheckpointRecord",
@@ -267,6 +268,18 @@ class AutomationRunManifestRecord(BaseModel):
     manifest_hash: str
     manifest_json: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class GovernedWorkflowRunOutcome(BaseModel):
+    """Kết quả một lần dispatch/resume `governed_workflow_run` (Task 11, plan
+    2026-09-13-founder-configurable-agent-skill-workflow). `status` phản ánh
+    đúng `WorkflowStatus` cuối cùng của DAG run — không suy diễn từ text lỗi
+    (CLAUDE.md quy tắc 7)."""
+
+    run_id: str
+    status: Literal["completed", "failed", "waiting_approval", "cancelled"]
+    error: str | None = None
+    pending_approval_id: str | None = None
 
 
 def __getattr__(name: str) -> Any:

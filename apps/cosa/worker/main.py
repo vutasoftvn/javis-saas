@@ -33,6 +33,7 @@ from apps.cosa.observability.metrics import (
     set_scheduler_queue_depth,
 )
 from apps.cosa.observability.otel import init_tracing, trace_span
+from apps.cosa.worker.governed_workflow_run import execute_governed_workflow_run_task
 from apps.cosa.worker.handlers import (
     execute_automation_run_task,
     execute_resume_task,
@@ -502,6 +503,14 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
                         if delay:
                             await asyncio.sleep(float(delay))
                         await execute_automation_run_task(plane, stream_mgr, payload)
+
+                    coro = _with_optional_delay()
+                elif task_type == "governed_workflow_run":
+
+                    async def _with_optional_delay():
+                        if delay:
+                            await asyncio.sleep(float(delay))
+                        await execute_governed_workflow_run_task(plane, stream_mgr, payload)
 
                     coro = _with_optional_delay()
                 else:

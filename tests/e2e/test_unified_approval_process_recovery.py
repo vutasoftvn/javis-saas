@@ -443,6 +443,207 @@ asyncio.run(main())
 """
 
 
+_GOVERNED_WORKFLOW_RESUME_SUBPROCESS_SCRIPT = """
+import asyncio
+import sys
+from types import SimpleNamespace
+
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from agent.capabilities.approval_service import DurableApprovalService
+from agent.runs.repository import PostgresRunRepository
+from agent.workflows.engine import WorkflowEngine
+from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
+
+from apps.cosa.composition.workflow_orchestration import WorkflowOrchestration
+from apps.cosa.worker.governed_workflow_run import execute_governed_workflow_run
+
+AGENT_SPEC_ID = "agentspec-recovery-1"
+
+
+class RevokedDeploymentResolver:
+    # Task 11 — a fresh process reloading the SAME manifest/checkpoint by
+    # run_id, but now sees the deployment PAUSED: the resumed AGENT effect
+    # must fail closed instead of trusting the ACTIVE state seen before pause.
+    async def resolve_authority(self, workspace_id, project_id, deployment_id):
+        return {
+            "state": "PAUSED",
+            "workspaceId": workspace_id,
+            "projectId": project_id,
+            "agentSpec": {"id": AGENT_SPEC_ID, "version": "1.0.0", "definitionHash": "hash1"},
+        }
+
+
+class UnusedKernel:
+    async def run(self, request):
+        raise AssertionError("kernel must never be invoked once the deployment is revoked")
+
+
+async def main():
+    db_url = sys.argv[1]
+    run_id = sys.argv[2]
+
+    engine = create_async_engine(db_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    run_repository = PostgresRunRepository(factory)
+    workflow_definition_repository = PostgresWorkflowDefinitionRepository(factory)
+    approval_service = DurableApprovalService(run_repository)
+    workflow_engine = WorkflowEngine(
+        resolver=RevokedDeploymentResolver(),
+        kernel=UnusedKernel(),
+        approval_service=approval_service,
+    )
+    workflow_orchestration = WorkflowOrchestration(
+        gateway=None,
+        workflow_engine=workflow_engine,
+        workflow_registry=None,
+        approval_service=approval_service,
+        workflow_definition_repository=workflow_definition_repository,
+    )
+    plane = SimpleNamespace(
+        run_repository=run_repository,
+        workflow_orchestration=workflow_orchestration,
+    )
+
+    # Reload the manifest fresh from Postgres by run_id ONLY — this process
+    # never saw the in-memory manifest object the parent process built.
+    manifest = await run_repository.get_workflow_manifest(run_id)
+    assert manifest is not None, f"no durable manifest found for run_id={run_id}"
+
+    outcome = await execute_governed_workflow_run(plane, manifest)
+    assert outcome.status == "failed", f"expected resume to fail closed, got {outcome.status}"
+
+    run = await run_repository.get_run(run_id)
+    assert run.status.value == "failed"
+
+    await engine.dispose()
+    print("SUCCESS_GOVERNED_WORKFLOW_RESUME")
+
+asyncio.run(main())
+"""
+
+
+@pytest.mark.asyncio
+async def test_governed_workflow_run_resumes_pinned_state_and_revoked_deployment_blocks_effect(
+    tmp_path: Path,
+) -> None:
+    """Task 11 — a governed workflow run paused at an APPROVAL_GATE, approved,
+    then resumed in a BRAND NEW PROCESS after the project agent deployment was
+    revoked: the resumed AGENT effect must fail closed, and the run/checkpoint
+    it resumes from must be the exact durable state the first process left
+    behind (not a fresh reconstruction)."""
+    import uuid as uuid_mod
+    from types import SimpleNamespace
+
+    from agent.capabilities.approval_service import DurableApprovalService
+    from agent.runs.repository import PostgresRunRepository
+    from agent.workflows.engine import WorkflowEngine
+    from agent.workflows.manifest import make_manifest
+    from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
+    from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
+
+    from apps.cosa.composition.workflow_orchestration import WorkflowOrchestration
+    from apps.cosa.worker.governed_workflow_run import execute_governed_workflow_run
+
+    engine = create_async_engine(TEST_DATABASE_URL)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    run_repository = PostgresRunRepository(session_factory)
+    workflow_definition_repository = PostgresWorkflowDefinitionRepository(session_factory)
+    approval_service = DurableApprovalService(run_repository)
+
+    workspace_id = f"ws_gwf_{uuid_mod.uuid4().hex[:6]}"
+    project_id = f"proj_gwf_{uuid_mod.uuid4().hex[:6]}"
+    deployment_id = f"dep_gwf_{uuid_mod.uuid4().hex[:6]}"
+    workflow_id = f"wf_gwf_{uuid_mod.uuid4().hex[:6]}"
+    run_id = f"run_gwf_{uuid_mod.uuid4().hex[:8]}"
+
+    spec = WorkflowSpec(
+        id=workflow_id,
+        name="Governed Recovery Workflow",
+        version="1.0.0",
+        steps=[
+            WorkflowStepSpec(
+                id="approve",
+                type=StepType.APPROVAL_GATE,
+                subject_key="workspace_id",
+                action="run_governed_effect",
+            ),
+            WorkflowStepSpec(
+                id="agent_step",
+                type=StepType.AGENT,
+                depends_on=["approve"],
+                project_agent_deployment_id=deployment_id,
+                output_key="agent_output",
+            ),
+        ],
+    ).with_hash()
+    await workflow_definition_repository.save_definition(spec, workspace_id=workspace_id)
+
+    manifest = await run_repository.create_workflow_manifest(
+        make_manifest(
+            run_id=run_id,
+            project_id=project_id,
+            workspace_id=workspace_id,
+            workflow_asset_id=workflow_id,
+            workflow_version="1.0.0",
+            workflow_definition_hash=spec.definition_hash,
+            project_agent_deployment_id=deployment_id,
+            pinned_agent_specs={"agentspec-recovery-1": {"version": "1.0.0", "definition_hash": "hash1"}},
+        )
+    )
+
+    class ActiveDeploymentResolver:
+        async def resolve_authority(self, ws, proj, dep):
+            return {
+                "state": "ACTIVE",
+                "workspaceId": ws,
+                "projectId": proj,
+                "agentSpec": {"id": "agentspec-recovery-1", "version": "1.0.0", "definitionHash": "hash1"},
+            }
+
+    workflow_engine = WorkflowEngine(
+        resolver=ActiveDeploymentResolver(), kernel=None, approval_service=approval_service
+    )
+    workflow_orchestration = WorkflowOrchestration(
+        gateway=None,
+        workflow_engine=workflow_engine,
+        workflow_registry=None,
+        approval_service=approval_service,
+        workflow_definition_repository=workflow_definition_repository,
+    )
+    plane = SimpleNamespace(run_repository=run_repository, workflow_orchestration=workflow_orchestration)
+
+    # 1. First (parent-process) execution pauses at the APPROVAL_GATE step.
+    first = await execute_governed_workflow_run(plane, manifest)
+    assert first.status == "waiting_approval"
+
+    pending = await run_repository.list_pending_approvals(workspace_id=workspace_id)
+    assert len(pending) == 1
+    await approval_service.submit_decision(
+        approval_id=pending[0].approval_id, reviewer="founder_user", approved=True
+    )
+
+    # Disconnect the parent engine (simulate worker shutdown) before resuming
+    # in a completely separate process below.
+    await engine.dispose()
+
+    script_file = tmp_path / "run_governed_workflow_resume.py"
+    script_file.write_text(_GOVERNED_WORKFLOW_RESUME_SUBPROCESS_SCRIPT)
+
+    proc = subprocess.run(
+        [sys.executable, str(script_file), TEST_DATABASE_URL, run_id],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=dict(
+            os.environ,
+            PYTHONPATH=f"{Path.cwd()}:{Path.cwd() / 'packages'}:{Path.cwd() / 'apps'}",
+        ),
+    )
+    assert proc.returncode == 0, f"Subprocess failed:\\nSTDOUT:\\n{proc.stdout}\\nSTDERR:\\n{proc.stderr}"
+    assert "SUCCESS_GOVERNED_WORKFLOW_RESUME" in proc.stdout
+
+
 @pytest.mark.asyncio
 async def test_promotion_rejects_foreign_or_stale_subject_after_restart(tmp_path: Path) -> None:
     engine = create_async_engine(TEST_DATABASE_URL)
