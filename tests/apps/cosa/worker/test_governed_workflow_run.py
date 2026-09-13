@@ -469,9 +469,9 @@ async def test_approved_workflow_gate_is_actually_relayed_to_a_resume_task():
     pending = await plane.run_repository.list_pending_approvals(workspace_id=WORKSPACE_ID)
     assert len(pending) == 1
     approval = pending[0]
-    # run_id is encoded in subject_ref, not the run_id column (see
-    # schedule_workflow_gate_resume's docstring for why).
-    assert approval.subject_ref.startswith(f"{run_id}:")
+    # run_id rides in requirement["run_id"], not the run_id column or
+    # subject_ref (see schedule_workflow_gate_resume's docstring for why).
+    assert approval.requirement.get("run_id") == run_id
 
     await plane.approval_service.submit_decision(
         approval_id=approval.approval_id, reviewer="founder_user", approved=True
@@ -503,3 +503,96 @@ async def test_approved_workflow_gate_is_actually_relayed_to_a_resume_task():
     run_after = await plane.run_repository.get_run(run_id)
     assert run_after.status == RunStatus.COMPLETED
     assert kernel.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_workflow_gate_resume_round_trips_a_run_id_containing_a_colon():
+    """Review fix (round 2) — `run_id` for a governed run derives from
+    `workspace_id`/`idempotency_key` (apps/cosa/events/router.py), neither of
+    which is charset-validated; either could legally contain a literal `:`
+    (e.g. an ISO-8601 timestamp used as an idempotency key). An earlier
+    version of `schedule_workflow_gate_resume` parsed `run_id` out of
+    `subject_ref` via `partition(":")`, which would silently truncate such a
+    run_id at the first colon. It now rides in
+    `RunApprovalRecord.requirement["run_id"]` (a plain JSON field, no
+    delimiter to collide with) — this proves the colon survives intact."""
+    from apps.cosa.worker.approval_actions import relay_approved_actions
+
+    workflow_id = f"wf_colon_{uuid.uuid4().hex[:8]}"
+    spec = _approval_then_agent_spec(workflow_id)
+    resolver = FakeDeploymentResolver()
+    kernel = FakeKernel()
+    plane = _build_plane(resolver=resolver, kernel=kernel)
+    await plane.workflow_definition_repository.save_definition(spec, workspace_id=WORKSPACE_ID)
+
+    # Deliberately colon-bearing, mirroring `run_wf_{workspace_id}_{idempotency_key}`
+    # if either component ever contains a colon.
+    run_id = f"run_wf_{WORKSPACE_ID}_2026-09-13T10:00:00Z"
+    manifest = await plane.run_repository.create_workflow_manifest(
+        make_manifest(
+            run_id=run_id,
+            project_id=PROJECT_ID,
+            workspace_id=WORKSPACE_ID,
+            workflow_asset_id=workflow_id,
+            workflow_version="1.0.0",
+            workflow_definition_hash=spec.definition_hash,
+            project_agent_deployment_id=DEPLOYMENT_ID,
+            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": "hash1"}},
+        )
+    )
+
+    first = await execute_governed_workflow_run(plane, manifest)
+    assert first.status == "waiting_approval"
+
+    pending = await plane.run_repository.list_pending_approvals(workspace_id=WORKSPACE_ID)
+    approval = pending[0]
+    assert approval.requirement.get("run_id") == run_id
+
+    await plane.approval_service.submit_decision(
+        approval_id=approval.approval_id, reviewer="founder_user", approved=True
+    )
+
+    await relay_approved_actions(plane, worker_id="worker-1")
+    tasks = await plane.scheduler.poll_due_tasks(worker_id="worker-1", limit=10)
+    approval_action_tasks = [
+        t for t in tasks if t.input_payload.get("subject_kind") == "workflow_gate"
+    ]
+    await dispatch_one_task(plane, approval_action_tasks[0])
+
+    resume_tasks = await plane.scheduler.poll_due_tasks(worker_id="worker-1", limit=10)
+    governed_tasks = [
+        t for t in resume_tasks if t.input_payload.get("task_type") == "governed_workflow_run"
+    ]
+    assert len(governed_tasks) == 1
+    # The full, un-truncated colon-bearing run_id must have survived.
+    assert governed_tasks[0].input_payload["run_id"] == run_id
+
+    await dispatch_one_task(plane, governed_tasks[0])
+    run_after = await plane.run_repository.get_run(run_id)
+    assert run_after is not None
+    assert run_after.status == RunStatus.COMPLETED
+    assert kernel.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_governed_workflow_run_task_fails_closed_when_manifest_unresolvable():
+    """Review fix (round 2) — if a `governed_workflow_run` task ever names a
+    `run_id` with neither a persisted manifest nor enough payload to build one
+    (e.g. a resume-only dispatch racing ahead of/outliving its manifest), the
+    task must fail closed with a safe, structured reason code — never raise
+    an unhandled `KeyError` out of `make_manifest`."""
+    plane = _build_plane()
+    payload = {
+        "task_type": "governed_workflow_run",
+        "run_id": "run_never_persisted",
+        "workspace_id": WORKSPACE_ID,
+        # Deliberately missing project_id/workflow_asset_id/workflow_definition_hash —
+        # nothing to build a fresh manifest from, and none exists yet.
+    }
+
+    outcome = await execute_governed_workflow_run_task(plane, None, payload)
+
+    assert outcome.status == "failed"
+    assert outcome.error == "governed_workflow_manifest_unresolvable"
+    assert outcome.run_id == "run_never_persisted"
+    assert await plane.run_repository.get_run("run_never_persisted") is None

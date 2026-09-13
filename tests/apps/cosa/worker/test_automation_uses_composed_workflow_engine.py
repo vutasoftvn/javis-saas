@@ -131,11 +131,12 @@ async def test_approval_gate_decision_schedules_workflow_gate_outbox_action() ->
     assert wf.pending_approval_id is not None
 
     approval = await repo.get_approval(wf.pending_approval_id)
-    # `run_id` is encoded in `subject_ref` (not the `run_id` column — the DB
-    # CHECK constraint `chk_agent_approvals_binding` forbids a CHANGE_REQUEST
-    # approval from carrying `run_id` directly).
+    # `run_id` rides in `requirement["run_id"]` (a plain JSONB column, not the
+    # `run_id` column itself — the DB CHECK constraint
+    # `chk_agent_approvals_binding` forbids a CHANGE_REQUEST approval from
+    # carrying `run_id` directly).
     assert approval.run_id is None
-    assert approval.subject_ref.startswith("run_gate_test:")
+    assert approval.requirement.get("run_id") == "run_gate_test"
 
     # Submit decision
     res = await approval_svc.submit_decision(

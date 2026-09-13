@@ -34,6 +34,7 @@ from agent.workflows.models import Workflow, WorkflowStatus
 logger = logging.getLogger("cosa.worker.governed_workflow_run")
 
 __all__ = [
+    "ManifestUnresolvableError",
     "execute_governed_workflow_run",
     "execute_governed_workflow_run_task",
     "resolve_or_create_manifest",
@@ -41,6 +42,25 @@ __all__ = [
 ]
 
 _CHECKPOINT_STATE_KIND = "governed_workflow"
+
+# Fields `make_manifest` cannot proceed without when building a manifest from
+# scratch (as opposed to reloading a persisted one by run_id). A resume-only
+# dispatch (e.g. `schedule_workflow_gate_resume`'s task, which carries only
+# `run_id`/`workspace_id`) never has these — that's fine as long as a manifest
+# already exists for the run_id; it's only an error if BOTH are missing.
+_REQUIRED_NEW_MANIFEST_FIELDS = ("project_id", "workflow_asset_id", "workflow_definition_hash")
+
+
+class ManifestUnresolvableError(Exception):
+    """Raised when a `governed_workflow_run` dispatch has neither an existing
+    durable manifest for its `run_id` nor enough payload fields to build one.
+    Caught by `execute_governed_workflow_run_task` and turned into a safe,
+    structured `failed` outcome — never left to propagate as a raw `KeyError`."""
+
+    def __init__(self, run_id: str, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.run_id = run_id
+        self.reason_code = reason_code
 
 
 async def resolve_or_create_manifest(
@@ -51,12 +71,20 @@ async def resolve_or_create_manifest(
     restart, duplicate scheduler task from a retried Company event) always
     reloads the persisted manifest instead of resolving the workflow asset
     again — the whole point of pinning is that a founder publishing a newer
-    workflow version mid-run must never change what's already executing."""
+    workflow version mid-run must never change what's already executing.
+
+    Raises `ManifestUnresolvableError` (never a raw `KeyError`) if no manifest
+    exists yet for `run_id` and the payload doesn't carry enough to build one —
+    e.g. a resume-only dispatch racing ahead of (or outliving) its manifest."""
     run_id = str(payload["run_id"])
 
     existing = await plane.run_repository.get_workflow_manifest(run_id)
     if existing is not None:
         return existing
+
+    missing = [f for f in _REQUIRED_NEW_MANIFEST_FIELDS if not payload.get(f)]
+    if missing:
+        raise ManifestUnresolvableError(run_id, "governed_workflow_manifest_unresolvable")
 
     manifest = make_manifest(
         run_id=run_id,
@@ -256,7 +284,14 @@ async def execute_governed_workflow_run_task(
 ) -> GovernedWorkflowRunOutcome:
     """Worker task-level entrypoint for `task_type == "governed_workflow_run"`
     — builds/loads the manifest from the scheduler payload, then executes it."""
-    manifest = await resolve_or_create_manifest(plane, payload)
+    try:
+        manifest = await resolve_or_create_manifest(plane, payload)
+    except ManifestUnresolvableError as exc:
+        logger.error(
+            "governed workflow run has no resolvable manifest",
+            extra={"run_id": exc.run_id, "reason_code": exc.reason_code},
+        )
+        return GovernedWorkflowRunOutcome(run_id=exc.run_id, status="failed", error=exc.reason_code)
     return await execute_governed_workflow_run(plane, manifest, stream_mgr=stream_mgr)
 
 
@@ -267,17 +302,25 @@ async def schedule_workflow_gate_resume(
     """Approval-action handler for `subject_kind == "workflow_gate"` (Task 11).
 
     An `ApprovalGateStep` approval (`packages/agent/workflows/approval_step.py`)
-    carries the exact `run_id` of the governed workflow it paused, encoded as
-    the first `:`-separated segment of `RunApprovalRecord.subject_ref` — NOT
-    the `run_id` column itself, which the DB CHECK constraint
-    `chk_agent_approvals_binding` (packages/agent/migrations/
-    006_unified_governance_approvals.sql) forbids for any CHANGE_REQUEST
-    approval. This re-loads that approval by id (never trusts the outbox-
-    relayed payload alone) and schedules a fresh `governed_workflow_run` task
-    for that run_id, coalesced the same way the router's initial trigger is —
-    so an approved gate actually reaches `execute_governed_workflow_run`'s
-    resume path in production, not only when a test calls it a second time by
-    hand. Returns `(success, reason_code_if_not)`.
+    carries the exact `run_id` of the governed workflow it paused in
+    `RunApprovalRecord.requirement["run_id"]` — a plain JSONB column, chosen
+    specifically because `chk_agent_approvals_binding` (packages/agent/
+    migrations/006_unified_governance_approvals.sql) forbids storing it on
+    the `run_id` column itself for a CHANGE_REQUEST binding, and because
+    string-splitting it out of `subject_ref` (an earlier version of this
+    function did) is unsafe: `workspace_id`/`idempotency_key` — which
+    together form the governed run's `run_id`, see
+    `apps/cosa/events/router.py` — are not charset-validated and could
+    legally contain the delimiter, silently truncating the parsed id.
+
+    This re-loads the approval by id (never trusts the outbox-relayed
+    payload alone) and schedules a fresh `governed_workflow_run` task for
+    that run_id, coalesced the same way the router's initial trigger is — so
+    an approved gate actually reaches `execute_governed_workflow_run`'s
+    resume path in production, not only when a test calls it a second time
+    by hand. Returns `(success, reason_code_if_not)` — never raises for a
+    malformed/legacy approval record, so a bad or missing run_id fails
+    closed with a safe reason code instead of an unhandled exception.
     """
     approval_id = payload.get("approval_id")
     workspace_id = payload.get("workspace_id")
@@ -289,12 +332,11 @@ async def schedule_workflow_gate_resume(
         return False, "APPROVAL_NOT_FOUND"
     if approval.status != "approved":
         return False, "APPROVAL_NOT_APPROVED"
-    if not approval.subject_ref or ":" not in approval.subject_ref:
+
+    run_id = (approval.requirement or {}).get("run_id")
+    if not run_id or not isinstance(run_id, str):
         return False, "APPROVAL_MISSING_RUN_ID"
 
-    run_id, _, _step_id = approval.subject_ref.partition(":")
-    if not run_id:
-        return False, "APPROVAL_MISSING_RUN_ID"
     await plane.scheduler.schedule(
         target_spec_id=run_id,
         target_spec_kind="agent",

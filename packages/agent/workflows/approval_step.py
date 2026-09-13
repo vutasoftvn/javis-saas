@@ -94,14 +94,7 @@ class ApprovalGateStep:
 
         step_id = state.get("_workflow_step_id", self.name)
         wf_instance_id = state.get("_workflow_instance_id", "wf_instance")
-        # Task 11 — prefer the durable `run_id` over the ephemeral in-memory
-        # `Workflow.id` when one is seeded (governed workflow context): the
-        # DB CHECK constraint `chk_agent_approvals_binding` forbids a
-        # CHANGE_REQUEST approval from carrying `run_id` directly, so a
-        # `workflow_gate` approval threads it through `subject_ref` instead —
-        # `schedule_workflow_gate_resume` (apps/cosa/worker/governed_workflow_run.py)
-        # parses it back out to know which run to resume.
-        subject_ref = f"{state.get('run_id') or wf_instance_id}:{step_id}"
+        subject_ref = f"{wf_instance_id}:{step_id}"
 
         subject = ApprovalSubject(
             kind="workflow_gate",
@@ -109,12 +102,28 @@ class ApprovalGateStep:
             definition_hash=def_hash,
         )
 
+        # Task 11 — a `workflow_gate` approval tied to a governed workflow run
+        # needs to carry its `run_id` so `schedule_workflow_gate_resume`
+        # (apps/cosa/worker/governed_workflow_run.py) knows which run to
+        # resume once approved. `RunApprovalRecord.run_id` itself is forbidden
+        # here by the DB CHECK constraint `chk_agent_approvals_binding`
+        # (packages/agent/migrations/006_unified_governance_approvals.sql)
+        # for CHANGE_REQUEST bindings, and string-encoding it into
+        # `subject_ref` is fragile (both `workspace_id` and an
+        # externally-chosen `idempotency_key` can legally contain arbitrary
+        # characters, including a delimiter). `requirement` is a plain JSONB
+        # column the constraint never touches, so the run_id rides there
+        # instead — structured, no delimiter to collide with.
+        requirement: dict[str, Any] = {"role": "operator"}
+        if state.get("run_id"):
+            requirement["run_id"] = state["run_id"]
+
         record, _ = await self._approval_service.create_change_approval_request(
             workspace_id=workspace_id,
             project_id=state.get("project_id"),
             action=self._action,
             subject=subject,
-            requirement={"role": "operator"},
+            requirement=requirement,
             requester=self._requester,
         )
 
