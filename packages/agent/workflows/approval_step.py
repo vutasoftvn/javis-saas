@@ -4,6 +4,10 @@ import hashlib
 from typing import Any
 
 from agent.runs.models import ApprovalSubject
+from agent.workflows.live_authority import (
+    check_live_deployment_authority,
+    resolve_deployment_context,
+)
 from agent.workflows.models import StepOutcome, StepStatus
 
 __all__ = ["ApprovalGateStep"]
@@ -29,6 +33,7 @@ class ApprovalGateStep:
         policy_engine: Any = None,
         permission: Any = None,
         requester: str = "workflow_engine",
+        resolver: Any | None = None,
     ) -> None:
         self.name = name
         self._approval_service = approval_service
@@ -38,6 +43,10 @@ class ApprovalGateStep:
         self._policy_engine = policy_engine
         self._permission = permission
         self._requester = requester
+        # Task 11 — same live Company deployment resolver as `AgentWorkflowStep`
+        # / `GatewayToolCallStep`, re-checked in `check_pending()` before an
+        # approved gate is treated as actionable (see there for why).
+        self._resolver = resolver
 
     async def run(self, state: dict[str, Any]) -> StepOutcome:
         # 1. Evaluate policy if policy_engine configured
@@ -85,7 +94,14 @@ class ApprovalGateStep:
 
         step_id = state.get("_workflow_step_id", self.name)
         wf_instance_id = state.get("_workflow_instance_id", "wf_instance")
-        subject_ref = f"{wf_instance_id}:{step_id}"
+        # Task 11 — prefer the durable `run_id` over the ephemeral in-memory
+        # `Workflow.id` when one is seeded (governed workflow context): the
+        # DB CHECK constraint `chk_agent_approvals_binding` forbids a
+        # CHANGE_REQUEST approval from carrying `run_id` directly, so a
+        # `workflow_gate` approval threads it through `subject_ref` instead —
+        # `schedule_workflow_gate_resume` (apps/cosa/worker/governed_workflow_run.py)
+        # parses it back out to know which run to resume.
+        subject_ref = f"{state.get('run_id') or wf_instance_id}:{step_id}"
 
         subject = ApprovalSubject(
             kind="workflow_gate",
@@ -107,7 +123,13 @@ class ApprovalGateStep:
             approval_id=record.approval_id,
         )
 
-    async def check_pending(self, approval_id: str, workspace_id: str | None = None) -> StepOutcome:
+    async def check_pending(
+        self,
+        approval_id: str,
+        workspace_id: str | None = None,
+        *,
+        state: dict[str, Any] | None = None,
+    ) -> StepOutcome:
         approval = await self._approval_service.get_approval(approval_id)
         if not approval:
             return StepOutcome(status=StepStatus.FAILED, error=f"approval {approval_id} not found")
@@ -116,6 +138,25 @@ class ApprovalGateStep:
         if status_val == "pending":
             return StepOutcome(status=StepStatus.WAITING_APPROVAL, approval_id=approval_id)
         if status_val == "approved":
+            # Task 11 — a human approval decided in the past is not a
+            # permanent bypass: re-check live Company deployment authority
+            # right now, before letting the paused workflow continue past
+            # this gate (a deployment paused/revoked between "approved" and
+            # "resumed" must still fail closed here).
+            if self._resolver is not None and state is not None:
+                ws_ctx, project_ctx, dep_ctx = resolve_deployment_context(state)
+                if ws_ctx and project_ctx and dep_ctx:
+                    ok, reason = await check_live_deployment_authority(
+                        self._resolver,
+                        workspace_id=ws_ctx,
+                        project_id=project_ctx,
+                        project_agent_deployment_id=dep_ctx,
+                    )
+                    if not ok:
+                        return StepOutcome(
+                            status=StepStatus.FAILED,
+                            error=f"approval continuation blocked by live deployment authority: {reason}",
+                        )
             return StepOutcome(status=StepStatus.COMPLETED)
         if status_val in ("denied", "rejected"):
             reason = approval.reason or "denied"

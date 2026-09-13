@@ -237,13 +237,33 @@ async def _dispatch_wga_task(plane: CosaAgentPlane, task, payload: dict, task_ty
 
 
 async def _dispatch_approval_action_task(plane: CosaAgentPlane, task, payload: dict) -> None:
-    """Dispatch durable approval action task (e.g. skill promotion) — no run lease needed."""
+    """Dispatch durable approval action task — no run lease needed. Two
+    subject_kinds are supported: `skill_candidate` (promotion) and, since
+    Task 11, `workflow_gate` — an approved `ApprovalGateStep` gate, which is
+    resolved back to its `run_id` and re-scheduled as a `governed_workflow_run`
+    resume task (see `schedule_workflow_gate_resume`)."""
     try:
         from apps.cosa.worker.approval_actions import execute_skill_candidate_promotion
+        from apps.cosa.worker.governed_workflow_run import schedule_workflow_gate_resume
 
         action = payload.get("action")
         subject_kind = payload.get("subject_kind")
-        if action != "promote_skill_candidate" or subject_kind != "skill_candidate":
+
+        if subject_kind == "workflow_gate":
+
+            async def _execute_handler():
+                ok, reason_code = await schedule_workflow_gate_resume(plane, payload)
+                if not ok:
+                    raise RuntimeError(reason_code or "APPROVAL_ACTION_FAILED")
+
+        elif action == "promote_skill_candidate" and subject_kind == "skill_candidate":
+
+            async def _execute_handler():
+                res = await execute_skill_candidate_promotion(plane, payload)
+                if not res.success:
+                    raise RuntimeError(res.reason_code or "APPROVAL_ACTION_FAILED")
+
+        else:
             logger.error(
                 "task=%s unsupported approval action=%s subject_kind=%s",
                 task.task_id,
@@ -258,11 +278,6 @@ async def _dispatch_approval_action_task(plane: CosaAgentPlane, task, payload: d
                 error="UNSUPPORTED_APPROVAL_ACTION",
             )
             return
-
-        async def _execute_handler():
-            res = await execute_skill_candidate_promotion(plane, payload)
-            if not res.success:
-                raise RuntimeError(res.reason_code or "APPROVAL_ACTION_FAILED")
 
         await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
         ok = await plane.scheduler.complete_task(

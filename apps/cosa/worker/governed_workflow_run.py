@@ -37,6 +37,7 @@ __all__ = [
     "execute_governed_workflow_run",
     "execute_governed_workflow_run_task",
     "resolve_or_create_manifest",
+    "schedule_workflow_gate_resume",
 ]
 
 _CHECKPOINT_STATE_KIND = "governed_workflow"
@@ -257,3 +258,51 @@ async def execute_governed_workflow_run_task(
     — builds/loads the manifest from the scheduler payload, then executes it."""
     manifest = await resolve_or_create_manifest(plane, payload)
     return await execute_governed_workflow_run(plane, manifest, stream_mgr=stream_mgr)
+
+
+async def schedule_workflow_gate_resume(
+    plane: Any,
+    payload: dict[str, Any],
+) -> tuple[bool, str | None]:
+    """Approval-action handler for `subject_kind == "workflow_gate"` (Task 11).
+
+    An `ApprovalGateStep` approval (`packages/agent/workflows/approval_step.py`)
+    carries the exact `run_id` of the governed workflow it paused, encoded as
+    the first `:`-separated segment of `RunApprovalRecord.subject_ref` — NOT
+    the `run_id` column itself, which the DB CHECK constraint
+    `chk_agent_approvals_binding` (packages/agent/migrations/
+    006_unified_governance_approvals.sql) forbids for any CHANGE_REQUEST
+    approval. This re-loads that approval by id (never trusts the outbox-
+    relayed payload alone) and schedules a fresh `governed_workflow_run` task
+    for that run_id, coalesced the same way the router's initial trigger is —
+    so an approved gate actually reaches `execute_governed_workflow_run`'s
+    resume path in production, not only when a test calls it a second time by
+    hand. Returns `(success, reason_code_if_not)`.
+    """
+    approval_id = payload.get("approval_id")
+    workspace_id = payload.get("workspace_id")
+    if not approval_id or not workspace_id:
+        return False, "INVALID_PAYLOAD"
+
+    approval = await plane.run_repository.get_scoped_approval(approval_id, workspace_id)
+    if approval is None:
+        return False, "APPROVAL_NOT_FOUND"
+    if approval.status != "approved":
+        return False, "APPROVAL_NOT_APPROVED"
+    if not approval.subject_ref or ":" not in approval.subject_ref:
+        return False, "APPROVAL_MISSING_RUN_ID"
+
+    run_id, _, _step_id = approval.subject_ref.partition(":")
+    if not run_id:
+        return False, "APPROVAL_MISSING_RUN_ID"
+    await plane.scheduler.schedule(
+        target_spec_id=run_id,
+        target_spec_kind="agent",
+        input_payload={
+            "task_type": "governed_workflow_run",
+            "run_id": run_id,
+            "workspace_id": workspace_id,
+        },
+        coalescing_key=f"governed_workflow_run:{workspace_id}:{run_id}",
+    )
+    return True, None

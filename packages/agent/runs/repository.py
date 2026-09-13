@@ -27,8 +27,17 @@ from agent.runs.models import (
 
 ALLOW_LISTED_CHANGE_ACTIONS = {"promote_skill_candidate"}
 
+# Task 11 — `ApprovalGateStep` (packages/agent/workflows/approval_step.py) uses
+# an arbitrary, workflow-author-defined `action` string (`WorkflowStepSpec.action`),
+# so gating the outbox enqueue by exact `action` value (as `ALLOW_LISTED_CHANGE_ACTIONS`
+# does) can never work for governed workflow gates. `subject_kind == "workflow_gate"`
+# is the one thing every `ApprovalGateStep` approval has in common (hardcoded in
+# `ApprovalSubject(kind="workflow_gate", ...)`), so it's allow-listed by kind instead.
+WORKFLOW_GATE_SUBJECT_KIND = "workflow_gate"
+
 __all__ = [
     "ALLOW_LISTED_CHANGE_ACTIONS",
+    "WORKFLOW_GATE_SUBJECT_KIND",
     "InMemoryRunRepository",
     "PostgresRunRepository",
     "RunRepository",
@@ -530,7 +539,9 @@ class InMemoryRunRepository:
             payload={"approved": approved, "reason": reason, "action": a.action},
         )
 
-        if approved and a.action in ALLOW_LISTED_CHANGE_ACTIONS:
+        if approved and (
+            a.action in ALLOW_LISTED_CHANGE_ACTIONS or a.subject_kind == WORKFLOW_GATE_SUBJECT_KIND
+        ):
             outbox = ApprovalActionOutboxRecord(
                 approval_id=a.approval_id,
                 workspace_id=a.workspace_id or "",
@@ -1655,8 +1666,11 @@ class PostgresRunRepository(BasePostgresRepository):
                 },
             )
 
-            # Enqueue into outbox only when approved and action is allow-listed
-            if approved and approval.action in ALLOW_LISTED_CHANGE_ACTIONS:
+            # Enqueue into outbox only when approved and action/subject_kind is allow-listed
+            if approved and (
+                approval.action in ALLOW_LISTED_CHANGE_ACTIONS
+                or approval.subject_kind == WORKFLOW_GATE_SUBJECT_KIND
+            ):
                 outbox_id = f"outbox_{uuid.uuid4().hex[:16]}"
                 await self._execute(
                     session,

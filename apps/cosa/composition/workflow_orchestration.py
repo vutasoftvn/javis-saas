@@ -127,6 +127,14 @@ class WorkflowOrchestration:
             state["project_id"] = manifest.project_id
         if getattr(manifest, "project_agent_deployment_id", None):
             state["project_agent_deployment_id"] = manifest.project_agent_deployment_id
+        # Task 11 — the durable `run_id` (NOT the ephemeral in-memory
+        # `Workflow.id`) must be reachable from step state: `GatewayToolCallStep`
+        # uses it to namespace its gateway invocation, and `ApprovalGateStep`
+        # threads it into the CHANGE_REQUEST's `RunApprovalRecord.run_id` so an
+        # approved `workflow_gate` can be resolved back to the exact
+        # `governed_workflow_run` to resume.
+        if getattr(manifest, "run_id", None):
+            state["run_id"] = manifest.run_id
         return state
 
     async def execute_manifest(

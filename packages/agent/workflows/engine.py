@@ -71,7 +71,7 @@ class WorkflowEngine:
             raise TypeError(
                 f"Cannot resume: step {step.name!r} at the paused index is not an ApprovalGateStep"
             )
-        outcome = await step.check_pending(workflow.pending_approval_id or "")
+        outcome = await step.check_pending(workflow.pending_approval_id or "", state=workflow.state)
         if outcome.status == StepStatus.WAITING_APPROVAL:
             return workflow
         workflow.transition(WorkflowStatus.RUNNING)
@@ -158,6 +158,7 @@ class WorkflowEngine:
                         gateway=self._gateway,
                         inputs=step_spec.inputs,
                         output_key=step_spec.output_key,
+                        resolver=self._resolver,
                     )
                 )
             elif step_spec.type == StepType.APPROVAL_GATE:
@@ -168,6 +169,7 @@ class WorkflowEngine:
                         approval_service=self._approval_service,
                         action=step_spec.action or step_name,
                         subject_key=step_spec.subject_key or "subject",
+                        resolver=self._resolver,
                     )
                 )
             elif step_spec.type == StepType.DETERMINISTIC:
@@ -309,7 +311,9 @@ class WorkflowEngine:
         if paused_step_id and paused_step_id in steps_map:
             step = steps_map[paused_step_id]
             if isinstance(step, ApprovalGateStep):
-                outcome = await step.check_pending(workflow.pending_approval_id or "")
+                outcome = await step.check_pending(
+                    workflow.pending_approval_id or "", state=workflow.state
+                )
                 if outcome.status == StepStatus.WAITING_APPROVAL:
                     return workflow
                 if outcome.status == StepStatus.FAILED:

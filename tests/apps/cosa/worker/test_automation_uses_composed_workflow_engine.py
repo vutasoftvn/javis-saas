@@ -93,8 +93,16 @@ async def test_worker_automation_invokes_composed_workflow_orchestration() -> No
 
 
 @pytest.mark.asyncio
-async def test_approval_gate_decision_does_not_schedule_generic_worker_outbox() -> None:
-    """APPROVAL_GATE workflow steps remain library-only; generic workflow-gate decisions do NOT enqueue outbox actions."""
+async def test_approval_gate_decision_schedules_workflow_gate_outbox_action() -> None:
+    """Task 11 (plan 2026-09-13-founder-configurable-agent-skill-workflow) —
+    an approved APPROVAL_GATE decision DOES enqueue an outbox action, keyed by
+    `subject_kind == "workflow_gate"` (not by an allow-listed `action` string,
+    since workflow authors choose arbitrary action names). This is what lets
+    `apps/cosa/worker/governed_workflow_run.py::schedule_workflow_gate_resume`
+    actually reach a paused governed workflow run in production — before Task
+    11, `ApprovalGateStep` approvals were asserted to NEVER reach the outbox
+    (see git history), which meant an approved gate had no production trigger
+    to resume the run it paused."""
     from agent.capabilities.approval_service import DurableApprovalService
 
     repo = InMemoryRunRepository()
@@ -117,10 +125,17 @@ async def test_approval_gate_decision_does_not_schedule_generic_worker_outbox() 
 
     wf = await engine.execute_spec(
         spec,
-        initial_state={"workspace_id": "ws-1", "sub": "test_target"},
+        initial_state={"workspace_id": "ws-1", "sub": "test_target", "run_id": "run_gate_test"},
     )
     assert wf.status == WorkflowStatus.WAITING_APPROVAL
     assert wf.pending_approval_id is not None
+
+    approval = await repo.get_approval(wf.pending_approval_id)
+    # `run_id` is encoded in `subject_ref` (not the `run_id` column — the DB
+    # CHECK constraint `chk_agent_approvals_binding` forbids a CHANGE_REQUEST
+    # approval from carrying `run_id` directly).
+    assert approval.run_id is None
+    assert approval.subject_ref.startswith("run_gate_test:")
 
     # Submit decision
     res = await approval_svc.submit_decision(
@@ -130,8 +145,9 @@ async def test_approval_gate_decision_does_not_schedule_generic_worker_outbox() 
     )
     assert res.status == "approved"
 
-    # Generic approval gate does NOT emit approval_action_outbox records
+    # The approval gate's outbox action IS enqueued, carrying the run_id.
     from datetime import UTC, datetime
 
     actions = await repo.claim_approval_actions(worker_id="w-1", now=datetime.now(UTC), limit=10)
-    assert len(actions) == 0
+    assert len(actions) == 1
+    assert actions[0].subject_kind == "workflow_gate"

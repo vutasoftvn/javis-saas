@@ -163,7 +163,13 @@ class DurableApprovalService:
         requirement: dict[str, Any],
         requester: str,
     ) -> tuple[RunApprovalRecord, WaitDescriptor]:
-        """Tạo yêu cầu phê duyệt CHANGE_REQUEST bất biến theo Unified Governance §B.3."""
+        """Tạo yêu cầu phê duyệt CHANGE_REQUEST bất biến theo Unified Governance §B.3.
+
+        `run_id` is always `None` here by DB design — `chk_agent_approvals_binding`
+        (packages/agent/migrations/006_unified_governance_approvals.sql) HARD
+        requires `CHANGE_REQUEST -> run_id IS NULL`. A `workflow_gate` approval
+        (Task 11) that IS tied to a specific governed workflow run threads its
+        `run_id` through `subject.ref` instead — see `ApprovalGateStep.run()`."""
         approval_id = f"appr_chg_{uuid.uuid4().hex[:16]}"
         record = RunApprovalRecord(
             approval_id=approval_id,

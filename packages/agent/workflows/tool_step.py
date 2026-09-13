@@ -19,6 +19,10 @@ from agent.governance.contracts import (
 )
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.governance.store import GovernanceStateStore
+from agent.workflows.live_authority import (
+    check_live_deployment_authority,
+    resolve_deployment_context,
+)
 from agent.workflows.models import StepOutcome, StepStatus
 
 __all__ = ["GatewayToolCallStep"]
@@ -45,6 +49,7 @@ class GatewayToolCallStep:
         workspace_key: str = "workspace_id",
         principal_key: str = "principal",
         checkpoint_ref: str | None = None,
+        resolver: Any | None = None,
     ) -> None:
         self.name = name
         self.tool_name = tool_name
@@ -54,6 +59,12 @@ class GatewayToolCallStep:
         self._workspace_key = workspace_key
         self._principal_key = principal_key
         self._checkpoint_ref = checkpoint_ref
+        # Task 11 — live Company deployment/grant/policy-epoch resolver
+        # (same duck-typed interface as `AgentWorkflowStep`). Optional: a
+        # TOOL_CALL step outside a governed workflow manifest (no pinned
+        # `project_agent_deployment_id` in state) has no deployment to
+        # re-check and runs exactly as before.
+        self._resolver = resolver
 
     def _resolve_inputs(self, state: dict[str, Any]) -> dict[str, Any]:
         if callable(self._inputs):
@@ -74,6 +85,25 @@ class GatewayToolCallStep:
         return resolved
 
     async def run(self, state: dict[str, Any]) -> StepOutcome:
+        # Task 11 — re-resolve live Company deployment authority right before
+        # this effect, not just once at run start: a governed workflow paused
+        # mid-DAG and resumed after its deployment was paused/revoked must
+        # fail closed here too, the same as `AgentWorkflowStep` already does.
+        if self._resolver is not None:
+            ws_ctx, project_ctx, dep_ctx = resolve_deployment_context(state)
+            if ws_ctx and project_ctx and dep_ctx:
+                ok, reason = await check_live_deployment_authority(
+                    self._resolver,
+                    workspace_id=ws_ctx,
+                    project_id=project_ctx,
+                    project_agent_deployment_id=dep_ctx,
+                )
+                if not ok:
+                    return StepOutcome(
+                        status=StepStatus.FAILED,
+                        error=f"tool_call '{self.tool_name}' blocked by live deployment authority: {reason}",
+                    )
+
         run_id = str(
             state.get("run_id") or state.get("workflow_id") or f"wf_run_{uuid.uuid4().hex[:12]}"
         )

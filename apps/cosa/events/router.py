@@ -44,7 +44,10 @@ _AUTOMATION_ENVELOPE_FIELDS = (
     "correlation_id",
     "requested_at",
 )
-_AUTOMATION_FORBIDDEN_KEYS = (
+# Shared across every "curated reference-only dispatch envelope" event type in
+# this router (automation invocation, governed workflow run, ...): none of
+# them may ever carry raw prompt/credential/business content, only opaque ids.
+_REFERENCE_ENVELOPE_FORBIDDEN_KEYS = (
     "input",
     "input_payload",
     "prompt",
@@ -54,6 +57,7 @@ _AUTOMATION_FORBIDDEN_KEYS = (
     "connector_grant",
     "document",
 )
+_AUTOMATION_FORBIDDEN_KEYS = _REFERENCE_ENVELOPE_FORBIDDEN_KEYS
 
 
 # Task 11 (plan 2026-09-13-founder-configurable-agent-skill-workflow) — signed
@@ -70,16 +74,7 @@ _GOVERNED_WORKFLOW_ENVELOPE_FIELDS = (
     "workflow_definition_hash",
     "idempotency_key",
 )
-_GOVERNED_WORKFLOW_FORBIDDEN_KEYS = (
-    "input",
-    "input_payload",
-    "prompt",
-    "credential",
-    "secret",
-    "authorization",
-    "connector_grant",
-    "document",
-)
+_GOVERNED_WORKFLOW_FORBIDDEN_KEYS = _REFERENCE_ENVELOPE_FORBIDDEN_KEYS
 
 
 def _validate_governed_workflow_payload(payload: dict) -> str | None:
@@ -339,7 +334,12 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
                 )
                 return IntakeResult(outcome="rejected", reason="workspace mismatch")
 
-            run_id = f"run_wf_{payload['idempotency_key']}"
+            # Workspace-scoped: `idempotency_key` is Company-generated and not
+            # guaranteed globally unique across workspaces, and neither
+            # run_id nor manifest lookups are workspace-scoped downstream —
+            # without the workspace_id prefix, two different workspaces could
+            # collide onto the same run_id/manifest.
+            run_id = f"run_wf_{payload['workspace_id']}_{payload['idempotency_key']}"
             task_id = await deps.execution_plane.schedule_platform_task(
                 target_spec_id=payload["workflow_asset_id"],
                 task_type="governed_workflow_run",
