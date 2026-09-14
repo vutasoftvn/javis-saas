@@ -844,6 +844,36 @@
       "integration_test": "tests/e2e/test_cross_plane_smoke.py"
     },
     {
+      "id": "identity.workspace.lifecycle.transition",
+      "enabled": true,
+      "owner": "company-identity",
+      "plane": "company",
+      "method": "PATCH",
+      "path": "/identity/workspaces/:workspaceId/lifecycle",
+      "schema": "identity.workspace.lifecycle.transition.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "LifecycleService.transition",
+      "backend_test": "services/company/identity/tests/workspace-lifecycle.service.test.ts",
+      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart"
+    },
+    {
+      "id": "identity.workspace.lifecycle.events",
+      "enabled": true,
+      "owner": "company-identity",
+      "plane": "company",
+      "method": "GET",
+      "path": "/identity/workspaces/:workspaceId/lifecycle/events",
+      "schema": "identity.workspace.lifecycle.events.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "LifecycleService.getHistory",
+      "backend_test": "services/company/identity/tests/workspace-lifecycle.service.test.ts",
+      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart"
+    },
+    {
       "id": "operations.founder_asset.command",
       "enabled": true,
       "owner": "company-operations",
@@ -888,6 +918,36 @@
       "requires_project": false,
       "frontend_symbol": "TaskService.deleteTask",
       "backend_test": "services/company/operations/tests/task.service.test.ts"
+    },
+    {
+      "id": "operations.project.lifecycle.transition",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "PATCH",
+      "path": "/operations/projects/:projectId/lifecycle",
+      "schema": "operations.project.lifecycle.transition.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": true,
+      "frontend_symbol": "LifecycleService.transition",
+      "backend_test": "services/company/operations/tests/project-lifecycle.service.test.ts",
+      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart"
+    },
+    {
+      "id": "operations.project.lifecycle.events",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "GET",
+      "path": "/operations/projects/:projectId/lifecycle/events",
+      "schema": "operations.project.lifecycle.events.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": true,
+      "frontend_symbol": "LifecycleService.getHistory",
+      "backend_test": "services/company/operations/tests/project-lifecycle.service.test.ts",
+      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart"
     },
     {
       "id": "operations.okr.generate_weekly_cycle",

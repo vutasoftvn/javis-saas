@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../network/api_client.dart';
 import '../network/workspace_scoped_service.dart';
 
@@ -29,8 +30,17 @@ class LifecycleService extends WorkspaceService {
   /// GET `.../lifecycle/events` — backend trả `{ items: LifecycleEvent[] }`,
   /// không phải mảng trần, nên trả `Map` (giữ nguyên wrapper) thay vì ép về
   /// `List` như doc line ở đầu task brief (đã lệch so với response shape thật).
+  ///
+  /// Dùng path literal đầy đủ (không nội suy qua `pathFor`) để contract-checker
+  /// nhận diện đúng 2 route thật trong `mvp-surface.json` — nội suy method call
+  /// bị checker flatten thành `:pathFor`, không khớp manifest.
   Future<Map<String, dynamic>> getHistory(LifecycleEntityType type, String entityId) async {
-    final response = await ApiClient.get('${pathFor(type, entityId)}/events');
+    final http.Response response;
+    if (type == LifecycleEntityType.workspace) {
+      response = await ApiClient.get('/identity/workspaces/$entityId/lifecycle/events');
+    } else {
+      response = await ApiClient.get('/operations/projects/$entityId/lifecycle/events');
+    }
     if (response.statusCode == 200) {
       return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     }
