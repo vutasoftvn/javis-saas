@@ -64,13 +64,12 @@ export const updateCycle = api(
     status?: string;
     reason?: string | null;
   }): Promise<TwelveWeekCycle> => {
-    // Founder Trial R1 — việc đổi độ dài Operating Cycle đang chạy PHẢI đi qua
-    // PATCH /operations/projects/:projectId/operating-cycle (project-scoped,
-    // optimistic revision, reschedule review + audit). Endpoint generic này
-    // không còn nhận `durationWeeks` từ client.
+    // Founder Trial R1 — resize độ dài Operating Cycle đang chạy hiện KHÔNG
+    // được hỗ trợ (không có route project-scoped thay thế nào tồn tại trong
+    // codebase). Endpoint generic này không nhận `durationWeeks` từ client.
     if (durationWeeks !== undefined) {
       throw APIError.invalidArgument(
-        "Resize the operating cycle via PATCH /operations/projects/:projectId/operating-cycle"
+        "Resizing an in-progress operating cycle is not supported. Complete or cancel the current cycle, then create a new one with the desired duration."
       );
     }
     const { updateCycleService } = await import("../services/twelve-week-year.service");
