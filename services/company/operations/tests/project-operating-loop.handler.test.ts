@@ -310,6 +310,78 @@ describe("project-operating-loop handler authorization & tenant boundaries", () 
     });
   });
 
+  it("resolves keyResultId via the weekly commitment's own initiative when no initiativeId is passed on the task (fallback branch, not purposeType=KR)", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const project = await createProjectService(
+      {
+        workspaceId: ws.workspaceId,
+        userId: ws.userId,
+        membershipRole: "admin",
+        permissions: [],
+        correlationId: "test",
+      } as any,
+      { title: "Fallback KR Resolution Project" }
+    );
+
+    const objective = await createObjectiveApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      title: "Objective",
+    });
+    const kr = await createKeyResultApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      objectiveId: objective.id,
+      title: "KR",
+    });
+    const initiative = await createInitiativeApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      keyResultId: kr.id,
+      title: "Initiative carrying the KR link",
+    });
+    const cycle = await createCycleApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      durationWeeks: 12,
+    });
+    const week = await createWeeklyPlanApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      cycleId: cycle.id,
+      weekNo: 1,
+    });
+    // purposeType deliberately NOT "KR" (and no purposeRef) — the only way to
+    // reach keyResultId is through the commitment's own initiativeId, not
+    // through purposeRef.
+    const commitment = await createWeeklyCommitmentApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      weeklyPlanId: week.id,
+      initiativeId: initiative.id,
+      title: "Commitment without explicit KR purpose",
+      purposeType: "GENERAL",
+    });
+
+    // Task created with weeklyCommitmentId ONLY — no initiativeId passed.
+    const task = await createTaskApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      weeklyCommitmentId: commitment.id,
+      title: "Task inferring KR through commitment's own initiative",
+    });
+
+    expect((task as any).weeklyPlanId).toBe(week.id);
+    expect((task as any).keyResultId).toBe(kr.id);
+  });
+
   it("Objective body accepts `why` and does not surface the legacy client-only key `description`", async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
     const project = await createProjectService(

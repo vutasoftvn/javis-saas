@@ -696,9 +696,14 @@ export async function createTaskAuthorized(
   }
 
   // Denormalize weeklyPlanId/keyResultId lên Task lúc tạo — đồng nhất với
-  // pattern đã có ở task.service.ts::createTaskService cho cùng bảng `tasks`.
-  // Ưu tiên purposeRef của weeklyCommitment khi purposeType là "KR"; fallback
-  // sang keyResultId của initiative khi task gắn trực tiếp initiative.
+  // pattern đã có ở task.service.ts::createTaskService cho cùng bảng `tasks`,
+  // cùng thứ tự ưu tiên (2 endpoint cùng ghi bảng `tasks` không được lệch
+  // nhau với cùng input logic):
+  //   1. purposeRef của weeklyCommitment khi purposeType là "KR"
+  //   2. keyResultId của initiative — ưu tiên initiative tường minh
+  //      (req.initiativeId), fallback sang initiativeId riêng của
+  //      weeklyCommitment khi request KHÔNG truyền initiativeId tường minh
+  //      (vd. commitment tạo trước, gắn sẵn 1 initiative không phải "KR").
   let resolvedWeeklyPlanId: bigint | null = null;
   let resolvedKeyResultId: bigint | null = null;
   if (commitmentRow) {
@@ -707,8 +712,17 @@ export async function createTaskAuthorized(
       resolvedKeyResultId = BigInt(commitmentRow.purposeRef);
     }
   }
-  if (!resolvedKeyResultId && initiativeRow) {
-    resolvedKeyResultId = initiativeRow.keyResultId;
+  if (!resolvedKeyResultId) {
+    if (initiativeRow) {
+      resolvedKeyResultId = initiativeRow.keyResultId;
+    } else if (commitmentRow?.initiativeId) {
+      const [inferredInit] = await db
+        .select({ keyResultId: initiatives.keyResultId })
+        .from(initiatives)
+        .where(eq(initiatives.id, commitmentRow.initiativeId))
+        .limit(1);
+      if (inferredInit) resolvedKeyResultId = inferredInit.keyResultId;
+    }
   }
 
   const initialStatus = req.status || "todo";
