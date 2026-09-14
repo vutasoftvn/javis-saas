@@ -83,7 +83,7 @@ async def create_schedule(
         payload["hour"] = body.hour
     if body.minute is not None:
         payload["minute"] = body.minute
-    if body.weekdays:
+    if body.weekdays is not None:
         payload["weekdays"] = body.weekdays
 
     async with httpx.AsyncClient(timeout=10.0) as client:

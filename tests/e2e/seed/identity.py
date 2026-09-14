@@ -332,6 +332,32 @@ def seed_default_project(cluster: DisposableCluster, workspace_id: str) -> int:
         conn.close()
 
 
+def create_bare_project(
+    company_base_url: str, token: str, workspace_id: str, *, title: str = "Default E2E Project"
+) -> str:
+    """Tạo 1 Project THẬT qua `POST /operations/projects`, KHÔNG activate bất
+    kỳ startup-team member nào.
+
+    Dùng khi caller cần 1 Project tồn tại thật nhưng cố tình chưa sẵn sàng cho
+    agent chạy (`ensureProjectStartupTeam()` seed toàn bộ startup team ở state
+    `TEMPLATE` — `getProjectAgentRunAuthority()` fail-closed 404
+    `project_team_authority_denied` cho tới khi activate qua endpoint riêng,
+    xem `seed_operations_ready_project`). Không dùng `seed_default_project()`
+    (raw SQL insert vào `strategy.projects`) vì nó bỏ qua
+    `ensureProjectStartupTeam()` hoàn toàn — không có gì để phân biệt
+    activated/chưa.
+    """
+    headers = {"Authorization": f"Bearer {token}", "X-Workspace-Id": str(workspace_id)}
+    resp = httpx.post(
+        f"{company_base_url}/operations/projects",
+        json={"title": title},
+        headers=headers,
+        timeout=_TIMEOUT,
+    )
+    resp.raise_for_status()
+    return str(resp.json()["id"])
+
+
 def seed_operations_ready_project(
     company_base_url: str, token: str, workspace_id: str
 ) -> str:
@@ -349,15 +375,7 @@ def seed_operations_ready_project(
     project (CLAUDE.md: "Project chỉ tạo deployment/binding thu hẹp scope").
     """
     headers = {"Authorization": f"Bearer {token}", "X-Workspace-Id": str(workspace_id)}
-
-    resp = httpx.post(
-        f"{company_base_url}/operations/projects",
-        json={"title": "Default E2E Project"},
-        headers=headers,
-        timeout=_TIMEOUT,
-    )
-    resp.raise_for_status()
-    project_id = str(resp.json()["id"])
+    project_id = create_bare_project(company_base_url, token, workspace_id)
 
     resp = httpx.post(
         f"{company_base_url}/operations/projects/{project_id}/startup-team/operations/activate",

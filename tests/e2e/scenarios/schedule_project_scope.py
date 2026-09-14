@@ -53,8 +53,6 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import httpx
-
 from tests.e2e.mvp_stack import MvpStack
 from tests.e2e.seed import identity
 from tests.e2e.seed.handles import SeededWorkspace
@@ -74,7 +72,9 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
     project_a = identity.seed_operations_ready_project(company_url, token, workspace_id)
     # Project B tạo SAU A, KHÔNG activate startup-team -> nếu worker lỡ dùng
     # nhầm project này, run-authority sẽ 404 project_team_authority_denied.
-    project_b = _seed_bare_project(company_url, token, workspace_id)
+    project_b = identity.create_bare_project(
+        company_url, token, workspace_id, title="Bare E2E Project (no startup-team activation)"
+    )
     assert project_a != project_b
 
     run_at = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
@@ -162,25 +162,6 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
             "nên lỗi này CHỈ xảy ra nếu worker lỡ chạy nhầm sang Project B "
             f"(project_b={project_b!r}). payload={payload!r}"
         )
-
-
-def _seed_bare_project(company_base_url: str, token: str, workspace_id: str) -> str:
-    """Tạo 1 Project THẬT qua `POST /operations/projects` nhưng KHÔNG
-    activate startup-team nào — cố ý, để project này đóng vai "project sai":
-    nếu worker lỡ check run-authority nhầm project này, `ProjectTeamClient.
-    get_run_authority` sẽ 404 `project_team_authority_denied` (member ở state
-    TEMPLATE, chưa activate — xem `identity.seed_operations_ready_project`
-    docstring). Không dùng `seed_default_project` (raw SQL) vì nó bỏ qua
-    `ensureProjectStartupTeam()` nên không có gì để phân biệt activated/chưa."""
-    headers = {"Authorization": f"Bearer {token}", "X-Workspace-Id": str(workspace_id)}
-    resp = httpx.post(
-        f"{company_base_url}/operations/projects",
-        json={"title": "Bare E2E Project (no startup-team activation)"},
-        headers=headers,
-        timeout=15.0,
-    )
-    resp.raise_for_status()
-    return str(resp.json()["id"])
 
 
 def _connect(dsn: str):
