@@ -97,6 +97,14 @@ function genTs() {
   return lines.join("\n");
 }
 
+function pyValue(value, indent = 0) {
+  if (typeof value === "string") return JSON.stringify(value);
+  const pad = " ".repeat(indent);
+  return `{\n${Object.entries(value)
+    .map(([key, item]) => `${" ".repeat(indent + 4)}${JSON.stringify(key)}: ${pyValue(item, indent + 4)},`)
+    .join("\n")}\n${pad}}`;
+}
+
 function genPy() {
   const lines = [
     `# ${HEADER_LINES.join("\n# ")}`,
@@ -109,10 +117,10 @@ function genPy() {
     "]",
     "",
     "RuntimeReadiness = Literal[",
-    "    'READY',",
-    "    'PENDING_CRM_FOUNDATION',",
-    "    'PENDING_PROJECT_KNOWLEDGE',",
-    "    'DEFERRED_CODING',",
+    '    "READY",',
+    '    "PENDING_CRM_FOUNDATION",',
+    '    "PENDING_PROJECT_KNOWLEDGE",',
+    '    "DEFERRED_CODING",',
     "]",
     "",
     "STARTUP_TEAM_PROFILE_KEYS: Final[tuple[StartupTeamProfileKey, ...]] = (",
@@ -120,11 +128,11 @@ function genPy() {
     ")",
     "",
     "STARTUP_TEAM_PROFILES: Final[list[dict[str, str]]] = [",
-    ...spec.profiles.map((p) => `    ${JSON.stringify(p)},`),
+    ...spec.profiles.map((p) => `    ${pyValue(p, 4)},`),
     "]",
     "",
     "STARTUP_TEAM_PROFILES_MAP: Final[dict[str, dict[str, str]]] = {",
-    ...spec.profiles.map((p) => `    ${JSON.stringify(p.key)}: ${JSON.stringify(p)},`),
+    ...spec.profiles.map((p) => `    ${JSON.stringify(p.key)}: ${pyValue(p, 4)},`),
     "}",
     "",
   ];
