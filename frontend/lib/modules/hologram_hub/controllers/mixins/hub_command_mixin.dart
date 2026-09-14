@@ -127,8 +127,12 @@ mixin HubCommandMixin on GetxController {
           orElse: () => cycles.first,
         );
         final cycleId = activeCycle['id']?.toString();
-        if (cycleId != null) {
-          final timeline = await strategyService.getCycleTimeline(cycleId);
+        final projectId = activeCycle['projectId']?.toString();
+        // execution-cycle-view yêu cầu projectId bắt buộc — nếu cycle chưa
+        // gắn project (null/rỗng), bỏ qua gọi thay vì throw (giữ hành vi an
+        // toàn cũ, activeCycleTimeline hiện chỉ set giá trị, không render).
+        if (cycleId != null && projectId != null && projectId.isNotEmpty) {
+          final timeline = await strategyService.getCycleTimeline(cycleId, projectId: projectId);
           if (_workspaceGeneration != generation) return;
           activeCycleTimeline.value = timeline;
         }

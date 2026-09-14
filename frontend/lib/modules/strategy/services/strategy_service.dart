@@ -138,8 +138,8 @@ class StrategyService extends StrategyServiceBase {
     endDate: endDate,
   );
 
-  Future<Map<String, dynamic>> getCycleTimeline(String cycleId) =>
-      _twelveWeekService.getCycleTimeline(cycleId);
+  Future<Map<String, dynamic>> getCycleTimeline(String cycleId, {required String projectId}) =>
+      _twelveWeekService.getCycleTimeline(cycleId, projectId: projectId);
 
   Future<StrategyListResult<Map<String, dynamic>>> getWeeklyPlans({
     String? cycleId,

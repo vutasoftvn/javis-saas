@@ -14,7 +14,11 @@ class TwelveWeekService extends StrategyServiceBase {
       return const StrategyListResult.failure('Chưa xác định workspace hiện tại');
     }
     try {
-      final response = await ApiClient.get('/execution/twelve-week-cycles?workspace_id=$workspaceId');
+      // 2026-09-14 — nối API thật: route cũ `/execution/twelve-week-cycles`
+      // không tồn tại (luôn fail âm thầm, bị nuốt vào debugPrint ở
+      // HubCommandMixin). Route thật là workspace-scoped path param, không
+      // phải query `?workspace_id=` (xem twelve-week-year.handler.ts listCycles).
+      final response = await ApiClient.get('/operations/workspaces/$workspaceId/cycles');
       return decodeList(response, 'cycles');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
@@ -42,11 +46,15 @@ class TwelveWeekService extends StrategyServiceBase {
     return decode(response);
   }
 
-  Future<Map<String, dynamic>> getCycleTimeline(String cycleId) async {
-    final workspaceId = await requireWorkspaceId();
+  /// 2026-09-14 — nối API thật: route cũ `/execution/twelve-week-cycles/:id/timeline`
+  /// không tồn tại. Không có route thay thế trực tiếp — route gần nhất là
+  /// `GET /operations/execution-cycle-view` (execution-cycle-view.handler.ts),
+  /// bắt buộc `projectId` (không chỉ `cycleId`). `X-Workspace-Id` do
+  /// `ApiClient` tự gắn header, không cần query `?workspace_id=` thủ công.
+  Future<Map<String, dynamic>> getCycleTimeline(String cycleId, {required String projectId}) async {
     try {
       final response = await ApiClient.get(
-        '/execution/twelve-week-cycles/$cycleId/timeline?workspace_id=$workspaceId',
+        '/operations/execution-cycle-view?projectId=$projectId&cycleId=$cycleId',
       );
       return decode(response);
     } catch (_) {
