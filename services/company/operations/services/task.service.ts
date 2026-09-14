@@ -15,6 +15,7 @@ import {
   executionPlanItems,
   workspaceExecutionSettings,
   weeklyCommitments,
+  initiatives,
 } from "../../shared/db/schema/operations";
 import { sql, inArray } from "drizzle-orm";
 import { assertInitiativeInWorkspace } from "./initiative.service";
@@ -66,6 +67,8 @@ export interface Task {
   completionPolicy: string | null;
   initiativeId: string | null;
   weeklyCommitmentId: string | null;
+  weeklyPlanId?: string;
+  keyResultId?: string;
   sortKey: number | null;
   assigneeMemberId: string | null;
   ownerMemberId: string | null;
@@ -110,6 +113,8 @@ function toTask(row: typeof tasks.$inferSelect, projectIds: string[] = []): Task
     completionPolicy: row.completionPolicy,
     initiativeId: row.initiativeId ? row.initiativeId.toString() : null,
     weeklyCommitmentId: row.weeklyCommitmentId ? row.weeklyCommitmentId.toString() : null,
+    weeklyPlanId: row.weeklyPlanId ? row.weeklyPlanId.toString() : undefined,
+    keyResultId: row.keyResultId ? row.keyResultId.toString() : undefined,
     sortKey: row.sortKey,
     assigneeMemberId: row.assigneeMemberId ? row.assigneeMemberId.toString() : null,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
@@ -184,6 +189,28 @@ export async function createTaskService(
     }
   }
 
+  // Denormalize weeklyPlanId/keyResultId lên Task lúc tạo để đọc không cần
+  // join lại qua chuỗi commitment/initiative mỗi lần (spec workspace/project
+  // foundation, Task 3). Ưu tiên purposeRef của weeklyCommitment nếu
+  // purposeType là "KR"; fallback sang keyResultId của initiative khi task
+  // gắn trực tiếp initiative (không qua weeklyCommitment).
+  let resolvedWeeklyPlanId: bigint | null = null;
+  let resolvedKeyResultId: bigint | null = null;
+  if (commitmentRow) {
+    resolvedWeeklyPlanId = commitmentRow.weeklyPlanId;
+    if (commitmentRow.purposeType === "KR" && commitmentRow.purposeRef) {
+      resolvedKeyResultId = BigInt(commitmentRow.purposeRef);
+    }
+  }
+  if (!resolvedKeyResultId && resolvedInitiativeId) {
+    const [init] = await db
+      .select({ keyResultId: initiatives.keyResultId })
+      .from(initiatives)
+      .where(eq(initiatives.id, BigInt(resolvedInitiativeId)))
+      .limit(1);
+    if (init) resolvedKeyResultId = init.keyResultId;
+  }
+
   let resolvedProjectId: bigint;
   if (params.projectId) {
     resolvedProjectId = BigInt(params.projectId);
@@ -225,6 +252,8 @@ export async function createTaskService(
         dueAt: params.dueAt ? new Date(params.dueAt) : null,
         initiativeId: resolvedInitiativeId ? BigInt(resolvedInitiativeId) : null,
         weeklyCommitmentId: params.weeklyCommitmentId ? BigInt(params.weeklyCommitmentId) : null,
+        weeklyPlanId: resolvedWeeklyPlanId,
+        keyResultId: resolvedKeyResultId,
         assigneeMemberId: params.assigneeMemberId ? BigInt(params.assigneeMemberId) : null,
         ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
         executionMode: params.executionMode || null,
