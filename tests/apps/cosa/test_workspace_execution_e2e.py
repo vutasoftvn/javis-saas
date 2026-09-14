@@ -109,6 +109,7 @@ async def test_end_to_end_workspace_execution_flow(e2e_setup):
             "workspace_id": "ws_E2E",
             "prompt_template": "Weekly operational health check",
             "agent_profile": "operations",
+            "project_id": "proj_test_1",
         },
     )
 
