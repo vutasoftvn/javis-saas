@@ -893,6 +893,39 @@ export const projectExecutiveRoleActivationEvents = operatingSchema.table("proje
   idxActivationOccurred: index("idx_project_exec_role_act_events_act").on(t.activationId, t.occurredAt),
 }));
 
+// Activation cấp Workspace (2026-09-14): nguồn sự thật MỚI cho Executive
+// Board. Đặt cạnh 2 bảng project-scoped ở trên để người đọc thấy ngay quan hệ
+// "cũ → mới". Bảng cũ giữ nguyên (Expand-only), chỉ không còn được ghi.
+export const workspaceExecutiveRoleActivations = operatingSchema.table("workspace_executive_role_activations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  roleKey: varchar("role_key", { length: 64 }).notNull(),
+  state: varchar("state", { length: 32 }).notNull(), // 'ACTIVE' | 'DISABLED'
+  version: integer("version").default(1).notNull(),
+  actorId: bigint("actor_id", { mode: "bigint" }).notNull(),
+  disabledReason: text("disabled_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixWsRole: uniqueIndex("uix_workspace_executive_role_activations_ws_role").on(t.workspaceId, t.roleKey),
+  idxWs: index("idx_workspace_executive_role_activations_ws").on(t.workspaceId),
+}));
+
+export const workspaceExecutiveRoleActivationEvents = operatingSchema.table("workspace_executive_role_activation_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  roleKey: varchar("role_key", { length: 64 }).notNull(),
+  activationId: bigint("activation_id", { mode: "bigint" }).notNull().references(() => workspaceExecutiveRoleActivations.id, { onDelete: "cascade" }),
+  fromState: varchar("from_state", { length: 32 }),
+  toState: varchar("to_state", { length: 32 }).notNull(),
+  actorId: bigint("actor_id", { mode: "bigint" }).notNull(),
+  version: integer("version").notNull(),
+  payload: jsonb("payload").default({}).notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  idxActivationOccurred: index("idx_workspace_exec_role_act_events_act").on(t.activationId, t.occurredAt),
+}));
+
 export const projectExecutiveDeliberations = operatingSchema.table("project_executive_deliberations", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),

@@ -110,6 +110,33 @@ export async function requireExecutiveBoardFounderAuthority(
 }
 
 /**
+ * Guard quyền Founder ở phạm vi Workspace (không gắn Project nào).
+ * Dùng cho activation cấp Workspace (2026-09-14) — giữ đúng 2 check danh tính
+ * của bản project-scoped, nhưng bỏ bước query bảng `projects` vì hành động này
+ * không thuộc về một Project cụ thể.
+ */
+export async function requireExecutiveBoardFounderAuthorityForWorkspace(
+  ctx: TenantContext
+): Promise<void> {
+  if (!ctx) {
+    throw APIError.unauthenticated("Authentication context required");
+  }
+
+  if (ctx.isAiAgent) {
+    throw APIError.permissionDenied(
+      "FOUNDER_AUTHORITY_REQUIRED: Only HUMAN members can hold founder authority"
+    );
+  }
+
+  const role = (ctx.membershipRole || "").toLowerCase();
+  if (!["founder", "co-founder"].includes(role)) {
+    throw APIError.permissionDenied(
+      "FOUNDER_AUTHORITY_REQUIRED: Active human founder role required"
+    );
+  }
+}
+
+/**
  * Lấy trạng thái hiển thị trung thực của toàn bộ Executive Roles theo Project.
  */
 export async function getProjectExecutiveRoleStates(

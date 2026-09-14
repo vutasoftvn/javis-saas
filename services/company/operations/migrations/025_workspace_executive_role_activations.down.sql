@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS operating.workspace_executive_role_activation_events;
+DROP TABLE IF EXISTS operating.workspace_executive_role_activations;
