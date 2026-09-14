@@ -1,6 +1,5 @@
-// Founder Trial R1 — OKR/12WY module is PLANNED; every request here returns
-// ApiClient.removed(). Shell kept so cards/controllers still compile.
-// ignore_for_file: unused_local_variable, unused_field, unused_element
+// OKR module nối API thật (2026-09-14) — backend operations/handlers/okr.handler.ts
+// đã sống, xem docs/superpowers/specs/2026-09-14-...-design.md mục 2.
 import 'dart:convert';
 import 'package:get/get.dart';
 import '../../../core/localization/app_translations.dart';
@@ -66,7 +65,7 @@ class OkrService extends StrategyServiceBase {
       return StrategyListResult.failure(L10nKey.errNoWorkspace.tr);
     }
     try {
-      final response = await ApiClient.removed('r1-removed:/operations/okr-cycles');
+      final response = await ApiClient.get('/operations/okr-cycles');
       return _decodeFlexibleList(response, 'cycles');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
@@ -79,8 +78,13 @@ class OkrService extends StrategyServiceBase {
     DateTime? endDate,
     String? status,
   }) async {
-    final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.removed('r1-removed:/operations/okr-cycles');
+    await requireWorkspaceId();
+    final response = await ApiClient.post('/operations/okr-cycles', body: {
+      'name': name,
+      'startDate': ?startDate?.toUtc().toIso8601String(),
+      'endDate': ?endDate?.toUtc().toIso8601String(),
+      'status': ?status,
+    });
     return decode(response);
   }
 
@@ -97,7 +101,7 @@ class OkrService extends StrategyServiceBase {
       final query = (cycleId != null && cycleId.isNotEmpty)
           ? '?cycle_id=$cycleId'
           : '';
-      final response = await ApiClient.removed('r1-removed:/operations/objectives$query');
+      final response = await ApiClient.get('/operations/objectives$query');
       final result = _decodeFlexibleList(response, 'objectives');
       if (cycleId != null && cycleId.isNotEmpty && result.isSuccess) {
         final filtered = result.items
@@ -122,13 +126,19 @@ class OkrService extends StrategyServiceBase {
     String? why,
     String? ownerMemberId,
   }) async {
-    final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.removed('r1-removed:/operations/objectives');
+    await requireWorkspaceId();
+    final response = await ApiClient.post('/operations/objectives', body: {
+      'title': title,
+      'cycleId': ?cycleId,
+      'status': ?status,
+      'why': ?why,
+      'ownerMemberId': ?ownerMemberId,
+    });
     return decode(response);
   }
 
   Future<Map<String, dynamic>> publishObjective(String objectiveId) async {
-    final response = await ApiClient.removed('r1-removed:/operations/objectives/$objectiveId/publish');
+    final response = await ApiClient.post('/operations/objectives/$objectiveId/publish');
     return decode(response);
   }
 
@@ -137,14 +147,19 @@ class OkrService extends StrategyServiceBase {
     String? title,
     String? status,
   }) async {
-    final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.removed('r1-removed:/operations/objectives/$objectiveId?workspace_id=$workspaceId');
+    await requireWorkspaceId();
+    // ApiClient tự gắn header X-Workspace-Id — không còn cần query
+    // ?workspace_id= thủ công (xem ApiClient._getHeaders).
+    final response = await ApiClient.put('/operations/objectives/$objectiveId', body: {
+      'title': ?title,
+      'status': ?status,
+    });
     return decode(response);
   }
 
   Future<void> deleteObjective(String objectiveId) async {
     await requireWorkspaceId();
-    final response = await ApiClient.removed('r1-removed:/operations/objectives/$objectiveId');
+    final response = await ApiClient.delete('/operations/objectives/$objectiveId');
     decode(response);
   }
 
@@ -157,28 +172,9 @@ class OkrService extends StrategyServiceBase {
         'Chưa xác định workspace hiện tại',
       );
     }
-    if (objectiveId != null && objectiveId.isNotEmpty) {
-      try {
-        final response = await ApiClient.removed('r1-removed:/operations/objectives/$objectiveId');
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          final data = jsonDecode(response.body);
-          final krsRaw = data['keyResults'] ?? data['key_results'];
-          if (krsRaw is List) {
-            final items = krsRaw
-                .map(
-                  (e) => e is Map<String, dynamic>
-                      ? e
-                      : Map<String, dynamic>.from(e as Map),
-                )
-                .toList();
-            return StrategyListResult.success(items);
-          }
-        }
-      } catch (_) {}
-    }
     final query = objectiveId != null ? '?objective_id=$objectiveId' : '';
     try {
-      final response = await ApiClient.removed('r1-removed:/operations/key-results$query');
+      final response = await ApiClient.get('/operations/key-results$query');
       return _decodeFlexibleList(response, 'key_results');
     } catch (e) {
       return StrategyListResult.failure(e.toString());
@@ -197,7 +193,16 @@ class OkrService extends StrategyServiceBase {
     String? scoringType,
   }) async {
     await requireWorkspaceId();
-    final response = await ApiClient.removed('r1-removed:/operations/objectives/$objectiveId/key-results');
+    final response = await ApiClient.post('/operations/objectives/$objectiveId/key-results', body: {
+      'title': ?title,
+      'baselineValue': ?baselineValue,
+      'currentValue': ?currentValue,
+      'targetValue': ?targetValue,
+      'unit': ?unit,
+      'cadence': ?cadence,
+      'status': ?status,
+      'scoringType': ?scoringType,
+    });
     return decode(response);
   }
 
@@ -205,7 +210,9 @@ class OkrService extends StrategyServiceBase {
     String keyResultId,
     double value,
   ) async {
-    final response = await ApiClient.removed('r1-removed:/operations/key-results/$keyResultId/checkin');
+    final response = await ApiClient.post('/operations/key-results/$keyResultId/checkin', body: {
+      'value': value,
+    });
     return decode(response);
   }
 
@@ -216,14 +223,21 @@ class OkrService extends StrategyServiceBase {
     String? unit,
     String? status,
   }) async {
-    final workspaceId = await requireWorkspaceId();
-    final response = await ApiClient.removed('r1-removed:/operations/key-results/$keyResultId?workspace_id=$workspaceId');
+    await requireWorkspaceId();
+    // ApiClient tự gắn header X-Workspace-Id — không còn cần query
+    // ?workspace_id= thủ công (xem ApiClient._getHeaders).
+    final response = await ApiClient.put('/operations/key-results/$keyResultId', body: {
+      'currentValue': ?currentValue,
+      'targetValue': ?targetValue,
+      'unit': ?unit,
+      'status': ?status,
+    });
     return decode(response);
   }
 
   Future<void> deleteKeyResult(String keyResultId) async {
     await requireWorkspaceId();
-    final response = await ApiClient.removed('r1-removed:/operations/key-results/$keyResultId');
+    final response = await ApiClient.delete('/operations/key-results/$keyResultId');
     decode(response);
   }
 
