@@ -1084,6 +1084,58 @@ git commit -m "chore(strategy,operations): remove orphan TwelveWeekService, fix 
 > việc này. Bảng cũ bị **ngừng dùng trong code, KHÔNG DROP** (Encore
 > Guardrail #4 — destructive schema change cần release riêng). Task 10 xử
 > lý việc cập nhật Flutter code đang dùng bảng cũ.
+>
+> **CẬP NHẬT 2026-09-14 (sau khi implementer đầu tiên dừng lại đúng lúc ở
+> NEEDS_CONTEXT):** Xác minh code thật lộ ra 2 vấn đề brief ban đầu không
+> lường hết, đã chốt hướng xử lý với founder:
+>
+> 1. **`services/company/operations/services/executive-deliberation.service.ts`
+>    (~900 dòng, tính năng ĐANG CHẠY THẬT, có 3 test suite riêng:
+>    `executive-deliberation.service.test.ts`,
+>    `executive-deliberation.handler.test.ts`,
+>    `executive-deliberation-callback.test.ts`)** gate authorization ở **3 vị
+>    trí** (quanh dòng ~237 pin role vào frame, ~771 nhận callback phân tích,
+>    ~949 verify trước khi chạy role) dựa vào bảng CŨ
+>    `project_executive_role_activations`. Nếu Task 9 deprecate đường ghi vào
+>    bảng cũ mà không sửa 3 chỗ đọc này, Executive Deliberation sẽ gãy hoàn
+>    toàn (mọi role luôn bị coi "not ACTIVE"). **Quyết định: gộp việc sửa 3
+>    vị trí này vào PHẠM VI Task 9** — đổi sang đọc `workspace_executive_role_activations`
+>    (bảng mới) thay vì bảng project-scoped cũ, giữ đúng 1 nguồn sự thật cho
+>    quyết định authorization (CLAUDE.md quy tắc #5). Cả 3 test suite trên
+>    cũng cần cập nhật fixture (đổi từ gọi `activateExecutiveRole(ctx, projectId, roleKey, ...)`
+>    sang `activateWorkspaceExecutiveRole(ctx, roleKey, ...)`) và chạy lại tới
+>    khi pass — nằm trong phạm vi Task 9, không tách task riêng.
+>
+> 2. **Gate "role UNAVAILABLE cho tới khi agent nền tương ứng ACTIVE"**
+>    (`executive-role-activation.service.ts`, dùng
+>    `verifyUnderlyingAgentActive(workspaceId, projectId, requiredProfileKey)`
+>    — 3 tham số thật, KHÔNG phải 1 tham số như brief gốc đoán, và bản chất
+>    hàm này project-scoped không gỡ được) **được GIỮ LẠI**, không bỏ, nhưng
+>    **định nghĩa lại ở cấp Workspace**: role coi là có "agent nền active" nếu
+>    **có ít nhất 1 Project trong workspace** mà `verifyUnderlyingAgentActive(workspaceId, projectId, requiredProfileKey)`
+>    trả `true` (aggregate OR qua toàn bộ Project của workspace, không phải
+>    check 1 Project cụ thể). `getWorkspaceExecutiveRoleStates(ctx)` cần liệt
+>    kê toàn bộ Project của `ctx.workspaceId` (dùng pattern tương tự
+>    `listProjects`/`project.service.ts`) rồi loop kiểm tra — N+1 query chấp
+>    nhận được ở quy mô MVP hiện tại, không cần tối ưu batch. 8 assertion
+>    trong `executive-role-activation.service.test.ts` (dòng ~160-270, mã hoá
+>    quy tắc UNAVAILABLE→AVAILABLE_NOT_ACTIVATED→ACTIVE theo agent nền) **viết
+>    lại theo đúng ngữ nghĩa aggregate mới này** (không xoá quy tắc, chỉ đổi
+>    phạm vi kiểm tra từ 1 project sang toàn workspace) — ví dụ: test "workspace
+>    trắng, 0 Project nào có agent ACTIVE" phải mong đợi `UNAVAILABLE`, không
+>    còn là `AVAILABLE_NOT_ACTIVATED` như test-case ban đầu brief viết (bản
+>    thân test đó cũng cần viết lại theo hướng "tạo ít nhất 1 Project có agent
+>    ACTIVE trước khi assert AVAILABLE_NOT_ACTIVATED").
+>
+> 3. Hàm service tầng thấp `selectStartupCorePreset`/`activateExecutiveRole`/`disableExecutiveRole`
+>    (khác `activateWorkspaceExecutiveRole`/`disableWorkspaceExecutiveRole` mới)
+>    vẫn còn ghi bảng project-scoped cũ và có thể vẫn còn call site thật
+>    (fixture test của executive-deliberation trước khi sửa mục 1). Sau khi
+>    mục 1 hoàn tất (deliberation test fixture chuyển sang dùng hàm workspace
+>    mới), nếu 3 hàm service tầng thấp này không còn call site thật nào ngoài
+>    test đã lỗi thời — an toàn để bỏ qua, không bắt buộc xoá trong Task 9,
+>    nhưng KHÔNG được để handler cũ (Step 17) gọi chúng nữa (đã tự deprecate ở
+>    tầng handler theo thiết kế gốc).
 
 **Files:**
 - Create: `services/company/operations/migrations/025_workspace_executive_role_activations.up.sql` / `.down.sql`
