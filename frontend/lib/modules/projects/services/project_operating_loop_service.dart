@@ -164,6 +164,31 @@ class ProjectOperatingLoopService {
     );
   }
 
+  // Task 6 (2026-09-14 remediation) — `WeekAdvanceBody` khớp
+  // `project.cycle.week.advance` (Task 5 backend): CAS bắt buộc bằng
+  // `expectedCurrentWeek`, `reflection` bắt buộc (Founder tự viết review),
+  // score optional. `cycleId` là path param, không phải body field.
+  Future<ApiResult<void>> closeCurrentWeek(
+    String projectId,
+    String cycleId, {
+    required int expectedCurrentWeek,
+    required String reflection,
+    double? executionScore,
+    double? outcomeScore,
+  }) async {
+    return _client.request<void>(
+      MvpEndpoint.projectCycleWeekAdvance,
+      pathParams: {'projectId': projectId, 'cycleId': cycleId},
+      body: {
+        'expectedCurrentWeek': expectedCurrentWeek,
+        'reflection': reflection,
+        'executionScore': ?executionScore,
+        'outcomeScore': ?outcomeScore,
+      },
+      decode: (raw) {},
+    );
+  }
+
   // `AdvanceTaskParams` — endpoint mới Task 3 (`project.task.status.write`),
   // `taskId` là path param, `status` là body.
   Future<ApiResult<Map<String, dynamic>>> updateTaskStatus(

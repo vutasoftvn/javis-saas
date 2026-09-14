@@ -87,6 +87,11 @@ class CycleWeekSection extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text('Theme: ${cycle.theme}'),
                     ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Status: ${cycle.status}',
+                      key: const Key('cycle_status_text'),
+                    ),
                   ],
                 ),
               ),
@@ -116,6 +121,21 @@ class CycleWeekSection extends StatelessWidget {
                   subtitle: week.mission != null ? Text(week.mission!) : null,
                 ),
               ),
+            // Task 6 (2026-09-14 remediation) — Weekly close là hành động
+            // Founder-initiated duy nhất, không timer/không auto-advance.
+            // Ẩn hẳn khi cycle đã COMPLETED (backend tự set ở tuần cuối).
+            if (week != null && cycle.status != 'COMPLETED') ...[
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ElevatedButton.icon(
+                  key: const Key('close_week_button'),
+                  icon: const Icon(Icons.flag_outlined, size: 18),
+                  label: const Text('Close Week'),
+                  onPressed: () => _showCloseWeekDialog(context, cycle, week),
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -195,6 +215,123 @@ class CycleWeekSection extends StatelessWidget {
             child: const Text('Add'),
           ),
         ],
+      ),
+    );
+  }
+
+  // Task 6 (2026-09-14 remediation) — "explicit review" là gate bắt buộc:
+  // reflection do Founder tự gõ (không prefill, không auto-generate), submit
+  // bị khoá khi rỗng và trong lúc request đang chạy để chặn double-submit.
+  // Không có timer/auto-advance nào ở đây — tuần chỉ đóng khi Founder bấm
+  // nút này. `expectedCurrentWeek` luôn lấy từ `cycle.currentWeek` đã load
+  // (CAS thật), không hardcode.
+  void _showCloseWeekDialog(BuildContext context, LoopActiveCycle cycle, LoopWeek week) {
+    final reflectionController = TextEditingController();
+    final executionController = TextEditingController();
+    final outcomeController = TextEditingController();
+    bool submitting = false;
+    String reflectionText = '';
+    String? dialogError;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) {
+          final canSubmit = !submitting && reflectionText.trim().isNotEmpty;
+          return AlertDialog(
+            title: Text('Close Week ${cycle.currentWeek}'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Cycle: ${cycle.durationWeeks} weeks total'),
+                  Text('Current week: ${cycle.currentWeek}'),
+                  Text('Status: ${cycle.status}'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('close_week_reflection_field'),
+                    controller: reflectionController,
+                    enabled: !submitting,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Reflection (required)',
+                      hintText: 'What happened this week?',
+                    ),
+                    onChanged: (value) => setState(() => reflectionText = value),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('close_week_execution_score_field'),
+                    controller: executionController,
+                    enabled: !submitting,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Execution score (optional)'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('close_week_outcome_score_field'),
+                    controller: outcomeController,
+                    enabled: !submitting,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Outcome score (optional)'),
+                  ),
+                  if (dialogError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      dialogError!,
+                      key: const Key('close_week_error_text'),
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                key: const Key('close_week_submit_button'),
+                onPressed: canSubmit
+                    ? () async {
+                        setState(() {
+                          submitting = true;
+                          dialogError = null;
+                        });
+                        final ok = await controller.closeCurrentWeek(
+                          cycle.id,
+                          expectedCurrentWeek: cycle.currentWeek,
+                          reflection: reflectionText.trim(),
+                          executionScore: double.tryParse(executionController.text.trim()),
+                          outcomeScore: double.tryParse(outcomeController.text.trim()),
+                        );
+                        if (ok) {
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } else {
+                          setState(() {
+                            submitting = false;
+                            dialogError = controller.errorMessage.value;
+                          });
+                        }
+                      }
+                    : null,
+                child: submitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Close Week'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

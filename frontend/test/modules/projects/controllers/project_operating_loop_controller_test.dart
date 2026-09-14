@@ -181,6 +181,75 @@ void main() {
     expect(capturedBody?['status'], 'done');
   });
 
+  test('closeCurrentWeek sends expectedCurrentWeek and reflection, reloads on success', () async {
+    Map<String, dynamic>? capturedBody;
+    String? patchedPath;
+    final mockHttp = MockClient((request) async {
+      if (request.method == 'PATCH') {
+        patchedPath = request.url.path;
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode(_envelope(null)),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return http.Response(
+        jsonEncode(_envelope(_loopJson())),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final controller = ProjectOperatingLoopController(
+      projectId: '42',
+      service: ProjectOperatingLoopService(client: MvpRequestClient(httpClient: mockHttp)),
+    );
+
+    final ok = await controller.closeCurrentWeek(
+      'cycle_1',
+      expectedCurrentWeek: 3,
+      reflection: 'Shipped v1',
+    );
+
+    expect(ok, isTrue);
+    expect(patchedPath, '/operations/projects/42/operating-loop/cycles/cycle_1/week');
+    expect(capturedBody?['expectedCurrentWeek'], 3);
+    expect(capturedBody?['reflection'], 'Shipped v1');
+  });
+
+  test('closeCurrentWeek conflict reloads loop and preserves the error message', () async {
+    var loadCount = 0;
+    final mockHttp = MockClient((request) async {
+      if (request.method == 'PATCH') {
+        return http.Response(
+          jsonEncode({'message': 'expectedCurrentWeek is stale'}),
+          409,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      loadCount++;
+      return http.Response(
+        jsonEncode(_envelope(_loopJson())),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final controller = ProjectOperatingLoopController(
+      projectId: '42',
+      service: ProjectOperatingLoopService(client: MvpRequestClient(httpClient: mockHttp)),
+    );
+
+    final ok = await controller.closeCurrentWeek(
+      'cycle_1',
+      expectedCurrentWeek: 3,
+      reflection: 'Shipped v1',
+    );
+
+    expect(ok, isFalse);
+    expect(loadCount, 1, reason: 'conflict must still trigger a reload');
+    expect(controller.errorMessage.value, 'expectedCurrentWeek is stale');
+  });
+
   test('conflict on mutation reloads loop and preserves the error message', () async {
     var loadCount = 0;
     final mockHttp = MockClient((request) async {

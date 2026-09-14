@@ -202,6 +202,37 @@ class ProjectOperatingLoopController extends GetxController {
     return false;
   }
 
+  // Task 6 (2026-09-14 remediation) — Founder-initiated weekly close/advance.
+  // Không tự động chuyển tuần: chỉ gọi khi Founder bấm nút và điền reflection
+  // qua dialog. CAS (`expectedCurrentWeek`) do UI truyền từ state đã load,
+  // không hardcode — server tự set COMPLETED ở tuần cuối, UI không suy diễn.
+  Future<bool> closeCurrentWeek(
+    String cycleId, {
+    required int expectedCurrentWeek,
+    required String reflection,
+    double? executionScore,
+    double? outcomeScore,
+  }) async {
+    final result = await _service.closeCurrentWeek(
+      projectId,
+      cycleId,
+      expectedCurrentWeek: expectedCurrentWeek,
+      reflection: reflection,
+      executionScore: executionScore,
+      outcomeScore: outcomeScore,
+    );
+    if (result is ApiSuccess) {
+      await loadLoop();
+      return true;
+    } else if (result is ApiFailure<void>) {
+      if (result.failure.code == ApiFailureCode.conflict) {
+        await loadLoop();
+      }
+      errorMessage.value = result.failure.message;
+    }
+    return false;
+  }
+
   Future<bool> updateTaskStatus(String taskId, String status) async {
     final result = await _service.updateTaskStatus(
       projectId,

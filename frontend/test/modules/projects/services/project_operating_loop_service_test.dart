@@ -221,6 +221,62 @@ void main() {
     expect(result, isA<ApiSuccess<Map<String, dynamic>>>());
   });
 
+  test('closes current week through the PATCH generated endpoint with path cycleId', () async {
+    final mockHttp = MockClient((request) async {
+      expect(request.method, 'PATCH');
+      expect(request.url.path, '/operations/projects/42/operating-loop/cycles/cycle_1/week');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['expectedCurrentWeek'], 3);
+      expect(body['reflection'], 'Shipped v1, learned a lot');
+      expect(body['executionScore'], 4.5);
+      expect(body['outcomeScore'], 3.5);
+
+      return http.Response(
+        jsonEncode({
+          'data': null,
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-09-10T12:00:00Z',
+            'sources': [{'kind': 'company_db', 'ref': 'operating'}],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final service = ProjectOperatingLoopService(client: MvpRequestClient(httpClient: mockHttp));
+    final result = await service.closeCurrentWeek(
+      '42',
+      'cycle_1',
+      expectedCurrentWeek: 3,
+      reflection: 'Shipped v1, learned a lot',
+      executionScore: 4.5,
+      outcomeScore: 3.5,
+    );
+    expect(result, isA<ApiSuccess<void>>());
+  });
+
+  test('closeCurrentWeek conflict response surfaces conflict failure code', () async {
+    final mockHttp = MockClient((request) async {
+      return http.Response(
+        jsonEncode({'message': 'expectedCurrentWeek is stale'}),
+        409,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final service = ProjectOperatingLoopService(client: MvpRequestClient(httpClient: mockHttp));
+    final result = await service.closeCurrentWeek(
+      '42',
+      'cycle_1',
+      expectedCurrentWeek: 3,
+      reflection: 'Shipped v1',
+    );
+    expect(result, isA<ApiFailure<void>>());
+    expect((result as ApiFailure<void>).failure.code, ApiFailureCode.conflict);
+  });
+
   test('conflict response surfaces conflict failure code', () async {
     final mockHttp = MockClient((request) async {
       return http.Response(
