@@ -190,6 +190,23 @@ describe("Workspace Executive Role Activation Service", () => {
     ).rejects.toThrow(/CAS_CONFLICT/);
   });
 
+  it("rejects a mismatched expectedVersion on the very first activation, in both directions", async () => {
+    await activateProjectStartupTeamMember(founderCtx, defaultProjectId, "operations", {
+      expectedVersion: 1,
+    });
+
+    // Board báo version 1 cho role chưa activate → chỉ 1 là hợp lệ.
+    await expect(
+      activateWorkspaceExecutiveRole(founderCtx, "coo", { expectedVersion: 2 })
+    ).rejects.toThrow(/CAS_CONFLICT/);
+    await expect(
+      activateWorkspaceExecutiveRole(founderCtx, "coo", { expectedVersion: 0 })
+    ).rejects.toThrow(/CAS_CONFLICT/);
+
+    const ok = await activateWorkspaceExecutiveRole(founderCtx, "coo", { expectedVersion: 1 });
+    expect(ok.state).toBe("ACTIVE");
+  });
+
   it("refuses to disable a role that was never activated in this workspace", async () => {
     await expect(disableWorkspaceExecutiveRole(founderCtx, "cro", {})).rejects.toThrow(
       /never activated|not found/i

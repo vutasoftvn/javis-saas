@@ -259,9 +259,11 @@ export async function activateWorkspaceExecutiveRole(
       };
     }
 
-    // Lần activate đầu tiên: chưa có row nào, expectedVersion > 1 chắc chắn
-    // là caller đang cầm state cũ của một workspace khác/đã bị xoá.
-    if (opts?.expectedVersion !== undefined && opts.expectedVersion > 1) {
+    // Lần activate đầu tiên: chưa có row nào. Board luôn báo version 1 cho role
+    // chưa activate, nên caller đúng đắn chỉ có thể gửi 1 — khớp CHÍNH XÁC cho
+    // đối xứng với nhánh update ở trên, thay vì chỉ chặn > 1 (giá trị 0 hay số
+    // âm là dấu hiệu caller đang cầm state sai, không nên im lặng chấp nhận).
+    if (opts?.expectedVersion !== undefined && opts.expectedVersion !== 1) {
       throw APIError.aborted(
         `CAS_CONFLICT: Stale executive role version (expected ${opts.expectedVersion}, got 1)`
       );
