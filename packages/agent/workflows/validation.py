@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -101,14 +102,12 @@ class WorkflowPublishValidator:
                 executor_types.add(e.value)
             elif isinstance(e, str):
                 executor_types.add(e)
-                try:
+                with contextlib.suppress(ValueError):
                     executor_types.add(StepType(e))
-                except ValueError:
-                    pass
 
         # 1. Structural DAG validation
         try:
-            getattr(spec, "_validate_dag")()
+            spec._validate_dag()
         except Exception as exc:
             errors.append(f"DAG structure error: {exc}")
 
@@ -163,7 +162,9 @@ class WorkflowPublishValidator:
                 if not handler:
                     errors.append(f"RETRY step '{step.id}' missing registered retry target")
                 else:
-                    from agent.workflows.deterministic_handlers import WHITELISTED_DETERMINISTIC_HANDLERS
+                    from agent.workflows.deterministic_handlers import (
+                        WHITELISTED_DETERMINISTIC_HANDLERS,
+                    )
 
                     known_handlers = (
                         set(ctx.registered_handlers)
@@ -188,7 +189,9 @@ class WorkflowPublishValidator:
                 if not handler:
                     errors.append(f"DETERMINISTIC step '{step.id}' missing handler")
                 else:
-                    from agent.workflows.deterministic_handlers import WHITELISTED_DETERMINISTIC_HANDLERS
+                    from agent.workflows.deterministic_handlers import (
+                        WHITELISTED_DETERMINISTIC_HANDLERS,
+                    )
 
                     known_handlers = (
                         set(ctx.registered_handlers)

@@ -2,11 +2,11 @@ import pytest
 
 from apps.cosa.assets.authoring_service import AuthoringService
 from apps.cosa.assets.evaluation_service import EvaluationService
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetLifecycle,
     AssetScope,
 )
-from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
 
 @pytest.mark.asyncio

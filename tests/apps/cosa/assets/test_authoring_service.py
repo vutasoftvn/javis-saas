@@ -2,7 +2,7 @@ import pytest
 
 from apps.cosa.assets.authoring_service import AuthoringService, WorkflowPublishDisabledError
 from apps.cosa.assets.evaluation_service import EvaluationService
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetKind,
     AssetNotEvaluatedError,
     AssetNotFoundError,
@@ -11,8 +11,8 @@ from packages.agent.assets.contracts import (
     PinnedAssetIdentity,
     WorkspaceAssetDraft,
 )
-from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
-from packages.agent.workflows.repository import InMemoryWorkflowDefinitionRepository
+from agent.assets.repository import InMemoryWorkspaceAssetRepository
+from agent.workflows.repository import InMemoryWorkflowDefinitionRepository
 
 
 @pytest.fixture

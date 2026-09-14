@@ -206,15 +206,14 @@ class WorkflowEngine:
                         step_callable = _async_with_params
                     else:
                         step_callable = handler_fn
+                elif takes_params:
+                    async def _sync_with_params(s: Any, _f=handler_fn, _p=step_params) -> Any:
+                        return _f(s, _p)
+                    step_callable = _sync_with_params
                 else:
-                    if takes_params:
-                        async def _sync_with_params(s: Any, _f=handler_fn, _p=step_params) -> Any:
-                            return _f(s, _p)
-                        step_callable = _sync_with_params
-                    else:
-                        async def _sync_without_params(s: Any, _f=handler_fn) -> Any:
-                            return _f(s)
-                        step_callable = _sync_without_params
+                    async def _sync_without_params(s: Any, _f=handler_fn) -> Any:
+                        return _f(s)
+                    step_callable = _sync_without_params
 
                 compiled_steps.append(DeterministicStep(name=step_name, fn=step_callable))
             elif step_spec.type == StepType.AGENT:

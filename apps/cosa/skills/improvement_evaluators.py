@@ -3,15 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
 
 from agent.contracts.run import RunResult, RunStatus
 from agent.skills.eval_contract import SkillEvalSuite, load_skill_eval_suite
 from agent.skills.improvement_repository import (
     SkillIdentity,
-    SkillImprovementEvaluationRecord,
-    SkillImprovementRepository,
 )
 from agent.skills.lab.models import EvalCase
 

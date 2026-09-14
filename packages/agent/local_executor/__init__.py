@@ -15,13 +15,13 @@ from .repository import LocalExecutorRepository
 
 __all__ = [
     "EngineeringEvidenceSnapshot",
+    "GrantVerificationError",
     "LocalExecutionGrant",
     "LocalExecutionReceipt",
+    "LocalExecutorRepository",
     "ReceiptVerificationResult",
-    "GrantVerificationError",
     "canonical_input_hash",
     "compute_receipt_signature",
     "mint_grant",
     "verify_receipt_against_context",
-    "LocalExecutorRepository",
 ]

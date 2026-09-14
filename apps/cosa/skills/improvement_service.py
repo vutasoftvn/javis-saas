@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import logging
 import uuid
-from typing import Any, Callable
+from typing import Any
 
 from agent.contracts.kernel import ExecutionKernel
 from agent.contracts.spec import AgentSpec
@@ -19,6 +19,7 @@ from agent.skills.improvement_repository import (
 )
 from agent.skills.lab.executor import SkillCandidateExecutor
 from agent.skills.lab.models import EvalCase
+
 from apps.cosa.skills.improvement_evaluators import SkillEvaluatorRegistry
 from apps.cosa.skills.improvement_mutator import validate_candidate_mutation
 from apps.cosa.skills.improvement_policy import (
@@ -130,9 +131,9 @@ class SkillImprovementService:
 
             mut_res = self.mutator(current_best_skill)
             if inspect.isawaitable(mut_res):
-                mutated_skill, rationale = await mut_res
+                mutated_skill, _rationale = await mut_res
             else:
-                mutated_skill, rationale = mut_res
+                mutated_skill, _rationale = mut_res
 
             # Invariant: mutation must NOT expand capabilities or autonomy
             valid, boundary_reason = validate_candidate_mutation(base_skill, mutated_skill)

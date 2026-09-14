@@ -112,7 +112,6 @@ async def consume_company_event(
     # Build the Activity Feed event
     correlation_id = envelope.get("correlationId", "")
     aggregate_id = envelope.get("aggregateId", "")
-    occurred_at = envelope.get("occurredAt")
 
     # Idempotency key: company event ID + event type + source aggregate version
     # Using Company eventId as the base for dedup
@@ -166,4 +165,4 @@ async def consume_company_event(
             return {"outcome": "duplicate"}
     except Exception as e:
         logger.exception("failed to project company event", extra={"event_id": event_id})
-        return {"outcome": "rejected", "reason": f"projection error: {str(e)}"}
+        return {"outcome": "rejected", "reason": f"projection error: {e!s}"}

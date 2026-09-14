@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetEvaluationResult,
     AssetScope,
     PinnedAssetIdentity,
     WorkspaceAssetDraft,
     WorkspaceAssetVersion,
 )
-from packages.agent.assets.repository import WorkspaceAssetRepository
+from agent.assets.repository import WorkspaceAssetRepository
 
 
 class WorkspaceAssetService:

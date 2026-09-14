@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 from typing import Any
+
 import httpx
-from pydantic import BaseModel, Field
 
 __all__ = [
     "ExecutiveBoardAuthorityError",

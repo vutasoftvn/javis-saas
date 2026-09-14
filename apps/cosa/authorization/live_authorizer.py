@@ -32,9 +32,8 @@ class LiveAuthorizationAuthorizer:
         # 1. Draft-only check
         if getattr(spec, "metadata", {}).get("draft_only") is True:
             return False
-        if isinstance(context, dict):
-            if context.get("is_draft") is True or context.get("draft_only") is True:
-                return False
+        if isinstance(context, dict) and (context.get("is_draft") is True or context.get("draft_only") is True):
+            return False
 
         # 2. Risk / Action class check
         metadata = getattr(spec, "metadata", {}) or {}
@@ -45,11 +44,14 @@ class LiveAuthorizationAuthorizer:
             return False
 
         # 3. Read naming convention fallback
-        if not risk_class and not action_class:
-            if capability_id.endswith((".read", ".list", ".get", ".query")) or capability_id.startswith(("read_", "get_", "list_")):
-                return False
-
-        return True
+        return not (
+            not risk_class
+            and not action_class
+            and (
+                capability_id.endswith((".read", ".list", ".get", ".query"))
+                or capability_id.startswith(("read_", "get_", "list_"))
+            )
+        )
 
     async def authorize(self, req: Any, spec: CapabilitySpec) -> LiveAuthorizationResult:
         if not self.is_ticket_required(spec, req.context, req.capability_id):

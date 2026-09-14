@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from agent.skills.improvement_repository import (
     ImprovementOutcome,
     SkillImprovementRepository,
 )
+
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 
 logger = logging.getLogger("cosa.worker.skill_improvement")
@@ -31,7 +32,7 @@ async def relay_skill_improvement_outbox(
     if repo is None or not hasattr(repo, "claim_improvement_outbox"):
         return []
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     claimed = await repo.claim_improvement_outbox(
         worker_id=worker_id,
         limit=limit,
@@ -56,7 +57,7 @@ async def relay_skill_improvement_outbox(
             await repo.mark_outbox_delivered(
                 outbox_id=outbox.outbox_id,
                 claim_token=item.claim_token,
-                delivered_at=datetime.now(timezone.utc),
+                delivered_at=datetime.now(UTC),
             )
             scheduled_ids.append(outbox.request_id)
         except Exception as exc:
@@ -118,7 +119,7 @@ async def execute_skill_improvement_task(
         )
 
     # 2. Claim request with repository claim fence
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     w_id = worker_id or "skill_improvement_worker"
     claimed = await repo.claim_improvement_request(
         request_id=request_id,

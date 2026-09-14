@@ -165,7 +165,7 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
     callback_outbox = getattr(deps, "founder_asset_callback_outbox", None)
 
     if authoring_service is not None:
-        from packages.agent.assets.contracts import AssetKind, AssetScope, PinnedAssetIdentity
+        from agent.assets.contracts import AssetKind, AssetScope, PinnedAssetIdentity
 
         target_scope = (
             AssetScope.project_sandbox(cmd.project_id)

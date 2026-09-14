@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from apps.cosa.assets.evaluation_service import EvaluationService
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetConflictError,
     AssetKind,
     AssetLifecycle,
@@ -16,8 +16,8 @@ from packages.agent.assets.contracts import (
     WorkspaceAssetDraft,
     WorkspaceAssetVersion,
 )
-from packages.agent.assets.repository import WorkspaceAssetRepository
-from packages.agent.workflows.repository import WorkflowDefinitionRepository
+from agent.assets.repository import WorkspaceAssetRepository
+from agent.workflows.repository import WorkflowDefinitionRepository
 
 
 class WorkflowPublishDisabledError(Exception):
@@ -232,9 +232,12 @@ class AuthoringService:
         # For workflow assets, validate full DAG structure, executor readiness, and require REVIEW_REQUIRED
         if is_workflow:
             from agent.workflows.schema import WorkflowSpec
-            from agent.workflows.validation import WorkflowPublishValidator, WorkflowValidationContext
+            from agent.workflows.validation import (
+                WorkflowPublishValidator,
+                WorkflowValidationContext,
+            )
 
-            if item.lifecycle != AssetLifecycle.REVIEW_REQUIRED and item.lifecycle != "REVIEW_REQUIRED":
+            if item.lifecycle not in (AssetLifecycle.REVIEW_REQUIRED, "REVIEW_REQUIRED"):
                 raise WorkflowPublishDisabledError(
                     f"Workflow {asset_id} version {item.version} must be in REVIEW_REQUIRED state to publish "
                     f"(current: {item.lifecycle})"

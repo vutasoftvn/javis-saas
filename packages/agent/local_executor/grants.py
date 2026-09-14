@@ -4,7 +4,6 @@ import hashlib
 import hmac
 import json
 import os
-from datetime import UTC, datetime
 from typing import Any
 
 from .contracts import (
@@ -15,11 +14,11 @@ from .contracts import (
 )
 
 __all__ = [
+    "GrantVerificationError",
     "canonical_input_hash",
     "compute_receipt_signature",
     "mint_grant",
     "verify_receipt_against_context",
-    "GrantVerificationError",
 ]
 
 _SECRET = os.environ.get("COSA_LOCAL_EXECUTOR_DELEGATION_SECRET", "dev-local-executor-secret-32-chars-long!")

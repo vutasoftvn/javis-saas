@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Callable
 from typing import Any
 
 __all__ = [
-    "DeterministicHandlerRegistry",
     "WHITELISTED_DETERMINISTIC_HANDLERS",
+    "DeterministicHandlerRegistry",
     "get_deterministic_handler",
     "list_deterministic_handlers",
     "register_deterministic_handler",
@@ -92,7 +91,7 @@ def _format_template(state: dict[str, Any], params: dict[str, Any] | None = None
     output_key = params.get("output_key", "formatted_text")
     try:
         formatted = template.format(**state)
-    except KeyError as exc:
+    except KeyError:
         formatted = template
     return {output_key: formatted}
 

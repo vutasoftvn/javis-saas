@@ -432,8 +432,9 @@ def build_cosa_agent_plane(
     if resolved_workflow_definition_repository is None:
         resolved_database_url = database_url or os.environ.get("AGENT_DATABASE_URL")
         if resolved_database_url:
-            from packages.agent.assets.repository import PostgresWorkspaceAssetRepository
             from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
+
+            from agent.assets.repository import PostgresWorkspaceAssetRepository
 
             wf_definition_engine, wf_definition_session_factory = build_postgres_session_factory(
                 resolved_database_url
@@ -446,14 +447,14 @@ def build_cosa_agent_plane(
                 wf_definition_session_factory
             )
         else:
-            from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+            from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
             resolved_workflow_definition_repository = InMemoryWorkflowDefinitionRepository()
             workflow_asset_repository = InMemoryWorkspaceAssetRepository()
     else:
         resolved_database_url = database_url or os.environ.get("AGENT_DATABASE_URL")
         if resolved_database_url:
-            from packages.agent.assets.repository import PostgresWorkspaceAssetRepository
+            from agent.assets.repository import PostgresWorkspaceAssetRepository
 
             wf_asset_engine, wf_asset_session_factory = build_postgres_session_factory(
                 resolved_database_url
@@ -461,7 +462,7 @@ def build_cosa_agent_plane(
             storage.created_engines.append(wf_asset_engine)
             workflow_asset_repository = PostgresWorkspaceAssetRepository(wf_asset_session_factory)
         else:
-            from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+            from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
             workflow_asset_repository = InMemoryWorkspaceAssetRepository()
     from apps.cosa.workflows.deployment_authority_resolver import CompanyDeploymentAuthorityResolver

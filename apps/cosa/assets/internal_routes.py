@@ -7,13 +7,13 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 from apps.cosa.assets.authoring_service import AuthoringService
 from apps.cosa.assets.evaluation_service import EvaluationService
 from apps.cosa.assets.schemas import AuthoringCommand, AuthoringResponse
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetKind,
     AssetScope,
     PinnedAssetIdentity,
 )
-from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
-from packages.agent.workflows.repository import InMemoryWorkflowDefinitionRepository
+from agent.assets.repository import InMemoryWorkspaceAssetRepository
+from agent.workflows.repository import InMemoryWorkflowDefinitionRepository
 
 router = APIRouter(prefix="/agent/internal/founder-assets", tags=["founder-assets-internal"])
 

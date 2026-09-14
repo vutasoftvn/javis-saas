@@ -38,7 +38,7 @@ class ConversationRecord(BaseModel):
     archived_at: datetime | None = None
 
     @model_validator(mode="after")
-    def _validate_project_scope(self) -> "ConversationRecord":
+    def _validate_project_scope(self) -> ConversationRecord:
         if self.scope_state == "PROJECT_SCOPED" and not self.project_id:
             raise ValueError("PROJECT_SCOPED records require project_id")
         if self.scope_state == "LEGACY_UNSCOPED" and self.project_id:

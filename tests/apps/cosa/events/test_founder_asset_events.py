@@ -198,8 +198,8 @@ async def test_foreign_workspace_envelope_is_rejected() -> None:
 async def test_production_wiring_create_evaluate_publish_lifecycle() -> None:
     from apps.cosa.assets.authoring_service import AuthoringService
     from apps.cosa.assets.evaluation_service import EvaluationService
-    from packages.agent.assets.contracts import AssetLifecycle
-    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+    from agent.assets.contracts import AssetLifecycle
+    from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
     repo = InMemoryWorkspaceAssetRepository()
     eval_svc = EvaluationService(repo)
@@ -281,7 +281,7 @@ async def test_production_wiring_create_evaluate_publish_lifecycle() -> None:
 async def test_production_wiring_failure_dispatches_failed_status_callback() -> None:
     from apps.cosa.assets.authoring_service import AuthoringService
     from apps.cosa.assets.evaluation_service import EvaluationService
-    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+    from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
     repo = InMemoryWorkspaceAssetRepository()
     eval_svc = EvaluationService(repo)
@@ -313,8 +313,8 @@ async def test_production_wiring_failure_dispatches_failed_status_callback() -> 
 async def test_production_wiring_clone_builtin_asset() -> None:
     from apps.cosa.assets.authoring_service import AuthoringService
     from apps.cosa.assets.evaluation_service import EvaluationService
-    from packages.agent.assets.contracts import AssetLifecycle
-    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+    from agent.assets.contracts import AssetLifecycle
+    from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
     repo = InMemoryWorkspaceAssetRepository()
     eval_svc = EvaluationService(repo)
@@ -329,7 +329,7 @@ async def test_production_wiring_clone_builtin_asset() -> None:
     )
 
     # Pre-seed the source asset so clone has an immutable default to copy from
-    from packages.agent.assets.contracts import AssetKind, AssetScope, WorkspaceAssetDraft
+    from agent.assets.contracts import AssetKind, AssetScope, WorkspaceAssetDraft
     await repo.create_draft(
         workspace_id="ws_1",
         draft=WorkspaceAssetDraft(
@@ -370,7 +370,7 @@ async def test_production_wiring_clone_builtin_asset() -> None:
 async def test_production_wiring_clone_nonexistent_asset_dispatches_failed_callback() -> None:
     from apps.cosa.assets.authoring_service import AuthoringService
     from apps.cosa.assets.evaluation_service import EvaluationService
-    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+    from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
     repo = InMemoryWorkspaceAssetRepository()
     eval_svc = EvaluationService(repo)
@@ -408,7 +408,7 @@ async def test_callback_delivery_failure_marks_outcome_failed_in_inbox() -> None
     from apps.cosa.assets.authoring_service import AuthoringService
     from apps.cosa.assets.evaluation_service import EvaluationService
     from apps.cosa.events.founder_asset_callback_client import FounderAssetCallbackDeliveryError
-    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+    from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
     repo = InMemoryWorkspaceAssetRepository()
     eval_svc = EvaluationService(repo)
@@ -440,7 +440,7 @@ async def test_duplicate_command_retries_durable_callback_without_replaying_auth
     from apps.cosa.assets.evaluation_service import EvaluationService
     from apps.cosa.events.founder_asset_callback_client import FounderAssetCallbackDeliveryError
     from apps.cosa.events.founder_asset_callback_outbox import InMemoryFounderAssetCallbackOutbox
-    from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+    from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
     repo = InMemoryWorkspaceAssetRepository()
     eval_svc = EvaluationService(repo)

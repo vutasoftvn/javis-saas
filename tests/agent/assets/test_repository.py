@@ -1,6 +1,6 @@
 import pytest
 
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetImmutableError,
     AssetKind,
     AssetScope,
@@ -8,7 +8,7 @@ from packages.agent.assets.contracts import (
     PinnedAssetIdentity,
     WorkspaceAssetDraft,
 )
-from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
 
 @pytest.fixture

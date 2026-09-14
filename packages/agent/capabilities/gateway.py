@@ -611,9 +611,7 @@ class CapabilityGateway:
                 skip_ticket = not self._live_authorizer.is_ticket_required(spec, req.context, req.capability_id)
             else:
                 meta = getattr(spec, "metadata", {}) or {}
-                if meta.get("draft_only") is True or meta.get("risk_class") == "READ":
-                    skip_ticket = True
-                elif req.capability_id.endswith((".read", ".list", ".get", ".query")):
+                if meta.get("draft_only") is True or meta.get("risk_class") == "READ" or req.capability_id.endswith((".read", ".list", ".get", ".query")):
                     skip_ticket = True
 
             if not skip_ticket:

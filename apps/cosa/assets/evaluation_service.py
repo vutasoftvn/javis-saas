@@ -3,14 +3,14 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetEvaluationResult,
     AssetKind,
     AssetLifecycle,
     AssetNotFoundError,
     AssetScopeKind,
 )
-from packages.agent.assets.repository import WorkspaceAssetRepository
+from agent.assets.repository import WorkspaceAssetRepository
 
 
 class EvaluationService:
@@ -47,7 +47,10 @@ class EvaluationService:
         is_workflow = item.kind == AssetKind.WORKFLOW
         if is_workflow:
             from agent.workflows.schema import WorkflowSpec
-            from agent.workflows.validation import WorkflowPublishValidator, WorkflowValidationContext
+            from agent.workflows.validation import (
+                WorkflowPublishValidator,
+                WorkflowValidationContext,
+            )
 
             try:
                 spec = WorkflowSpec.model_validate(content)

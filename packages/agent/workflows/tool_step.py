@@ -7,18 +7,9 @@ from typing import Any
 
 from agent.capabilities.gateway import GatewayExecutionRequest
 from agent.contracts.invocation import InvocationContext
-from agent.governance.accumulator import InvocationGovernanceState
 from agent.governance.contracts import (
-    AutonomyLevel,
-    CapabilityRisk,
     ExecutionMode,
-    PolicyOutcome,
 )
-from agent.governance.contracts import (
-    PolicyDecision as GovernancePolicyDecision,
-)
-from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent.governance.store import GovernanceStateStore
 from agent.workflows.live_authority import (
     check_live_deployment_authority,
     resolve_deployment_context,

@@ -921,11 +921,12 @@ class PostgresWorkforceRepository:
     @staticmethod
     def _row_to_assignment(row: Any) -> WorkforceAssignmentRecord:
         emp = row.get("agent_instance_id") if hasattr(row, "get") else row["agent_instance_id"]
-        c_id = (
-            row.get("company_workforce_member_id")
-            if hasattr(row, "get")
-            else (row["company_workforce_member_id"] if "company_workforce_member_id" in row else None)
-        )
+        if hasattr(row, "get"):
+            c_id = row.get("company_workforce_member_id", None)
+        elif "company_workforce_member_id" in row:
+            c_id = row["company_workforce_member_id"]
+        else:
+            c_id = None
         return WorkforceAssignmentRecord(
             assignment_id=UUID(str(row["assignment_id"])),
             workspace_id=row["workspace_id"],

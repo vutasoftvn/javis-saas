@@ -14,17 +14,17 @@ from agent.skills.candidate_store import (
     SkillCandidateStore,
     SkillFeedbackRecord,
 )
-from agent.skills.improvement_repository import (
-    InMemorySkillImprovementRepository,
-    PostgresSkillImprovementRepository,
-    SkillImprovementRepository,
-)
 from agent.skills.contracts import (
     LifecycleApplicability,
     ProjectLifecycleStage,
     SkillCandidate,
     SkillSpec,
     SkillStatus,
+)
+from agent.skills.improvement_repository import (
+    InMemorySkillImprovementRepository,
+    PostgresSkillImprovementRepository,
+    SkillImprovementRepository,
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
@@ -38,14 +38,12 @@ from apps.cosa.api.skill_schemas import (
     DeprecateSkillRequest,
     EvaluateSkillRequest,
     EvaluateSkillResponse,
-    PromoteSkillRequest,
     RequestSkillPromotionRequest,
     SkillFeedbackRequest,
     SkillListItem,
     SyncBuiltInResponse,
     SyncSkillItem,
 )
-from apps.cosa.skills.improvement_policy import load_effective_improvement_policy
 from apps.cosa.auth import (
     AuthenticatedIdentity,
     get_authenticated_identity,
@@ -53,6 +51,7 @@ from apps.cosa.auth import (
     resolve_identity_workspace,
 )
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.skills.improvement_policy import load_effective_improvement_policy
 
 logger = logging.getLogger("cosa.api.skill_registry")
 

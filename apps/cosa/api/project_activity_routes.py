@@ -9,18 +9,16 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
 from typing import Any
 
+from agent.project_activity.repository import ProjectActivityRepository
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
-from agent.project_activity.repository import ProjectActivityRepository
-
 from apps.cosa.api.project_context import verify_project_context
 from apps.cosa.api.schemas import (
-    ProjectActivityEventDTO,
     ProjectActivityDetailDTO,
+    ProjectActivityEventDTO,
     ProjectActivityListResponse,
 )
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
@@ -181,11 +179,11 @@ def create_project_activity_router() -> APIRouter:
                 after_sequence = int(last_event_id)
                 if after_sequence <= 0:
                     raise ValueError("Last-Event-ID must be positive")
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid Last-Event-ID: must be a positive integer",
-                )
+                ) from exc
 
         # Tạo generator với proper SSE format
         async def event_generator():
@@ -194,7 +192,7 @@ def create_project_activity_router() -> APIRouter:
                     yield line
             except Exception as e:
                 logger.exception("Error in project activity stream: %s", e)
-                yield f"event: error\ndata: {{\"error\": \"{str(e)}\"}}\n\n"
+                yield f"event: error\ndata: {{\"error\": \"{e!s}\"}}\n\n"
 
         return StreamingResponse(
             event_generator(),

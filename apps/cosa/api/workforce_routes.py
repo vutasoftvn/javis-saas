@@ -169,7 +169,7 @@ async def create_assignment(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="active AI workforce member is required",
-            )
+            ) from exc
 
         members = overview.get("members", [])
         target = next(

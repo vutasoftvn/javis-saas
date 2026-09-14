@@ -8,7 +8,7 @@ from typing import Any, Protocol
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetConflictError,
     AssetEvaluationResult,
     AssetImmutableError,

@@ -461,9 +461,7 @@ class InMemoryRunRepository:
         res = []
         for a in self._approvals.values():
             if a.status == "pending":
-                if workspace_id is None:
-                    res.append(a.model_copy(deep=True))
-                elif a.workspace_id == workspace_id:
+                if workspace_id is None or a.workspace_id == workspace_id:
                     res.append(a.model_copy(deep=True))
                 elif a.workspace_id is None and a.run_id:
                     run = self._runs.get(a.run_id)

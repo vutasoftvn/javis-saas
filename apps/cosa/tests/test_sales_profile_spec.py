@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agent.governance.contracts import AutonomyLevel
+
 from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
 from apps.cosa.agents.specs import COSA_EXECUTIVE_CRO_AGENT_SPEC, COSA_SALES_AGENT_SPEC
 

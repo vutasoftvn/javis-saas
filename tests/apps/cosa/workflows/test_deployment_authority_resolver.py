@@ -5,8 +5,8 @@ import pytest
 from apps.cosa.workflows.deployment_authority_resolver import (
     CompanyDeploymentAuthorityResolver,
 )
-from packages.agent.assets.contracts import AssetKind, AssetScope, WorkspaceAssetDraft
-from packages.agent.assets.repository import InMemoryWorkspaceAssetRepository
+from agent.assets.contracts import AssetKind, AssetScope, WorkspaceAssetDraft
+from agent.assets.repository import InMemoryWorkspaceAssetRepository
 
 
 class RecordingCompanyClient:

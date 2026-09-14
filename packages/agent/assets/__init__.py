@@ -1,4 +1,4 @@
-from packages.agent.assets.contracts import (
+from agent.assets.contracts import (
     AssetConflictError,
     AssetEvaluationResult,
     AssetImmutableError,
@@ -16,12 +16,12 @@ from packages.agent.assets.contracts import (
     WorkspaceAssetDraft,
     WorkspaceAssetVersion,
 )
-from packages.agent.assets.repository import (
+from agent.assets.repository import (
     InMemoryWorkspaceAssetRepository,
     WorkspaceAssetRepository,
     compute_canonical_hash,
 )
-from packages.agent.assets.service import WorkspaceAssetService
+from agent.assets.service import WorkspaceAssetService
 
 __all__ = [
     "AssetConflictError",

@@ -5,12 +5,12 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel
-
 from agent.runs.models import ApprovalSubject
 from agent.runs.stream_events import RunStreamEventRecord
 from agent.skills.candidate_store import InMemorySkillCandidateStore, SkillCandidateStore
 from agent.skills.contracts import SkillCandidate, SkillStatus
+from pydantic import BaseModel
+
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 
 logger = logging.getLogger("cosa.worker.approval_actions")
@@ -144,9 +144,9 @@ async def execute_skill_candidate_promotion(
 
     # Idempotent replay: already published with same approval and hash
     if cand.status == SkillStatus.PUBLISHED:
-        if cand.promotion_approval_id == approval_id and (
-            cand.promotion_definition_hash == expected_hash
-            or cand.definition_hash == expected_hash
+        if cand.promotion_approval_id == approval_id and expected_hash in (
+            cand.promotion_definition_hash,
+            cand.definition_hash,
         ):
             await _record_action_event(
                 plane, workspace_id, approval_id, cand, "approval.action.completed", None

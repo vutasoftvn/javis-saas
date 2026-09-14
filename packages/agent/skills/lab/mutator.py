@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Union
 
 from agent.skills.contracts import SkillSpec
 
@@ -10,7 +9,7 @@ __all__ = ["CandidateMutator", "MutationFn", "noop_mutator"]
 # Trả về (skill đã mutate, mô tả thay đổi cho audit trail — Blueprint V2 §69.3
 # "mỗi mutation có diff"). KHÔNG được tự publish bên trong mutator — Lab
 # orchestrator sở hữu quyết định accept/revert.
-MutationFn = Callable[[SkillSpec], Union[tuple[SkillSpec, str], Awaitable[tuple[SkillSpec, str]]]]
+MutationFn = Callable[[SkillSpec], tuple[SkillSpec, str] | Awaitable[tuple[SkillSpec, str]]]
 CandidateMutator = MutationFn
 
 

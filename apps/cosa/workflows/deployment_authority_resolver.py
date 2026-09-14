@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from packages.agent.assets.contracts import AssetKind, AssetLifecycle
-from packages.agent.assets.repository import WorkspaceAssetRepository
+from agent.assets.contracts import AssetKind, AssetLifecycle
+from agent.assets.repository import WorkspaceAssetRepository
 
 
 class CompanyDeploymentAuthorityResolver:

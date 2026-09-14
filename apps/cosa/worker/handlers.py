@@ -337,26 +337,27 @@ async def execute_run_task(
                 status="failed", error="spec_hash_mismatch", run_id=run_id
             )
 
-        if agent_profile == "customer_support":
-            if not authority.policy_snapshot.get("knowledge_gate_passed", False):
-                conversation_id = payload.get("conversation_id")
-                stream_repo = getattr(plane, "stream_event_repository", None)
-                if stream_repo and conversation_id and stream_mgr:
-                    await stream_mgr.emit(
-                        stream_repo,
-                        run_id=run_id,
-                        conversation_id=conversation_id,
-                        event_type="run.failed",
-                        payload={"error": "support_knowledge_gate_required"},
-                        activity_service=getattr(plane, "project_activity_service", None),
-                        workspace_id=workspace_id,
-                        project_id=project_id,
-                    )
-                return RunTaskResult(
-                    status="failed",
-                    error="support_knowledge_gate_required",
+        if agent_profile == "customer_support" and not authority.policy_snapshot.get(
+            "knowledge_gate_passed", False
+        ):
+            conversation_id = payload.get("conversation_id")
+            stream_repo = getattr(plane, "stream_event_repository", None)
+            if stream_repo and conversation_id and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
                     run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type="run.failed",
+                    payload={"error": "support_knowledge_gate_required"},
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
                 )
+            return RunTaskResult(
+                status="failed",
+                error="support_knowledge_gate_required",
+                run_id=run_id,
+            )
 
         payload["assignment_version"] = authority.assignment_version
         payload["spec_hash"] = authority.spec.hash
