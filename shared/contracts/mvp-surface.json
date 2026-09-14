@@ -451,7 +451,7 @@
     },
     {
       "id": "project.executive_roles.select_preset",
-      "enabled": true,
+      "enabled": false,
       "owner": "company-operations",
       "plane": "company",
       "method": "POST",
@@ -467,7 +467,7 @@
     },
     {
       "id": "project.executive_roles.activate",
-      "enabled": true,
+      "enabled": false,
       "owner": "company-operations",
       "plane": "company",
       "method": "POST",
@@ -483,7 +483,7 @@
     },
     {
       "id": "project.executive_roles.disable",
-      "enabled": true,
+      "enabled": false,
       "owner": "company-operations",
       "plane": "company",
       "method": "POST",
@@ -496,6 +496,48 @@
       "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts",
       "flutter_test": "frontend/test/modules/hologram_hub/services/executive_advisory_board_service_test.dart",
       "integration_test": "tests/e2e/test_executive_advisory_board.py"
+    },
+    {
+      "id": "operations.executive_board.workspace_role.activate",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/workspaces/:workspaceId/executive-roles/:roleKey/activate",
+      "schema": "operations.executive_board.workspace_role.activate.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "ExecutiveAdvisoryBoardService.activateRole",
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
+    },
+    {
+      "id": "operations.executive_board.workspace_role.disable",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/workspaces/:workspaceId/executive-roles/:roleKey/disable",
+      "schema": "operations.executive_board.workspace_role.disable.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "ExecutiveAdvisoryBoardService.disableRole",
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
+    },
+    {
+      "id": "operations.executive_board.stage_suggestion",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "GET",
+      "path": "/operations/projects/:projectId/executive-board/stage-suggestion",
+      "schema": "operations.executive_board.stage_suggestion.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": true,
+      "frontend_symbol": "ExecutiveBoardStageSuggestionService.get",
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
     },
     {
       "id": "project.deliberations.draft",

@@ -11,6 +11,9 @@ import {
   selectProjectExecutivePresetApi,
   activateProjectExecutiveRoleApi,
   disableProjectExecutiveRoleApi,
+  activateWorkspaceExecutiveRoleApi,
+  disableWorkspaceExecutiveRoleApi,
+  getProjectExecutiveStageSuggestionApi,
 } from "../handlers/executive-role-activation.handler";
 import { activateProjectStartupTeamMember } from "../services/project-startup-team.service";
 import { ProjectExecutiveRoleState } from "../services/executive-role-activation.service";
@@ -47,10 +50,9 @@ describe("Executive Role Activation Handler", () => {
 
   it("does not fall back to operations for CISO", async () => {
     await expect(
-      activateProjectExecutiveRoleApi({
+      activateWorkspaceExecutiveRoleApi({
         authorization: founderToken,
         workspaceId,
-        projectId,
         roleKey: "ciso",
         expectedVersion: 1,
       })
@@ -59,21 +61,19 @@ describe("Executive Role Activation Handler", () => {
 
   it("requires founder authorization: member caller gets 403", async () => {
     await expect(
-      activateProjectExecutiveRoleApi({
+      activateWorkspaceExecutiveRoleApi({
         authorization: memberToken,
         workspaceId,
-        projectId,
         roleKey: "cfo",
         expectedVersion: 1,
       })
     ).rejects.toThrow(/FOUNDER_AUTHORITY_REQUIRED|FOUNDER_AUTHORIZATION_REQUIRED/);
 
     await expect(
-      selectProjectExecutivePresetApi({
+      disableWorkspaceExecutiveRoleApi({
         authorization: memberToken,
         workspaceId,
-        projectId,
-        presetKey: "startup-discovery",
+        roleKey: "cfo",
       })
     ).rejects.toThrow(/FOUNDER_AUTHORITY_REQUIRED|FOUNDER_AUTHORIZATION_REQUIRED/);
   });
@@ -92,7 +92,7 @@ describe("Executive Role Activation Handler", () => {
       { expectedVersion: 1 }
     );
 
-    // 2. List executive roles via handler
+    // 2. List executive roles via handler (projection theo Project vẫn dùng được)
     const listBefore = await listProjectExecutiveRolesApi({
       authorization: founderToken,
       workspaceId,
@@ -101,13 +101,11 @@ describe("Executive Role Activation Handler", () => {
     const cfoBefore = listBefore.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
     expect(cfoBefore?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
 
-    // 3. Founder activates CFO via handler
-    const activated = await activateProjectExecutiveRoleApi({
+    // 3. Founder activates CFO ở cấp Workspace
+    const activated = await activateWorkspaceExecutiveRoleApi({
       authorization: founderToken,
       workspaceId,
-      projectId,
       roleKey: "cfo",
-      expectedVersion: cfoBefore!.version,
       idempotencyKey: "h-act-cfo-1",
     });
     expect(activated.state).toBe("ACTIVE");
@@ -115,27 +113,25 @@ describe("Executive Role Activation Handler", () => {
 
     // 4. Stale expectedVersion throws CAS conflict
     await expect(
-      activateProjectExecutiveRoleApi({
+      activateWorkspaceExecutiveRoleApi({
         authorization: founderToken,
         workspaceId,
-        projectId,
         roleKey: "cfo",
         expectedVersion: 999,
       })
     ).rejects.toThrow(/CAS_CONFLICT|stale/i);
 
-    // 5. Disable CFO via handler
-    const disabled = await disableProjectExecutiveRoleApi({
+    // 5. Disable CFO ở cấp Workspace
+    const disabled = await disableWorkspaceExecutiveRoleApi({
       authorization: founderToken,
       workspaceId,
-      projectId,
       roleKey: "cfo",
       expectedVersion: activated.version,
       reason: "No longer needed",
     });
     expect(disabled.state).toBe("DISABLED");
 
-    // 6. List returns DISABLED displayState
+    // 6. Project projection phản ánh DISABLED
     const listAfter = await listProjectExecutiveRolesApi({
       authorization: founderToken,
       workspaceId,
@@ -145,34 +141,96 @@ describe("Executive Role Activation Handler", () => {
     expect(cfoAfter?.displayState).toBe("DISABLED");
   });
 
-  it("allows Founder to select preset via handler", async () => {
-    await activateProjectStartupTeamMember(
-      makeTestTenantContext({
+  it("returns a stage suggestion for the project's current lifecycle stage", async () => {
+    const ctx = makeTestTenantContext({
+      workspaceId,
+      userId: "test-user",
+      membershipRole: "founder",
+      isAiAgent: false,
+    });
+    for (const profileKey of ["operations", "finance", "marketing", "product"]) {
+      await activateProjectStartupTeamMember(ctx, projectId, profileKey, { expectedVersion: 1 });
+    }
+
+    const suggestion = await getProjectExecutiveStageSuggestionApi({
+      authorization: founderToken,
+      workspaceId,
+      projectId,
+    });
+
+    expect(suggestion.stage).toBe("P0_DISCOVERY");
+    expect([...suggestion.toActivate].sort()).toEqual(["cfo", "chief_of_staff", "cmo", "cpo"]);
+    expect(suggestion.toSuggestDeactivate).toEqual([]);
+  });
+
+  describe("deprecated project-scoped mutation endpoints", () => {
+    // Giữ endpoint nhưng fail rõ ràng (không 404 mù, không im lặng thành công)
+    // để client cũ biết chính xác phải chuyển sang đâu.
+    it("selectProjectExecutivePresetApi fails with a pointer to the workspace endpoint", async () => {
+      await expect(
+        selectProjectExecutivePresetApi({
+          authorization: founderToken,
+          workspaceId,
+          projectId,
+          presetKey: "startup-discovery",
+          expectedVersion: 1,
+        })
+      ).rejects.toThrow(
+        /deprecated.*\/operations\/workspaces\/:workspaceId\/executive-roles\/:roleKey\/activate/s
+      );
+    });
+
+    it("activateProjectExecutiveRoleApi fails with a pointer to the workspace endpoint", async () => {
+      await expect(
+        activateProjectExecutiveRoleApi({
+          authorization: founderToken,
+          workspaceId,
+          projectId,
+          roleKey: "cfo",
+        })
+      ).rejects.toThrow(
+        /deprecated.*\/operations\/workspaces\/:workspaceId\/executive-roles\/:roleKey\/activate/s
+      );
+    });
+
+    it("disableProjectExecutiveRoleApi fails with a pointer to the workspace endpoint", async () => {
+      await expect(
+        disableProjectExecutiveRoleApi({
+          authorization: founderToken,
+          workspaceId,
+          projectId,
+          roleKey: "cfo",
+        })
+      ).rejects.toThrow(
+        /deprecated.*\/operations\/workspaces\/:workspaceId\/executive-roles\/:roleKey\/disable/s
+      );
+    });
+
+    it("deprecated endpoints must not mutate any state", async () => {
+      const ctx = makeTestTenantContext({
         workspaceId,
         userId: "test-user",
         membershipRole: "founder",
         isAiAgent: false,
-      }),
-      projectId,
-      "marketing",
-      { expectedVersion: 1 }
-    );
+      });
+      await activateProjectStartupTeamMember(ctx, projectId, "finance", { expectedVersion: 1 });
 
-    const presetRes = await selectProjectExecutivePresetApi({
-      authorization: founderToken,
-      workspaceId,
-      projectId,
-      presetKey: "startup-discovery",
-      expectedVersion: 1,
-    });
-    expect(presetRes.presetKey).toBe("startup-discovery");
+      await expect(
+        activateProjectExecutiveRoleApi({
+          authorization: founderToken,
+          workspaceId,
+          projectId,
+          roleKey: "cfo",
+        })
+      ).rejects.toThrow(/deprecated/);
 
-    const listRes = await listProjectExecutiveRolesApi({
-      authorization: founderToken,
-      workspaceId,
-      projectId,
+      const list = await listProjectExecutiveRolesApi({
+        authorization: founderToken,
+        workspaceId,
+        projectId,
+      });
+      const cfo = list.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
+      expect(cfo?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
     });
-    const cmo = listRes.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
-    expect(cmo?.displayState).toBe("ACTIVE");
   });
 });
