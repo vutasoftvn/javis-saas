@@ -17,8 +17,8 @@ import {
   getDeliberation,
 } from "../services/executive-deliberation.service";
 import {
-  activateExecutiveRole,
-} from "../services/executive-role-activation.service";
+  activateWorkspaceExecutiveRole,
+} from "../services/workspace-executive-role-activation.service";
 import {
   activateProjectStartupTeamMember,
 } from "../services/project-startup-team.service";
@@ -59,9 +59,9 @@ describe("Executive Deliberation Service", () => {
     await activateProjectStartupTeamMember(founderCtx, projectId, "finance", { expectedVersion: 1 });
     await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
     await activateProjectStartupTeamMember(founderCtx, projectId, "customer_support", { expectedVersion: 1 });
-    await activateExecutiveRole(founderCtx, projectId, "cfo", { expectedVersion: 1 });
-    await activateExecutiveRole(founderCtx, projectId, "cmo", { expectedVersion: 1 });
-    await activateExecutiveRole(founderCtx, projectId, "cco", { expectedVersion: 1 });
+    await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
+    await activateWorkspaceExecutiveRole(founderCtx, "cmo", {});
+    await activateWorkspaceExecutiveRole(founderCtx, "cco", {});
   });
 
   it("creates a draft deliberation only with human founder authority", async () => {
@@ -223,8 +223,8 @@ describe("Executive Deliberation Service", () => {
     await activateProjectStartupTeamMember(founderCtx, projectId, "operations", { expectedVersion: 1 });
 
     // 2. Activate chief_of_staff and coo
-    await activateExecutiveRole(founderCtx, projectId, "chief_of_staff", { expectedVersion: 1 });
-    await activateExecutiveRole(founderCtx, projectId, "coo", { expectedVersion: 1 });
+    await activateWorkspaceExecutiveRole(founderCtx, "chief_of_staff", {});
+    await activateWorkspaceExecutiveRole(founderCtx, "coo", {});
 
     // 3. Create draft and frame with chief_of_staff and coo
     const draft = await createDraftDeliberation(founderCtx, projectId, {

@@ -12,7 +12,7 @@ import {
   getDeliberationApi,
 } from "../handlers/executive-deliberation.handler";
 import { activateProjectStartupTeamMember } from "../services/project-startup-team.service";
-import { activateExecutiveRole } from "../services/executive-role-activation.service";
+import { activateWorkspaceExecutiveRole } from "../services/workspace-executive-role-activation.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 
 describe("Executive Deliberation Handler", () => {
@@ -44,7 +44,7 @@ describe("Executive Deliberation Handler", () => {
     };
 
     await activateProjectStartupTeamMember(founderCtx, projectId, "finance", { expectedVersion: 1 });
-    await activateExecutiveRole(founderCtx, projectId, "cfo", { expectedVersion: 1 });
+    await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
   });
 
   it("handles deliberation lifecycle through HTTP handlers", async () => {

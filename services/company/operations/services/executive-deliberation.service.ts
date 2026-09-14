@@ -21,7 +21,7 @@ import { requireExecutiveBoardFounderAuthority } from "./executive-role-activati
 const {
   projects,
   projectAgentAssignments,
-  projectExecutiveRoleActivations,
+  workspaceExecutiveRoleActivations,
   projectExecutiveDeliberations,
   projectExecutiveDeliberationFrames,
   projectExecutiveDeliberationDecisions,
@@ -231,22 +231,22 @@ export async function frameDeliberation(
       );
     }
 
-    // Check activation in project
+    // Check activation ở cấp Workspace (2026-09-14) — activation dùng chung cho
+    // mọi Project, không còn tra theo projectId.
     const [act] = await db
       .select()
-      .from(projectExecutiveRoleActivations)
+      .from(workspaceExecutiveRoleActivations)
       .where(
         and(
-          eq(projectExecutiveRoleActivations.workspaceId, wsId),
-          eq(projectExecutiveRoleActivations.projectId, projId),
-          eq(projectExecutiveRoleActivations.roleKey, roleKey)
+          eq(workspaceExecutiveRoleActivations.workspaceId, wsId),
+          eq(workspaceExecutiveRoleActivations.roleKey, roleKey)
         )
       )
       .limit(1);
 
     if (!act || act.state !== "ACTIVE") {
       throw APIError.failedPrecondition(
-        `EXECUTIVE_ROLE_NOT_ACTIVE: Role '${roleKey}' is not ACTIVE in project`
+        `EXECUTIVE_ROLE_NOT_ACTIVE: Role '${roleKey}' is not ACTIVE in workspace`
       );
     }
 
@@ -766,15 +766,14 @@ export async function recordExecutiveAnalysisCallback(
       };
     }
 
-    // Verify role is still active in project
+    // Verify role vẫn đang ACTIVE ở cấp Workspace.
     const [roleAct] = await tx
-      .select({ state: projectExecutiveRoleActivations.state })
-      .from(projectExecutiveRoleActivations)
+      .select({ state: workspaceExecutiveRoleActivations.state })
+      .from(workspaceExecutiveRoleActivations)
       .where(
         and(
-          eq(projectExecutiveRoleActivations.workspaceId, wsId),
-          eq(projectExecutiveRoleActivations.projectId, projId),
-          eq(projectExecutiveRoleActivations.roleKey, callback.role_key)
+          eq(workspaceExecutiveRoleActivations.workspaceId, wsId),
+          eq(workspaceExecutiveRoleActivations.roleKey, callback.role_key)
         )
       )
       .limit(1);
@@ -944,15 +943,14 @@ export async function getDeliberationAuthority(
     );
   }
 
-  // Verify role is still active in project
+  // Verify role vẫn đang ACTIVE ở cấp Workspace.
   const [roleAct] = await db
-    .select({ state: projectExecutiveRoleActivations.state })
-    .from(projectExecutiveRoleActivations)
+    .select({ state: workspaceExecutiveRoleActivations.state })
+    .from(workspaceExecutiveRoleActivations)
     .where(
       and(
-        eq(projectExecutiveRoleActivations.workspaceId, wsId),
-        eq(projectExecutiveRoleActivations.projectId, projId),
-        eq(projectExecutiveRoleActivations.roleKey, roleKey)
+        eq(workspaceExecutiveRoleActivations.workspaceId, wsId),
+        eq(workspaceExecutiveRoleActivations.roleKey, roleKey)
       )
     )
     .limit(1);

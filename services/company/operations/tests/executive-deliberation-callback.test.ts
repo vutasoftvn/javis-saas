@@ -12,8 +12,8 @@ import {
   getDeliberation,
 } from "../services/executive-deliberation.service";
 import {
-  activateExecutiveRole,
-} from "../services/executive-role-activation.service";
+  activateWorkspaceExecutiveRole,
+} from "../services/workspace-executive-role-activation.service";
 import {
   activateProjectStartupTeamMember,
 } from "../services/project-startup-team.service";
@@ -40,8 +40,8 @@ describe("Executive Deliberation Callback & Transitions", () => {
     // Activate finance and marketing in startup team, then activate CFO and CMO
     await activateProjectStartupTeamMember(founderCtx, projectId, "finance", { expectedVersion: 1 });
     await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
-    await activateExecutiveRole(founderCtx, projectId, "cfo", { expectedVersion: 1 });
-    await activateExecutiveRole(founderCtx, projectId, "cmo", { expectedVersion: 1 });
+    await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
+    await activateWorkspaceExecutiveRole(founderCtx, "cmo", {});
   });
 
   it("accepts a callback once and is idempotent on duplicate submissions", async () => {
