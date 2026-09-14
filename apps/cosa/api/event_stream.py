@@ -151,12 +151,22 @@ class CosaEventStreamManager:
                 "classification": "internal",
             }
 
+        # Bug thật phát hiện qua E2E S10 (2026-09-14 schedule-project-scope):
+        # `workspace_id`/`project_id` được nhận làm tham số (dùng cho Project
+        # Activity projection ngay dưới) nhưng trước đây KHÔNG truyền vào
+        # `RunStreamEventRecord` — mọi run_stream_event ghi ra, kể cả của run
+        # project-scoped, đều có cột `project_id`/`workspace_id` NULL
+        # (LEGACY_UNSCOPED) trong DB thật. `RunStreamEventRecord` đã khai báo
+        # 2 field này từ 2026-09-11 (Project-scoped Founder Hub) chính để
+        # phục vụ scoped fanout query — chỉ thiếu truyền vào lúc construct.
         record = RunStreamEventRecord(
             run_id=run_id,
             event_type=event_type,
             payload=safe_payload,
             conversation_id=conversation_id,
             correlation_id=correlation_id,
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
         persisted = await repository.append(record)
 

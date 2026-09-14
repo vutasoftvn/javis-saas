@@ -17,6 +17,7 @@ from tests.e2e.scenarios import (
     founder_authorization,
     outbox_relay,
     policy_snapshot_tenant,
+    schedule_project_scope,
 )
 from tests.e2e.seed import entitlement, identity
 
@@ -94,3 +95,11 @@ def test_s9_founder_authorization(real_cosa_stack, disposable_cluster) -> None:
     assert scenario["revoked_after_dispatch"] == "denied_before_effect"
     assert scenario["approval_bound_to_checkpoint"] is True
     assert scenario["cross_tenant"] == "denied"
+
+
+def test_s10_schedule_project_scope(real_cosa_stack, disposable_cluster) -> None:
+    # S10: schedule bind vào Project A không bao giờ chạy nhầm sang Project B,
+    # kể cả khi B được tạo SAU A (phản chứng giả định thứ tự "project đầu
+    # tiên/cuối cùng" — chính bug gốc plan 2026-09-14-schedule-project-scope).
+    seeded = identity.seed_workspace(real_cosa_stack, disposable_cluster, with_member=True)
+    schedule_project_scope.run(real_cosa_stack, seeded, disposable_cluster)

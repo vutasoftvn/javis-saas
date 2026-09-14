@@ -1170,16 +1170,18 @@ async def execute_scheduled_session_task(
                 headers: dict[str, str] = inject_trace_carrier({})
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
+                complete_payload: dict[str, Any] = {
+                    "executionId": schedule_exec_id,
+                    "state": state,
+                    "conversationId": conversation_id,
+                    "runId": run_id,
+                }
+                if error_msg is not None:
+                    complete_payload["error"] = error_msg
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     await client.post(
                         f"{control_plane_url}/cosa/schedules/executions/complete",
-                        json={
-                            "executionId": schedule_exec_id,
-                            "state": state,
-                            "conversationId": conversation_id,
-                            "runId": run_id,
-                            "error": error_msg,
-                        },
+                        json=complete_payload,
                         headers=headers,
                     )
             except Exception as e:

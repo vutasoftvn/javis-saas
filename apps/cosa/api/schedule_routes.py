@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -57,22 +59,37 @@ async def create_schedule(
 
     control_plane_url = resolve_platform_control_plane_url()
     token = _control_plane_bearer(identity)
+    # `runAt`/`hour`/`minute` là optional (`number`/`string`, không phải
+    # `number | null`) phía interface Encore.ts (`CreateScheduleParams`) —
+    # decoder JSON của Encore chấp nhận field VẮNG MẶT cho optional, nhưng từ
+    # chối literal `null` ("invalid type: Option value, expected a number").
+    # Trước đây route này luôn gửi cả 3 field kể cả khi `None` -> mọi lần tạo
+    # schedule `one_time` (không có hour/minute) hay `daily`/`weekdays`
+    # (không có run_at) đều 400 ở control-plane — bug có thật, phát hiện khi
+    # viết E2E S10 (schedule-project-scope), không liên quan trực tiếp tới
+    # project scoping nhưng chặn hoàn toàn route tạo schedule qua proxy.
+    payload: dict[str, Any] = {
+        "workspaceId": identity.workspace_id,
+        "projectId": verified_project.project_id,
+        "scheduleKind": body.schedule_kind,
+        "timezone": body.timezone,
+        "promptTemplate": body.prompt_template,
+        "agentProfile": body.agent_profile,
+        "connectorGrantIds": body.connector_grant_ids,
+    }
+    if body.run_at is not None:
+        payload["runAt"] = body.run_at.isoformat()
+    if body.hour is not None:
+        payload["hour"] = body.hour
+    if body.minute is not None:
+        payload["minute"] = body.minute
+    if body.weekdays:
+        payload["weekdays"] = body.weekdays
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/schedules",
-            json={
-                "workspaceId": identity.workspace_id,
-                "projectId": verified_project.project_id,
-                "scheduleKind": body.schedule_kind,
-                "timezone": body.timezone,
-                "runAt": body.run_at.isoformat() if body.run_at else None,
-                "hour": body.hour,
-                "minute": body.minute,
-                "weekdays": body.weekdays,
-                "promptTemplate": body.prompt_template,
-                "agentProfile": body.agent_profile,
-                "connectorGrantIds": body.connector_grant_ids,
-            },
+            json=payload,
             headers={"Authorization": token},
         )
         if resp.status_code != 200:
