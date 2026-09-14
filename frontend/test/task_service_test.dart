@@ -163,5 +163,36 @@ void main() {
       expect(() => TaskService().updateTaskSchedule('', null), throwsArgumentError);
     });
   });
+
+  group('deleteTask', () {
+    test('sends DELETE and returns normally on 200', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.method, 'DELETE');
+        expect(request.url.path, '/operations/tasks/1');
+        return http.Response('', 200);
+      });
+
+      await TaskService().deleteTask('1');
+    });
+
+    test('throws StateError on a 401 response', () async {
+      ApiClient.client = MockClient((request) async => http.Response('Unauthorized', 401));
+      expect(() => TaskService().deleteTask('1'), throwsA(isA<StateError>()));
+    });
+
+    test('throws StateError on a 404 response', () async {
+      ApiClient.client = MockClient((request) async => http.Response('Not found', 404));
+      expect(() => TaskService().deleteTask('1'), throwsA(isA<StateError>()));
+    });
+
+    test('throws StateError on an unexpected error status', () async {
+      ApiClient.client = MockClient((request) async => http.Response('Server error', 500));
+      expect(() => TaskService().deleteTask('1'), throwsA(isA<StateError>()));
+    });
+
+    test('throws ArgumentError on empty taskId', () async {
+      expect(() => TaskService().deleteTask(''), throwsArgumentError);
+    });
+  });
 }
 

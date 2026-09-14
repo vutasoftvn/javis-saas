@@ -149,5 +149,21 @@ class TaskService extends WorkspaceService {
     }
     return [];
   }
+
+  /// Soft-delete task qua endpoint Encore: DELETE /operations/tasks/:id
+  Future<void> deleteTask(String taskId) async {
+    if (taskId.isEmpty) throw ArgumentError('taskId cannot be empty');
+    await _requireWorkspaceId();
+
+    final response = await ApiClient.delete('/operations/tasks/$taskId');
+    if (response.statusCode == 200) return;
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw StateError('Authentication or workspace access denied: ${response.statusCode}');
+    } else if (response.statusCode == 404) {
+      throw StateError('Task $taskId not found (404)');
+    } else {
+      throw StateError('Failed to delete task: ${response.statusCode} ${response.body}');
+    }
+  }
 }
 

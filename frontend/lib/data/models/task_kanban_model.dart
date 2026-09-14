@@ -97,6 +97,11 @@ class TaskKanbanModel {
   final String? projectId;
   final String? weeklyCommitmentId;
   final Map<String, dynamic> metadata;
+  // Task 4 (workspace/project/OKR/weekly foundation) — liên kết Task tới
+  // WeeklyPlan/KeyResult được denormalize ngay lúc tạo ở backend (Task 3),
+  // FE chỉ đọc lại để hiển thị badge, không tự suy diễn.
+  final String? weeklyPlanId;
+  final String? keyResultId;
 
   const TaskKanbanModel({
     required this.id,
@@ -112,6 +117,8 @@ class TaskKanbanModel {
     this.projectId,
     this.weeklyCommitmentId,
     this.metadata = const {},
+    this.weeklyPlanId,
+    this.keyResultId,
   });
 
   factory TaskKanbanModel.fromJson(Map<String, dynamic> json) {
@@ -133,6 +140,8 @@ class TaskKanbanModel {
       projectId: json['project_id']?.toString() ?? json['projectId']?.toString(),
       weeklyCommitmentId: json['weekly_commitment_id']?.toString() ?? json['weeklyCommitmentId']?.toString(),
       metadata: json['metadata'] is Map<String, dynamic> ? json['metadata'] as Map<String, dynamic> : {},
+      weeklyPlanId: json['weeklyPlanId']?.toString(),
+      keyResultId: json['keyResultId']?.toString(),
     );
   }
 
@@ -150,6 +159,8 @@ class TaskKanbanModel {
     String? projectId,
     String? weeklyCommitmentId,
     Map<String, dynamic>? metadata,
+    String? weeklyPlanId,
+    String? keyResultId,
   }) {
     return TaskKanbanModel(
       id: id ?? this.id,
@@ -165,6 +176,8 @@ class TaskKanbanModel {
       projectId: projectId ?? this.projectId,
       weeklyCommitmentId: weeklyCommitmentId ?? this.weeklyCommitmentId,
       metadata: metadata ?? this.metadata,
+      weeklyPlanId: weeklyPlanId ?? this.weeklyPlanId,
+      keyResultId: keyResultId ?? this.keyResultId,
     );
   }
 
@@ -183,6 +196,8 @@ class TaskKanbanModel {
       if (projectId != null) 'project_id': projectId,
       if (weeklyCommitmentId != null) 'weekly_commitment_id': weeklyCommitmentId,
       'metadata': metadata,
+      if (weeklyPlanId != null) 'weeklyPlanId': weeklyPlanId,
+      if (keyResultId != null) 'keyResultId': keyResultId,
     };
   }
 }

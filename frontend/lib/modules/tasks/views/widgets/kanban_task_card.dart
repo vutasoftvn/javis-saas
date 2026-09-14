@@ -38,7 +38,10 @@ class KanbanTaskCard extends StatelessWidget {
             task.title,
             style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: Colors.white),
           ),
-          if (task.projectId != null || task.weeklyCommitmentId != null) ...[
+          if (task.projectId != null ||
+              task.weeklyCommitmentId != null ||
+              task.weeklyPlanId != null ||
+              task.keyResultId != null) ...[
             const SizedBox(height: 6),
             Wrap(
               spacing: 4,
@@ -65,6 +68,33 @@ class KanbanTaskCard extends StatelessWidget {
                     child: Text(
                       'Commitment: ${task.weeklyCommitmentId}',
                       style: const TextStyle(fontSize: 9.5, color: Color(0xFF10B981)),
+                    ),
+                  ),
+                // Task 4 (workspace/project/OKR/weekly foundation) — badge nhỏ
+                // hiển thị liên kết Week/KR đã denormalize từ backend (Task 3),
+                // chỉ đọc lại, không có action.
+                if (task.weeklyPlanId != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA78BFA).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'Week: ${task.weeklyPlanId}',
+                      style: const TextStyle(fontSize: 9.5, color: Color(0xFFA78BFA)),
+                    ),
+                  ),
+                if (task.keyResultId != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF472B6).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'KR: ${task.keyResultId}',
+                      style: const TextStyle(fontSize: 9.5, color: Color(0xFFF472B6)),
                     ),
                   ),
               ],
