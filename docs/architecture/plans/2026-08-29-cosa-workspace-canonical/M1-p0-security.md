@@ -105,8 +105,8 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
   `legal_entity_id` + `expected_status` khớp transition đang xin, `status == PENDING`,
   `now < expires_at`, `approved_by != requested_by` (separation of duty). Bỏ hoàn toàn check prefix chuỗi.
 - Reuse pattern binding từ hạ tầng approval sẵn có: [packages/agent/capabilities/approval_service.py](../../../../packages/agent/capabilities/approval_service.py),
-  [packages/agent/coordination/approval_gate.py](../../../../packages/agent/coordination/approval_gate.py),
   [packages/agent/workflows/approval_step.py](../../../../packages/agent/workflows/approval_step.py)
+  (`coordination/approval_gate.py` đã bị gỡ, logic gộp vào 2 file trên)
   (CLAUDE.md quy tắc 5: bind `run_id + tool_call_id + checkpoint_ref`, không lookup theo tên action).
 
 ### 7. Missing agent/stage policy fail-closed theo risk class (audit §3.2)

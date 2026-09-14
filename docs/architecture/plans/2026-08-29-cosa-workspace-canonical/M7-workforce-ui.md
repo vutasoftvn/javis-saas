@@ -9,7 +9,7 @@ Backend đã capability/function-first:
   `AgentSpec` pin `capability_refs`, `pinned_skills`, `model_policy`, `model_policy_ref`, `definition_hash`.
 - [services/company/identity/services/workforce.service.ts:10-20](../../../../services/company/identity/services/workforce.service.ts#L10-L20) —
   `workforce_members` tách `agent_spec_id`/`agent_spec_version` khỏi `role_title`.
-- [packages/agent/coordination/supervisor.py:27-112](../../../../packages/agent/coordination/supervisor.py#L27-L112) — `SupervisorCoordinator`.
+- [packages/agent/coordination/durable_supervisor.py:98](../../../../packages/agent/coordination/durable_supervisor.py#L98) — `DurableSupervisor` (đổi tên từ `SupervisorCoordinator`).
 - Capability Gateway + idempotency + durable approval: [packages/agent/capabilities/gateway.py](../../../../packages/agent/capabilities/gateway.py),
   `idempotency.py`, `approval_service.py`.
 
