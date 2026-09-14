@@ -103,13 +103,13 @@ async def build_event_intake_deps(
 
     workforce_repository = PostgresWorkforceRepository(session_factory)
 
+    from agent.assets.repository import PostgresWorkspaceAssetRepository
     from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
 
     from apps.cosa.assets.authoring_service import AuthoringService
     from apps.cosa.assets.evaluation_service import EvaluationService
     from apps.cosa.events.founder_asset_callback_client import FounderAssetStatusCallbackClient
     from apps.cosa.events.founder_asset_callback_outbox import PostgresFounderAssetCallbackOutbox
-    from agent.assets.repository import PostgresWorkspaceAssetRepository
 
     asset_repo = PostgresWorkspaceAssetRepository(session_factory)
     evaluation_service = EvaluationService(asset_repo)

@@ -432,9 +432,8 @@ def build_cosa_agent_plane(
     if resolved_workflow_definition_repository is None:
         resolved_database_url = database_url or os.environ.get("AGENT_DATABASE_URL")
         if resolved_database_url:
-            from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
-
             from agent.assets.repository import PostgresWorkspaceAssetRepository
+            from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
 
             wf_definition_engine, wf_definition_session_factory = build_postgres_session_factory(
                 resolved_database_url

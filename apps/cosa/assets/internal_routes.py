@@ -2,11 +2,6 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Header, HTTPException, Query, Request, status
-
-from apps.cosa.assets.authoring_service import AuthoringService
-from apps.cosa.assets.evaluation_service import EvaluationService
-from apps.cosa.assets.schemas import AuthoringCommand, AuthoringResponse
 from agent.assets.contracts import (
     AssetKind,
     AssetScope,
@@ -14,6 +9,11 @@ from agent.assets.contracts import (
 )
 from agent.assets.repository import InMemoryWorkspaceAssetRepository
 from agent.workflows.repository import InMemoryWorkflowDefinitionRepository
+from fastapi import APIRouter, Header, HTTPException, Query, Request, status
+
+from apps.cosa.assets.authoring_service import AuthoringService
+from apps.cosa.assets.evaluation_service import EvaluationService
+from apps.cosa.assets.schemas import AuthoringCommand, AuthoringResponse
 
 router = APIRouter(prefix="/agent/internal/founder-assets", tags=["founder-assets-internal"])
 

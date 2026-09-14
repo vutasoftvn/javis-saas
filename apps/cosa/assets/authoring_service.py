@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.cosa.assets.evaluation_service import EvaluationService
 from agent.assets.contracts import (
     AssetConflictError,
     AssetKind,
@@ -18,6 +17,8 @@ from agent.assets.contracts import (
 )
 from agent.assets.repository import WorkspaceAssetRepository
 from agent.workflows.repository import WorkflowDefinitionRepository
+
+from apps.cosa.assets.evaluation_service import EvaluationService
 
 
 class WorkflowPublishDisabledError(Exception):
