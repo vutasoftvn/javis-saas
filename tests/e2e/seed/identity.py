@@ -332,6 +332,44 @@ def seed_default_project(cluster: DisposableCluster, workspace_id: str) -> int:
         conn.close()
 
 
+def seed_operations_ready_project(
+    company_base_url: str, token: str, workspace_id: str
+) -> str:
+    """Tạo 1 Project qua đúng đường thật (`POST /operations/projects`) rồi
+    activate agent `operations` trong startup team của nó.
+
+    `seed_default_project()` (raw SQL insert vào `strategy.projects`) KHÔNG đủ
+    cho bất kỳ run nào cần dispatch agent thật: `ensureProjectStartupTeam()`
+    (gọi trong `project.service.ts::createProjectService`, KHÔNG chạy khi
+    insert bằng SQL thẳng) seed toàn bộ startup team ở state `TEMPLATE`, và
+    `getProjectAgentRunAuthority()` fail-closed 404
+    `project_team_authority_denied` cho tới khi member đó được activate qua
+    `POST /operations/projects/:id/startup-team/:profileKey/activate` — đúng
+    luồng founder thật phải đi qua trước khi 1 agent được phép chạy trong
+    project (CLAUDE.md: "Project chỉ tạo deployment/binding thu hẹp scope").
+    """
+    headers = {"Authorization": f"Bearer {token}", "X-Workspace-Id": str(workspace_id)}
+
+    resp = httpx.post(
+        f"{company_base_url}/operations/projects",
+        json={"title": "Default E2E Project"},
+        headers=headers,
+        timeout=_TIMEOUT,
+    )
+    resp.raise_for_status()
+    project_id = str(resp.json()["id"])
+
+    resp = httpx.post(
+        f"{company_base_url}/operations/projects/{project_id}/startup-team/operations/activate",
+        json={"expectedVersion": 1},
+        headers=headers,
+        timeout=_TIMEOUT,
+    )
+    resp.raise_for_status()
+
+    return project_id
+
+
 def seed_workspace(
     stack, cluster: DisposableCluster, *, with_member: bool = False
 ) -> SeededWorkspace:

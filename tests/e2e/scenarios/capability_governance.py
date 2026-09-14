@@ -62,9 +62,18 @@ _TERMINAL_STREAM_EVENTS = ("run.completed", "run.failed")
 def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) -> None:
     workspace_id = seeded.workspace_id
 
+    # Project-scoped Founder Hub (2026-09-11): mọi POST /agent/conversations
+    # bắt buộc project_id đã verify qua Company, và agent `operations` phải
+    # active trong startup team của Project đó (`getProjectAgentRunAuthority`
+    # fail-closed 404 nếu không) — seed qua đúng đường thật trước khi test
+    # boundary/governance path bên dưới.
+    project_id = identity.seed_operations_ready_project(
+        stack.company.base_url, seeded.owner_token, workspace_id
+    )
+
     _assert_entitlement_round_trips_cross_plane(cluster, workspace_id)
-    _assert_apps_cosa_auth_boundary(stack, seeded)
-    _assert_governance_fails_closed(stack, seeded, cluster)
+    _assert_apps_cosa_auth_boundary(stack, seeded, project_id)
+    _assert_governance_fails_closed(stack, seeded, cluster, project_id)
 
 
 # ---------------------------------------------------------------------------
@@ -116,9 +125,15 @@ def _assert_entitlement_round_trips_cross_plane(
 # ---------------------------------------------------------------------------
 
 
-def _assert_apps_cosa_auth_boundary(stack: MvpStack, seeded: SeededWorkspace) -> None:
+def _assert_apps_cosa_auth_boundary(
+    stack: MvpStack, seeded: SeededWorkspace, project_id: str
+) -> None:
     apps_cosa = stack.apps_cosa
-    conv_body = {"title": "S3 boundary", "agent_profile_id": "operations"}
+    conv_body = {
+        "title": "S3 boundary",
+        "agent_profile_id": "operations",
+        "project_id": project_id,
+    }
 
     # 1. Không Authorization → 401 (get_authenticated_identity: "missing bearer token").
     r_anon = apps_cosa.post(
@@ -175,7 +190,7 @@ def _assert_apps_cosa_auth_boundary(stack: MvpStack, seeded: SeededWorkspace) ->
 
 
 def _assert_governance_fails_closed(
-    stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster
+    stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster, project_id: str
 ) -> None:
     workspace_id = seeded.workspace_id
 
@@ -220,7 +235,11 @@ def _assert_governance_fails_closed(
     apps_cosa = stack.apps_cosa
     r_conv = apps_cosa.post(
         "/agent/conversations",
-        json={"title": "S3 governance run", "agent_profile_id": "operations"},
+        json={
+            "title": "S3 governance run",
+            "agent_profile_id": "operations",
+            "project_id": project_id,
+        },
         token=seeded.owner_token,
         workspace_id=workspace_id,
     )
@@ -233,6 +252,7 @@ def _assert_governance_fails_closed(
             "content": "Read our current operations tasks for the founder review.",
             "role": "user",
             "data_access": {"categories": ["BUSINESS_CONFIDENTIAL"]},
+            "project_id": project_id,
         },
         token=seeded.owner_token,
         workspace_id=workspace_id,

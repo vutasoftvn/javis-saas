@@ -86,7 +86,6 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
     #    để FK của `core.workspace_memberships` thoả, rồi cấp session + membership
     #    `founder` thật cho test qua đúng helper seed kit.
     _ensure_core_workspace(cluster.workspace_app_url, workspace_id)
-    identity.seed_default_project(cluster, workspace_id)
     _user_id, token = identity.add_member(
         company_url,
         cluster,
@@ -95,13 +94,18 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
         display_name="E2E S2 Founder",
         role="founder",
     )
+    project_id = identity.seed_operations_ready_project(company_url, token, workspace_id)
 
     apps_cosa = stack.apps_cosa
 
     # 3. Tạo conversation + gửi message → route lên lịch task "run" durable.
     r_conv = apps_cosa.post(
         "/agent/conversations",
-        json={"title": "S2 dispatch", "agent_profile_id": "operations"},
+        json={
+            "title": "S2 dispatch",
+            "agent_profile_id": "operations",
+            "project_id": project_id,
+        },
         token=token,
         workspace_id=workspace_id,
     )
@@ -114,6 +118,7 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
             "content": "Summarize our confidential Q3 roadmap for the founder review.",
             "role": "user",
             "data_access": {"categories": ["BUSINESS_CONFIDENTIAL"]},
+            "project_id": project_id,
         },
         token=token,
         workspace_id=workspace_id,

@@ -32,6 +32,11 @@ class Envelope(BaseModel):
     schemaVersion: int = Field(ge=1)
     occurredAt: str
     workspaceId: str = Field(min_length=1)
+    # Founder Activity Feed (2026-09-11) — bắt buộc phía company cho các
+    # eventType project-scoped (`PROJECT_SCOPED_EVENT_TYPES` trong
+    # services/company/shared/events/envelope.ts), optional ở đây vì các
+    # eventType khác (chưa project-scoped) không gửi field này.
+    projectId: str | None = None
     aggregateType: str = Field(min_length=1)
     aggregateId: str = Field(min_length=1)
     correlationId: str = Field(min_length=1)
