@@ -986,11 +986,56 @@ git commit -m "feat(strategy): prompt to generate a weekly Operating Cycle after
 Run: `grep -rln "twelve_week_service\|TwelveWeekService" frontend/lib/ frontend/test/`
 Expected: chỉ chính file đó xuất hiện (nếu có call site khác xuất hiện, DỪNG — không xoá, báo cáo lại thay vì tiếp tục theo plan).
 
-- [ ] **Step 2: Xoá file**
+**PHẠM VI MỞ RỘNG (quyết định 2026-09-14, sau khi Task 8 chạy lần đầu):**
+Implementer đầu tiên chạy grep này và phát hiện `twelve_week_service.dart`
+**KHÔNG mồ côi** — `strategy_service.dart` (facade `StrategyService`) import/
+export/instantiate nó, và `HubCommandMixin.loadActiveCycleTimeline()`
+(`frontend/lib/modules/hologram_hub/controllers/mixins/hub_command_mixin.dart:111-137`,
+dùng bởi Hub — 1 trong số ít route đang sống thật) gọi trực tiếp
+`strategyService.getTwelveWeekCycles()` → `TwelveWeekService.getTwelveWeekCycles()`
+→ `GET /execution/twelve-week-cycles` (route không tồn tại, luôn fail âm
+thầm — lỗi bị nuốt vào `debugPrint`, không hiện gì rõ ràng cho founder).
 
-```bash
-git rm frontend/lib/modules/strategy/services/twelve_week_service.dart
-```
+Founder quyết định: **KHÔNG xoá file — sửa nó gọi đúng backend thật**, thay
+vì chỉ dừng lại báo cáo. Cụ thể:
+
+1. `TwelveWeekService.getTwelveWeekCycles()` (dòng 11-22): đổi
+   `ApiClient.get('/execution/twelve-week-cycles?workspace_id=$workspaceId')`
+   thành `ApiClient.get('/operations/workspaces/$workspaceId/cycles')` — route
+   thật đã có (`services/company/operations/handlers/twelve-week-year.handler.ts:30-35`,
+   `listCycles`, trả `{ cycles: TwelveWeekCycle[] }`). Giữ nguyên
+   `decodeList(response, 'cycles')` — key response khớp sẵn.
+2. `TwelveWeekService.getCycleTimeline(String cycleId)` (dòng 45-55): route
+   cũ `/execution/twelve-week-cycles/:id/timeline` không có thật thay thế
+   trực tiếp. Route gần nhất có thật là
+   `GET /operations/execution-cycle-view?projectId=...&cycleId=...`
+   (`services/company/operations/handlers/execution-cycle-view.handler.ts:17-23`)
+   — **bắt buộc `projectId`**, không chỉ `cycleId`. Đổi chữ ký hàm thành
+   `getCycleTimeline(String cycleId, {required String projectId})`, gọi
+   `ApiClient.get('/operations/execution-cycle-view?projectId=$projectId&cycleId=$cycleId')`.
+   Đã xác nhận (grep) `activeCycleTimeline` (nơi lưu kết quả hàm này ở
+   `hub_command_mixin.dart:48`) **hiện không được đọc/hiển thị ở bất kỳ view
+   nào** — chỉ set giá trị, không render — nên đổi shape response không rủi
+   ro vỡ UI hiện tại. Xác nhận lại bằng
+   `grep -rn "activeCycleTimeline" frontend/lib/modules/hologram_hub/` trước
+   khi sửa; nếu tìm thấy nơi render thật (khác lần audit này), dừng lại báo
+   cáo thay vì đoán.
+3. Sửa call site `hub_command_mixin.dart:129` (`getCycleTimeline(cycleId)`)
+   thành truyền thêm `projectId: activeCycle['projectId']?.toString()` (field
+   `projectId` chắc chắn có trên `TwelveWeekCycle` DTO vì cột DB
+   `twelve_week_cycles.project_id NOT NULL` — xác nhận tên field camelCase
+   thật bằng cách đọc response mẫu hoặc `TwelveWeekCycle` interface ở
+   `twelve-week-year.service.ts` trước khi dùng). Nếu `projectId` null/rỗng,
+   bỏ qua gọi `getCycleTimeline` (giữ nguyên hành vi an toàn, không throw).
+4. Bỏ `?workspace_id=` khỏi các URL đã sửa nếu `ApiClient` tự gắn header
+   `X-Workspace-Id` (xác nhận như các task Flutter trước — đọc
+   `api_client.dart` nếu chưa chắc).
+5. KHÔNG sửa các method khác trong `twelve_week_service.dart` (`createTwelveWeekCycle`,
+   `getWeeklyPlans`, v.v.) — chúng cũng gọi `/execution/*` sai nhưng KHÔNG có
+   call site thật nào từ Hub (chỉ 2 method trên được gọi qua
+   `HubCommandMixin`) — ngoài phạm vi lần sửa này, để nguyên.
+
+Sau khi hoàn thành 5 bước trên, mới tiếp tục đúng Step 3 gốc bên dưới (`flutter analyze`) — bỏ qua Step 2 gốc (xoá file, không còn áp dụng).
 
 - [ ] **Step 3: `flutter analyze` xác nhận không còn import treo**
 
