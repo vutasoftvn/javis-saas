@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from agent.conversations.repository import InMemoryConversationRepository
@@ -167,6 +168,43 @@ async def test_active_support_without_knowledge_gate_denied_before_kernel():
         assert res.status == "failed"
         assert res.error == "support_knowledge_gate_required"
         mock_copilot.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_authority_denial_blocks_kernel_and_has_no_side_effect():
+    mock_client = AsyncMock(spec=ProjectTeamClient)
+    mock_client.get_run_authority.side_effect = ProjectTeamAuthorityError(
+        "Company service denied authority for operations (status 404): project not found"
+    )
+    plane = _plane(mock_client)
+
+    kernel_run_calls: list[Any] = []
+    original_run = plane.kernel.run
+
+    async def _spy_run(request, spec):
+        kernel_run_calls.append(request)
+        return await original_run(request, spec)
+
+    plane.kernel.run = _spy_run  # type: ignore[method-assign]
+
+    stream_mgr = CosaEventStreamManager()
+    payload = _payload(
+        agent_profile="operations",
+        run_id="run_authority_deny_1",
+        conversation_id="conv_authority_deny_1",
+        project_id="proj_deleted",
+    )
+
+    result = await execute_run_task(plane, stream_mgr, payload)
+
+    assert result.status == "failed"
+    assert result.error == "project_team_authority_denied"
+    assert kernel_run_calls == []
+
+    messages = await plane.conversation_repository.list_messages(
+        conversation_id="conv_authority_deny_1"
+    )
+    assert all(m.role != "assistant" for m in messages)
 
 
 @pytest.mark.asyncio
