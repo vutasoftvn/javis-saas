@@ -239,6 +239,7 @@ describe("Workspace schedule enqueue-retry crash recovery (Task 8)", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Concurrent retry race",
+      projectId: "proj_test",
     });
 
     const pastDue = new Date(Date.now() - 5000);

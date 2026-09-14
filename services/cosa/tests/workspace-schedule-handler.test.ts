@@ -96,6 +96,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Daily scan",
+      projectId: "proj_test",
     });
 
     // Now try to run it from workspace B context (user_a is not a member)
@@ -176,6 +177,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Daily scan",
+      projectId: "proj_test",
     });
 
     const authHeader = `Bearer ${tokenUserA}`;
@@ -234,6 +236,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Daily scan",
+      projectId: "proj_test",
     });
 
     const result = await listSchedulesEndpoint({
@@ -254,6 +257,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Daily scan",
+      projectId: "proj_test",
     });
 
     const authHeader = `Bearer ${tokenUserA}`;
@@ -323,6 +327,7 @@ describe("Workspace Schedule Service", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Daily report",
+      projectId: "proj_test",
     });
 
     const result = await scheduleSvc.listWorkspaceSchedules("ws_a");
@@ -339,6 +344,7 @@ describe("Workspace Schedule Service", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Scan",
+      projectId: "proj_test",
     });
 
     const execution = await scheduleSvc.runScheduleNow({

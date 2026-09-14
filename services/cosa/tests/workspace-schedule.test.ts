@@ -27,6 +27,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
       runAt: future,
       promptTemplate: "Run weekly compliance scan",
       agentProfile: "operations",
+      projectId: "proj_test",
     });
 
     expect(def.id).toBeDefined();
@@ -43,6 +44,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
         scheduleKind: "one_time",
         runAt: past,
         promptTemplate: "Past scan",
+        projectId: "proj_test",
       })
     ).rejects.toThrow(/future/i);
 
@@ -55,6 +57,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
         hour: 9,
         minute: 0,
         promptTemplate: "Daily standup",
+        projectId: "proj_test",
       })
     ).rejects.toThrow(/invalid IANA timezone/i);
   });
@@ -88,6 +91,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
       promptTemplate: "Generate morning finance summary",
       agentProfile: "finance",
       connectorGrantIds: ["grant_1"],
+      projectId: "proj_test",
     });
 
     // Manually force nextRunAt to pastDue to simulate cron trigger
@@ -128,6 +132,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Retryable scan",
+      projectId: "proj_test",
     });
 
     await db
@@ -194,6 +199,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
       hour: 9,
       minute: 0,
       promptTemplate: "Always-fails scan",
+      projectId: "proj_test",
     });
 
     await db
@@ -260,6 +266,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
       hour: 18,
       minute: 0,
       promptTemplate: "Evening report",
+      projectId: "proj_test",
     });
 
     const execution = await scheduleSvc.runScheduleNow({

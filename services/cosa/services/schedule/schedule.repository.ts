@@ -53,6 +53,8 @@ export async function insertScheduleDefinition(values: {
   connectorGrantIds: string[];
   state: ScheduleState;
   nextRunAt: Date | null;
+  projectId: string;
+  isLegacyUnscoped: boolean;
 }): Promise<ScheduleDefinitionRow> {
   const [created] = await db
     .insert(workspaceScheduleDefinitions)
@@ -254,6 +256,7 @@ export async function insertExecutionOnConflictDoNothing(values: {
   promptTemplateSnapshot: string;
   agentProfileSnapshot: string;
   connectorGrantIdsSnapshot: string[];
+  projectIdSnapshot: string | null;
   state: "queued";
 }): Promise<ScheduleExecutionRow | undefined> {
   const [inserted] = await db
@@ -272,6 +275,7 @@ export async function insertExecution(values: {
   promptTemplateSnapshot: string;
   agentProfileSnapshot: string;
   connectorGrantIdsSnapshot: string[];
+  projectIdSnapshot: string | null;
   state: "queued";
 }): Promise<ScheduleExecutionRow> {
   const [execution] = await db

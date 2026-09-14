@@ -52,12 +52,16 @@ export async function createWorkspaceSchedule(input: {
   promptTemplate: string;
   agentProfile?: string;
   connectorGrantIds?: string[];
+  projectId: string;
 }) {
   const tz = input.timezone || "Asia/Ho_Chi_Minh";
   validateIanaTimezone(tz);
 
   if (!input.promptTemplate || !input.promptTemplate.trim()) {
     throw APIError.invalidArgument("promptTemplate cannot be empty");
+  }
+  if (!input.projectId || !input.projectId.trim()) {
+    throw APIError.invalidArgument("projectId is required");
   }
 
   // Check active schedule quota
@@ -100,6 +104,8 @@ export async function createWorkspaceSchedule(input: {
     connectorGrantIds: input.connectorGrantIds || [],
     state: "enabled",
     nextRunAt,
+    projectId: input.projectId,
+    isLegacyUnscoped: false,
   });
 }
 
@@ -175,6 +181,7 @@ export async function dispatchDueWorkspaceSchedules(
         promptTemplateSnapshot: def.promptTemplate,
         agentProfileSnapshot: def.agentProfile,
         connectorGrantIdsSnapshot: (def.connectorGrantIds as string[]) || [],
+        projectIdSnapshot: def.projectId,
         state: "queued",
       });
 
@@ -236,6 +243,7 @@ export async function runScheduleNow(input: {
     promptTemplateSnapshot: def.promptTemplate,
     agentProfileSnapshot: def.agentProfile,
     connectorGrantIdsSnapshot: (def.connectorGrantIds as string[]) || [],
+    projectIdSnapshot: def.projectId,
     state: "queued",
   });
 
