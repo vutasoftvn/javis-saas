@@ -1,6 +1,7 @@
 # COSA Startup Core — Clean-Slate Design
 
-**Status:** ACCEPTED (implementation IN PROGRESS)
+**Status:** VERIFIED (2026-09-14) — `make verify` and `make e2e-cross-plane-smoke`
+both green on `main`; see EXECUTION-STATUS "Update 2026-09-14" entry.
 
 **Date:** 2026-09-10
 

@@ -266,12 +266,32 @@ and follow-ups. Verified directly, not from doc claims:
   (format-only, not lint-rule violations) — left alone as out-of-scope
   formatting debt, not touched by this pass to avoid an unrelated mass diff.
 
-**Design spec status:** still `ACCEPTED (implementation IN PROGRESS)`, not
-bumped to `VERIFIED` yet — `make e2e-cross-plane-smoke` still fails on the
-pre-existing, separately-tracked bug B5 (`company-service-500` instead of
-`policy_snapshot_unavailable`), which is a different plan's fix, not this one.
-Bump to `VERIFIED` once that's resolved and `make e2e-cross-plane-smoke` is
-fully green.
+**Update 2026-09-14 (continued) — bug B5 re-investigated live, found stale;
+3 different real gaps fixed instead; design spec bumped to VERIFIED.**
+
+Ran `make e2e-cross-plane-smoke` live (disposable Postgres + real Encore/
+FastAPI processes) instead of trusting the 2026-09-08 evidence doc's
+description of B5. The exact symptom described there
+(`run.failed{'error': 'Company Service Error (500)...'}` instead of
+`policy_snapshot_unavailable`) **did not reproduce** — that delegation-bridge
+fix is intact. The suite failed for 3 different, newer reasons instead,
+all fixed in commit `322fd244`:
+
+1. `apps/cosa/events/contracts.py::Envelope` was missing the `projectId`
+   field `services/company` started sending for project-scoped events
+   (Founder Activity Feed, 2026-09-11) — hard-rejected at the boundary.
+2. `tests/e2e/scenarios/{dispatch_worker_result,capability_governance}.py`
+   predated the Project-scoped Founder Hub's removal of the
+   auto-resolve-newest-project fallback (2026-09-11 Task 2) — didn't pass
+   `project_id`, now required.
+3. Both scenarios seeded their project via raw SQL, bypassing
+   `ensureProjectStartupTeam()` (only runs inside the real
+   `createProjectService`), so the agent team stayed at `TEMPLATE` state and
+   every run 404'd on `project_team_authority_denied`. Fixed by seeding
+   through the real create-project + activate-startup-team-member APIs.
+
+`make e2e-cross-plane-smoke`: **6/6 passed**. Design spec bumped to
+`VERIFIED`.
 
 ## Phased execution (each phase = its own green commit + checkpoint)
 
