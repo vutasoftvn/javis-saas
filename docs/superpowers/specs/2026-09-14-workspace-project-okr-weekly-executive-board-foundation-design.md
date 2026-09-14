@@ -161,12 +161,29 @@ Generator chỉ dựng khung, không suy đoán initiative — giữ đúng nguy
   - Cập nhật `ProjectActivityDetailDTO`/`task.handler.ts` response để trả 2
     field mới cho FE hiển thị badge Week/KR ngay trên Task card.
 
-## 6. Executive Board activation theo Project lifecycle stage (thiết kế mới)
+## 6. Executive Board activation — cấp Workspace, gợi ý theo Project stage (thiết kế mới)
 
-**Bảng mapping cố định** (founder đã chốt), đặt trong file cấu hình mới
-`services/company/operations/config/executive-board-stage-presets.ts`:
+**Phân tách 2 khái niệm** (chốt sau thảo luận thiết kế 2026-09-14):
 
-| Project stage | Role được gợi ý kích hoạt |
+- **Role catalog** (13 role: định nghĩa, AgentSpec, skillpack, label) — đã là
+  global/platform-level từ trước (`shared/contracts/executive-advisor-roles.json`),
+  không đổi.
+- **Role activation** (role này có đang thực sự "phục vụ" hay không) —
+  **chuyển từ Project-scoped sang Workspace-scoped cho TOÀN BỘ 13 role**,
+  không chỉ 4 role duy trì. Lý do: một CFO/CRO/COO... là chức danh cấp công
+  ty — dù workspace có nhiều Project chạy song song ở stage khác nhau, công
+  ty chỉ có 1 CRO thật, không tách theo từng project. Xác nhận qua code:
+  `project_executive_deliberations*` (buổi họp tư vấn) chỉ tham chiếu
+  `roleKey` dạng chuỗi/jsonb (`selectedRoles`, `roleKey` trên bảng analyses),
+  KHÔNG có FK tới activation record — chuyển activation lên Workspace không
+  phá vỡ deliberation nào (deliberation vẫn project-scoped như cũ, đúng bản
+  chất "buổi họp bàn về project X").
+
+**Bảng mapping cố định** (founder đã chốt) — dùng để TÍNH GỢI Ý theo stage
+của TỪNG Project riêng biệt (độc lập với nơi lưu activation), đặt trong file
+cấu hình mới `services/company/operations/services/executive-board-stage-presets.ts`:
+
+| Project stage | Role được gợi ý nổi bật cho Project này |
 |---|---|
 | P0–P1 (Discovery) | chief_of_staff, cfo, cmo, cpo |
 | P2–P3 (Solution & Build) | coo, vpe, ciso, gc, cdo, caio |
@@ -175,22 +192,43 @@ Generator chỉ dựng khung, không suy đoán initiative — giữ đúng nguy
 
 Role **duy trì xuyên suốt** (`chief_of_staff, cfo, cmo, cpo`): không bao giờ
 nằm trong danh sách "gợi ý deactivate" ở bất kỳ stage nào — chỉ mất active
-nếu founder tự suspend thủ công.
+nếu founder tự suspend thủ công. Về mặt kỹ thuật, chúng chỉ là 4 trong 13
+role của cùng 1 bảng activation Workspace — không có cơ chế lưu trữ đặc biệt
+nào khác biệt 9 role còn lại, khác biệt DUY NHẤT nằm ở quy tắc gợi ý này.
+
+**Schema mới** (Expand-only, không xoá bảng cũ trong đợt này):
+`operating.workspace_executive_role_activations`
+(`id, workspace_id, role_key, state, version, actor_id, created_at, updated_at`,
+unique trên `(workspace_id, role_key)`) +
+`operating.workspace_executive_role_activation_events` (audit trail
+append-only, cùng pattern với bản project-scoped cũ). Bảng cũ
+`project_executive_board_settings`/`project_executive_role_activations`/`..._events`
+và 2 preset tĩnh (`startup-discovery`, `startup-build-launch`) bị **ngừng sử
+dụng trong code** (không DROP bảng — migration destructive cần release riêng
+theo CLAUDE.md Encore Guardrail #4).
 
 **Cơ chế** (không tự động — đúng nguyên tắc CLAUDE.md):
-1. Sau khi `PATCH /operations/projects/:id/lifecycle` transition thành công,
-   thêm endpoint mới `GET /operations/projects/:id/executive-board/stage-suggestion`
-   trả về `{ toActivate: Role[], toSuggestDeactivate: Role[] }` — tính diff
-   giữa preset của stage mới và trạng thái activation hiện tại, loại trừ
-   nhóm role duy trì khỏi `toSuggestDeactivate`.
-2. Frontend: sau khi founder xác nhận chuyển stage (mục 1), gọi endpoint
-   trên và hiện dialog "Gợi ý Executive Board cho {stage_mới}: kích hoạt
-   {list} — Xác nhận / Bỏ qua / Tuỳ chỉnh". Founder bấm xác nhận mới thật sự
-   gọi `executive-role-activation.service.ts` để activate/deactivate — không
-   có nhánh tự động nào bỏ qua xác nhận của founder.
-3. Sửa preset `startup-discovery` hiện có: bổ sung `cpo` (đang thiếu, dù
-   P0–P1 chính là lúc cần product problem validation — founder đã xác nhận
-   đây là thiếu sót).
+1. `getProjectExecutiveRoleStates(ctx, projectId)` (read-model hiện có, dùng
+   bởi UI mọi Project) đổi nguồn dữ liệu activation sang đọc
+   `workspace_executive_role_activations` theo `workspace_id` (không lọc
+   `project_id`) cho cả 13 role — mọi Project trong cùng workspace nhìn thấy
+   CÙNG MỘT trạng thái ACTIVE/DISABLED.
+2. Sau khi `PATCH /operations/projects/:id/lifecycle` transition thành công,
+   endpoint `GET /operations/projects/:id/executive-board/stage-suggestion`
+   trả về `{ stage, toActivate: Role[], toSuggestDeactivate: Role[] }` — tính
+   diff giữa preset của stage MỚI CỦA PROJECT NÀY và trạng thái activation
+   Workspace hiện tại, loại trừ nhóm role duy trì khỏi `toSuggestDeactivate`.
+3. Founder bấm "Kích hoạt" 1 role từ dialog gợi ý → gọi
+   `POST /operations/workspaces/:workspaceId/executive-roles/:roleKey/activate`
+   (endpoint mới, Workspace-scoped) — ảnh hưởng ngay tới mọi Project khác
+   trong cùng workspace. Endpoint Project-scoped cũ
+   (`POST /operations/projects/:id/executive-roles/:roleKey/activate`) không
+   còn nằm trong luồng chính — mức xử lý cụ thể (giữ trả lỗi rõ ràng hướng
+   dẫn dùng endpoint mới, hay bỏ hẳn) quyết định lúc viết plan chi tiết theo
+   mức rủi ro breaking change với call site hiện có.
+4. Không cần sửa preset `startup-discovery` nữa — khái niệm "chọn preset
+   theo từng project" không còn áp dụng khi activation là 1 trạng thái
+   Workspace duy nhất cho cả 13 role.
 
 ## 7. Dọn dẹp khác (không liên quan trực tiếp nhưng phát hiện trong audit)
 
