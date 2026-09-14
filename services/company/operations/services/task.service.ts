@@ -322,7 +322,13 @@ export async function getTaskService(id: string, ctx: TenantContext): Promise<Ta
   const [row] = await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.id, BigInt(id)), eq(tasks.workspaceId, BigInt(ctx.workspaceId))))
+    .where(
+      and(
+        eq(tasks.id, BigInt(id)),
+        eq(tasks.workspaceId, BigInt(ctx.workspaceId)),
+        isNull(tasks.deletedAt)
+      )
+    )
     .limit(1);
 
   if (!row) throw APIError.notFound(`task ${id} not found`);
@@ -330,6 +336,30 @@ export async function getTaskService(id: string, ctx: TenantContext): Promise<Ta
   // Startup Core: task thuộc đúng một project qua cột trực tiếp
   // `tasks.project_id` — không còn M:N link table.
   return toTask(row);
+}
+
+/**
+ * Soft-delete task: set deletedAt, không xoá cứng — giữ audit trail cho
+ * Weekly Commitment / Executive Board evidence tham chiếu ngược.
+ */
+export async function deleteTaskService(
+  id: string,
+  ctx: TenantContext
+): Promise<{ id: string; deletedAt: string }> {
+  const wsId = BigInt(ctx.workspaceId);
+  const taskId = BigInt(id);
+
+  const [updated] = await db
+    .update(tasks)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, wsId), isNull(tasks.deletedAt)))
+    .returning({ id: tasks.id, deletedAt: tasks.deletedAt });
+
+  if (!updated) {
+    throw APIError.notFound(`Task ${id} not found`);
+  }
+
+  return { id: updated.id.toString(), deletedAt: updated.deletedAt!.toISOString() };
 }
 
 export async function listTasksService(

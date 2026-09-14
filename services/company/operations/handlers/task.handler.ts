@@ -7,6 +7,7 @@ import {
   AgentAdvanceStatus,
   createTaskService,
   getTaskService,
+  deleteTaskService,
   listTasksService,
   updateTaskStatusService,
   updateTaskScheduleService,
@@ -54,6 +55,22 @@ export const getTask = api(
   }): Promise<Task> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     return getTaskService(id, ctx);
+  }
+);
+
+export const deleteTask = api(
+  { method: "DELETE", path: "/operations/tasks/:id", expose: true },
+  async ({
+    id,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ id: string; deletedAt: string }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return deleteTaskService(id, ctx);
   }
 );
 

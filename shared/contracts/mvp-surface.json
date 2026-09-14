@@ -832,6 +832,20 @@
       "backend_test": "services/company/operations/tests/founder-asset-query.handler.test.ts",
       "flutter_test": "frontend/test/modules/skills/founder_asset_service_test.dart",
       "integration_test": "tests/apps/cosa/events/test_founder_asset_events.py"
+    },
+    {
+      "id": "operations.task.delete",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "DELETE",
+      "path": "/operations/tasks/:id",
+      "schema": "operations.task.delete.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "TaskService.deleteTask",
+      "backend_test": "services/company/operations/tests/task.service.test.ts"
     }
   ]
 }
