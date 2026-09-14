@@ -158,6 +158,8 @@ function toProject(row: typeof projects.$inferSelect): Project {
     title: row.title,
     description: row.description,
     lifecycleStage: row.lifecycleStage,
+    // Task 13 (frontend) — giữ đồng bộ với toProject() trong project.service.ts.
+    stageVersion: row.stageVersion,
     stageEnteredAt: row.stageEnteredAt ? row.stageEnteredAt.toISOString() : null,
     status: row.status,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,

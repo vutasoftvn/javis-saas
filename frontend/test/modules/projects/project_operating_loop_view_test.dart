@@ -1,11 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/modules/projects/controllers/project_operating_loop_controller.dart';
 import 'package:frontend/modules/projects/models/project_operating_loop.dart';
 import 'package:frontend/modules/projects/views/project_operating_loop_view.dart';
 
 void main() {
   testWidgets('renders loading and 4 operating loop tabs with populated data', (tester) async {
+    // Task 13 — tab "Evidence & Decisions" giờ có thêm _ProjectLifecycleSection,
+    // widget này tự đọc `workspace_id` qua SecureStorageService (SharedPreferences
+    // cho key không-secret). Không seed mock value thì SharedPreferences.getInstance()
+    // treo vô thời hạn (không throw, không timeout) — khớp với comment trong
+    // secure_storage_service.dart rằng nhiều test khác cũng phải seed như thế này.
+    SharedPreferences.setMockInitialValues({'workspace_id': 'ws_1'});
+
     final controller = ProjectOperatingLoopController(projectId: 'proj_1');
     Get.put<ProjectOperatingLoopController>(controller);
 

@@ -12,6 +12,10 @@ export interface Project {
   title: string;
   description?: string | null;
   lifecycleStage: string;
+  // Task 13 (frontend) — trước đây bị bỏ sót khỏi response dù cột DB luôn
+  // NOT NULL: UI cần stageVersion để bind CAS `expectedStageVersion` khi gọi
+  // PATCH .../lifecycle (project-lifecycle.service.ts) mà không phải đoán 0.
+  stageVersion: number;
   stageEnteredAt?: string | null;
   status: string;
   ownerMemberId?: string | null;
@@ -42,6 +46,7 @@ function toProject(row: typeof projects.$inferSelect): Project {
     title: row.title,
     description: row.description,
     lifecycleStage: row.lifecycleStage,
+    stageVersion: row.stageVersion,
     stageEnteredAt: row.stageEnteredAt ? row.stageEnteredAt.toISOString() : null,
     status: row.status,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
