@@ -78,6 +78,9 @@ export interface CycleDto {
   endDate?: string | null;
   createdAt: string;
   updatedAt: string;
+  // OKR→Weekly generator (Task 5): cycle sinh ra từ 1 Objective đã publish —
+  // null khi cycle được tạo thủ công (không qua generator).
+  sourceObjectiveId?: string | null;
 }
 
 export interface WeeklyPlanDto {
@@ -236,6 +239,7 @@ function toCycle(row: typeof twelveWeekCycles.$inferSelect): CycleDto {
     endDate: row.endDate ? row.endDate.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    sourceObjectiveId: row.sourceObjectiveId ? row.sourceObjectiveId.toString() : null,
   };
 }
 

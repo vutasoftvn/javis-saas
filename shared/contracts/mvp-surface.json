@@ -846,6 +846,20 @@
       "requires_project": false,
       "frontend_symbol": "TaskService.deleteTask",
       "backend_test": "services/company/operations/tests/task.service.test.ts"
+    },
+    {
+      "id": "operations.okr.generate_weekly_cycle",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/objectives/:objectiveId/generate-weekly-cycle",
+      "schema": "operations.okr.generate_weekly_cycle.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "OkrWeeklyGeneratorService.generate",
+      "backend_test": "services/company/operations/tests/okr-weekly-generator.service.test.ts"
     }
   ]
 }
