@@ -935,18 +935,27 @@ Future<void> showOkrWeeklyGeneratorDialog(
 }
 ```
 
-- [ ] **Step 3: Gọi dialog sau `publishObjective` thành công**
+- [ ] **Step 3: Gọi dialog sau `publishObjective` thành công** — **PHẠM VI MỞ RỘNG (quyết định 2026-09-14, sau khi Task 7 chạy lần đầu và phát hiện gap thật):**
 
-Mở file controller xác định ở Step 1 (grep), tìm nơi gọi `okrService.publishObjective(objectiveId)`, thêm ngay sau khi thành công (trong callback UI có `BuildContext`, KHÔNG trong service — service không được biết về UI):
+Implementer đầu tiên chạy Task 7 báo BLOCKED ở bước này: `frontend/lib/modules/strategy/` **hoàn toàn không có `controllers/`/`views/`** — không có UI nào gọi `okrService.publishObjective(...)` cả (chỉ có trong test). Giả định ban đầu của brief (đã có sẵn 1 controller/view gọi `publishObjective`) là SAI.
 
-```dart
-      await okrService.publishObjective(objectiveId);
-      if (context.mounted) {
-        await showOkrWeeklyGeneratorDialog(context, objectiveId: objectiveId);
-      }
-```
+Founder quyết định (không phải chọn nhánh "chỉ hoãn Step 3"): **mở rộng Task 7** để build UI publish Objective tối thiểu VÀ mở route `strategy` thật (hiện đang bị `_plannedRoute(WorkspaceModule.strategy)` chặn trong `frontend/lib/core/routing/module_routes.dart:188`) — vì backend OKR (Task 5+6) đã sống hoàn toàn, khác các module khác vẫn bị chặn do backend chưa sẵn sàng (đã audit riêng, xem lịch sử phiên).
 
-Điều chỉnh biến `context`/tên hàm chính xác theo code thật của controller (GetX controller có thể không có `BuildContext` trực tiếp — nếu vậy, gọi dialog từ View sau khi `controller.publishObjective()` return, không từ Controller. Xác nhận kiến trúc GetX MVC của file trước khi quyết định vị trí gọi).
+**Phạm vi bổ sung cụ thể:**
+
+1. Model `MvpObjective` đã tồn tại (`frontend/lib/modules/strategy/models/mvp_strategy_models.dart:137-174`, field `id/workspaceId/cycleId/title/why/ownerMemberId/status/projectIds/createdAt`) — dùng nguyên, không tạo model mới. Lưu ý: default `status` trong `fromJson` là chuỗi `'DRAFT'` (viết hoa), nhưng backend thật (xác nhận ở Task 5 review) dùng literal thường `"draft"`/`"published"` — khi so sánh status trong UI (để hiện nút Publish), so sánh **không phân biệt hoa/thường** (`status.toLowerCase() == 'draft'`), không sửa default trong model (ngoài phạm vi task này).
+
+2. Tạo `frontend/lib/modules/strategy/controllers/strategy_controller.dart` (GetX `GetxController`): `loadObjectives()` gọi `OkrService().getObjectives()`, lưu vào `RxList<MvpObjective>` (parse qua `MvpObjective.fromJson` từ `StrategyListResult.items`); `publish(String objectiveId)` gọi `OkrService().publishObjective(objectiveId)` rồi `loadObjectives()` lại để refresh danh sách. Controller không tự mở dialog (không có `BuildContext`) — chỉ trả `Future<void>`/throw khi lỗi, để View xử lý UI.
+
+3. Tạo `frontend/lib/modules/strategy/bindings/strategy_binding.dart` (GetX `Bindings`), theo đúng pattern `TasksBinding`/`FinanceBinding` đã có (`grep -n "class TasksBinding" -A 10 frontend/lib/modules/tasks/bindings/tasks_binding.dart` để copy pattern).
+
+4. Tạo `frontend/lib/modules/strategy/views/strategy_view.dart`: màn hình tối giản — `ListView` các Objective (title, badge status), mỗi item ở trạng thái `draft` có nút "Publish"; bấm Publish → gọi `controller.publish(id)` → nếu thành công, gọi `showOkrWeeklyGeneratorDialog(context, objectiveId: id)` (Task 7 Step 2, cùng file này có `BuildContext` thật vì là View, không phải Controller — đúng nguyên tắc "dialog gọi từ nơi có BuildContext thật" mà brief gốc đã nêu). Loading/error state tối thiểu (không cần đẹp — đây là UI tối giản để có chỗ test luồng, không phải thiết kế UI hoàn chỉnh).
+
+5. Sửa `frontend/lib/core/routing/module_routes.dart`: đổi `_plannedRoute(WorkspaceModule.strategy)` (dòng 188) thành route thật, đúng pattern route `tasks`/`finance` đã có (`AppShell` + `StrategyBinding` + `StrategyView`, middlewares `[AuthMiddleware(), ProjectSetupGuardMiddleware()]`).
+
+6. Cập nhật `docs/superpowers/specs/2026-09-14-...-design.md` mục 3 (nếu cần) để ghi nhận UI publish Objective giờ tồn tại thật — không bắt buộc, chỉ nếu có thời gian.
+
+Sau khi hoàn thành 1-5, hoàn thiện đúng nội dung Step 3 gốc (nối dialog sau publish) trong `strategy_view.dart` như mô tả ở mục 4.
 
 - [ ] **Step 4: `flutter analyze` + chạy toàn bộ test module strategy**
 
