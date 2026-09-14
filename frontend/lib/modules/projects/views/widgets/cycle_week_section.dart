@@ -2,20 +2,27 @@ import 'package:flutter/material.dart';
 import '../../models/project_operating_loop.dart';
 import '../../controllers/project_operating_loop_controller.dart';
 
+/// Task 4 (2026-09-14 remediation) — `activeCycle` và `currentWeek` là 2
+/// field gốc SIBLING (không phải `activeCycle.weeklyPlans[]`). Section này
+/// hiển thị đúng 1 cycle + đúng 1 tuần hiện tại như backend thật trả về,
+/// không còn danh sách weeklyPlans giả tưởng.
 class CycleWeekSection extends StatelessWidget {
   final ProjectOperatingLoopController controller;
   final LoopActiveCycle? activeCycle;
+  final LoopWeek? currentWeek;
 
   const CycleWeekSection({
     super.key,
     required this.controller,
     this.activeCycle,
+    this.currentWeek,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cycle = activeCycle;
+    final week = currentWeek;
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -27,7 +34,7 @@ class CycleWeekSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Operating Cycle & Weekly Plans',
+                  'Operating Cycle & Current Week',
                   style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -44,7 +51,7 @@ class CycleWeekSection extends StatelessWidget {
                   key: const Key('add_week_button'),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Week'),
-                  onPressed: () => _showAddWeekDialog(context, cycle.id, cycle.weeklyPlans.length + 1),
+                  onPressed: () => _showAddWeekDialog(context, cycle.id, cycle.currentWeek),
                 ),
             ],
           ),
@@ -73,43 +80,41 @@ class CycleWeekSection extends StatelessWidget {
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 8),
-                    Text('Start: ${cycle.startDate} · End: ${cycle.endDate} · Rev: ${cycle.revision}'),
+                    Text(
+                      'Start: ${cycle.startDate ?? '—'} · End: ${cycle.endDate ?? '—'} · Week: ${cycle.currentWeek}',
+                    ),
+                    if (cycle.theme != null) ...[
+                      const SizedBox(height: 4),
+                      Text('Theme: ${cycle.theme}'),
+                    ],
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
-              'Weekly Plans (${cycle.weeklyPlans.length})',
+              'Current Week',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            if (cycle.weeklyPlans.isEmpty)
+            if (week == null)
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Text(
-                  'No weekly plans added yet.',
+                  'No week added to this cycle yet.',
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
                 ),
               )
             else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: cycle.weeklyPlans.length,
-                itemBuilder: (context, index) {
-                  final plan = cycle.weeklyPlans[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        child: Text('${plan.weekNo}'),
-                      ),
-                      title: Text('Week ${plan.weekNo}: ${plan.focus ?? 'Focus not set'}'),
-                      subtitle: Text('${plan.commitments.length} commitments'),
-                    ),
-                  );
-                },
+              Card(
+                key: Key('week_${week.id}'),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child: Text('${week.weekNo}'),
+                  ),
+                  title: Text('Week ${week.weekNo}: ${week.focus ?? 'Focus not set'}'),
+                  subtitle: week.mission != null ? Text(week.mission!) : null,
+                ),
               ),
           ],
         ],

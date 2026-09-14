@@ -6,12 +6,14 @@ import 'package:frontend/modules/projects/models/project_operating_loop.dart';
 import 'package:frontend/modules/projects/views/project_operating_loop_view.dart';
 
 void main() {
-  testWidgets('renders loading and 4 operating loop tabs with populated data', (tester) async {
-    // Task 13 — tab "Evidence & Decisions" giờ có thêm _ProjectLifecycleSection,
-    // widget này tự đọc `workspace_id` qua SecureStorageService (SharedPreferences
-    // cho key không-secret). Không seed mock value thì SharedPreferences.getInstance()
-    // treo vô thời hạn (không throw, không timeout) — khớp với comment trong
-    // secure_storage_service.dart rằng nhiều test khác cũng phải seed như thế này.
+  testWidgets('renders loading and 4 operating loop tabs with populated real-shape data', (tester) async {
+    // Task 4 (2026-09-14 remediation) — tab thứ 4 đổi tên từ
+    // "Evidence & Decisions" (field không tồn tại ở backend) thành
+    // "Lifecycle", nơi giờ đọc lifecycleStage/stageVersion trực tiếp từ
+    // `controller.loop.value.project` thay vì round-trip
+    // `ProjectService().getProjects()` riêng — vẫn cần seed `workspace_id`
+    // vì `showExecutiveBoardStageSuggestionDialog` (được gọi sau khi
+    // transition) đọc qua SecureStorageService.
     SharedPreferences.setMockInitialValues({'workspace_id': 'ws_1'});
 
     final controller = ProjectOperatingLoopController(projectId: 'proj_1');
@@ -26,53 +28,81 @@ void main() {
     // Initial state: missing or loading
     expect(find.byType(ProjectOperatingLoopView), findsOneWidget);
 
-    // Provide populated loop data
+    // Provide populated loop data matching the real server DTO shape.
     controller.loop.value = ProjectOperatingLoop(
       project: ProjectSummary(
         id: 'proj_1',
         workspaceId: 'ws_1',
         title: 'Launch Alpha',
+        lifecycleStage: 'P2_SOLUTION_VALIDATION',
+        stageVersion: 3,
         status: 'ACTIVE',
         createdAt: '2026-09-10T12:00:00Z',
-        updatedAt: '2026-09-10T12:00:00Z',
       ),
       objectives: [
-        LoopObjective(id: 'obj_1', title: 'Achieve PMF', status: 'active'),
+        LoopObjectiveTree(
+          objective: LoopObjective(
+            id: 'obj_1',
+            workspaceId: 'ws_1',
+            projectId: 'proj_1',
+            title: 'Achieve PMF',
+            status: 'active',
+            createdAt: '2026-09-10T12:00:00Z',
+            updatedAt: '2026-09-10T12:00:00Z',
+          ),
+          keyResults: const [],
+        ),
       ],
       activeCycle: LoopActiveCycle(
         id: 'cycle_1',
+        workspaceId: 'ws_1',
+        projectId: 'proj_1',
+        currentWeek: 1,
         durationWeeks: 6,
+        visionStatement: 'Find PMF',
+        status: 'active',
+        timezone: 'UTC',
         startDate: '2026-09-01',
         endDate: '2026-10-15',
-        revision: 1,
-        weeklyPlans: [
-          LoopWeeklyPlan(
-            id: 'wp_1',
-            weekNo: 1,
-            focus: 'Customer discovery',
-            commitments: [
-              LoopCommitment(
-                id: 'com_1',
-                title: '5 customer interviews',
-                status: 'committed',
-                tasks: [
-                  LoopTask(
-                    id: 'task_1',
-                    title: 'Conduct user interview #1',
-                    status: 'todo',
-                    priority: 'high',
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+        createdAt: '2026-09-01T00:00:00Z',
+        updatedAt: '2026-09-01T00:00:00Z',
       ),
-      evidence: [
-        LoopEvidence(id: 'ev_1', title: 'Interview transcript #1', status: 'approved', sourceType: 'interview'),
+      currentWeek: LoopWeek(
+        id: 'week_1',
+        workspaceId: 'ws_1',
+        projectId: 'proj_1',
+        cycleId: 'cycle_1',
+        weekNo: 1,
+        focus: 'Customer discovery',
+        createdAt: '2026-09-01T00:00:00Z',
+        updatedAt: '2026-09-01T00:00:00Z',
+      ),
+      commitments: [
+        LoopCommitment(
+          id: 'com_1',
+          workspaceId: 'ws_1',
+          projectId: 'proj_1',
+          weeklyPlanId: 'week_1',
+          title: '5 customer interviews',
+          status: 'committed',
+          purposeType: 'INITIATIVE',
+          createdAt: '2026-09-01T00:00:00Z',
+          updatedAt: '2026-09-01T00:00:00Z',
+        ),
       ],
-      decisions: [
-        LoopDecision(id: 'dec_1', title: 'Pivot pricing model', status: 'approved'),
+      tasks: [
+        LoopTask(
+          id: 'task_1',
+          workspaceId: 'ws_1',
+          projectId: 'proj_1',
+          weeklyCommitmentId: 'com_1',
+          title: 'Conduct user interview #1',
+          status: 'todo',
+          priority: 'high',
+          timezone: 'UTC',
+          createdAt: '2026-09-01T00:00:00Z',
+          updatedAt: '2026-09-01T00:00:00Z',
+        ),
       ],
     );
 
@@ -85,7 +115,7 @@ void main() {
     expect(find.text('OKRs'), findsOneWidget);
     expect(find.text('Cycle & Weekly'), findsOneWidget);
     expect(find.text('Tasks'), findsOneWidget);
-    expect(find.text('Evidence & Decisions'), findsOneWidget);
+    expect(find.text('Lifecycle'), findsOneWidget);
 
     // Verify first tab content (OKRs)
     expect(find.text('Achieve PMF'), findsOneWidget);
@@ -99,14 +129,14 @@ void main() {
     // Tap on 'Tasks' tab
     await tester.tap(find.text('Tasks'));
     await tester.pumpAndSettle();
-    expect(find.text('Week 1: 5 customer interviews'), findsOneWidget);
+    expect(find.text('5 customer interviews'), findsOneWidget);
     expect(find.text('Conduct user interview #1'), findsOneWidget);
 
-    // Tap on 'Evidence & Decisions' tab
-    await tester.tap(find.text('Evidence & Decisions'));
+    // Tap on 'Lifecycle' tab — reads directly from loaded loop, no evidence/
+    // decisions phantom fields anywhere.
+    await tester.tap(find.text('Lifecycle'));
     await tester.pumpAndSettle();
-    expect(find.text('Interview transcript #1'), findsOneWidget);
-    expect(find.text('Pivot pricing model'), findsOneWidget);
+    expect(find.text('Giai đoạn hiện tại: P2_SOLUTION_VALIDATION'), findsOneWidget);
 
     Get.delete<ProjectOperatingLoopController>();
   });

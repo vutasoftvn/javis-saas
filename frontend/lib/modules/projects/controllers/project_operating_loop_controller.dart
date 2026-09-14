@@ -51,11 +51,61 @@ class ProjectOperatingLoopController extends GetxController {
     }
   }
 
-  Future<bool> createObjective(String title, {String? description}) async {
+  Future<bool> createObjective(String title, {String? why}) async {
     final result = await _service.createObjective(
       projectId,
       title: title,
+      why: why,
+    );
+    if (result is ApiSuccess) {
+      await loadLoop();
+      return true;
+    } else if (result is ApiFailure<Map<String, dynamic>>) {
+      if (result.failure.code == ApiFailureCode.conflict) {
+        await loadLoop();
+      }
+      errorMessage.value = result.failure.message;
+    }
+    return false;
+  }
+
+  Future<bool> createKeyResult(
+    String objectiveId,
+    String title, {
+    double? targetValue,
+    String? unit,
+  }) async {
+    final result = await _service.createKeyResult(
+      projectId,
+      objectiveId: objectiveId,
+      title: title,
+      targetValue: targetValue,
+      unit: unit,
+    );
+    if (result is ApiSuccess) {
+      await loadLoop();
+      return true;
+    } else if (result is ApiFailure<Map<String, dynamic>>) {
+      if (result.failure.code == ApiFailureCode.conflict) {
+        await loadLoop();
+      }
+      errorMessage.value = result.failure.message;
+    }
+    return false;
+  }
+
+  Future<bool> createInitiative(
+    String keyResultId,
+    String title, {
+    String? description,
+    String? intendedOutcome,
+  }) async {
+    final result = await _service.createInitiative(
+      projectId,
+      keyResultId: keyResultId,
+      title: title,
       description: description,
+      intendedOutcome: intendedOutcome,
     );
     if (result is ApiSuccess) {
       await loadLoop();
@@ -109,13 +159,13 @@ class ProjectOperatingLoopController extends GetxController {
   Future<bool> createCommitment(
     String weeklyPlanId,
     String title, {
-    double? targetConfidence,
+    String? plannedEffort,
   }) async {
     final result = await _service.createCommitment(
       projectId,
       weeklyPlanId: weeklyPlanId,
       title: title,
-      targetConfidence: targetConfidence,
+      plannedEffort: plannedEffort,
     );
     if (result is ApiSuccess) {
       await loadLoop();
@@ -139,6 +189,24 @@ class ProjectOperatingLoopController extends GetxController {
       title: title,
       weeklyCommitmentId: weeklyCommitmentId,
       priority: priority,
+    );
+    if (result is ApiSuccess) {
+      await loadLoop();
+      return true;
+    } else if (result is ApiFailure<Map<String, dynamic>>) {
+      if (result.failure.code == ApiFailureCode.conflict) {
+        await loadLoop();
+      }
+      errorMessage.value = result.failure.message;
+    }
+    return false;
+  }
+
+  Future<bool> updateTaskStatus(String taskId, String status) async {
+    final result = await _service.updateTaskStatus(
+      projectId,
+      taskId: taskId,
+      status: status,
     );
     if (result is ApiSuccess) {
       await loadLoop();

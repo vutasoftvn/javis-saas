@@ -313,7 +313,7 @@ class ProjectAnalysisFlowController extends GetxController {
         await _loopService.createObjective(
           projectId,
           title: '[${currentStage.value.code}] ${guidance.focusHeadline}',
-          description: isEn
+          why: isEn
               ? 'Customer: ${targetCustomerCtrl.text.trim()} - Problem: ${problemStatementCtrl.text.trim()}'
               : 'Khách hàng: ${targetCustomerCtrl.text.trim()} - Vấn đề: ${problemStatementCtrl.text.trim()}',
         );

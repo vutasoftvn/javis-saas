@@ -8,9 +8,10 @@ void main() {
     id: 'proj-1',
     workspaceId: 'ws-1',
     title: 'Alpha Project',
+    lifecycleStage: 'P0_DISCOVERY',
+    stageVersion: 1,
     status: 'ACTIVE',
     createdAt: '2026-08-01T00:00:00.000Z',
-    updatedAt: '2026-08-01T00:00:00.000Z',
   );
 
   testWidgets('(a) renders empty state when no active cycle exists', (tester) async {
@@ -40,30 +41,79 @@ void main() {
       project: testProjectSummary,
       activeCycle: LoopActiveCycle(
         id: 'cycle-1',
+        workspaceId: 'ws-1',
+        projectId: 'proj-1',
+        currentWeek: 1,
         durationWeeks: 12,
+        visionStatement: 'Find PMF',
+        status: 'active',
+        timezone: 'UTC',
         startDate: now,
         endDate: DateTime.now().toUtc().add(const Duration(days: 84)).toIso8601String(),
-        revision: 1,
-        weeklyPlans: [
-          LoopWeeklyPlan(
-            id: 'plan-1',
-            weekNo: 1,
-            focus: 'Phỏng vấn 5 khách hàng B2B',
-            commitments: [
-              LoopCommitment(
-                id: 'com-1',
-                title: 'Khách hàng phân khúc Logistics',
-                status: 'committed',
-                tasks: [
-                  LoopTask(id: 't-1', title: 'Soạn kịch bản', status: 'done', priority: 'high'),
-                  LoopTask(id: 't-2', title: 'Liên hệ 10 cty', status: 'todo', priority: 'high'),
-                  LoopTask(id: 't-3', title: 'Phỏng vấn cty A', status: 'todo', priority: 'medium'),
-                ],
-              ),
-            ],
-          ),
-        ],
+        createdAt: now,
+        updatedAt: now,
       ),
+      currentWeek: LoopWeek(
+        id: 'week-1',
+        workspaceId: 'ws-1',
+        projectId: 'proj-1',
+        cycleId: 'cycle-1',
+        weekNo: 1,
+        focus: 'Phỏng vấn 5 khách hàng B2B',
+        createdAt: now,
+        updatedAt: now,
+      ),
+      commitments: [
+        LoopCommitment(
+          id: 'com-1',
+          workspaceId: 'ws-1',
+          projectId: 'proj-1',
+          weeklyPlanId: 'week-1',
+          title: 'Khách hàng phân khúc Logistics',
+          status: 'committed',
+          purposeType: 'INITIATIVE',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ],
+      tasks: [
+        LoopTask(
+          id: 't-1',
+          workspaceId: 'ws-1',
+          projectId: 'proj-1',
+          weeklyCommitmentId: 'com-1',
+          title: 'Soạn kịch bản',
+          status: 'done',
+          priority: 'high',
+          timezone: 'UTC',
+          createdAt: now,
+          updatedAt: now,
+        ),
+        LoopTask(
+          id: 't-2',
+          workspaceId: 'ws-1',
+          projectId: 'proj-1',
+          weeklyCommitmentId: 'com-1',
+          title: 'Liên hệ 10 cty',
+          status: 'todo',
+          priority: 'high',
+          timezone: 'UTC',
+          createdAt: now,
+          updatedAt: now,
+        ),
+        LoopTask(
+          id: 't-3',
+          workspaceId: 'ws-1',
+          projectId: 'proj-1',
+          weeklyCommitmentId: 'com-1',
+          title: 'Phỏng vấn cty A',
+          status: 'todo',
+          priority: 'medium',
+          timezone: 'UTC',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ],
     );
 
     await tester.pumpWidget(
@@ -88,18 +138,28 @@ void main() {
       project: testProjectSummary,
       activeCycle: LoopActiveCycle(
         id: 'cycle-1',
+        workspaceId: 'ws-1',
+        projectId: 'proj-1',
+        currentWeek: 1,
         durationWeeks: 12,
+        visionStatement: 'Find PMF',
+        status: 'active',
+        timezone: 'UTC',
         startDate: now,
         endDate: DateTime.now().toUtc().add(const Duration(days: 84)).toIso8601String(),
-        revision: 1,
-        weeklyPlans: [
-          LoopWeeklyPlan(
-            id: 'plan-1',
-            weekNo: 1,
-            commitments: [],
-          ),
-        ],
+        createdAt: now,
+        updatedAt: now,
       ),
+      currentWeek: LoopWeek(
+        id: 'week-1',
+        workspaceId: 'ws-1',
+        projectId: 'proj-1',
+        cycleId: 'cycle-1',
+        weekNo: 1,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      commitments: const [],
     );
 
     await tester.pumpWidget(

@@ -4,6 +4,11 @@ import '../../../core/localization/locale_controller.dart';
 import '../../../core/localization/supported_locale.dart';
 import '../../projects/models/project_operating_loop.dart';
 
+/// Task 4 (2026-09-14 remediation) — trước đây widget này tự tính
+/// "currentWeek" từ `cycle.startDate` rồi tìm trong `cycle.weeklyPlans[]`
+/// (hình dạng không tồn tại ở backend thật). Server đã trả `currentWeek`
+/// (field số nguyên trên `CycleDto`) và `currentWeek` (đối tượng tuần, field
+/// gốc sibling của `activeCycle`) — dùng thẳng, không tự suy diễn nữa.
 class ProjectOperatingWeekCard extends StatelessWidget {
   const ProjectOperatingWeekCard({
     super.key,
@@ -23,25 +28,6 @@ class ProjectOperatingWeekCard extends StatelessWidget {
       return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
     }
     return Get.locale?.languageCode == 'en';
-  }
-
-  static int calculateCurrentWeek(LoopActiveCycle cycle) {
-    final start = DateTime.tryParse(cycle.startDate);
-    if (start == null) return 1;
-    final now = DateTime.now().toUtc();
-    final diffDays = now.difference(start.toUtc()).inDays;
-    if (diffDays < 0) return 1;
-    final week = (diffDays / 7).floor() + 1;
-    if (week > cycle.durationWeeks) return cycle.durationWeeks;
-    return week;
-  }
-
-  static LoopWeeklyPlan? findWeeklyPlan(LoopActiveCycle cycle, int weekNo) {
-    try {
-      return cycle.weeklyPlans.firstWhere((w) => w.weekNo == weekNo);
-    } catch (_) {
-      return cycle.weeklyPlans.isNotEmpty ? cycle.weeklyPlans.first : null;
-    }
   }
 
   @override
@@ -153,9 +139,14 @@ class ProjectOperatingWeekCard extends StatelessWidget {
       );
     }
 
-    final currentWeekNo = calculateCurrentWeek(cycle);
-    final weeklyPlan = findWeeklyPlan(cycle, currentWeekNo);
-    final commitments = weeklyPlan?.commitments ?? [];
+    final currentWeekNo = cycle.currentWeek;
+    final week = operatingLoop?.currentWeek;
+    final commitments = week == null
+        ? const <LoopCommitment>[]
+        : (operatingLoop?.commitments ?? [])
+            .where((c) => c.weeklyPlanId == week.id)
+            .toList();
+    final tasks = operatingLoop?.tasks ?? [];
 
     return Container(
       key: const Key('operating_week_card'),
@@ -204,10 +195,10 @@ class ProjectOperatingWeekCard extends StatelessWidget {
               ),
             ],
           ),
-          if (weeklyPlan?.focus != null && weeklyPlan!.focus!.isNotEmpty) ...[
+          if (week?.focus != null && week!.focus!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              weeklyPlan.focus!,
+              week.focus!,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontStyle: FontStyle.italic,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
@@ -237,8 +228,10 @@ class ProjectOperatingWeekCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             ...commitments.map((commitment) {
-              final totalTasks = commitment.tasks.length;
-              final incompleteTasks = commitment.tasks
+              final commitmentTasks =
+                  tasks.where((t) => t.weeklyCommitmentId == commitment.id).toList();
+              final totalTasks = commitmentTasks.length;
+              final incompleteTasks = commitmentTasks
                   .where((t) => t.status != 'done' && t.status != 'completed')
                   .length;
 

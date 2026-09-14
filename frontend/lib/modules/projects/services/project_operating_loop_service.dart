@@ -25,17 +25,68 @@ class ProjectOperatingLoopService {
     );
   }
 
+  // Task 4 (2026-09-14 remediation) — body key `why` khớp đúng
+  // `CreateObjectiveBody` thật ở `project-operating-loop.handler.ts` (trước
+  // đây gửi nhầm `description`, backend không đọc field này).
   Future<ApiResult<Map<String, dynamic>>> createObjective(
     String projectId, {
     required String title,
-    String? description,
+    String? why,
+    String? ownerMemberId,
   }) async {
     return _client.request<Map<String, dynamic>>(
       MvpEndpoint.projectOkrWrite,
       pathParams: {'projectId': projectId},
       body: {
         'title': title,
+        'why': ?why,
+        'ownerMemberId': ?ownerMemberId,
+      },
+      decode: (raw) => raw is Map<String, dynamic> ? raw : {},
+    );
+  }
+
+  // `CreateKeyResultBody` — endpoint mới Task 3 (`project.key_result.write`).
+  Future<ApiResult<Map<String, dynamic>>> createKeyResult(
+    String projectId, {
+    required String objectiveId,
+    required String title,
+    String? metricId,
+    double? targetValue,
+    String? unit,
+  }) async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.projectKeyResultWrite,
+      pathParams: {'projectId': projectId},
+      body: {
+        'objectiveId': objectiveId,
+        'title': title,
+        'metricId': ?metricId,
+        'targetValue': ?targetValue,
+        'unit': ?unit,
+      },
+      decode: (raw) => raw is Map<String, dynamic> ? raw : {},
+    );
+  }
+
+  // `CreateInitiativeBody` — endpoint mới Task 3 (`project.initiative.write`).
+  Future<ApiResult<Map<String, dynamic>>> createInitiative(
+    String projectId, {
+    required String keyResultId,
+    required String title,
+    String? description,
+    String? intendedOutcome,
+    String? ownerMemberId,
+  }) async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.projectInitiativeWrite,
+      pathParams: {'projectId': projectId},
+      body: {
+        'keyResultId': keyResultId,
+        'title': title,
         'description': ?description,
+        'intendedOutcome': ?intendedOutcome,
+        'ownerMemberId': ?ownerMemberId,
       },
       decode: (raw) => raw is Map<String, dynamic> ? raw : {},
     );
@@ -75,11 +126,13 @@ class ProjectOperatingLoopService {
     );
   }
 
+  // Task 4 — body key `plannedEffort` khớp đúng `CreateWeeklyCommitmentBody`
+  // thật (trước đây gửi nhầm `targetConfidence`, không tồn tại ở backend).
   Future<ApiResult<Map<String, dynamic>>> createCommitment(
     String projectId, {
     required String weeklyPlanId,
     required String title,
-    double? targetConfidence,
+    String? plannedEffort,
   }) async {
     return _client.request<Map<String, dynamic>>(
       MvpEndpoint.projectCommitmentWrite,
@@ -87,7 +140,7 @@ class ProjectOperatingLoopService {
       body: {
         'weeklyPlanId': weeklyPlanId,
         'title': title,
-        'targetConfidence': ?targetConfidence,
+        'plannedEffort': ?plannedEffort,
       },
       decode: (raw) => raw is Map<String, dynamic> ? raw : {},
     );
@@ -107,6 +160,21 @@ class ProjectOperatingLoopService {
         'weeklyCommitmentId': weeklyCommitmentId,
         'priority': ?priority,
       },
+      decode: (raw) => raw is Map<String, dynamic> ? raw : {},
+    );
+  }
+
+  // `AdvanceTaskParams` — endpoint mới Task 3 (`project.task.status.write`),
+  // `taskId` là path param, `status` là body.
+  Future<ApiResult<Map<String, dynamic>>> updateTaskStatus(
+    String projectId, {
+    required String taskId,
+    required String status,
+  }) async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.projectTaskStatusWrite,
+      pathParams: {'projectId': projectId, 'taskId': taskId},
+      body: {'status': status},
       decode: (raw) => raw is Map<String, dynamic> ? raw : {},
     );
   }
