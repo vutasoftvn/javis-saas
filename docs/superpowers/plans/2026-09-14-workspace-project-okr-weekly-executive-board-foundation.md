@@ -2517,9 +2517,36 @@ LifecycleSettingsSection(
 
 Giá trị `entityId`/`currentStage`/`currentStageVersion` phải lấy từ state Workspace thật đang có trong `settings_view.dart` hoặc controller liên kết — đọc file trước khi điền, không hardcode giá trị giả.
 
-- [ ] **Step 4: Chèn vào Project Settings**
+- [ ] **Step 4: Chèn vào Project — KHÔNG có màn hình "Project Settings" (quyết định 2026-09-14)**
 
-Tương tự Step 3 nhưng ở view Project Settings (xác định đường dẫn bằng grep đã nêu ở đầu Task), truyền thêm `onTransitioned: (newStage) => showExecutiveBoardStageSuggestionDialog(context, projectId: entityId, workspaceId: <biến workspaceId hiện tại đọc được ở Step 3>)` (import từ Task 11) — chỉ Project Settings mới cần callback này, Workspace Settings không truyền `onTransitioned`.
+Implementer đầu tiên grep xác nhận: **không tồn tại bất kỳ màn hình "Project
+Settings" nào** trong `frontend/lib/modules/` (chỉ có
+`project_analysis_flow_view.dart`, `create_first_project_view.dart`,
+`project_operating_loop_view.dart`) — đúng tình huống escalation brief đã
+lường trước (giống Task 7). Founder quyết định: **thêm `LifecycleSettingsSection`
+như 1 section trong `ProjectOperatingLoopView`** (route thật,
+`frontend/lib/core/routing/app_pages.dart:119`, nhận `projectId`, hiện có 4
+section OKR/Cycle-Week/Commitment-Task/Evidence-Decision) — không tạo màn
+hình/route mới.
+
+Lưu ý quan trọng: `controller.loop.value.project` (kiểu `ProjectSummary`,
+`frontend/lib/modules/projects/models/project_operating_loop.dart:1-8`) chỉ
+có `id`/`workspaceId`/`title`/`description`/`status`/`createdAt`/`updatedAt`
+— **KHÔNG có `lifecycleStage`/`stageVersion`**. Cần lấy 2 field này từ nguồn
+khác — gợi ý: `ProjectService().getProjects()` (đã tồn tại,
+`frontend/lib/modules/strategy/services/project_service.dart:11`, gọi
+`GET /operations/projects` — backend response chắc chắn có `lifecycleStage`/
+`stageVersion` vì cột DB tương ứng luôn NOT NULL, xác nhận tên field
+camelCase thật bằng cách đọc response mẫu hoặc code backend
+`project.service.ts` trước khi dùng), lọc theo `id == projectId`. Đây là tái
+dùng service đã có sẵn, KHÔNG phải thêm endpoint backend mới — không vi phạm
+điều kiện escalation "cần API call mới không được yêu cầu".
+
+Vị trí chèn: thêm `LifecycleSettingsSection(entityType: LifecycleEntityType.project, entityId: projectId, currentStage: ..., currentStageVersion: ..., onTransitioned: (newStage) => showExecutiveBoardStageSuggestionDialog(context, projectId: projectId, workspaceId: controller.loop.value!.project.workspaceId))`
+vào cuối danh sách section hiện có trong `project_operating_loop_view.dart`
+(sau `EvidenceDecisionSection` hoặc tương đương — đọc file thật để xác định
+đúng vị trí trong `Column`/`ListView`). `workspaceId` lấy trực tiếp từ
+`ProjectSummary.workspaceId` đã có sẵn — không cần fetch thêm.
 
 - [ ] **Step 5: `flutter analyze` + test toàn bộ 2 module đã sửa**
 
