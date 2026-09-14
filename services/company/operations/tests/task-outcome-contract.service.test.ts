@@ -259,6 +259,7 @@ describe("Task Outcome Contract — atomic creation with every task (Task 1A)", 
     const result = await createAiTaskProposalService(
       {
         workspaceId,
+        projectId: workspaceId,
         title: "Interview 10 users",
         proposedByAgentInstanceId: "agent_x",
         contract: {

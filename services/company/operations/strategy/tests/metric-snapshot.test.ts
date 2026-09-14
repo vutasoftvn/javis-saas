@@ -18,7 +18,9 @@ describe("Metric Snapshot Aggregate & Ingestion (Task 2 / Tranche B2)", () => {
       authorization: wsA.bearerToken,
       workspaceId: wsA.workspaceId,
       title: "Telemetry Project A",
-      lifecycleStage: "P3_BUILD_VALIDATE",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P3_BUILD_VALIDATE",
+      initializationRationale: "Test onboarding baseline for metric snapshot",
     });
 
     const contractA = await createMetricContract({

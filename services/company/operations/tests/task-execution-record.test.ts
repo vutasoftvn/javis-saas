@@ -8,6 +8,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Test task",
       authorization: ws.bearerToken,
     });
@@ -37,6 +38,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Complex task",
       authorization: ws.bearerToken,
     });
@@ -70,6 +72,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Multi-kind task",
       authorization: ws.bearerToken,
     });
@@ -92,6 +95,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Default status task",
       authorization: ws.bearerToken,
     });
@@ -110,6 +114,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Failed task",
       authorization: ws.bearerToken,
     });
@@ -129,6 +134,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Unique ID task",
       authorization: ws.bearerToken,
     });
@@ -156,6 +162,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Timestamp task",
       authorization: ws.bearerToken,
     });
@@ -181,6 +188,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "ID conversion task",
       authorization: ws.bearerToken,
     });
@@ -202,6 +210,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Null fields task",
       authorization: ws.bearerToken,
     });
@@ -227,6 +236,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Multi-execution task",
       authorization: ws.bearerToken,
     });
@@ -254,6 +264,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Error details task",
       authorization: ws.bearerToken,
     });
@@ -288,12 +299,14 @@ describe("Task Execution Record Service", () => {
 
     const task1 = await createTask({
       workspaceId: ws1.workspaceId,
+      projectId: ws1.workspaceId,
       title: "Task in WS1",
       authorization: ws1.bearerToken,
     });
 
     const task2 = await createTask({
       workspaceId: ws2.workspaceId,
+      projectId: ws2.workspaceId,
       title: "Task in WS2",
       authorization: ws2.bearerToken,
     });
@@ -325,6 +338,7 @@ describe("Task Execution Record Service", () => {
     const ws = await createTestWorkspaceWithMember();
     const task = await createTask({
       workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
       title: "Combination task",
       authorization: ws.bearerToken,
     });

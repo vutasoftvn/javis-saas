@@ -88,12 +88,20 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       workspaceId,
       title: "COSA Beta Launch",
       description: "Triển khai bản beta cho 100 startup đầu tiên",
-      lifecycleStage: "P3_BUILD_VALIDATE",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P3_BUILD_VALIDATE",
+      initializationRationale: "Test onboarding baseline for golden path e2e",
     });
     expect(project.workspaceId).toBe(workspaceId);
 
+    // 2026-09-14 remediation: projectId bắt buộc trên createTask. Toàn bộ
+    // initiative/cycle/weeklyPlan/commitment phía trên đều không truyền
+    // projectId tường minh nên tự resolve vào project mặc định do
+    // createTestSession seed sẵn (id === workspaceId) — dùng đúng project đó
+    // ở đây để nhất quán với initiative.id đã tạo trước.
     const task1 = await createTask({
       workspaceId,
+      projectId: workspaceId,
       title: "Hoàn thiện luồng onboarding founder",
       priority: "high",
       initiativeId: initiative.id,
@@ -101,6 +109,7 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
     });
     const task2 = await createTask({
       workspaceId,
+      projectId: workspaceId,
       title: "Demo sản phẩm cho 10 startup thí điểm",
       priority: "medium",
       initiativeId: initiative.id,

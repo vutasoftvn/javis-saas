@@ -24,6 +24,7 @@ describe("Operations Task API Contract", () => {
 
     const task = await createTask({
       workspaceId,
+      projectId: workspaceId,
       title: "Write documentation",
       priority: "high",
       dueAt: "2026-09-01",
@@ -48,12 +49,14 @@ describe("Operations Task API Contract", () => {
 
     const taskA = await createTask({
       workspaceId: wsA.workspaceId,
+      projectId: wsA.workspaceId,
       title: "Task only in WS A",
       authorization: wsA.authorization,
     });
 
     const taskB = await createTask({
       workspaceId: wsB.workspaceId,
+      projectId: wsB.workspaceId,
       title: "Task only in WS B",
       authorization: wsB.authorization,
     });
@@ -73,6 +76,7 @@ describe("Operations Task API Contract", () => {
 
     const taskB = await createTask({
       workspaceId: wsB.workspaceId,
+      projectId: wsB.workspaceId,
       title: "Task in WS B",
       authorization: wsB.authorization,
     });
@@ -100,6 +104,7 @@ describe("Operations Task API Contract", () => {
 
     const task = await createTask({
       workspaceId,
+      projectId: workspaceId,
       title: "Task to transition",
       authorization,
     });

@@ -19,13 +19,14 @@ import {
 } from "../../shared/db/schema/operations";
 import { sql, inArray } from "drizzle-orm";
 import { assertInitiativeInWorkspace } from "./initiative.service";
+import { verifyProjectInWorkspace } from "./project-operating-loop.service";
 import {
   CreateTaskOutcomeContractInput,
   TaskOutcomeContractView,
   insertContractRevision,
 } from "./task-outcome-contract.service";
 
-const { tasks, projects } = schema;
+const { tasks } = schema;
 
 // Queue gate (spec §6.1) — re-export để handler/test dùng một điểm.
 export { assertTaskCanEnterQueue, validateTaskOutcomeContractForQueue, createTaskOutcomeProposal } from "./task-outcome-contract.service";
@@ -81,7 +82,9 @@ export interface Task {
 
 export interface CreateTaskParams {
   workspaceId: string;
-  projectId?: string;
+  // 2026-09-14 remediation — bắt buộc, không còn suy diễn "project đầu tiên"
+  // khi thiếu. Caller phải biết chính xác Task thuộc Project nào.
+  projectId: string;
   title: string;
   priority?: "low" | "medium" | "high" | "urgent";
   dueAt?: string;
@@ -130,8 +133,21 @@ export async function createTaskService(
   params: CreateTaskParams,
   authorization: string | undefined
 ): Promise<Task> {
+  // Fail closed ngay khi thiếu Project — không bao giờ suy diễn/chọn project
+  // đầu tiên của workspace thay caller.
+  if (!params.projectId) {
+    throw APIError.invalidArgument(
+      "PROJECT_CONTEXT_REQUIRED: projectId is required to create a task"
+    );
+  }
+
   const authCtx = await requireWorkspaceAccess(authorization, params.workspaceId);
   await getWorkspaceRecord(params.workspaceId);
+
+  const wsId = BigInt(params.workspaceId);
+  const resolvedProjectId = BigInt(params.projectId);
+  await verifyProjectInWorkspace(wsId, resolvedProjectId);
+
   if (params.assigneeMemberId !== undefined) {
     await getWorkforceMember({
       id: params.assigneeMemberId,
@@ -183,6 +199,14 @@ export async function createTaskService(
       throw APIError.notFound(`Weekly commitment ${params.weeklyCommitmentId} not found in workspace`);
     }
 
+    // Khoá task theo đúng Project — một weekly commitment thuộc Project khác
+    // không được âm thầm kéo task sang project đó.
+    if (commitment.projectId !== resolvedProjectId) {
+      throw APIError.invalidArgument(
+        `Weekly commitment ${params.weeklyCommitmentId} does not belong to project ${params.projectId}`
+      );
+    }
+
     commitmentRow = commitment;
     if (commitment.initiativeId) {
       resolvedInitiativeId = commitment.initiativeId.toString();
@@ -211,27 +235,17 @@ export async function createTaskService(
     if (init) resolvedKeyResultId = init.keyResultId;
   }
 
-  let resolvedProjectId: bigint;
-  if (params.projectId) {
-    resolvedProjectId = BigInt(params.projectId);
-  } else if (commitmentRow) {
-    resolvedProjectId = commitmentRow.projectId;
-  } else if (resolvedInitiativeId) {
-    // Startup Core: một task gắn thẳng initiative để lấy lineage chiến lược thì
-    // initiative đó phải đã APPROVED (giữ ràng buộc từ b4228176 — approval
-    // không tự mất khi policy nới lỏng).
-    const initRow = await assertInitiativeInWorkspace(resolvedInitiativeId, params.workspaceId, true);
-    resolvedProjectId = initRow.projectId;
-  } else {
-    const [firstProj] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(and(eq(projects.workspaceId, BigInt(params.workspaceId)), isNull(projects.deletedAt)))
-      .limit(1);
-    if (!firstProj) {
-      throw APIError.invalidArgument("projectId is required or project must exist");
+  // Task 2 (2026-09-14 remediation): projectId luôn tường minh từ caller
+  // (resolvedProjectId ở trên) — không còn suy diễn từ commitment/initiative
+  // hay chọn project đầu tiên. Mọi initiativeId cung cấp (trực tiếp hoặc qua
+  // commitment) phải thuộc đúng resolvedProjectId, không thì reject.
+  if (resolvedInitiativeId) {
+    const initRow = await assertInitiativeInWorkspace(resolvedInitiativeId, params.workspaceId, false);
+    if (initRow.projectId !== resolvedProjectId) {
+      throw APIError.invalidArgument(
+        `Initiative ${resolvedInitiativeId} does not belong to project ${params.projectId}`
+      );
     }
-    resolvedProjectId = firstProj.id;
   }
 
   const actor = params.actor || (authCtx.userId ? { kind: "user" as const, id: authCtx.userId } : { kind: "system" as const, id: "operations" });
@@ -274,6 +288,8 @@ export async function createTaskService(
 
 export interface CreateAiTaskProposalParams {
   workspaceId: string;
+  // 2026-09-14 remediation — bắt buộc, cùng lý do với CreateTaskParams.projectId.
+  projectId: string;
   title: string;
   proposedByAgentInstanceId: string;
   contract: Omit<CreateTaskOutcomeContractInput, "workspaceId" | "taskId">;
@@ -299,20 +315,23 @@ export async function createAiTaskProposalService(
   if (params.workspaceId !== ctx.workspaceId) {
     throw APIError.permissionDenied("workspace mismatch");
   }
-  let pId: bigint;
+  if (!params.projectId) {
+    throw APIError.invalidArgument(
+      "PROJECT_CONTEXT_REQUIRED: projectId is required to create an AI task proposal"
+    );
+  }
+
+  const wsId = BigInt(ctx.workspaceId);
+  const pId = BigInt(params.projectId);
+  await verifyProjectInWorkspace(wsId, pId);
+
   if (params.initiativeId) {
     const init = await assertInitiativeInWorkspace(params.initiativeId, ctx.workspaceId, false);
-    pId = init.projectId;
-  } else {
-    const [firstProj] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(and(eq(projects.workspaceId, BigInt(ctx.workspaceId)), isNull(projects.deletedAt)))
-      .limit(1);
-    if (!firstProj) {
-      throw APIError.invalidArgument("projectId is required or project must exist");
+    if (init.projectId !== pId) {
+      throw APIError.invalidArgument(
+        `Initiative ${params.initiativeId} does not belong to project ${params.projectId}`
+      );
     }
-    pId = firstProj.id;
   }
 
   return db.transaction(async (tx) => {

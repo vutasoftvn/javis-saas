@@ -188,6 +188,7 @@ describe("Company-owned work packages, attempts and immutable events (Task 2)", 
     const proposal = await createAiTaskProposalService(
       {
         workspaceId,
+        projectId: workspaceId,
         title: "Interview 10 users",
         proposedByAgentInstanceId: "agent_seed",
         contract: {

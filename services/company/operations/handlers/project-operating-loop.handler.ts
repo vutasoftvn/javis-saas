@@ -220,6 +220,7 @@ export const advanceTaskApi = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     await verifyProjectInWorkspace(BigInt(ctx.workspaceId), BigInt(params.projectId));
     return advanceTaskService(ctx, {
+      projectId: params.projectId,
       taskId: params.taskId,
       status: params.status,
     });

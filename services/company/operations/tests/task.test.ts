@@ -17,7 +17,7 @@ async function makeAuthedWorkspace(displayName: string) {
 describe("createTask", () => {
   it("creates a task with canonical defaults", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Task Test Inc");
-    const task = await createTask({ workspaceId, title: "Write plan", authorization });
+    const task = await createTask({ workspaceId, projectId: workspaceId, title: "Write plan", authorization });
     expect(task.id).toBeTruthy();
     expect(typeof task.id).toBe("string");
     expect(task.workspaceId).toBe(workspaceId);
@@ -28,14 +28,15 @@ describe("createTask", () => {
 
   it("rejects a task for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Task Test");
-    await expect(createTask({ workspaceId: "999999999", title: "Orphan", authorization })).rejects.toThrow();
+    await expect(createTask({ workspaceId: "999999999",
+      projectId: "999999999", title: "Orphan", authorization })).rejects.toThrow();
   });
 
   it("rejects when caller is not a member of the target workspace", async () => {
     const { workspaceId } = await makeAuthedWorkspace("Owner Task Ws");
     const outsider = await makeAuthedWorkspace("Outsider Task Test");
     await expect(
-      createTask({ workspaceId, title: "Should be blocked", authorization: outsider.authorization })
+      createTask({ workspaceId, projectId: workspaceId, title: "Should be blocked", authorization: outsider.authorization })
     ).rejects.toThrow();
   });
 
@@ -50,8 +51,7 @@ describe("createTask", () => {
       authorization,
     });
 
-    const task = await createTask({
-      workspaceId,
+    const task = await createTask({ workspaceId, projectId: workspaceId,
       title: "Assigned task",
       assigneeMemberId: member.id,
       authorization,
@@ -59,21 +59,19 @@ describe("createTask", () => {
     expect(task.assigneeMemberId).toBe(member.id);
 
     await expect(
-      createTask({ workspaceId, title: "Bad assignee", assigneeMemberId: "999999999", authorization })
+      createTask({ workspaceId, projectId: workspaceId, title: "Bad assignee", assigneeMemberId: "999999999", authorization })
     ).rejects.toThrow();
   });
 
   it("returns the original task instead of creating a duplicate for a repeated idempotencyKey", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Idempotency Test Inc");
 
-    const first = await createTask({
-      workspaceId,
+    const first = await createTask({ workspaceId, projectId: workspaceId,
       title: "Send weekly report",
       idempotencyKey: "agent-run-42",
       authorization,
     });
-    const retried = await createTask({
-      workspaceId,
+    const retried = await createTask({ workspaceId, projectId: workspaceId,
       title: "Send weekly report (retry)",
       idempotencyKey: "agent-run-42",
       authorization,
@@ -89,15 +87,15 @@ describe("createTask", () => {
   it("allows multiple tasks with no idempotencyKey (NULLs don't conflict)", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("No Key Test Inc");
 
-    const first = await createTask({ workspaceId, title: "Task A", authorization });
-    const second = await createTask({ workspaceId, title: "Task B", authorization });
+    const first = await createTask({ workspaceId, projectId: workspaceId, title: "Task A", authorization });
+    const second = await createTask({ workspaceId, projectId: workspaceId, title: "Task B", authorization });
 
     expect(first.id).not.toBe(second.id);
   });
 
   it("appends one canonical operations.task.created.v1 outbox event on genuine insert", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Created Event Test Inc");
-    const task = await createTask({ workspaceId, title: "Notify on create", authorization });
+    const task = await createTask({ workspaceId, projectId: workspaceId, title: "Notify on create", authorization });
 
     const rows = await readOutbox(workspaceId, "task", task.id);
     expect(rows).toHaveLength(1);
@@ -114,11 +112,11 @@ describe("createTask", () => {
 
   it("does not re-publish task.created when an idempotencyKey retry returns the existing row", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Idempotent Event Test Inc");
-    const first = await createTask({ workspaceId, title: "First", idempotencyKey: "agent-run-99", authorization });
+    const first = await createTask({ workspaceId, projectId: workspaceId, title: "First", idempotencyKey: "agent-run-99", authorization });
     const rowsFirst = await readOutbox(workspaceId, "task", first.id);
     expect(rowsFirst).toHaveLength(1);
 
-    await createTask({ workspaceId, title: "Retry", idempotencyKey: "agent-run-99", authorization });
+    await createTask({ workspaceId, projectId: workspaceId, title: "Retry", idempotencyKey: "agent-run-99", authorization });
     const rowsSecond = await readOutbox(workspaceId, "task", first.id);
     expect(rowsSecond).toHaveLength(1);
   });
@@ -127,7 +125,7 @@ describe("createTask", () => {
 describe("getTask/listTasks", () => {
   it("fetches a created task and lists it by workspace", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("List Test Inc");
-    const created = await createTask({ workspaceId, title: "Fetch me", authorization });
+    const created = await createTask({ workspaceId, projectId: workspaceId, title: "Fetch me", authorization });
 
     const fetched = await getTask({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
@@ -146,6 +144,7 @@ describe("getTask/listTasks", () => {
     const workspaceB = await makeAuthedWorkspace("Task Isolation Ws B");
     const taskA = await createTask({
       workspaceId: workspaceA.workspaceId,
+      projectId: workspaceA.workspaceId,
       title: "Secret task in A",
       authorization: workspaceA.authorization,
     });
@@ -159,7 +158,7 @@ describe("getTask/listTasks", () => {
 describe("updateTaskStatus", () => {
   it("transitions through the canonical status vocabulary and publishes on done", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Status Test Inc");
-    const created = await createTask({ workspaceId, title: "Ship it", authorization });
+    const created = await createTask({ workspaceId, projectId: workspaceId, title: "Ship it", authorization });
 
     const inProgress = await updateTaskStatus({ id: created.id, status: "in_progress", workspaceId, authorization });
     expect(inProgress.status).toBe("in_progress");
@@ -181,7 +180,7 @@ describe("updateTaskStatus", () => {
 
   it("rejects a status outside the canonical vocabulary", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Bad Status Test Inc");
-    const created = await createTask({ workspaceId, title: "Bad status", authorization });
+    const created = await createTask({ workspaceId, projectId: workspaceId, title: "Bad status", authorization });
     await expect(
       updateTaskStatus({ id: created.id, status: "completed" as any, workspaceId, authorization })
     ).rejects.toThrow();
@@ -199,6 +198,7 @@ describe("updateTaskStatus", () => {
     const workspaceB = await makeAuthedWorkspace("Task Status Isolation Ws B");
     const taskA = await createTask({
       workspaceId: workspaceA.workspaceId,
+      projectId: workspaceA.workspaceId,
       title: "Task in A",
       authorization: workspaceA.authorization,
     });
@@ -217,7 +217,7 @@ describe("updateTaskStatus", () => {
 describe("updateTaskSchedule", () => {
   it("sets plannedStartAt from an ISO string", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Schedule Test Inc");
-    const created = await createTask({ workspaceId, title: "Interview lead", authorization });
+    const created = await createTask({ workspaceId, projectId: workspaceId, title: "Interview lead", authorization });
     expect(created.plannedStartAt).toBeNull();
 
     const scheduled = await updateTaskSchedule({
@@ -232,7 +232,7 @@ describe("updateTaskSchedule", () => {
 
   it("clears plannedStartAt when null is passed", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Schedule Clear Test Inc");
-    const created = await createTask({ workspaceId, title: "Interview lead", authorization });
+    const created = await createTask({ workspaceId, projectId: workspaceId, title: "Interview lead", authorization });
     await updateTaskSchedule({
       id: created.id,
       plannedStartAt: "2026-09-08T09:00:00.000Z",
@@ -252,7 +252,7 @@ describe("updateTaskSchedule", () => {
 
   it("rejects an invalid (non-ISO) plannedStartAt string", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Schedule Bad Date Test Inc");
-    const created = await createTask({ workspaceId, title: "Interview lead", authorization });
+    const created = await createTask({ workspaceId, projectId: workspaceId, title: "Interview lead", authorization });
 
     await expect(
       updateTaskSchedule({ id: created.id, plannedStartAt: "not-a-date", workspaceId, authorization })
@@ -271,6 +271,7 @@ describe("updateTaskSchedule", () => {
     const workspaceB = await makeAuthedWorkspace("Task Schedule Isolation Ws B");
     const taskA = await createTask({
       workspaceId: workspaceA.workspaceId,
+      projectId: workspaceA.workspaceId,
       title: "Task in A",
       authorization: workspaceA.authorization,
     });

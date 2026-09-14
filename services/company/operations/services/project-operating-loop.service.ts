@@ -717,17 +717,21 @@ export async function createTaskAuthorized(
 export async function advanceTaskService(
   ctx: TenantContext,
   req: {
+    projectId: string;
     taskId: string;
     status: string;
   }
 ): Promise<TaskDto> {
   const wsId = BigInt(ctx.workspaceId);
+  const pId = BigInt(req.projectId);
   const taskId = BigInt(req.taskId);
 
+  // Khoá task theo đúng (workspace, project) — một task ID trùng nhưng thuộc
+  // Project khác không được phép advance qua URL của Project này.
   const [task] = await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, wsId)));
+    .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, wsId), eq(tasks.projectId, pId), isNull(tasks.deletedAt)));
 
   if (!task) {
     throw APIError.notFound("Task not found");
@@ -747,7 +751,7 @@ export async function advanceTaskService(
       status: nextStatus,
       updatedAt: new Date(),
     })
-    .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, wsId)))
+    .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, wsId), eq(tasks.projectId, pId), isNull(tasks.deletedAt)))
     .returning();
 
   if (!updated) throw APIError.internal("Failed to update task");

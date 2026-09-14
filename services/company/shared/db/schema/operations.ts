@@ -558,11 +558,17 @@ export const projectLifecycleEvents = strategySchema.table("project_lifecycle_ev
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
-  fromStage: varchar("from_stage", { length: 50 }).notNull(),
+  // 2026-09-14 remediation (migration 026) — 'from_stage' nullable CHỈ cho
+  // event_type = 'PROJECT_INITIALIZED' (baseline khai báo lần đầu, không phải
+  // transition thật). 'TRANSITION' (default, dùng bởi transitionProjectLifecycle)
+  // vẫn bắt buộc from_stage NOT NULL ở tầng ứng dụng dù cột DB đã relax.
+  fromStage: varchar("from_stage", { length: 50 }),
   toStage: varchar("to_stage", { length: 50 }).notNull(),
   fromStageVersion: integer("from_stage_version").notNull(),
   actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
   rationale: text("rationale"),
+  eventType: varchar("event_type", { length: 32 }).default("TRANSITION").notNull(),
+  initializationSource: varchar("initialization_source", { length: 64 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   ixProjCreated: index("ix_project_lifecycle_events_proj").on(t.projectId, t.createdAt),

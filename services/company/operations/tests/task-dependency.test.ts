@@ -17,12 +17,14 @@ describe("Task Dependencies & Schedules Service", () => {
 
     const taskA = await createTask({
       workspaceId,
+      projectId: workspaceId,
       title: "Task A: Setup Database Schema",
       authorization,
     });
 
     const taskB = await createTask({
       workspaceId,
+      projectId: workspaceId,
       title: "Task B: Run Migration",
       authorization,
     });
@@ -49,6 +51,7 @@ describe("Task Dependencies & Schedules Service", () => {
 
     const task = await createTask({
       workspaceId,
+      projectId: workspaceId,
       title: "Daily Standup AI Summary",
       authorization,
     });
@@ -74,11 +77,13 @@ describe("Task Dependencies & Schedules Service", () => {
 
     const taskA = await createTask({
       workspaceId: a.workspaceId,
+      projectId: a.workspaceId,
       title: "A task",
       authorization: a.authorization,
     });
     const taskB = await createTask({
       workspaceId: b.workspaceId,
+      projectId: b.workspaceId,
       title: "B task",
       authorization: b.authorization,
     });
@@ -103,7 +108,8 @@ describe("Task Dependencies & Schedules Service", () => {
   it("does not list dependencies for a task in another workspace", async () => {
     const a = await makeAuthedWorkspace("Dependency Read A");
     const b = await makeAuthedWorkspace("Dependency Read B");
-    const task = await createTask({ workspaceId: a.workspaceId, title: "private", authorization: a.authorization });
+    const task = await createTask({ workspaceId: a.workspaceId,
+      projectId: a.workspaceId, title: "private", authorization: a.authorization });
 
     await expect(listTaskDependencies({ taskId: task.id, workspaceId: b.workspaceId, authorization: b.authorization } as any))
       .rejects.toThrow(/not in this workspace|not found/i);
@@ -113,6 +119,7 @@ describe("Task Dependencies & Schedules Service", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Sched Auth WS");
     const task = await createTask({
       workspaceId,
+      projectId: workspaceId,
       title: "T",
       authorization,
     });

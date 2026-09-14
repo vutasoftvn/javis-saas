@@ -24,7 +24,9 @@ describe("Pilot Run Aggregate & State Machine (Tranche B1)", () => {
       workspaceId: wsA.workspaceId,
       title: "Pilot Validation Project",
       description: "Moving from P2 to P3 Pilot",
-      lifecycleStage: "P2_SOLUTION_VALIDATION",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P2_SOLUTION_VALIDATION",
+      initializationRationale: "Test onboarding baseline for pilot run",
     });
     expect(p2Project.lifecycleStage).toBe("P2_SOLUTION_VALIDATION");
 
@@ -194,7 +196,9 @@ describe("Pilot Run Aggregate & State Machine (Tranche B1)", () => {
       authorization: ws.bearerToken,
       workspaceId: ws.workspaceId,
       title: "Cancel Test Project",
-      lifecycleStage: "P2_SOLUTION_VALIDATION",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P2_SOLUTION_VALIDATION",
+      initializationRationale: "Test onboarding baseline for pilot run cancel test",
     });
 
     const ev = await recordEvidence({

@@ -133,6 +133,7 @@ describe("project-operating-loop service hierarchy & tenant enforcement", () => 
     // 10. Direct task transition guard: cannot advance to IN_PROGRESS without commitment
     await expect(
       advanceTaskService(ctxA, {
+        projectId: projectA.id,
         taskId: draftUnplannedTask.id,
         status: "IN_PROGRESS",
       })
@@ -148,6 +149,7 @@ describe("project-operating-loop service hierarchy & tenant enforcement", () => 
     });
 
     const inProgressTask = await advanceTaskService(ctxA, {
+      projectId: projectA.id,
       taskId: plannedTask.id,
       status: "IN_PROGRESS",
     });

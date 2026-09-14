@@ -38,11 +38,15 @@ export interface ProjectLifecycleState {
 
 export interface ProjectLifecycleEvent {
   id: string;
-  fromStage: string;
+  // NULL chỉ khi eventType 'PROJECT_INITIALIZED' — khai báo baseline lần đầu,
+  // không phải transition từ một stage trước đó.
+  fromStage: string | null;
   toStage: string;
   fromStageVersion: number;
   actorMemberId: string | null;
   rationale: string | null;
+  eventType: string;
+  initializationSource: string | null;
   createdAt: string;
 }
 
@@ -168,6 +172,8 @@ export async function listProjectLifecycleEvents(
         fromStageVersion: r.fromStageVersion,
         actorMemberId: r.actorMemberId ? r.actorMemberId.toString() : null,
         rationale: r.rationale,
+        eventType: r.eventType,
+        initializationSource: r.initializationSource,
         createdAt: r.createdAt.toISOString(),
       }))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),

@@ -187,6 +187,12 @@ describe("initiative workspace integrity & execution preservation", () => {
     const init = await createInitiativeService(
       {
         workspaceId: ctx.workspaceId,
+        // 2026-09-14 remediation: chỉ định projectId tường minh — nếu không,
+        // createInitiativeService tự chọn "project đầu tiên" của workspace
+        // (có thể là project mặc định do _helpers seed, khác ctx.projectId),
+        // khiến commitment/task sau đó bị createTaskService từ chối vì lệch
+        // Project dù cùng workspace.
+        projectId: ctx.projectId,
         title: "Sáng kiến trực tiếp",
         intendedOutcome: "Hoàn thiện hệ thống core",
       },
@@ -208,6 +214,7 @@ describe("initiative workspace integrity & execution preservation", () => {
     const task = await createTaskService(
       {
         workspaceId: ctx.workspaceId,
+        projectId: ctx.projectId,
         title: "Task thuộc commitment",
         weeklyCommitmentId: commitment.id,
       },
@@ -234,6 +241,7 @@ describe("initiative workspace integrity & execution preservation", () => {
     const task = await createTaskService(
       {
         workspaceId: ctx.workspaceId,
+        projectId: ctx.projectId,
         title: "Task BAU đơn thuần",
       },
       ctx.auth
@@ -333,6 +341,7 @@ describe("initiative workspace integrity & execution preservation", () => {
       createTaskService(
         {
           workspaceId: ctx1.workspaceId,
+          projectId: ctx1.projectId,
           title: "Direct task cross workspace",
           initiativeId: initWs2.id,
         },
@@ -392,17 +401,22 @@ describe("initiative workspace integrity & execution preservation", () => {
       })
     ).rejects.toThrow(/must be APPROVED for strategic execution/i);
 
-    // 3. Attempt direct task creation with unapproved initiative -> Rejected
+    // 3. 2026-09-14 remediation (Task 2): createTaskService không còn fallback
+    // suy diễn Project từ initiative khi thiếu projectId — projectId luôn bắt
+    // buộc và phải fail closed trước khi chạm tới bất kỳ business rule nào
+    // khác (kể cả approval-gate của initiative). Lời gọi thiếu projectId phải
+    // bị từ chối ngay với PROJECT_CONTEXT_REQUIRED, không bao giờ tự chọn
+    // project rồi mới xét tới approval status.
     await expect(
       createTaskService(
         {
           workspaceId: ctx.workspaceId,
           title: "Task with draft initiative",
           initiativeId: draftInit.id,
-        },
+        } as Parameters<typeof createTaskService>[0],
         ctx.auth
       )
-    ).rejects.toThrow(/must be APPROVED for strategic execution/i);
+    ).rejects.toMatchObject({ code: "invalid_argument" });
   });
 
   it("allows delegated execution-plan approver under DELEGATED_APPROVER policy while non-grantee fails", async () => {

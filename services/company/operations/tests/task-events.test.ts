@@ -10,6 +10,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Test task",
         authorization: ws.bearerToken,
       });
@@ -47,6 +48,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Test task",
         authorization: ws.bearerToken,
       });
@@ -72,6 +74,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Test task",
         authorization: ws.bearerToken,
       });
@@ -97,6 +100,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Test task",
         authorization: ws.bearerToken,
       });
@@ -123,6 +127,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Agent created",
         authorization: ws.bearerToken,
       });
@@ -149,6 +154,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Detailed task",
         authorization: ws.bearerToken,
       });
@@ -176,6 +182,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Test task",
         authorization: ws.bearerToken,
       });
@@ -200,6 +207,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Task to complete",
         authorization: ws.bearerToken,
       });
@@ -228,6 +236,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Task to complete",
         authorization: ws.bearerToken,
       });
@@ -257,6 +266,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Task to complete",
         authorization: ws.bearerToken,
       });
@@ -282,6 +292,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Task to complete",
         authorization: ws.bearerToken,
       });
@@ -307,6 +318,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Task to complete",
         authorization: ws.bearerToken,
       });
@@ -333,6 +345,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Task to complete",
         authorization: ws.bearerToken,
       });
@@ -355,6 +368,7 @@ describe("Task Events Service", () => {
       const ws = await createTestWorkspaceWithMember();
       const task = await createTask({
         workspaceId: ws.workspaceId,
+      projectId: ws.workspaceId,
         title: "Schema test",
         authorization: ws.bearerToken,
       });

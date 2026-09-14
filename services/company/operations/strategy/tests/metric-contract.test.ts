@@ -21,7 +21,9 @@ describe("Metric Contract Aggregate & Versioning (Task 1 / Tranche B2)", () => {
       authorization: wsA.bearerToken,
       workspaceId: wsA.workspaceId,
       title: "Metric Contract Test Project",
-      lifecycleStage: "P3_BUILD_VALIDATE",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P3_BUILD_VALIDATE",
+      initializationRationale: "Test onboarding baseline for metric contract",
     });
 
     const validContractPayload = {

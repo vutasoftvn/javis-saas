@@ -3,6 +3,7 @@ import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import {
   Project,
   CreateProjectRequest,
+  ProjectCreationMode,
   createProjectService,
   getProjectService,
   listProjectsService,
@@ -15,7 +16,9 @@ export interface CreateProjectParams {
   workspaceId: Header<"X-Workspace-Id">;
   title: string;
   description?: string | null;
-  lifecycleStage?: string | null;
+  creationMode?: ProjectCreationMode;
+  initialLifecycleStage?: string;
+  initializationRationale?: string;
   ownerMemberId?: string | number | null;
   projectType?: string | null;
   strategicPriority?: string | null;
@@ -44,7 +47,9 @@ export const createProject = api(
     return createProjectService(ctx, {
       title: params.title,
       description: params.description,
-      lifecycleStage: params.lifecycleStage,
+      creationMode: params.creationMode,
+      initialLifecycleStage: params.initialLifecycleStage,
+      initializationRationale: params.initializationRationale,
       ownerMemberId: params.ownerMemberId,
       projectType: params.projectType,
       strategicPriority: params.strategicPriority,

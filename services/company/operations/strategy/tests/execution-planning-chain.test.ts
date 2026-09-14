@@ -37,7 +37,9 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
       workspaceId,
       title: "Core Platform Launch",
       description: "MVP to PMF strategic journey",
-      lifecycleStage: "P3_BUILD_VALIDATE",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P3_BUILD_VALIDATE",
+      initializationRationale: "Test onboarding baseline for execution/planning chain",
       strategicPriority: "P0",
     });
     expect(project.id).toBeDefined();

@@ -40,7 +40,7 @@ describe("event outbox", () => {
 
   it("writes exactly one outbox row on a successful task insert", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Outbox One Row Inc");
-    const task = await createTask({ workspaceId, title: "Ship", authorization });
+    const task = await createTask({ workspaceId, projectId: workspaceId, title: "Ship", authorization });
     expect(await readOutbox(workspaceId, "task", task.id)).toHaveLength(1);
   });
 
@@ -127,7 +127,7 @@ describe("event outbox", () => {
   // Project-scoped event tests (Task 4)
   it("task.created includes projectId in envelope and payload", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Task Project Scope Inc");
-    const task = await createTask({ workspaceId, title: "P1 Task", authorization });
+    const task = await createTask({ workspaceId, projectId: workspaceId, title: "P1 Task", authorization });
 
     const outboxRows = await readOutbox(workspaceId, "task", task.id);
     expect(outboxRows).toHaveLength(1);

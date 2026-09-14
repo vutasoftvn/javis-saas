@@ -87,14 +87,14 @@ describe("Task.initiativeId FK", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Task Initiative Link Inc");
     const initiative = await createInitiative({ workspaceId, title: "Linked initiative", authorization });
     await approveInitiative({ id: initiative.id, workspaceId, authorization });
-    const task = await createTask({ workspaceId, title: "Linked task", initiativeId: initiative.id, authorization });
+    const task = await createTask({ workspaceId, projectId: workspaceId, title: "Linked task", initiativeId: initiative.id, authorization });
     expect(task.initiativeId).toBe(initiative.id);
   });
 
   it("rejects a task linked to a non-existent initiative (real DB FK)", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Bad Initiative Link Inc");
     await expect(
-      createTask({ workspaceId, title: "Bad link", initiativeId: "999999999", authorization })
+      createTask({ workspaceId, projectId: workspaceId, title: "Bad link", initiativeId: "999999999", authorization })
     ).rejects.toThrow();
   });
 });
