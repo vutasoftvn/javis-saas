@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from apps.cosa.api.project_context import verify_project_context
 from apps.cosa.api.schemas import CreateScheduleRequest, ScheduleListResponse, ScheduleResponse
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
 from apps.cosa.auth.jwt import MissingPlatformIdentityError
@@ -13,6 +14,16 @@ from apps.cosa.config.planes import resolve_platform_control_plane_url
 __all__ = ["create_schedule_router"]
 
 router = APIRouter(prefix="/agent", tags=["schedules"])
+
+
+def _get_plane(request: Request):
+    """Lấy `CosaAgentPlane` từ `app.state.plane` — cùng pattern với
+    `conversation_routes.py`. Fail-closed nếu app chưa gắn plane (composition
+    root thiếu sót), thay vì crash mơ hồ ở tầng dưới."""
+    plane = getattr(request.app.state, "plane", None)
+    if plane is None:
+        raise RuntimeError("CosaAgentPlane chưa sẵn sàng — app.state.plane rỗng.")
+    return plane
 
 
 def _control_plane_bearer(identity: AuthenticatedIdentity) -> str:
@@ -41,6 +52,9 @@ async def create_schedule(
     body: CreateScheduleRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
+    plane = _get_plane(request)
+    verified_project = await verify_project_context(plane, identity, body.project_id)
+
     control_plane_url = resolve_platform_control_plane_url()
     token = _control_plane_bearer(identity)
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -48,6 +62,7 @@ async def create_schedule(
             f"{control_plane_url}/cosa/schedules",
             json={
                 "workspaceId": identity.workspace_id,
+                "projectId": verified_project.project_id,
                 "scheduleKind": body.schedule_kind,
                 "timezone": body.timezone,
                 "runAt": body.run_at.isoformat() if body.run_at else None,

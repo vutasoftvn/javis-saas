@@ -258,6 +258,7 @@ class RevokeGrantRequest(BaseModel):
 # Schedules (Task 4)
 class CreateScheduleRequest(BaseModel):
     schedule_kind: Literal["one_time", "daily", "weekdays"]
+    project_id: str
     timezone: str = "Asia/Ho_Chi_Minh"
     run_at: datetime | None = None
     hour: int | None = None

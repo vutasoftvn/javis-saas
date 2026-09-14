@@ -16,7 +16,10 @@ from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
-from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+from tests.apps.cosa.policy_test_helpers import (
+    configure_mock_client_project_access,
+    fake_active_tenant_policy_client,
+)
 
 
 @pytest.fixture
@@ -28,6 +31,7 @@ def proxy_setup():
     art_repo = InMemoryArtifactRepository()
 
     mock_client = AsyncMock(spec=CompanyServiceClient)
+    configure_mock_client_project_access(mock_client, workspace_id="ws_A")
     plane = build_cosa_agent_plane(
         company_client=mock_client,
         tenant_policy_client=fake_active_tenant_policy_client(),
@@ -101,6 +105,7 @@ async def test_connector_and_schedule_proxy_routes(proxy_setup):
             "/agent/schedules",
             json={
                 "schedule_kind": "daily",
+                "project_id": "proj_1",
                 "timezone": "Asia/Ho_Chi_Minh",
                 "hour": 9,
                 "minute": 0,
