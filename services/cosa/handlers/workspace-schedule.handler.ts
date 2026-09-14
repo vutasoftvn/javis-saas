@@ -6,6 +6,7 @@ import { requireWorkerServiceAuth } from "../services/token.service";
 export interface CreateScheduleParams {
   authorization?: Header<"Authorization">;
   workspaceId: string;
+  projectId: string;
   scheduleKind: scheduleSvc.ScheduleKind;
   timezone?: string;
   runAt?: string;
@@ -58,6 +59,7 @@ export const createScheduleEndpoint = api(
       promptTemplate: params.promptTemplate,
       agentProfile: params.agentProfile,
       connectorGrantIds: params.connectorGrantIds,
+      projectId: params.projectId,
     });
     return res;
   }

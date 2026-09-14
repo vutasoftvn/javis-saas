@@ -65,6 +65,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
       createScheduleEndpoint({
         authorization: authHeader,
         workspaceId: "ws_b",
+        projectId: "proj_test",
         scheduleKind: "daily",
         hour: 9,
         minute: 0,
@@ -128,6 +129,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     await createScheduleEndpoint({
       authorization: authHeader,
       workspaceId: "ws_a",
+      projectId: "proj_test",
       scheduleKind: "daily",
       hour: 9,
       minute: 0,
@@ -213,6 +215,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     const result = await createScheduleEndpoint({
       authorization: authHeader,
       workspaceId: "ws_a",
+      projectId: "proj_test",
       scheduleKind: "daily",
       hour: 9,
       minute: 0,
@@ -279,6 +282,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
       createScheduleEndpoint({
         authorization: authHeader,
         workspaceId: "ws_a",
+        projectId: "proj_test",
         scheduleKind: "daily",
         timezone: "Invalid/Timezone",
         hour: 9,
@@ -291,6 +295,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
       createScheduleEndpoint({
         authorization: authHeader,
         workspaceId: "ws_a",
+        projectId: "proj_test",
         scheduleKind: "daily",
         hour: 9,
         minute: 0,
@@ -390,6 +395,7 @@ describe("Workspace Schedule Handler — B5 control-plane delegation", () => {
     const created = await createScheduleEndpoint({
       authorization: authHeader,
       workspaceId: "ws_a",
+      projectId: "proj_test",
       scheduleKind: "daily",
       hour: 9,
       minute: 0,
@@ -417,6 +423,7 @@ describe("Workspace Schedule Handler — B5 control-plane delegation", () => {
       createScheduleEndpoint({
         authorization: `Bearer ${delegation}`,
         workspaceId: "ws_a",
+        projectId: "proj_test",
         scheduleKind: "daily",
         hour: 9,
         minute: 0,
