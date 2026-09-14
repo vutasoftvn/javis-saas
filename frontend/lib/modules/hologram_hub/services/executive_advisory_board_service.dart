@@ -26,39 +26,19 @@ class ExecutiveAdvisoryBoardService {
     );
   }
 
-  /// Chọn preset Startup Core (startup-discovery hoặc startup-build-launch).
-  Future<ApiResult<Map<String, dynamic>>> selectPreset({
-    required String projectId,
-    required String presetKey,
-    String? idempotencyKey,
-  }) async {
-    return _client.request<Map<String, dynamic>>(
-      MvpEndpoint.projectExecutiveRolesSelectPreset,
-      pathParams: {'projectId': projectId},
-      body: {
-        'presetKey': presetKey,
-        'idempotencyKey': ?idempotencyKey,
-      },
-      decode: (raw) {
-        if (raw is Map<String, dynamic>) {
-          return raw;
-        }
-        throw const FormatException('Invalid response format for select preset');
-      },
-    );
-  }
-
-  /// Kích hoạt một vai trò cố vấn (Founder-only).
+  /// Kích hoạt một vai trò cố vấn (Founder-only) — Workspace-scoped, ảnh
+  /// hưởng tới mọi Project trong cùng workspace (xem Task 9: activation
+  /// role không còn theo Project, không còn khái niệm preset).
   Future<ApiResult<ExecutiveRoleMutationReceipt>> activateRole({
-    required String projectId,
+    required String workspaceId,
     required String roleKey,
     required int expectedVersion,
     String? idempotencyKey,
   }) async {
     return _client.request<ExecutiveRoleMutationReceipt>(
-      MvpEndpoint.projectExecutiveRolesActivate,
+      MvpEndpoint.operationsExecutiveBoardWorkspaceRoleActivate,
       pathParams: {
-        'projectId': projectId,
+        'workspaceId': workspaceId,
         'roleKey': roleKey,
       },
       body: {
@@ -74,18 +54,18 @@ class ExecutiveAdvisoryBoardService {
     );
   }
 
-  /// Vô hiệu hoá một vai trò cố vấn (Founder-only).
+  /// Vô hiệu hoá một vai trò cố vấn (Founder-only) — Workspace-scoped.
   Future<ApiResult<ExecutiveRoleMutationReceipt>> disableRole({
-    required String projectId,
+    required String workspaceId,
     required String roleKey,
     required int expectedVersion,
     String? reason,
     String? idempotencyKey,
   }) async {
     return _client.request<ExecutiveRoleMutationReceipt>(
-      MvpEndpoint.projectExecutiveRolesDisable,
+      MvpEndpoint.operationsExecutiveBoardWorkspaceRoleDisable,
       pathParams: {
-        'projectId': projectId,
+        'workspaceId': workspaceId,
         'roleKey': roleKey,
       },
       body: {

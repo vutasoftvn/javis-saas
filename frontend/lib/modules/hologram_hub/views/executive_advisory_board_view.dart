@@ -7,11 +7,13 @@ import '../models/executive_advisory_board.dart';
 
 class ExecutiveAdvisoryBoardView extends StatelessWidget {
   final String projectId;
+  final String workspaceId;
   final ExecutiveAdvisoryBoardController controller;
 
   ExecutiveAdvisoryBoardView({
     super.key,
     required this.projectId,
+    required this.workspaceId,
     ExecutiveAdvisoryBoardController? controller,
   }) : controller = controller ??
             (Get.isRegistered<ExecutiveAdvisoryBoardController>()
@@ -93,19 +95,6 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
           spacing: 12,
           runSpacing: 8,
           children: [
-            OutlinedButton.icon(
-              onPressed: () => _showPresetDialog(context),
-              icon: const Icon(Icons.tune, size: 16, color: Colors.indigoAccent),
-              label: Text(
-                isEn ? 'Select Preset' : 'Chọn Preset',
-                style: const TextStyle(color: Colors.indigoAccent),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.indigoAccent),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
             ElevatedButton.icon(
               onPressed: () => _showCreateDeliberationDialog(context),
               icon: const Icon(Icons.add, size: 16, color: Colors.white),
@@ -441,6 +430,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
         width: double.infinity,
         child: ElevatedButton(
           onPressed: () => controller.activateRole(
+            workspaceId: workspaceId,
             projectId: projectId,
             roleKey: role.roleKey,
             expectedVersion: role.assignmentVersion ?? 1,
@@ -458,6 +448,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
         width: double.infinity,
         child: OutlinedButton(
           onPressed: () => controller.disableRole(
+            workspaceId: workspaceId,
             projectId: projectId,
             roleKey: role.roleKey,
             expectedVersion: role.assignmentVersion ?? 1,
@@ -493,59 +484,6 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
       child: Text(
         state,
         style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  void _showPresetDialog(BuildContext context) {
-    final isEn = _isEnglish();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Text(
-          isEn ? 'Select Startup Core Preset' : 'Chọn Startup Core Preset',
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(
-                isEn ? 'Discovery Stage' : 'Giai đoạn Khám phá (Discovery)',
-                style: const TextStyle(color: Colors.white),
-              ),
-              subtitle: Text(
-                isEn
-                    ? 'Activate CFO, CMO (read/propose)'
-                    : 'Kích hoạt CFO, CMO (read/propose)',
-                style: const TextStyle(color: Colors.white54),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                controller.selectStartupPreset(projectId, 'startup-discovery');
-              },
-            ),
-            ListTile(
-              title: Text(
-                isEn
-                    ? 'Build & Launch Stage'
-                    : 'Giai đoạn Xây dựng & Ra mắt (Build & Launch)',
-                style: const TextStyle(color: Colors.white),
-              ),
-              subtitle: Text(
-                isEn
-                    ? 'Activate CFO, CMO, COO (read/propose)'
-                    : 'Kích hoạt CFO, CMO, COO (read/propose)',
-                style: const TextStyle(color: Colors.white54),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                controller.selectStartupPreset(projectId, 'startup-build-launch');
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -10,7 +10,6 @@ class ExecutiveAdvisoryBoardController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isMutating = false.obs;
   final RxnString errorMessage = RxnString();
-  final RxnString selectedPreset = RxnString();
 
   String? currentProjectId;
 
@@ -33,29 +32,12 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     }
   }
 
-  /// Chọn preset Startup Core (startup-discovery hoặc startup-build-launch).
-  Future<bool> selectStartupPreset(String projectId, String presetKey) async {
-    isMutating.value = true;
-    errorMessage.value = null;
-
-    final result = await _service.selectPreset(
-      projectId: projectId,
-      presetKey: presetKey,
-    );
-    isMutating.value = false;
-
-    if (result.isSuccess) {
-      selectedPreset.value = presetKey;
-      await loadBoard(projectId);
-      return true;
-    } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể chọn preset';
-      return false;
-    }
-  }
-
-  /// Kích hoạt vai trò cố vấn (Founder-only). Cập nhật bằng cách reload lại board từ server, không optimistic.
+  /// Kích hoạt vai trò cố vấn (Founder-only) — Workspace-scoped (Task 9:
+  /// activation không còn theo Project, không còn khái niệm preset).
+  /// `projectId` chỉ dùng để reload lại board hiện tại sau khi mutation
+  /// thành công, không phải scope của mutation.
   Future<bool> activateRole({
+    required String workspaceId,
     required String projectId,
     required String roleKey,
     required int expectedVersion,
@@ -65,7 +47,7 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     errorMessage.value = null;
 
     final result = await _service.activateRole(
-      projectId: projectId,
+      workspaceId: workspaceId,
       roleKey: roleKey,
       expectedVersion: expectedVersion,
       idempotencyKey: idempotencyKey,
@@ -84,8 +66,10 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     }
   }
 
-  /// Tạm dừng / vô hiệu hoá vai trò cố vấn. Reload lại board từ server.
+  /// Tạm dừng / vô hiệu hoá vai trò cố vấn — Workspace-scoped. Reload lại
+  /// board từ server bằng `projectId` hiện tại.
   Future<bool> disableRole({
+    required String workspaceId,
     required String projectId,
     required String roleKey,
     required int expectedVersion,
@@ -96,7 +80,7 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     errorMessage.value = null;
 
     final result = await _service.disableRole(
-      projectId: projectId,
+      workspaceId: workspaceId,
       roleKey: roleKey,
       expectedVersion: expectedVersion,
       reason: reason,

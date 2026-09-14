@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/runtime_app_chrome.dart';
+import '../../../core/services/secure_storage_service.dart';
 import '../controllers/founder_command_center_controller.dart';
 import '../widgets/execution_plan_card_widget.dart';
 import '../widgets/your_tasks_widget.dart';
@@ -749,7 +750,20 @@ class _HologramHubViewState extends State<HologramHubView> {
     );
   }
 
-  void _showExecutiveAdvisoryBoardModal(BuildContext context, String projectId) {
+  Future<void> _showExecutiveAdvisoryBoardModal(
+    BuildContext context,
+    String projectId,
+  ) async {
+    // Executive Board activation từ Task 9 chuyển sang Workspace-scoped —
+    // lấy workspace_id hiện tại giống pattern FounderCommandCenterController
+    // (SecureStorageService), không suy diễn từ Project.
+    final workspaceId = await SecureStorageService.read('workspace_id');
+    if (workspaceId == null) {
+      AppToast.error(L10nKey.commonError.tr);
+      return;
+    }
+    if (!context.mounted) return;
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -760,7 +774,10 @@ class _HologramHubViewState extends State<HologramHubView> {
           child: SizedBox(
             width: 1000,
             height: 750,
-            child: ExecutiveAdvisoryBoardView(projectId: projectId),
+            child: ExecutiveAdvisoryBoardView(
+              projectId: projectId,
+              workspaceId: workspaceId,
+            ),
           ),
         ),
       ),

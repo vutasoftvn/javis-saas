@@ -379,12 +379,13 @@ void main() {
     expect(caio.disabledReason, 'UNDERLYING_PROFILE_UNAVAILABLE');
   });
 
-  test('activates an executive role and decodes mutation receipt truthfully', () async {
+  test('activates an executive role via workspace-scoped endpoint and decodes mutation receipt truthfully',
+      () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'POST');
       expect(
         request.url.path,
-        '/operations/projects/proj-101/executive-roles/chief_of_staff/activate',
+        '/operations/workspaces/ws-1/executive-roles/chief_of_staff/activate',
       );
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(body['expectedVersion'], 1);
@@ -414,7 +415,7 @@ void main() {
     final service = ExecutiveAdvisoryBoardService(client: requestClient);
 
     final result = await service.activateRole(
-      projectId: 'proj-101',
+      workspaceId: 'ws-1',
       roleKey: 'chief_of_staff',
       expectedVersion: 1,
     );
@@ -426,12 +427,13 @@ void main() {
     expect(receipt.version, 2);
   });
 
-  test('disables an executive role and decodes mutation receipt truthfully', () async {
+  test('disables an executive role via workspace-scoped endpoint and decodes mutation receipt truthfully',
+      () async {
     final mockHttp = MockClient((request) async {
       expect(request.method, 'POST');
       expect(
         request.url.path,
-        '/operations/projects/proj-101/executive-roles/coo/disable',
+        '/operations/workspaces/ws-1/executive-roles/coo/disable',
       );
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(body['expectedVersion'], 2);
@@ -462,7 +464,7 @@ void main() {
     final service = ExecutiveAdvisoryBoardService(client: requestClient);
 
     final result = await service.disableRole(
-      projectId: 'proj-101',
+      workspaceId: 'ws-1',
       roleKey: 'coo',
       expectedVersion: 2,
       reason: 'Strategic pause',
@@ -493,7 +495,7 @@ void main() {
     final service = ExecutiveAdvisoryBoardService(client: requestClient);
 
     final result = await service.activateRole(
-      projectId: 'proj-101',
+      workspaceId: 'ws-1',
       roleKey: 'coo',
       expectedVersion: 1,
     );

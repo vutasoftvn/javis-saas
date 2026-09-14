@@ -35,6 +35,7 @@ Future<void> _pumpBoard(
       home: Scaffold(
         body: ExecutiveAdvisoryBoardView(
           projectId: 'proj-101',
+          workspaceId: 'ws-1',
           controller: controller,
         ),
       ),

@@ -28,7 +28,7 @@ class _RecordingService extends ExecutiveAdvisoryBoardService {
 
   @override
   Future<ApiResult<ExecutiveRoleMutationReceipt>> activateRole({
-    required String projectId,
+    required String workspaceId,
     required String roleKey,
     required int expectedVersion,
     String? idempotencyKey,
@@ -80,6 +80,7 @@ void main() {
       final controller = ExecutiveAdvisoryBoardController(service: service);
 
       final ok = await controller.activateRole(
+        workspaceId: 'ws-1',
         projectId: 'proj-101',
         roleKey: 'cpo',
         expectedVersion: 1,
