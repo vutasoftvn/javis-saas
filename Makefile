@@ -161,7 +161,7 @@ contracts-gen:            ## Sinh mã enum canonical cho 3 runtime từ shared/c
 
 contracts-check:          ## CI: fail nếu mã enum generated lệch nguồn
 	node scripts/gen-contracts.mjs --check
-	node scripts/gen-startup-team-profiles.mjs --check
+	$(MAKE) startup-team-profiles-regression-check
 	node scripts/gen-executive-advisor-roles.mjs --check
 
 startup-team-profiles-gen: ## Sinh mã startup team catalog cho TS và Python từ shared/contracts/startup-team-profiles.json
@@ -169,6 +169,18 @@ startup-team-profiles-gen: ## Sinh mã startup team catalog cho TS và Python t�
 
 startup-team-profiles-check: ## CI: fail nếu startup team profiles generated lệch nguồn
 	node scripts/gen-startup-team-profiles.mjs --check
+
+startup-team-profiles-regression-check: ## Regression: verify round-trip generator → ruff format → --check determinism
+	node scripts/gen-startup-team-profiles.mjs
+	$(PYTHON) -m ruff format --check apps/cosa/agents/startup_team_profiles_generated.py
+	node scripts/gen-startup-team-profiles.mjs --check
+	@if git diff --quiet -- apps/cosa/agents/startup_team_profiles_generated.py; then \
+		echo "✓ Startup team profiles are deterministic and ruff-compliant"; \
+	else \
+		echo "Error: git diff shows changes after round-trip (expected empty)"; \
+		git diff -- apps/cosa/agents/startup_team_profiles_generated.py; \
+		exit 1; \
+	fi
 
 mvp-contracts-gen:        ## Sinh mã route/capability MVP cho 3 runtime từ shared/contracts/mvp-surface.json
 	node scripts/gen-mvp-contracts.mjs
